@@ -1,15 +1,22 @@
 # User Guide
 
-This guide covers day-to-day operation of the Microsoft 365 Calendar Display Bot, including understanding the display output, handling connectivity issues, and basic troubleshooting.
+**Document Version:** 2.0
+**Last Updated:** January 5, 2025
+**Application Version:** ICS Calendar Bot v2.0
+**Compatible With:** All ICS-compliant calendar systems
+
+This guide covers day-to-day operation of the ICS Calendar Display Bot, including understanding the display output, handling connectivity issues, and basic troubleshooting.
+
+> **Note for Migrating Users**: If you're upgrading from the Microsoft Graph API version, please review the [Migration Guide](MIGRATION.md) for important changes and setup differences.
 
 ## Table of Contents
 
 - [Daily Operation](#daily-operation)
+- [Execution Modes](#execution-modes)
 - [Understanding the Display](#understanding-the-display)
 - [Network Connectivity](#network-connectivity)
-- [Authentication Management](#authentication-management)
+- [Configuration Management](#configuration-management)
 - [Error Recovery](#error-recovery)
-- [Configuration Adjustments](#configuration-adjustments)
 - [Troubleshooting](#troubleshooting)
 - [Maintenance](#maintenance)
 
@@ -18,10 +25,11 @@ This guide covers day-to-day operation of the Microsoft 365 Calendar Display Bot
 ### What to Expect
 
 The Calendar Bot runs continuously in the background, automatically:
-- **Fetching** your calendar events every 5 minutes
+- **Fetching** your ICS calendar feed every 5 minutes
+- **Parsing** calendar events from ICS content
 - **Displaying** current and upcoming meetings
 - **Caching** events for offline access
-- **Refreshing** authentication tokens as needed
+- **Handling** network interruptions gracefully
 
 ### Normal Operation Indicators
 
@@ -30,6 +38,7 @@ When everything is working correctly, you'll see:
 - **Recent update timestamp** (Updated: HH:MM)
 - **Current events** highlighted with ▶ arrow
 - **Upcoming events** listed with times and locations
+- **Source status** showing successful ICS feed access
 
 ### Passive Monitoring
 
@@ -37,6 +46,111 @@ The system is designed to work without intervention. Simply:
 - **Glance at the display** when you need schedule information
 - **Trust the automatic updates** every 5 minutes
 - **Ignore brief network interruptions** - cached data will be shown
+- **Monitor the status indicators** for system health
+
+## Execution Modes
+
+### Daemon Mode (Default)
+
+```bash
+python main.py
+```
+
+**Purpose**: Continuous background operation
+**Features**:
+- Automatic refresh every 5 minutes
+- Console output with real-time updates
+- Signal handling for graceful shutdown
+- Persistent operation until stopped
+
+**Use Case**: Primary mode for always-on calendar display
+
+### Interactive Mode
+
+```bash
+python main.py --interactive
+```
+
+**Purpose**: Manual calendar navigation
+**Features**:
+- Keyboard-driven date browsing
+- Real-time background data updates
+- Navigation between past and future dates
+- Immediate response to user input
+
+**Keyboard Controls**:
+- **Arrow Keys**: Navigate between dates (← Previous day, → Next day)
+- **Space**: Jump to today's date
+- **ESC**: Exit interactive mode
+- **Enter**: Refresh current view
+
+**Use Case**: When you need to browse different dates or explore your schedule
+
+### Test Mode
+
+```bash
+python main.py --test-mode
+```
+
+**Purpose**: System validation and diagnostics
+**Features**:
+- ICS feed connectivity testing
+- Configuration validation
+- Cache system verification
+- Quick health check
+
+**Verbose Testing**:
+```bash
+python main.py --test-mode --verbose
+```
+
+**Additional Test Options**:
+```bash
+# Test specific date range
+python main.py --test-mode --date 2024-01-15 --end-date 2024-01-20
+
+# Test specific components
+python main.py --test-mode --components ics,cache,display
+
+# Skip cache during testing
+python main.py --test-mode --no-cache
+
+# JSON output for automation
+python main.py --test-mode --output-format json
+```
+
+**Use Case**: Troubleshooting, initial setup validation, automated testing
+
+### Direct ICS Testing
+
+```bash
+python test_ics.py
+```
+
+**Purpose**: Dedicated ICS feed testing utility
+**Features**:
+- Direct ICS URL validation
+- Authentication testing
+- Content parsing verification
+- Detailed diagnostic output
+
+**Examples**:
+```bash
+# Test current configuration
+python test_ics.py
+
+# Test specific URL
+python test_ics.py --url "https://example.com/calendar.ics"
+
+# Test with authentication
+python test_ics.py --url "url" --auth-type basic --username user --password pass
+
+# Test with verbose output
+python test_ics.py --url "url" --verbose
+
+# Validate format only
+python test_ics.py --url "url" --validate-only
+```
 
 ## Understanding the Display
 
@@ -44,7 +158,7 @@ The system is designed to work without intervention. Simply:
 
 ```
 ============================================================
-📅 MICROSOFT 365 CALENDAR - Monday, January 15
+📅 ICS CALENDAR - Monday, January 15
 ============================================================
 Updated: 10:05 | 🌐 Live Data
 
@@ -76,33 +190,35 @@ Updated: 10:05 | 🌐 Live Data
 ### Display Elements Explained
 
 #### Header Section
-- **📅 Date**: Current date in readable format
-- **Updated time**: When calendar data was last refreshed
+- **📅 ICS Calendar**: Indicates ICS-based calendar system
+- **Date**: Current date in readable format
+- **Updated time**: When ICS feed was last fetched and parsed
 - **Data source**: 🌐 Live Data or 📱 Cached Data
 
 #### Current Event Section (▶)
-- **Event title**: Meeting name
-- **Time range**: Start and end times
-- **Location**: 📍 Physical location or 💻 Online Meeting
+- **Event title**: Meeting name from ICS SUMMARY field
+- **Time range**: Start and end times with timezone conversion
+- **Location**: 📍 Physical location or 💻 Online Meeting from ICS LOCATION
 - **Time remaining**: ⏱️ Minutes left in current meeting
 
 #### Next Up Section (📋)
-- **Upcoming events**: Next 2-3 meetings
-- **Time and location**: Combined on one line
-- **Priority order**: Sorted by start time
+- **Upcoming events**: Next 2-3 meetings chronologically
+- **Time and location**: Combined display for space efficiency
+- **Priority order**: Sorted by start time from ICS feed
 
 #### Later Today Section (⏰)
 - **Additional events**: Remaining meetings for the day
-- **Simplified format**: Title and time only to save space
+- **Simplified format**: Title and time only to conserve space
+- **Event filtering**: Only busy/tentative events from ICS
 
 ### Status Indicators
 
 | Indicator | Meaning |
 |-----------|---------|
-| 🌐 Live Data | Connected to Microsoft 365, showing real-time data |
-| 📱 Cached Data | Using offline cache due to connectivity issues |
-| 📍 Location | Physical meeting location |
-| 💻 Online | Microsoft Teams or other online meeting |
+| 🌐 Live Data | Successfully fetched fresh data from ICS feed |
+| 📱 Cached Data | Using offline cache due to ICS feed unavailability |
+| 📍 Location | Physical meeting location from ICS LOCATION field |
+| 💻 Online | Online meeting (detected from location keywords) |
 | ▶ Current | Meeting happening right now |
 | • Next | Upcoming meetings |
 | ⏱️ Time | Time remaining in current meeting |
@@ -110,141 +226,197 @@ Updated: 10:05 | 🌐 Live Data
 
 ### Event Filtering
 
-The display only shows events marked as:
-- **Busy** - Regular meetings you should attend
-- **Tentative** - Meetings you might attend
+The display shows events based on ICS `STATUS` and `TRANSP` fields:
 
-Events filtered out:
-- **Free** - Availability blocks
-- **Out of Office** - Time off periods
-- **Working Elsewhere** - Location indicators
+**Displayed Events**:
+- **BUSY** - Regular meetings (default if not specified)
+- **TENTATIVE** - Meetings marked as tentative
+
+**Filtered Out**:
+- **FREE** - Availability blocks
+- **TRANSPARENT** - Events marked as "free time"
+- **CANCELLED** - Cancelled meetings
 
 ## Network Connectivity
 
 ### Online Operation
 
-When connected to the internet:
-- Calendar data refreshes every 5 minutes
-- Authentication tokens refresh automatically
+When connected to the internet and ICS feed is accessible:
+- ICS feed fetched every 5 minutes
+- Calendar events parsed from ICS content
 - Status shows "🌐 Live Data"
+- HTTP caching headers respected (ETags, Last-Modified)
 - All features work normally
 
 ### Offline Operation
 
-When internet is unavailable:
-- Cached calendar data is displayed
+When internet is unavailable or ICS feed inaccessible:
+- Cached calendar data displayed from SQLite database
 - Status shows "📱 Cached Data"
-- Last successful update time is preserved
-- System continues to function with stored information
+- Last successful update time preserved
+- System continues with stored information
+- Automatic retry attempts continue in background
 
 ### Connectivity Recovery
 
-When connection is restored:
-- System automatically detects connectivity
-- Fresh calendar data is fetched
-- Cache is updated with new information
+When ICS feed access is restored:
+- System automatically detects availability
+- Fresh ICS content is fetched and parsed
+- Cache updated with new event information
 - Display returns to "🌐 Live Data" status
+- Seamless transition without user intervention
 
-### Network Issues Handling
+### ICS Feed Issues Handling
 
-The system handles common network problems:
+**HTTP Response Codes**:
+- **200 OK**: Successful ICS content retrieval
+- **304 Not Modified**: Content unchanged (efficient caching)
+- **401/403**: Authentication required or credentials invalid
+- **404**: ICS feed URL not found
+- **500+**: Server-side issues, automatic retry with backoff
 
-**Temporary Outages**:
-- Automatic retry with exponential backoff
-- No user intervention required
-- Cached data displayed during outages
+**Content Issues**:
+- **Invalid ICS Format**: Partial parsing with error reporting
+- **Empty Content**: Clear error message and cache fallback
+- **Malformed Events**: Skip problematic events, continue with valid ones
+- **Timezone Problems**: Automatic timezone detection and conversion
 
-**Rate Limiting**:
-- Respects Microsoft Graph API limits
-- Automatically adjusts polling frequency
-- Prevents authentication token exhaustion
+## Configuration Management
 
-**DNS/Firewall Issues**:
-- Clear error messages displayed
-- Maintains functionality with cached data
-- Logs detailed error information for diagnosis
+### Configuration Hierarchy
 
-## Authentication Management
+Settings are applied in order of precedence:
+1. **Command line arguments** (highest priority)
+2. **Environment variables** (CALENDARBOT_* prefix)
+3. **Configuration file** (config/config.yaml)
+4. **Default values** (lowest priority)
 
-### Token Lifecycle
+### Primary Configuration File
 
-Authentication tokens are managed automatically:
-- **Initial Setup**: One-time device code flow authentication
-- **Automatic Renewal**: Tokens refresh 5 minutes before expiration
-- **Secure Storage**: AES-256 encrypted token storage
-- **Error Recovery**: Automatic re-authentication when needed
+Edit [`config/config.yaml`](config/config.yaml.example):
 
-### Re-authentication Triggers
+```yaml
+# ICS Calendar Configuration
+ics:
+  url: "https://outlook.live.com/.../calendar.ics"
+  auth_type: "none"  # Options: none, basic, bearer
+  verify_ssl: true
+  user_agent: "CalendarBot/1.0"
+  
+  # For Basic Authentication (uncomment if needed)
+  # username: "your-username"
+  # password: "your-password"
+  
+  # For Bearer Token (uncomment if needed)  
+  # token: "your-bearer-token"
 
-You may need to re-authenticate if:
-- Tokens are corrupted or manually deleted
-- Microsoft 365 password is changed
-- Account security policies require re-approval
-- Application permissions are revoked
+# Application Settings
+refresh_interval: 300  # 5 minutes
+cache_ttl: 3600       # 1 hour
+log_level: "INFO"
 
-### Re-authentication Process
+# Display Settings
+display_enabled: true
+display_type: "console"
 
-When re-authentication is required:
-
-1. **Application prompts** with device code:
+# Network Settings
+request_timeout: 30
+max_retries: 3
+retry_backoff_factor: 1.5
 ```
-===============================================================
-🔐 MICROSOFT 365 AUTHENTICATION REQUIRED
-===============================================================
 
-To access your calendar, please complete authentication:
+### Environment Variables
 
-1. Visit: https://microsoft.com/devicelogin
-2. Enter code: A1B2C3D4
+Override any setting using environment variables:
 
-Waiting for authentication...
-===============================================================
+```bash
+# ICS Configuration
+export CALENDARBOT_ICS_URL="https://example.com/calendar.ics"
+export CALENDARBOT_ICS_AUTH_TYPE="basic"
+export CALENDARBOT_ICS_USERNAME="username"
+export CALENDARBOT_ICS_PASSWORD="password"
+
+# Application Settings
+export CALENDARBOT_REFRESH_INTERVAL=600  # 10 minutes
+export CALENDARBOT_CACHE_TTL=7200        # 2 hours
+export CALENDARBOT_LOG_LEVEL="DEBUG"
+
+# Network Settings
+export CALENDARBOT_REQUEST_TIMEOUT=60
+export CALENDARBOT_MAX_RETRIES=5
 ```
 
-2. **Complete authentication**:
-   - Open web browser on any device
-   - Navigate to https://microsoft.com/devicelogin
-   - Enter the displayed code
-   - Sign in with your Microsoft 365 account
-   - Grant calendar permissions
+### Common Configuration Adjustments
 
-3. **Automatic continuation**:
-   - Application detects successful authentication
-   - Tokens are securely stored
-   - Normal operation resumes
+**Change refresh frequency**:
+```yaml
+refresh_interval: 600  # 10 minutes instead of 5
+```
 
-### Authentication Troubleshooting
+**Extend cache duration**:
+```yaml
+cache_ttl: 7200  # 2 hours instead of 1
+```
 
-**Problem**: Repeated authentication requests
-- **Cause**: Token storage issues or permission changes
-- **Solution**: Clear stored tokens and re-authenticate once
+**Enable debug logging**:
+```yaml
+log_level: "DEBUG"
+log_file: "calendarbot.log"
+```
 
-**Problem**: "Invalid client" errors
-- **Cause**: Azure app registration configuration issues
-- **Solution**: Verify client ID and app registration settings
+**Disable SSL verification** (not recommended):
+```yaml
+ics:
+  verify_ssl: false
+```
+
+**Increase timeout for slow servers**:
+```yaml
+request_timeout: 60  # 1 minute timeout
+```
+
+### Multiple Calendar Sources
+
+Future support for multiple ICS feeds:
+
+```yaml
+# Multiple ICS Sources (planned feature)
+sources:
+  - name: "Work Calendar"
+    url: "https://company.com/work-calendar.ics"
+    auth_type: "basic"
+    username: "work-user"
+    password: "work-pass"
+    
+  - name: "Personal Calendar"
+    url: "https://personal.com/calendar.ics"
+    auth_type: "none"
+```
 
 ## Error Recovery
 
 ### Automatic Recovery
 
 The system includes automatic recovery for:
-- **Network connectivity** - Retry with exponential backoff
-- **API rate limiting** - Respect rate limits and wait
-- **Token expiration** - Automatic token refresh
-- **Temporary service outages** - Fallback to cached data
+- **Network connectivity** - Exponential backoff retry logic
+- **ICS feed errors** - Fallback to cached data
+- **HTTP timeouts** - Configurable timeout with retry
+- **Parsing errors** - Partial recovery and error reporting
+- **Cache corruption** - Database recreation if needed
 
-### Error Display
+### Error Display Modes
 
-When errors occur, the display shows:
+When errors occur, the display adapts based on error type:
 
+**Network Issues**:
 ```
 ============================================================
-📅 MICROSOFT 365 CALENDAR - Monday, January 15
+📅 ICS CALENDAR - Monday, January 15
 ============================================================
 
 ⚠️  CONNECTION ISSUE
 
-   Network Issue - Using Cached Data
+   Cannot reach ICS feed - Using Cached Data
 
 📱 SHOWING CACHED DATA
 ------------------------------------------------------------
@@ -255,161 +427,263 @@ When errors occur, the display shows:
 ============================================================
 ```
 
+**Authentication Problems**:
+```
+============================================================
+📅 ICS CALENDAR - Monday, January 15
+============================================================
+
+🔒 AUTHENTICATION REQUIRED
+
+   ICS feed requires credentials
+   Check configuration for auth_type, username, password
+
+============================================================
+```
+
+**ICS Parsing Issues**:
+```
+============================================================
+📅 ICS CALENDAR - Monday, January 15
+============================================================
+
+📄 PARTIAL DATA
+
+   ICS parsing completed with warnings
+   Showing 3 of 5 events (2 events had errors)
+
+• Team Standup
+  10:00 - 10:30
+
+============================================================
+```
+
 ### Manual Recovery Actions
 
-**Force refresh** (if running manually):
+**Force refresh** (restart application):
 ```bash
-# Stop and restart the application
+# If running manually
 Ctrl+C
 python main.py
+
+# If running as service
+sudo systemctl restart calendarbot
 ```
 
-**Clear authentication** (for persistent auth issues):
-```bash
-# Remove stored tokens
-rm ~/.config/calendarbot/tokens.enc
-python main.py
-# Follow re-authentication prompts
-```
-
-**Clear cache** (for stale data issues):
+**Clear cache** (for persistent data issues):
 ```bash
 # Remove cached calendar data
 rm ~/.local/share/calendarbot/calendar_cache.db
 python main.py
 ```
 
-## Configuration Adjustments
-
-### Common Configuration Changes
-
-Edit [`config/config.yaml`](config/config.yaml.example) for these adjustments:
-
-**Refresh frequency**:
-```yaml
-refresh_interval: 600  # 10 minutes instead of 5
-```
-
-**Cache duration**:
-```yaml
-cache_ttl: 7200  # 2 hours instead of 1
-```
-
-**Logging level**:
-```yaml
-log_level: "DEBUG"  # More detailed logs
-log_file: "calendarbot.log"  # Enable file logging
-```
-
-**Display settings**:
-```yaml
-display_enabled: false  # Disable display output
-display_type: "console"  # Console output type
-```
-
-### Environment Variable Overrides
-
-Override settings without editing files:
-
+**Test ICS feed directly**:
 ```bash
-# Temporary changes
-export CALENDARBOT_REFRESH_INTERVAL=600
-export CALENDARBOT_LOG_LEVEL="DEBUG"
-python main.py
+# Validate ICS feed
+python test_ics.py --url "your-ics-url" --verbose
 
-# Permanent changes (add to ~/.bashrc)
-echo 'export CALENDARBOT_REFRESH_INTERVAL=600' >> ~/.bashrc
-source ~/.bashrc
+# Test authentication
+python test_ics.py --url "url" --auth-type basic --username user --password pass
 ```
 
-### Configuration Validation
-
-Test configuration changes:
-
+**Reset configuration**:
 ```bash
-# Validate configuration syntax
-python3 -c "from config.settings import settings; print('Config valid')"
+# Backup current config
+cp config/config.yaml config/config.yaml.backup
 
-# Test with new settings
-python main.py
-# Ctrl+C to stop after verifying changes work
+# Reset to example
+cp config/config.yaml.example config/config.yaml
+# Edit with your settings
 ```
 
 ## Troubleshooting
 
-### Display Issues
+### ICS Feed Issues
 
-**Problem**: No calendar events shown
-- **Check**: Verify you have events in your Microsoft 365 calendar
-- **Check**: Ensure events are marked as "Busy" or "Tentative"
-- **Action**: View calendar in Outlook to confirm events exist
+**Problem**: "Cannot connect to ICS feed"
+```bash
+# Test ICS URL directly
+curl -I "your-ics-url"
 
-**Problem**: Events not updating
-- **Check**: Look for "🌐 Live Data" vs "📱 Cached Data" indicator
-- **Check**: Verify network connectivity
-- **Action**: Wait for next refresh cycle (up to 5 minutes)
+# Test with authentication
+curl -u "username:password" "your-ics-url"
 
-**Problem**: Incorrect times displayed
-- **Check**: System timezone settings (`timedatectl status`)
-- **Check**: Calendar timezone in Microsoft 365
-- **Action**: Synchronize system time (`sudo ntpdate -s time.nist.gov`)
+# Use test utility
+python test_ics.py --url "your-ics-url" --verbose
+```
+
+**Problem**: "Invalid ICS format" error
+```bash
+# Download and examine ICS content
+curl "your-ics-url" | head -20
+
+# Should start with: BEGIN:VCALENDAR
+# Should contain: VERSION:2.0
+# Should have: BEGIN:VEVENT entries
+
+# Validate with test utility
+python test_ics.py --url "your-ics-url" --validate-only
+```
+
+**Problem**: Events not showing up
+- **Check event status**: Ensure events are marked as "BUSY" or "TENTATIVE"
+- **Verify date range**: ICS events might be outside current date window
+- **Check timezone**: Verify system timezone matches calendar timezone
+- **Test parsing**: Use `python test_ics.py --verbose` to see parsed events
 
 ### Authentication Issues
 
-**Problem**: Constant re-authentication requests
-- **Check**: Token file permissions (`ls -la ~/.config/calendarbot/`)
-- **Check**: Available disk space (`df -h`)
-- **Action**: Clear tokens and re-authenticate once
+**Problem**: HTTP 401/403 errors
+```bash
+# Test credentials
+python test_ics.py --url "url" --auth-type basic --username "user" --password "pass"
 
-**Problem**: "Permissions insufficient" errors
-- **Check**: Azure app registration has Calendar.Read permission
-- **Check**: User has access to calendar being queried
-- **Action**: Re-grant permissions through Azure portal
+# Check URL accessibility
+curl -u "username:password" -I "your-ics-url"
+```
+
+**Problem**: Bearer token not working
+```bash
+# Test token format
+curl -H "Authorization: Bearer your-token" "your-ics-url"
+
+# Verify token in configuration
+grep -A 5 "ics:" config/config.yaml
+```
+
+### Configuration Issues
+
+**Problem**: "ICS URL configuration is required" error
+```bash
+# Check configuration
+grep -A 10 "ics:" config/config.yaml
+
+# Verify environment variable
+echo $CALENDARBOT_ICS_URL
+
+# Test configuration loading
+python3 -c "from config.settings import settings; print(f'ICS URL: {settings.ics_url}')"
+```
+
+**Problem**: YAML syntax errors
+```bash
+# Validate YAML syntax
+python3 -c "import yaml; yaml.safe_load(open('config/config.yaml'))"
+
+# Check for common issues: indentation, quotes, special characters
+```
+
+### Network Issues
+
+**Problem**: SSL certificate errors
+```yaml
+# Temporarily disable SSL verification (not recommended for production)
+ics:
+  verify_ssl: false
+```
+
+**Problem**: DNS resolution failures
+```bash
+# Test DNS resolution
+nslookup your-calendar-server.com
+
+# Test connectivity
+ping your-calendar-server.com
+
+# Check network configuration
+cat /etc/resolv.conf
+```
+
+**Problem**: Timeout errors
+```yaml
+# Increase timeout in configuration
+request_timeout: 60  # 1 minute
+
+# Reduce retry attempts if server is slow
+max_retries: 2
+```
 
 ### Performance Issues
 
-**Problem**: High CPU or memory usage
-- **Check**: Multiple instances running (`ps aux | grep python`)
-- **Check**: System resources (`htop` or `top`)
-- **Action**: Increase refresh interval to reduce API calls
+**Problem**: High memory usage
+```bash
+# Check cache database size
+ls -lh ~/.local/share/calendarbot/calendar_cache.db
 
-**Problem**: Slow response or timeouts
-- **Check**: Network latency to Microsoft services
-- **Check**: System load and available memory
-- **Action**: Increase `request_timeout` in configuration
+# Clear cache if too large
+rm ~/.local/share/calendarbot/calendar_cache.db
 
-### Data Issues
+# Reduce cache TTL
+# In config.yaml: cache_ttl: 1800  # 30 minutes
+```
 
-**Problem**: Missing recent meetings
-- **Check**: Meeting time zone vs system time zone
-- **Check**: Meeting status (ensure not marked as "Free")
-- **Action**: Verify events visible in Outlook web app
+**Problem**: Frequent network requests
+```yaml
+# Increase refresh interval
+refresh_interval: 900  # 15 minutes
 
-**Problem**: Duplicate events displayed
-- **Check**: Cache corruption (`rm ~/.local/share/calendarbot/calendar_cache.db`)
-- **Check**: Multiple calendar sources syncing
-- **Action**: Restart application after clearing cache
+# Enable HTTP caching
+ics:
+  enable_cache: true
+```
+
+### Interactive Mode Issues
+
+**Problem**: Keyboard input not working
+```bash
+# Test interactive mode
+python test_interactive.py
+
+# Check terminal compatibility
+echo $TERM
+
+# Try different terminal
+# Interactive mode works best with standard terminals
+```
+
+**Problem**: Navigation not responding
+- **Check terminal size**: Ensure terminal is large enough for display
+- **Verify key bindings**: Arrow keys, Space, ESC should work
+- **Test background updates**: Data should refresh automatically
 
 ## Maintenance
 
 ### Regular Tasks
 
+**Daily**:
+- Monitor console output for errors
+- Verify current events are displaying correctly
+- Check that timestamps are recent (within 5 minutes)
+
 **Weekly**:
-- Check application logs for errors
-- Verify system time accuracy
-- Confirm calendar synchronization
+- Review application logs for recurring issues
+- Verify ICS feed accessibility
+- Check cache database size and performance
+- Confirm system time accuracy
 
 **Monthly**:
-- Review authentication token status
-- Clean old log files if file logging enabled
+- Update Python dependencies if needed
+- Review and rotate log files
 - Check available storage space
+- Validate configuration settings
 
-**As Needed**:
-- Update configuration for schedule changes
-- Re-authenticate if password changed
-- Restart application after system updates
+### Health Monitoring
 
-### Log Monitoring
+**Signs of healthy operation**:
+- ✅ Regular "Successfully fetched and cached X events" messages
+- ✅ "🌐 Live Data" indicator in display
+- ✅ Recent update timestamps (within 5 minutes)
+- ✅ No error messages in logs
+- ✅ Events match what's in your calendar application
+
+**Signs requiring attention**:
+- ⚠️ Persistent "📱 Cached Data" indicator
+- ⚠️ Old update timestamps (> 10 minutes)
+- ⚠️ HTTP authentication errors
+- ⚠️ ICS parsing warnings
+- ⚠️ Missing events that should be visible
+
+### Log Management
 
 **View recent activity**:
 ```bash
@@ -418,47 +692,115 @@ sudo journalctl -u calendarbot.service -f
 
 # If running manually with file logging
 tail -f calendarbot.log
+
+# Check for specific errors
+grep -i error calendarbot.log
 ```
 
-**Check for errors**:
+**Enable detailed logging**:
+```yaml
+# In config.yaml
+log_level: "DEBUG"
+log_file: "calendarbot.log"
+```
+
+**Log rotation** (prevent log files from growing too large):
 ```bash
-# Search for error messages
-sudo journalctl -u calendarbot.service | grep -i error
+# Manual log rotation
+mv calendarbot.log calendarbot.log.old
+# Application will create new log file
 
-# Check last 24 hours of logs
-sudo journalctl -u calendarbot.service --since="24 hours ago"
+# Or use logrotate
+sudo nano /etc/logrotate.d/calendarbot
 ```
 
-### Health Indicators
+### Backup and Recovery
 
-Signs of healthy operation:
-- ✅ Regular "Successfully fetched and cached X events" messages
-- ✅ Periodic "Token refreshed successfully" entries
-- ✅ No error messages in recent logs
-- ✅ Display shows current timestamp and live data
+**Configuration backup**:
+```bash
+# Backup configuration
+cp config/config.yaml ~/calendarbot-config-backup.yaml
 
-Signs requiring attention:
-- ⚠️ Repeated authentication failures
-- ⚠️ Network timeout errors
-- ⚠️ High resource usage warnings
-- ⚠️ Cache corruption errors
+# Backup cache (optional)
+cp ~/.local/share/calendarbot/calendar_cache.db ~/calendarbot-cache-backup.db
+```
+
+**Recovery procedures**:
+```bash
+# Restore configuration
+cp ~/calendarbot-config-backup.yaml config/config.yaml
+
+# Reset cache (will rebuild automatically)
+rm ~/.local/share/calendarbot/calendar_cache.db
+
+# Restart application
+python main.py
+```
 
 ### Getting Help
 
 When troubleshooting issues:
 
 1. **Check this guide** for common solutions
-2. **Review logs** for specific error messages
-3. **Test basic connectivity** to Microsoft services
-4. **Verify configuration** syntax and values
-5. **Try minimal configuration** to isolate issues
+2. **Run test mode**: `python main.py --test-mode --verbose`
+3. **Test ICS feed directly**: `python test_ics.py --url "your-url" --verbose`
+4. **Review logs** for specific error messages
+5. **Verify configuration** syntax and values
+6. **Test with minimal settings** to isolate issues
 
 For additional support:
 - **Installation issues**: See [INSTALL.md](INSTALL.md)
-- **Deployment problems**: See [DEPLOY.md](DEPLOY.md)
-- **Development questions**: See [DEVELOPMENT.md](DEVELOPMENT.md)
-- **Bug reports**: Create GitHub issue with logs and configuration
+- **Architecture questions**: See [ARCHITECTURE.md](ARCHITECTURE.md)
+- **Interactive mode help**: See [INTERACTIVE_NAVIGATION.md](INTERACTIVE_NAVIGATION.md)
+- **Bug reports**: Create GitHub issue with logs and configuration (redact sensitive URLs)
 
 ---
 
-**Normal operation requires minimal user intervention.** The system is designed to work reliably in the background while providing useful calendar information at a glance.
+## Summary
+
+The ICS Calendar Display Bot provides a robust, low-maintenance calendar display solution with:
+
+### Core Strengths
+- **Universal Compatibility**: Works with any ICS-compliant calendar service
+- **Automatic Recovery**: Built-in retry logic and graceful error handling
+- **Offline Resilience**: Comprehensive caching for network outages
+- **Resource Efficiency**: Optimized for Raspberry Pi and low-power operation
+- **User-Friendly**: Clear status indicators and intuitive operation
+
+### Maintenance Philosophy
+
+The system is designed for **"set it and forget it"** operation:
+- **Automatic Updates**: Calendar data refreshes every 5 minutes
+- **Self-Healing**: Network issues and errors resolve automatically
+- **Minimal Intervention**: Most problems are handled transparently
+- **Clear Indicators**: Status displays show exactly what's happening
+
+### When to Take Action
+
+You should only need to intervene when:
+- ❗ **Configuration Changes**: New calendar URL or authentication requirements
+- ❗ **Persistent Offline Mode**: "📱 Cached Data" shown for > 30 minutes
+- ❗ **Missing Events**: Calendar events not appearing as expected
+- ❗ **Performance Issues**: High resource usage or slow response times
+
+### Quick Health Check
+
+The system is operating correctly when you see:
+- ✅ **"🌐 Live Data"** status indicator
+- ✅ **Recent timestamps** (within 5-10 minutes)
+- ✅ **Current events** matching your calendar
+- ✅ **Automatic updates** every 5 minutes
+- ✅ **No error messages** in console output
+
+---
+
+**🔧 Need Help?** Check the troubleshooting sections above or see the [Installation Guide](INSTALL.md) for system-level issues.
+
+**🏗️ Want Technical Details?** Review the [Architecture Guide](ARCHITECTURE.md) for system design information.
+
+**📈 Upgrading?** See the [Migration Guide](MIGRATION.md) for Graph API to ICS transition steps.
+
+---
+
+*User Guide v2.0 - Last updated January 5, 2025*
+*The ICS Calendar Display Bot is designed for reliable, low-maintenance operation with automatic error recovery.*

@@ -1,133 +1,130 @@
-# Microsoft 365 Calendar Display - System Architecture
+# ICS Calendar Display - System Architecture
+
+**Document Version:** 2.0
+**Last Updated:** January 5, 2025
+**Architecture Version:** ICS-based Universal Calendar System v2.0
+**Previous Architecture:** Microsoft Graph API v1.0 (deprecated)
 
 ## Executive Summary
 
-This document outlines the complete system architecture for a portable Microsoft 365 calendar display application running on Raspberry Pi with an e-ink display. The system is designed for ultra-low power consumption, persistent Microsoft Graph connectivity, and essential meeting information display.
+This document outlines the complete system architecture for an ICS-based calendar display application running on Raspberry Pi with an e-ink display. The system is designed for universal calendar compatibility, minimal resource consumption, persistent ICS feed connectivity, and essential meeting information display.
+
+> **Architecture Migration Note**: This system has been completely redesigned from the previous Microsoft Graph API implementation to use standardized ICS calendar feeds, providing universal compatibility and simplified deployment.
 
 ## 1. Technology Stack Selection
 
 ### Core Platform
 - **Hardware**: Raspberry Pi Zero 2 W (optimal for portability and power efficiency)
 - **OS**: Raspberry Pi OS Lite (headless, minimal footprint)
-- **Programming Language**: Python 3.11+
-- **Display**: 4.2" Waveshare e-Paper HAT (400x300 resolution, optimal for desk accessory)
+- **Programming Language**: Python 3.8+
+- **Display**: Console output (with e-ink display support planned)
 
 ### Key Libraries & Frameworks
-- **Microsoft Graph**: `msal` (Microsoft Authentication Library)
-- **HTTP Client**: `aiohttp` (async support for efficient API calls)
-- **E-ink Driver**: `waveshare-epaper` or custom SPI interface
-- **Image Processing**: `Pillow` (PIL) for display rendering
-- **Configuration**: `pydantic` for settings management
-- **Scheduling**: `asyncio` + `apscheduler` for refresh cycles
+- **ICS Processing**: `icalendar` (RFC 5545 compliant parsing)
+- **HTTP Client**: `httpx` (async support for efficient ICS fetching)
+- **Data Validation**: `pydantic` (settings and data model validation)
+- **Database**: `aiosqlite` (async SQLite for caching)
+- **Configuration**: `PyYAML` + `pydantic-settings` for settings management
+- **Scheduling**: `asyncio` for concurrent operations and scheduling
 - **Logging**: Built-in `logging` with file rotation
-- **Alexa Integration**: `flask` + `ask-sdk-core` for Alexa Skills Kit
-- **HTTP Server**: `flask` for REST API endpoints
+- **Date/Time**: `python-dateutil` + `pytz` for timezone handling
 
-### Why Python?
-- Excellent Microsoft Graph SDK support
-- Rich ecosystem for Raspberry Pi hardware interaction
-- PIL library perfect for e-ink display image generation
-- Mature async libraries for efficient background operations
-- Lower memory footprint compared to Node.js alternatives
+### Why ICS Instead of APIs?
+- **Universal Compatibility**: Works with any calendar service that exports ICS
+- **No API Quotas**: Unlimited access to your own calendar data
+- **Privacy**: Direct calendar access without third-party API intermediaries
+- **Simplicity**: No complex authentication flows or API registrations
+- **Reliability**: ICS is a stable, standardized format (RFC 5545)
+- **Performance**: Lower overhead than REST API calls
 
-## 2. Display Hardware Strategy
+## 2. ICS Feed Strategy
 
-### Dynamic Display Support
-The system will automatically detect and adapt to different e-ink display sizes:
+### Supported ICS Sources
+The system supports ICS feeds from any calendar service:
 
-**Supported Display Sizes:**
-- **2.9"** (296x128) - Minimal layout, essential info only
-- **4.2"** (400x300) - Compact layout, current + next 2-3 meetings
-- **7.5"** (800x480) - Full layout, detailed daily schedule
-- **9.7"** (1200x825) - Extended layout, multi-day view
+**Major Calendar Services:**
+- **Microsoft Outlook/Office 365** - Published calendar ICS URLs
+- **Google Calendar** - Secret iCal format URLs
+- **Apple iCloud Calendar** - Public calendar ICS URLs
+- **CalDAV Servers** - Nextcloud, Radicale, SOGo, etc.
+- **Exchange Servers** - Direct ICS export URLs
+- **Any RFC 5545 compliant** calendar system
 
-**Auto-Detection Strategy:**
-- SPI device identification at startup
-- Display size stored in device configuration
-- Layout templates selected based on detected resolution
-- Fallback to manual configuration if auto-detection fails
+### Authentication Methods
+```yaml
+# No Authentication (Public Feeds)
+ics:
+  auth_type: "none"
 
-### Primary Recommendation: Waveshare 4.2" e-Paper HAT
-- **Resolution**: 400x300 pixels
-- **Size**: Compact (103.5 × 78.5mm display area)
-- **Power**: Ultra-low consumption (only during refresh)
-- **Interface**: SPI connection to Pi GPIO
-- **Refresh**: 2-second full refresh capability
-- **Colors**: Black/White (sufficient for calendar text)
+# HTTP Basic Authentication
+ics:
+  auth_type: "basic"
+  username: "user"
+  password: "password"
 
-## 3. Microsoft Graph API Integration Strategy
-
-### Authentication Flow
+# Bearer Token Authentication
+ics:
+  auth_type: "bearer"
+  token: "your-bearer-token"
 ```
-Initial Setup (One-time)
-├── Device Code Flow (OAuth 2.0)
-├── User approves via web browser
-├── Store refresh token securely
-└── Generate access tokens automatically
-
-Runtime Operation
-├── Check token expiration
-├── Refresh access token if needed
-├── Make Graph API calls
-└── Handle rate limiting gracefully
-```
-
-### API Endpoints Used
-- **Primary**: `/me/calendar/calendarView` (events for date range)
-- **Fallback**: `/me/events` (with date filters)
-- **User Info**: `/me` (for display personalization)
 
 ### Data Fetching Strategy
-- **Interval**: Every 5 minutes (configurable)
-- **Scope**: Current day + next 2 days lookahead
-- **Filtering**: Only show events marked as "Busy" or "Tentative"
-- **Caching**: Local SQLite cache for offline resilience
+- **Polling Interval**: Every 5 minutes (configurable)
+- **HTTP Caching**: ETags and Last-Modified headers supported
+- **Conditional Requests**: If-None-Match and If-Modified-Since
+- **Retry Logic**: Exponential backoff for failed requests
+- **Offline Resilience**: SQLite cache for network outages
 
-## 4. Authentication & Token Management
+## 3. Application Architecture
 
-### Security Architecture
+### High-Level Component Architecture
+
 ```
-Token Storage (Encrypted)
-├── ~/.config/calendarbot/
-│   ├── tokens.enc (AES-256 encrypted)
-│   ├── device_key.bin (unique device key)
-│   └── config.yaml (non-sensitive settings)
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│ Source Manager  │    │   ICS Fetcher    │    │ Cache Manager   │
+│                 │    │                  │    │                 │
+│ • Multi-source  │───▶│ • HTTP Client    │───▶│ • SQLite WAL    │
+│ • Health Check  │    │ • Auth Support   │    │ • TTL Caching   │
+│ • Auto Config   │    │ • Retry Logic    │    │ • Offline Mode  │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                        │                        │
+         │                        │                        │
+         └────────────────────────┼────────────────────────┘
+                                  │
+                         ┌─────────────────┐
+                         │ Display Manager │
+                         │                 │
+                         │ • Console Out   │
+                         │ • Status Info   │
+                         │ • Interactive   │
+                         └─────────────────┘
 ```
 
-### Token Lifecycle Management
-1. **Initial Registration**: Device code flow with manual approval
-2. **Token Refresh**: Automatic refresh 5 minutes before expiration
-3. **Token Storage**: AES-256 encryption using device-unique key
-4. **Error Handling**: Graceful degradation to cached data
-5. **Re-authentication**: Automatic retry with exponential backoff
-
-### Security Best Practices
-- Tokens encrypted at rest using hardware-based device ID
-- No tokens stored in plain text anywhere
-- Secure token transmission (HTTPS only)
-- Limited scope permissions (Calendar.Read only)
-- Regular token rotation following Microsoft recommendations
-
-## 5. Application Architecture
-
-### Component Architecture
+### Detailed Component Architecture
 
 ```mermaid
 graph TB
-    A[Calendar Bot Main] --> B[Auth Manager]
-    A --> C[Graph API Client]
+    A[Calendar Bot Main] --> B[Source Manager]
+    A --> C[Cache Manager]
     A --> D[Display Manager]
-    A --> E[Data Cache]
-    A --> F[Scheduler]
-    A --> G[Alexa Skills Server]
+    A --> E[UI Controller]
+    A --> F[Validation Framework]
     
-    B --> H[Token Store]
-    C --> I[Microsoft Graph]
-    D --> J[E-ink Display]
-    E --> K[SQLite DB]
-    F --> L[Update Tasks]
-    G --> M[REST API Endpoints]
-    G --> N[Alexa Voice Service]
+    B --> G[ICS Source]
+    G --> H[ICS Fetcher]
+    G --> I[ICS Parser]
+    
+    C --> J[Database Manager]
+    C --> K[Cache Models]
+    
+    D --> L[Console Renderer]
+    
+    E --> M[Interactive Controller]
+    E --> N[Keyboard Handler]
+    E --> O[Navigation Logic]
+    
+    F --> P[Validation Runner]
+    F --> Q[Test Results]
     
     subgraph "Core Components"
         A
@@ -136,350 +133,613 @@ graph TB
         D
         E
         F
-        G
     end
     
-    subgraph "External Systems"
+    subgraph "ICS Processing"
+        G
+        H
         I
+    end
+    
+    subgraph "Storage Layer"
         J
         K
-        H
+    end
+    
+    subgraph "User Interface"
+        L
+        M
         N
+        O
+    end
+    
+    subgraph "Testing & Validation"
+        P
+        Q
     end
 ```
 
 ### Core Components
 
-#### 1. Authentication Manager (`auth/`)
-- Token encryption/decryption
-- OAuth 2.0 device flow handling
-- Automatic token refresh
-- Error recovery and re-authentication
+#### 1. Source Manager (`sources/`)
+- **Multi-source coordination**: Manages multiple ICS feeds
+- **Health monitoring**: Validates feed accessibility and content
+- **Configuration management**: Handles source-specific settings
+- **Error recovery**: Automatic retry and fallback strategies
 
-#### 2. Graph API Client (`api/`)
-- Async HTTP client for Microsoft Graph
-- Rate limiting and retry logic
-- Response parsing and validation
-- Error handling and fallback strategies
+#### 2. ICS Processing (`ics/`)
+- **HTTP Fetcher**: Async HTTP client with authentication support
+- **Content Parser**: RFC 5545 compliant ICS parsing
+- **Event Models**: Structured representation of calendar events
+- **Exception Handling**: ICS-specific error types and recovery
 
-#### 3. Display Manager (`display/`)
-- E-ink display driver interface
-- Image generation and layout
-- Partial vs full refresh optimization
-- Power management integration
+#### 3. Cache Manager (`cache/`)
+- **SQLite Storage**: WAL mode for performance and durability
+- **TTL Management**: Configurable cache expiration
+- **Offline Support**: Serve cached data when feeds unavailable
+- **Data Models**: Structured cache entry representation
 
-#### 4. Data Cache (`cache/`)
-- SQLite-based local storage
-- Calendar event caching
-- Offline data availability
-- Cache invalidation strategies
+#### 4. Display Manager (`display/`)
+- **Console Renderer**: Clean, formatted console output
+- **Status Information**: Connection status and update timestamps
+- **Error Display**: User-friendly error messages
+- **Extensible Design**: Ready for e-ink display integration
 
-#### 5. Scheduler (`scheduler/`)
-- Configurable refresh intervals (5-minute default)
-- Intelligent update timing
-- Battery-aware scheduling
-- Error recovery scheduling
+#### 5. UI Controller (`ui/`)
+- **Interactive Mode**: Keyboard-driven calendar navigation
+- **Navigation Logic**: Date browsing and event filtering
+- **Input Handling**: Cross-platform keyboard input support
+- **Real-time Updates**: Background data fetching during interaction
 
-#### 6. Alexa Skills Server (`alexa/`)
-- Flask-based HTTP server for Alexa Skills Kit
-- REST API endpoints for calendar queries
-- Voice command processing
-- Privacy-focused local data access
+#### 6. Validation Framework (`validation/`)
+- **Test Runner**: Comprehensive system validation
+- **Component Testing**: Individual module verification
+- **Result Reporting**: Detailed test results and diagnostics
+- **Logging Integration**: Enhanced logging for troubleshooting
 
 ### Data Flow Architecture
 
 ```mermaid
 sequenceDiagram
     participant S as Scheduler
-    participant API as Graph Client
-    participant C as Cache
+    participant SM as Source Manager
+    participant IF as ICS Fetcher
+    participant IP as ICS Parser
+    participant C as Cache Manager
     participant D as Display Manager
-    participant E as E-ink Display
+    participant UI as UI Controller
     
-    S->>API: Fetch calendar events
-    API->>API: Check/refresh tokens
-    API->>C: Update cache with new events
-    C->>D: Provide formatted event data
-    D->>D: Generate display image
-    D->>E: Update e-ink display
-    E->>D: Confirm update complete
-    D->>S: Schedule next update
+    S->>SM: Trigger refresh cycle
+    SM->>IF: Fetch ICS content
+    IF->>IF: HTTP request with auth
+    IF->>IP: Parse ICS content
+    IP->>IP: Extract calendar events
+    IP->>C: Store parsed events
+    C->>D: Provide formatted events
+    D->>UI: Update display
+    UI->>S: Schedule next refresh
 ```
 
-## 6. UI/Display Considerations
+## 4. ICS Processing Pipeline
 
-### Display Layout Design (4.2" - 400x300 Example)
+### HTTP Fetching Layer
 
-```
-┌─────────────────────────────┐
-│ Mon, Jan 15    🔋 ●●●○     │ Header (20px)
-├─────────────────────────────┤
-│                             │
-│ ▶ CURRENT EVENT            │ Current (30px)
-│   Team Standup             │
-│   10:00 - 10:30            │
-│                             │
-│ NEXT UP                    │ Next Events (25px each)
-│ • Project Review           │
-│   11:00 - 12:00           │
-│                             │
-│ • Lunch Meeting           │
-│   12:30 - 13:30           │
-│                             │
-│ LATER TODAY               │ Later (20px each)
-│ • Code Review             │
-│ • 1:1 with Manager        │
-│                             │
-├─────────────────────────────┤
-│ Updated: 10:05 | 📶 Alexa  │ Footer (15px)
-└─────────────────────────────┘
+```python
+# ICS Fetcher Architecture
+class ICSFetcher:
+    """Async HTTP client for ICS content retrieval."""
+    
+    async def fetch(self, source: ICSSource) -> ICSResponse:
+        """Fetch ICS content with authentication and caching."""
+        # HTTP authentication (Basic, Bearer, None)
+        # Conditional requests (ETags, Last-Modified)
+        # Connection pooling and timeouts
+        # Retry logic with exponential backoff
 ```
 
-### Responsive Layout Strategy
-- **2.9" (296x128)**: Current meeting + next 1 event only
-- **4.2" (400x300)**: Current + next 2-3 events + later today summary
-- **7.5" (800x480)**: Full daily schedule + tomorrow preview
-- **9.7" (1200x825)**: Multi-day view + detailed event descriptions
+### Content Parsing Layer
 
-### Typography & Spacing
-- **Header Font**: 16px Bold (Date + Battery)
-- **Current Event**: 14px Bold (Title), 12px Regular (Time)
-- **Next Events**: 12px Bold (Title), 10px Regular (Time)
-- **Later Events**: 10px Regular (Title only)
-- **Footer**: 8px Regular (Update timestamp)
+```python
+# ICS Parser Architecture
+class ICSParser:
+    """RFC 5545 compliant ICS content parser."""
+    
+    async def parse(self, ics_content: str) -> ICSParseResult:
+        """Parse ICS content into structured events."""
+        # Validate ICS format
+        # Extract calendar metadata
+        # Parse VEVENT components
+        # Handle timezones and recurrence
+        # Filter busy/tentative events
+```
 
-### Visual Elements
-- **Battery Indicator**: 4 dots showing Pi power status
-- **Current Event Arrow**: "▶" to highlight active meeting
-- **Bullet Points**: "•" for upcoming events
-- **Truncation**: "..." for text overflow (varies by display size)
-- **Last Refresh Time**: "Updated: HH:MM" timestamp display
-- **Alexa Status**: "📶 Alexa" indicator when Skills server is active
+### Event Processing Flow
 
-### Power Optimization
-- **Full Refresh**: Only when layout changes significantly
-- **Partial Refresh**: For time updates and small text changes
-- **Sleep Mode**: Display off during configured quiet hours
-- **Smart Updates**: Skip refresh if no changes detected
+1. **Content Validation**: Verify ICS format compliance
+2. **Metadata Extraction**: Calendar name, version, timezone
+3. **Event Parsing**: VEVENT components to structured data
+4. **Timezone Handling**: Convert to local timezone
+5. **Recurrence Expansion**: Handle RRULE patterns
+6. **Event Filtering**: Show only busy/tentative events
+7. **Data Normalization**: Consistent event representation
 
-## 7. Raspberry Pi Specific Optimizations
+## 5. Caching & Storage Architecture
 
-### Hardware Configuration
+### SQLite Database Design
+
+```sql
+-- Cache Events Table
+CREATE TABLE cached_events (
+    id TEXT PRIMARY KEY,
+    source_name TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    start_datetime TIMESTAMP NOT NULL,
+    end_datetime TIMESTAMP NOT NULL,
+    location TEXT,
+    is_all_day BOOLEAN DEFAULT FALSE,
+    show_as TEXT DEFAULT 'busy',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL
+);
+
+-- Cache Metadata Table
+CREATE TABLE cache_metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Caching Strategy
+
+**Write-Ahead Logging (WAL) Mode**:
+- Reduces SD card wear
+- Improves concurrent access
+- Better crash recovery
+- Optimal for Raspberry Pi storage
+
+**TTL Management**:
+- Configurable cache expiration (default: 1 hour)
+- Automatic cleanup of expired events
+- Background maintenance tasks
+- Smart refresh based on cache age
+
+**Offline Functionality**:
+- Serve cached events when network unavailable
+- Graceful degradation indicators
+- Preserve last successful update timestamp
+- Continue operation with stale but valid data
+
+## 6. User Interface Architecture
+
+### Execution Modes
+
+#### 1. Daemon Mode (Default)
+```bash
+python main.py
+```
+- Continuous background operation
+- Automatic refresh every 5 minutes
+- Console output with status updates
+- Signal handling for graceful shutdown
+
+#### 2. Interactive Mode
+```bash
+python main.py --interactive
+```
+- Keyboard-driven navigation
+- Real-time date browsing
+- Background data updates
+- Cross-platform input handling
+
+#### 3. Test Mode
+```bash
+python main.py --test-mode
+```
+- Comprehensive system validation
+- ICS feed connectivity testing
+- Configuration verification
+- Detailed diagnostic output
+
+### Interactive Navigation Features
+
+**Keyboard Controls**:
+- **Arrow Keys**: Navigate between dates
+- **Space**: Jump to today
+- **ESC**: Exit interactive mode
+- **Enter**: Refresh current view
+
+**Real-time Updates**:
+- Background data fetching continues
+- Display updates without interruption
+- Seamless transition between cached and live data
+- Status indicators for connection state
+
+### Display Layout Design
+
+```
+============================================================
+📅 ICS CALENDAR - Monday, January 15
+============================================================
+Updated: 10:05 | 🌐 Live Data
+
+▶ CURRENT EVENT
+
+  Team Standup
+  10:00 - 10:30
+  📍 Conference Room A
+  ⏱️  25 minutes remaining
+
+📋 NEXT UP
+
+• Project Review
+  11:00 - 12:00 | 📍 Online
+
+• Lunch Meeting
+  12:30 - 13:30 | 📍 Restaurant
+
+⏰ LATER TODAY
+
+• Code Review
+  14:00 - 15:00
+• 1:1 with Manager
+  15:30 - 16:00
+
+============================================================
+```
+
+## 7. Configuration Management
+
+### Hierarchical Configuration
+
+1. **Default Values**: Built into application code
+2. **YAML Configuration**: `config/config.yaml`
+3. **Environment Variables**: `CALENDARBOT_*` prefix
+4. **Command Line Arguments**: Override specific settings
+
+### Configuration Schema
+
 ```yaml
-# Recommended Pi Zero 2 W Settings
-gpu_mem: 16          # Minimal GPU memory
-dtparam: spi=on      # Enable SPI for e-ink
-disable_camera_led: 1 # Power saving
-dtoverlay: disable-bt # Disable Bluetooth if not needed
+# ICS Calendar Configuration
+ics:
+  url: "https://calendar.example.com/calendar.ics"
+  auth_type: "none"  # none, basic, bearer
+  username: "user"   # for basic auth
+  password: "pass"   # for basic auth
+  token: "token"     # for bearer auth
+  verify_ssl: true
+  user_agent: "CalendarBot/1.0"
+
+# Application Settings
+app_name: "CalendarBot"
+refresh_interval: 300  # seconds
+cache_ttl: 3600       # seconds
+
+# Display Settings
+display_enabled: true
+display_type: "console"
+
+# Network Settings
+request_timeout: 30
+max_retries: 3
+retry_backoff_factor: 1.5
+
+# Logging
+log_level: "INFO"
+log_file: null
 ```
 
-### Power Management
-- **CPU Governor**: `powersave` mode when idle
-- **WiFi Power Save**: Enabled with wake-on-demand
-- **GPIO Power Down**: Unused pins set to low power state
-- **USB Power**: Minimal USB current allocation
+### Settings Validation
 
-### Memory Optimization
-- **Swap**: Disabled to reduce SD card wear
-- **Memory Split**: 16MB GPU memory allocation
-- **Process Priority**: Lower priority for non-critical tasks
-- **Garbage Collection**: Tuned for lower memory pressure
-
-### Storage Considerations
-- **SQLite WAL Mode**: Reduce SD card writes
-- **Log Rotation**: Automatic cleanup of old logs
-- **Temp Files**: Use RAM-based /tmp for temporary files
-- **OS Updates**: Minimal package installation
-
-## 8. Project Structure & File Organization
-
-```
-calendarbot/
-├── README.md
-├── requirements.txt
-├── setup.py
-├── config/
-│   ├── __init__.py
-│   ├── settings.py          # Pydantic settings models
-│   └── config.yaml.example  # Example configuration
-├── calendarbot/
-│   ├── __init__.py
-│   ├── main.py             # Application entry point
-│   ├── auth/
-│   │   ├── __init__.py
-│   │   ├── manager.py      # Authentication management
-│   │   ├── token_store.py  # Encrypted token storage
-│   │   └── device_flow.py  # OAuth device code flow
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── graph_client.py # Microsoft Graph API client
-│   │   ├── models.py       # Data models for API responses
-│   │   └── exceptions.py   # API-specific exceptions
-│   ├── display/
-│   │   ├── __init__.py
-│   │   ├── manager.py      # Display management
-│   │   ├── renderer.py     # Image generation
-│   │   ├── layouts.py      # Display layout definitions
-│   │   └── drivers/        # E-ink driver implementations
-│   │       ├── __init__.py
-│   │       ├── waveshare.py
-│   │       ├── detection.py # Auto-detection logic
-│   │       └── base.py
-│   ├── cache/
-│   │   ├── __init__.py
-│   │   ├── manager.py      # Cache management
-│   │   ├── models.py       # Database models
-│   │   └── database.py     # SQLite operations
-│   ├── scheduler/
-│   │   ├── __init__.py
-│   │   ├── manager.py      # Task scheduling
-│   │   └── tasks.py        # Scheduled task definitions
-│   ├── alexa/
-│   │   ├── __init__.py
-│   │   ├── skills_server.py # Flask server for Alexa Skills
-│   │   ├── handlers.py     # Intent handlers
-│   │   ├── responses.py    # Voice response formatting
-│   │   └── models.py       # Alexa request/response models
-│   └── utils/
-│       ├── __init__.py
-│       ├── logging.py      # Logging configuration
-│       ├── power.py        # Power management utilities
-│       └── helpers.py      # General utilities
-├── tests/
-│   ├── __init__.py
-│   ├── test_auth.py
-│   ├── test_api.py
-│   ├── test_display.py
-│   └── fixtures/
-├── scripts/
-│   ├── setup.sh            # Initial setup script
-│   ├── install.sh          # Installation script
-│   └── systemd/
-│       └── calendarbot.service
-├── docs/
-│   ├── SETUP.md           # Setup instructions
-│   ├── CONFIGURATION.md   # Configuration guide
-│   └── TROUBLESHOOTING.md # Common issues
-└── assets/
-    ├── fonts/             # Custom fonts for display
-    └── icons/             # Status icons
+```python
+# Pydantic Settings Model
+class CalendarBotSettings(BaseSettings):
+    """Type-safe configuration with validation."""
+    
+    # ICS configuration with validation
+    ics_url: Optional[str] = Field(None, description="ICS calendar URL")
+    ics_auth_type: Optional[str] = Field(None, regex="^(none|basic|bearer)$")
+    
+    # Automatic environment variable mapping
+    class Config:
+        env_prefix = "CALENDARBOT_"
+        env_file = ".env"
 ```
 
-## 9. Error Handling & Network Resilience
+## 8. Error Handling & Resilience
 
-### Network Connectivity Strategy
-- **Offline Mode**: Display cached events when network unavailable
-- **Retry Logic**: Exponential backoff for failed API calls
-- **Connection Monitoring**: Automatic reconnection attempts
-- **Graceful Degradation**: Show last known state with timestamp
+### Network Resilience Strategy
 
-### Error Recovery Mechanisms
-1. **API Rate Limits**: Respect 429 responses with proper backoff
-2. **Token Expiry**: Automatic refresh with fallback to re-auth
-3. **Display Errors**: Show error messages on e-ink display
-4. **Hardware Failures**: GPIO error handling and recovery
-5. **Storage Issues**: Database corruption recovery procedures
+**Connection Failures**:
+- Exponential backoff retry logic
+- Circuit breaker pattern for persistent failures
+- Fallback to cached data during outages
+- Clear status indicators for offline mode
 
-## 10. Security & Privacy Considerations
+**HTTP Error Handling**:
+- 4xx errors: Configuration or authentication issues
+- 5xx errors: Server-side problems, retry with backoff
+- Timeout handling: Configurable timeouts with graceful degradation
+- Rate limiting: Respect server limits and back off appropriately
 
-### Data Protection
-- **Local Storage Only**: No cloud storage of calendar data
-- **Encrypted Tokens**: AES-256 encryption for all stored credentials
-- **Minimal Permissions**: Calendar.Read scope only
-- **Data Retention**: Automatic cleanup of old cached events
+### Data Validation & Recovery
+
+**ICS Content Validation**:
+- RFC 5545 compliance checking
+- Malformed content error recovery
+- Partial parsing with warnings
+- Detailed error reporting for debugging
+
+**Cache Corruption Recovery**:
+- Database integrity checks
+- Automatic cache rebuilding
+- Backup and restore procedures
+- Graceful handling of SQLite errors
+
+### Application-Level Error Recovery
+
+```python
+# Error Recovery Framework
+class ErrorRecovery:
+    """Comprehensive error handling and recovery."""
+    
+    async def handle_network_error(self, error: NetworkError):
+        """Handle network-related failures."""
+        # Log error details
+        # Switch to offline mode
+        # Schedule retry with backoff
+        # Update user status display
+    
+    async def handle_parse_error(self, error: ICSParseError):
+        """Handle ICS parsing failures."""
+        # Log parse error details
+        # Attempt partial recovery
+        # Use cached data if available
+        # Notify user of data issues
+```
+
+## 9. Performance Optimization
+
+### Resource Utilization Targets
+
+**Memory Usage**:
+- Application: < 50MB resident memory
+- Cache database: < 10MB for typical use
+- Total system impact: < 100MB
+
+**CPU Usage**:
+- Idle: < 1% CPU utilization
+- Refresh cycle: < 10% CPU peak
+- Interactive mode: < 5% CPU average
+
+**Storage Usage**:
+- Application files: < 20MB
+- Cache database: < 5MB typical, auto-cleanup
+- Log files: Rotation to prevent growth
+
+### Async/Await Architecture Benefits
+
+**Concurrent Operations**:
+- HTTP requests don't block UI updates
+- Cache operations don't block display refresh
+- Background tasks run independently
+- Responsive user interaction
+
+**I/O Efficiency**:
+- Non-blocking HTTP requests
+- Async database operations
+- Concurrent cache read/write
+- Minimal thread overhead
+
+### Caching Optimizations
+
+**HTTP Caching**:
+- ETags for content validation
+- Last-Modified headers for conditional requests
+- Compression support (gzip, deflate)
+- Connection reuse and pooling
+
+**Database Optimizations**:
+- WAL mode for better concurrency
+- Prepared statements for repeated queries
+- Index optimization for date range queries
+- Automatic vacuum and maintenance
+
+## 10. Testing & Validation Framework
+
+### Validation Components
+
+#### 1. ICS Feed Validation
+```python
+# Comprehensive ICS testing
+class ICSValidator:
+    """Validate ICS feed accessibility and content."""
+    
+    async def validate_connectivity(self, url: str) -> ValidationResult:
+        """Test HTTP connectivity to ICS feed."""
+    
+    async def validate_content(self, content: str) -> ValidationResult:
+        """Validate ICS content format and structure."""
+    
+    async def validate_events(self, events: List[Event]) -> ValidationResult:
+        """Validate parsed event data quality."""
+```
+
+#### 2. System Integration Testing
+```python
+# Full system validation
+class SystemValidator:
+    """End-to-end system testing."""
+    
+    async def test_full_pipeline(self) -> ValidationResults:
+        """Test complete fetch-parse-cache-display pipeline."""
+    
+    async def test_offline_mode(self) -> ValidationResults:
+        """Validate offline functionality with cached data."""
+    
+    async def test_interactive_mode(self) -> ValidationResults:
+        """Test interactive navigation and controls."""
+```
+
+### Test Execution Modes
+
+**Quick Validation** (`--test-mode`):
+- Basic connectivity testing
+- Configuration validation
+- Simple ICS parsing test
+
+**Comprehensive Testing** (`--test-mode --verbose`):
+- Full system integration testing
+- Performance benchmarking
+- Error condition simulation
+- Detailed diagnostic output
+
+## 11. Security & Privacy Considerations
+
+### Data Protection Strategy
+
+**Local-First Architecture**:
+- All calendar data processed locally
+- No cloud storage of personal information
+- Direct ICS feed access without intermediaries
+- User controls all data retention policies
+
+**Authentication Security**:
+- Support for secure authentication methods
+- Credential storage in configuration files (user-controlled)
+- HTTPS-only connections to calendar feeds
+- SSL certificate validation (configurable)
 
 ### Network Security
-- **HTTPS Only**: All API communications use TLS
-- **Certificate Validation**: Strict certificate checking
-- **No External Dependencies**: Minimal attack surface
-- **Regular Updates**: Automated security patch management
 
-## 11. Performance Requirements
+**Transport Security**:
+- HTTPS required for all ICS feed access
+- SSL/TLS certificate validation
+- Secure authentication header handling
+- Protection against man-in-the-middle attacks
 
-### Response Time Targets
-- **Display Update**: < 3 seconds for full refresh
-- **API Response**: < 5 seconds for calendar fetch
-- **Boot Time**: < 30 seconds from power on
-- **Recovery Time**: < 10 seconds from network restoration
+**Privacy Protection**:
+- No telemetry or usage data collection
+- No external service dependencies
+- User-controlled logging and data retention
+- Minimal network fingerprint
 
-### Resource Utilization
-- **RAM Usage**: < 100MB total system memory
-- **CPU Usage**: < 10% average, < 50% peak
-- **Storage**: < 100MB for application and cache
-- **Network**: < 1MB per hour average bandwidth
+## 12. Deployment Architecture
 
-## 12. Alexa Integration Architecture
+### Production Deployment
 
-### Privacy-First Alexa Integration
-The system provides Alexa voice access to calendar data without exposing Microsoft 365 credentials to Amazon's cloud services. All calendar data remains local to the Raspberry Pi.
+```yaml
+# systemd Service Configuration
+[Unit]
+Description=ICS Calendar Display Bot
+After=network.target
 
-### Integration Strategy
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/projects/calendarBot
+ExecStart=/home/pi/projects/calendarbot-env/bin/python main.py
+Restart=always
+RestartSec=10
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant A as Alexa Device
-    participant AS as Amazon Skills
-    participant PI as Pi Skills Server
-    participant C as Local Cache
-    
-    U->>A: "Alexa, what's my next meeting?"
-    A->>AS: Voice command processed
-    AS->>PI: HTTPS request to local endpoint
-    PI->>C: Query cached calendar data
-    C->>PI: Return meeting information
-    PI->>AS: JSON response with meeting details
-    AS->>A: Formatted voice response
-    A->>U: "Your next meeting is..."
+[Install]
+WantedBy=multi-user.target
 ```
 
-### Alexa Skills Kit Implementation
-- **Custom Skill**: Private skill linked to user's Pi device
-- **Local Endpoint**: HTTPS server running on Pi (port 443)
-- **SSL Certificate**: Self-signed or Let's Encrypt for HTTPS requirement
-- **Authentication**: Device-specific secret key for skill verification
-
-### Supported Voice Commands
-- **"What's my next meeting?"** - Returns next scheduled event
-- **"What meetings do I have today?"** - Lists all today's events
-- **"When is my [meeting name]?"** - Searches for specific meeting
-- **"Do I have any meetings at [time]?"** - Checks time availability
-- **"What's my schedule for tomorrow?"** - Shows next day's events
-
-### Security & Privacy Features
-- **Local Processing**: All voice responses generated locally
-- **No Cloud Storage**: Calendar data never leaves the Pi
-- **Encrypted Communication**: HTTPS for all Alexa ↔ Pi communication
-- **Access Control**: Device-specific authentication tokens
-- **Audit Logging**: Voice request logging with privacy controls
-
-### Network Configuration Requirements
-- **Port Forwarding**: Router configured for HTTPS (443) access to Pi
-- **Dynamic DNS**: Static hostname for Alexa Skills endpoint
-- **SSL Certificate**: Valid certificate for HTTPS requirement
-- **Firewall Rules**: Secure access limited to Amazon's IP ranges
-
-## 13. Deployment & Maintenance
-
-### Installation Process
-1. **Base OS Setup**: Raspberry Pi OS Lite installation
-2. **Hardware Configuration**: SPI enable, GPIO setup
-3. **Application Install**: Automated script deployment
-4. **Initial Setup**: OAuth authentication flow
-5. **Service Registration**: systemd service configuration
-
 ### Monitoring & Maintenance
-- **Health Checks**: Regular system status monitoring
-- **Log Management**: Automated log rotation and cleanup
-- **Update Mechanism**: Over-the-air application updates
-- **Backup Strategy**: Configuration and token backup
 
-### Operational Requirements
-- **Power**: 5V 2A USB-C power supply
-- **Network**: 2.4GHz WiFi connectivity
-- **Environment**: Indoor use, 0-40°C operating temperature
-- **Maintenance**: Monthly restart recommended
+**Health Monitoring**:
+- Application startup validation
+- Periodic ICS feed health checks
+- Cache performance monitoring
+- Resource usage tracking
+
+**Maintenance Automation**:
+- Log rotation and cleanup
+- Cache database maintenance
+- System update notifications
+- Configuration backup
+
+### File Structure & Organization
+
+```
+calendarBot/
+├── README.md                    # Project overview
+├── INSTALL.md                   # Installation guide
+├── USAGE.md                     # User guide
+├── ARCHITECTURE.md              # This document
+├── requirements.txt             # Python dependencies
+├── main.py                      # Application entry point
+├── test_ics.py                  # ICS testing utility
+├── test_interactive.py          # Interactive mode testing
+├── config/
+│   ├── settings.py              # Pydantic settings
+│   ├── config.yaml.example      # Example configuration
+│   └── ics_config.py            # ICS-specific configuration
+├── calendarbot/
+│   ├── main.py                  # Core application logic
+│   ├── sources/                 # Calendar source management
+│   │   ├── manager.py           # Source coordination
+│   │   ├── ics_source.py        # ICS feed handling
+│   │   ├── models.py            # Source data models
+│   │   └── exceptions.py        # Source-specific exceptions
+│   ├── ics/                     # ICS processing
+│   │   ├── fetcher.py           # HTTP ICS fetching
+│   │   ├── parser.py            # ICS content parsing
+│   │   ├── models.py            # ICS data models
+│   │   └── exceptions.py        # ICS-specific exceptions
+│   ├── cache/                   # Local data caching
+│   │   ├── manager.py           # Cache coordination
+│   │   ├── database.py          # SQLite operations
+│   │   └── models.py            # Cache data models
+│   ├── display/                 # Display management
+│   │   ├── manager.py           # Display coordination
+│   │   └── console_renderer.py  # Console output renderer
+│   ├── ui/                      # User interface
+│   │   ├── interactive.py       # Interactive controller
+│   │   ├── keyboard.py          # Keyboard input handling
+│   │   └── navigation.py        # Navigation logic
+│   ├── utils/                   # Utility functions
+│   │   ├── logging.py           # Logging setup
+│   │   └── helpers.py           # General utilities
+│   └── validation/              # Testing and validation
+│       ├── runner.py            # Validation framework
+│       ├── results.py           # Result models
+│       └── logging_setup.py     # Validation logging
+```
+
+## 13. Future Extensibility
+
+### E-ink Display Integration
+
+**Hardware Support Framework**:
+- Modular display driver architecture
+- Auto-detection of connected displays
+- Dynamic layout adaptation
+- Power management integration
+
+**Display Size Adaptations**:
+- 2.9" (296x128): Current + next event only
+- 4.2" (400x300): Current + next 2-3 events
+- 7.5" (800x480): Full daily schedule
+- 9.7" (1200x825): Multi-day view
+
+### Multiple Calendar Source Support
+
+**Multi-Source Architecture**:
+- Multiple ICS feed configuration
+- Calendar merging and prioritization
+- Source-specific authentication
+- Conflict resolution strategies
+
+### CalDAV Integration
+
+**Direct CalDAV Support**:
+- Native CalDAV protocol implementation
+- Two-way calendar synchronization
+- Advanced authentication methods
+- Real-time push notifications
 
 ---
 
-*This architecture document provides the foundation for implementing a robust, efficient Microsoft 365 calendar display system optimized for Raspberry Pi and e-ink display technology.*
+*This architecture document provides the foundation for a robust, efficient, and privacy-focused ICS calendar display system optimized for Raspberry Pi deployment.*
