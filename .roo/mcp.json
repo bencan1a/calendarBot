@@ -1,0 +1,34 @@
+{
+  "mcpServers": {
+    "puppeteer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ]
+    },
+    "qdrant": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-qdrant"
+      ],
+      "env": {
+        "QDRANT_URL": "http://localhost:6333",
+        "QDRANT_API_KEY": "none",
+        "COLLECTION_NAME": "calendarBot",
+        "EMBEDDING_MODEL": ""
+      }
+    },
+    "linear": {
+      "command": "node",
+      "args": [
+        "/build/index.js"
+      ],
+      "env": {
+        "LINEAR_API_KEY": "lin_api_vCaguduyh9IqFGqgBLaFgjE5HXevas5WbmJkCJb7"
+      },
+      "disabled": false,
+      "alwaysAllow": []
+    }
+  }
+}
