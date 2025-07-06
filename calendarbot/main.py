@@ -12,6 +12,7 @@ from .sources import SourceManager
 from .cache import CacheManager
 from .display import DisplayManager
 from .utils import setup_logging, retry_with_backoff, safe_async_call
+from .utils.process import kill_calendarbot_processes
 
 # Set up logging
 logger = setup_logging(
@@ -252,6 +253,21 @@ class CalendarBot:
         """Start the Calendar Bot application."""
         try:
             logger.info("Starting Calendar Bot...")
+            
+            # Automatically clean up any existing calendarbot processes if configured
+            if self.settings.auto_kill_existing:
+                logger.info("Checking for existing Calendar Bot processes...")
+                killed_count, errors = kill_calendarbot_processes(exclude_self=True)
+                
+                if killed_count > 0:
+                    logger.info(f"Terminated {killed_count} existing Calendar Bot processes")
+                
+                if errors:
+                    logger.warning(f"Process cleanup completed with {len(errors)} warnings:")
+                    for error in errors:
+                        logger.warning(f"  - {error}")
+            else:
+                logger.debug("Auto-cleanup of existing processes disabled in configuration")
             
             # Initialize components
             if not await self.initialize():

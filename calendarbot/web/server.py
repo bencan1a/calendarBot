@@ -12,6 +12,8 @@ from threading import Thread
 from typing import Optional, Dict, Any
 from urllib.parse import urlparse, parse_qs
 
+from ..utils.process import auto_cleanup_before_start
+
 logger = logging.getLogger(__name__)
 
 
@@ -259,6 +261,16 @@ class WebServer:
             return
         
         try:
+            # Automatically clean up any conflicting processes before starting (if configured)
+            if self.settings.auto_kill_existing:
+                logger.info(f"Checking for existing processes before starting web server on {self.host}:{self.port}")
+                cleanup_success = auto_cleanup_before_start(self.host, self.port, force=True)
+                
+                if not cleanup_success:
+                    logger.warning(f"Port {self.port} may still be in use, attempting to start anyway")
+            else:
+                logger.debug("Auto-cleanup of existing processes disabled in configuration")
+            
             # Create custom request handler with web server reference
             def handler(*args, **kwargs):
                 return WebRequestHandler(*args, web_server=self, **kwargs)
