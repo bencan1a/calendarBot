@@ -3,7 +3,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class SourceType(str, Enum):
@@ -47,8 +47,7 @@ class SourceConfig(BaseModel):
     max_retries: int = Field(default=3, description="Maximum retry attempts")
     retry_backoff: float = Field(default=1.5, description="Retry backoff factor")
     
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class SourceHealthCheck(BaseModel):
@@ -70,6 +69,8 @@ class SourceHealthCheck(BaseModel):
     # Success metrics
     last_successful_fetch: Optional[datetime] = None
     events_fetched: int = 0
+    
+    model_config = ConfigDict()
     
     @property
     def is_healthy(self) -> bool:
@@ -123,6 +124,8 @@ class SourceMetrics(BaseModel):
     first_fetch_time: Optional[datetime] = None
     last_fetch_time: Optional[datetime] = None
     last_successful_fetch: Optional[datetime] = None
+    
+    model_config = ConfigDict()
     
     @property
     def success_rate(self) -> float:
@@ -204,6 +207,8 @@ class SourceInfo(BaseModel):
     # Cache information
     last_cache_update: Optional[datetime] = None
     cached_events_count: int = 0
+    
+    model_config = ConfigDict()
     
     @property
     def display_name(self) -> str:

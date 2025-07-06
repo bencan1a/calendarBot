@@ -248,31 +248,6 @@ def parse_date(date_str: str) -> datetime:
         raise argparse.ArgumentTypeError(f"Invalid date format: {date_str}. Use YYYY-MM-DD")
 
 
-def parse_components(components_str: str) -> List[str]:
-    """Parse comma-separated components string.
-    
-    Args:
-        components_str: Comma-separated component names
-        
-    Returns:
-        List of component names
-        
-    Raises:
-        argparse.ArgumentTypeError: If invalid component specified
-    """
-    valid_components = {'auth', 'api', 'cache', 'display'}
-    components = [c.strip().lower() for c in components_str.split(',')]
-    
-    invalid = set(components) - valid_components
-    if invalid:
-        raise argparse.ArgumentTypeError(
-            f"Invalid components: {', '.join(invalid)}. "
-            f"Valid options: {', '.join(sorted(valid_components))}"
-        )
-    
-    return components
-
-
 def apply_rpi_overrides(settings, args):
     """Apply RPI-specific command-line overrides to settings.
     
@@ -328,17 +303,13 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                           # Run in interactive mode (default)
+  %(prog)s                           # Run in web server mode (default)
   %(prog)s --setup                   # Run first-time configuration wizard
   %(prog)s --backup                  # Backup current configuration
   %(prog)s --list-backups            # List available configuration backups
   %(prog)s --restore backup_file.yaml # Restore configuration from backup
-  %(prog)s --test-mode               # Run validation tests
-  %(prog)s --test-mode --verbose     # Run tests with verbose output
-  %(prog)s --test-mode --date 2024-01-15 --components auth,api
-  %(prog)s --test-mode --output-format json > results.json
-  %(prog)s --interactive             # Run interactive console mode (explicit)
-  %(prog)s --web                     # Run web server mode on localhost:8080
+  %(prog)s --interactive             # Run interactive console mode with arrow key controls
+  %(prog)s --web                     # Run web server mode on localhost:8080 (explicit)
   %(prog)s --web --port 3000 --auto-open  # Run web server on port 3000 and open browser
   %(prog)s --rpi --web               # Run in RPI e-ink mode with web interface
         """
@@ -376,50 +347,10 @@ Examples:
         help="Show version information"
     )
     
-    # Test mode arguments
-    parser.add_argument(
-        "--test-mode",
-        action="store_true",
-        help="Run validation tests instead of daemon mode"
-    )
-    
-    parser.add_argument(
-        "--date",
-        type=parse_date,
-        default=datetime.now().replace(hour=0, minute=0, second=0, microsecond=0),
-        help="Date for testing in YYYY-MM-DD format (default: today)"
-    )
-    
-    parser.add_argument(
-        "--end-date",
-        type=parse_date,
-        help="End date for range testing in YYYY-MM-DD format (default: same as --date)"
-    )
-    
     parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Enable verbose logging and detailed output"
-    )
-    
-    parser.add_argument(
-        "--no-cache",
-        action="store_true",
-        help="Skip using cached data in tests"
-    )
-    
-    parser.add_argument(
-        "--components",
-        type=parse_components,
-        default=['auth', 'api', 'cache', 'display'],
-        help="Comma-separated components to test: auth,api,cache,display (default: all)"
-    )
-    
-    parser.add_argument(
-        "--output-format",
-        choices=['console', 'json'],
-        default='console',
-        help="Output format for test results (default: console)"
     )
     
     # Interactive mode arguments
@@ -562,60 +493,6 @@ Examples:
     return parser
 
 
-async def run_test_mode(args) -> int:
-    """Run Calendar Bot in test/validation mode.
-    
-    Args:
-        args: Parsed command line arguments
-        
-    Returns:
-        Exit code (0 for success, 1 for failure)
-    """
-    try:
-        # Import validation and logging components
-        from calendarbot.validation import ValidationRunner, setup_validation_logging
-        from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
-        from config.settings import settings
-        
-        # Apply command-line logging overrides with priority system
-        updated_settings = apply_command_line_overrides(settings, args)
-        
-        # Apply RPI-specific overrides
-        updated_settings = apply_rpi_overrides(updated_settings, args)
-        
-        # Set up enhanced logging for validation
-        logger = setup_enhanced_logging(updated_settings, interactive_mode=False)
-        logger.info("Enhanced logging initialized for test mode")
-        
-        # Create validation runner
-        runner = ValidationRunner(
-            test_date=args.date,
-            end_date=args.end_date,
-            components=args.components,
-            use_cache=not args.no_cache,
-            output_format=args.output_format
-        )
-        
-        # Run validation
-        results = await runner.run_validation()
-        
-        # Print results
-        runner.print_results(verbose=args.verbose)
-        
-        # Return appropriate exit code
-        if results.has_failures():
-            return 1
-        elif results.has_warnings():
-            return 0  # Warnings don't cause failure
-        else:
-            return 0
-            
-    except KeyboardInterrupt:
-        print("\nValidation interrupted by user")
-        return 1
-    except Exception as e:
-        print(f"Validation error: {e}")
-        return 1
 
 
 async def run_daemon_mode(args) -> int:
@@ -907,28 +784,25 @@ async def main_entry() -> int:
     is_configured, config_path = check_configuration()
     
     # If not configured and not running setup, show guidance
-    if not is_configured and not (hasattr(args, 'test_mode') and args.test_mode):
+    if not is_configured:
         show_setup_guidance()
         print(f"\n💡 Tip: Run 'calendarbot --setup' to get started quickly!\n")
         return 1
     
     # Validate mutually exclusive modes
     mode_count = sum([
-        getattr(args, 'test_mode', False),
         getattr(args, 'interactive', False),
         getattr(args, 'web', False)
     ])
     if mode_count > 1:
-        parser.error("Only one mode can be specified: --test-mode, --interactive, or --web")
+        parser.error("Only one mode can be specified: --interactive or --web")
     
     # Run in specified mode
-    if hasattr(args, 'test_mode') and args.test_mode:
-        return await run_test_mode(args)
-    elif hasattr(args, 'web') and args.web:
-        return await run_web_mode(args)
-    else:
-        # Default to interactive mode when no other mode is specified
+    if hasattr(args, 'interactive') and args.interactive:
         return await run_interactive_mode(args)
+    else:
+        # Default to web mode when no other mode is specified
+        return await run_web_mode(args)
 
 
 def main() -> None:

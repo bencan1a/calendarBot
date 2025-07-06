@@ -14,7 +14,7 @@ from .ics.models import ICSSource, ICSAuth
 from .ics.exceptions import ICSError
 
 # Import security logging
-from .security import SecurityEventLogger, mask_credential
+from .security import SecurityEventLogger, mask_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -294,9 +294,9 @@ For other calendar services:
             security_logger = SecurityEventLogger()
             security_logger.log_auth_event(
                 event_type="credential_setup",
-                user_id=mask_credential(username),
+                user_id=mask_credentials(username),
                 status="success",
-                details=f"Basic auth configured for user: {mask_credential(username)}"
+                details=f"Basic auth configured for user: {mask_credentials(username)}"
             )
             
             auth_config["username"] = username
@@ -312,7 +312,7 @@ For other calendar services:
                 event_type="token_setup",
                 user_id="wizard_user",
                 status="success",
-                details=f"Bearer token configured: {mask_credential(token)}"
+                details=f"Bearer token configured: {mask_credentials(token)}"
             )
             
             auth_config["token"] = token

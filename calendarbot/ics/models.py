@@ -3,7 +3,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class AuthType(str, Enum):
@@ -54,8 +54,7 @@ class ICSSource(BaseModel):
     # Validation settings
     validate_ssl: bool = Field(default=True, description="Validate SSL certificates")
     
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ICSResponse(BaseModel):
@@ -184,10 +183,11 @@ class DateTimeInfo(BaseModel):
     date_time: datetime = Field(..., description="The date and time")
     time_zone: str = Field(default="UTC", description="Time zone")
     
-    class Config:
-        json_encoders = {
+    model_config = ConfigDict(
+        json_encoders={
             datetime: lambda v: v.isoformat()
         }
+    )
 
 
 class Location(BaseModel):
@@ -245,8 +245,9 @@ class CalendarEvent(BaseModel):
         """Check if event has busy status (not free)."""
         return self.show_as in [EventStatus.BUSY, EventStatus.TENTATIVE, EventStatus.OUT_OF_OFFICE, EventStatus.WORKING_ELSEWHERE]
     
-    class Config:
-        use_enum_values = True
-        json_encoders = {
+    model_config = ConfigDict(
+        use_enum_values=True,
+        json_encoders={
             datetime: lambda v: v.isoformat() if v else None
         }
+    )

@@ -30,6 +30,24 @@ def verbose(self, message, *args, **kwargs):
 logging.Logger.verbose = verbose
 
 
+def get_log_level(level_name: str) -> int:
+    """Get numeric log level from string name, including custom VERBOSE level.
+    
+    Args:
+        level_name: Log level name (DEBUG, VERBOSE, INFO, WARNING, ERROR, CRITICAL)
+        
+    Returns:
+        Numeric log level value
+        
+    Raises:
+        AttributeError: If level name is not recognized
+    """
+    level_name = level_name.upper()
+    if level_name == 'VERBOSE':
+        return VERBOSE
+    return getattr(logging, level_name)
+
+
 class AutoColoredFormatter(logging.Formatter):
     """Formatter that auto-detects terminal color support."""
     
@@ -193,7 +211,7 @@ def setup_enhanced_logging(settings: "CalendarBotSettings",
     
     # 2. Console Handler (if enabled)
     if settings.logging.console_enabled:
-        console_level = getattr(logging, settings.logging.console_level.upper())
+        console_level = get_log_level(settings.logging.console_level)
         
         # Auto-detecting color formatter
         console_formatter = AutoColoredFormatter(
@@ -251,7 +269,7 @@ def setup_enhanced_logging(settings: "CalendarBotSettings",
             max_files=settings.logging.max_log_files
         )
         
-        file_level = getattr(logging, settings.logging.file_level.upper())
+        file_level = get_log_level(settings.logging.file_level)
         file_handler.setLevel(file_level)
         
         # Use structured formatter for file logs if enabled
@@ -286,7 +304,7 @@ def setup_enhanced_logging(settings: "CalendarBotSettings",
         logger.info(f"Enhanced logging to file: {file_handler.baseFilename}")
     
     # 4. Configure third-party library levels
-    third_party_level = getattr(logging, settings.logging.third_party_level.upper())
+    third_party_level = get_log_level(settings.logging.third_party_level)
     for lib in ['aiohttp', 'urllib3', 'msal', 'asyncio']:
         logging.getLogger(lib).setLevel(third_party_level)
     
