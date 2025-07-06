@@ -13,6 +13,223 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 
+def check_configuration() -> tuple[bool, Optional[Path]]:
+    """Check if Calendar Bot is configured and return config file path.
+    
+    Returns:
+        Tuple of (is_configured, config_file_path)
+    """
+    from config.settings import CalendarBotSettings
+    
+    # Check for config file in project directory first
+    project_config = Path(__file__).parent / "config" / "config.yaml"
+    if project_config.exists():
+        return True, project_config
+    
+    # Check user config directory
+    user_config_dir = Path.home() / ".config" / "calendarbot"
+    user_config = user_config_dir / "config.yaml"
+    if user_config.exists():
+        return True, user_config
+    
+    # Check if essential settings are available via environment variables
+    settings = CalendarBotSettings()
+    if settings.ics_url:
+        return True, None  # Configured via environment variables
+    
+    return False, None
+
+
+def show_setup_guidance():
+    """Display setup guidance for first-time users."""
+    print("\n" + "="*70)
+    print("🚀 Welcome to Calendar Bot!")
+    print("="*70)
+    print("It looks like this is your first time running Calendar Bot.")
+    print("Let's get you set up!\n")
+    
+    print("📋 Quick Setup Options:")
+    print("1. Run 'calendarbot --setup' for interactive configuration wizard")
+    print("   ✨ NEW: Includes service templates, testing, and authentication setup")
+    print("2. Copy config/config.yaml.example to config/config.yaml")
+    print("3. Set environment variable: CALENDARBOT_ICS_URL=your-calendar-url")
+    print("\n🔧 Interactive Wizard Features:")
+    print("- Templates for Outlook, Google Calendar, iCloud, and CalDAV")
+    print("- Automatic URL validation and connection testing")
+    print("- Authentication setup (basic auth, bearer tokens)")
+    print("- Advanced settings configuration")
+    print("\n📖 Documentation:")
+    print("- Configuration guide: See config/config.yaml.example")
+    print("- Full setup instructions: See INSTALL.md")
+    print("- Usage examples: Run 'calendarbot --help'")
+    print("\n🔧 Required Configuration:")
+    print("- ICS calendar URL (your Outlook/Google/iCloud calendar link)")
+    print("- Optional: Authentication credentials for private calendars")
+    print("="*70)
+
+
+def backup_configuration() -> int:
+    """Backup current configuration to timestamped file.
+    
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    try:
+        import shutil
+        from datetime import datetime
+        
+        # Find current config file
+        is_configured, config_path = check_configuration()
+        if not is_configured or not config_path:
+            print("❌ No configuration file found to backup")
+            return 1
+        
+        # Create backup directory
+        backup_dir = Path.home() / ".config" / "calendarbot" / "backups"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create timestamped backup filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"config_backup_{timestamp}.yaml"
+        backup_path = backup_dir / backup_filename
+        
+        # Copy config file to backup
+        shutil.copy2(config_path, backup_path)
+        
+        print(f"✅ Configuration backed up to: {backup_path}")
+        return 0
+        
+    except Exception as e:
+        print(f"❌ Backup failed: {e}")
+        return 1
+
+
+def restore_configuration(backup_file: str) -> int:
+    """Restore configuration from backup file.
+    
+    Args:
+        backup_file: Path to backup file to restore
+        
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    try:
+        import shutil
+        
+        backup_path = Path(backup_file)
+        if not backup_path.exists():
+            print(f"❌ Backup file not found: {backup_file}")
+            return 1
+        
+        # Determine target config location
+        target_config = Path.home() / ".config" / "calendarbot" / "config.yaml"
+        target_config.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Backup current config if it exists
+        if target_config.exists():
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            current_backup = target_config.parent / "backups" / f"config_before_restore_{timestamp}.yaml"
+            current_backup.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(target_config, current_backup)
+            print(f"📦 Current config backed up to: {current_backup}")
+        
+        # Restore from backup
+        shutil.copy2(backup_path, target_config)
+        
+        print(f"✅ Configuration restored from: {backup_file}")
+        print(f"📁 Active config location: {target_config}")
+        return 0
+        
+    except Exception as e:
+        print(f"❌ Restore failed: {e}")
+        return 1
+
+
+def list_backups() -> int:
+    """List available configuration backups.
+    
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    try:
+        backup_dir = Path.home() / ".config" / "calendarbot" / "backups"
+        
+        if not backup_dir.exists():
+            print("📂 No backup directory found")
+            return 0
+        
+        backup_files = list(backup_dir.glob("config_*.yaml"))
+        
+        if not backup_files:
+            print("📂 No configuration backups found")
+            return 0
+        
+        print(f"📂 Configuration backups in {backup_dir}:")
+        print()
+        
+        # Sort by modification time (newest first)
+        backup_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+        
+        for backup_file in backup_files:
+            stat = backup_file.stat()
+            size_kb = stat.st_size / 1024
+            mtime = datetime.fromtimestamp(stat.st_mtime)
+            
+            print(f"  📄 {backup_file.name}")
+            print(f"     Size: {size_kb:.1f} KB")
+            print(f"     Date: {mtime.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"     Path: {backup_file}")
+            print()
+        
+        print(f"💡 To restore: calendarbot --restore {backup_files[0]}")
+        return 0
+        
+    except Exception as e:
+        print(f"❌ Failed to list backups: {e}")
+        return 1
+
+
+def run_setup_wizard() -> int:
+    """Run the configuration setup wizard.
+    
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    try:
+        # Import the comprehensive setup wizard
+        from calendarbot.setup_wizard import run_setup_wizard as run_async_wizard, run_simple_wizard
+        
+        # Check if user wants full wizard or simple wizard
+        print("\n" + "="*60)
+        print("📅 Calendar Bot Configuration Wizard")
+        print("="*60)
+        print("Choose setup mode:")
+        print("1. Full wizard (recommended) - Interactive setup with testing and templates")
+        print("2. Quick setup - Basic configuration")
+        print()
+        
+        choice = input("Enter choice (1 or 2) [1]: ").strip()
+        
+        if choice == "2":
+            # Run simple wizard
+            print("Running quick setup...")
+            success = run_simple_wizard()
+            return 0 if success else 1
+        else:
+            # Run full async wizard
+            print("Running full interactive wizard...")
+            success = asyncio.run(run_async_wizard())
+            return 0 if success else 1
+        
+    except KeyboardInterrupt:
+        print("\n\nSetup cancelled by user.")
+        return 1
+    except Exception as e:
+        print(f"\n❌ Setup failed: {e}")
+        return 1
+
+
 def parse_date(date_str: str) -> datetime:
     """Parse date string in YYYY-MM-DD format.
     
@@ -104,11 +321,15 @@ def create_parser() -> argparse.ArgumentParser:
         Configured ArgumentParser instance
     """
     parser = argparse.ArgumentParser(
-        description="Calendar Bot - Microsoft 365 calendar display with interactive navigation",
+        description="Calendar Bot - ICS calendar display with interactive navigation and web interface",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   %(prog)s                           # Run in interactive mode (default)
+  %(prog)s --setup                   # Run first-time configuration wizard
+  %(prog)s --backup                  # Backup current configuration
+  %(prog)s --list-backups            # List available configuration backups
+  %(prog)s --restore backup_file.yaml # Restore configuration from backup
   %(prog)s --test-mode               # Run validation tests
   %(prog)s --test-mode --verbose     # Run tests with verbose output
   %(prog)s --test-mode --date 2024-01-15 --components auth,api
@@ -116,7 +337,40 @@ Examples:
   %(prog)s --interactive             # Run interactive console mode (explicit)
   %(prog)s --web                     # Run web server mode on localhost:8080
   %(prog)s --web --port 3000 --auto-open  # Run web server on port 3000 and open browser
+  %(prog)s --rpi --web               # Run in RPI e-ink mode with web interface
         """
+    )
+    
+    # Setup and configuration arguments
+    parser.add_argument(
+        "--setup",
+        action="store_true",
+        help="Run first-time configuration wizard (creates config.yaml)"
+    )
+    
+    parser.add_argument(
+        "--backup",
+        action="store_true",
+        help="Backup current configuration to timestamped file"
+    )
+    
+    parser.add_argument(
+        "--restore",
+        metavar="BACKUP_FILE",
+        help="Restore configuration from backup file"
+    )
+    
+    parser.add_argument(
+        "--list-backups",
+        action="store_true",
+        help="List available configuration backups"
+    )
+    
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s 1.0.0",
+        help="Show version information"
     )
     
     # Test mode arguments
@@ -633,7 +887,7 @@ async def run_web_mode(args) -> int:
 
 
 async def main_entry() -> int:
-    """Main entry point with argument parsing.
+    """Main entry point with argument parsing and first-run detection.
     
     Returns:
         Exit code (0 for success, 1 for failure)
@@ -641,14 +895,42 @@ async def main_entry() -> int:
     parser = create_parser()
     args = parser.parse_args()
     
+    # Handle setup wizard
+    if hasattr(args, 'setup') and args.setup:
+        return run_setup_wizard()
+    
+    # Handle backup operations
+    if hasattr(args, 'backup') and args.backup:
+        return backup_configuration()
+    
+    if hasattr(args, 'restore') and args.restore:
+        return restore_configuration(args.restore)
+    
+    if hasattr(args, 'list_backups') and args.list_backups:
+        return list_backups()
+    
+    # Check if configuration exists
+    is_configured, config_path = check_configuration()
+    
+    # If not configured and not running setup, show guidance
+    if not is_configured and not (hasattr(args, 'test_mode') and args.test_mode):
+        show_setup_guidance()
+        print(f"\n💡 Tip: Run 'calendarbot --setup' to get started quickly!\n")
+        return 1
+    
     # Validate mutually exclusive modes
-    mode_count = sum([args.test_mode, args.interactive, args.web])
+    mode_count = sum([
+        getattr(args, 'test_mode', False),
+        getattr(args, 'interactive', False),
+        getattr(args, 'web', False)
+    ])
     if mode_count > 1:
         parser.error("Only one mode can be specified: --test-mode, --interactive, or --web")
     
-    if args.test_mode:
+    # Run in specified mode
+    if hasattr(args, 'test_mode') and args.test_mode:
         return await run_test_mode(args)
-    elif args.web:
+    elif hasattr(args, 'web') and args.web:
         return await run_web_mode(args)
     else:
         # Default to interactive mode when no other mode is specified
