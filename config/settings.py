@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Optional, Any, Dict
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, ConfigDict
 from pydantic_settings import BaseSettings
 import os
 import yaml
@@ -148,11 +148,12 @@ class CalendarBotSettings(BaseSettings):
     max_retries: int = Field(default=3, description="Maximum retry attempts")
     retry_backoff_factor: float = Field(default=1.5, description="Exponential backoff factor")
     
-    class Config:
-        env_prefix = "CALENDARBOT_"
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = ConfigDict(
+        env_prefix="CALENDARBOT_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False
+    )
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

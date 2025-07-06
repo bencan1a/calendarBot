@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 class ICSAuth(BaseModel):
@@ -13,25 +13,27 @@ class ICSAuth(BaseModel):
     password: Optional[str] = Field(default=None, description="Password for basic auth")
     bearer_token: Optional[str] = Field(default=None, description="Bearer token for auth")
     
-    @validator('type')
+    @field_validator('type')
+    @classmethod
     def validate_auth_type(cls, v):
         if v is not None and v not in ['basic', 'bearer']:
             raise ValueError('auth_type must be "basic", "bearer", or null')
         return v
     
-    @validator('username', 'password')
-    def validate_basic_auth(cls, v, values):
-        auth_type = values.get('type')
-        if auth_type == 'basic':
-            if 'username' in values and not values['username']:
+    @field_validator('username', 'password')
+    @classmethod
+    def validate_basic_auth(cls, v, info):
+        if info.data.get('type') == 'basic':
+            if info.field_name == 'username' and not v:
                 raise ValueError('username required for basic auth')
-            if 'password' in values and not values['password']:
+            if info.field_name == 'password' and not v:
                 raise ValueError('password required for basic auth')
         return v
     
-    @validator('bearer_token')
-    def validate_bearer_auth(cls, v, values):
-        auth_type = values.get('type')
+    @field_validator('bearer_token')
+    @classmethod
+    def validate_bearer_auth(cls, v, info):
+        auth_type = info.data.get('type')
         if auth_type == 'bearer' and not v:
             raise ValueError('bearer_token required for bearer auth')
         return v
@@ -58,19 +60,22 @@ class ICSSourceConfig(BaseModel):
     validate_ssl: bool = Field(default=True, description="Validate SSL certificates")
     custom_headers: Dict[str, str] = Field(default_factory=dict, description="Custom HTTP headers")
     
-    @validator('url')
+    @field_validator('url')
+    @classmethod
     def validate_url(cls, v):
         if not v.startswith(('http://', 'https://')):
             raise ValueError('URL must start with http:// or https://')
         return v
     
-    @validator('refresh_interval')
+    @field_validator('refresh_interval')
+    @classmethod
     def validate_refresh_interval(cls, v):
         if v < 60:
             raise ValueError('refresh_interval must be at least 60 seconds')
         return v
     
-    @validator('timeout')
+    @field_validator('timeout')
+    @classmethod
     def validate_timeout(cls, v):
         if v < 1:
             raise ValueError('timeout must be at least 1 second')
@@ -95,8 +100,7 @@ class ICSConfig(BaseModel):
     max_consecutive_failures: int = Field(default=5, description="Max failures before marking unhealthy")
     failure_retry_delay: int = Field(default=60, description="Delay after failure in seconds")
     
-    class Config:
-        validate_assignment = True
+    model_config = ConfigDict(validate_assignment=True)
         
     @classmethod
     def from_settings(cls, settings) -> 'ICSConfig':
