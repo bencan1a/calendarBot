@@ -1,0 +1,2 @@
+[console_scripts]
+calendarbot = main:main_entry
