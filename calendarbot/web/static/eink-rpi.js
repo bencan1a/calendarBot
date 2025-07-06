@@ -1,6 +1,6 @@
 /* ===========================================
    E-INK RASPBERRY PI JAVASCRIPT MODULE
-   Optimized for 800x480px e-ink displays
+   Optimized for 480x800px e-ink displays (portrait)
    =========================================== */
 
 /**
@@ -21,9 +21,9 @@
 const EInkCalendar = {
     // Configuration
     config: {
-        // E-ink display specifications
-        displayWidth: 800,
-        displayHeight: 480,
+        // E-ink display specifications (portrait mode)
+        displayWidth: 480,
+        displayHeight: 800,
         
         // Performance settings optimized for e-ink
         refreshThrottle: 500, // Minimum time between API calls (ms)
@@ -40,7 +40,6 @@ const EInkCalendar = {
         
         // API endpoints
         endpoints: {
-            navigate: '/api/navigate',
             refresh: '/api/refresh',
             theme: '/api/theme',
             status: '/api/status'
@@ -52,8 +51,6 @@ const EInkCalendar = {
         currentTheme: 'eink-rpi',
         isLoading: false,
         lastRefresh: null,
-        lastNavigationAction: null,
-        touchStartData: null,
         pendingUpdates: new Set(),
         initialized: false
     },
@@ -87,14 +84,8 @@ function initializeEInkCalendar() {
     // Detect and set theme
     detectAndSetTheme();
     
-    // Setup optimized event handling
+    // Setup optimized event handling (status updates only)
     setupEInkEventHandling();
-    
-    // Setup touch interactions
-    setupTouchInteractions();
-    
-    // Setup keyboard navigation (accessibility)
-    setupKeyboardNavigation();
     
     // Setup performance monitoring
     setupPerformanceMonitoring();
@@ -197,135 +188,29 @@ function disableEInkProblematicFeatures() {
 // ===========================================
 
 /**
- * Setup optimized event handling for e-ink displays
+ * Setup optimized event handling for e-ink displays (status updates only)
  */
 function setupEInkEventHandling() {
-    console.log('Setting up E-ink event handling...');
+    console.log('Setting up E-ink event handling for status updates...');
     
-    // Navigation button handling with throttling
-    const handleNavigation = throttle((action) => {
-        console.log(`E-ink handleNavigation called with action: ${action}`);
-        if (!EInkCalendar.state.isLoading) {
-            navigate(action);
-        } else {
-            console.log('Navigation blocked - already loading');
-        }
-    }, EInkCalendar.config.refreshThrottle);
-    
-    // Add click listeners to specific navigation elements
-    const setupNavigationListeners = () => {
-        console.log('Setting up navigation listeners...');
-        
-        // Find all buttons with data-action attributes
-        const actionButtons = document.querySelectorAll('button[data-action]');
-        console.log(`Found ${actionButtons.length} action buttons`);
-        
-        actionButtons.forEach((button, index) => {
-            const action = button.getAttribute('data-action');
-            console.log(`Setting up button ${index + 1}: action="${action}", classes="${button.className}"`);
-            
-            // Remove any existing listeners to prevent duplicates
-            button.removeEventListener('click', handleButtonClick);
-            
-            // Add new listener
-            button.addEventListener('click', handleButtonClick, { passive: false });
-        });
-        
-        // Also handle legacy buttons and class-based selection
-        const legacyButtons = [
-            { selector: '.nav-prev', action: 'prev' },
-            { selector: '.nav-next', action: 'next' },
-            { selector: '.nav-today', action: 'today' },
-            { selector: '.theme-toggle', action: 'theme' }
-        ];
-        
-        legacyButtons.forEach(({ selector, action }) => {
-            const button = document.querySelector(selector);
-            if (button && !button.hasAttribute('data-action')) {
-                console.log(`Setting up legacy button: ${selector} -> ${action}`);
-                button.setAttribute('data-action', action);
-                button.removeEventListener('click', handleButtonClick);
-                button.addEventListener('click', handleButtonClick, { passive: false });
-            }
-        });
-    };
-    
-    // Unified button click handler
-    const handleButtonClick = (event) => {
-        console.log('Button clicked:', event.target);
-        event.preventDefault();
-        event.stopPropagation();
-        
-        const button = event.target.closest('button');
-        const action = button?.getAttribute('data-action');
-        
-        console.log(`Button action: ${action}`);
-        
-        if (!action) {
-            console.warn('No action found for button');
-            return;
-        }
-        
-        // Provide immediate visual feedback for e-ink
-        showButtonFeedback(button, action);
-        
-        switch (action) {
-            case 'prev':
-                console.log('Executing prev navigation');
-                handleNavigation('prev');
-                break;
-            case 'next':
-                console.log('Executing next navigation');
-                handleNavigation('next');
-                break;
-            case 'today':
-                console.log('Executing today navigation');
-                handleNavigation('today');
-                break;
-            case 'theme':
-                console.log('Executing theme toggle');
+    // Only handle theme toggle button if present
+    const setupThemeListener = () => {
+        const themeButton = document.querySelector('.theme-toggle, button[data-action="theme"]');
+        if (themeButton) {
+            console.log('Setting up theme toggle button');
+            themeButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                console.log('Theme toggle clicked');
                 toggleTheme();
-                break;
-            default:
-                console.warn(`Unknown action: ${action}`);
+            }, { passive: false });
         }
     };
     
-    // Show button press feedback optimized for e-ink
-    const showButtonFeedback = (button, action) => {
-        if (!button) return;
-        
-        // Store original styles
-        const originalBorder = button.style.border;
-        const originalBackground = button.style.background;
-        
-        // Apply feedback styling
-        button.style.border = '3px solid #000';
-        button.style.background = '#000';
-        button.style.color = '#fff';
-        
-        // Show action feedback message
-        const actionMessages = {
-            'prev': '← Previous Day',
-            'next': 'Next Day →',
-            'today': '📅 Today',
-            'theme': '🎨 Theme'
-        };
-        
-        showEInkMessage(actionMessages[action] || action, 'info');
-        
-        // Restore original styling after feedback period
-        setTimeout(() => {
-            button.style.border = originalBorder;
-            button.style.background = originalBackground;
-            button.style.color = '';
-        }, 200);
-    };
+    // Setup theme listener immediately
+    setupThemeListener();
     
-    // Setup listeners immediately
-    setupNavigationListeners();
-    
-    // Also setup listeners after DOM mutations (for dynamic content)
+    // Also setup listeners after DOM mutations for theme button
     const observer = new MutationObserver((mutations) => {
         let shouldSetupListeners = false;
         mutations.forEach((mutation) => {
@@ -333,11 +218,8 @@ function setupEInkEventHandling() {
                 for (let node of mutation.addedNodes) {
                     if (node.nodeType === 1 && // Element node
                         (node.querySelector &&
-                         (node.querySelector('button[data-action]') ||
-                          node.querySelector('button.nav-prev') ||
-                          node.querySelector('button.nav-next') ||
-                          node.querySelector('button.theme-toggle') ||
-                          node.tagName === 'BUTTON'))) {
+                         (node.querySelector('.theme-toggle') ||
+                          node.querySelector('button[data-action="theme"]')))) {
                         shouldSetupListeners = true;
                         break;
                     }
@@ -346,241 +228,27 @@ function setupEInkEventHandling() {
         });
         
         if (shouldSetupListeners) {
-            console.log('DOM mutation detected, re-setting up navigation listeners');
-            setTimeout(setupNavigationListeners, 100); // Small delay to ensure DOM is ready
+            console.log('DOM mutation detected, re-setting up theme listener');
+            setTimeout(setupThemeListener, 100);
         }
     });
     
-    // Observe the entire document for navigation button changes
+    // Observe the entire document for theme button changes
     observer.observe(document.body, {
         childList: true,
         subtree: true
     });
     
-    // Store handler for cleanup if needed
-    EInkCalendar.handlers.set('navigation', handleNavigation);
-    
-    console.log('E-ink event handling setup complete');
+    console.log('E-ink event handling setup complete (status mode)');
 }
 
-/**
- * Setup touch interactions optimized for e-ink displays
- */
-function setupTouchInteractions() {
-    let touchData = {
-        startX: 0,
-        startY: 0,
-        startTime: 0,
-        isSwipe: false
-    };
-    
-    // Touch start handler
-    document.addEventListener('touchstart', (event) => {
-        if (event.touches.length === 1) {
-            const touch = event.touches[0];
-            touchData = {
-                startX: touch.clientX,
-                startY: touch.clientY,
-                startTime: Date.now(),
-                isSwipe: false
-            };
-            EInkCalendar.state.touchStartData = touchData;
-        }
-    }, { passive: true });
-    
-    // Touch move handler - detect swipe intent
-    document.addEventListener('touchmove', (event) => {
-        if (event.touches.length === 1 && EInkCalendar.state.touchStartData) {
-            const touch = event.touches[0];
-            const deltaX = Math.abs(touch.clientX - touchData.startX);
-            const deltaY = Math.abs(touch.clientY - touchData.startY);
-            
-            // Mark as swipe if horizontal movement is significant
-            if (deltaX > 20 && deltaX > deltaY) {
-                touchData.isSwipe = true;
-            }
-        }
-    }, { passive: true });
-    
-    // Touch end handler with swipe detection
-    const handleTouchEnd = throttle((event) => {
-        if (!EInkCalendar.state.touchStartData) return;
-        
-        const touch = event.changedTouches[0];
-        const deltaX = touch.clientX - touchData.startX;
-        const deltaY = touch.clientY - touchData.startY;
-        const deltaTime = Date.now() - touchData.startTime;
-        
-        // Swipe detection with stricter criteria for e-ink
-        if (touchData.isSwipe && 
-            Math.abs(deltaX) > EInkCalendar.config.swipeThreshold &&
-            Math.abs(deltaX) > Math.abs(deltaY) * 2 && // More horizontal than vertical
-            deltaTime < 1000) { // Within reasonable time
-            
-            if (deltaX > 0) {
-                // Swipe right - go to previous day
-                navigate('prev');
-            } else {
-                // Swipe left - go to next day  
-                navigate('next');
-            }
-        }
-        
-        // Reset touch data
-        EInkCalendar.state.touchStartData = null;
-    }, EInkCalendar.config.touchThrottle);
-    
-    document.addEventListener('touchend', handleTouchEnd, { passive: true });
-    
-    // Prevent double-tap zoom on iOS
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', (event) => {
-        const now = Date.now();
-        if (now - lastTouchEnd <= 300) {
-            event.preventDefault();
-        }
-        lastTouchEnd = now;
-    }, { passive: false });
-    
-    console.log('Touch interactions setup complete');
-}
-
-/**
- * Setup keyboard navigation for accessibility
- */
-function setupKeyboardNavigation() {
-    document.addEventListener('keydown', (event) => {
-        // Only handle navigation if not in an input
-        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
-            return;
-        }
-        
-        const navigationKeys = ['ArrowLeft', 'ArrowRight', ' ', 'Home', 'End', 'r', 'R', 't', 'T'];
-        if (navigationKeys.includes(event.key)) {
-            event.preventDefault();
-        }
-        
-        switch(event.key) {
-            case 'ArrowLeft':
-                navigate('prev');
-                break;
-            case 'ArrowRight':
-                navigate('next');
-                break;
-            case ' ': // Space bar
-                navigate('today');
-                break;
-            case 'Home':
-                navigate('week-start');
-                break;
-            case 'End':
-                navigate('week-end');
-                break;
-            case 'r':
-            case 'R':
-                refresh();
-                break;
-            case 't':
-            case 'T':
-                toggleTheme();
-                break;
-        }
-    });
-    
-    console.log('Keyboard navigation setup complete');
-}
+// Navigation functions removed - display is now status-only without navigation
 
 // ===========================================
-// NAVIGATION FUNCTIONS
+// STATUS UPDATE FUNCTIONS
 // ===========================================
 
-/**
- * Navigate to a different date/view
- * @param {string} action - Navigation action (prev, next, today, etc.)
- */
-async function navigate(action) {
-    console.log(`=== E-ink Navigation Started ===`);
-    console.log(`Action: ${action}`);
-    console.log(`Current loading state: ${EInkCalendar.state.isLoading}`);
-    console.log(`API endpoint: ${EInkCalendar.config.endpoints.navigate}`);
-    
-    if (EInkCalendar.state.isLoading) {
-        console.log('Navigation blocked - already loading');
-        showEInkMessage('Please wait...', 'info');
-        return;
-    }
-    
-    console.log(`Setting loading state to true`);
-    EInkCalendar.state.isLoading = true;
-    EInkCalendar.state.lastNavigationAction = action;
-    
-    try {
-        // Show minimal loading indicator
-        console.log('Showing loading indicator');
-        showEInkLoadingIndicator(`Navigating ${action}...`);
-        
-        // Track performance
-        const startTime = performance.now();
-        EInkCalendar.performance.apiCallCount++;
-        EInkCalendar.performance.lastApiCall = Date.now();
-        
-        console.log('Making API request...');
-        const requestBody = JSON.stringify({ action: action });
-        console.log(`Request body: ${requestBody}`);
-        
-        const response = await fetch(EInkCalendar.config.endpoints.navigate, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: requestBody
-        });
-        
-        console.log(`Response status: ${response.status}`);
-        console.log(`Response ok: ${response.ok}`);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        console.log('Parsing response JSON...');
-        const data = await response.json();
-        console.log('Response data:', {
-            success: data.success,
-            hasHtml: !!data.html,
-            error: data.error,
-            htmlLength: data.html ? data.html.length : 0
-        });
-        
-        if (data.success && data.html) {
-            console.log('Updating content...');
-            // Update content efficiently for e-ink
-            await updateEInkContent(data.html);
-            
-            // Provide minimal feedback
-            console.log('Showing navigation feedback');
-            showEInkNavigationFeedback(action);
-            
-            // Log performance
-            const duration = performance.now() - startTime;
-            console.log(`Navigation completed successfully in ${duration.toFixed(2)}ms`);
-            showEInkSuccessMessage(`${action} navigation complete`);
-        } else {
-            console.error('Navigation failed - server response:', data);
-            showEInkErrorMessage(data.error || 'Navigation failed');
-        }
-        
-    } catch (error) {
-        console.error('Navigation error:', error);
-        console.error('Error stack:', error.stack);
-        showEInkErrorMessage(`Navigation error: ${error.message}`);
-    } finally {
-        console.log('Cleaning up navigation...');
-        hideEInkLoadingIndicator();
-        EInkCalendar.state.isLoading = false;
-        console.log(`=== E-ink Navigation Completed ===`);
-    }
-}
+// Navigation function removed - display is now status-only
 
 /**
  * Refresh calendar data
@@ -714,9 +382,8 @@ async function updateEInkContent(newHTML) {
         // Update only specific sections to minimize e-ink refreshes
         const sectionsToUpdate = [
             '.calendar-title',
-            '.status-line',
-            '.calendar-content',
-            '.nav-date-display'
+            '.calendar-status',
+            '.calendar-content'
         ];
         
         let updatedSections = 0;
@@ -802,23 +469,23 @@ function hideEInkLoadingIndicator() {
 }
 
 /**
- * Show navigation feedback optimized for e-ink
- * @param {string} action - Navigation action performed
+ * Show status update feedback optimized for e-ink
+ * @param {string} message - Status message
  */
-function showEInkNavigationFeedback(action) {
-    // For e-ink displays, we provide minimal, non-animated feedback
-    const dateDisplay = document.querySelector('.nav-date-display');
-    if (dateDisplay) {
-        // Briefly highlight the date display to show something changed
-        const originalBorder = dateDisplay.style.border;
-        dateDisplay.style.border = '2px solid #000';
+function showEInkStatusFeedback(message) {
+    // For e-ink displays, provide minimal visual feedback
+    const statusDisplay = document.querySelector('.calendar-status');
+    if (statusDisplay) {
+        // Briefly highlight the status display to show something changed
+        const originalBorder = statusDisplay.style.border;
+        statusDisplay.style.border = '2px solid #000';
         
         setTimeout(() => {
-            dateDisplay.style.border = originalBorder;
+            statusDisplay.style.border = originalBorder;
         }, 300);
     }
     
-    console.log(`Navigation feedback: ${action}`);
+    console.log(`Status feedback: ${message}`);
 }
 
 /**
@@ -1009,15 +676,13 @@ if (document.readyState === 'loading') {
 // Override any existing functions from app.js
 console.log('Exporting e-ink navigation functions globally...');
 
-// Force override of global functions
-window.navigate = navigate;
+// Export status-only functions for global access
 window.toggleTheme = toggleTheme;
 window.refresh = refresh;
 window.EInkCalendar = EInkCalendar;
 
-// Override any existing calendarBot object
+// Override any existing calendarBot object (navigation removed)
 window.calendarBot = {
-    navigate,
     toggleTheme,
     refresh,
     getCurrentTheme: () => EInkCalendar.state.currentTheme,
@@ -1045,26 +710,20 @@ function debugNavigationSetup() {
         });
     });
     
-    // Check navigation elements specifically
-    const navElements = [
-        { selector: '.nav-prev', expected: 'Previous button' },
-        { selector: '.nav-next', expected: 'Next button' },
-        { selector: '.nav-today', expected: 'Today button' },
+    // Check remaining elements specifically
+    const remainingElements = [
         { selector: '.theme-toggle', expected: 'Theme button' },
-        { selector: 'button[data-action="prev"]', expected: 'Data-action prev' },
-        { selector: 'button[data-action="next"]', expected: 'Data-action next' },
-        { selector: 'button[data-action="today"]', expected: 'Data-action today' },
-        { selector: 'button[data-action="theme"]', expected: 'Data-action theme' }
+        { selector: 'button[data-action="theme"]', expected: 'Data-action theme' },
+        { selector: '.calendar-status', expected: 'Status display' }
     ];
     
-    navElements.forEach(({ selector, expected }) => {
+    remainingElements.forEach(({ selector, expected }) => {
         const element = document.querySelector(selector);
         console.log(`${expected}: ${element ? 'FOUND' : 'MISSING'} (${selector})`);
     });
     
-    // Check global functions
+    // Check global functions (navigation removed)
     console.log('Global functions:', {
-        navigate: typeof window.navigate,
         toggleTheme: typeof window.toggleTheme,
         refresh: typeof window.refresh
     });
@@ -1078,7 +737,6 @@ function debugNavigationSetup() {
 
 // Global debug access
 window.einkCalendarBot = {
-    navigate,
     toggleTheme,
     refresh,
     getMetrics: () => EInkCalendar.performance,

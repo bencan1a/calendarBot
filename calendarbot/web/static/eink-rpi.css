@@ -1,6 +1,6 @@
 /* ===========================================
    E-INK RASPBERRY PI THEME
-   800x480px Display Optimization
+   480x800px Display Optimization
    =========================================== */
 
 /* ===========================================
@@ -9,13 +9,13 @@
 
 .theme-eink-rpi {
   /* Display Dimensions */
-  --display-width: 800px;
-  --display-height: 480px;
+  --display-width: 480px;
+  --display-height: 800px;
   
   /* Layout Grid System */
   --header-height: 80px;
-  --navigation-height: 60px;
-  --content-height: calc(var(--display-height) - var(--header-height) - var(--navigation-height));
+  --status-height: 60px;
+  --content-height: calc(var(--display-height) - var(--header-height) - var(--status-height));
   --content-padding: 16px;
   --grid-gap: 12px;
   
@@ -143,11 +143,11 @@
 
 .theme-eink-rpi .calendar-container {
   display: grid;
-  grid-template-rows: var(--header-height) 1fr var(--navigation-height);
-  grid-template-areas: 
+  grid-template-rows: var(--header-height) 1fr var(--status-height);
+  grid-template-areas:
     "header"
     "content"
-    "navigation";
+    "status";
   width: var(--display-width);
   height: var(--display-height);
 }
@@ -172,15 +172,28 @@
   height: var(--content-height);
 }
 
-.theme-eink-rpi .calendar-navigation {
-  grid-area: navigation;
+.theme-eink-rpi .calendar-status {
+  grid-area: status;
   display: grid;
   grid-template-columns: var(--nav-button-width) 1fr var(--nav-button-width);
   grid-template-areas: "prev-btn date-display next-btn";
   align-items: center;
   background: var(--color-surface);
   border-top: var(--border-width) var(--border-style) var(--color-border);
-  height: var(--navigation-height);
+  height: var(--status-height);
+  padding: var(--spacing-sm) var(--spacing-lg);
+}
+
+/* Legacy navigation class for backward compatibility */
+.theme-eink-rpi .calendar-navigation {
+  grid-area: status;
+  display: grid;
+  grid-template-columns: var(--nav-button-width) 1fr var(--nav-button-width);
+  grid-template-areas: "prev-btn date-display next-btn";
+  align-items: center;
+  background: var(--color-surface);
+  border-top: var(--border-width) var(--border-style) var(--color-border);
+  height: var(--status-height);
   padding: var(--spacing-sm) var(--spacing-lg);
 }
 
@@ -1461,10 +1474,10 @@ Phase 3 Information Architecture Design - IMPLEMENTED:
 
 /* ===========================================
    RESPONSIVE ADJUSTMENTS
-   Note: Designed primarily for 800x480px
+   Note: Designed primarily for 480x800px
    =========================================== */
 
-@media (max-width: 800px) {
+@media (max-width: 480px) {
   .theme-eink-rpi {
     --nav-button-width: 80px;
     --content-padding: 12px;
@@ -1480,10 +1493,10 @@ Phase 3 Information Architecture Design - IMPLEMENTED:
   }
 }
 
-@media (max-height: 480px) {
+@media (max-height: 800px) {
   .theme-eink-rpi {
     --header-height: 60px;
-    --navigation-height: 50px;
+    --status-height: 50px;
     --content-padding: 8px;
   }
   
@@ -1674,11 +1687,12 @@ Phase 3 Information Architecture Design - IMPLEMENTED:
 
 @media print {
   .theme-eink-rpi {
-    width: 800px;
-    height: 480px;
+    width: 480px;
+    height: 800px;
   }
   
-  .theme-eink-rpi .calendar-navigation {
+  .theme-eink-rpi .calendar-navigation,
+  .theme-eink-rpi .calendar-status {
     display: none;
   }
   
@@ -1691,6 +1705,6 @@ Phase 3 Information Architecture Design - IMPLEMENTED:
   }
   
   .theme-eink-rpi .calendar-content {
-    height: calc(480px - 80px);
+    height: calc(800px - 80px);
   }
 }
