@@ -337,10 +337,12 @@ class WebServer:
                 
                 logger.debug(f"Retrieved {len(events)} events for today")
                 
+                # FIXED: Static web display mode - no navigation buttons
                 status_info = {
                     'last_update': datetime.now().isoformat(),
                     'is_cached': False,
-                    'connection_status': 'Online'
+                    'connection_status': 'Online',
+                    'interactive_mode': False  # FIXED: Static display mode
                 }
             
             # DEBUG: Log renderer information

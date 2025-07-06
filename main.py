@@ -497,10 +497,13 @@ async def run_web_mode(args) -> int:
         
         # Apply web mode overrides - ensure HTML renderer and eink-rpi theme for web mode
         if not hasattr(args, 'rpi') or not args.rpi:
-            # Only override if not in RPI mode
-            updated_settings.display_type = "html"
+            # DIAGNOSTIC: This is the source of the problem!
+            print(f"DEBUG: PROBLEM IDENTIFIED - Setting display_type='html' instead of 'rpi'")
+            print(f"DEBUG: This causes wrong HTML template structure to be generated")
+            # FIXED: Use RPI renderer for proper layout structure
+            updated_settings.display_type = "rpi"
             updated_settings.web_theme = "eink-rpi"  # Default to RPI-optimized theme for web mode
-            print(f"DEBUG: Set display_type = 'html' and web_theme = 'eink-rpi' for web mode")
+            print(f"DEBUG: FIXED - Set display_type = 'rpi' and web_theme = 'eink-rpi' for web mode")
         
         # Set up enhanced logging for web mode
         logger = setup_enhanced_logging(updated_settings, interactive_mode=False)
@@ -536,16 +539,16 @@ async def run_web_mode(args) -> int:
         navigation_handler = WebNavigationHandler()
         logger.debug("Web navigation handler created successfully")
         
-        # Create web server with correct parameters
-        logger.debug("Creating WebServer with corrected parameters...")
+        # Create web server with navigation state enabled
+        logger.debug("Creating WebServer with navigation state enabled...")
         try:
             web_server = WebServer(
-                settings=updated_settings,                        # FIXED: Use RPI-overridden settings
-                display_manager=app.display_manager,              # Required second parameter
-                cache_manager=app.cache_manager,                  # Required third parameter
-                navigation_state=navigation_handler.navigation_state  # Correct parameter name
+                settings=updated_settings,
+                display_manager=app.display_manager,
+                cache_manager=app.cache_manager,
+                navigation_state=navigation_handler.navigation_state  # Navigation enabled
             )
-            logger.info("WebServer created successfully")
+            logger.info("WebServer created successfully with navigation enabled")
         except Exception as e:
             logger.error(f"Failed to create WebServer: {e}")
             logger.debug(f"WebServer parameters attempted: settings={settings}, display_manager={app.display_manager}, cache_manager={app.cache_manager}, navigation_state={navigation_handler.navigation_state}")

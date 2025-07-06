@@ -27,12 +27,12 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             settings: Application settings
         """
         super().__init__(settings)
-        # Override theme for RPI e-ink display
-        self.theme = 'eink-rpi'
+        # Override theme for RPI e-ink display - use the more visually appealing 'eink' theme
+        self.theme = 'eink'
         
-        logger.debug("RPI HTML renderer initialized for 800x480px e-ink display")
+        logger.debug("RPI HTML renderer initialized for 800x480px e-ink display with 'eink' theme")
     
-    def _build_html_template(self, display_date: str, status_line: str, 
+    def _build_html_template(self, display_date: str, status_line: str,
                            events_content: str, nav_help: str, interactive_mode: bool) -> str:
         """Build the complete HTML template optimized for RPI e-ink display.
         
@@ -46,11 +46,16 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         Returns:
             Complete HTML document with RPI e-ink layout
         """
+        # DEBUG: Log critical parameters for UX debugging
+        logger.debug(f"RPI HTML Template - interactive_mode: {interactive_mode}")
+        logger.debug(f"RPI HTML Template - display_date: {display_date}")
+        logger.debug(f"RPI HTML Template - viewport will be: width=800, height=480 (ISSUE: should be 480x800 for portrait)")
+        
         # Generate navigation controls for header
         header_nav_controls = self._generate_header_navigation(interactive_mode)
         
-        # Generate bottom navigation bar
-        bottom_navigation = self._generate_bottom_navigation(display_date, interactive_mode)
+        # Generate bottom status bar (replaces navigation)
+        bottom_status_bar = self._generate_bottom_status_bar(status_line)
         
         # Theme toggle for header
         theme_toggle = self._generate_theme_toggle()
@@ -67,7 +72,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
 <body>
     <!-- Skip Links for Accessibility -->
     <a href="#main-content" class="skip-link">Skip to main content</a>
-    <a href="#navigation" class="skip-link">Skip to navigation</a>
+    <a href="#status" class="skip-link">Skip to status</a>
     
     <div class="calendar-container">
         <header class="calendar-header" role="banner">
@@ -75,7 +80,6 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             
             <div class="header-main">
                 <h1 class="calendar-title">📅 Calendar</h1>
-                {self._render_status_line_html(status_line)}
             </div>
             
             {theme_toggle}
@@ -85,7 +89,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             {events_content}
         </main>
         
-        {bottom_navigation}
+        {bottom_status_bar}
     </div>
     
     <script src="/static/app.js"></script>
@@ -116,46 +120,19 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         </div>
         '''
     
-    def _generate_bottom_navigation(self, display_date: str, interactive_mode: bool) -> str:
-        """Generate bottom navigation bar for RPI layout.
+    def _generate_bottom_status_bar(self, status_line: str) -> str:
+        """Generate bottom status bar for RPI layout.
         
         Args:
-            display_date: Current display date string
-            interactive_mode: Whether in interactive mode
+            status_line: Status information HTML from the base renderer
             
         Returns:
-            HTML for bottom navigation bar
+            HTML for bottom status bar
         """
-        if not interactive_mode:
-            # Static display without navigation
-            return f'''
-            <nav class="calendar-navigation">
-                <div class="nav-prev"></div>
-                <div class="nav-date-display">{display_date}</div>
-                <div class="nav-next"></div>
-            </nav>
-            '''
-        
         return f'''
-        <nav id="navigation" class="calendar-navigation" role="navigation" aria-label="Date Navigation">
-            <button class="btn-base btn-navigation nav-prev"
-                    title="Previous Day"
-                    aria-label="Previous Day - Navigate to previous date"
-                    data-action="prev">
-                ‹
-            </button>
-            
-            <div class="nav-date-display" role="status" aria-live="polite" aria-label="Current Date">
-                {display_date}
-            </div>
-            
-            <button class="btn-base btn-navigation nav-next"
-                    title="Next Day"
-                    aria-label="Next Day - Navigate to next date"
-                    data-action="next">
-                ›
-            </button>
-        </nav>
+        <div id="status" class="calendar-status" role="status" aria-label="Calendar Status">
+            {self._render_status_line_html(status_line)}
+        </div>
         '''
     
     def _generate_theme_toggle(self) -> str:
@@ -495,7 +472,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
 <html lang="en" class="theme-{self.theme}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=800, height=480, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=480, height=800, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - Connection Issue</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/eink-rpi.css">
