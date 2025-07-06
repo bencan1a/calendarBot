@@ -14,7 +14,6 @@ LOGGING_ARCHITECTURE.md
 MIGRATION.md
 PACKAGING_SUMMARY.md
 README.md
-RPI_INTERFACE.md
 SETUP.md
 USAGE.md
 USER_STORIES.md
@@ -43,6 +42,8 @@ test_rpi_integration.py
 ./config/ics_config.py
 ./config/settings.py
 .roo/mcp.json
+.vscode/launch.json
+.vscode/settings.json
 __pycache__/main.cpython-312.pyc
 __pycache__/test_enhanced_logging.cpython-312.pyc
 calendarbot/__init__.py
@@ -145,6 +146,7 @@ venv/bin/Activate.ps1
 venv/bin/activate
 venv/bin/activate.csh
 venv/bin/activate.fish
+venv/bin/calendarbot
 venv/bin/dotenv
 venv/bin/httpx
 venv/bin/icalendar
@@ -154,6 +156,7 @@ venv/bin/pip3.12
 venv/bin/py.test
 venv/bin/pygmentize
 venv/bin/pytest
+venv/lib/python3.12/site-packages/__editable__.calendarbot-1.0.0.pth
 venv/lib/python3.12/site-packages/_cffi_backend.cpython-312-x86_64-linux-gnu.so
 venv/lib/python3.12/site-packages/py.py
 venv/lib/python3.12/site-packages/six.py
@@ -551,6 +554,15 @@ venv/lib/python3.12/site-packages/apscheduler/triggers/cron/fields.py
 venv/lib/python3.12/site-packages/apscheduler/triggers/cron/__pycache__/__init__.cpython-312.pyc
 venv/lib/python3.12/site-packages/apscheduler/triggers/cron/__pycache__/expressions.cpython-312.pyc
 venv/lib/python3.12/site-packages/apscheduler/triggers/cron/__pycache__/fields.cpython-312.pyc
+venv/lib/python3.12/site-packages/calendarbot-1.0.0.dist-info/INSTALLER
+venv/lib/python3.12/site-packages/calendarbot-1.0.0.dist-info/METADATA
+venv/lib/python3.12/site-packages/calendarbot-1.0.0.dist-info/RECORD
+venv/lib/python3.12/site-packages/calendarbot-1.0.0.dist-info/REQUESTED
+venv/lib/python3.12/site-packages/calendarbot-1.0.0.dist-info/WHEEL
+venv/lib/python3.12/site-packages/calendarbot-1.0.0.dist-info/direct_url.json
+venv/lib/python3.12/site-packages/calendarbot-1.0.0.dist-info/entry_points.txt
+venv/lib/python3.12/site-packages/calendarbot-1.0.0.dist-info/top_level.txt
+venv/lib/python3.12/site-packages/calendarbot-1.0.0.dist-info/licenses/LICENSE
 venv/lib/python3.12/site-packages/certifi/__init__.py
 venv/lib/python3.12/site-packages/certifi/__main__.py
 venv/lib/python3.12/site-packages/certifi/cacert.pem

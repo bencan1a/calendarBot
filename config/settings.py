@@ -59,6 +59,7 @@ class CalendarBotSettings(BaseSettings):
     app_name: str = Field(default="CalendarBot", description="Application name")
     refresh_interval: int = Field(default=300, description="Refresh interval in seconds (5 minutes)")
     cache_ttl: int = Field(default=3600, description="Cache time-to-live in seconds (1 hour)")
+    auto_kill_existing: bool = Field(default=True, description="Automatically kill existing calendarbot processes on startup")
     
     # File Paths
     config_dir: Path = Field(default_factory=lambda: Path.home() / ".config" / "calendarbot")
@@ -159,6 +160,8 @@ class CalendarBotSettings(BaseSettings):
                 self.refresh_interval = config_data['refresh_interval']
             if 'cache_ttl' in config_data:
                 self.cache_ttl = config_data['cache_ttl']
+            if 'auto_kill_existing' in config_data:
+                self.auto_kill_existing = config_data['auto_kill_existing']
             
             # Legacy logging settings (backward compatibility)
             if 'log_level' in config_data:

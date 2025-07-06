@@ -1,2 +1,2 @@
 [console_scripts]
-calendarbot = main:main_entry
+calendarbot = main:main

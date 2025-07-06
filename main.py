@@ -937,6 +937,24 @@ async def main_entry() -> int:
         return await run_interactive_mode(args)
 
 
+def main() -> None:
+    """Synchronous entry point wrapper for console scripts.
+    
+    This function is used by setuptools entry points which expect
+    synchronous functions. It properly handles the async main_entry
+    function using asyncio.run().
+    """
+    try:
+        exit_code = asyncio.run(main_entry())
+        sys.exit(exit_code)
+    except KeyboardInterrupt:
+        print("\nOperation cancelled by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Fatal error: {e}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     # Run the Calendar Bot application
     exit_code = asyncio.run(main_entry())
