@@ -33,7 +33,7 @@ cache_ttl: 3600       # 1 hour in seconds
 secure_storage: true
 
 # Logging Configuration
-log_level: "INFO"      # DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level: "WARNING"      # DEBUG, INFO, WARNING, ERROR, CRITICAL
 log_file: null         # Set to a file path to enable file logging
 
 # Display Settings

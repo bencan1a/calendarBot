@@ -58,12 +58,39 @@ cache_ttl: 3600            # Cache time-to-live in seconds (1 hour)
 # Logging Configuration
 # ============================================================================
 
-# Logging levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
-log_level: "INFO"
+# Legacy logging settings (for backward compatibility)
+# Logging levels: DEBUG, VERBOSE, INFO, WARNING, ERROR, CRITICAL
+log_level: "WARNING"
 
 # Optional: Enable file logging (set to path or null to disable)
 log_file: null
 # log_file: "calendarbot.log"
+
+# Comprehensive logging settings (recommended)
+logging:
+  # Console logging
+  console_enabled: true
+  console_level: "WARNING"    # Only show warnings and errors by default
+  console_colors: true
+  
+  # File logging
+  file_enabled: true
+  file_level: "DEBUG"         # Log everything to file for debugging
+  file_directory: null        # Uses default: ~/.local/share/calendarbot/logs
+  file_prefix: "calendarbot"
+  max_log_files: 5
+  include_function_names: true
+  
+  # Interactive mode
+  interactive_split_display: true
+  interactive_log_lines: 5
+  
+  # Third-party libraries (suppress noisy libraries)
+  third_party_level: "WARNING"
+  
+  # Advanced options
+  buffer_size: 100
+  flush_interval: 1.0
 
 # ============================================================================
 # Display Settings

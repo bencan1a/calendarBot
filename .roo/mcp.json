@@ -23,17 +23,6 @@
         "COLLECTION_NAME": "calendarBot",
         "EMBEDDING_MODEL": ""
       }
-    },
-    "linear": {
-      "command": "node",
-      "args": [
-        "/build/index.js"
-      ],
-      "env": {
-        "LINEAR_API_KEY": "lin_api_vCaguduyh9IqFGqgBLaFgjE5HXevas5WbmJkCJb7"
-      },
-      "disabled": false,
-      "alwaysAllow": []
     }
   }
 }
