@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime, date
 from typing import List, Optional, Dict, Any
+import pytz
 from ..cache.models import CachedEvent
 
 logger = logging.getLogger(__name__)
@@ -90,7 +91,16 @@ class HTMLRenderer:
                     update_time = datetime.fromisoformat(status_info['last_update'].replace('Z', '+00:00'))
                 else:
                     update_time = status_info['last_update']
-                status_parts.append(f"Updated: {update_time.strftime('%H:%M')}")
+                
+                # Convert to Pacific timezone (GMT-8/PDT)
+                pacific_tz = pytz.timezone('US/Pacific')
+                if update_time.tzinfo is None:
+                    update_time_utc = pytz.utc.localize(update_time)
+                else:
+                    update_time_utc = update_time.astimezone(pytz.utc)
+                
+                update_time_pacific = update_time_utc.astimezone(pacific_tz)
+                status_parts.append(f"Updated: {update_time_pacific.strftime('%I:%M %p')}")
             except:
                 pass
         
