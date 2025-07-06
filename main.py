@@ -580,15 +580,19 @@ async def run_web_mode(args) -> int:
             print("Web server is running. Press Ctrl+C to stop.")
             logger.debug("DEBUG: Entering main server loop with graceful shutdown")
             
-            # Wait for shutdown signal instead of using exception handling
+            # Wait for shutdown signal using polling to keep event loop responsive
             logger.info("Web server started, waiting for shutdown signal...")
-            await shutdown_event.wait()
+            
+            # Poll the shutdown event instead of blocking on await
+            while not shutdown_event.is_set():
+                await asyncio.sleep(0.1)  # Check every 100ms
+            
             logger.info("Shutdown signal received, beginning graceful shutdown...")
             
         finally:
             logger.debug("Entering cleanup phase...")
             
-            # Stop web server (NOT async - fixed sync/async mismatch)
+            # Stop web server
             try:
                 logger.debug("Stopping web server...")
                 web_server.stop()
