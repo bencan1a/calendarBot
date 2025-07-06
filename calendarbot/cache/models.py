@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from pydantic import BaseModel, Field
+import pytz
 
 
 class CalendarEvent(BaseModel):
@@ -75,10 +76,28 @@ class CalendarEvent(BaseModel):
         now = get_timezone_aware_now()
         return self.start_time > now
     
-    def format_time_range(self, format_str: str = "%H:%M") -> str:
-        """Format the event time range as a string."""
-        start_str = self.start_time.strftime(format_str)
-        end_str = self.end_time.strftime(format_str)
+    def format_time_range(self, format_str: str = "%I:%M %p") -> str:
+        """Format the event time range as a string in Pacific Time (GMT-8/PDT)."""
+        # Convert to Pacific timezone (handles PST/PDT automatically)
+        pacific_tz = pytz.timezone('US/Pacific')
+        
+        # Ensure datetime objects are timezone-aware
+        if self.start_time.tzinfo is None:
+            start_utc = pytz.utc.localize(self.start_time)
+        else:
+            start_utc = self.start_time.astimezone(pytz.utc)
+            
+        if self.end_time.tzinfo is None:
+            end_utc = pytz.utc.localize(self.end_time)
+        else:
+            end_utc = self.end_time.astimezone(pytz.utc)
+        
+        # Convert to Pacific time
+        start_pacific = start_utc.astimezone(pacific_tz)
+        end_pacific = end_utc.astimezone(pacific_tz)
+        
+        start_str = start_pacific.strftime(format_str)
+        end_str = end_pacific.strftime(format_str)
         return f"{start_str} - {end_str}"
 
 
@@ -162,10 +181,28 @@ class CachedEvent(BaseModel):
         now = get_timezone_aware_now()
         return self.start_dt > now
     
-    def format_time_range(self, format_str: str = "%H:%M") -> str:
-        """Format the event time range as a string."""
-        start_str = self.start_dt.strftime(format_str)
-        end_str = self.end_dt.strftime(format_str)
+    def format_time_range(self, format_str: str = "%I:%M %p") -> str:
+        """Format the event time range as a string in Pacific Time (GMT-8/PDT)."""
+        # Convert to Pacific timezone (handles PST/PDT automatically)
+        pacific_tz = pytz.timezone('US/Pacific')
+        
+        # Ensure datetime objects are timezone-aware
+        if self.start_dt.tzinfo is None:
+            start_utc = pytz.utc.localize(self.start_dt)
+        else:
+            start_utc = self.start_dt.astimezone(pytz.utc)
+            
+        if self.end_dt.tzinfo is None:
+            end_utc = pytz.utc.localize(self.end_dt)
+        else:
+            end_utc = self.end_dt.astimezone(pytz.utc)
+        
+        # Convert to Pacific time
+        start_pacific = start_utc.astimezone(pacific_tz)
+        end_pacific = end_utc.astimezone(pacific_tz)
+        
+        start_str = start_pacific.strftime(format_str)
+        end_str = end_pacific.strftime(format_str)
         return f"{start_str} - {end_str}"
     
     def time_until_start(self) -> Optional[int]:
