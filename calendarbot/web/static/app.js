@@ -20,6 +20,9 @@ function initializeApp() {
         currentTheme = themeClasses[1];
     }
     
+    // Setup navigation button click handlers
+    setupNavigationButtons();
+    
     // Setup keyboard navigation
     setupKeyboardNavigation();
     
@@ -30,6 +33,23 @@ function initializeApp() {
     setupMobileEnhancements();
     
     console.log(`Initialized with theme: ${currentTheme}`);
+}
+
+// Navigation button click handlers
+function setupNavigationButtons() {
+    // Add click event listeners to arrow buttons using event delegation
+    document.addEventListener('click', function(event) {
+        const element = event.target.closest('[data-action]');
+        if (element) {
+            const action = element.getAttribute('data-action');
+            if (action === 'prev' || action === 'next') {
+                event.preventDefault();
+                navigate(action);
+            }
+        }
+    });
+    
+    console.log('Navigation button handlers setup complete');
 }
 
 // Keyboard navigation
@@ -159,9 +179,6 @@ async function navigate(action) {
         if (data.success && data.html) {
             // Update the page content
             updatePageContent(data.html);
-            
-            // Add visual feedback
-            flashNavigationFeedback(action);
         } else {
             console.error('Navigation failed:', data.error);
             showErrorMessage('Navigation failed');
@@ -271,9 +288,14 @@ function updatePageContent(newHTML) {
     // Update specific sections
     const sectionsToUpdate = [
         '.calendar-title',
-        '.status-line', 
+        '.status-line',
         '.calendar-content',
-        '.navigation-help'
+        '.navigation-help',
+        '.calendar-header',
+        '.header-info',
+        '.date-info',
+        'header',
+        '.header'
     ];
     
     sectionsToUpdate.forEach(selector => {
@@ -282,6 +304,17 @@ function updatePageContent(newHTML) {
         
         if (oldElement && newElement) {
             oldElement.innerHTML = newElement.innerHTML;
+        }
+    });
+    
+    // Also update any elements with date-related text content
+    // This ensures date displays in headers get updated
+    const headerElements = document.querySelectorAll('h1, h2, h3, .title');
+    const newHeaderElements = newDoc.querySelectorAll('h1, h2, h3, .title');
+    
+    headerElements.forEach((oldEl, index) => {
+        if (newHeaderElements[index]) {
+            oldEl.innerHTML = newHeaderElements[index].innerHTML;
         }
     });
     
@@ -296,23 +329,26 @@ function updatePageContent(newHTML) {
 
 // Visual feedback functions
 function flashNavigationFeedback(action) {
-    const direction = action === 'prev' ? 'left' : action === 'next' ? 'right' : 'center';
-    
     // Create feedback element
     const feedback = document.createElement('div');
     feedback.style.cssText = `
         position: fixed;
         top: 50%;
-        ${direction === 'left' ? 'left: 20px' : direction === 'right' ? 'right: 20px' : 'left: 50%; transform: translateX(-50%)'}; 
+        left: 50%;
+        transform: translate(-50%, -50%);
         background: rgba(0, 0, 0, 0.8);
         color: white;
-        padding: 10px 20px;
-        border-radius: 4px;
+        padding: 12px 24px;
+        border-radius: 8px;
         z-index: 1000;
-        font-size: 14px;
+        font-size: 16px;
+        font-weight: bold;
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.3s ease;
+        text-align: center;
+        white-space: nowrap;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     `;
     
     const icons = {
