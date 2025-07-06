@@ -89,7 +89,7 @@ Repository = "https://github.com/calendarbot/calendarbot"
 Changelog = "https://github.com/calendarbot/calendarbot/blob/main/CHANGELOG.md"
 
 [project.scripts]
-calendarbot = "main:main"
+calendarbot = "calendarbot.__main__:main"
 
 [project.gui-scripts]
 # Future GUI entry points can be added here

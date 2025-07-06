@@ -13,6 +13,9 @@ from .ics.fetcher import ICSFetcher
 from .ics.models import ICSSource, ICSAuth
 from .ics.exceptions import ICSError
 
+# Import security logging
+from .security import SecurityEventLogger, mask_credential
+
 logger = logging.getLogger(__name__)
 
 
@@ -284,12 +287,35 @@ For other calendar services:
         
         if auth_type == "basic":
             print("\n📝 Basic Authentication Setup:")
-            auth_config["username"] = self.get_input("Username", required=True)
-            auth_config["password"] = self.get_input("Password", required=True)
+            username = self.get_input("Username", required=True)
+            password = self.get_input("Password", required=True)
+            
+            # Log authentication setup with credential masking
+            security_logger = SecurityEventLogger()
+            security_logger.log_auth_event(
+                event_type="credential_setup",
+                user_id=mask_credential(username),
+                status="success",
+                details=f"Basic auth configured for user: {mask_credential(username)}"
+            )
+            
+            auth_config["username"] = username
+            auth_config["password"] = password
             
         elif auth_type == "bearer":
             print("\n📝 Bearer Token Setup:")
-            auth_config["token"] = self.get_input("Bearer Token", required=True)
+            token = self.get_input("Bearer Token", required=True)
+            
+            # Log token setup with credential masking
+            security_logger = SecurityEventLogger()
+            security_logger.log_auth_event(
+                event_type="token_setup",
+                user_id="wizard_user",
+                status="success",
+                details=f"Bearer token configured: {mask_credential(token)}"
+            )
+            
+            auth_config["token"] = token
         
         return auth_config
     

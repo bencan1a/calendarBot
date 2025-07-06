@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Optional, List, TYPE_CHECKING
 from collections import deque
 
+# Lazy imports moved to function level to avoid circular dependencies
+
 if TYPE_CHECKING:
     from ..display.manager import DisplayManager
     from config.settings import CalendarBotSettings
@@ -154,10 +156,16 @@ class SplitDisplayHandler(logging.Handler):
             pass
 
 
-def setup_enhanced_logging(settings: "CalendarBotSettings", 
+def setup_enhanced_logging(settings: "CalendarBotSettings",
                           interactive_mode: bool = False,
                           display_manager: Optional["DisplayManager"] = None) -> logging.Logger:
-    """Set up enhanced logging system with all features."""
+    """Set up enhanced logging system with all features including security, performance, structured logging, and production optimization."""
+    
+    # Lazy imports to avoid circular dependencies
+    from ..security import SecurityEventLogger, init_security_logging
+    from ..monitoring import PerformanceLogger, init_performance_logging
+    from ..structured import StructuredLogger, init_structured_logging
+    from ..optimization import ProductionLogFilter, LoggingOptimizer
     
     # Create main logger
     logger = logging.getLogger('calendarbot')
@@ -166,7 +174,24 @@ def setup_enhanced_logging(settings: "CalendarBotSettings",
     # Clear existing handlers
     logger.handlers.clear()
     
-    # 1. Console Handler (if enabled)
+    # 1. Initialize New Logging Infrastructure
+    # Initialize security logging
+    security_logger = init_security_logging(settings)
+    logger.info("Security event logging initialized")
+    
+    # Initialize performance monitoring
+    performance_monitor = init_performance_logging(settings)
+    logger.info("Performance monitoring initialized")
+    
+    # Initialize structured logging
+    structured_logger = init_structured_logging(settings)
+    logger.info("Structured logging initialized")
+    
+    # Initialize production optimization
+    optimizer = LoggingOptimizer(settings)
+    logger.info("Production log optimization initialized")
+    
+    # 2. Console Handler (if enabled)
     if settings.logging.console_enabled:
         console_level = getattr(logging, settings.logging.console_level.upper())
         
@@ -180,19 +205,38 @@ def setup_enhanced_logging(settings: "CalendarBotSettings",
         # Add split display handler for interactive mode
         if interactive_mode and settings.logging.interactive_split_display and display_manager:
             split_handler = SplitDisplayHandler(
-                display_manager, 
+                display_manager,
                 max_log_lines=settings.logging.interactive_log_lines
             )
             split_handler.setLevel(console_level)
             split_handler.setFormatter(console_formatter)
+            
+            # Apply production optimization filters to console
+            from ..optimization import ProductionLogFilter
+            production_filter = ProductionLogFilter(optimizer.rules, settings)
+            split_handler.addFilter(production_filter)
+            
             logger.addHandler(split_handler)
         else:
             console_handler = logging.StreamHandler()
             console_handler.setLevel(console_level)
             console_handler.setFormatter(console_formatter)
+            
+            # Apply production optimization filters to console - but allow INFO+ through
+            from ..optimization import ProductionLogFilter
+            # Create console-friendly filter rules (suppress only DEBUG, allow INFO+)
+            console_rules = [rule for rule in optimizer.rules if not rule.suppress or rule.level_threshold != logging.DEBUG]
+            production_filter = ProductionLogFilter(console_rules, settings)
+            console_handler.addFilter(production_filter)
+            
             logger.addHandler(console_handler)
+            
+            # Ensure console shows INFO level for development visibility
+            if console_level > logging.INFO:
+                console_handler.setLevel(logging.INFO)
+                logger.info("Console logging enabled at INFO level for development visibility")
     
-    # 2. File Handler (if enabled)
+    # 3. File Handler (if enabled)
     if settings.logging.file_enabled:
         # Determine log directory
         if settings.logging.file_directory:
@@ -210,27 +254,49 @@ def setup_enhanced_logging(settings: "CalendarBotSettings",
         file_level = getattr(logging, settings.logging.file_level.upper())
         file_handler.setLevel(file_level)
         
-        # Detailed file formatter
-        if settings.logging.include_function_names:
-            file_format = '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
+        # Use structured formatter for file logs if enabled
+        if hasattr(settings.logging, 'structured_format') and settings.logging.structured_format:
+            from ..structured.logging import StructuredFormatter
+            file_formatter = StructuredFormatter(
+                format_type='json',
+                include_context=True,
+                include_source=True
+            )
         else:
-            file_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            # Detailed file formatter
+            if settings.logging.include_function_names:
+                file_format = '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
+            else:
+                file_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            
+            file_formatter = logging.Formatter(
+                file_format,
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
         
-        file_formatter = logging.Formatter(
-            file_format,
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
         file_handler.setFormatter(file_formatter)
+        
+        # Apply production optimization filters to file handler
+        from ..optimization import ProductionLogFilter
+        production_filter = ProductionLogFilter(optimizer.rules, settings)
+        file_handler.addFilter(production_filter)
+        
         logger.addHandler(file_handler)
         
         logger.info(f"Enhanced logging to file: {file_handler.baseFilename}")
     
-    # 3. Configure third-party library levels
+    # 4. Configure third-party library levels
     third_party_level = getattr(logging, settings.logging.third_party_level.upper())
     for lib in ['aiohttp', 'urllib3', 'msal', 'asyncio']:
         logging.getLogger(lib).setLevel(third_party_level)
     
-    logger.info("Enhanced logging system initialized")
+    # 5. Store references for access by other modules
+    logger._security_logger = security_logger
+    logger._performance_monitor = performance_monitor
+    logger._structured_logger = structured_logger
+    logger._optimizer = optimizer
+    
+    logger.info("Enhanced logging system with security, performance, structured logging, and optimization initialized")
     return logger
 
 

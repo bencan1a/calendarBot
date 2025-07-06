@@ -104,14 +104,14 @@ class ICSSourceHandler:
                         self._last_etag,
                         self._last_modified
                     )
-                    logger.info(f"DEBUG: Using conditional headers - etag={self._last_etag}, last_modified={self._last_modified}")
+                    logger.debug(f"Using conditional headers - etag={self._last_etag}, last_modified={self._last_modified}")
                 else:
-                    logger.info(f"DEBUG: No conditional headers - use_cache={use_cache}, etag={self._last_etag}, last_modified={self._last_modified}")
+                    logger.debug(f"No conditional headers - use_cache={use_cache}, etag={self._last_etag}, last_modified={self._last_modified}")
                 
                 # Fetch ICS content
                 response = await fetcher.fetch_ics(self.ics_source, conditional_headers)
                 
-                logger.info(f"DEBUG: ICS response - success={response.success}, is_not_modified={response.is_not_modified}")
+                logger.debug(f"ICS response - success={response.success}, is_not_modified={response.is_not_modified}")
                 
                 if not response.success:
                     error_msg = response.error_message or "Unknown fetch error"
@@ -120,7 +120,7 @@ class ICSSourceHandler:
                 
                 # Handle 304 Not Modified
                 if response.is_not_modified:
-                    logger.info(f"DEBUG: Got 304 Not Modified, returning empty list")
+                    logger.debug(f"Got 304 Not Modified, returning empty list")
                     # Return empty list - caller should use cached events
                     return []
                 

@@ -14,6 +14,7 @@ from .models import (
 )
 from .models import ICSParseResult
 from .exceptions import ICSParseError, ICSContentError
+from ..security.logging import SecurityEventLogger
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class ICSParser:
             settings: Application settings
         """
         self.settings = settings
+        self.security_logger = SecurityEventLogger()
         logger.debug("ICS parser initialized")
     
     def parse_ics_content(self, ics_content: str) -> ICSParseResult:
@@ -440,19 +442,59 @@ class ICSParser:
         """
         try:
             if not ics_content or not ics_content.strip():
+                self.security_logger.log_input_validation_failure(
+                    input_type="ics_content",
+                    validation_error="Empty ICS content provided",
+                    details={
+                        "source_ip": "internal",
+                        "input_value": "<empty>",
+                        "content_length": 0
+                    }
+                )
                 return False
             
             # Check for required ICS markers
             if 'BEGIN:VCALENDAR' not in ics_content:
+                self.security_logger.log_input_validation_failure(
+                    input_type="ics_content",
+                    validation_error="Missing BEGIN:VCALENDAR marker",
+                    details={
+                        "source_ip": "internal",
+                        "content_length": len(ics_content),
+                        "input_preview": ics_content[:100] + "..." if len(ics_content) > 100 else ics_content
+                    }
+                )
                 return False
             
             if 'END:VCALENDAR' not in ics_content:
+                self.security_logger.log_input_validation_failure(
+                    input_type="ics_content",
+                    validation_error="Missing END:VCALENDAR marker",
+                    details={
+                        "source_ip": "internal",
+                        "content_length": len(ics_content),
+                        "input_preview": ics_content[:100] + "..." if len(ics_content) > 100 else ics_content
+                    }
+                )
                 return False
             
             # Try to parse with icalendar
             Calendar.from_ical(ics_content)
+            
+            # No logging for successful validation - only security violations are logged
+            logger.debug(f"Valid ICS content parsed successfully: {len(ics_content)} bytes")
             return True
             
         except Exception as e:
+            self.security_logger.log_input_validation_failure(
+                input_type="ics_content",
+                validation_error=f"ICS parsing failed: {e}",
+                details={
+                    "source_ip": "internal",
+                    "content_length": len(ics_content) if ics_content else 0,
+                    "input_preview": ics_content[:100] + "..." if ics_content and len(ics_content) > 100 else ics_content or "<empty>",
+                    "exception_type": type(e).__name__
+                }
+            )
             logger.debug(f"ICS validation failed: {e}")
             return False

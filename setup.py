@@ -151,7 +151,7 @@ setup(
     # Entry points
     entry_points={
         "console_scripts": [
-            "calendarbot=main:main",  # Points to synchronous wrapper in root main.py
+            "calendarbot=calendarbot.__main__:main",  # Points to main function in package
         ],
     },
     
