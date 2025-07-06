@@ -1,175 +1,232 @@
 # Development Guide
 
-**Document Version:** 1.0
-**Last Updated:** January 7, 2025
-**System Version:** Calendar Bot v1.0.0 with Automated Development Setup
+**Document Version:** 2.0  
+**Last Updated:** January 7, 2025  
+**System Version:** CalendarBot v1.0.0  
+**Target Audience:** Contributors, Developers, Maintainers
 
-This guide covers setting up and working with Calendar Bot's development environment using the new automated setup system.
+This guide covers development environment setup, contribution workflows, and technical guidelines for CalendarBot development.
 
-## 🚀 Quick Start: Automated Development Setup
+## 🚀 Quick Start: Development Environment Setup
 
-Calendar Bot features a **complete automated development environment setup** that handles all dependencies, tools, and configurations:
+CalendarBot uses modern Python development practices with automated environment setup:
 
-### One-Command Development Setup
+### One-Command Setup
 
 ```bash
 # Clone the repository
 git clone <repository-url> calendarbot
 cd calendarbot
 
-# Run the automated development setup
+# Run automated development setup
 python scripts/dev_setup.py
 ```
 
-**That's it!** The automated development setup handles:
+**The automated setup handles**:
 - ✅ Virtual environment creation and activation
 - ✅ Development dependencies installation (`pip install -e .[dev]`)
-- ✅ Code quality tools configuration (black, flake8, mypy, pytest)
-- ✅ Pre-commit hooks setup
-- ✅ IDE configuration files
+- ✅ Code quality tools (black, mypy, pytest)
+- ✅ Pre-commit hooks configuration
 - ✅ Development database initialization
-- ✅ Environment validation and testing
+- ✅ Environment validation
 
 ## Table of Contents
 
-- [Quick Start: Automated Development Setup](#-quick-start-automated-development-setup)
-- [Development Environment Features](#development-environment-features)
-- [Code Quality Tools](#code-quality-tools)
+- [Development Environment](#development-environment)
+- [Project Structure](#project-structure)
+- [Code Quality Standards](#code-quality-standards)
 - [Testing Framework](#testing-framework)
-- [Packaging Development](#packaging-development)
-- [Contributing Guidelines](#contributing-guidelines)
-- [Development Workflows](#development-workflows)
+- [Configuration Development](#configuration-development)
+- [Module Development Guidelines](#module-development-guidelines)
+- [Web Interface Development](#web-interface-development)
+- [Contributing Workflow](#contributing-workflow)
 - [Troubleshooting](#troubleshooting)
 
-## Development Environment Features
+## Development Environment
 
-### Automated Setup Script (`scripts/dev_setup.py`)
+### Prerequisites
 
-The development setup script provides:
+- **Python 3.8+** (3.10+ recommended)
+- **Git** for version control
+- **Modern terminal** with ANSI color support
+
+### Automated Development Setup
+
+The [`scripts/dev_setup.py`](scripts/dev_setup.py) script provides comprehensive environment setup:
 
 ```python
-# Key features of the automated development setup:
+# Features included in automated setup:
 - Virtual environment management
 - Editable package installation
 - Development dependency resolution
 - Code quality tool configuration
-- Testing framework setup
-- Documentation generation tools
-- Development server configuration
+- Testing framework initialization
+- IDE configuration templates
 ```
 
-### What Gets Installed
-
-The automated setup installs all development tools:
+### Manual Setup (Alternative)
 
 ```bash
-# Core development dependencies
-pip install -e .[dev]  # Installs the package in editable mode with dev extras
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# Development tools included:
-- pytest>=7.0.0          # Testing framework
-- pytest-asyncio>=0.21.0 # Async testing support
-- pytest-cov>=4.0.0      # Coverage reporting
-- black>=23.0.0          # Code formatting
-- flake8>=6.0.0          # Linting
-- mypy>=1.0.0            # Type checking
-- pre-commit>=3.0.0      # Git hooks
-- sphinx>=6.0.0          # Documentation generation
-- build>=0.10.0          # Package building
-- twine>=4.0.0           # Package publishing
+# Install in development mode
+pip install -e .[dev]
+
+# Install pre-commit hooks
+pre-commit install
+
+# Verify installation
+calendarbot --version
+calendarbot --test-mode
 ```
 
-### Directory Structure
+## Project Structure
 
-After running the automated setup:
+### Module Organization
 
 ```
 calendarbot/
-├── .venv/                    # Virtual environment (auto-created)
-├── .git/hooks/               # Pre-commit hooks (auto-configured)
-├── .pytest_cache/            # Test cache (auto-created)
-├── .mypy_cache/              # Type checking cache (auto-created)
-├── calendarbot/              # Main package
-├── tests/                    # Test suite
-├── scripts/
-│   ├── dev_setup.py         # Automated development setup
-│   └── deploy.py            # Deployment automation
-├── docs/                     # Documentation
-├── setup.py                 # Enhanced packaging with automation
-├── pyproject.toml           # Modern Python packaging configuration
-└── requirements-dev.txt     # Development dependencies
+├── __init__.py              # Package metadata and version
+├── __main__.py              # Module execution support (python -m calendarbot)
+├── main.py                  # Core application logic (CalendarBot class)
+├── setup_wizard.py          # Interactive configuration wizard
+│
+├── cache/                   # Event caching and storage
+│   ├── __init__.py
+│   ├── manager.py           # Cache coordination and TTL management
+│   ├── database.py          # Async SQLite operations
+│   └── models.py            # Cache data models
+│
+├── display/                 # Output rendering and presentation
+│   ├── __init__.py
+│   ├── manager.py           # Display mode coordination
+│   ├── console_renderer.py  # Console output formatting
+│   ├── html_renderer.py     # Web-compatible HTML rendering
+│   └── rpi_html_renderer.py # E-ink optimized layouts
+│
+├── ics/                     # ICS calendar processing
+│   ├── __init__.py
+│   ├── fetcher.py           # Async HTTP client with auth
+│   ├── parser.py            # RFC 5545 ICS parsing
+│   ├── models.py            # ICS data models
+│   └── exceptions.py        # ICS-specific errors
+│
+├── sources/                 # Calendar source management
+│   ├── __init__.py
+│   ├── manager.py           # Multi-source coordination
+│   ├── ics_source.py        # ICS source implementation
+│   ├── models.py            # Source configuration models
+│   └── exceptions.py        # Source-specific errors
+│
+├── ui/                      # Interactive user interface
+│   ├── __init__.py
+│   ├── interactive.py       # Interactive navigation controller
+│   ├── keyboard.py          # Cross-platform input handling
+│   └── navigation.py        # Date navigation logic
+│
+├── utils/                   # Common utilities
+│   ├── __init__.py
+│   ├── logging.py           # Enhanced logging with interactive support
+│   └── helpers.py           # Utility functions
+│
+├── validation/              # Testing and validation framework
+│   ├── __init__.py
+│   ├── runner.py            # Comprehensive system validation
+│   ├── results.py           # Test result models
+│   └── logging_setup.py     # Validation-specific logging
+│
+└── web/                     # Web interface
+    ├── __init__.py
+    ├── server.py            # Web server implementation
+    ├── navigation.py        # Web navigation handling
+    └── static/              # CSS, JavaScript, themes
+        ├── style.css        # Standard web theme
+        ├── eink-rpi.css     # E-ink optimized theme
+        ├── eink-rpi.js      # RPI-specific JavaScript
+        └── app.js           # Main web application logic
 ```
 
-## Code Quality Tools
+### Configuration Structure
 
-### Automated Code Formatting
+```
+config/
+├── __init__.py
+├── settings.py              # Pydantic settings models
+├── config.yaml.example      # Configuration template
+└── ics_config.py            # ICS-specific configuration helpers
+```
 
-**Black** is configured for consistent code formatting:
+### Entry Points
+
+```
+main.py                      # Primary entry point (direct execution)
+pyproject.toml              # Package configuration and console scripts
+setup.py                    # Legacy packaging support
+```
+
+## Code Quality Standards
+
+### Code Formatting with Black
 
 ```bash
-# Format all code (runs automatically in pre-commit)
+# Format all code
 black calendarbot/ tests/ scripts/
 
-# Check formatting without making changes
+# Check formatting without changes
 black --check calendarbot/
-```
 
-Configuration in [`pyproject.toml`](pyproject.toml):
-```toml
+# Configuration in pyproject.toml
 [tool.black]
-line-length = 88
+line-length = 100
 target-version = ['py38']
-include = '\.pyi?$'
-```
-
-### Linting with Flake8
-
-**Flake8** provides code quality checking:
-
-```bash
-# Run linting
-flake8 calendarbot/ tests/ scripts/
-
-# Configuration in setup.cfg or pyproject.toml
 ```
 
 ### Type Checking with MyPy
-
-**MyPy** ensures type safety:
 
 ```bash
 # Run type checking
 mypy calendarbot/
 
 # Check specific module
-mypy calendarbot/setup_wizard.py
-```
+mypy calendarbot/main.py
 
-Configuration in [`pyproject.toml`](pyproject.toml):
-```toml
+# Configuration in pyproject.toml
 [tool.mypy]
 python_version = "3.8"
-warn_return_any = true
-warn_unused_configs = true
 disallow_untyped_defs = true
+warn_return_any = true
+```
+
+### Import Sorting with isort
+
+```bash
+# Sort imports
+isort calendarbot/ tests/
+
+# Configuration in pyproject.toml
+[tool.isort]
+profile = "black"
+line_length = 100
 ```
 
 ### Pre-commit Hooks
 
-Automated code quality checks run on every commit:
+Automatically enforces code quality on every commit:
 
 ```yaml
-# .pre-commit-config.yaml (auto-configured)
+# .pre-commit-config.yaml
 repos:
   - repo: https://github.com/psf/black
     rev: 23.1.0
     hooks:
       - id: black
   
-  - repo: https://github.com/pycqa/flake8
-    rev: 6.0.0
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
     hooks:
-      - id: flake8
+      - id: isort
   
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.0.0
@@ -179,290 +236,421 @@ repos:
 
 ## Testing Framework
 
-### Automated Test Setup
+### Test Organization
 
-The development environment includes comprehensive testing:
+```
+tests/
+├── __init__.py
+├── conftest.py              # Pytest configuration and fixtures
+├── unit/                    # Unit tests
+│   ├── test_cache_manager.py
+│   ├── test_ics_parser.py
+│   ├── test_settings.py
+│   └── test_setup_wizard.py
+├── integration/             # Integration tests
+│   ├── test_full_pipeline.py
+│   ├── test_web_server.py
+│   └── test_validation.py
+└── fixtures/                # Test data and fixtures
+    ├── sample_calendars.ics
+    └── config_examples/
+```
+
+### Running Tests
 
 ```bash
 # Run all tests
 pytest
 
 # Run with coverage
-pytest --cov=calendarbot
+pytest --cov=calendarbot --cov-report=html
 
-# Run specific test file
-pytest tests/test_setup_wizard.py
+# Run specific test categories
+pytest tests/unit/          # Unit tests only
+pytest tests/integration/   # Integration tests only
 
-# Run in verbose mode
-pytest -v
-```
+# Run tests with markers
+pytest -m "not slow"        # Skip slow tests
+pytest -m integration       # Only integration tests
 
-### Test Structure
-
-```
-tests/
-├── __init__.py
-├── conftest.py              # Test configuration and fixtures
-├── test_setup_wizard.py     # Setup wizard tests
-├── test_packaging.py        # Packaging system tests
-├── test_ics_client.py       # ICS client tests
-├── test_config.py           # Configuration tests
-└── integration/             # Integration tests
-    ├── test_full_setup.py   # End-to-end setup testing
-    └── test_cli_commands.py # CLI command testing
+# Verbose output with test details
+pytest -v --tb=short
 ```
 
 ### Test Configuration
 
-Configured in [`pyproject.toml`](pyproject.toml):
 ```toml
+# pyproject.toml pytest configuration
 [tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
 testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = [
-    "--strict-markers",
-    "--strict-config",
-    "--cov=calendarbot",
-    "--cov-report=term-missing"
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
 ]
 ```
 
-## Packaging Development
+### Writing Tests
 
-### Testing the Packaging System
+```python
+# Example unit test
+import pytest
+from calendarbot.cache.manager import CacheManager
+from config.settings import CalendarBotSettings
 
-The automated development setup includes packaging validation:
+@pytest.mark.asyncio
+async def test_cache_manager_initialization():
+    """Test cache manager initialization."""
+    settings = CalendarBotSettings()
+    cache_manager = CacheManager(settings)
+    
+    assert await cache_manager.initialize()
+    assert cache_manager.is_initialized
 
-```bash
-# Test package building
-python -m build
-
-# Test installation in clean environment
-python scripts/test_packaging.py
-
-# Test the setup wizard
-python -m calendarbot --setup --test-mode
-
-# Validate package metadata
-python setup.py check --metadata --strict
+# Example integration test
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_full_ics_pipeline():
+    """Test complete ICS processing pipeline."""
+    # Test implementation here
+    pass
 ```
 
-### Package Structure Validation
+## Configuration Development
 
-Key packaging components that are automatically tested:
+### Settings Architecture
 
-- **Entry Points**: [`console_scripts`](setup.py) configuration
-- **Setup Wizard**: [`calendarbot/setup_wizard.py`](calendarbot/setup_wizard.py) functionality
-- **Post-install Hooks**: [`setup.py`](setup.py) automation
-- **Dependencies**: [`pyproject.toml`](pyproject.toml) resolution
-- **Module Loading**: [`calendarbot/__main__.py`](calendarbot/__main__.py) execution
+The configuration system in [`config/settings.py`](config/settings.py) uses Pydantic for validation:
 
-### Development Installation
-
-The automated setup installs the package in editable mode:
-
-```bash
-# Editable installation (done automatically by dev_setup.py)
-pip install -e .[dev]
-
-# Verify installation
-calendarbot --version
-calendarbot --help
-
-# Test setup wizard
-calendarbot --setup --dry-run
+```python
+# Example settings model
+class CalendarBotSettings(BaseSettings):
+    """Application settings with environment variable support."""
+    
+    # ICS Configuration
+    ics_url: Optional[str] = Field(None, description="ICS calendar URL")
+    ics_auth_type: Optional[str] = Field(None, regex="^(none|basic|bearer)$")
+    
+    # Automatic environment variable mapping
+    class Config:
+        env_prefix = "CALENDARBOT_"
+        env_file = ".env"
 ```
 
-## Contributing Guidelines
+### Adding New Configuration Options
 
-### Development Workflow
-
-1. **Start with Automated Setup**:
-   ```bash
-   git clone <repository-url> calendarbot
-   cd calendarbot
-   python scripts/dev_setup.py
-   ```
-
-2. **Create Feature Branch**:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-3. **Develop with Quality Checks**:
-   ```bash
-   # Code changes are automatically checked by pre-commit hooks
-   # Manual quality checks:
-   black calendarbot/
-   flake8 calendarbot/
-   mypy calendarbot/
-   pytest
-   ```
-
-4. **Test Packaging Changes**:
-   ```bash
-   # If you modify packaging components
-   python scripts/test_packaging.py
-   python -m build
-   ```
-
-5. **Submit Pull Request**:
-   - All automated checks pass
-   - Tests included for new features
-   - Documentation updated
-
-### Code Style Guidelines
-
-- **Formatting**: Use Black with 88-character line length
-- **Type Hints**: Required for all public APIs
-- **Docstrings**: Google-style docstrings for all public functions
-- **Testing**: Minimum 80% code coverage for new code
-- **Documentation**: Update relevant `.md` files for user-facing changes
-
-### Packaging System Contributions
-
-When modifying the automated setup system:
-
-1. **Test Setup Wizard Changes**:
-   ```bash
-   python -c "from calendarbot.setup_wizard import SetupWizard; SetupWizard().run_test_mode()"
-   ```
-
-2. **Validate Packaging Configuration**:
-   ```bash
-   python setup.py check --metadata --strict
-   pip-compile pyproject.toml  # If you have pip-tools
-   ```
-
-3. **Test Cross-platform Compatibility**:
-   - Test on Linux, macOS, Windows (if possible)
-   - Verify console entry points work correctly
-   - Check path handling and permissions
-
-## Development Workflows
-
-### Daily Development
-
-```bash
-# Start development session
-cd calendarbot
-source .venv/bin/activate  # Or activate virtual environment
-
-# Run development server with auto-reload
-calendarbot --web --dev-mode
-
-# Run tests continuously
-pytest --watch
-
-# Format and check code before committing
-black calendarbot/ && flake8 calendarbot/ && mypy calendarbot/
+1. **Define in Settings Model**:
+```python
+# Add to CalendarBotSettings class
+new_feature_enabled: bool = Field(default=False, description="Enable new feature")
+new_feature_timeout: int = Field(default=30, description="New feature timeout")
 ```
 
-### Feature Development
-
-```bash
-# Create feature branch
-git checkout -b feature/new-calendar-service
-
-# Develop feature with automated validation
-# (Pre-commit hooks ensure code quality)
-
-# Test feature thoroughly
-pytest tests/test_new_feature.py
-python -m calendarbot --setup --dry-run  # Test setup wizard integration
-
-# Validate packaging if setup.py or dependencies changed
-python scripts/test_packaging.py
+2. **Update YAML Schema**:
+```yaml
+# Add to config.yaml.example
+new_feature:
+  enabled: false
+  timeout: 30
 ```
 
-### Release Preparation
-
-```bash
-# Update version in setup.py and calendarbot/__init__.py
-# Update documentation dates
-
-# Run full test suite
-pytest --cov=calendarbot --cov-report=html
-
-# Test packaging
-python -m build
-python scripts/test_packaging.py
-
-# Test installation in clean environment
-python -m venv test_env
-test_env/bin/pip install dist/calendarbot-*.whl
-test_env/bin/calendarbot --setup --dry-run
+3. **Handle in Settings Loading**:
+```python
+# Add to _load_yaml_config method
+if 'new_feature' in config_data:
+    feature_config = config_data['new_feature']
+    if 'enabled' in feature_config:
+        self.new_feature_enabled = feature_config['enabled']
 ```
 
-## Troubleshooting
+## Module Development Guidelines
 
-### Development Setup Issues
+### Adding New Modules
 
-**Problem**: `scripts/dev_setup.py` fails
+1. **Create Module Directory**:
 ```bash
-# Check Python version (3.8+ required)
-python --version
-
-# Ensure pip is up to date
-python -m pip install --upgrade pip
-
-# Check virtual environment creation
-python -m venv test_venv
+mkdir calendarbot/new_module
+touch calendarbot/new_module/__init__.py
 ```
 
-**Problem**: Pre-commit hooks failing
-```bash
-# Reinstall pre-commit hooks
-pre-commit uninstall
-pre-commit install
+2. **Implement Core Components**:
+```python
+# calendarbot/new_module/manager.py
+from typing import Optional
+import logging
 
-# Run hooks manually
-pre-commit run --all-files
+logger = logging.getLogger(__name__)
+
+class NewModuleManager:
+    """Manager for new module functionality."""
+    
+    def __init__(self, settings):
+        self.settings = settings
+        self.initialized = False
+    
+    async def initialize(self) -> bool:
+        """Initialize the module."""
+        try:
+            # Initialization logic
+            self.initialized = True
+            logger.info("New module initialized successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to initialize new module: {e}")
+            return False
 ```
 
-### Testing Issues
+3. **Add Data Models**:
+```python
+# calendarbot/new_module/models.py
+from pydantic import BaseModel, Field
+from typing import Optional
 
-**Problem**: Tests failing after packaging changes
-```bash
-# Reinstall in editable mode
-pip install -e .[dev]
-
-# Clear pytest cache
-rm -rf .pytest_cache/
-
-# Run specific test with verbose output
-pytest -v tests/test_setup_wizard.py::test_service_templates
+class NewModuleConfig(BaseModel):
+    """Configuration model for new module."""
+    
+    enabled: bool = Field(default=False, description="Enable new module")
+    timeout: int = Field(default=30, description="Operation timeout")
 ```
 
-### IDE Configuration
+4. **Implement Exception Handling**:
+```python
+# calendarbot/new_module/exceptions.py
+class NewModuleError(Exception):
+    """Base exception for new module."""
+    pass
 
-**VS Code** recommended settings (auto-created by dev setup):
-```json
-{
-    "python.defaultInterpreterPath": "./.venv/bin/python",
-    "python.formatting.provider": "black",
-    "python.linting.enabled": true,
-    "python.linting.flake8Enabled": true,
-    "python.linting.mypyEnabled": true
+class NewModuleConnectionError(NewModuleError):
+    """Connection-related errors."""
+    pass
+```
+
+### Integration with Main Application
+
+```python
+# Update calendarbot/main.py
+from .new_module import NewModuleManager
+
+class CalendarBot:
+    def __init__(self):
+        # Add to initialization
+        self.new_module_manager = NewModuleManager(self.settings)
+    
+    async def initialize(self) -> bool:
+        # Add to initialization sequence
+        if not await self.new_module_manager.initialize():
+            logger.error("Failed to initialize new module")
+            return False
+```
+
+## Web Interface Development
+
+### Theme Development
+
+Create new themes in [`calendarbot/web/static/`](calendarbot/web/static/):
+
+```css
+/* custom-theme.css */
+.custom-theme {
+    /* Base theme variables */
+    --bg-color: #ffffff;
+    --text-color: #000000;
+    --border-color: #cccccc;
+    --accent-color: #007bff;
+}
+
+.custom-theme .calendar-container {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
 }
 ```
 
-**PyCharm** configuration:
-- Set interpreter to `.venv/bin/python`
-- Enable Black formatting
-- Configure Flake8 and MyPy inspections
+### JavaScript Enhancement
 
-### Performance Development
+```javascript
+// custom-features.js
+class CustomCalendarFeatures {
+    constructor() {
+        this.init();
+    }
+    
+    init() {
+        // Custom initialization
+        this.setupEventHandlers();
+    }
+    
+    setupEventHandlers() {
+        // Custom event handling
+    }
+}
 
-**Memory Usage Monitoring**:
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    new CustomCalendarFeatures();
+});
+```
+
+### Web Server Extension
+
+```python
+# Extend web server functionality
+from calendarbot.web.server import WebServer
+
+class ExtendedWebServer(WebServer):
+    """Extended web server with custom features."""
+    
+    def add_custom_routes(self):
+        """Add custom routes to the web server."""
+        
+        @self.app.route('/api/custom-endpoint')
+        async def custom_endpoint():
+            """Custom API endpoint."""
+            return {"status": "success", "data": "custom data"}
+```
+
+## Contributing Workflow
+
+### Development Process
+
+1. **Fork and Clone**:
 ```bash
-# Profile memory usage during development
-python -m memory_profiler main.py
+git clone https://github.com/your-username/calendarbot.git
+cd calendarbot
+```
 
-# Monitor during setup wizard
-python -c "from calendarbot.setup_wizard import SetupWizard; import tracemalloc; tracemalloc.start(); w = SetupWizard(); w.run_test_mode(); print(tracemalloc.get_traced_memory())"
+2. **Set Up Development Environment**:
+```bash
+python scripts/dev_setup.py
+```
+
+3. **Create Feature Branch**:
+```bash
+git checkout -b feature/your-feature-name
+```
+
+4. **Develop with Quality Checks**:
+```bash
+# Code changes automatically checked by pre-commit hooks
+# Manual quality verification:
+black calendarbot/
+mypy calendarbot/
+pytest --cov=calendarbot
+```
+
+5. **Test Your Changes**:
+```bash
+# Test packaging
+python -m build
+
+# Test installation
+pip install -e .[dev]
+
+# Test functionality
+calendarbot --test-mode --verbose
+calendarbot --setup --dry-run
+```
+
+6. **Submit Pull Request**:
+- Ensure all automated checks pass
+- Include tests for new functionality
+- Update documentation as needed
+- Provide clear description of changes
+
+### Code Style Guidelines
+
+- **Type Hints**: Required for all public APIs and recommended for internal functions
+- **Docstrings**: Google-style docstrings for all public classes and functions
+- **Error Handling**: Comprehensive exception handling with logging
+- **Async/Await**: Use async patterns for I/O operations
+- **Configuration**: Make behavior configurable through settings when appropriate
+
+### Documentation Standards
+
+- **Module Documentation**: Each module should have clear docstrings
+- **API Documentation**: Public APIs need comprehensive documentation
+- **Configuration**: New settings must be documented in config.yaml.example
+- **Architecture**: Significant changes should update ARCHITECTURE.md
+
+## Troubleshooting
+
+### Common Development Issues
+
+**Issue**: Pre-commit hooks failing
+```bash
+# Solution: Reinstall hooks
+pre-commit uninstall
+pre-commit install
+pre-commit run --all-files
+```
+
+**Issue**: Type checking errors
+```bash
+# Solution: Check mypy configuration
+mypy --config-file pyproject.toml calendarbot/
+# Update type hints as needed
+```
+
+**Issue**: Import errors during development
+```bash
+# Solution: Reinstall in development mode
+pip install -e .[dev]
+# Verify package structure
+python -c "import calendarbot; print(calendarbot.__file__)"
+```
+
+**Issue**: Tests failing after changes
+```bash
+# Solution: Run specific test with verbose output
+pytest -v tests/test_specific_module.py::test_function
+# Check test fixtures and dependencies
+```
+
+### Development Environment Issues
+
+**Python Version Compatibility**:
+```bash
+# Check Python version
+python --version  # Should be 3.8+
+
+# Update dependencies if needed
+pip install --upgrade pip setuptools wheel
+```
+
+**Virtual Environment Problems**:
+```bash
+# Recreate virtual environment
+rm -rf venv/
+python -m venv venv
+source venv/bin/activate
+pip install -e .[dev]
+```
+
+### Performance Profiling
+
+```bash
+# Profile memory usage
+python -m memory_profiler main.py --test-mode
+
+# Profile execution time
+python -m cProfile -o profile.out main.py --test-mode
+python -c "import pstats; pstats.Stats('profile.out').sort_stats('time').print_stats(10)"
+
+# Monitor resource usage
+htop  # While running calendarbot
+```
+
+### Database Development
+
+```bash
+# Reset development database
+rm -f ~/.local/share/calendarbot/calendar_cache.db
+
+# Inspect database during development
+sqlite3 ~/.local/share/calendarbot/calendar_cache.db ".schema"
+sqlite3 ~/.local/share/calendarbot/calendar_cache.db "SELECT * FROM cached_events LIMIT 5;"
 ```
 
 ---
@@ -471,19 +659,12 @@ python -c "from calendarbot.setup_wizard import SetupWizard; import tracemalloc;
 
 After setting up your development environment:
 
-1. **Explore the Setup Wizard**: Run [`calendarbot --setup --dry-run`] to understand the user experience
-2. **Review Packaging Code**: Study [`setup.py`](setup.py) and [`calendarbot/setup_wizard.py`](calendarbot/setup_wizard.py)
-3. **Run the Test Suite**: Execute `pytest` to understand test coverage
-4. **Check Documentation**: Review [`SETUP.md`](SETUP.md) and [`INSTALL.md`](INSTALL.md) for user perspectives
-5. **Try Different Scenarios**: Test with various calendar services and configurations
+1. **Explore the Codebase**: Start with [`calendarbot/main.py`](calendarbot/main.py) and [`config/settings.py`](config/settings.py)
+2. **Run Tests**: Execute `pytest --cov=calendarbot` to understand test coverage
+3. **Try Different Modes**: Test `--setup`, `--interactive`, `--web`, and `--test-mode`
+4. **Read Architecture**: Review [`ARCHITECTURE.md`](ARCHITECTURE.md) for system design
+5. **Check Issues**: Look for "good first issue" labels in the repository
 
 ---
 
-**🛠️ Development Environment Ready!** You now have a fully automated development setup for Calendar Bot.
-
-**📖 Need Help?** Check the [main documentation](README.md) or [create an issue](https://github.com/your-repo/calendarBot/issues) for development questions.
-
----
-
-*Development Guide v1.0 - Last updated January 7, 2025*
-*Built with automated setup system - From 20+ manual steps to 1 command*
+**Development Guide v2.0** - Updated for current CalendarBot architecture with comprehensive development workflows and module-specific guidelines.

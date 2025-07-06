@@ -1,115 +1,116 @@
-# Microsoft 365 Calendar Display - User Stories & Epics
+# ICS Calendar Display Bot - User Stories & Epics
 
 ## Epic Overview & Prioritization
 
-### Epic 1: Core Calendar Display (MVP) - Priority: HIGH
-Foundation functionality for displaying Microsoft 365 calendar events on e-ink display.
+### Epic 1: Core ICS Calendar Processing (MVP) - Priority: HIGH
+Foundation functionality for fetching and displaying calendar events from ICS sources.
 
-### Epic 2: Enhanced Display Features - Priority: MEDIUM
-Advanced display capabilities including dynamic sizing and power optimization.
+### Epic 2: Enhanced Display & Navigation - Priority: MEDIUM
+Advanced display capabilities including interactive navigation and web interface.
 
-### Epic 3: Alexa Voice Integration - Priority: MEDIUM
-Voice-controlled calendar queries while maintaining privacy.
+### Epic 3: Multi-Source & Advanced Features - Priority: MEDIUM
+Multiple calendar sources, enhanced caching, and power user features.
 
-### Epic 4: Advanced Features & Maintenance - Priority: LOW
-System monitoring, updates, and advanced error recovery.
+### Epic 4: System Management & Maintenance - Priority: LOW
+Configuration management, monitoring, and deployment features.
 
 ---
 
-## Epic 1: Core Calendar Display (MVP)
+## Epic 1: Core ICS Calendar Processing (MVP)
 
-### Story 1.1: Initial Authentication Setup
+### Story 1.1: ICS Calendar Configuration
 
-**Title:** Microsoft 365 OAuth Authentication Setup
+**Title:** Configure ICS Calendar Source
 
 **As an** end user,  
-**I want to** authenticate my Microsoft 365 account with the calendar display device,  
-**So that** the device can securely access my calendar data without storing my password.
+**I want to** configure my ICS calendar URL in the application,  
+**So that** the system can fetch my calendar events from any ICS-compatible service.
 
 **Acceptance Criteria:**
-1. System generates a device code and displays setup URL on e-ink screen
-2. User can complete authentication via web browser on any device
-3. Refresh tokens are stored securely with AES-256 encryption
-4. Authentication persists across device reboots
-5. Clear error messages displayed if authentication fails
+1. Support for public ICS URLs (no authentication)
+2. Support for Basic Authentication (username/password)
+3. Support for Bearer Token authentication
+4. Configuration via YAML file or setup wizard
+5. URL validation and connectivity testing
 
 **Edge Cases:**
+- Invalid or malformed ICS URLs
+- Authentication failures
 - Network connectivity issues during setup
-- Microsoft 365 tenant restrictions
-- Token expiration scenarios
-- Multiple failed authentication attempts
+- ICS feeds with non-standard formats
+- SSL certificate validation issues
 
 ---
 
-### Story 1.2: Basic Calendar Data Fetching
+### Story 1.2: ICS Data Fetching & Parsing
 
-**Title:** Fetch Current Day Calendar Events
+**Title:** Fetch and Parse ICS Calendar Events
 
 **As an** end user,  
-**I want to** see my current day's calendar events automatically retrieved from Microsoft 365,  
-**So that** I have up-to-date meeting information without manual refresh.
+**I want to** have my calendar events automatically fetched and parsed from ICS sources,  
+**So that** I have up-to-date meeting information without manual intervention.
 
 **Acceptance Criteria:**
-1. System fetches calendar events for current day every 5 minutes
-2. Only "Busy" and "Tentative" events are displayed
-3. Events include title, start time, end time, and location
-4. System handles Microsoft Graph API rate limits gracefully
-5. Failed API calls use exponential backoff retry logic
+1. HTTP fetching with configurable timeout and retry logic
+2. RFC 5545 compliant ICS parsing
+3. Timezone handling and conversion to local time
+4. Recurring event expansion (RRULE support)
+5. Event filtering by status (BUSY/TENTATIVE events only)
 
 **Edge Cases:**
-- API rate limit exceeded (429 responses)
-- Network connectivity loss
-- Invalid or expired access tokens
-- Empty calendar days
-- All-day events display handling
+- Malformed ICS data
+- Large calendar files with many events
+- Complex recurring event patterns
+- Multiple timezone events in single calendar
+- Network timeouts and connection failures
 
 ---
 
-### Story 1.3: Simple E-ink Display Output
+### Story 1.3: Local Data Caching
 
-**Title:** Display Calendar Events on E-ink Screen
+**Title:** Cache Calendar Events Locally
 
 **As an** end user,  
-**I want to** see my calendar events clearly displayed on the e-ink screen,  
-**So that** I can quickly glance at my upcoming meetings.
+**I want to** have my calendar events cached locally,  
+**So that** I can view my schedule even when network connectivity is unavailable.
+
+**Acceptance Criteria:**
+1. SQLite database storage for events
+2. Intelligent cache invalidation based on ETags/Last-Modified
+3. Offline mode with cached data display
+4. Cache cleanup for old events (configurable retention)
+5. Cache corruption recovery mechanisms
+
+**Edge Cases:**
+- Database corruption scenarios
+- Storage space limitations
+- Cache invalidation during timezone changes
+- Concurrent access to cache database
+- Recovery from empty cache
+
+---
+
+### Story 1.4: Console Display Output
+
+**Title:** Display Events in Console
+
+**As an** end user,  
+**I want to** see my calendar events displayed clearly in the console,  
+**So that** I can quickly review my schedule in a terminal environment.
 
 **Acceptance Criteria:**
 1. Current active meeting highlighted with "▶" indicator
-2. Next 2-3 upcoming meetings listed with times
-3. Display updates within 3 seconds of new data
-4. Text is readable with appropriate font sizes
-5. Display shows "Updated: HH:MM" timestamp
+2. Upcoming events listed with times and durations
+3. Status indicators (Live Data vs Cached Data)
+4. Clean formatting with proper spacing and alignment
+5. Timestamp showing last update time
 
 **Edge Cases:**
-- Display hardware failures
-- Overlapping meeting times
 - Long meeting titles requiring truncation
+- Overlapping meeting times display
 - No meetings scheduled for the day
 - Display during meeting transitions
-
----
-
-### Story 1.4: Local Data Caching
-
-**Title:** Offline Calendar Data Storage
-
-**As an** end user,  
-**I want to** see my cached calendar events when network connectivity is lost,  
-**So that** I still have access to my schedule during internet outages.
-
-**Acceptance Criteria:**
-1. Calendar events stored locally in SQLite database
-2. Cache retains events for current day + next 2 days
-3. Offline indicator displayed when using cached data
-4. Cache automatically cleared for events older than 7 days
-5. Database corruption recovery mechanisms in place
-
-**Edge Cases:**
-- SQLite database corruption
-- Storage space limitations
-- Cache invalidation during timezone changes
-- Recovery from completely empty cache
-- Partial cache availability
+- Console width variations
 
 ---
 
@@ -119,373 +120,323 @@ System monitoring, updates, and advanced error recovery.
 
 **As an** end user,  
 **I want to** see helpful error messages when problems occur,  
-**So that** I understand what's happening and can take appropriate action.
+**So that** I understand what's happening and can take corrective action.
 
 **Acceptance Criteria:**
-1. Network errors display "Network Issue - Using Cached Data"
-2. Authentication errors prompt for re-authentication
-3. Hardware errors show specific component failure messages
-4. System automatically retries failed operations
-5. Error states don't prevent basic functionality
+1. Network errors display "Using Cached Data" indicator
+2. Authentication errors show clear resolution steps
+3. ICS parsing errors provide specific details
+4. Automatic retry with exponential backoff
+5. Graceful degradation to cached data
 
 **Edge Cases:**
 - Complete network failure
-- Microsoft Graph service outages
-- Hardware component failures
-- Authentication token corruption
+- ICS server outages
+- Malformed authentication credentials
+- Corrupted cache database
 - Multiple simultaneous error conditions
 
 ---
 
-## Epic 2: Enhanced Display Features
+## Epic 2: Enhanced Display & Navigation
 
-### Story 2.1: Dynamic Display Size Detection
+### Story 2.1: Interactive Date Navigation
 
-**Title:** Automatic E-ink Display Detection
-
-**As a** system administrator,  
-**I want to** have the device automatically detect and configure for different e-ink display sizes,  
-**So that** I can use various display hardware without manual configuration.
-
-**Acceptance Criteria:**
-1. System automatically detects 2.9", 4.2", 7.5", and 9.7" displays
-2. Layout templates selected based on detected resolution
-3. Display configuration stored for subsequent boots
-4. Manual override option available in configuration
-5. Unsupported displays gracefully fallback to basic layout
-
-**Edge Cases:**
-- Unknown or custom display resolutions
-- SPI communication failures during detection
-- Multiple displays connected simultaneously
-- Display hardware changes after initial setup
-- Detection failures requiring manual configuration
-
----
-
-### Story 2.2: Responsive Layout Templates
-
-**Title:** Size-Appropriate Calendar Layouts
+**Title:** Navigate Through Calendar Dates
 
 **As an** end user,  
-**I want to** see calendar information optimized for my display size,  
-**So that** I get the maximum useful information without overcrowding.
+**I want to** navigate through different dates using keyboard controls,  
+**So that** I can view events for past and future days interactively.
 
 **Acceptance Criteria:**
-1. 2.9" displays show current + next 1 meeting only
-2. 4.2" displays show current + next 2-3 meetings + later summary
-3. 7.5" displays show full daily schedule + tomorrow preview
-4. 9.7" displays show multi-day view + event descriptions
-5. Font sizes and spacing optimized for each display size
+1. Arrow keys navigate between days (← previous, → next)
+2. Space key jumps to current date ("Today")
+3. Home/End keys navigate to week boundaries
+4. Date display shows relative descriptions ("Tomorrow", "Yesterday")
+5. ESC key exits interactive mode
 
 **Edge Cases:**
-- Very long meeting titles across different display sizes
-- Days with many meetings exceeding display capacity
-- Different timezone meeting displays
-- Recurring meeting series display
-- Meeting conflicts and overlaps
+- Navigation across month/year boundaries
+- Weekend and holiday navigation
+- Long-range date navigation performance
+- Keyboard input compatibility across platforms
+- Interactive mode cleanup on exit
 
 ---
 
-### Story 2.3: Power-Optimized Display Updates
+### Story 2.2: Web Interface Display
 
-**Title:** Smart Display Refresh Management
+**Title:** View Calendar in Web Browser
 
 **As an** end user,  
-**I want to** have minimal power consumption during display updates,  
-**So that** the device runs efficiently and has extended battery life.
+**I want to** access my calendar through a web interface,  
+**So that** I can view my schedule from any device with a browser.
 
 **Acceptance Criteria:**
-1. Partial refresh used for minor content changes
-2. Full refresh only when layout changes significantly
-3. Display updates skipped when no changes detected
-4. Configurable quiet hours with display sleep mode
-5. Battery status indicator shows current power level
+1. Clean HTML rendering of calendar events
+2. Responsive design for mobile and desktop
+3. Real-time updates without page refresh
+4. Navigation controls for date selection
+5. Status indicators for data freshness
 
 **Edge Cases:**
-- Power supply interruptions
-- Battery level critical states
-- Display refresh failures requiring full refresh
-- Extended periods without changes
-- Power optimization conflicts with update frequency
+- Multiple browser compatibility
+- Mobile device viewport handling
+- Large event lists performance
+- Concurrent user access
+- Web server startup failures
 
 ---
 
-### Story 2.4: Enhanced Status Information
+### Story 2.3: Theme and Display Customization
 
-**Title:** Comprehensive System Status Display
+**Title:** Customize Display Appearance
 
 **As an** end user,  
-**I want to** see system status information on the display,  
-**So that** I understand the device's operational state and connectivity.
+**I want to** customize the display theme and layout,  
+**So that** the interface matches my preferences and use case.
 
 **Acceptance Criteria:**
-1. Last refresh timestamp prominently displayed
-2. Battery/power status shown with visual indicator
-3. Network connectivity status visible
-4. Alexa integration status when enabled
-5. Error conditions clearly indicated with icons
+1. Multiple theme options (standard, dark, high-contrast)
+2. Configurable display density (compact, normal, spacious)
+3. Font size and family customization
+4. Color scheme preferences
+5. Layout template selection
 
 **Edge Cases:**
-- Status information competing with calendar content for space
-- Multiple status conditions occurring simultaneously
-- Status updates during display refresh cycles
-- Long-running status conditions
-- Status information visibility on smaller displays
+- Theme switching during active sessions
+- Custom CSS injection
+- Theme compatibility across display modes
+- Color accessibility requirements
+- Theme persistence across restarts
 
 ---
 
-## Epic 3: Alexa Voice Integration
+## Epic 3: Multi-Source & Advanced Features
 
-### Story 3.1: Alexa Skills Server Setup
+### Story 3.1: Multiple Calendar Sources
 
-**Title:** Local Alexa Skills Endpoint
-
-**As a** system administrator,  
-**I want to** configure Alexa to query calendar information from the local device,  
-**So that** voice commands work without exposing calendar data to Amazon's cloud.
-
-**Acceptance Criteria:**
-1. HTTPS server runs on Pi accepting Alexa Skills requests
-2. SSL certificate properly configured (Let's Encrypt or self-signed)
-3. Custom Alexa skill linked to local Pi endpoint
-4. Device-specific authentication tokens for skill verification
-5. Network port forwarding configured for external access
-
-**Edge Cases:**
-- SSL certificate expiration and renewal
-- Dynamic IP address changes
-- Firewall configuration conflicts
-- Router port forwarding limitations
-- Amazon IP range restrictions
-
----
-
-### Story 3.2: Voice Command Processing
-
-**Title:** Calendar Queries via Voice Commands
+**Title:** Support Multiple ICS Calendars
 
 **As an** end user,  
-**I want to** ask Alexa about my calendar events,  
-**So that** I can get meeting information hands-free while maintaining privacy.
+**I want to** configure multiple ICS calendar sources,  
+**So that** I can view events from different calendars in a unified display.
 
 **Acceptance Criteria:**
-1. "What's my next meeting?" returns upcoming event details
-2. "What meetings do I have today?" lists all daily events
-3. "When is my [meeting name]?" searches for specific meetings
-4. "Do I have meetings at [time]?" checks availability
-5. "What's my schedule for tomorrow?" shows next day events
+1. Configuration of multiple ICS URLs
+2. Per-source authentication settings
+3. Event merging and conflict detection
+4. Source-specific refresh intervals
+5. Individual source enable/disable controls
 
 **Edge Cases:**
-- No meetings found for voice queries
-- Multiple meetings with similar names
-- Voice command ambiguity resolution
-- Network latency affecting response time
-- Alexa service outages
+- Duplicate events across sources
+- Source authentication conflicts
+- Performance with many sources
+- Source availability variations
+- Event time conflict resolution
 
 ---
 
-### Story 3.3: Privacy-First Voice Integration
+### Story 3.2: Advanced Event Filtering
 
-**Title:** Local Calendar Data Processing
+**Title:** Filter and Categorize Events
 
 **As an** end user,  
-**I want to** ensure my calendar data stays private during voice interactions,  
-**So that** sensitive meeting information is not exposed to cloud services.
+**I want to** filter events by various criteria,  
+**So that** I can focus on relevant meetings and appointments.
 
 **Acceptance Criteria:**
-1. All calendar data processing happens locally on Pi
-2. Only formatted responses sent to Alexa cloud services
-3. No raw calendar data transmitted outside local network
-4. Voice request audit logging with privacy controls
-5. Clear indication when Alexa integration is active
+1. Filter by event status (busy, tentative, free)
+2. Filter by event categories or keywords
+3. Hide all-day events option
+4. Time range filtering (today, week, month)
+5. Pattern-based filtering (regex support)
 
 **Edge Cases:**
-- Privacy settings conflicts with functionality
-- Audit log storage limitations
-- Voice request correlation across sessions
-- Data retention policy enforcement
-- Privacy indicator display space constraints
+- Complex filter combinations
+- Performance with large event sets
+- Filter persistence across sessions
+- Empty result sets from filtering
+- Filter validation and error handling
 
 ---
 
-### Story 3.4: Voice Response Optimization
+### Story 3.3: Enhanced Caching Strategy
 
-**Title:** Natural Language Calendar Responses
+**Title:** Intelligent Cache Management
 
 **As an** end user,  
-**I want to** receive natural, conversational responses about my calendar,  
-**So that** voice interactions feel intuitive and informative.
+**I want to** have smart caching that minimizes network requests,  
+**So that** the application is fast and efficient while staying current.
 
 **Acceptance Criteria:**
-1. Meeting times spoken in natural language format
-2. Meeting titles truncated appropriately for voice
-3. Context-aware responses (e.g., "in 15 minutes" vs "at 3:00 PM")
-4. Proper handling of all-day events and recurring meetings
-5. Graceful responses for empty schedules
+1. HTTP conditional requests (ETag, Last-Modified)
+2. Configurable cache TTL per source
+3. Background refresh without interrupting display
+4. Cache preloading for upcoming dates
+5. Cache statistics and health monitoring
 
 **Edge Cases:**
-- Very long meeting titles in voice responses
-- Complex recurring meeting patterns
-- Multiple timezone considerations in voice format
-- Meeting conflicts expressed clearly in voice
-- Technical meeting names requiring pronunciation handling
+- Cache invalidation edge cases
+- Network failure during background refresh
+- Cache size limitations
+- Corrupted cache recovery
+- Clock synchronization issues
 
 ---
 
-## Epic 4: Advanced Features & Maintenance
+## Epic 4: System Management & Maintenance
 
-### Story 4.1: System Health Monitoring
-
-**Title:** Automated System Status Monitoring
-
-**As a** system administrator,  
-**I want to** monitor the calendar display system's health automatically,  
-**So that** I can identify and resolve issues proactively.
-
-**Acceptance Criteria:**
-1. Regular health checks for all system components
-2. Performance metrics tracking (CPU, memory, network)
-3. Automated log rotation and cleanup
-4. System status available via local web interface
-5. Critical error notifications via configured channels
-
-**Edge Cases:**
-- Health monitoring impacting system performance
-- Log storage space exhaustion
-- Monitoring service failures
-- False positive error detection
-- Health check interference with normal operations
-
----
-
-### Story 4.2: Over-the-Air Updates
-
-**Title:** Remote System Updates
-
-**As a** system administrator,  
-**I want to** update the calendar display software remotely,  
-**So that** I can deploy improvements and security patches without physical access.
-
-**Acceptance Criteria:**
-1. Secure update mechanism with digital signature verification
-2. Automatic backup of configuration before updates
-3. Rollback capability if updates fail
-4. Update notifications displayed on e-ink screen
-5. Minimal downtime during update process
-
-**Edge Cases:**
-- Update failures requiring manual intervention
-- Network connectivity loss during updates
-- Configuration compatibility across versions
-- Storage space insufficient for updates
-- Update conflicts with running processes
-
----
-
-### Story 4.3: Advanced Error Recovery
-
-**Title:** Comprehensive System Recovery
-
-**As an** end user,  
-**I want to** have the system automatically recover from various failure conditions,  
-**So that** my calendar display remains functional with minimal interruption.
-
-**Acceptance Criteria:**
-1. Automatic token refresh with multiple retry strategies
-2. Database corruption detection and repair
-3. Display hardware error recovery procedures
-4. Network connectivity restoration handling
-5. System restart mechanisms for critical failures
-
-**Edge Cases:**
-- Multiple simultaneous system failures
-- Recovery loops preventing normal operation
-- Hardware failures requiring replacement
-- Unrecoverable data corruption scenarios
-- Recovery actions conflicting with user preferences
-
----
-
-### Story 4.4: Configuration Management
+### Story 4.1: Configuration Management
 
 **Title:** Flexible System Configuration
 
 **As a** system administrator,  
-**I want to** easily configure various system parameters,  
-**So that** I can customize the calendar display for specific needs and environments.
+**I want to** easily manage application configuration,  
+**So that** I can customize behavior for different environments and requirements.
 
 **Acceptance Criteria:**
-1. Web-based configuration interface accessible locally
-2. Settings for refresh intervals, display preferences, and power management
-3. Alexa integration enable/disable controls
-4. Backup and restore of complete configuration
-5. Configuration validation and error prevention
+1. YAML configuration file with validation
+2. Environment variable overrides
+3. Command-line argument precedence
+4. Configuration backup and restore
+5. Live configuration reload (where possible)
 
 **Edge Cases:**
-- Invalid configuration values preventing system startup
-- Configuration changes requiring system restart
-- Multiple administrators accessing configuration simultaneously
-- Configuration file corruption scenarios
-- Default configuration restoration needs
+- Invalid configuration values
+- Configuration file corruption
+- Permission issues with config files
+- Configuration migration between versions
+- Default value fallbacks
 
 ---
 
-## Story Dependencies & Implementation Order
+### Story 4.2: Logging and Monitoring
 
-### Phase 1 (MVP - Minimum Viable Product)
-1. Story 1.1: Authentication Setup
-2. Story 1.2: Calendar Data Fetching
-3. Story 1.3: Simple Display Output
-4. Story 1.4: Local Data Caching
+**Title:** Comprehensive System Logging
+
+**As a** system administrator,  
+**I want to** have detailed logging and monitoring capabilities,  
+**So that** I can troubleshoot issues and monitor system health.
+
+**Acceptance Criteria:**
+1. Configurable log levels (ERROR, INFO, VERBOSE, DEBUG)
+2. Timestamped log files with automatic rotation
+3. Console and file logging with different levels
+4. Colored console output with auto-detection
+5. Performance metrics and health indicators
+
+**Edge Cases:**
+- Log file size management
+- Log rotation during active sessions
+- Disk space exhaustion
+- Log format compatibility
+- Performance impact of verbose logging
+
+---
+
+### Story 4.3: Setup and Deployment
+
+**Title:** Easy Application Setup
+
+**As an** end user,  
+**I want to** have a simple setup process for the application,  
+**So that** I can get started quickly without complex configuration.
+
+**Acceptance Criteria:**
+1. Interactive setup wizard for first-time configuration
+2. Automatic dependency installation verification
+3. Configuration validation and testing
+4. Sample configuration templates
+5. Clear setup documentation and troubleshooting
+
+**Edge Cases:**
+- Missing dependencies
+- Permission issues during setup
+- Network connectivity during initial setup
+- Configuration validation failures
+- Platform-specific setup requirements
+
+---
+
+### Story 4.4: Testing and Validation
+
+**Title:** Built-in Testing Tools
+
+**As a** developer or administrator,  
+**I want to** have built-in testing tools for validating configuration and connectivity,  
+**So that** I can quickly diagnose and resolve issues.
+
+**Acceptance Criteria:**
+1. ICS URL connectivity testing
+2. Authentication validation
+3. ICS format validation
+4. Performance benchmarking
+5. Configuration syntax checking
+
+**Edge Cases:**
+- Network timeouts during testing
+- Authentication edge cases
+- Malformed ICS data handling
+- Performance testing with large datasets
+- Test result interpretation and reporting
+
+---
+
+## Implementation Phases
+
+### Phase 1 (MVP - Core Functionality)
+1. Story 1.1: ICS Calendar Configuration
+2. Story 1.2: ICS Data Fetching & Parsing
+3. Story 1.3: Local Data Caching
+4. Story 1.4: Console Display Output
 5. Story 1.5: Basic Error Handling
 
-### Phase 2 (Enhanced Features)
-1. Story 2.1: Dynamic Display Detection
-2. Story 2.2: Responsive Layout Templates
-3. Story 2.3: Power-Optimized Updates
-4. Story 2.4: Enhanced Status Information
+### Phase 2 (Enhanced Interface)
+1. Story 2.1: Interactive Date Navigation
+2. Story 2.2: Web Interface Display
+3. Story 2.3: Theme and Display Customization
 
-### Phase 3 (Voice Integration)
-1. Story 3.1: Alexa Skills Server Setup
-2. Story 3.2: Voice Command Processing
-3. Story 3.3: Privacy-First Integration
-4. Story 3.4: Voice Response Optimization
+### Phase 3 (Advanced Features)
+1. Story 3.1: Multiple Calendar Sources
+2. Story 3.2: Advanced Event Filtering
+3. Story 3.3: Enhanced Caching Strategy
 
-### Phase 4 (Advanced Features)
-1. Story 4.1: System Health Monitoring
-2. Story 4.2: Over-the-Air Updates
-3. Story 4.3: Advanced Error Recovery
-4. Story 4.4: Configuration Management
+### Phase 4 (System Management)
+1. Story 4.1: Configuration Management
+2. Story 4.2: Logging and Monitoring
+3. Story 4.3: Setup and Deployment
+4. Story 4.4: Testing and Validation
 
 ---
 
-## Non-Functional Requirements Summary
+## Non-Functional Requirements
 
-### Performance Stories
-- Display updates complete within 3 seconds
-- API responses received within 5 seconds
-- System boot time under 30 seconds
-- Memory usage under 100MB total
+### Performance Requirements
+- ICS fetching completes within 10 seconds
+- Cache queries respond within 100ms
+- Interactive navigation responds within 200ms
+- Memory usage under 50MB for typical operation
 
-### Security Stories
-- All tokens encrypted with AES-256
-- HTTPS-only communication
-- Calendar.Read permissions only
-- Local data processing for privacy
-
-### Usability Stories
-- Clear error messages for user understanding
-- Intuitive voice command responses
-- Readable display across all supported sizes
-- Minimal configuration required for basic operation
-
-### Reliability Stories
+### Reliability Requirements
 - Graceful degradation during network outages
-- Automatic recovery from common failure modes
-- Data persistence across system restarts
-- 99% uptime target for continuous operation
+- Automatic recovery from transient failures
+- Data persistence across application restarts
+- 99% uptime for continuous operation scenarios
+
+### Security Requirements
+- HTTPS-only for ICS fetching
+- Secure credential storage
+- Input validation for all user data
+- No sensitive data in log files
+
+### Usability Requirements
+- Clear error messages with resolution guidance
+- Intuitive keyboard navigation
+- Responsive web interface
+- Minimal configuration for basic operation
 
 ---
 
-*This user story collection validates the architecture design and provides a comprehensive roadmap for staged implementation of the Microsoft 365 calendar display system.*
+*This user story collection reflects the current ICS-based architecture and provides a roadmap for feature development and enhancement.*

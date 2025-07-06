@@ -1,401 +1,246 @@
-# ICS Calendar Display - System Architecture
+# CalendarBot System Architecture
 
-**Document Version:** 2.0
-**Last Updated:** January 5, 2025
-**Architecture Version:** ICS-based Universal Calendar System v2.0
-**Previous Architecture:** Microsoft Graph API v1.0 (deprecated)
+**Document Version:** 3.0  
+**Last Updated:** January 7, 2025  
+**Architecture Version:** ICS Calendar System v1.0  
+**Target Audience:** Developers, System Architects, Technical Contributors
 
 ## Executive Summary
 
-This document outlines the complete system architecture for an ICS-based calendar display application running on Raspberry Pi with an e-ink display. The system is designed for universal calendar compatibility, minimal resource consumption, persistent ICS feed connectivity, and essential meeting information display.
+This document outlines the complete system architecture for CalendarBot, an ICS-based calendar display application with multiple operational modes including console, interactive navigation, web interface, and Raspberry Pi e-ink display support. The system is designed for universal calendar compatibility, real-time updates, and extensible deployment options.
 
-> **Architecture Migration Note**: This system has been completely redesigned from the previous Microsoft Graph API implementation to use standardized ICS calendar feeds, providing universal compatibility and simplified deployment.
-
-## 1. Technology Stack Selection
+## 1. Technology Stack
 
 ### Core Platform
-- **Hardware**: Raspberry Pi Zero 2 W (optimal for portability and power efficiency)
-- **OS**: Raspberry Pi OS Lite (headless, minimal footprint)
-- **Programming Language**: Python 3.8+
-- **Display**: Console output (with e-ink display support planned)
+- **Language**: Python 3.8+ with modern async/await patterns
+- **Architecture**: Modular component-based design with clear separation of concerns
+- **Configuration**: Pydantic-based settings with YAML configuration files
+- **Packaging**: Modern Python packaging with [`pyproject.toml`](pyproject.toml)
 
-### Key Libraries & Frameworks
-- **ICS Processing**: `icalendar` (RFC 5545 compliant parsing)
-- **HTTP Client**: `httpx` (async support for efficient ICS fetching)
-- **Data Validation**: `pydantic` (settings and data model validation)
-- **Database**: `aiosqlite` (async SQLite for caching)
-- **Configuration**: `PyYAML` + `pydantic-settings` for settings management
-- **Scheduling**: `asyncio` for concurrent operations and scheduling
-- **Logging**: Built-in `logging` with file rotation
-- **Date/Time**: `python-dateutil` + `pytz` for timezone handling
+### Key Dependencies
+- **ICS Processing**: [`icalendar`](https://pypi.org/project/icalendar/) (RFC 5545 compliant parsing)
+- **HTTP Client**: [`httpx`](https://pypi.org/project/httpx/) (async HTTP with authentication support)
+- **Data Validation**: [`pydantic`](https://pypi.org/project/pydantic/) v2.0+ (settings and data model validation)
+- **Database**: [`aiosqlite`](https://pypi.org/project/aiosqlite/) (async SQLite for event caching)
+- **Configuration**: [`PyYAML`](https://pypi.org/project/PyYAML/) + [`pydantic-settings`](https://pypi.org/project/pydantic-settings/) 
+- **Date/Time**: [`python-dateutil`](https://pypi.org/project/python-dateutil/) + [`pytz`](https://pypi.org/project/pytz/) (timezone handling)
+- **Scheduling**: [`APScheduler`](https://pypi.org/project/APScheduler/) (background task scheduling)
 
-### Why ICS Instead of APIs?
-- **Universal Compatibility**: Works with any calendar service that exports ICS
-- **No API Quotas**: Unlimited access to your own calendar data
-- **Privacy**: Direct calendar access without third-party API intermediaries
-- **Simplicity**: No complex authentication flows or API registrations
-- **Reliability**: ICS is a stable, standardized format (RFC 5545)
-- **Performance**: Lower overhead than REST API calls
-
-## 2. ICS Feed Strategy
-
-### Supported ICS Sources
-The system supports ICS feeds from any calendar service:
-
-**Major Calendar Services:**
-- **Microsoft Outlook/Office 365** - Published calendar ICS URLs
-- **Google Calendar** - Secret iCal format URLs
-- **Apple iCloud Calendar** - Public calendar ICS URLs
-- **CalDAV Servers** - Nextcloud, Radicale, SOGo, etc.
-- **Exchange Servers** - Direct ICS export URLs
+### Universal Calendar Support
+- **Microsoft Outlook/Office 365**: Published calendar ICS URLs
+- **Google Calendar**: Secret iCal format URLs  
+- **Apple iCloud Calendar**: Public calendar ICS URLs
+- **CalDAV Servers**: Nextcloud, Radicale, SOGo, etc.
 - **Any RFC 5545 compliant** calendar system
 
-### Authentication Methods
-```yaml
-# No Authentication (Public Feeds)
-ics:
-  auth_type: "none"
-
-# HTTP Basic Authentication
-ics:
-  auth_type: "basic"
-  username: "user"
-  password: "password"
-
-# Bearer Token Authentication
-ics:
-  auth_type: "bearer"
-  token: "your-bearer-token"
-```
-
-### Data Fetching Strategy
-- **Polling Interval**: Every 5 minutes (configurable)
-- **HTTP Caching**: ETags and Last-Modified headers supported
-- **Conditional Requests**: If-None-Match and If-Modified-Since
-- **Retry Logic**: Exponential backoff for failed requests
-- **Offline Resilience**: SQLite cache for network outages
-
-## 3. Application Architecture
+## 2. Application Architecture
 
 ### High-Level Component Architecture
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│ Source Manager  │    │   ICS Fetcher    │    │ Cache Manager   │
-│                 │    │                  │    │                 │
-│ • Multi-source  │───▶│ • HTTP Client    │───▶│ • SQLite WAL    │
-│ • Health Check  │    │ • Auth Support   │    │ • TTL Caching   │
-│ • Auto Config   │    │ • Retry Logic    │    │ • Offline Mode  │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                        │                        │
-         │                        │                        │
-         └────────────────────────┼────────────────────────┘
-                                  │
-                         ┌─────────────────┐
-                         │ Display Manager │
-                         │                 │
-                         │ • Console Out   │
-                         │ • Status Info   │
-                         │ • Interactive   │
-                         └─────────────────┘
-```
-
-### Detailed Component Architecture
-
 ```mermaid
 graph TB
-    A[Calendar Bot Main] --> B[Source Manager]
-    A --> C[Cache Manager]
-    A --> D[Display Manager]
-    A --> E[UI Controller]
-    A --> F[Validation Framework]
-    
-    B --> G[ICS Source]
-    G --> H[ICS Fetcher]
-    G --> I[ICS Parser]
-    
-    C --> J[Database Manager]
-    C --> K[Cache Models]
-    
-    D --> L[Console Renderer]
-    
-    E --> M[Interactive Controller]
-    E --> N[Keyboard Handler]
-    E --> O[Navigation Logic]
-    
-    F --> P[Validation Runner]
-    F --> Q[Test Results]
-    
-    subgraph "Core Components"
-        A
-        B
-        C
-        D
-        E
-        F
+    subgraph "Entry Points"
+        EP1[main.py]
+        EP2[calendarbot.__main__.py]
+        EP3[calendarbot CLI]
     end
     
-    subgraph "ICS Processing"
-        G
-        H
-        I
+    subgraph "Core Application"
+        MAIN[calendarbot.main.CalendarBot]
+        SETTINGS[config.settings.CalendarBotSettings]
+        WIZARD[calendarbot.setup_wizard.SetupWizard]
     end
     
-    subgraph "Storage Layer"
-        J
-        K
+    subgraph "Data Layer"
+        SOURCES[sources.SourceManager]
+        ICS[ics.ICSFetcher + ICSParser]
+        CACHE[cache.CacheManager + Database]
     end
     
-    subgraph "User Interface"
-        L
-        M
-        N
-        O
+    subgraph "Presentation Layer"
+        DISPLAY[display.DisplayManager]
+        UI[ui.InteractiveController]
+        WEB[web.WebServer]
     end
     
-    subgraph "Testing & Validation"
-        P
-        Q
+    subgraph "Infrastructure"
+        UTILS[utils.logging + helpers]
+        VALIDATION[validation.ValidationRunner]
     end
+    
+    EP1 --> MAIN
+    EP2 --> MAIN
+    EP3 --> MAIN
+    
+    MAIN --> SOURCES
+    MAIN --> CACHE
+    MAIN --> DISPLAY
+    
+    SOURCES --> ICS
+    ICS --> CACHE
+    
+    DISPLAY --> UI
+    DISPLAY --> WEB
+    
+    MAIN --> VALIDATION
+    MAIN --> UTILS
+    
+    WIZARD --> SETTINGS
+    WIZARD --> ICS
 ```
 
-### Core Components
+### Module Structure
 
-#### 1. Source Manager (`sources/`)
-- **Multi-source coordination**: Manages multiple ICS feeds
-- **Health monitoring**: Validates feed accessibility and content
-- **Configuration management**: Handles source-specific settings
-- **Error recovery**: Automatic retry and fallback strategies
+#### 1. **Source Management** ([`calendarbot/sources/`](calendarbot/sources/))
+- [`manager.py`](calendarbot/sources/manager.py): Multi-source coordination and health monitoring
+- [`ics_source.py`](calendarbot/sources/ics_source.py): ICS feed handling and authentication
+- [`models.py`](calendarbot/sources/models.py): Source configuration data models
+- [`exceptions.py`](calendarbot/sources/exceptions.py): Source-specific error handling
 
-#### 2. ICS Processing (`ics/`)
-- **HTTP Fetcher**: Async HTTP client with authentication support
-- **Content Parser**: RFC 5545 compliant ICS parsing
-- **Event Models**: Structured representation of calendar events
-- **Exception Handling**: ICS-specific error types and recovery
+#### 2. **ICS Processing** ([`calendarbot/ics/`](calendarbot/ics/))
+- [`fetcher.py`](calendarbot/ics/fetcher.py): Async HTTP client with auth and caching support
+- [`parser.py`](calendarbot/ics/parser.py): RFC 5545 compliant ICS content parsing
+- [`models.py`](calendarbot/ics/models.py): ICS data models and validation
+- [`exceptions.py`](calendarbot/ics/exceptions.py): ICS-specific error types
 
-#### 3. Cache Manager (`cache/`)
-- **SQLite Storage**: WAL mode for performance and durability
-- **TTL Management**: Configurable cache expiration
-- **Offline Support**: Serve cached data when feeds unavailable
-- **Data Models**: Structured cache entry representation
+#### 3. **Cache Management** ([`calendarbot/cache/`](calendarbot/cache/))
+- [`manager.py`](calendarbot/cache/manager.py): Cache coordination and TTL management
+- [`database.py`](calendarbot/cache/database.py): Async SQLite operations with WAL mode
+- [`models.py`](calendarbot/cache/models.py): Cache entry data models
 
-#### 4. Display Manager (`display/`)
-- **Console Renderer**: Clean, formatted console output
-- **Status Information**: Connection status and update timestamps
-- **Error Display**: User-friendly error messages
-- **Extensible Design**: Ready for e-ink display integration
+#### 4. **Display Management** ([`calendarbot/display/`](calendarbot/display/))
+- [`manager.py`](calendarbot/display/manager.py): Display coordination and mode switching
+- [`console_renderer.py`](calendarbot/display/console_renderer.py): Console output formatting
+- [`html_renderer.py`](calendarbot/display/html_renderer.py): Web-compatible HTML rendering
+- [`rpi_html_renderer.py`](calendarbot/display/rpi_html_renderer.py): E-ink optimized HTML layouts
 
-#### 5. UI Controller (`ui/`)
-- **Interactive Mode**: Keyboard-driven calendar navigation
-- **Navigation Logic**: Date browsing and event filtering
-- **Input Handling**: Cross-platform keyboard input support
-- **Real-time Updates**: Background data fetching during interaction
+#### 5. **User Interface** ([`calendarbot/ui/`](calendarbot/ui/))
+- [`interactive.py`](calendarbot/ui/interactive.py): Interactive navigation controller
+- [`keyboard.py`](calendarbot/ui/keyboard.py): Cross-platform keyboard input handling
+- [`navigation.py`](calendarbot/ui/navigation.py): Date navigation and filtering logic
 
-#### 6. Validation Framework (`validation/`)
-- **Test Runner**: Comprehensive system validation
-- **Component Testing**: Individual module verification
-- **Result Reporting**: Detailed test results and diagnostics
-- **Logging Integration**: Enhanced logging for troubleshooting
+#### 6. **Web Interface** ([`calendarbot/web/`](calendarbot/web/))
+- [`server.py`](calendarbot/web/server.py): Web server implementation
+- [`navigation.py`](calendarbot/web/navigation.py): Web-based navigation handling
+- [`static/`](calendarbot/web/static/): CSS, JavaScript, and theme assets
 
-### Data Flow Architecture
+#### 7. **Utilities** ([`calendarbot/utils/`](calendarbot/utils/))
+- [`logging.py`](calendarbot/utils/logging.py): Enhanced logging system with interactive mode support
+- [`helpers.py`](calendarbot/utils/helpers.py): Common utility functions
+
+#### 8. **Validation Framework** ([`calendarbot/validation/`](calendarbot/validation/))
+- [`runner.py`](calendarbot/validation/runner.py): Comprehensive system validation
+- [`results.py`](calendarbot/validation/results.py): Test result models and reporting
+- [`logging_setup.py`](calendarbot/validation/logging_setup.py): Validation-specific logging
+
+#### 9. **Configuration System** ([`config/`](config/))
+- [`settings.py`](config/settings.py): Pydantic settings models with YAML integration
+- [`config.yaml.example`](config/config.yaml.example): Example configuration template
+- [`ics_config.py`](config/ics_config.py): ICS-specific configuration helpers
+
+## 3. Operational Modes
+
+### 1. Setup Mode (`--setup`)
+**Entry Point**: [`calendarbot/setup_wizard.py`](calendarbot/setup_wizard.py)
+- Interactive configuration wizard with service templates
+- Automatic ICS feed validation and testing
+- Authentication setup (basic auth, bearer tokens)
+- Configuration file generation and management
+
+### 2. Interactive Mode (`--interactive`)
+**Components**: [`ui.InteractiveController`](calendarbot/ui/interactive.py), [`display.ConsoleRenderer`](calendarbot/display/console_renderer.py)
+- Keyboard-driven navigation (arrow keys, space, ESC)
+- Real-time background data fetching
+- Split-screen logging in development mode
+- Cross-platform input handling
+
+### 3. Web Mode (`--web`)
+**Components**: [`web.WebServer`](calendarbot/web/server.py), [`display.HTMLRenderer`](calendarbot/display/html_renderer.py)
+- Browser-based calendar interface
+- Multiple theme support (standard, eink-rpi)
+- Auto-refresh capabilities
+- Mobile-responsive design
+
+### 4. Raspberry Pi Mode (`--rpi`)
+**Components**: [`display.RPIHtmlRenderer`](calendarbot/display/rpi_html_renderer.py)
+- E-ink display optimized layouts (800x480px)
+- High contrast, minimal refresh themes
+- Power-efficient rendering strategies
+- Web interface integration
+
+### 5. Test/Validation Mode (`--test-mode`)
+**Components**: [`validation.ValidationRunner`](calendarbot/validation/runner.py)
+- Comprehensive system validation
+- Component-specific testing (ICS, cache, display)
+- Performance benchmarking
+- Configuration verification
+
+### 6. Daemon Mode (default)
+**Components**: [`main.CalendarBot`](calendarbot/main.py)
+- Background operation with automatic refresh
+- Graceful error handling and recovery
+- Resource monitoring and optimization
+- Signal-based shutdown handling
+
+## 4. Data Flow Architecture
+
+### Event Processing Pipeline
 
 ```mermaid
 sequenceDiagram
-    participant S as Scheduler
-    participant SM as Source Manager
-    participant IF as ICS Fetcher
-    participant IP as ICS Parser
-    participant C as Cache Manager
-    participant D as Display Manager
-    participant UI as UI Controller
+    participant Timer as Scheduler
+    participant SM as SourceManager
+    participant ICS as ICSFetcher
+    participant Parser as ICSParser
+    participant Cache as CacheManager
+    participant Display as DisplayManager
+    participant UI as User Interface
     
-    S->>SM: Trigger refresh cycle
-    SM->>IF: Fetch ICS content
-    IF->>IF: HTTP request with auth
-    IF->>IP: Parse ICS content
-    IP->>IP: Extract calendar events
-    IP->>C: Store parsed events
-    C->>D: Provide formatted events
-    D->>UI: Update display
-    UI->>S: Schedule next refresh
+    Timer->>SM: Trigger refresh cycle
+    SM->>ICS: Fetch ICS content
+    ICS->>ICS: HTTP request with auth
+    ICS->>Parser: Parse ICS content
+    Parser->>Parser: Extract events + validate
+    Parser->>Cache: Store parsed events
+    Cache->>Display: Provide current events
+    Display->>UI: Update presentation
+    UI->>Timer: Schedule next refresh
 ```
 
-## 4. ICS Processing Pipeline
+### Configuration Loading Flow
 
-### HTTP Fetching Layer
-
-```python
-# ICS Fetcher Architecture
-class ICSFetcher:
-    """Async HTTP client for ICS content retrieval."""
+```mermaid
+flowchart TD
+    A[Application Start] --> B{Check Config Files}
+    B -->|Project Dir| C[config/config.yaml]
+    B -->|User Home| D[~/.config/calendarbot/config.yaml]
+    B -->|None Found| E[Environment Variables]
     
-    async def fetch(self, source: ICSSource) -> ICSResponse:
-        """Fetch ICS content with authentication and caching."""
-        # HTTP authentication (Basic, Bearer, None)
-        # Conditional requests (ETags, Last-Modified)
-        # Connection pooling and timeouts
-        # Retry logic with exponential backoff
-```
-
-### Content Parsing Layer
-
-```python
-# ICS Parser Architecture
-class ICSParser:
-    """RFC 5545 compliant ICS content parser."""
+    C --> F[Load YAML + Env Vars]
+    D --> F
+    E --> G[Env Vars Only]
     
-    async def parse(self, ics_content: str) -> ICSParseResult:
-        """Parse ICS content into structured events."""
-        # Validate ICS format
-        # Extract calendar metadata
-        # Parse VEVENT components
-        # Handle timezones and recurrence
-        # Filter busy/tentative events
+    F --> H[Pydantic Validation]
+    G --> H
+    
+    H --> I{Valid Config?}
+    I -->|Yes| J[Initialize Components]
+    I -->|No| K[Setup Wizard]
+    
+    K --> L[Generate config.yaml]
+    L --> H
 ```
 
-### Event Processing Flow
+## 5. Configuration Management
 
-1. **Content Validation**: Verify ICS format compliance
-2. **Metadata Extraction**: Calendar name, version, timezone
-3. **Event Parsing**: VEVENT components to structured data
-4. **Timezone Handling**: Convert to local timezone
-5. **Recurrence Expansion**: Handle RRULE patterns
-6. **Event Filtering**: Show only busy/tentative events
-7. **Data Normalization**: Consistent event representation
+### Settings Architecture
 
-## 5. Caching & Storage Architecture
+The configuration system uses a hierarchical approach implemented in [`config/settings.py`](config/settings.py):
 
-### SQLite Database Design
-
-```sql
--- Cache Events Table
-CREATE TABLE cached_events (
-    id TEXT PRIMARY KEY,
-    source_name TEXT NOT NULL,
-    subject TEXT NOT NULL,
-    start_datetime TIMESTAMP NOT NULL,
-    end_datetime TIMESTAMP NOT NULL,
-    location TEXT,
-    is_all_day BOOLEAN DEFAULT FALSE,
-    show_as TEXT DEFAULT 'busy',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL
-);
-
--- Cache Metadata Table
-CREATE TABLE cache_metadata (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Caching Strategy
-
-**Write-Ahead Logging (WAL) Mode**:
-- Reduces SD card wear
-- Improves concurrent access
-- Better crash recovery
-- Optimal for Raspberry Pi storage
-
-**TTL Management**:
-- Configurable cache expiration (default: 1 hour)
-- Automatic cleanup of expired events
-- Background maintenance tasks
-- Smart refresh based on cache age
-
-**Offline Functionality**:
-- Serve cached events when network unavailable
-- Graceful degradation indicators
-- Preserve last successful update timestamp
-- Continue operation with stale but valid data
-
-## 6. User Interface Architecture
-
-### Execution Modes
-
-#### 1. Daemon Mode (Default)
-```bash
-python main.py
-```
-- Continuous background operation
-- Automatic refresh every 5 minutes
-- Console output with status updates
-- Signal handling for graceful shutdown
-
-#### 2. Interactive Mode
-```bash
-python main.py --interactive
-```
-- Keyboard-driven navigation
-- Real-time date browsing
-- Background data updates
-- Cross-platform input handling
-
-#### 3. Test Mode
-```bash
-python main.py --test-mode
-```
-- Comprehensive system validation
-- ICS feed connectivity testing
-- Configuration verification
-- Detailed diagnostic output
-
-### Interactive Navigation Features
-
-**Keyboard Controls**:
-- **Arrow Keys**: Navigate between dates
-- **Space**: Jump to today
-- **ESC**: Exit interactive mode
-- **Enter**: Refresh current view
-
-**Real-time Updates**:
-- Background data fetching continues
-- Display updates without interruption
-- Seamless transition between cached and live data
-- Status indicators for connection state
-
-### Display Layout Design
-
-```
-============================================================
-📅 ICS CALENDAR - Monday, January 15
-============================================================
-Updated: 10:05 | 🌐 Live Data
-
-▶ CURRENT EVENT
-
-  Team Standup
-  10:00 - 10:30
-  📍 Conference Room A
-  ⏱️  25 minutes remaining
-
-📋 NEXT UP
-
-• Project Review
-  11:00 - 12:00 | 📍 Online
-
-• Lunch Meeting
-  12:30 - 13:30 | 📍 Restaurant
-
-⏰ LATER TODAY
-
-• Code Review
-  14:00 - 15:00
-• 1:1 with Manager
-  15:30 - 16:00
-
-============================================================
-```
-
-## 7. Configuration Management
-
-### Hierarchical Configuration
-
-1. **Default Values**: Built into application code
-2. **YAML Configuration**: `config/config.yaml`
-3. **Environment Variables**: `CALENDARBOT_*` prefix
-4. **Command Line Arguments**: Override specific settings
+1. **Default Values**: Built into Pydantic models
+2. **YAML Configuration**: Project or user config directories
+3. **Environment Variables**: `CALENDARBOT_*` prefix support
+4. **Command Line Arguments**: Runtime overrides
 
 ### Configuration Schema
 
@@ -408,7 +253,7 @@ ics:
   password: "pass"   # for basic auth
   token: "token"     # for bearer auth
   verify_ssl: true
-  user_agent: "CalendarBot/1.0"
+  timeout: 30
 
 # Application Settings
 app_name: "CalendarBot"
@@ -417,24 +262,43 @@ cache_ttl: 3600       # seconds
 
 # Display Settings
 display_enabled: true
-display_type: "console"
+display_type: "console"  # console, html, rpi
 
-# Network Settings
-request_timeout: 30
-max_retries: 3
-retry_backoff_factor: 1.5
+# Comprehensive Logging Configuration
+logging:
+  console_enabled: true
+  console_level: "WARNING"
+  console_colors: true
+  file_enabled: true
+  file_level: "DEBUG"
+  file_directory: null  # defaults to data_dir/logs
+  max_log_files: 5
+  interactive_split_display: true
+  interactive_log_lines: 5
 
-# Logging
-log_level: "INFO"
-log_file: null
+# Web Interface Settings
+web:
+  enabled: false
+  port: 8080
+  host: "0.0.0.0"
+  theme: "eink-rpi"    # eink, eink-rpi, standard
+  auto_refresh: 60
+
+# Raspberry Pi E-ink Settings
+rpi:
+  enabled: false
+  display_width: 800
+  display_height: 480
+  refresh_mode: "partial"  # partial, full
+  auto_theme: true
 ```
 
 ### Settings Validation
 
 ```python
-# Pydantic Settings Model
+# Example from config/settings.py
 class CalendarBotSettings(BaseSettings):
-    """Type-safe configuration with validation."""
+    """Type-safe configuration with automatic validation."""
     
     # ICS configuration with validation
     ics_url: Optional[str] = Field(None, description="ICS calendar URL")
@@ -446,300 +310,255 @@ class CalendarBotSettings(BaseSettings):
         env_file = ".env"
 ```
 
-## 8. Error Handling & Resilience
+## 6. Caching & Storage Architecture
 
-### Network Resilience Strategy
+### SQLite Database Design
 
-**Connection Failures**:
-- Exponential backoff retry logic
-- Circuit breaker pattern for persistent failures
-- Fallback to cached data during outages
-- Clear status indicators for offline mode
+The cache system uses async SQLite with WAL mode for optimal performance:
 
-**HTTP Error Handling**:
-- 4xx errors: Configuration or authentication issues
-- 5xx errors: Server-side problems, retry with backoff
-- Timeout handling: Configurable timeouts with graceful degradation
-- Rate limiting: Respect server limits and back off appropriately
+```sql
+-- Event Cache Table
+CREATE TABLE cached_events (
+    id TEXT PRIMARY KEY,
+    source_name TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    start_datetime TIMESTAMP NOT NULL,
+    end_datetime TIMESTAMP NOT NULL,
+    location TEXT,
+    is_all_day BOOLEAN DEFAULT FALSE,
+    show_as TEXT DEFAULT 'busy',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    INDEX idx_start_datetime (start_datetime),
+    INDEX idx_expires_at (expires_at)
+);
 
-### Data Validation & Recovery
-
-**ICS Content Validation**:
-- RFC 5545 compliance checking
-- Malformed content error recovery
-- Partial parsing with warnings
-- Detailed error reporting for debugging
-
-**Cache Corruption Recovery**:
-- Database integrity checks
-- Automatic cache rebuilding
-- Backup and restore procedures
-- Graceful handling of SQLite errors
-
-### Application-Level Error Recovery
-
-```python
-# Error Recovery Framework
-class ErrorRecovery:
-    """Comprehensive error handling and recovery."""
-    
-    async def handle_network_error(self, error: NetworkError):
-        """Handle network-related failures."""
-        # Log error details
-        # Switch to offline mode
-        # Schedule retry with backoff
-        # Update user status display
-    
-    async def handle_parse_error(self, error: ICSParseError):
-        """Handle ICS parsing failures."""
-        # Log parse error details
-        # Attempt partial recovery
-        # Use cached data if available
-        # Notify user of data issues
+-- Cache Metadata Table
+CREATE TABLE cache_metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-## 9. Performance Optimization
+### Caching Strategy
 
-### Resource Utilization Targets
+**WAL Mode Benefits**:
+- Reduced storage wear (important for SD cards)
+- Better concurrent read/write access
+- Improved crash recovery
+- Optimal for single-writer, multiple-reader scenarios
 
-**Memory Usage**:
-- Application: < 50MB resident memory
-- Cache database: < 10MB for typical use
-- Total system impact: < 100MB
+**TTL Management**:
+- Configurable cache expiration (default: 1 hour)
+- Automatic cleanup of expired events
+- Smart refresh based on cache freshness
+- Offline operation with cached data
 
-**CPU Usage**:
-- Idle: < 1% CPU utilization
-- Refresh cycle: < 10% CPU peak
-- Interactive mode: < 5% CPU average
+## 7. Error Handling & Resilience
 
-**Storage Usage**:
-- Application files: < 20MB
-- Cache database: < 5MB typical, auto-cleanup
-- Log files: Rotation to prevent growth
+### Network Resilience
 
-### Async/Await Architecture Benefits
+```python
+# Example from source manager
+async def fetch_with_retry(self, source: ICSSource) -> ICSResponse:
+    """Fetch with exponential backoff retry logic."""
+    for attempt in range(self.settings.max_retries):
+        try:
+            response = await self.fetcher.fetch_ics(source)
+            if response.success:
+                return response
+        except NetworkError as e:
+            if attempt < self.settings.max_retries - 1:
+                delay = self.settings.retry_backoff_factor ** attempt
+                await asyncio.sleep(delay)
+            else:
+                return ICSResponse(success=False, error_message=str(e))
+```
 
-**Concurrent Operations**:
-- HTTP requests don't block UI updates
-- Cache operations don't block display refresh
-- Background tasks run independently
-- Responsive user interaction
+### Graceful Degradation
 
-**I/O Efficiency**:
-- Non-blocking HTTP requests
-- Async database operations
-- Concurrent cache read/write
-- Minimal thread overhead
+- **Network Failures**: Automatic fallback to cached data
+- **ICS Parse Errors**: Partial recovery with detailed error reporting
+- **Cache Corruption**: Automatic cache rebuilding
+- **Display Errors**: Minimal error display with system status
 
-### Caching Optimizations
-
-**HTTP Caching**:
-- ETags for content validation
-- Last-Modified headers for conditional requests
-- Compression support (gzip, deflate)
-- Connection reuse and pooling
-
-**Database Optimizations**:
-- WAL mode for better concurrency
-- Prepared statements for repeated queries
-- Index optimization for date range queries
-- Automatic vacuum and maintenance
-
-## 10. Testing & Validation Framework
+## 8. Testing & Validation Framework
 
 ### Validation Components
 
-#### 1. ICS Feed Validation
+The [`validation`](calendarbot/validation/) module provides comprehensive testing:
+
 ```python
-# Comprehensive ICS testing
-class ICSValidator:
-    """Validate ICS feed accessibility and content."""
+# Validation runner supports component-specific testing
+class ValidationRunner:
+    """Comprehensive system validation."""
     
-    async def validate_connectivity(self, url: str) -> ValidationResult:
-        """Test HTTP connectivity to ICS feed."""
-    
-    async def validate_content(self, content: str) -> ValidationResult:
-        """Validate ICS content format and structure."""
-    
-    async def validate_events(self, events: List[Event]) -> ValidationResult:
-        """Validate parsed event data quality."""
+    async def run_validation(self) -> ValidationResults:
+        """Run validation for specified components."""
+        if 'ics' in self.components:
+            await self._validate_ics_connectivity()
+        if 'cache' in self.components:
+            await self._validate_cache_operations()
+        if 'display' in self.components:
+            await self._validate_display_functionality()
 ```
 
-#### 2. System Integration Testing
+### Test Execution
+
+```bash
+# Quick validation
+calendarbot --test-mode
+
+# Comprehensive testing with specific components
+calendarbot --test-mode --verbose --components ics,cache --date 2024-01-15
+
+# JSON output for automation
+calendarbot --test-mode --output-format json > validation-results.json
+```
+
+## 9. Security & Privacy
+
+### Data Protection
+
+- **Local-First Architecture**: All calendar data processed locally
+- **No Cloud Dependencies**: Direct ICS feed access without intermediaries
+- **User-Controlled Data**: User manages all data retention policies
+- **Minimal Network Footprint**: Only necessary ICS fetch requests
+
+### Authentication Security
+
+- **HTTPS Required**: SSL/TLS for all ICS feed access
+- **Multiple Auth Methods**: Basic auth, bearer tokens, or public access
+- **Credential Protection**: Secure credential storage in configuration files
+- **SSL Validation**: Configurable certificate validation
+
+## 10. Performance Optimization
+
+### Resource Utilization Targets
+
+- **Memory Usage**: < 50MB resident memory for typical operation
+- **CPU Usage**: < 1% idle, < 10% during refresh cycles
+- **Storage**: < 5MB cache database with automatic cleanup
+- **Network**: Efficient HTTP caching with conditional requests
+
+### Async/Await Benefits
+
+- **Non-blocking I/O**: HTTP requests don't block UI updates
+- **Concurrent Operations**: Multiple data sources can be fetched simultaneously  
+- **Responsive UI**: Interactive mode remains responsive during background fetching
+- **Resource Efficiency**: Minimal thread overhead compared to threading approaches
+
+## 11. Deployment Architecture
+
+### Entry Points
+
 ```python
-# Full system validation
-class SystemValidator:
-    """End-to-end system testing."""
-    
-    async def test_full_pipeline(self) -> ValidationResults:
-        """Test complete fetch-parse-cache-display pipeline."""
-    
-    async def test_offline_mode(self) -> ValidationResults:
-        """Validate offline functionality with cached data."""
-    
-    async def test_interactive_mode(self) -> ValidationResults:
-        """Test interactive navigation and controls."""
+# pyproject.toml console scripts configuration
+[project.scripts]
+calendarbot = "main:main_entry"
+
+# Multiple execution methods
+python main.py                    # Direct execution
+python -m calendarbot            # Module execution  
+calendarbot                      # Installed package
 ```
 
-### Test Execution Modes
-
-**Quick Validation** (`--test-mode`):
-- Basic connectivity testing
-- Configuration validation
-- Simple ICS parsing test
-
-**Comprehensive Testing** (`--test-mode --verbose`):
-- Full system integration testing
-- Performance benchmarking
-- Error condition simulation
-- Detailed diagnostic output
-
-## 11. Security & Privacy Considerations
-
-### Data Protection Strategy
-
-**Local-First Architecture**:
-- All calendar data processed locally
-- No cloud storage of personal information
-- Direct ICS feed access without intermediaries
-- User controls all data retention policies
-
-**Authentication Security**:
-- Support for secure authentication methods
-- Credential storage in configuration files (user-controlled)
-- HTTPS-only connections to calendar feeds
-- SSL certificate validation (configurable)
-
-### Network Security
-
-**Transport Security**:
-- HTTPS required for all ICS feed access
-- SSL/TLS certificate validation
-- Secure authentication header handling
-- Protection against man-in-the-middle attacks
-
-**Privacy Protection**:
-- No telemetry or usage data collection
-- No external service dependencies
-- User-controlled logging and data retention
-- Minimal network fingerprint
-
-## 12. Deployment Architecture
-
-### Production Deployment
-
-```yaml
-# systemd Service Configuration
-[Unit]
-Description=ICS Calendar Display Bot
-After=network.target
-
-[Service]
-Type=simple
-User=pi
-WorkingDirectory=/home/pi/projects/calendarBot
-ExecStart=/home/pi/projects/calendarbot-env/bin/python main.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### Monitoring & Maintenance
-
-**Health Monitoring**:
-- Application startup validation
-- Periodic ICS feed health checks
-- Cache performance monitoring
-- Resource usage tracking
-
-**Maintenance Automation**:
-- Log rotation and cleanup
-- Cache database maintenance
-- System update notifications
-- Configuration backup
-
-### File Structure & Organization
+### File Structure
 
 ```
 calendarBot/
-├── README.md                    # Project overview
-├── INSTALL.md                   # Installation guide
-├── USAGE.md                     # User guide
-├── ARCHITECTURE.md              # This document
-├── requirements.txt             # Python dependencies
-├── main.py                      # Application entry point
-├── test_ics.py                  # ICS testing utility
-├── test_interactive.py          # Interactive mode testing
+├── main.py                      # Primary entry point
+├── pyproject.toml               # Modern Python packaging
 ├── config/
-│   ├── settings.py              # Pydantic settings
-│   ├── config.yaml.example      # Example configuration
-│   └── ics_config.py            # ICS-specific configuration
+│   ├── settings.py              # Pydantic settings models
+│   ├── config.yaml.example      # Configuration template
+│   └── ics_config.py            # ICS-specific helpers
 ├── calendarbot/
+│   ├── __init__.py              # Package initialization
+│   ├── __main__.py              # Module execution support
 │   ├── main.py                  # Core application logic
-│   ├── sources/                 # Calendar source management
-│   │   ├── manager.py           # Source coordination
-│   │   ├── ics_source.py        # ICS feed handling
-│   │   ├── models.py            # Source data models
-│   │   └── exceptions.py        # Source-specific exceptions
+│   ├── setup_wizard.py          # Interactive configuration
+│   ├── cache/                   # Event caching system
+│   ├── display/                 # Output rendering
 │   ├── ics/                     # ICS processing
-│   │   ├── fetcher.py           # HTTP ICS fetching
-│   │   ├── parser.py            # ICS content parsing
-│   │   ├── models.py            # ICS data models
-│   │   └── exceptions.py        # ICS-specific exceptions
-│   ├── cache/                   # Local data caching
-│   │   ├── manager.py           # Cache coordination
-│   │   ├── database.py          # SQLite operations
-│   │   └── models.py            # Cache data models
-│   ├── display/                 # Display management
-│   │   ├── manager.py           # Display coordination
-│   │   └── console_renderer.py  # Console output renderer
-│   ├── ui/                      # User interface
-│   │   ├── interactive.py       # Interactive controller
-│   │   ├── keyboard.py          # Keyboard input handling
-│   │   └── navigation.py        # Navigation logic
-│   ├── utils/                   # Utility functions
-│   │   ├── logging.py           # Logging setup
-│   │   └── helpers.py           # General utilities
-│   └── validation/              # Testing and validation
-│       ├── runner.py            # Validation framework
-│       ├── results.py           # Result models
-│       └── logging_setup.py     # Validation logging
+│   ├── sources/                 # Calendar source management
+│   ├── ui/                      # Interactive user interface
+│   ├── utils/                   # Common utilities
+│   ├── validation/              # Testing framework
+│   └── web/                     # Web interface
+└── scripts/
+    └── dev_setup.py             # Development environment setup
 ```
 
-## 13. Future Extensibility
+## 12. Extension Points
 
-### E-ink Display Integration
+### Adding New Calendar Sources
 
-**Hardware Support Framework**:
-- Modular display driver architecture
-- Auto-detection of connected displays
-- Dynamic layout adaptation
-- Power management integration
+```python
+# Example: Extend sources for CalDAV protocol
+class CalDAVSource(BaseSource):
+    """Direct CalDAV server integration."""
+    
+    async def fetch_events(self) -> List[CalendarEvent]:
+        """Fetch events using CalDAV protocol."""
+        pass
+```
 
-**Display Size Adaptations**:
-- 2.9" (296x128): Current + next event only
-- 4.2" (400x300): Current + next 2-3 events
-- 7.5" (800x480): Full daily schedule
-- 9.7" (1200x825): Multi-day view
+### Custom Display Renderers
 
-### Multiple Calendar Source Support
+```python
+# Example: Custom display renderer
+class CustomRenderer(BaseRenderer):
+    """Custom output format renderer."""
+    
+    async def render_events(self, events: List[CalendarEvent]) -> str:
+        """Render events in custom format."""
+        pass
+```
 
-**Multi-Source Architecture**:
-- Multiple ICS feed configuration
-- Calendar merging and prioritization
-- Source-specific authentication
-- Conflict resolution strategies
+### Web Theme Development
 
-### CalDAV Integration
+```css
+/* Example: Custom web theme in web/static/ */
+.custom-theme {
+    /* E-ink optimized styles */
+    background: #ffffff;
+    color: #000000;
+    font-family: 'Roboto Mono', monospace;
+}
+```
 
-**Direct CalDAV Support**:
-- Native CalDAV protocol implementation
-- Two-way calendar synchronization
-- Advanced authentication methods
-- Real-time push notifications
+## 13. Development Workflow
+
+### Setup and Contribution
+
+```bash
+# Automated development environment setup
+python scripts/dev_setup.py
+
+# Development installation
+pip install -e .[dev]
+
+# Code quality checks
+black calendarbot/
+mypy calendarbot/
+pytest --cov=calendarbot
+
+# Package testing
+python -m build
+calendarbot --test-mode --verbose
+```
+
+### Architecture Principles
+
+1. **Modular Design**: Clear separation of concerns between modules
+2. **Async-First**: All I/O operations use async/await patterns
+3. **Type Safety**: Comprehensive type hints and Pydantic validation
+4. **Configuration-Driven**: Behavior controlled via YAML configuration
+5. **Error Resilience**: Graceful degradation and comprehensive error handling
+6. **Universal Compatibility**: Support for any RFC 5545 compliant calendar
 
 ---
 
-*This architecture document provides the foundation for a robust, efficient, and privacy-focused ICS calendar display system optimized for Raspberry Pi deployment.*
+**Architecture Document v3.0** - Reflects the current ICS-based CalendarBot system with comprehensive module documentation, operational modes, and development workflows.

@@ -1,437 +1,834 @@
-# Migration Guide: Microsoft Graph API to ICS Calendar System
+# Migration Guide
 
-**Document Version:** 1.0  
-**Last Updated:** January 5, 2025  
-**Migration Path:** Graph API v1.0 → ICS Calendar v2.0
+**Document Version:** 2.0  
+**Last Updated:** January 7, 2025  
+**Migration Scope:** Configuration and Version Migrations  
+**Target Audience:** Existing Users, System Administrators
 
-## Overview
+This guide covers migration procedures for CalendarBot, including configuration updates, version upgrades, and transitioning between different operational modes.
 
-This guide provides step-by-step instructions for migrating from the previous Microsoft Graph API implementation to the new ICS-based calendar system. The ICS approach provides universal calendar compatibility, simplified setup, and enhanced privacy.
+## Table of Contents
 
-## Migration Benefits
+- [Migration Overview](#migration-overview)
+- [Configuration Migration](#configuration-migration)
+- [Version Upgrade Procedures](#version-upgrade-procedures)
+- [Operational Mode Migration](#operational-mode-migration)
+- [Data Migration](#data-migration)
+- [Backup and Restore](#backup-and-restore)
+- [Troubleshooting Migrations](#troubleshooting-migrations)
 
-### Why Migrate to ICS?
+## Migration Overview
 
-- ✅ **Universal Compatibility**: Works with any calendar service (Outlook, Google, Apple, CalDAV)
-- ✅ **Simplified Setup**: No Azure app registration or complex authentication
-- ✅ **No API Quotas**: Unlimited access to your calendar data
-- ✅ **Enhanced Privacy**: Direct calendar access without third-party APIs
-- ✅ **Better Reliability**: No dependency on Microsoft Graph API availability
-- ✅ **Easier Maintenance**: Standard ICS format with broad support
+### Migration Scenarios
 
-### Breaking Changes from Graph API Version
+CalendarBot supports several migration scenarios:
 
-| Feature | Graph API (Old) | ICS System (New) | Impact |
-|---------|-----------------|------------------|---------|
-| Authentication | Azure Client ID/Secret | ICS URL (usually public) | 🔴 **Breaking**: Remove Azure config |
-| Calendar Access | REST API calls | Direct ICS feed | 🟢 **Improved**: Simpler access |
-| Event Filtering | Graph API filters | ICS TRANSP/STATUS parsing | 🟡 **Different**: New filtering logic |
-| Rate Limiting | Microsoft quotas | HTTP politeness | 🟢 **Improved**: No hard limits |
-| Offline Support | API cache only | Full ICS cache | 🟢 **Improved**: Better offline mode |
-
-## Pre-Migration Checklist
-
-### 1. Backup Current Configuration
-```bash
-# Backup your current configuration
-cp config/config.yaml config/config.yaml.graph-backup
-cp -r ~/.local/share/calendarbot ~/.local/share/calendarbot-graph-backup
+```mermaid
+graph TD
+    A[Migration Scenarios] --> B[Configuration Migration]
+    A --> C[Version Upgrades]
+    A --> D[Mode Transitions]
+    A --> E[Data Migration]
+    
+    B --> B1[YAML Schema Updates]
+    B --> B2[Environment Variable Changes]
+    B --> B3[Authentication Updates]
+    
+    C --> C1[Package Updates]
+    C --> C2[Dependency Updates]
+    C --> C3[Breaking Changes]
+    
+    D --> D1[Console → Web Mode]
+    D --> D2[Standalone → Service]
+    D --> D3[Development → Production]
+    
+    E --> E1[Cache Migration]
+    E --> E2[Configuration Transfer]
+    E --> E3[Log Migration]
 ```
 
-### 2. Document Current Settings
-Record your current Microsoft Graph configuration:
-- Azure Tenant ID
-- Application (Client) ID  
-- Calendar ID or email address
-- Refresh intervals and display settings
+### Migration Safety
 
-### 3. Obtain ICS Calendar URL
-
-#### For Microsoft Outlook/Office 365:
-1. Go to Outlook on the web (outlook.live.com or outlook.office365.com)
-2. Navigate to Calendar → Settings (gear icon) → View all Outlook settings
-3. Go to Calendar → Shared calendars
-4. Under "Publish a calendar":
-   - Select your calendar
-   - Set permissions to "Can view when I'm busy"
-   - Click **Publish**
-5. Copy the ICS link (ends with `.ics`)
-
-#### For Google Calendar:
-1. Open Google Calendar (calendar.google.com)
-2. Click three dots next to your calendar → "Settings and sharing"
-3. Scroll to "Access permissions and export"
-4. Copy the "Secret address in iCal format"
-
-#### For Other Services:
-- **Apple iCloud**: Calendar → Share → Public Calendar → Copy URL
-- **CalDAV Servers**: Usually `https://server.com/path/calendar.ics?export`
-
-## Step-by-Step Migration Process
-
-### Step 1: Stop Current Application
-
+**Always backup before migration**:
 ```bash
-# If running as systemd service
-sudo systemctl stop calendarbot
+# Backup configuration and data
+calendarbot --backup
 
-# If running manually
-# Press Ctrl+C to stop the application
+# Manual backup
+cp -r ~/.config/calendarbot ~/.config/calendarbot.backup
+cp -r ~/.local/share/calendarbot ~/.local/share/calendarbot.backup
 ```
 
-### Step 2: Update Configuration File
+## Configuration Migration
 
-Replace your Graph API configuration with ICS settings:
+### Configuration Schema Updates
 
+#### From Legacy to Current Schema
+
+**Legacy Configuration** (if migrating from older versions):
 ```yaml
-# REMOVE these Graph API settings:
-# client_id: "your-azure-client-id"
-# tenant_id: "your-azure-tenant-id"  
-# client_secret: "your-azure-client-secret"
-# calendar_id: "your-calendar-id"
-
-# ADD these ICS settings:
-ics:
-  url: "https://outlook.live.com/.../calendar.ics"  # Your ICS URL
-  auth_type: "none"  # Most personal calendars are public
-  verify_ssl: true
-
-# Keep these existing settings:
-refresh_interval: 300
-cache_ttl: 3600
+# Old format
+calendar_url: "https://calendar.example.com/calendar.ics"
 log_level: "INFO"
-display_enabled: true
-display_type: "console"
+refresh_minutes: 5
 ```
 
-### Step 3: Clear Old Cache Data
-
-```bash
-# Remove Graph API cache (if it exists)
-rm -rf ~/.local/share/calendarbot/graph_cache.db
-rm -rf ~/.local/share/calendarbot/token_cache.json
-
-# The new ICS cache will be created automatically
-```
-
-### Step 4: Test ICS Feed Access
-
-```bash
-# Test your ICS URL before running the full application
-python test_ics.py --url "your-ics-calendar-url"
-```
-
-Expected output:
-```
-✅ ICS Feed Validation Complete
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📡 Connection Test
-   ✅ Successfully connected to ICS feed
-   ✅ Received 200 OK response
-   ✅ Content-Type: text/calendar
-
-📄 ICS Content Validation
-   ✅ Valid ICS format detected
-   ✅ Found 5 calendar events
-   ✅ Date range: 2025-01-05 to 2025-01-12
-```
-
-### Step 5: Run Migration Test
-
-```bash
-# Run comprehensive migration test
-python main.py --test-mode --verbose
-```
-
-This validates:
-- ICS feed connectivity
-- Event parsing accuracy  
-- Cache system functionality
-- Display output format
-
-### Step 6: Start New ICS System
-
-```bash
-# Start the application
-python main.py
-```
-
-You should see:
-```
-Calendar Bot initialized
-Starting Calendar Bot...
-Initializing Calendar Bot components...
-Calendar Bot initialization completed successfully
-Starting refresh scheduler (interval: 300s)
-Successfully fetched and cached 5 events from ICS source
-```
-
-### Step 7: Verify Migration Success
-
-Check that the display shows your calendar events:
-
-```
-============================================================
-📅 ICS CALENDAR - Sunday, January 5
-============================================================
-Updated: 07:30 | 🌐 Live Data
-
-📋 NEXT UP
-
-• Team Meeting
-  09:00 - 10:00 | 📍 Conference Room A
-
-• Project Review  
-  14:00 - 15:00 | 💻 Online
-
-============================================================
-```
-
-## Authentication Migration
-
-### Public Calendars (Most Common)
-Most personal calendar exports are public URLs requiring no authentication:
-
+**Current Configuration**:
 ```yaml
+# New hierarchical format
 ics:
-  url: "https://outlook.live.com/.../calendar.ics"
+  url: "https://calendar.example.com/calendar.ics"
   auth_type: "none"
+  verify_ssl: true
+  timeout: 30
+
+refresh_interval: 300  # seconds, not minutes
+cache_ttl: 3600
+
+logging:
+  console_level: "INFO"
+  file_level: "DEBUG"
+  file_enabled: true
+
+display:
+  type: "console"
+  enabled: true
+
+web:
+  enabled: false
+  port: 8080
+  theme: "eink-rpi"
 ```
 
-### Protected Calendars (Corporate/Enterprise)
+#### Migration Script for Configuration
 
-If your organization requires authentication:
+```bash
+#!/bin/bash
+# migrate-config.sh
 
-#### Basic Authentication:
+CONFIG_DIR="$HOME/.config/calendarbot"
+BACKUP_DIR="$CONFIG_DIR/migration-backup"
+OLD_CONFIG="$CONFIG_DIR/config.yaml"
+NEW_CONFIG="$CONFIG_DIR/config-migrated.yaml"
+
+# Create backup
+mkdir -p "$BACKUP_DIR"
+cp "$OLD_CONFIG" "$BACKUP_DIR/config-$(date +%Y%m%d_%H%M%S).yaml"
+
+# Run migration using CalendarBot's built-in tools
+calendarbot --setup --migrate-from "$OLD_CONFIG" --output "$NEW_CONFIG"
+
+# Validate new configuration
+if calendarbot --test-mode --config "$NEW_CONFIG"; then
+    mv "$NEW_CONFIG" "$OLD_CONFIG"
+    echo "✅ Configuration migration successful"
+else
+    echo "❌ Configuration migration failed, check $NEW_CONFIG"
+    exit 1
+fi
+```
+
+### Environment Variable Migration
+
+**Environment Variable Updates**:
+```bash
+# Old environment variables (if any)
+export CALENDAR_URL="https://example.com/cal.ics"
+export LOG_LEVEL="DEBUG"
+
+# New environment variables
+export CALENDARBOT_ICS_URL="https://example.com/cal.ics"
+export CALENDARBOT_LOGGING_CONSOLE_LEVEL="DEBUG"
+export CALENDARBOT_LOGGING_FILE_LEVEL="DEBUG"
+export CALENDARBOT_WEB_ENABLED="true"
+export CALENDARBOT_WEB_PORT="8080"
+```
+
+### Authentication Migration
+
+#### Adding Authentication to Existing Setup
+
 ```yaml
+# Before: Public calendar
 ics:
-  url: "https://company.com/calendar.ics"
+  url: "https://public-calendar.ics"
+  auth_type: "none"
+
+# After: Private calendar with authentication
+ics:
+  url: "https://private-calendar.ics"
   auth_type: "basic"
   username: "your-username"
   password: "your-password"
+  verify_ssl: true
 ```
 
-#### Bearer Token:
+#### Migrating Between Authentication Methods
+
+```bash
+# Test new authentication before applying
+calendarbot --test-mode --verbose --components ics
+
+# Update configuration incrementally
+calendarbot --setup --update-auth
+```
+
+## Version Upgrade Procedures
+
+### Package Version Upgrades
+
+#### pip Installation Upgrades
+
+```bash
+# Check current version
+calendarbot --version
+
+# Upgrade to latest version
+pip install --upgrade calendarbot
+
+# Verify upgrade
+calendarbot --version
+calendarbot --test-mode --verbose
+
+# Rollback if needed
+pip install calendarbot==previous-version
+```
+
+#### Source Installation Upgrades
+
+```bash
+# Navigate to installation directory
+cd /path/to/calendarbot
+
+# Backup current installation
+git stash save "Pre-upgrade backup $(date)"
+
+# Pull latest changes
+git pull origin main
+
+# Update dependencies
+pip install --upgrade -r requirements.txt
+
+# Reinstall in development mode
+pip install -e .
+
+# Test upgrade
+calendarbot --test-mode --verbose
+
+# Rollback if needed
+git stash pop
+```
+
+### Database Schema Migrations
+
+CalendarBot automatically handles cache database migrations:
+
+```bash
+# Check cache database status
+sqlite3 ~/.local/share/calendarbot/calendar_cache.db ".schema"
+
+# Force cache rebuild if needed
+rm ~/.local/share/calendarbot/calendar_cache.db
+calendarbot --test-mode  # Will recreate database
+
+# Manual migration verification
+calendarbot --test-mode --components cache --verbose
+```
+
+### Breaking Changes Handling
+
+**Version 1.0 → 1.1 (Example)**:
+```bash
+# Before upgrade - backup
+calendarbot --backup
+
+# Check for breaking changes
+curl -s https://github.com/calendarbot/calendarbot/releases/latest | grep "BREAKING"
+
+# Upgrade with testing
+pip install --upgrade calendarbot
+calendarbot --test-mode --verbose
+
+# Update configuration if needed
+calendarbot --setup --validate
+```
+
+## Operational Mode Migration
+
+### Console to Web Mode Migration
+
+#### Configuration Changes
+
 ```yaml
-ics:
-  url: "https://api.company.com/calendar.ics"
-  auth_type: "bearer"
-  token: "your-bearer-token"
+# Before: Console mode
+display:
+  type: "console"
+  enabled: true
+
+web:
+  enabled: false
+
+# After: Web mode
+display:
+  type: "html"  # or "rpi" for e-ink optimization
+  enabled: true
+
+web:
+  enabled: true
+  port: 8080
+  host: "0.0.0.0"
+  theme: "eink-rpi"
+  auto_refresh: 60
 ```
 
-## Troubleshooting Migration Issues
+#### Service Migration
 
-### Issue: "Cannot connect to ICS feed"
-
-**Diagnosis:**
 ```bash
-# Test URL accessibility
-curl -I "your-ics-url"
+# Update systemd service for web mode
+sudo systemctl stop calendarbot.service
 
-# Should return: HTTP/1.1 200 OK
-# Content-Type: text/calendar
+# Edit service file
+sudo tee /etc/systemd/system/calendarbot.service << EOF
+[Unit]
+Description=CalendarBot Web Interface
+After=network-online.target
+
+[Service]
+Type=simple
+User=calendarbot
+ExecStart=/opt/calendarbot/venv/bin/calendarbot --web --port 8080
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload and restart
+sudo systemctl daemon-reload
+sudo systemctl start calendarbot.service
+sudo systemctl status calendarbot.service
 ```
 
-**Solutions:**
-1. Verify the ICS URL is correct and accessible
-2. Check if authentication is required
-3. Ensure firewall allows HTTPS connections
+### Development to Production Migration
 
-### Issue: "Invalid ICS format" error
+#### Configuration Hardening
 
-**Diagnosis:**
-```bash
-# Download and examine ICS content
-curl "your-ics-url" | head -20
-
-# Should start with:
-# BEGIN:VCALENDAR
-# VERSION:2.0
-# PRODID:...
-```
-
-**Solutions:**
-1. Verify URL returns actual ICS content (not HTML login page)
-2. Check if URL requires authentication
-3. Confirm calendar is published/shared correctly
-
-### Issue: "No events showing" despite successful connection
-
-**Diagnosis:**
-```bash
-# Test event parsing
-python test_ics.py --url "your-ics-url" --verbose
-```
-
-**Common Causes:**
-1. **Event Status**: Events marked as `FREE` or `TRANSPARENT` are filtered out
-2. **Date Range**: Events might be outside current date window
-3. **Timezone Issues**: Check system timezone vs calendar timezone
-4. **All-Day Events**: May appear in wrong date due to timezone conversion
-
-**Solutions:**
 ```yaml
-# Disable busy-only filtering to see all events
-ics:
-  filter_busy_only: false
+# Development configuration
+logging:
+  console_level: "DEBUG"
+  file_level: "DEBUG"
+  
+refresh_interval: 60  # Fast refresh for development
+
+# Production configuration  
+logging:
+  console_level: "WARNING"
+  file_level: "INFO"
+  max_log_files: 5
+  
+refresh_interval: 300  # Conservative refresh for production
+cache_ttl: 3600
+
+web:
+  host: "127.0.0.1"  # Restrict to localhost, use reverse proxy
 ```
 
-### Issue: Performance differences from Graph API
-
-**Expected Differences:**
-- **Startup**: ICS may be slightly slower due to full calendar parsing
-- **Updates**: Should be similar or faster (no OAuth token management)
-- **Offline**: Better offline support with full event caching
-
-**Optimization:**
-```yaml
-# Reduce refresh frequency if ICS server is slow
-refresh_interval: 600  # 10 minutes
-
-# Increase cache duration
-cache_ttl: 7200  # 2 hours
-```
-
-## Post-Migration Validation
-
-### 1. Feature Parity Check
-
-Verify all previous functionality works:
-
-- ✅ **Current event highlighting**: Events happening now show with ▶
-- ✅ **Upcoming events**: Next meetings displayed chronologically  
-- ✅ **Location information**: Meeting locations preserved from calendar
-- ✅ **Time formatting**: Correct timezone conversion and 24/12-hour format
-- ✅ **Offline operation**: Cached events shown when network unavailable
-- ✅ **Automatic refresh**: Updates every 5 minutes (or configured interval)
-
-### 2. Data Accuracy Verification
-
-Compare ICS system output with your calendar application:
+#### Security Hardening
 
 ```bash
-# Generate detailed event list for verification
-python test_ics.py --url "your-ics-url" --verbose --show-all-events
+# Create dedicated user
+sudo useradd --system --shell /bin/false calendarbot
+
+# Set proper permissions
+sudo chown -R calendarbot:calendarbot /opt/calendarbot
+sudo chmod 600 /opt/calendarbot/config/config.yaml
+
+# Configure firewall
+sudo ufw allow 8080/tcp  # If directly exposing web interface
+# OR use reverse proxy (recommended)
 ```
 
-### 3. Performance Monitoring
+### Standalone to Containerized Migration
 
-Monitor resource usage after migration:
+#### Docker Migration
+
+```dockerfile
+# Create Dockerfile for existing installation
+FROM python:3.10-slim
+
+# Copy existing configuration
+COPY ~/.config/calendarbot /home/calendarbot/.config/calendarbot
+COPY ~/.local/share/calendarbot /home/calendarbot/.local/share/calendarbot
+
+# Install CalendarBot
+RUN pip install calendarbot
+
+# Set user
+USER calendarbot
+
+# Run web mode
+CMD ["calendarbot", "--web", "--host", "0.0.0.0"]
+```
 
 ```bash
-# Check memory and CPU usage
-htop
+# Build and test container
+docker build -t calendarbot-migration .
+docker run -d -p 8080:8080 --name calendarbot-test calendarbot-migration
 
-# Monitor network requests
-sudo tcpdump -i any host your-calendar-server.com
+# Verify migration
+curl http://localhost:8080
+docker logs calendarbot-test
+
+# Production deployment
+docker-compose up -d
 ```
 
-Expected improvements:
-- **Lower CPU**: No OAuth token management overhead
-- **Simpler Network**: Direct HTTPS requests instead of REST API calls
-- **Better Caching**: Full ICS content cached vs individual API responses
+## Data Migration
 
-## Rollback Procedure (If Needed)
+### Cache Migration
 
-If you need to revert to the Graph API system:
+#### Database Location Changes
 
-### 1. Stop ICS System
 ```bash
-sudo systemctl stop calendarbot
-```
+# Old cache location (if changed)
+OLD_CACHE="$HOME/.cache/calendarbot/events.db"
 
-### 2. Restore Graph Configuration
-```bash
-# Restore backup configuration
-cp config/config.yaml.graph-backup config/config.yaml
+# Current cache location
+NEW_CACHE="$HOME/.local/share/calendarbot/calendar_cache.db"
 
-# Restore backup cache
-rm -rf ~/.local/share/calendarbot
-mv ~/.local/share/calendarbot-graph-backup ~/.local/share/calendarbot
-```
-
-### 3. Reinstall Graph Dependencies
-```bash
-# If Graph API dependencies were removed
-pip install microsoft-graph-auth microsoft-graph-core
-```
-
-### 4. Restart with Graph System
-```bash
-# Start with previous Graph implementation
-python main.py
-```
-
-## Migration Support
-
-### Getting Help
-
-If you encounter issues during migration:
-
-1. **Review this guide** for common solutions
-2. **Test ICS feed directly**: `python test_ics.py --url "your-url" --verbose`
-3. **Check migration logs**: Enable debug logging during migration
-4. **Verify calendar setup**: Ensure calendar is properly published/shared
-5. **Compare with working examples**: See [config.yaml.example](config/config.yaml.example)
-
-### Advanced Migration Scenarios
-
-#### Multiple Calendar Sources
-```yaml
-# Future feature: Multiple ICS sources
-sources:
-  - name: "Work Calendar"  
-    url: "https://company.com/work.ics"
-    auth_type: "basic"
-    username: "work-user"
-    password: "work-pass"
+# Migrate cache if structure is compatible
+if [ -f "$OLD_CACHE" ]; then
+    mkdir -p "$(dirname "$NEW_CACHE")"
+    cp "$OLD_CACHE" "$NEW_CACHE"
     
-  - name: "Personal Calendar"
-    url: "https://personal.com/calendar.ics" 
-    auth_type: "none"
+    # Verify migration
+    calendarbot --test-mode --components cache
+fi
 ```
 
-#### Custom ICS Processing
-```yaml
-# Advanced ICS configuration
-ics:
-  url: "your-url"
-  # Custom event filtering
-  filter_busy_only: false
-  include_tentative: true
-  # Timezone handling
-  force_timezone: "America/New_York"
-  # Custom parsing
-  strict_parsing: false
+#### Cache Format Updates
+
+```bash
+# Force cache rebuild after format changes
+rm -f ~/.local/share/calendarbot/calendar_cache.db
+
+# CalendarBot will automatically recreate with new format
+calendarbot --test-mode --components cache --verbose
+
+# Verify events are cached correctly
+sqlite3 ~/.local/share/calendarbot/calendar_cache.db "SELECT COUNT(*) FROM cached_events;"
 ```
 
-## Migration Checklist
+### Configuration Directory Migration
 
-- [ ] **Pre-migration backup completed**
-- [ ] **ICS calendar URL obtained and tested**
-- [ ] **Old Graph API configuration documented**
-- [ ] **Configuration file updated with ICS settings**
-- [ ] **Old cache data cleared**
-- [ ] **ICS feed connectivity tested successfully**
-- [ ] **Migration test run with verbose output**
-- [ ] **Application started and events displaying correctly**
-- [ ] **Feature parity verified against previous system**
-- [ ] **Performance monitoring baseline established**
-- [ ] **Documentation updated with new ICS URLs**
+#### User to System Configuration
 
-## Summary
+```bash
+# Copy user configuration to system location
+sudo mkdir -p /etc/calendarbot
+sudo cp ~/.config/calendarbot/config.yaml /etc/calendarbot/
+sudo chown root:calendarbot /etc/calendarbot/config.yaml
+sudo chmod 640 /etc/calendarbot/config.yaml
 
-The migration from Microsoft Graph API to ICS calendar system provides:
+# Update service to use system configuration
+sudo systemctl edit calendarbot.service
+# Add:
+# [Service]
+# Environment="CALENDARBOT_CONFIG_FILE=/etc/calendarbot/config.yaml"
+```
 
-- **Simplified Architecture**: Direct calendar access without API intermediaries
-- **Universal Compatibility**: Works with any calendar service that exports ICS
-- **Enhanced Privacy**: No third-party API access to your calendar data
-- **Better Reliability**: No dependency on Microsoft Graph API quotas or availability
-- **Easier Maintenance**: Standard ICS format with broad ecosystem support
+#### Project to User Configuration
 
-The ICS-based system maintains all the functionality of the previous Graph API implementation while providing these additional benefits and removing the complexity of Azure app registration and OAuth authentication flows.
+```bash
+# Move from project directory to user directory
+PROJECT_CONFIG="./config/config.yaml"
+USER_CONFIG="$HOME/.config/calendarbot/config.yaml"
+
+if [ -f "$PROJECT_CONFIG" ]; then
+    mkdir -p "$(dirname "$USER_CONFIG")"
+    cp "$PROJECT_CONFIG" "$USER_CONFIG"
+    
+    # Test new location
+    calendarbot --test-mode --verbose
+fi
+```
+
+## Backup and Restore
+
+### Comprehensive Backup
+
+```bash
+#!/bin/bash
+# comprehensive-backup.sh
+
+BACKUP_DIR="$HOME/calendarbot-backups/$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+
+echo "Creating comprehensive CalendarBot backup..."
+
+# Configuration
+if [ -d "$HOME/.config/calendarbot" ]; then
+    cp -r "$HOME/.config/calendarbot" "$BACKUP_DIR/config"
+fi
+
+# Data and cache
+if [ -d "$HOME/.local/share/calendarbot" ]; then
+    cp -r "$HOME/.local/share/calendarbot" "$BACKUP_DIR/data"
+fi
+
+# Logs (if in home directory)
+if [ -d "$HOME/.local/share/calendarbot/logs" ]; then
+    cp -r "$HOME/.local/share/calendarbot/logs" "$BACKUP_DIR/logs"
+fi
+
+# Package information
+pip freeze | grep calendarbot > "$BACKUP_DIR/package-info.txt"
+calendarbot --version > "$BACKUP_DIR/version.txt"
+
+# System service (if exists)
+if systemctl is-active --quiet calendarbot.service; then
+    sudo cp /etc/systemd/system/calendarbot.service "$BACKUP_DIR/calendarbot.service" 2>/dev/null || true
+fi
+
+echo "Backup completed: $BACKUP_DIR"
+echo "Files backed up:"
+find "$BACKUP_DIR" -type f | sort
+```
+
+### Selective Restore
+
+```bash
+#!/bin/bash
+# selective-restore.sh
+
+BACKUP_DIR="$1"
+COMPONENT="$2"  # config, data, logs, service
+
+if [ -z "$BACKUP_DIR" ] || [ -z "$COMPONENT" ]; then
+    echo "Usage: $0 <backup_directory> <component>"
+    echo "Components: config, data, logs, service, all"
+    exit 1
+fi
+
+case "$COMPONENT" in
+    config)
+        if [ -d "$BACKUP_DIR/config" ]; then
+            cp -r "$BACKUP_DIR/config" "$HOME/.config/calendarbot"
+            echo "Configuration restored"
+        fi
+        ;;
+    data)
+        if [ -d "$BACKUP_DIR/data" ]; then
+            cp -r "$BACKUP_DIR/data" "$HOME/.local/share/calendarbot"
+            echo "Data restored"
+        fi
+        ;;
+    service)
+        if [ -f "$BACKUP_DIR/calendarbot.service" ]; then
+            sudo cp "$BACKUP_DIR/calendarbot.service" /etc/systemd/system/
+            sudo systemctl daemon-reload
+            echo "Service configuration restored"
+        fi
+        ;;
+    all)
+        $0 "$BACKUP_DIR" config
+        $0 "$BACKUP_DIR" data
+        $0 "$BACKUP_DIR" service
+        ;;
+    *)
+        echo "Unknown component: $COMPONENT"
+        exit 1
+        ;;
+esac
+
+# Test restored configuration
+calendarbot --test-mode --verbose
+```
+
+### Automated Backup Verification
+
+```bash
+#!/bin/bash
+# verify-backup.sh
+
+BACKUP_DIR="$1"
+
+if [ -z "$BACKUP_DIR" ]; then
+    echo "Usage: $0 <backup_directory>"
+    exit 1
+fi
+
+echo "Verifying backup: $BACKUP_DIR"
+
+# Check backup completeness
+REQUIRED_FILES=("config/config.yaml" "data/calendar_cache.db" "version.txt")
+
+for file in "${REQUIRED_FILES[@]}"; do
+    if [ -f "$BACKUP_DIR/$file" ]; then
+        echo "✅ $file"
+    else
+        echo "❌ Missing: $file"
+    fi
+done
+
+# Verify configuration syntax
+if [ -f "$BACKUP_DIR/config/config.yaml" ]; then
+    python -c "
+import yaml
+try:
+    with open('$BACKUP_DIR/config/config.yaml') as f:
+        yaml.safe_load(f)
+    print('✅ Configuration syntax valid')
+except Exception as e:
+    print(f'❌ Configuration syntax error: {e}')
+"
+fi
+
+# Check database integrity
+if [ -f "$BACKUP_DIR/data/calendar_cache.db" ]; then
+    sqlite3 "$BACKUP_DIR/data/calendar_cache.db" "PRAGMA integrity_check;" | head -1
+fi
+
+echo "Backup verification completed"
+```
+
+## Troubleshooting Migrations
+
+### Common Migration Issues
+
+#### Configuration Format Errors
+
+```bash
+# Issue: YAML syntax errors after migration
+# Solution: Validate and fix syntax
+
+# Check YAML syntax
+python -c "
+import yaml
+with open('~/.config/calendarbot/config.yaml') as f:
+    try:
+        yaml.safe_load(f)
+        print('✅ YAML syntax is valid')
+    except yaml.YAMLError as e:
+        print(f'❌ YAML error: {e}')
+"
+
+# Fix common issues
+sed -i 's/\t/  /g' ~/.config/calendarbot/config.yaml  # Replace tabs with spaces
+```
+
+#### Database Migration Failures
+
+```bash
+# Issue: Cache database corruption during migration
+# Solution: Rebuild cache
+
+# Check database integrity
+sqlite3 ~/.local/share/calendarbot/calendar_cache.db "PRAGMA integrity_check;"
+
+# Rebuild if corrupted
+rm ~/.local/share/calendarbot/calendar_cache.db
+calendarbot --test-mode --components cache
+
+# Verify rebuilt database
+calendarbot --test-mode --components cache --verbose
+```
+
+#### Permission Issues After Migration
+
+```bash
+# Issue: Permission denied errors
+# Solution: Fix ownership and permissions
+
+# Check current permissions
+ls -la ~/.config/calendarbot/
+ls -la ~/.local/share/calendarbot/
+
+# Fix ownership (if needed)
+chown -R $USER:$USER ~/.config/calendarbot/
+chown -R $USER:$USER ~/.local/share/calendarbot/
+
+# Fix permissions
+chmod 600 ~/.config/calendarbot/config.yaml
+chmod 644 ~/.local/share/calendarbot/calendar_cache.db
+```
+
+#### Service Migration Issues
+
+```bash
+# Issue: Service fails to start after migration
+# Solution: Debug service configuration
+
+# Check service status
+sudo systemctl status calendarbot.service
+
+# Check service logs
+sudo journalctl -u calendarbot.service --since "10 minutes ago"
+
+# Test configuration manually
+sudo -u calendarbot calendarbot --test-mode --verbose
+
+# Verify service file syntax
+sudo systemd-analyze verify /etc/systemd/system/calendarbot.service
+```
+
+### Migration Validation
+
+#### Pre-Migration Checklist
+
+```bash
+#!/bin/bash
+# pre-migration-check.sh
+
+echo "Pre-migration validation checklist:"
+
+# Check current version
+echo "Current version: $(calendarbot --version)"
+
+# Test current functionality
+if calendarbot --test-mode --quiet; then
+    echo "✅ Current installation working"
+else
+    echo "❌ Current installation has issues"
+fi
+
+# Check disk space
+AVAILABLE=$(df ~/.local/share/calendarbot | awk 'NR==2 {print $4}')
+if [ "$AVAILABLE" -gt 100000 ]; then  # 100MB
+    echo "✅ Sufficient disk space"
+else
+    echo "⚠️  Low disk space: ${AVAILABLE}KB available"
+fi
+
+# Check configuration backup
+if [ -f ~/.config/calendarbot/config.yaml ]; then
+    echo "✅ Configuration file exists"
+    calendarbot --backup && echo "✅ Backup created"
+else
+    echo "❌ No configuration file found"
+fi
+
+echo "Pre-migration checks completed"
+```
+
+#### Post-Migration Validation
+
+```bash
+#!/bin/bash
+# post-migration-check.sh
+
+echo "Post-migration validation:"
+
+# Test all components
+calendarbot --test-mode --components ics,cache,display --verbose
+
+# Check configuration
+if calendarbot --test-mode --quiet; then
+    echo "✅ Migration successful"
+else
+    echo "❌ Migration validation failed"
+    echo "Consider restoring from backup"
+fi
+
+# Verify specific functionality
+echo "Testing operational modes:"
+
+# Test interactive mode (brief)
+timeout 5s calendarbot --interactive < /dev/null && echo "✅ Interactive mode" || echo "⚠️  Interactive mode issue"
+
+# Test web mode (if configured)
+if grep -q "web:" ~/.config/calendarbot/config.yaml; then
+    timeout 10s calendarbot --web --port 8081 &
+    WEB_PID=$!
+    sleep 3
+    
+    if curl -f -s http://localhost:8081 > /dev/null; then
+        echo "✅ Web mode working"
+    else
+        echo "❌ Web mode not responding"
+    fi
+    
+    kill $WEB_PID 2>/dev/null
+fi
+
+echo "Post-migration validation completed"
+```
+
+### Rollback Procedures
+
+#### Emergency Rollback
+
+```bash
+#!/bin/bash
+# emergency-rollback.sh
+
+BACKUP_DIR="$1"
+
+if [ -z "$BACKUP_DIR" ]; then
+    echo "Usage: $0 <backup_directory>"
+    echo "Available backups:"
+    ls -la ~/calendarbot-backups/
+    exit 1
+fi
+
+echo "Emergency rollback from: $BACKUP_DIR"
+
+# Stop service if running
+sudo systemctl stop calendarbot.service 2>/dev/null || true
+
+# Restore configuration
+if [ -d "$BACKUP_DIR/config" ]; then
+    rm -rf ~/.config/calendarbot
+    cp -r "$BACKUP_DIR/config" ~/.config/calendarbot
+    echo "✅ Configuration restored"
+fi
+
+# Restore data
+if [ -d "$BACKUP_DIR/data" ]; then
+    rm -rf ~/.local/share/calendarbot
+    cp -r "$BACKUP_DIR/data" ~/.local/share/calendarbot
+    echo "✅ Data restored"
+fi
+
+# Restore service (if exists)
+if [ -f "$BACKUP_DIR/calendarbot.service" ]; then
+    sudo cp "$BACKUP_DIR/calendarbot.service" /etc/systemd/system/
+    sudo systemctl daemon-reload
+    echo "✅ Service restored"
+fi
+
+# Restart service
+sudo systemctl start calendarbot.service 2>/dev/null || true
+
+# Test rollback
+if calendarbot --test-mode --quiet; then
+    echo "✅ Rollback successful"
+else
+    echo "❌ Rollback failed - manual intervention required"
+fi
+```
 
 ---
 
-**Migration Complete!** Your calendar display bot now uses the robust, privacy-focused ICS calendar system.
+## Migration Support
+
+### Getting Help with Migrations
+
+1. **Pre-Migration**: Always create comprehensive backups
+2. **Test Migrations**: Use test environments when possible
+3. **Validation**: Run post-migration validation scripts
+4. **Documentation**: Keep migration logs for troubleshooting
+5. **Community**: Check migration guides and community forums
+
+### Migration Best Practices
+
+- **Backup Everything**: Configuration, data, service files, and environment
+- **Test First**: Validate migrations in non-production environments
+- **Incremental Changes**: Make one change at a time when possible
+- **Validation**: Always test functionality after migration
+- **Document Changes**: Keep records of what was migrated and why
+
+---
+
+**Migration Guide v2.0** - Comprehensive migration procedures for CalendarBot configuration, versions, and operational modes with automated tooling and validation.

@@ -89,7 +89,7 @@ python main.py --interactive
 ### Display Format
 ```
 ============================================================
-📅 MICROSOFT 365 CALENDAR - TODAY - Saturday, July 05
+📅 ICS CALENDAR DISPLAY - TODAY - Saturday, July 05
 ============================================================
 Updated: 06:12 | 🌐 Live Data | 📶 Online
 ------------------------------------------------------------
@@ -159,14 +159,14 @@ python test_interactive.py
 
 ### Common Issues
 1. **Terminal compatibility**: Falls back to basic input if advanced features unavailable
-2. **Authentication required**: Prompts for Microsoft 365 authentication if needed
+2. **Authentication required**: Prompts for ICS authentication if configured
 3. **Network issues**: Continues with cached data, shows connection status
 4. **Keyboard interrupt**: Graceful cleanup and exit
 
 ### Debugging
 - Enable debug logging: Set `LOG_LEVEL=DEBUG` in environment
 - Check cache status: Events loaded from SQLite database
-- Verify authentication: Ensure Microsoft 365 tokens are valid
+- Verify authentication: Ensure ICS authentication credentials are valid
 
 ## Architecture Benefits
 
