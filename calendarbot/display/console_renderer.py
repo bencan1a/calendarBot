@@ -1,6 +1,7 @@
-"""Console-based display renderer for testing and debugging."""
+"""Console-based display renderer with enhanced logging support."""
 
 import logging
+import os
 from datetime import datetime, date
 from typing import List, Optional, Dict, Any
 from ..cache.models import CachedEvent
@@ -19,6 +20,8 @@ class ConsoleRenderer:
         """
         self.settings = settings
         self.width = 60  # Console display width
+        self.log_area_lines = []  # Reserved log area for split display
+        self.log_area_enabled = False  # Enable split display mode
         
         logger.debug("Console renderer initialized")
     
@@ -342,6 +345,99 @@ class ConsoleRenderer:
         Args:
             content: Content to display
         """
+        if self.log_area_enabled:
+            # Enhanced clear that preserves log area
+            self._display_with_split_logging(content)
+        else:
+            # Standard clear and display
+            self.clear_screen()
+            print(content)
+            print()  # Extra newline for spacing
+    
+    def enable_split_display(self, max_log_lines: int = 5):
+        """Enable split display mode for interactive logging.
+        
+        Args:
+            max_log_lines: Maximum number of log lines to show
+        """
+        self.log_area_enabled = True
+        self.max_log_lines = max_log_lines
+        self.log_area_lines = []
+        logger.debug("Split display mode enabled")
+    
+    def disable_split_display(self):
+        """Disable split display mode."""
+        self.log_area_enabled = False
+        self.log_area_lines = []
+        logger.debug("Split display mode disabled")
+    
+    def update_log_area(self, log_lines: List[str]):
+        """Update the reserved log area with new log lines.
+        
+        Args:
+            log_lines: List of formatted log messages
+        """
+        if not self.log_area_enabled:
+            return
+        
+        self.log_area_lines = log_lines[-self.max_log_lines:] if log_lines else []
+        logger.debug(f"Log area updated with {len(self.log_area_lines)} lines")
+    
+    def _display_with_split_logging(self, content: str):
+        """Display content with preserved log area at bottom.
+        
+        Args:
+            content: Main content to display
+        """
+        # Get terminal size
+        try:
+            terminal_size = os.get_terminal_size()
+            terminal_height = terminal_size.lines
+        except OSError:
+            terminal_height = 24  # Default fallback
+        
+        # Clear screen
         self.clear_screen()
-        print(content)
-        print()  # Extra newline for spacing
+        
+        # Display main content
+        content_lines = content.split('\n')
+        
+        # Calculate available space for main content
+        log_area_height = len(self.log_area_lines) + 2 if self.log_area_lines else 0  # +2 for separator and spacing
+        available_height = terminal_height - log_area_height - 1  # -1 for safety margin
+        
+        # Display main content (truncated if necessary)
+        displayed_lines = 0
+        for line in content_lines:
+            if displayed_lines >= available_height:
+                break
+            print(line)
+            displayed_lines += 1
+        
+        # Add separator if we have log area content
+        if self.log_area_lines:
+            # Move to the log area position
+            remaining_space = terminal_height - len(self.log_area_lines) - 2
+            while displayed_lines < remaining_space:
+                print()
+                displayed_lines += 1
+            
+            # Display log area separator
+            print("─" * self.width)
+            
+            # Display log area content
+            for log_line in self.log_area_lines:
+                print(f"📝 {log_line}")
+    
+    def get_log_area_status(self) -> Dict[str, Any]:
+        """Get current log area status information.
+        
+        Returns:
+            Dictionary with log area status
+        """
+        return {
+            'enabled': self.log_area_enabled,
+            'max_lines': getattr(self, 'max_log_lines', 0),
+            'current_lines': len(self.log_area_lines),
+            'log_content': self.log_area_lines.copy()
+        }

@@ -5,6 +5,8 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from ..cache.models import CachedEvent
 from .console_renderer import ConsoleRenderer
+from .html_renderer import HTMLRenderer
+from .rpi_html_renderer import RaspberryPiHTMLRenderer
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +24,16 @@ class DisplayManager:
         self.renderer = None
         
         # Initialize appropriate renderer based on settings
+        logger.info(f"DIAGNOSTIC: display_type = '{settings.display_type}'")
         if settings.display_type == "console":
             self.renderer = ConsoleRenderer(settings)
+            logger.info("DIAGNOSTIC: Using ConsoleRenderer")
+        elif settings.display_type == "html":
+            self.renderer = HTMLRenderer(settings)
+            logger.info("DIAGNOSTIC: Using HTMLRenderer")
+        elif settings.display_type == "rpi" or settings.display_type == "rpi-html":
+            self.renderer = RaspberryPiHTMLRenderer(settings)
+            logger.info("DIAGNOSTIC: Using RaspberryPiHTMLRenderer (THIS IS THE PROBLEM!)")
         else:
             logger.warning(f"Unknown display type: {settings.display_type}, defaulting to console")
             self.renderer = ConsoleRenderer(settings)

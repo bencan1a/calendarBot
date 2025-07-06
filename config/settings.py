@@ -2,10 +2,38 @@
 
 from pathlib import Path
 from typing import Optional, Any, Dict
-from pydantic import Field
+from pydantic import Field, BaseModel
 from pydantic_settings import BaseSettings
 import os
 import yaml
+
+
+class LoggingSettings(BaseModel):
+    """Comprehensive logging configuration settings."""
+    
+    # Console Logging
+    console_enabled: bool = Field(default=True, description="Enable console logging")
+    console_level: str = Field(default="INFO", description="Console log level: DEBUG, VERBOSE, INFO, WARNING, ERROR, CRITICAL")
+    console_colors: bool = Field(default=True, description="Enable colored console output (auto-detected)")
+    
+    # File Logging
+    file_enabled: bool = Field(default=True, description="Enable file logging")
+    file_level: str = Field(default="DEBUG", description="File log level: DEBUG, VERBOSE, INFO, WARNING, ERROR, CRITICAL")
+    file_directory: Optional[str] = Field(default=None, description="Custom log directory (defaults to data_dir/logs)")
+    file_prefix: str = Field(default="calendarbot", description="Log file prefix")
+    max_log_files: int = Field(default=5, description="Maximum number of log files to keep")
+    include_function_names: bool = Field(default=True, description="Include function names and line numbers in file logs")
+    
+    # Interactive Mode
+    interactive_split_display: bool = Field(default=True, description="Use split display in interactive mode")
+    interactive_log_lines: int = Field(default=5, description="Number of log lines to show in interactive mode")
+    
+    # Third-party Libraries
+    third_party_level: str = Field(default="WARNING", description="Log level for third-party libraries")
+    
+    # Advanced Options
+    buffer_size: int = Field(default=100, description="Log message buffer size")
+    flush_interval: float = Field(default=1.0, description="Log flush interval in seconds")
 
 
 class CalendarBotSettings(BaseSettings):
@@ -37,13 +65,30 @@ class CalendarBotSettings(BaseSettings):
     data_dir: Path = Field(default_factory=lambda: Path.home() / ".local" / "share" / "calendarbot")
     cache_dir: Path = Field(default_factory=lambda: Path.home() / ".cache" / "calendarbot")
     
-    # Logging
-    log_level: str = Field(default="INFO", description="Logging level")
-    log_file: Optional[str] = Field(default=None, description="Log file path")
+    # Logging Configuration
+    logging: LoggingSettings = Field(default_factory=LoggingSettings, description="Comprehensive logging settings")
+    
+    # Legacy logging fields (maintained for backward compatibility)
+    log_level: Optional[str] = Field(default=None, description="Legacy: Use logging.console_level instead")
+    log_file: Optional[str] = Field(default=None, description="Legacy: Use logging.file_enabled instead")
     
     # Display Settings
     display_enabled: bool = Field(default=True, description="Enable display output")
-    display_type: str = Field(default="console", description="Display type: console, eink")
+    display_type: str = Field(default="console", description="Display type: console, html, rpi")
+    
+    # Raspberry Pi E-ink Display Settings
+    rpi_enabled: bool = Field(default=False, description="Enable Raspberry Pi e-ink mode")
+    rpi_display_width: int = Field(default=800, description="RPI display width in pixels")
+    rpi_display_height: int = Field(default=480, description="RPI display height in pixels")
+    rpi_refresh_mode: str = Field(default="partial", description="E-ink refresh mode: partial, full")
+    rpi_auto_theme: bool = Field(default=True, description="Auto-optimize theme for e-ink display")
+    
+    # Web/HTML Display Settings
+    web_enabled: bool = Field(default=False, description="Enable web server for HTML display")
+    web_port: int = Field(default=8080, description="Port for web server")
+    web_host: str = Field(default="0.0.0.0", description="Host address for web server")
+    web_theme: str = Field(default="eink", description="Web theme: eink, standard")
+    web_auto_refresh: int = Field(default=60, description="Auto-refresh interval in seconds")
     
     # Network and Retry Settings
     request_timeout: int = Field(default=30, description="HTTP request timeout in seconds")
@@ -114,14 +159,89 @@ class CalendarBotSettings(BaseSettings):
                 self.refresh_interval = config_data['refresh_interval']
             if 'cache_ttl' in config_data:
                 self.cache_ttl = config_data['cache_ttl']
+            
+            # Legacy logging settings (backward compatibility)
             if 'log_level' in config_data:
                 self.log_level = config_data['log_level']
+                self.logging.console_level = config_data['log_level']
+                self.logging.file_level = config_data['log_level']
             if 'log_file' in config_data:
                 self.log_file = config_data['log_file']
+                if config_data['log_file']:
+                    self.logging.file_enabled = True
+            
+            # New comprehensive logging settings
+            if 'logging' in config_data:
+                logging_config = config_data['logging']
+                
+                # Console settings
+                if 'console_enabled' in logging_config:
+                    self.logging.console_enabled = logging_config['console_enabled']
+                if 'console_level' in logging_config:
+                    self.logging.console_level = logging_config['console_level']
+                if 'console_colors' in logging_config:
+                    self.logging.console_colors = logging_config['console_colors']
+                
+                # File settings
+                if 'file_enabled' in logging_config:
+                    self.logging.file_enabled = logging_config['file_enabled']
+                if 'file_level' in logging_config:
+                    self.logging.file_level = logging_config['file_level']
+                if 'file_directory' in logging_config:
+                    self.logging.file_directory = logging_config['file_directory']
+                if 'file_prefix' in logging_config:
+                    self.logging.file_prefix = logging_config['file_prefix']
+                if 'max_log_files' in logging_config:
+                    self.logging.max_log_files = logging_config['max_log_files']
+                if 'include_function_names' in logging_config:
+                    self.logging.include_function_names = logging_config['include_function_names']
+                
+                # Interactive mode settings
+                if 'interactive_split_display' in logging_config:
+                    self.logging.interactive_split_display = logging_config['interactive_split_display']
+                if 'interactive_log_lines' in logging_config:
+                    self.logging.interactive_log_lines = logging_config['interactive_log_lines']
+                
+                # Third-party and advanced settings
+                if 'third_party_level' in logging_config:
+                    self.logging.third_party_level = logging_config['third_party_level']
+                if 'buffer_size' in logging_config:
+                    self.logging.buffer_size = logging_config['buffer_size']
+                if 'flush_interval' in logging_config:
+                    self.logging.flush_interval = logging_config['flush_interval']
+            
             if 'display_enabled' in config_data:
                 self.display_enabled = config_data['display_enabled']
             if 'display_type' in config_data:
                 self.display_type = config_data['display_type']
+            
+            # RPI Display settings
+            if 'rpi' in config_data:
+                rpi_config = config_data['rpi']
+                if 'enabled' in rpi_config:
+                    self.rpi_enabled = rpi_config['enabled']
+                if 'display_width' in rpi_config:
+                    self.rpi_display_width = rpi_config['display_width']
+                if 'display_height' in rpi_config:
+                    self.rpi_display_height = rpi_config['display_height']
+                if 'refresh_mode' in rpi_config:
+                    self.rpi_refresh_mode = rpi_config['refresh_mode']
+                if 'auto_theme' in rpi_config:
+                    self.rpi_auto_theme = rpi_config['auto_theme']
+            
+            # Web settings
+            if 'web' in config_data:
+                web_config = config_data['web']
+                if 'enabled' in web_config:
+                    self.web_enabled = web_config['enabled']
+                if 'port' in web_config:
+                    self.web_port = web_config['port']
+                if 'host' in web_config:
+                    self.web_host = web_config['host']
+                if 'theme' in web_config:
+                    self.web_theme = web_config['theme']
+                if 'auto_refresh' in web_config:
+                    self.web_auto_refresh = web_config['auto_refresh']
             if 'request_timeout' in config_data:
                 self.request_timeout = config_data['request_timeout']
             if 'max_retries' in config_data:
