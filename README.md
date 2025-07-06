@@ -1,15 +1,17 @@
-# ICS Calendar Display Bot
+# Calendar Bot
 
-**Version:** 2.0 (ICS Implementation)
-**Last Updated:** January 5, 2025
-**Architecture:** ICS-based Universal Calendar System
-**Migration Status:** Migrated from Microsoft Graph API v1.0
+**Version:** 1.0.0 (Automated Setup System)
+**Last Updated:** January 7, 2025
+**Architecture:** Modern Python Packaging with Interactive Setup Wizard
+**Installation:** 2 Commands Only - From 20+ Manual Steps to Complete Automation
 
-A lightweight ICS calendar display application optimized for Raspberry Pi with e-ink displays. This application provides persistent desktop calendar display showing today's meetings with offline caching and flexible authentication for ICS calendar feeds.
+A professional calendar display application with **complete automated setup** optimized for Raspberry Pi with e-ink displays. Transforms complex manual installation into a simple, guided experience.
 
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi-red.svg)
+![Platform](https://img.shields.io/badge/platform-Cross--Platform-brightgreen.svg)
+![Setup](https://img.shields.io/badge/setup-Fully%20Automated-success.svg)
+![CLI](https://img.shields.io/badge/CLI-Interactive%20Wizard-blue.svg)
 ![Status](https://img.shields.io/badge/status-Production%20Ready-green.svg)
 
 ## Project Overview
@@ -66,62 +68,88 @@ Transform any Raspberry Pi into a dedicated calendar display that shows your dai
 - **SQLite WAL mode** to minimize SD card writes
 - **Smart caching** to reduce HTTP requests and bandwidth usage
 
-## Quick Start
+## 🚀 Quick Start: The New Way (2 Commands Only!)
 
-### Prerequisites
+Calendar Bot now features **complete automated setup** that transforms installation from 20+ manual steps to just 2 simple commands:
 
-- **Raspberry Pi** (Zero 2 W or newer recommended)
-- **Python 3.8+** with pip package manager
-- **ICS calendar feed URL** from your calendar service
-- **Internet connectivity** for initial setup and ongoing sync
+### Installation & Setup
 
-### Installation
-
-1. **Clone the repository:**
 ```bash
-git clone <repository-url>
-cd calendarBot
+# Step 1: Install Calendar Bot
+pip install calendarbot
+
+# Step 2: Run interactive setup wizard
+calendarbot --setup
 ```
 
-2. **Install dependencies:**
+**That's it!** Your calendar is now ready to use.
+
+### What Just Happened?
+
+The automated system handled everything:
+- ✅ **Service Templates**: Interactive wizard with Outlook, Google Calendar, iCloud, and CalDAV templates
+- ✅ **Real-time Validation**: Tests your calendar connection before saving configuration
+- ✅ **Authentication Setup**: Guided prompts for credentials if needed
+- ✅ **Configuration Generation**: Creates complete YAML configuration automatically
+- ✅ **First-run Testing**: Validates everything works before completing setup
+
+### Ready to Use
+
+After the automated setup, Calendar Bot is immediately operational:
+
 ```bash
-pip install -r requirements.txt
+# Start calendar display
+calendarbot
+
+# Interactive navigation mode
+calendarbot --interactive
+
+# Web interface
+calendarbot --web
+
+# Raspberry Pi e-ink optimized
+calendarbot --rpi --web
+
+# Test your configuration
+calendarbot --test-mode
 ```
 
-3. **Get your ICS calendar URL:**
+### Before vs. After: The Transformation
 
-**For Outlook/Office 365:**
-- Go to Outlook on the web
-- Navigate to Calendar → Settings → View all Outlook settings
-- Go to Calendar → Shared calendars
-- Under "Publish a calendar", select your calendar and click "Publish"
-- Copy the ICS link
+**The Old Way (20+ Steps)**:
+1. Clone repository
+2. Set up virtual environment
+3. Install dependencies
+4. Navigate to calendar service
+5. Export calendar URL manually
+6. Copy example configuration
+7. Edit YAML file manually
+8. Test URL accessibility
+9. Configure authentication
+10. Validate format
+11. Debug connection issues
+12. Set up directories
+13. Test application
+14. Troubleshoot errors
+15. Configure logging
+16. Set up systemd service
+17. Handle permissions
+18. Debug startup issues
+19. Test different scenarios
+20. Create backup scripts
 
-**For Google Calendar:**
-- Open Google Calendar
-- Click on the three dots next to your calendar
-- Select "Settings and sharing"
-- Scroll to "Access permissions and export"
-- Copy the "Secret address in iCal format"
-
-4. **Configure the application:**
+**The New Way (2 Commands)**:
 ```bash
-# Copy example configuration
-cp config/config.yaml.example config/config.yaml
-
-# Edit configuration with your ICS URL
-nano config/config.yaml
+pip install calendarbot && calendarbot --setup
 ```
 
-Or set environment variable:
-```bash
-export CALENDARBOT_ICS_URL="your-ics-calendar-url"
-```
+**💡 See the complete automated setup experience:** [**SETUP.md**](SETUP.md)
 
-5. **Run the application:**
-```bash
-python main.py
-```
+---
+
+## 📋 Manual Installation (If Preferred)
+
+For users who prefer manual configuration or need custom setups, the traditional installation method is still available in [**INSTALL.md**](INSTALL.md).
 
 ### First Run
 
@@ -185,15 +213,17 @@ Runs comprehensive validation with detailed output.
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [INSTALL.md](INSTALL.md) | Detailed installation guide including Raspberry Pi setup |
-| [USAGE.md](USAGE.md) | Day-to-day operation and troubleshooting guide |
-| [RPI_INTERFACE.md](RPI_INTERFACE.md) | **Raspberry Pi e-ink interface guide (800x480px optimized)** |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture and design decisions |
-| [MIGRATION.md](MIGRATION.md) | **Migration guide from Microsoft Graph API to ICS system** |
-| [CHANGELOG.md](CHANGELOG.md) | Version history and breaking changes documentation |
-| [INTERACTIVE_NAVIGATION.md](INTERACTIVE_NAVIGATION.md) | Interactive mode usage guide |
+| Document | Description | Best For |
+|----------|-------------|----------|
+| [**SETUP.md**](SETUP.md) | **🚀 Complete automated setup experience showcase** | **New users wanting the full guided experience** |
+| [**INSTALL.md**](INSTALL.md) | **📋 Updated installation guide with automated + manual options** | **Users preferring detailed installation control** |
+| [**DEVELOPMENT.md**](DEVELOPMENT.md) | **🛠️ Automated development environment setup guide** | **Contributors and developers** |
+| [USAGE.md](USAGE.md) | Day-to-day operation and troubleshooting guide | Daily operation |
+| [RPI_INTERFACE.md](RPI_INTERFACE.md) | Raspberry Pi e-ink interface guide (800x480px optimized) | Raspberry Pi users |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture and design decisions | Understanding system design |
+| [MIGRATION.md](MIGRATION.md) | Migration guide from Microsoft Graph API to ICS system | Upgrading from v1.x |
+| [CHANGELOG.md](CHANGELOG.md) | Version history and breaking changes documentation | Release information |
+| [INTERACTIVE_NAVIGATION.md](INTERACTIVE_NAVIGATION.md) | Interactive mode usage guide | Interactive features |
 
 ## Configuration
 

@@ -343,12 +343,51 @@ def setup_signal_handlers(app: CalendarBot):
     signal.signal(signal.SIGTERM, signal_handler)
 
 
+def check_first_run_configuration():
+    """Check if this is a first run and provide setup guidance."""
+    from pathlib import Path
+    
+    # Check for config file in project directory first
+    project_config = Path(__file__).parent.parent / "config" / "config.yaml"
+    if project_config.exists():
+        return True
+    
+    # Check user config directory
+    user_config_dir = Path.home() / ".config" / "calendarbot"
+    user_config = user_config_dir / "config.yaml"
+    if user_config.exists():
+        return True
+    
+    # Check if essential settings are available via environment variables
+    if settings.ics_url:
+        return True
+    
+    return False
+
+
 async def main():
-    """Main entry point for the application."""
+    """Main entry point for the application with first-run detection."""
     try:
+        # Check if configuration exists
+        if not check_first_run_configuration():
+            logger.error("Configuration missing. Please run 'calendarbot --setup' to configure.")
+            print("\n" + "="*60)
+            print("⚙️  Configuration Required")
+            print("="*60)
+            print("Calendar Bot needs to be configured before it can run.")
+            print("\n🔧 Quick Setup:")
+            print("   calendarbot --setup    # Interactive configuration wizard")
+            print("\n📖 Manual Setup:")
+            print("   1. Copy config/config.yaml.example to config/config.yaml")
+            print("   2. Edit config.yaml with your calendar URL")
+            print("   3. Or set environment variable: CALENDARBOT_ICS_URL=your-url")
+            print("="*60)
+            return 1
+        
         # Validate required settings
         if not settings.ics_url:
             logger.error("ICS URL configuration is required")
+            logger.info("Please configure ICS URL in config.yaml or via CALENDARBOT_ICS_URL environment variable")
             return 1
         
         # Create and start the application

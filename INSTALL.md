@@ -1,14 +1,75 @@
 # Installation Guide
 
-**Document Version:** 2.0
-**Last Updated:** January 5, 2025
-**System Version:** ICS Calendar Bot v2.0
+**Document Version:** 3.0
+**Last Updated:** January 7, 2025
+**System Version:** Calendar Bot v1.0.0 with Automated Setup
 **Migration:** For users upgrading from Graph API v1.0, see [MIGRATION.md](MIGRATION.md)
 
-This guide provides step-by-step instructions for installing the ICS Calendar Display Bot on your Raspberry Pi.
+This guide provides both the **new automated installation process** and detailed manual instructions for installing Calendar Bot.
+
+## 🚀 Quick Start: Automated Installation (Recommended)
+
+Calendar Bot now features a **complete automated setup system** that transforms the installation experience from 20+ manual steps to just 2 simple commands:
+
+### The New Way - 2 Commands Only
+
+```bash
+# Step 1: Install Calendar Bot with automated setup
+pip install calendarbot
+
+# Step 2: Run the interactive configuration wizard
+calendarbot --setup
+```
+
+**That's it!** The automated system handles:
+- ✅ Directory creation and permissions
+- ✅ Service-specific configuration templates
+- ✅ Real-time URL validation and connection testing
+- ✅ Authentication setup with guided prompts
+- ✅ Complete YAML configuration generation
+- ✅ First-run validation and testing
+
+### What You Get
+
+The automated installation provides:
+
+- **Interactive Setup Wizard** with templates for Outlook, Google Calendar, iCloud, and CalDAV
+- **Real-time Validation** that tests your calendar connection before saving
+- **Professional CLI Experience** with clear guidance and error handling
+- **Cross-platform Support** (Linux, macOS, Windows)
+- **Intelligent First-run Detection** with automatic guidance
+- **Built-in Backup/Restore** for configuration management
+
+### Ready to Use Immediately
+
+After the 2-command setup, Calendar Bot is immediately ready:
+
+```bash
+# Test your setup
+calendarbot --test-mode
+
+# Start interactive mode
+calendarbot --interactive
+
+# Launch web interface
+calendarbot --web
+
+# Raspberry Pi e-ink mode
+calendarbot --rpi --web
+```
+
+**📖 For the complete automated setup experience, see [SETUP.md](SETUP.md)**
+
+---
+
+## 📋 Manual Installation (Alternative)
+
+If you prefer manual installation or need custom configuration, the following sections provide detailed step-by-step instructions.
 
 ## Table of Contents
 
+- [Quick Start: Automated Installation](#-quick-start-automated-installation-recommended)
+- [Manual Installation](#-manual-installation-alternative)
 - [Prerequisites](#prerequisites)
 - [Raspberry Pi OS Setup](#raspberry-pi-os-setup)
 - [Python Environment Setup](#python-environment-setup)
