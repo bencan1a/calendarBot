@@ -283,15 +283,18 @@ def apply_rpi_overrides(settings, args):
     Returns:
         Updated settings object
     """
-    print(f"DEBUG: apply_rpi_overrides called with args.rpi={getattr(args, 'rpi', False)}")
+    import logging
+    logger = logging.getLogger('calendarbot.main')
+    
+    logger.debug(f"Applying RPI overrides with args.rpi={getattr(args, 'rpi', False)}")
     
     if hasattr(args, 'rpi') and args.rpi:
-        print(f"DEBUG: RPI mode enabled, settings.rpi_auto_theme={settings.rpi_auto_theme}")
+        logger.info(f"RPI mode enabled, auto_theme={settings.rpi_auto_theme}")
         
         # Enable RPI mode
         settings.rpi_enabled = True
         settings.display_type = "rpi"
-        print(f"DEBUG: Set display_type = {settings.display_type}")
+        logger.debug(f"Set display_type={settings.display_type}")
         
         # Apply RPI-specific settings
         if hasattr(args, 'rpi_width') and args.rpi_width:
@@ -302,14 +305,14 @@ def apply_rpi_overrides(settings, args):
             settings.rpi_refresh_mode = args.rpi_refresh_mode
         
         # Auto-optimize web theme for RPI
-        print(f"DEBUG: Before theme override - web_theme={getattr(settings, 'web_theme', 'NOT_SET')}")
+        current_theme = getattr(settings, 'web_theme', 'NOT_SET')
         if settings.rpi_auto_theme:
             settings.web_theme = "eink-rpi"
-            print(f"DEBUG: Applied RPI theme override - web_theme={settings.web_theme}")
+            logger.info(f"Applied RPI theme override: {current_theme} -> {settings.web_theme}")
         else:
-            print(f"DEBUG: RPI auto theme disabled, keeping web_theme={getattr(settings, 'web_theme', 'NOT_SET')}")
+            logger.debug(f"RPI auto theme disabled, keeping web_theme={current_theme}")
     else:
-        print(f"DEBUG: RPI mode not enabled, keeping original theme")
+        logger.debug("RPI mode not enabled, keeping original theme")
     
     return settings
 
@@ -743,21 +746,15 @@ async def run_web_mode(args) -> int:
         
         # Apply command-line logging overrides with priority system
         updated_settings = apply_command_line_overrides(settings, args)
-        print(f"DEBUG: After command line overrides - web_theme={getattr(updated_settings, 'web_theme', 'NOT_SET')}")
         
         # Apply RPI-specific overrides
         updated_settings = apply_rpi_overrides(updated_settings, args)
-        print(f"DEBUG: After RPI overrides - web_theme={getattr(updated_settings, 'web_theme', 'NOT_SET')}")
         
         # Apply web mode overrides - ensure HTML renderer and eink-rpi theme for web mode
         if not hasattr(args, 'rpi') or not args.rpi:
-            # DIAGNOSTIC: This is the source of the problem!
-            print(f"DEBUG: PROBLEM IDENTIFIED - Setting display_type='html' instead of 'rpi'")
-            print(f"DEBUG: This causes wrong HTML template structure to be generated")
-            # FIXED: Use RPI renderer for proper layout structure
+            # Use RPI renderer for proper layout structure in web mode
             updated_settings.display_type = "rpi"
             updated_settings.web_theme = "eink-rpi"  # Default to RPI-optimized theme for web mode
-            print(f"DEBUG: FIXED - Set display_type = 'rpi' and web_theme = 'eink-rpi' for web mode")
         
         # Set up enhanced logging for web mode
         logger = setup_enhanced_logging(updated_settings, interactive_mode=False)
@@ -783,10 +780,7 @@ async def run_web_mode(args) -> int:
         updated_settings.web_port = args.port
         logger.info(f"Updated web settings - host: {updated_settings.web_host}, port: {updated_settings.web_port}")
         
-        # CRITICAL: Check settings object mismatch
-        print(f"DEBUG: SETTINGS MISMATCH CHECK:")
-        print(f"  updated_settings.web_theme = {getattr(updated_settings, 'web_theme', 'NOT_SET')}")
-        print(f"  original settings.web_theme = {getattr(settings, 'web_theme', 'NOT_SET')}")
+        # Settings validation completed
         
         # Create web navigation handler
         logger.debug("Creating web navigation handler...")

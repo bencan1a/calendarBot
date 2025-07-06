@@ -7,6 +7,30 @@ from pydantic_settings import BaseSettings
 import os
 import yaml
 
+# Import security logging for credential masking
+try:
+    from calendarbot.security.logging import SecurityEventLogger, SecurityEvent, SecurityEventType, SecuritySeverity, mask_credentials
+except ImportError:
+    # Fallback for when the module is not available
+    def mask_credentials(value):
+        if not value:
+            return value
+        return value[:2] + '*' * (len(value) - 4) + value[-2:] if len(value) > 4 else '***'
+    
+    class SecurityEventLogger:
+        def log_event(self, event):
+            pass
+    
+    class SecurityEvent:
+        def __init__(self, **kwargs):
+            pass
+    
+    class SecurityEventType:
+        SYSTEM_CREDENTIAL_ACCESS = "credential_access"
+    
+    class SecuritySeverity:
+        LOW = "low"
+
 
 class LoggingSettings(BaseModel):
     """Comprehensive logging configuration settings."""
@@ -30,6 +54,33 @@ class LoggingSettings(BaseModel):
     
     # Third-party Libraries
     third_party_level: str = Field(default="WARNING", description="Log level for third-party libraries")
+    
+    # Security Logging
+    security_enabled: bool = Field(default=True, description="Enable security event logging")
+    security_level: str = Field(default="INFO", description="Security event log level")
+    security_mask_credentials: bool = Field(default=True, description="Mask credentials in security logs")
+    security_track_auth: bool = Field(default=True, description="Track authentication events")
+    security_track_input_validation: bool = Field(default=True, description="Track input validation failures")
+    
+    # Performance Monitoring
+    performance_enabled: bool = Field(default=True, description="Enable performance monitoring")
+    performance_level: str = Field(default="INFO", description="Performance monitoring log level")
+    performance_timing_threshold: float = Field(default=1.0, description="Log operations slower than this (seconds)")
+    performance_memory_threshold: int = Field(default=50, description="Log memory usage over this (MB)")
+    performance_cache_monitoring: bool = Field(default=True, description="Enable cache performance monitoring")
+    
+    # Structured Logging
+    structured_enabled: bool = Field(default=True, description="Enable structured logging")
+    structured_format: bool = Field(default=False, description="Use JSON format for file logs")
+    structured_correlation_ids: bool = Field(default=True, description="Enable correlation ID tracking")
+    structured_context_tracking: bool = Field(default=True, description="Enable context tracking")
+    
+    # Production Optimization
+    production_mode: bool = Field(default=False, description="Enable production optimization mode")
+    production_filter_debug: bool = Field(default=True, description="Filter debug statements in production")
+    production_rate_limit: int = Field(default=100, description="Rate limit for log messages per minute")
+    production_max_message_length: int = Field(default=1000, description="Maximum log message length")
+    production_remove_obsolete: bool = Field(default=True, description="Remove obsolete debug statements")
     
     # Advanced Options
     buffer_size: int = Field(default=100, description="Log message buffer size")
@@ -147,11 +198,56 @@ class CalendarBotSettings(BaseSettings):
                 if 'auth_type' in ics_config and not self.ics_auth_type:
                     self.ics_auth_type = ics_config['auth_type']
                 if 'username' in ics_config and not self.ics_username:
-                    self.ics_username = ics_config['username']
+                    username = ics_config['username']
+                    self.ics_username = username
+                    # Log credential loading with masking
+                    security_logger = SecurityEventLogger()
+                    event = SecurityEvent(
+                        event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
+                        severity=SecuritySeverity.LOW,
+                        action="credential_load",
+                        result="success",
+                        details={
+                            "credential_type": "username",
+                            "description": f"ICS username loaded from config: {mask_credentials(username)}",
+                            "source_ip": "internal"
+                        }
+                    )
+                    security_logger.log_event(event)
                 if 'password' in ics_config and not self.ics_password:
-                    self.ics_password = ics_config['password']
+                    password = ics_config['password']
+                    self.ics_password = password
+                    # Log credential loading with masking
+                    security_logger = SecurityEventLogger()
+                    event = SecurityEvent(
+                        event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
+                        severity=SecuritySeverity.LOW,
+                        action="credential_load",
+                        result="success",
+                        details={
+                            "credential_type": "password",
+                            "description": f"ICS password loaded from config: {mask_credentials(password)}",
+                            "source_ip": "internal"
+                        }
+                    )
+                    security_logger.log_event(event)
                 if 'token' in ics_config and not self.ics_bearer_token:
-                    self.ics_bearer_token = ics_config['token']
+                    token = ics_config['token']
+                    self.ics_bearer_token = token
+                    # Log credential loading with masking
+                    security_logger = SecurityEventLogger()
+                    event = SecurityEvent(
+                        event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
+                        severity=SecuritySeverity.LOW,
+                        action="credential_load",
+                        result="success",
+                        details={
+                            "credential_type": "bearer_token",
+                            "description": f"ICS bearer token loaded from config: {mask_credentials(token)}",
+                            "source_ip": "internal"
+                        }
+                    )
+                    security_logger.log_event(event)
                 if 'verify_ssl' in ics_config:
                     self.ics_validate_ssl = ics_config['verify_ssl']
             

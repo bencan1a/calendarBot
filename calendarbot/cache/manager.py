@@ -7,6 +7,11 @@ from .models import CalendarEvent
 from .models import CachedEvent, CacheMetadata
 from .database import DatabaseManager
 
+# Import new logging infrastructure
+from ..monitoring import performance_monitor, memory_monitor, cache_monitor
+from ..structured import with_correlation_id, operation_context
+from ..security import SecurityEventLogger
+
 logger = logging.getLogger(__name__)
 
 
@@ -92,6 +97,8 @@ class CacheManager:
             last_modified=api_event.last_modified_date_time.isoformat() if api_event.last_modified_date_time else None
         )
     
+    @performance_monitor("cache_events")
+    @with_correlation_id()
     async def cache_events(self, api_events: List[CalendarEvent]) -> bool:
         """Cache events from API response.
         
@@ -102,29 +109,32 @@ class CacheManager:
             True if caching was successful, False otherwise
         """
         try:
-            logger.info(f"DEBUG: cache_events called with {len(api_events) if api_events else 0} API events")
+            event_count = len(api_events) if api_events else 0
+            logger.info(f"Caching {event_count} API events")
             
             if not api_events:
                 logger.debug("No events to cache")
                 await self._update_fetch_metadata(success=True, error=None)
                 return True
             
-            # Convert API events to cached events
-            cached_events = [
-                self._convert_api_event_to_cached(event)
-                for event in api_events
-            ]
+            # Convert API events to cached events with memory monitoring
+            with memory_monitor("event_conversion"):
+                cached_events = [
+                    self._convert_api_event_to_cached(event)
+                    for event in api_events
+                ]
             
-            logger.info(f"DEBUG: Converted {len(cached_events)} API events to cached events")
+            logger.debug(f"Converted {len(cached_events)} API events to cached events")
             if cached_events:
-                # Log sample event details
+                # Log sample event details (debug level)
                 sample_event = cached_events[0]
-                logger.info(f"DEBUG: Sample cached event - {sample_event.subject} from {sample_event.start_datetime} to {sample_event.end_datetime}")
+                logger.debug(f"Sample cached event - {sample_event.subject} from {sample_event.start_datetime} to {sample_event.end_datetime}")
             
-            # Store in database
-            success = await self.db.store_events(cached_events)
+            # Store in database with cache monitoring
+            with cache_monitor("database_store", len(cached_events)):
+                success = await self.db.store_events(cached_events)
             
-            logger.info(f"DEBUG: Database store_events returned: {success}")
+            logger.debug(f"Database store_events returned: {success}")
             
             if success:
                 # Update metadata
@@ -141,7 +151,9 @@ class CacheManager:
             await self._update_fetch_metadata(success=False, error=str(e))
             return False
     
-    async def get_cached_events(self, start_date: datetime, 
+    @performance_monitor("get_cached_events")
+    @with_correlation_id()
+    async def get_cached_events(self, start_date: datetime,
                               end_date: datetime) -> List[CachedEvent]:
         """Get cached events for date range.
         
@@ -153,7 +165,8 @@ class CacheManager:
             List of cached events
         """
         try:
-            events = await self.db.get_events_by_date_range(start_date, end_date)
+            with cache_monitor("date_range_query"):
+                events = await self.db.get_events_by_date_range(start_date, end_date)
             logger.debug(f"Retrieved {len(events)} cached events")
             return events
             
@@ -174,6 +187,8 @@ class CacheManager:
         """
         return await self.get_cached_events(start_date, end_date)
     
+    @performance_monitor("get_todays_cached_events")
+    @with_correlation_id()
     async def get_todays_cached_events(self) -> List[CachedEvent]:
         """Get today's cached events.
         
@@ -181,7 +196,8 @@ class CacheManager:
             List of today's cached events
         """
         try:
-            events = await self.db.get_todays_events()
+            with cache_monitor("todays_events_query"):
+                events = await self.db.get_todays_events()
             logger.debug(f"Retrieved {len(events)} today's cached events")
             return events
             

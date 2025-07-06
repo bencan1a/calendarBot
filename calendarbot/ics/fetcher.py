@@ -5,8 +5,11 @@ import logging
 from datetime import datetime
 from typing import Optional, Dict, Any
 import httpx
+from urllib.parse import urlparse
+import ipaddress
 from .models import ICSSource, ICSResponse
 from .exceptions import ICSFetchError, ICSNetworkError, ICSTimeoutError, ICSAuthError
+from ..security.logging import SecurityEventLogger, SecurityEvent, SecurityEventType, SecuritySeverity
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +25,7 @@ class ICSFetcher:
         """
         self.settings = settings
         self.client: Optional[httpx.AsyncClient] = None
+        self.security_logger = SecurityEventLogger()
         
         logger.debug("ICS fetcher initialized")
     
@@ -61,7 +65,91 @@ class ICSFetcher:
         if self.client and not self.client.is_closed:
             await self.client.aclose()
     
-    async def fetch_ics(self, source: ICSSource, 
+    def _validate_url_for_ssrf(self, url: str) -> bool:
+        """Validate URL to prevent SSRF attacks.
+        
+        Args:
+            url: URL to validate
+            
+        Returns:
+            True if URL is safe, False otherwise
+        """
+        try:
+            parsed = urlparse(url)
+            
+            # Only allow HTTP/HTTPS
+            if parsed.scheme not in ['http', 'https']:
+                event = SecurityEvent(
+                    event_type=SecurityEventType.SYSTEM_SECURITY_VIOLATION,
+                    severity=SecuritySeverity.HIGH,
+                    resource=url,
+                    action="url_validation",
+                    result="blocked",
+                    details={
+                        "violation_type": "ssrf_attempt",
+                        "description": f"Blocked non-HTTP(S) scheme: {parsed.scheme}",
+                        "source_ip": "internal"
+                    }
+                )
+                self.security_logger.log_event(event)
+                return False
+            
+            # Check for localhost/private IP addresses
+            hostname = parsed.hostname
+            if hostname:
+                try:
+                    ip = ipaddress.ip_address(hostname)
+                    if ip.is_private or ip.is_loopback or ip.is_link_local:
+                        event = SecurityEvent(
+                            event_type=SecurityEventType.SYSTEM_SECURITY_VIOLATION,
+                            severity=SecuritySeverity.HIGH,
+                            resource=url,
+                            action="url_validation",
+                            result="blocked",
+                            details={
+                                "violation_type": "ssrf_attempt",
+                                "description": f"Blocked private/localhost IP: {hostname}",
+                                "source_ip": "internal"
+                            }
+                        )
+                        self.security_logger.log_event(event)
+                        return False
+                except ValueError:
+                    # Hostname is not an IP, check for localhost patterns
+                    if hostname.lower() in ['localhost', '127.0.0.1', '::1'] or hostname.startswith('192.168.') or hostname.startswith('10.') or hostname.startswith('172.'):
+                        event = SecurityEvent(
+                            event_type=SecurityEventType.SYSTEM_SECURITY_VIOLATION,
+                            severity=SecuritySeverity.HIGH,
+                            resource=url,
+                            action="url_validation",
+                            result="blocked",
+                            details={
+                                "violation_type": "ssrf_attempt",
+                                "description": f"Blocked private hostname: {hostname}",
+                                "source_ip": "internal"
+                            }
+                        )
+                        self.security_logger.log_event(event)
+                        return False
+            
+            return True
+            
+        except Exception as e:
+            event = SecurityEvent(
+                event_type=SecurityEventType.INPUT_VALIDATION_FAILURE,
+                severity=SecuritySeverity.MEDIUM,
+                resource=url,
+                action="url_validation",
+                result="error",
+                details={
+                    "validation_error": f"URL validation failed: {e}",
+                    "source_ip": "internal"
+                }
+            )
+            self.security_logger.log_event(event)
+            return False
+    
+    async def fetch_ics(self, source: ICSSource,
                        conditional_headers: Optional[Dict[str, str]] = None) -> ICSResponse:
         """Download ICS content from source.
         
@@ -74,8 +162,32 @@ class ICSFetcher:
         """
         await self._ensure_client()
         
+        # Validate URL to prevent SSRF attacks
+        if not self._validate_url_for_ssrf(source.url):
+            error_msg = "URL blocked for security reasons"
+            logger.error(f"SSRF protection: {error_msg} - {source.url}")
+            return ICSResponse(
+                success=False,
+                error_message=error_msg,
+                status_code=403
+            )
+        
         try:
             logger.info(f"Fetching ICS from {source.url}")
+            
+            # Log successful URL validation
+            event = SecurityEvent(
+                event_type=SecurityEventType.DATA_ACCESS,
+                severity=SecuritySeverity.LOW,
+                resource=source.url,
+                action="url_access",
+                result="success",
+                details={
+                    "description": f"Accessing validated URL: {source.url}",
+                    "source_ip": "internal"
+                }
+            )
+            self.security_logger.log_event(event)
             
             # Prepare headers
             headers = {}

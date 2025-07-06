@@ -13,6 +13,7 @@ from typing import Optional, Dict, Any
 from urllib.parse import urlparse, parse_qs
 
 from ..utils.process import auto_cleanup_before_start
+from ..security.logging import SecurityEventLogger
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
     
     def __init__(self, *args, web_server=None, **kwargs):
         self.web_server = web_server
+        self.security_logger = SecurityEventLogger()
         super().__init__(*args, **kwargs)
     
     def do_GET(self):
@@ -107,11 +109,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
     
     def _handle_navigation_api(self, params):
         """Handle navigation API requests."""
-        # DEBUG: Log the raw params to diagnose parameter parsing
         logger.debug(f"Navigation API params type: {type(params)}")
         logger.debug(f"Navigation API params content: {params}")
         
-        # Fix: Handle both JSON format {"action": "value"} and query format {"action": ["value"]}
+        # Handle both JSON format {"action": "value"} and query format {"action": ["value"]}
         if isinstance(params, dict) and 'action' in params:
             action_value = params['action']
             # If it's a list (query params), take first element; if string (JSON), use directly
@@ -121,10 +122,39 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         
         logger.debug(f"Extracted navigation action: '{action}'")
         
+        # Validate navigation action input
+        valid_actions = ['prev', 'next', 'today', 'week-start', 'week-end']
         if not action:
+            self.security_logger.log_input_validation_failure(
+                input_type="navigation_action",
+                validation_error="Missing action parameter",
+                details={
+                    "source_ip": self.client_address[0],
+                    "input_value": "",
+                    "endpoint": "/api/navigate"
+                }
+            )
             logger.warning("Missing action parameter in navigation request")
             self._send_json_response(400, {"error": "Missing action parameter"})
             return
+        
+        if action not in valid_actions:
+            self.security_logger.log_input_validation_failure(
+                input_type="navigation_action",
+                validation_error=f"Invalid navigation action: {action}",
+                details={
+                    "source_ip": self.client_address[0],
+                    "input_value": action,
+                    "valid_actions": valid_actions,
+                    "endpoint": "/api/navigate"
+                }
+            )
+            logger.warning(f"Invalid navigation action: {action}")
+            self._send_json_response(400, {"error": "Invalid navigation action"})
+            return
+        
+        # No logging for successful validation - only security violations are logged
+        logger.debug(f"Valid navigation action: {action}")
         
         success = self.web_server.handle_navigation(action)
         
@@ -309,7 +339,6 @@ class WebServer:
     def get_calendar_html(self) -> str:
         """Get current calendar HTML content."""
         try:
-            # DEBUG: Log navigation state and date range
             logger.debug(f"Navigation state available: {self.navigation_state is not None}")
             
             # Get current events
@@ -349,15 +378,14 @@ class WebServer:
                 
                 logger.debug(f"Retrieved {len(events)} events for today")
                 
-                # FIXED: Static web display mode - no navigation buttons
+                # Static web display mode - no navigation buttons
                 status_info = {
                     'last_update': datetime.now().isoformat(),
                     'is_cached': False,
                     'connection_status': 'Online',
-                    'interactive_mode': False  # FIXED: Static display mode
+                    'interactive_mode': False
                 }
             
-            # DEBUG: Log renderer information
             logger.debug(f"Display manager renderer type: {type(self.display_manager.renderer)}")
             logger.debug(f"Renderer has render_events method: {hasattr(self.display_manager.renderer, 'render_events')}")
             
