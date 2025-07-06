@@ -116,6 +116,10 @@ class CredentialMaskingPatterns:
         'jwt': re.compile(r'(eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)', re.IGNORECASE),
         'access_token': re.compile(r'(access[_-]?token["\s]*[:=]["\s]*)([^"\s,}]+)', re.IGNORECASE),
         'refresh_token': re.compile(r'(refresh[_-]?token["\s]*[:=]["\s]*)([^"\s,}]+)', re.IGNORECASE),
+        # ICS Calendar URL patterns - mask calendar IDs and sensitive path components
+        'ics_calendar_id': re.compile(r'(calendar/)([a-fA-F0-9-]+@[^/]+)(/)', re.IGNORECASE),
+        'ics_outlook_path': re.compile(r'(outlook\.office365\.com/owa/calendar/)([a-fA-F0-9-]+@[^/]+/[a-fA-F0-9/]+)(/calendar\.ics)', re.IGNORECASE),
+        'ics_url_generic': re.compile(r'(ics[_-]?url["\s]*[:=]["\s]*["\']?https?://[^/]+/)([^"\'}\s,/]+)(/[^"\'}\s,]*)', re.IGNORECASE),
     }
     
     @classmethod

@@ -100,6 +100,7 @@ class CalendarBotSettings(BaseSettings):
     ics_username: Optional[str] = Field(default=None, description="Basic auth username")
     ics_password: Optional[str] = Field(default=None, description="Basic auth password")
     ics_bearer_token: Optional[str] = Field(default=None, description="Bearer token")
+    ics_custom_headers: Optional[str] = Field(default=None, description="Custom HTTP headers as JSON string")
     
     # ICS Advanced Settings
     ics_validate_ssl: bool = Field(default=True, description="Validate SSL certificates")
@@ -162,6 +163,17 @@ class CalendarBotSettings(BaseSettings):
         
         # Load YAML configuration
         self._load_yaml_config()
+        
+        # Validate required configuration
+        self._validate_required_config()
+    
+    def _validate_required_config(self):
+        """Validate that required configuration is present."""
+        if not self.ics_url:
+            raise ValueError(
+                "ICS URL is required but not configured. "
+                "Please set CALENDARBOT_ICS_URL environment variable or configure 'ics.url' in config.yaml"
+            )
     
     def _find_config_file(self) -> Optional[Path]:
         """Find config file, checking project directory first, then user home."""
@@ -248,6 +260,18 @@ class CalendarBotSettings(BaseSettings):
                         }
                     )
                     security_logger.log_event(event)
+                if 'custom_headers' in ics_config and not self.ics_custom_headers:
+                    import json
+                    try:
+                        # Convert dict to JSON string if needed
+                        headers = ics_config['custom_headers']
+                        if isinstance(headers, dict):
+                            self.ics_custom_headers = json.dumps(headers)
+                        else:
+                            self.ics_custom_headers = str(headers)
+                    except Exception:
+                        # If conversion fails, skip custom headers
+                        pass
                 if 'verify_ssl' in ics_config:
                     self.ics_validate_ssl = ics_config['verify_ssl']
             
