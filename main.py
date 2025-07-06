@@ -467,6 +467,18 @@ async def run_web_mode(args) -> int:
     Returns:
         Exit code (0 for success, 1 for failure)
     """
+    import signal
+    shutdown_event = asyncio.Event()
+    
+    def signal_handler(signum, frame):
+        """Handle shutdown signals gracefully."""
+        print(f"\nReceived signal {signum}, initiating graceful shutdown...")
+        shutdown_event.set()
+    
+    # Register signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     try:
         import webbrowser
         from calendarbot.main import CalendarBot
@@ -566,12 +578,12 @@ async def run_web_mode(args) -> int:
             
             # Keep the server running
             print("Web server is running. Press Ctrl+C to stop.")
-            try:
-                while True:
-                    await asyncio.sleep(1)
-            except KeyboardInterrupt:
-                logger.info("Received keyboard interrupt signal")
-                raise
+            logger.debug("DEBUG: Entering main server loop with graceful shutdown")
+            
+            # Wait for shutdown signal instead of using exception handling
+            logger.info("Web server started, waiting for shutdown signal...")
+            await shutdown_event.wait()
+            logger.info("Shutdown signal received, beginning graceful shutdown...")
             
         finally:
             logger.debug("Entering cleanup phase...")
@@ -605,10 +617,6 @@ async def run_web_mode(args) -> int:
         logger.info("Web mode completed successfully")
         return 0
         
-    except KeyboardInterrupt:
-        logger.info("Web server interrupted by user")
-        print("\nWeb server stopped")
-        return 0
     except Exception as e:
         # Use print instead of logger since logger might not be initialized yet
         print(f"Web server error: {e}")

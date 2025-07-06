@@ -13,7 +13,7 @@ class LoggingSettings(BaseModel):
     
     # Console Logging
     console_enabled: bool = Field(default=True, description="Enable console logging")
-    console_level: str = Field(default="INFO", description="Console log level: DEBUG, VERBOSE, INFO, WARNING, ERROR, CRITICAL")
+    console_level: str = Field(default="WARNING", description="Console log level: DEBUG, VERBOSE, INFO, WARNING, ERROR, CRITICAL")
     console_colors: bool = Field(default=True, description="Enable colored console output (auto-detected)")
     
     # File Logging
