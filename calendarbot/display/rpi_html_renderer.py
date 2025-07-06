@@ -65,8 +65,12 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
     <link rel="stylesheet" href="/static/eink-rpi.css">
 </head>
 <body>
+    <!-- Skip Links for Accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <a href="#navigation" class="skip-link">Skip to navigation</a>
+    
     <div class="calendar-container">
-        <header class="calendar-header">
+        <header class="calendar-header" role="banner">
             {header_nav_controls}
             
             <div class="header-main">
@@ -77,7 +81,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             {theme_toggle}
         </header>
         
-        <main class="calendar-content">
+        <main id="main-content" class="calendar-content" role="main" aria-label="Calendar Events">
             {events_content}
         </main>
         
@@ -102,9 +106,11 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             return '<div class="nav-controls"></div>'
         
         return '''
-        <div class="nav-controls">
-            <button onclick="navigate('today')" class="btn-base btn-navigation" 
-                    title="Jump to Today" aria-label="Jump to Today">
+        <div class="nav-controls" role="toolbar" aria-label="Date Navigation">
+            <button class="btn-base btn-navigation nav-today"
+                    title="Jump to Today"
+                    aria-label="Jump to Today - Navigate to current date"
+                    data-action="today">
                 📅
             </button>
         </div>
@@ -131,18 +137,22 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             '''
         
         return f'''
-        <nav class="calendar-navigation">
-            <button onclick="navigate('prev')" class="btn-base btn-navigation nav-prev" 
-                    title="Previous Day" aria-label="Previous Day">
+        <nav id="navigation" class="calendar-navigation" role="navigation" aria-label="Date Navigation">
+            <button class="btn-base btn-navigation nav-prev"
+                    title="Previous Day"
+                    aria-label="Previous Day - Navigate to previous date"
+                    data-action="prev">
                 ‹
             </button>
             
-            <div class="nav-date-display" role="status" aria-live="polite">
+            <div class="nav-date-display" role="status" aria-live="polite" aria-label="Current Date">
                 {display_date}
             </div>
             
-            <button onclick="navigate('next')" class="btn-base btn-navigation nav-next" 
-                    title="Next Day" aria-label="Next Day">
+            <button class="btn-base btn-navigation nav-next"
+                    title="Next Day"
+                    aria-label="Next Day - Navigate to next date"
+                    data-action="next">
                 ›
             </button>
         </nav>
@@ -155,9 +165,11 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             HTML for theme toggle button
         """
         return '''
-        <div class="theme-controls">
-            <button onclick="toggleTheme()" class="theme-toggle" 
-                    title="Toggle Theme" aria-label="Toggle Theme">
+        <div class="theme-controls" role="toolbar" aria-label="Theme Controls">
+            <button class="theme-toggle"
+                    title="Toggle Theme"
+                    aria-label="Toggle Theme - Switch between light and dark modes"
+                    data-action="theme">
                 🎨
             </button>
         </div>
@@ -178,36 +190,37 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         return f'<div class="status-line">{status_line}</div>'
     
     def _render_events_content(self, events: List[CachedEvent], interactive_mode: bool) -> str:
-        """Render events content optimized for RPI e-ink display.
+        """Render events content optimized for RPI e-ink display with Phase 3 information architecture.
         
         Args:
             events: List of events to render
             interactive_mode: Whether in interactive mode
             
         Returns:
-            HTML content for events using component-based structure
+            HTML content for events using Phase 3 structured layout
         """
         if not events:
             return self._render_no_events_rpi()
         
         content_parts = []
         
-        # Group events
+        # Phase 3: Enhanced Event Grouping with Information Density Optimization
         current_events = [e for e in events if e.is_current()]
         upcoming_events = [e for e in events if e.is_upcoming()]
         
-        # Current event section
+        # Current event section (above fold - most prominent)
         if current_events:
             content_parts.append(self._render_current_events_section_rpi(current_events))
         
-        # Upcoming events section
+        # Next Up section (next 3 events - above fold)
         if upcoming_events:
-            content_parts.append(self._render_upcoming_events_section_rpi(upcoming_events))
+            next_up_events = upcoming_events[:3]
+            content_parts.append(self._render_next_up_events_section_rpi(next_up_events))
         
-        # Later events section (compact list)
-        later_events = upcoming_events[3:] if len(upcoming_events) > 3 else []
+        # Later Today section (compact list - scrollable area, max 5 events)
+        later_events = upcoming_events[3:8] if len(upcoming_events) > 3 else []
         if later_events:
-            content_parts.append(self._render_later_events_section_rpi(later_events))
+            content_parts.append(self._render_later_today_section_rpi(later_events))
         
         return '\n'.join(content_parts)
     
@@ -218,105 +231,107 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             HTML for no events state
         """
         return '''
-        <div class="no-events">
-            <div class="no-events-icon">🎉</div>
+        <div class="no-events" role="region" aria-label="No Events Today">
+            <div class="no-events-icon" aria-hidden="true">🎉</div>
             <h2>No meetings scheduled!</h2>
             <p>Enjoy your free time.</p>
         </div>
         '''
     
     def _render_current_events_section_rpi(self, current_events: List[CachedEvent]) -> str:
-        """Render current events section with RPI component styling.
+        """Render current events section with Phase 3 information architecture.
         
         Args:
             current_events: List of current events
             
         Returns:
-            HTML for current events section
+            HTML for current events section with enhanced structure
         """
         section_parts = [
-            '<section class="current-events">',
-            '<h2 class="section-title">▶ Current Event</h2>'
+            '<section class="section-current" role="region" aria-labelledby="current-heading">',
+            '<h2 id="current-heading" class="section-title">▶ Current Event</h2>'
         ]
         
-        # Show only the first current event for RPI layout
+        # Show only the first current event for RPI layout with Phase 3 structure
         event = current_events[0]
         section_parts.append(self._format_current_event_rpi(event))
         
         section_parts.append('</section>')
         return '\n'.join(section_parts)
     
-    def _render_upcoming_events_section_rpi(self, upcoming_events: List[CachedEvent]) -> str:
-        """Render upcoming events section with RPI component styling.
+    def _render_next_up_events_section_rpi(self, next_up_events: List[CachedEvent]) -> str:
+        """Render Next Up events section with Phase 3 information architecture.
         
         Args:
-            upcoming_events: List of upcoming events
+            next_up_events: List of next up events (max 3)
             
         Returns:
-            HTML for upcoming events section
+            HTML for Next Up events section with enhanced structure
         """
         section_parts = [
-            '<section class="upcoming-events">',
-            '<h2 class="section-title">📋 Next Up</h2>'
+            '<section class="section-upcoming" role="region" aria-labelledby="upcoming-heading">',
+            '<h2 id="upcoming-heading" class="section-title">📋 Next Up</h2>'
         ]
         
-        # Show next 3 events for RPI layout
-        for event in upcoming_events[:3]:
+        # Show next 3 events for RPI layout with Phase 3 structure
+        for event in next_up_events:
             section_parts.append(self._format_upcoming_event_rpi(event))
         
         section_parts.append('</section>')
         return '\n'.join(section_parts)
     
-    def _render_later_events_section_rpi(self, later_events: List[CachedEvent]) -> str:
-        """Render later events section as compact list for RPI display.
+    def _render_later_today_section_rpi(self, later_events: List[CachedEvent]) -> str:
+        """Render Later Today section with Phase 3 compact list format.
         
         Args:
-            later_events: List of later events
+            later_events: List of later events (max 5 for information density)
             
         Returns:
-            HTML for later events section
+            HTML for Later Today section with Phase 3 structure
         """
         section_parts = [
-            '<section class="later-events">',
-            '<h2 class="section-title">⏰ Later Today</h2>',
-            '<ul class="later-events-list">'
+            '<section class="section-later" role="region" aria-labelledby="later-heading">',
+            '<h2 id="later-heading" class="section-title">⏰ Later Today</h2>',
+            '<ul class="later-events-list" role="list">'
         ]
         
-        # Show up to 5 later events in compact format
+        # Show up to 5 later events in compact format with Phase 3 structure
         for event in later_events[:5]:
-            section_parts.append(f'''
-            <li class="later-event">
-                <span class="event-title">{self._escape_html(event.subject)}</span>
-                <span class="event-time">{event.format_time_range()}</span>
-            </li>
-            ''')
+            section_parts.append(self._format_later_event_rpi(event))
         
         section_parts.extend(['</ul>', '</section>'])
         return '\n'.join(section_parts)
     
     def _format_current_event_rpi(self, event: CachedEvent) -> str:
-        """Format current event with RPI component styling.
+        """Format current event with Phase 3 information architecture structure.
+        
+        Phase 3 Current Event Card Structure:
+        [3px Black Border - 16px Padding]
+        ▶ MEETING TITLE (18px bold)
+        10:00 AM - 11:00 AM (60min) (16px medium)
+        📍 Conference Room A (14px normal)
+        ⏱️ 25 minutes remaining (14px, urgent styling)
         
         Args:
             event: Current event to format
             
         Returns:
-            HTML string for the current event card
+            HTML string for the Phase 3 current event card
         """
         # Calculate duration
         duration_mins = (event.end_dt - event.start_dt).total_seconds() / 60
         duration_text = f" ({int(duration_mins)}min)" if duration_mins > 0 else ""
         
-        # Location information
+        # Location information with enhanced visual indicators
         location_html = self._format_event_location_rpi(event)
         
-        # Time remaining
+        # Time remaining with urgency styling
         time_remaining_html = self._format_time_remaining_rpi(event)
         
         return f'''
-        <div class="current-event card-current" data-event-id="{event.id}" 
+        <div class="current-event card-current event-current" data-event-id="{event.id}"
              role="article" aria-label="Current Event">
-            <h3 class="event-title">{self._escape_html(event.subject)}</h3>
+            <h3 class="event-title">▶ {self._escape_html(event.subject)}</h3>
             <div class="event-time">{event.format_time_range()}{duration_text}</div>
             {location_html}
             {time_remaining_html}
@@ -324,83 +339,120 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         '''
     
     def _format_upcoming_event_rpi(self, event: CachedEvent) -> str:
-        """Format upcoming event with RPI component styling.
+        """Format upcoming event with Phase 3 information architecture structure.
+        
+        Phase 3 Upcoming Event Card Structure:
+        [2px Border - 12px Padding]
+        📋 MEETING TITLE (16px bold)
+        2:00 PM - 3:00 PM | 💻 Online (14px)
+        ⏰ In 45 minutes (14px)
         
         Args:
             event: Upcoming event to format
             
         Returns:
-            HTML string for the upcoming event card
+            HTML string for the Phase 3 upcoming event card
         """
-        # Location information
+        # Location information with enhanced visual indicators
         location_text = ""
         if event.location_display_name:
             location_text = f' | 📍 {self._escape_html(event.location_display_name)}'
         elif event.is_online_meeting:
             location_text = ' | 💻 Online'
         
-        # Time until start
+        # Time until start with priority visual indicators
         time_until_html = self._format_time_until_rpi(event)
         
+        # Determine urgency class for visual coding
+        time_until = event.time_until_start()
+        urgency_class = "event-urgent" if time_until is not None and time_until <= 5 else "event-soon" if time_until is not None and time_until <= 30 else ""
+        
         return f'''
-        <div class="upcoming-event card-upcoming" data-event-id="{event.id}" 
+        <div class="upcoming-event card-upcoming event-upcoming {urgency_class}" data-event-id="{event.id}"
              role="article" aria-label="Upcoming Event">
-            <h4 class="event-title">{self._escape_html(event.subject)}</h4>
+            <h4 class="event-title">📋 {self._escape_html(event.subject)}</h4>
             <div class="event-details">{event.format_time_range()}{location_text}</div>
             {time_until_html}
         </div>
         '''
     
     def _format_event_location_rpi(self, event: CachedEvent) -> str:
-        """Format event location for RPI display.
+        """Format event location for RPI display with Phase 3 visual indicators.
         
         Args:
             event: Event with location information
             
         Returns:
-            HTML for event location
+            HTML for event location with enhanced styling
         """
         if event.location_display_name:
-            return f'<div class="event-location">📍 {self._escape_html(event.location_display_name)}</div>'
+            return f'<div class="event-location location-physical">📍 {self._escape_html(event.location_display_name)}</div>'
         elif event.is_online_meeting:
-            return '<div class="event-location online">💻 Online Meeting</div>'
+            return '<div class="event-location location-online">💻 Online Meeting</div>'
         return ""
     
     def _format_time_remaining_rpi(self, event: CachedEvent) -> str:
-        """Format time remaining for current event in RPI display.
+        """Format time remaining for current event with Phase 3 urgent styling.
         
         Args:
             event: Current event
             
         Returns:
-            HTML for time remaining
+            HTML for time remaining with Phase 3 enhanced styling
         """
         try:
             from ..utils.helpers import get_timezone_aware_now
             now = get_timezone_aware_now()
             time_left = (event.end_dt - now).total_seconds() / 60
             if time_left > 0:
-                return f'<div class="time-remaining">⏱️ {int(time_left)} minutes remaining</div>'
+                urgency_class = "urgent" if time_left <= 5 else ""
+                return f'<div class="time-remaining {urgency_class}">⏱️ {int(time_left)} minutes remaining</div>'
         except Exception:
             pass
         return ""
     
     def _format_time_until_rpi(self, event: CachedEvent) -> str:
-        """Format time until start for upcoming event in RPI display.
+        """Format time until start for upcoming event with Phase 3 priority indicators.
         
         Args:
             event: Upcoming event
             
         Returns:
-            HTML for time until start
+            HTML for time until start with Phase 3 enhanced priority styling
         """
         time_until = event.time_until_start()
         if time_until is not None and time_until <= 60:  # Show if within 1 hour
             if time_until <= 5:
                 return f'<div class="time-until urgent">🔔 Starting in {time_until} minutes!</div>'
+            elif time_until <= 30:
+                return f'<div class="time-until soon">⏰ In {time_until} minutes</div>'
             else:
                 return f'<div class="time-until">⏰ In {time_until} minutes</div>'
         return ""
+    def _format_later_event_rpi(self, event: CachedEvent) -> str:
+        """Format later event with Phase 3 compact list format and Phase 5 accessibility.
+        
+        Args:
+            event: Later event to format
+            
+        Returns:
+            HTML string for the Phase 3 later event list item with Phase 5 accessibility
+        """
+        # Location information with visual indicators
+        location_text = ""
+        if event.location_display_name:
+            location_text = f' | 📍 {self._escape_html(event.location_display_name)}'
+        elif event.is_online_meeting:
+            location_text = ' | 💻 Online'
+        
+        return f'''
+        <li class="later-event" data-event-id="{event.id}" role="listitem" 
+            aria-label="Later Event: {self._escape_html(event.subject)}">
+            <span class="event-title">{self._escape_html(event.subject)}</span>
+            <span class="event-details">{event.format_time_range()}{location_text}</span>
+        </li>
+        '''
+    
     
     def _render_error_html(self, error_message: str, 
                           cached_events: Optional[List[CachedEvent]] = None) -> str:
