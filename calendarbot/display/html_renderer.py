@@ -169,10 +169,17 @@ class HTMLRenderer:
             content_parts.append('<ul class="later-events-list">')
             
             for event in later_events[:5]:  # Show up to 5 more events
+                # Location information - filter out Microsoft Teams Meeting text
+                location_text = ""
+                if event.location_display_name and "Microsoft Teams Meeting" not in event.location_display_name:
+                    location_text = f' | 📍 {self._escape_html(event.location_display_name)}'
+                elif event.is_online_meeting:
+                    location_text = ' | 💻 Online'
+                
                 content_parts.append(f'''
                 <li class="later-event">
                     <span class="event-title">{self._escape_html(event.subject)}</span>
-                    <span class="event-time">{event.format_time_range()}</span>
+                    <span class="event-time">{event.format_time_range()}{location_text}</span>
                 </li>
                 ''')
             
@@ -194,9 +201,9 @@ class HTMLRenderer:
         duration_mins = (event.end_dt - event.start_dt).total_seconds() / 60
         duration_text = f" ({int(duration_mins)}min)" if duration_mins > 0 else ""
         
-        # Location information
+        # Location information - filter out Microsoft Teams Meeting text
         location_html = ""
-        if event.location_display_name:
+        if event.location_display_name and "Microsoft Teams Meeting" not in event.location_display_name:
             location_html = f'<div class="event-location">📍 {self._escape_html(event.location_display_name)}</div>'
         elif event.is_online_meeting:
             location_html = '<div class="event-location online">💻 Online Meeting</div>'
@@ -230,9 +237,9 @@ class HTMLRenderer:
         Returns:
             HTML string for the event
         """
-        # Location information
+        # Location information - filter out Microsoft Teams Meeting text
         location_html = ""
-        if event.location_display_name:
+        if event.location_display_name and "Microsoft Teams Meeting" not in event.location_display_name:
             location_html = f' | 📍 {self._escape_html(event.location_display_name)}'
         elif event.is_online_meeting:
             location_html = ' | 💻 Online'
@@ -304,25 +311,24 @@ class HTMLRenderer:
         
         logger.info(f"HTML template using theme '{self.theme}' - CSS: {css_file}, JS: {js_file}")
         
-        # Navigation controls (for interactive mode)
-        nav_controls = ""
+        # Header navigation with arrow buttons and date
+        header_navigation = ""
         if interactive_mode:
-            nav_controls = '''
-            <nav class="nav-controls">
-                <button onclick="navigate('prev')" title="Previous Day" class="nav-btn">‹</button>
-                <button onclick="navigate('today')" title="Today" class="nav-btn today-btn">📅</button>
-                <button onclick="navigate('next')" title="Next Day" class="nav-btn">›</button>
-            </nav>
+            header_navigation = f'''
+            <div class="header-navigation">
+                <button onclick="navigate('prev')" title="Previous Day" class="nav-arrow-left">←</button>
+                <div class="header-date">{display_date}</div>
+                <button onclick="navigate('next')" title="Next Day" class="nav-arrow-right">→</button>
+            </div>
             '''
-        
-        # Theme toggle
-        theme_toggle = f'''
-        <div class="theme-controls">
-            <button onclick="toggleTheme()" class="theme-toggle" title="Toggle Theme">
-                {self._get_theme_icon()}
-            </button>
-        </div>
-        '''
+        else:
+            header_navigation = f'''
+            <div class="header-navigation">
+                <div class="nav-arrow-left"></div>
+                <div class="header-date">{display_date}</div>
+                <div class="nav-arrow-right"></div>
+            </div>
+            '''
         
         # Footer navigation help
         footer_content = ""
@@ -339,14 +345,9 @@ class HTMLRenderer:
 </head>
 <body>
     <header class="calendar-header">
-        {nav_controls}
+        {header_navigation}
         
-        <div class="header-main">
-            <h1 class="calendar-title">📅 {display_date}</h1>
-            <div class="status-line">{status_line}</div>
-        </div>
-        
-        {theme_toggle}
+        <div class="status-line">{status_line}</div>
     </header>
     
     <main class="calendar-content">

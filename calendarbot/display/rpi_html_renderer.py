@@ -51,14 +51,11 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         logger.debug(f"RPI HTML Template - display_date: {display_date}")
         logger.debug(f"RPI HTML Template - viewport will be: width=800, height=480 (ISSUE: should be 480x800 for portrait)")
         
-        # Generate navigation controls for header
-        header_nav_controls = self._generate_header_navigation(interactive_mode)
+        # Generate header navigation with arrow buttons and date
+        header_navigation = self._generate_header_navigation_with_date(display_date, interactive_mode)
         
         # Generate bottom status bar (replaces navigation)
         bottom_status_bar = self._generate_bottom_status_bar(status_line)
-        
-        # Theme toggle for header
-        theme_toggle = self._generate_theme_toggle()
         
         return f'''<!DOCTYPE html>
 <html lang="en" class="theme-{self.theme}">
@@ -70,19 +67,9 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
     <link rel="stylesheet" href="/static/eink-rpi.css">
 </head>
 <body>
-    <!-- Skip Links for Accessibility -->
-    <a href="#main-content" class="skip-link">Skip to main content</a>
-    <a href="#status" class="skip-link">Skip to status</a>
-    
     <div class="calendar-container">
         <header class="calendar-header" role="banner">
-            {header_nav_controls}
-            
-            <div class="header-main">
-                <h1 class="calendar-title">📅 Calendar</h1>
-            </div>
-            
-            {theme_toggle}
+            {header_navigation}
         </header>
         
         <main id="main-content" class="calendar-content" role="main" aria-label="Calendar Events">
@@ -97,25 +84,39 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
 </body>
 </html>'''
     
-    def _generate_header_navigation(self, interactive_mode: bool) -> str:
-        """Generate header navigation controls for RPI layout.
+    def _generate_header_navigation_with_date(self, display_date: str, interactive_mode: bool) -> str:
+        """Generate header navigation with arrow buttons and centered date display.
         
         Args:
+            display_date: Formatted date string to display in center
             interactive_mode: Whether in interactive mode
             
         Returns:
-            HTML for header navigation controls
+            HTML for header navigation with arrow buttons and date
         """
         if not interactive_mode:
-            return '<div class="nav-controls"></div>'
+            return f'''
+            <div class="header-navigation">
+                <div class="nav-arrow-left"></div>
+                <div class="header-date">{display_date}</div>
+                <div class="nav-arrow-right"></div>
+            </div>
+            '''
         
-        return '''
-        <div class="nav-controls" role="toolbar" aria-label="Date Navigation">
-            <button class="btn-base btn-navigation nav-today"
-                    title="Jump to Today"
-                    aria-label="Jump to Today - Navigate to current date"
-                    data-action="today">
-                📅
+        return f'''
+        <div class="header-navigation" role="toolbar" aria-label="Date Navigation">
+            <button class="nav-arrow-left"
+                    title="Previous Day"
+                    aria-label="Navigate to previous day"
+                    data-action="prev">
+                ←
+            </button>
+            <div class="header-date">{display_date}</div>
+            <button class="nav-arrow-right"
+                    title="Next Day"
+                    aria-label="Navigate to next day"
+                    data-action="next">
+                →
             </button>
         </div>
         '''
@@ -330,9 +331,9 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         Returns:
             HTML string for the Phase 3 upcoming event card
         """
-        # Location information with enhanced visual indicators
+        # Location information with enhanced visual indicators - filter out Microsoft Teams Meeting text
         location_text = ""
-        if event.location_display_name:
+        if event.location_display_name and "Microsoft Teams Meeting" not in event.location_display_name:
             location_text = f' | 📍 {self._escape_html(event.location_display_name)}'
         elif event.is_online_meeting:
             location_text = ' | 💻 Online'
@@ -363,7 +364,10 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             HTML for event location with enhanced styling
         """
         if event.location_display_name:
-            return f'<div class="event-location location-physical">📍 {self._escape_html(event.location_display_name)}</div>'
+            # Filter out "Microsoft Teams Meeting" text
+            location_name = event.location_display_name
+            if "Microsoft Teams Meeting" not in location_name:
+                return f'<div class="event-location location-physical">📍 {self._escape_html(location_name)}</div>'
         elif event.is_online_meeting:
             return '<div class="event-location location-online">💻 Online Meeting</div>'
         return ""
@@ -415,15 +419,15 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         Returns:
             HTML string for the Phase 3 later event list item with Phase 5 accessibility
         """
-        # Location information with visual indicators
+        # Location information with visual indicators - filter out Microsoft Teams Meeting text
         location_text = ""
-        if event.location_display_name:
+        if event.location_display_name and "Microsoft Teams Meeting" not in event.location_display_name:
             location_text = f' | 📍 {self._escape_html(event.location_display_name)}'
         elif event.is_online_meeting:
             location_text = ' | 💻 Online'
         
         return f'''
-        <li class="later-event" data-event-id="{event.id}" role="listitem" 
+        <li class="later-event" data-event-id="{event.id}" role="listitem"
             aria-label="Later Event: {self._escape_html(event.subject)}">
             <span class="event-title">{self._escape_html(event.subject)}</span>
             <span class="event-details">{event.format_time_range()}{location_text}</span>
