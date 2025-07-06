@@ -45,8 +45,10 @@ Transform any Raspberry Pi into a dedicated calendar display that shows your dai
 - **Graceful degradation** when feeds are unavailable
 - **Network connectivity monitoring** with automatic reconnection
 
-### 🖥️ Clean Display Interface
+### 🖥️ Multiple Display Interfaces
 - **Console output** optimized for testing and development
+- **Web interface** with HTML display and browser controls
+- **Raspberry Pi e-ink interface** (800x480px) with touch-friendly navigation
 - **Current meeting highlighting** with visual indicators (▶)
 - **Next 2-3 meetings** displayed with time and location
 - **Real-time status indicators** showing last update and connection status
@@ -187,6 +189,7 @@ Runs comprehensive validation with detailed output.
 |----------|-------------|
 | [INSTALL.md](INSTALL.md) | Detailed installation guide including Raspberry Pi setup |
 | [USAGE.md](USAGE.md) | Day-to-day operation and troubleshooting guide |
+| [RPI_INTERFACE.md](RPI_INTERFACE.md) | **Raspberry Pi e-ink interface guide (800x480px optimized)** |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture and design decisions |
 | [MIGRATION.md](MIGRATION.md) | **Migration guide from Microsoft Graph API to ICS system** |
 | [CHANGELOG.md](CHANGELOG.md) | Version history and breaking changes documentation |

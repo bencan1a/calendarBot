@@ -116,6 +116,9 @@ class InteractiveController:
         if initial_date:
             self.navigation.jump_to_date(initial_date)
         
+        # Enable split display logging if console renderer supports it
+        self._setup_split_display_logging()
+        
         logger.info("Starting interactive calendar navigation")
         
         try:
@@ -146,6 +149,7 @@ class InteractiveController:
             logger.error(f"Error in interactive mode: {e}")
         finally:
             self._running = False
+            self._cleanup_split_display_logging()
             logger.info("Interactive mode stopped")
     
     async def stop(self):
@@ -351,3 +355,30 @@ class InteractiveController:
             'relative_description': self.navigation.get_relative_description(),
             'week_context': self.navigation.get_week_context()
         }
+    
+    def _setup_split_display_logging(self):
+        """Set up split display logging for interactive mode."""
+        try:
+            # Check if we have a console renderer that supports split display
+            if (hasattr(self.display_manager, 'renderer') and
+                hasattr(self.display_manager.renderer, 'enable_split_display')):
+                
+                # Enable split display with default settings
+                self.display_manager.renderer.enable_split_display(max_log_lines=5)
+                logger.debug("Split display logging enabled for interactive mode")
+            else:
+                logger.debug("Split display logging not available for current renderer")
+        except Exception as e:
+            logger.warning(f"Failed to enable split display logging: {e}")
+    
+    def _cleanup_split_display_logging(self):
+        """Clean up split display logging when exiting interactive mode."""
+        try:
+            # Disable split display if supported
+            if (hasattr(self.display_manager, 'renderer') and
+                hasattr(self.display_manager.renderer, 'disable_split_display')):
+                
+                self.display_manager.renderer.disable_split_display()
+                logger.debug("Split display logging disabled")
+        except Exception as e:
+            logger.warning(f"Failed to disable split display logging: {e}")
