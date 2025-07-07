@@ -248,7 +248,7 @@ python main.py --setup
 
 ---
 
-**Need Help?** 
+**Need Help?**
 
 1. Run diagnostics: `python main.py --test-mode --verbose`
 2. Test ICS feed: `python test_ics.py --url "your-url" --verbose`

@@ -18,28 +18,28 @@ ics:
   # - iCloud: https://p01-caldav.icloud.com/published/...
   # - CalDAV: https://nextcloud.example.com/remote.php/dav/calendars/user/calendar/?export
   url: "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/11111111-1111-1111-1111-111111111111/cid-2222222222222222/calendar.ics"
-  
+
   # Authentication type for protected ICS feeds
   # Options: "none", "basic", "bearer"
   auth_type: "none"
-  
+
   # Basic Authentication (uncomment if auth_type is "basic")
   # username: "your-username"
   # password: "your-password"
-  
+
   # Bearer Token Authentication (uncomment if auth_type is "bearer")
   # token: "your-bearer-token"
-  
+
   # Additional HTTP headers (optional)
   # custom_headers:
   #   "X-API-Key": "your-api-key"
   #   "User-Agent": "MyCalendarApp/1.0"
-  
+
   # HTTP Settings
   user_agent: "CalendarBot/1.0"
   verify_ssl: true
   timeout: 30
-  
+
   # ICS Processing Settings
   filter_busy_only: true      # Only show busy/tentative events
   validate_ssl: true          # Validate SSL certificates
@@ -72,7 +72,7 @@ logging:
   console_enabled: true
   console_level: "WARNING"    # Only show warnings and errors by default
   console_colors: true
-  
+
   # File logging
   file_enabled: true
   file_level: "DEBUG"         # Log everything to file for debugging
@@ -80,14 +80,14 @@ logging:
   file_prefix: "calendarbot"
   max_log_files: 5
   include_function_names: true
-  
+
   # Interactive mode
   interactive_split_display: true
   interactive_log_lines: 5
-  
+
   # Third-party libraries (suppress noisy libraries)
   third_party_level: "WARNING"
-  
+
   # Advanced options
   buffer_size: 100
   flush_interval: 1.0
@@ -114,7 +114,7 @@ retry_backoff_factor: 1.5  # Exponential backoff multiplier
 
 # These paths are automatically configured but can be overridden
 # config_dir: "~/.config/calendarbot"        # Configuration directory
-# data_dir: "~/.local/share/calendarbot"     # Data storage directory  
+# data_dir: "~/.local/share/calendarbot"     # Data storage directory
 # cache_dir: "~/.cache/calendarbot"          # Temporary cache directory
 
 # ============================================================================

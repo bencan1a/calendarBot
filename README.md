@@ -147,7 +147,7 @@ python main.py --setup
 
 The wizard provides templates for:
 - **Microsoft Outlook**: Step-by-step URL extraction
-- **Google Calendar**: Secret iCal URL guidance  
+- **Google Calendar**: Secret iCal URL guidance
 - **Apple iCloud**: Public calendar setup
 - **CalDAV Servers**: Generic CalDAV configuration
 - **Custom Sources**: Any ICS-compatible service

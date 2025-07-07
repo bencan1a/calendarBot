@@ -1,0 +1,357 @@
+name: CalendarBot Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run full regression nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Test suite to run'
+        required: true
+        default: 'critical_path'
+        type: choice
+        options:
+          - critical_path
+          - full_regression
+          - smart_selection
+
+env:
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  # Fast feedback job for PRs and pushes
+  critical-path:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' && (github.event_name != 'workflow_dispatch' || github.event.inputs.test_suite == 'critical_path')
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Needed for change detection
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-xdist pytest-timeout pytest-html pytest-json-report
+
+    - name: Activate virtual environment
+      run: |
+        python -m venv venv
+        . venv/bin/activate
+        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+        echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+
+    - name: Run critical path test suite
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --critical-path
+      timeout-minutes: 6
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      if: always()
+      with:
+        file: ./coverage.xml
+        flags: critical-path
+        name: critical-path-coverage
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: critical-path-results
+        path: |
+          htmlcov/
+          coverage.xml
+          coverage.json
+        retention-days: 7
+
+  # Smart test selection for rapid feedback
+  smart-selection:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.test_suite == 'smart_selection'
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 50  # Need history for change detection
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-xdist pytest-timeout pytest-html pytest-json-report
+
+    - name: Activate virtual environment
+      run: |
+        python -m venv venv
+        . venv/bin/activate
+        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+        echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+
+    - name: Run smart test selection
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --smart-selection
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: smart-selection-results
+        path: |
+          htmlcov/
+          coverage.xml
+        retention-days: 7
+
+  # Full regression suite for comprehensive validation
+  full-regression:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_suite == 'full_regression')
+    timeout-minutes: 45
+
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xvfb
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-xdist pytest-timeout pytest-html pytest-json-report
+        # Install browser automation dependencies
+        pip install playwright pytest-playwright
+        playwright install chromium firefox
+
+    - name: Activate virtual environment
+      run: |
+        python -m venv venv
+        . venv/bin/activate
+        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+        echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+
+    - name: Run full regression test suite
+      run: |
+        . venv/bin/activate
+        xvfb-run -a python tests/run_tests.py --full-regression
+      timeout-minutes: 35
+
+    - name: Generate test suite analysis
+      if: always()
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --suite-analysis
+
+    - name: Upload comprehensive coverage
+      uses: codecov/codecov-action@v3
+      if: always()
+      with:
+        file: ./coverage.xml
+        flags: full-regression
+        name: full-regression-coverage-${{ matrix.python-version }}
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: full-regression-results-${{ matrix.python-version }}
+        path: |
+          htmlcov/
+          coverage.xml
+          coverage.json
+          tests/browser/visual_output/
+          tests/browser/reports/
+        retention-days: 14
+
+  # Security and quality checks
+  security-quality:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install bandit safety flake8 black isort mypy
+
+    - name: Activate virtual environment
+      run: |
+        python -m venv venv
+        . venv/bin/activate
+        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+        echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+
+    - name: Run security tests
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --security
+
+    - name: Run linting and formatting checks
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --lint
+
+    - name: Run type checking
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --type-check
+
+    - name: Security scan with bandit
+      run: |
+        bandit -r calendarbot/ -f json -o bandit-report.json || true
+
+    - name: Safety check for dependencies
+      run: |
+        safety check --json --output safety-report.json || true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+        retention-days: 30
+
+  # Performance monitoring
+  performance-monitoring:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-benchmark memory-profiler
+
+    - name: Activate virtual environment
+      run: |
+        python -m venv venv
+        . venv/bin/activate
+        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+        echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+
+    - name: Run performance tests
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --performance
+
+    - name: Store benchmark results
+      uses: benchmark-action/github-action-benchmark@v1
+      if: always()
+      with:
+        tool: 'pytest'
+        output-file-path: benchmark-results.json
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+
+  # Build verification
+  build-verification:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+
+    - name: Build package
+      run: |
+        python -m build
+
+    - name: Verify package
+      run: |
+        twine check dist/*
+
+    - name: Test installation
+      run: |
+        pip install dist/*.whl
+        python -c "import calendarbot; print('Package installed successfully')"
+
+# Notification and reporting
+  notify-results:
+    runs-on: ubuntu-latest
+    needs: [critical-path, security-quality, build-verification]
+    if: always()
+    steps:
+    - name: Notify on failure
+      if: needs.critical-path.result == 'failure' || needs.security-quality.result == 'failure' || needs.build-verification.result == 'failure'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '❌ Critical path tests or security checks failed. Please review the test results.'
+          })
+
+    - name: Success notification
+      if: needs.critical-path.result == 'success' && needs.security-quality.result == 'success' && needs.build-verification.result == 'success'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          console.log('✅ All critical tests passed successfully!')

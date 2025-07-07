@@ -11,14 +11,14 @@
   /* Display Dimensions */
   --display-width: 480px;
   --display-height: 800px;
-  
+
   /* Layout Grid System */
   --header-height: 80px;
   --status-height: 60px;
   --content-height: calc(var(--display-height) - var(--header-height) - var(--status-height));
   --content-padding: 16px;
   --grid-gap: 12px;
-  
+
   /* Touch Target Specifications - WCAG 2.2 Level AA Compliance */
   --touch-target-min: 44px;
   --touch-target-spacing: 8px;
@@ -26,10 +26,10 @@
   --nav-button-height: var(--touch-target-min);
   --theme-toggle-size: var(--touch-target-min);
   --extended-hit-area: 8px;
-  
+
   /* Typography Scale - E-ink Optimized */
   --font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
-  
+
   /* Phase 1: Typography Scale System */
   --font-size-h1: 24px;        /* Calendar Title */
   --font-size-h2: 22px;        /* Section Headers */
@@ -37,12 +37,12 @@
   --font-size-h4: 16px;        /* Event Details */
   --font-size-body: 16px;      /* Body Text */
   --font-size-small: 14px;     /* Small Text */
-  
+
   /* Line Height Variables */
   --line-height-tight: 1.2;    /* for headings */
   --line-height-normal: 1.4;   /* for body text */
   --line-height-relaxed: 1.6;  /* for dense text */
-  
+
   /* Phase 2: Advanced Readability Spacing */
   --letter-spacing-normal: 0.02em;
   --word-spacing-normal: 1.1em;
@@ -50,13 +50,13 @@
   --icon-spacing: 4px;
   --icon-min-size: 16px;
   --text-max-line-length: 65ch;
-  
+
   /* Legacy compatibility */
   --font-size-base: var(--font-size-body);
   --font-size-large: var(--font-size-h3);
   --font-size-xl: var(--font-size-h2);
   --font-size-xxl: var(--font-size-h1);
-  
+
   /* Color System - High Contrast Monochromatic */
   --color-primary: #000000;
   --color-secondary: #ffffff;
@@ -66,7 +66,7 @@
   --color-surface: #ffffff;
   --color-text: #000000;
   --color-text-muted: #333333;
-  
+
   /* Phase 1: Visual Separator System */
   --separator-section: 2px solid #000000;     /* Section separators */
   --separator-section-spacing: 16px;
@@ -76,7 +76,7 @@
   --separator-timeslot-spacing: 8px;
   --separator-subsection: 1px dotted #999999; /* Subsection breaks */
   --separator-subsection-spacing: 12px;
-  
+
   /* Component Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -84,12 +84,12 @@
   --spacing-lg: 16px;
   --spacing-xl: 24px;
   --spacing-xxl: 32px;
-  
+
   /* Border Properties */
   --border-width: 2px;
   --border-style: solid;
   --border-radius: 0; /* Sharp edges for e-ink */
-  
+
   /* Animation Properties - Disabled for e-ink */
   --transition-duration: 0s;
   --animation-duration: 0s;
@@ -103,7 +103,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  
+
   /* Disable all animations and transitions for e-ink */
   transition: none !important;
   animation: none !important;
@@ -129,7 +129,7 @@
   width: var(--display-width);
   height: var(--display-height);
   overflow: hidden;
-  
+
   /* Phase 2: Advanced Text Rendering Optimization */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -1483,11 +1483,11 @@ Phase 3 Information Architecture Design - IMPLEMENTED:
     --content-padding: 12px;
     --spacing-lg: 12px;
   }
-  
+
   .theme-eink-rpi .calendar-title {
     font-size: var(--font-size-large);
   }
-  
+
   .theme-eink-rpi .nav-date-display {
     font-size: var(--font-size-large);
   }
@@ -1499,7 +1499,7 @@ Phase 3 Information Architecture Design - IMPLEMENTED:
     --status-height: 50px;
     --content-padding: 8px;
   }
-  
+
   .theme-eink-rpi .section-title {
     margin: var(--spacing-md) 0 var(--spacing-sm) 0;
   }
@@ -1690,20 +1690,20 @@ Phase 3 Information Architecture Design - IMPLEMENTED:
     width: 480px;
     height: 800px;
   }
-  
+
   .theme-eink-rpi .calendar-navigation,
   .theme-eink-rpi .calendar-status {
     display: none;
   }
-  
+
   .theme-eink-rpi .theme-controls {
     display: none;
   }
-  
+
   .theme-eink-rpi .nav-controls {
     display: none;
   }
-  
+
   .theme-eink-rpi .calendar-content {
     height: calc(800px - 80px);
   }

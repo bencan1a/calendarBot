@@ -1,148 +1,150 @@
 #!/usr/bin/env python3
 """Development environment setup script for Calendar Bot."""
 
-import os
-import sys
-import subprocess
 import argparse
 import json
+import logging
+import os
+import subprocess
+import sys
 import venv
 from pathlib import Path
 from typing import Dict, List, Optional
-import logging
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
 class DevelopmentSetup:
     """Development environment setup and management."""
-    
+
     def __init__(self, project_root: Path):
         self.project_root = project_root
         self.venv_path = project_root / "venv"
         self.config_path = project_root / "config"
-        
+
         # Development tools configuration
         self.dev_tools = {
-            'black': '>=23.0.0',
-            'isort': '>=5.12.0', 
-            'mypy': '>=1.0.0',
-            'pytest': '>=7.4.0',
-            'pytest-asyncio': '>=0.21.0',
-            'pytest-cov': '>=4.0.0',
-            'pre-commit': '>=3.0.0',
-            'flake8': '>=6.0.0',
-            'bandit': '>=1.7.0',
+            "black": ">=23.0.0",
+            "isort": ">=5.12.0",
+            "mypy": ">=1.0.0",
+            "pytest": ">=7.4.0",
+            "pytest-asyncio": ">=0.21.0",
+            "pytest-cov": ">=4.0.0",
+            "pre-commit": ">=3.0.0",
+            "flake8": ">=6.0.0",
+            "bandit": ">=1.7.0",
         }
-        
+
         logger.info(f"Development setup for: {project_root}")
-    
-    def run_command(self, command: List[str], check: bool = True, 
-                   capture_output: bool = False, cwd: Optional[Path] = None) -> subprocess.CompletedProcess:
+
+    def run_command(
+        self,
+        command: List[str],
+        check: bool = True,
+        capture_output: bool = False,
+        cwd: Optional[Path] = None,
+    ) -> subprocess.CompletedProcess:
         """Run a command with logging."""
         if cwd is None:
             cwd = self.project_root
-            
+
         logger.debug(f"Running: {' '.join(command)} (cwd: {cwd})")
-        
+
         try:
             result = subprocess.run(
-                command,
-                check=check,
-                capture_output=capture_output,
-                text=True,
-                cwd=cwd
+                command, check=check, capture_output=capture_output, text=True, cwd=cwd
             )
-            
+
             if capture_output and result.stdout:
                 logger.debug(f"Output: {result.stdout.strip()}")
-            
+
             return result
-            
+
         except subprocess.CalledProcessError as e:
             logger.error(f"Command failed: {' '.join(command)}")
             if capture_output and e.stderr:
                 logger.error(f"Error: {e.stderr.strip()}")
             raise
-    
+
     def create_virtual_environment(self, force: bool = False) -> bool:
         """Create Python virtual environment for development."""
         logger.info("Setting up Python virtual environment")
-        
+
         if self.venv_path.exists():
             if force:
                 logger.info("Removing existing virtual environment")
                 import shutil
+
                 shutil.rmtree(self.venv_path)
             else:
                 logger.info("Virtual environment already exists")
                 return True
-        
+
         try:
             # Create virtual environment
             logger.info(f"Creating virtual environment: {self.venv_path}")
             venv.create(self.venv_path, with_pip=True)
-            
+
             # Upgrade pip
             pip_path = self.get_pip_path()
-            self.run_command([str(pip_path), 'install', '--upgrade', 'pip'])
-            
+            self.run_command([str(pip_path), "install", "--upgrade", "pip"])
+
             logger.info("Virtual environment created successfully")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to create virtual environment: {e}")
             return False
-    
+
     def get_pip_path(self) -> Path:
         """Get pip executable path."""
-        if os.name == 'nt':  # Windows
+        if os.name == "nt":  # Windows
             return self.venv_path / "Scripts" / "pip.exe"
         else:  # Unix/Linux/macOS
             return self.venv_path / "bin" / "pip"
-    
+
     def get_python_path(self) -> Path:
         """Get Python executable path."""
-        if os.name == 'nt':  # Windows
+        if os.name == "nt":  # Windows
             return self.venv_path / "Scripts" / "python.exe"
         else:  # Unix/Linux/macOS
             return self.venv_path / "bin" / "python"
-    
+
     def install_dependencies(self) -> bool:
         """Install project and development dependencies."""
         logger.info("Installing project dependencies")
-        
+
         pip_path = self.get_pip_path()
-        
+
         try:
             # Install main requirements
             requirements_file = self.project_root / "requirements.txt"
             if requirements_file.exists():
                 logger.info("Installing main requirements")
-                self.run_command([str(pip_path), 'install', '-r', str(requirements_file)])
-            
+                self.run_command([str(pip_path), "install", "-r", str(requirements_file)])
+
             # Install development tools
             logger.info("Installing development tools")
             for tool, version in self.dev_tools.items():
-                self.run_command([str(pip_path), 'install', f'{tool}{version}'])
-            
+                self.run_command([str(pip_path), "install", f"{tool}{version}"])
+
             # Install project in editable mode
             logger.info("Installing project in editable mode")
-            self.run_command([str(pip_path), 'install', '-e', '.'])
-            
+            self.run_command([str(pip_path), "install", "-e", "."])
+
             logger.info("Dependencies installed successfully")
             return True
-            
+
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to install dependencies: {e}")
             return False
-    
+
     def setup_pre_commit(self) -> bool:
         """Setup pre-commit hooks."""
         logger.info("Setting up pre-commit hooks")
-        
+
         # Create pre-commit config if it doesn't exist
         precommit_config = self.project_root / ".pre-commit-config.yaml"
         if not precommit_config.exists():
@@ -184,31 +186,31 @@ class DevelopmentSetup:
       - id: mypy
         additional_dependencies: [types-PyYAML, types-python-dateutil]
 """
-            
-            with open(precommit_config, 'w') as f:
+
+            with open(precommit_config, "w") as f:
                 f.write(config_content)
-        
+
         try:
             # Install pre-commit hooks
             python_path = self.get_python_path()
-            self.run_command([str(python_path), '-m', 'pre_commit', 'install'])
-            
+            self.run_command([str(python_path), "-m", "pre_commit", "install"])
+
             logger.info("Pre-commit hooks installed successfully")
             return True
-            
+
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to setup pre-commit: {e}")
             return False
-    
+
     def create_development_config(self) -> bool:
         """Create development configuration files."""
         logger.info("Creating development configuration")
-        
+
         try:
             # Create development config directory
             dev_config_dir = self.project_root / "config" / "development"
             dev_config_dir.mkdir(parents=True, exist_ok=True)
-            
+
             # Create development config file
             dev_config_file = dev_config_dir / "config.yaml"
             if not dev_config_file.exists():
@@ -257,12 +259,12 @@ development:
   debug_mode: true
   test_data_enabled: true
 """
-                
-                with open(dev_config_file, 'w') as f:
+
+                with open(dev_config_file, "w") as f:
                     f.write(dev_config_content)
-                
+
                 logger.info(f"Development config created: {dev_config_file}")
-            
+
             # Create testing config
             test_config_file = dev_config_dir / "test_config.yaml"
             if not test_config_file.exists():
@@ -303,26 +305,26 @@ testing:
   fast_mode: true
   skip_network: false
 """
-                
-                with open(test_config_file, 'w') as f:
+
+                with open(test_config_file, "w") as f:
                     f.write(test_config_content)
-                
+
                 logger.info(f"Test config created: {test_config_file}")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to create development config: {e}")
             return False
-    
+
     def create_development_scripts(self) -> bool:
         """Create development helper scripts."""
         logger.info("Creating development scripts")
-        
+
         try:
             scripts_dir = self.project_root / "scripts" / "dev"
             scripts_dir.mkdir(parents=True, exist_ok=True)
-            
+
             # Create development runner script
             dev_run_script = scripts_dir / "run_dev.py"
             dev_run_content = """#!/usr/bin/env python3
@@ -340,15 +342,15 @@ sys.path.insert(0, str(project_root))
 def main():
     \"\"\"Run Calendar Bot in development mode.\"\"\"
     os.environ['CALENDARBOT_CONFIG'] = str(project_root / "config" / "development" / "config.yaml")
-    
+
     # Run with development configuration
     cmd = [sys.executable, "main.py", "--web", "--verbose"]
-    
+
     print(f"Starting Calendar Bot in development mode...")
     print(f"Config: {os.environ.get('CALENDARBOT_CONFIG')}")
     print(f"Command: {' '.join(cmd)}")
     print("-" * 60)
-    
+
     try:
         subprocess.run(cmd, cwd=project_root)
     except KeyboardInterrupt:
@@ -357,11 +359,11 @@ def main():
 if __name__ == "__main__":
     main()
 """
-            
-            with open(dev_run_script, 'w') as f:
+
+            with open(dev_run_script, "w") as f:
                 f.write(dev_run_content)
             dev_run_script.chmod(0o755)
-            
+
             # Create test runner script
             test_run_script = scripts_dir / "run_tests.py"
             test_run_content = """#!/usr/bin/env python3
@@ -379,7 +381,7 @@ sys.path.insert(0, str(project_root))
 def main():
     \"\"\"Run Calendar Bot tests.\"\"\"
     os.environ['CALENDARBOT_CONFIG'] = str(project_root / "config" / "development" / "test_config.yaml")
-    
+
     # Run pytest with coverage
     cmd = [
         sys.executable, "-m", "pytest",
@@ -388,25 +390,25 @@ def main():
         "--cov-report=term-missing",
         "-v"
     ]
-    
+
     if len(sys.argv) > 1:
         cmd.extend(sys.argv[1:])
-    
+
     print(f"Running Calendar Bot tests...")
     print(f"Config: {os.environ.get('CALENDARBOT_CONFIG')}")
     print(f"Command: {' '.join(cmd)}")
     print("-" * 60)
-    
+
     subprocess.run(cmd, cwd=project_root)
 
 if __name__ == "__main__":
     main()
 """
-            
-            with open(test_run_script, 'w') as f:
+
+            with open(test_run_script, "w") as f:
                 f.write(test_run_content)
             test_run_script.chmod(0o755)
-            
+
             # Create lint script
             lint_script = scripts_dir / "lint.py"
             lint_content = """#!/usr/bin/env python3
@@ -423,7 +425,7 @@ def run_tool(name, cmd):
     print(f"\\n{'='*60}")
     print(f"Running {name}")
     print('='*60)
-    
+
     try:
         result = subprocess.run(cmd, cwd=project_root, check=False)
         if result.returncode == 0:
@@ -444,26 +446,26 @@ def main():
         ("MyPy (type checking)", [sys.executable, "-m", "mypy", "calendarbot"]),
         ("Bandit (security)", [sys.executable, "-m", "bandit", "-r", "calendarbot"]),
     ]
-    
+
     results = []
     for name, cmd in tools:
         success = run_tool(name, cmd)
         results.append((name, success))
-    
+
     # Summary
     print(f"\\n{'='*60}")
     print("Code Quality Summary")
     print('='*60)
-    
+
     passed = 0
     for name, success in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{status} {name}")
         if success:
             passed += 1
-    
+
     print(f"\\n🎯 {passed}/{len(results)} tools passed")
-    
+
     if passed == len(results):
         print("🎉 All code quality checks passed!")
         return 0
@@ -474,26 +476,26 @@ def main():
 if __name__ == "__main__":
     sys.exit(main())
 """
-            
-            with open(lint_script, 'w') as f:
+
+            with open(lint_script, "w") as f:
                 f.write(lint_content)
             lint_script.chmod(0o755)
-            
+
             logger.info("Development scripts created successfully")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to create development scripts: {e}")
             return False
-    
+
     def create_vscode_config(self) -> bool:
         """Create VS Code configuration for development."""
         logger.info("Creating VS Code configuration")
-        
+
         try:
             vscode_dir = self.project_root / ".vscode"
             vscode_dir.mkdir(exist_ok=True)
-            
+
             # Settings
             settings_file = vscode_dir / "settings.json"
             settings_content = {
@@ -504,21 +506,19 @@ if __name__ == "__main__":
                 "python.formatting.provider": "black",
                 "python.sortImports.path": str(self.venv_path / "bin" / "isort"),
                 "editor.formatOnSave": True,
-                "editor.codeActionsOnSave": {
-                    "source.organizeImports": True
-                },
+                "editor.codeActionsOnSave": {"source.organizeImports": True},
                 "files.exclude": {
                     "**/__pycache__": True,
                     "**/*.pyc": True,
                     ".mypy_cache": True,
                     ".pytest_cache": True,
-                    "htmlcov": True
-                }
+                    "htmlcov": True,
+                },
             }
-            
-            with open(settings_file, 'w') as f:
+
+            with open(settings_file, "w") as f:
                 json.dump(settings_content, f, indent=4)
-            
+
             # Launch configuration
             launch_file = vscode_dir / "launch.json"
             launch_content = {
@@ -532,8 +532,10 @@ if __name__ == "__main__":
                         "args": ["--interactive", "--verbose"],
                         "console": "integratedTerminal",
                         "env": {
-                            "CALENDARBOT_CONFIG": str(self.project_root / "config" / "development" / "config.yaml")
-                        }
+                            "CALENDARBOT_CONFIG": str(
+                                self.project_root / "config" / "development" / "config.yaml"
+                            )
+                        },
                     },
                     {
                         "name": "Calendar Bot - Web",
@@ -543,8 +545,10 @@ if __name__ == "__main__":
                         "args": ["--web", "--verbose", "--auto-open"],
                         "console": "integratedTerminal",
                         "env": {
-                            "CALENDARBOT_CONFIG": str(self.project_root / "config" / "development" / "config.yaml")
-                        }
+                            "CALENDARBOT_CONFIG": str(
+                                self.project_root / "config" / "development" / "config.yaml"
+                            )
+                        },
                     },
                     {
                         "name": "Calendar Bot - Test Mode",
@@ -554,15 +558,17 @@ if __name__ == "__main__":
                         "args": ["--test-mode", "--verbose"],
                         "console": "integratedTerminal",
                         "env": {
-                            "CALENDARBOT_CONFIG": str(self.project_root / "config" / "development" / "test_config.yaml")
-                        }
-                    }
-                ]
+                            "CALENDARBOT_CONFIG": str(
+                                self.project_root / "config" / "development" / "test_config.yaml"
+                            )
+                        },
+                    },
+                ],
             }
-            
-            with open(launch_file, 'w') as f:
+
+            with open(launch_file, "w") as f:
                 json.dump(launch_content, f, indent=4)
-            
+
             # Tasks
             tasks_file = vscode_dir / "tasks.json"
             tasks_content = {
@@ -578,8 +584,8 @@ if __name__ == "__main__":
                             "echo": True,
                             "reveal": "always",
                             "focus": False,
-                            "panel": "shared"
-                        }
+                            "panel": "shared",
+                        },
                     },
                     {
                         "label": "Code Quality Check",
@@ -591,33 +597,33 @@ if __name__ == "__main__":
                             "echo": True,
                             "reveal": "always",
                             "focus": False,
-                            "panel": "shared"
-                        }
+                            "panel": "shared",
+                        },
                     },
                     {
                         "label": "Format Code",
                         "type": "shell",
                         "command": str(self.get_python_path()),
                         "args": ["-m", "black", "."],
-                        "group": "build"
-                    }
-                ]
+                        "group": "build",
+                    },
+                ],
             }
-            
-            with open(tasks_file, 'w') as f:
+
+            with open(tasks_file, "w") as f:
                 json.dump(tasks_content, f, indent=4)
-            
+
             logger.info("VS Code configuration created successfully")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to create VS Code config: {e}")
             return False
-    
+
     def setup_development_environment(self, force_venv: bool = False) -> bool:
         """Setup complete development environment."""
         logger.info("Setting up Calendar Bot development environment")
-        
+
         steps = [
             ("Creating virtual environment", lambda: self.create_virtual_environment(force_venv)),
             ("Installing dependencies", self.install_dependencies),
@@ -626,7 +632,7 @@ if __name__ == "__main__":
             ("Creating development scripts", self.create_development_scripts),
             ("Creating VS Code config", self.create_vscode_config),
         ]
-        
+
         for step_name, step_func in steps:
             logger.info(f"Step: {step_name}")
             try:
@@ -636,82 +642,74 @@ if __name__ == "__main__":
             except Exception as e:
                 logger.error(f"Setup failed at step '{step_name}': {e}")
                 return False
-        
+
         logger.info("Development environment setup completed successfully!")
         self._show_development_instructions()
         return True
-    
+
     def _show_development_instructions(self):
         """Show post-setup development instructions."""
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("🛠️  Calendar Bot Development Environment Ready!")
-        print("="*60)
+        print("=" * 60)
         print(f"📁 Project root: {self.project_root}")
         print(f"🐍 Virtual environment: {self.venv_path}")
         print(f"⚙️  Development config: {self.project_root}/config/development/")
-        
+
         print("\n🚀 Quick Start:")
         print("   source venv/bin/activate          # Activate virtual environment")
         print("   python scripts/dev/run_dev.py     # Start development server")
         print("   python scripts/dev/run_tests.py   # Run tests")
         print("   python scripts/dev/lint.py        # Run code quality checks")
-        
+
         print("\n🔧 Development Commands:")
         print("   python main.py --web --verbose     # Web interface with debug")
         print("   python main.py --test-mode         # Run validation tests")
         print("   python main.py --setup             # Setup wizard")
-        
+
         print("\n📝 Code Quality:")
         print("   black .                            # Format code")
         print("   isort .                            # Sort imports")
         print("   mypy calendarbot                   # Type checking")
         print("   pytest --cov=calendarbot          # Run tests with coverage")
-        
+
         print("\n📚 Configuration:")
         print("   config/development/config.yaml     # Development settings")
         print("   config/development/test_config.yaml # Test settings")
         print("   .vscode/                           # VS Code configuration")
-        print("="*60)
+        print("=" * 60)
 
 
 def main():
     """Main development setup entry point."""
-    parser = argparse.ArgumentParser(
-        description="Calendar Bot Development Environment Setup"
-    )
-    
+    parser = argparse.ArgumentParser(description="Calendar Bot Development Environment Setup")
+
     parser.add_argument(
         "--project-root",
         type=Path,
         default=Path(__file__).parent.parent,
-        help="Project root directory"
+        help="Project root directory",
     )
-    
+
     parser.add_argument(
-        "--force-venv",
-        action="store_true",
-        help="Force recreate virtual environment"
+        "--force-venv", action="store_true", help="Force recreate virtual environment"
     )
-    
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Enable verbose logging"
-    )
-    
+
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+
     args = parser.parse_args()
-    
+
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
-    
+
     # Validate project root
     if not args.project_root.exists():
         logger.error(f"Project root does not exist: {args.project_root}")
         return 1
-    
+
     # Setup development environment
     dev_setup = DevelopmentSetup(args.project_root)
-    
+
     try:
         success = dev_setup.setup_development_environment(args.force_venv)
         return 0 if success else 1

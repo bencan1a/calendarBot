@@ -1,8 +1,8 @@
 # Development Guide
 
-**Document Version:** 2.0  
-**Last Updated:** January 7, 2025  
-**System Version:** CalendarBot v1.0.0  
+**Document Version:** 2.0
+**Last Updated:** January 7, 2025
+**System Version:** CalendarBot v1.0.0
 **Target Audience:** Contributors, Developers, Maintainers
 
 This guide covers development environment setup, contribution workflows, and technical guidelines for CalendarBot development.
@@ -222,12 +222,12 @@ repos:
     rev: 23.1.0
     hooks:
       - id: black
-  
+
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
       - id: isort
-  
+
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.0.0
     hooks:
@@ -305,7 +305,7 @@ async def test_cache_manager_initialization():
     """Test cache manager initialization."""
     settings = CalendarBotSettings()
     cache_manager = CacheManager(settings)
-    
+
     assert await cache_manager.initialize()
     assert cache_manager.is_initialized
 
@@ -328,11 +328,11 @@ The configuration system in [`config/settings.py`](config/settings.py) uses Pyda
 # Example settings model
 class CalendarBotSettings(BaseSettings):
     """Application settings with environment variable support."""
-    
+
     # ICS Configuration
     ics_url: Optional[str] = Field(None, description="ICS calendar URL")
     ics_auth_type: Optional[str] = Field(None, regex="^(none|basic|bearer)$")
-    
+
     # Automatic environment variable mapping
     class Config:
         env_prefix = "CALENDARBOT_"
@@ -385,11 +385,11 @@ logger = logging.getLogger(__name__)
 
 class NewModuleManager:
     """Manager for new module functionality."""
-    
+
     def __init__(self, settings):
         self.settings = settings
         self.initialized = False
-    
+
     async def initialize(self) -> bool:
         """Initialize the module."""
         try:
@@ -410,7 +410,7 @@ from typing import Optional
 
 class NewModuleConfig(BaseModel):
     """Configuration model for new module."""
-    
+
     enabled: bool = Field(default=False, description="Enable new module")
     timeout: int = Field(default=30, description="Operation timeout")
 ```
@@ -437,7 +437,7 @@ class CalendarBot:
     def __init__(self):
         # Add to initialization
         self.new_module_manager = NewModuleManager(self.settings)
-    
+
     async def initialize(self) -> bool:
         # Add to initialization sequence
         if not await self.new_module_manager.initialize():
@@ -476,12 +476,12 @@ class CustomCalendarFeatures {
     constructor() {
         this.init();
     }
-    
+
     init() {
         // Custom initialization
         this.setupEventHandlers();
     }
-    
+
     setupEventHandlers() {
         // Custom event handling
     }
@@ -501,10 +501,10 @@ from calendarbot.web.server import WebServer
 
 class ExtendedWebServer(WebServer):
     """Extended web server with custom features."""
-    
+
     def add_custom_routes(self):
         """Add custom routes to the web server."""
-        
+
         @self.app.route('/api/custom-endpoint')
         async def custom_endpoint():
             """Custom API endpoint."""

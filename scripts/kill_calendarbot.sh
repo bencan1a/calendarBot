@@ -33,30 +33,30 @@ echo
 
 if [[ "$FORCE" == "true" ]]; then
     echo -e "${RED}🔥 Force killing all calendarbot processes...${NC}"
-    
+
     # Kill processes containing calendarbot
     pkill -f "calendarbot" 2>/dev/null || true
-    
+
     # Kill python processes running calendarbot or main.py from this directory
     pkill -f "python.*calendarbot" 2>/dev/null || true
     pkill -f "python.*main\.py" 2>/dev/null || true
-    
+
     echo -e "${GREEN}✅ All calendarbot processes have been terminated${NC}"
 else
     echo -e "${YELLOW}Would you like to kill these processes? (y/N)${NC}"
     read -r response
-    
+
     case "$response" in
         [yY][eE][sS]|[yY])
             echo -e "${RED}🔥 Killing calendarbot processes...${NC}"
-            
+
             # Kill processes containing calendarbot
             pkill -f "calendarbot" 2>/dev/null || true
-            
+
             # Kill python processes running calendarbot or main.py from this directory
             pkill -f "python.*calendarbot" 2>/dev/null || true
             pkill -f "python.*main\.py" 2>/dev/null || true
-            
+
             echo -e "${GREEN}✅ All calendarbot processes have been terminated${NC}"
             ;;
         *)

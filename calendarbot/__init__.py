@@ -8,7 +8,7 @@ __description__ = "ICS Calendar Display Bot for Raspberry Pi with e-ink display 
 # Package metadata
 __all__ = [
     "__version__",
-    "__author__", 
+    "__author__",
     "__email__",
     "__description__",
 ]

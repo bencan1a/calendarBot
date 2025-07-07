@@ -1,0 +1,242 @@
+/* Custom CSS for CalendarBot coverage reports */
+
+/* Enhanced styling for coverage reports */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    background-color: #f8f9fa;
+}
+
+/* Header styling */
+.header h1 {
+    color: #2c3e50;
+    text-align: center;
+    border-bottom: 3px solid #3498db;
+    padding-bottom: 10px;
+    margin-bottom: 30px;
+}
+
+/* Coverage percentage badges */
+.pc_cov {
+    font-weight: bold;
+    border-radius: 4px;
+    padding: 2px 6px;
+    color: white !important;
+    text-decoration: none;
+}
+
+/* High coverage (90-100%) - Green */
+.pc_cov[data-ratio*="90"], .pc_cov[data-ratio*="91"], .pc_cov[data-ratio*="92"],
+.pc_cov[data-ratio*="93"], .pc_cov[data-ratio*="94"], .pc_cov[data-ratio*="95"],
+.pc_cov[data-ratio*="96"], .pc_cov[data-ratio*="97"], .pc_cov[data-ratio*="98"],
+.pc_cov[data-ratio*="99"], .pc_cov[data-ratio*="100"] {
+    background-color: #28a745 !important;
+}
+
+/* Good coverage (80-89%) - Light Green */
+.pc_cov[data-ratio*="80"], .pc_cov[data-ratio*="81"], .pc_cov[data-ratio*="82"],
+.pc_cov[data-ratio*="83"], .pc_cov[data-ratio*="84"], .pc_cov[data-ratio*="85"],
+.pc_cov[data-ratio*="86"], .pc_cov[data-ratio*="87"], .pc_cov[data-ratio*="88"],
+.pc_cov[data-ratio*="89"] {
+    background-color: #6cb33f !important;
+}
+
+/* Moderate coverage (70-79%) - Yellow */
+.pc_cov[data-ratio*="70"], .pc_cov[data-ratio*="71"], .pc_cov[data-ratio*="72"],
+.pc_cov[data-ratio*="73"], .pc_cov[data-ratio*="74"], .pc_cov[data-ratio*="75"],
+.pc_cov[data-ratio*="76"], .pc_cov[data-ratio*="77"], .pc_cov[data-ratio*="78"],
+.pc_cov[data-ratio*="79"] {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+/* Low coverage (60-69%) - Orange */
+.pc_cov[data-ratio*="60"], .pc_cov[data-ratio*="61"], .pc_cov[data-ratio*="62"],
+.pc_cov[data-ratio*="63"], .pc_cov[data-ratio*="64"], .pc_cov[data-ratio*="65"],
+.pc_cov[data-ratio*="66"], .pc_cov[data-ratio*="67"], .pc_cov[data-ratio*="68"],
+.pc_cov[data-ratio*="69"] {
+    background-color: #fd7e14 !important;
+}
+
+/* Poor coverage (0-59%) - Red */
+.pc_cov {
+    background-color: #dc3545 !important;
+}
+
+/* Table styling */
+#index table {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 20px 0;
+}
+
+#index th {
+    background-color: #3498db;
+    color: white;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+}
+
+#index td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+#index tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+#index tr:hover {
+    background-color: #e9ecef;
+}
+
+/* File links */
+#index a {
+    color: #2c3e50;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+#index a:hover {
+    color: #3498db;
+    text-decoration: underline;
+}
+
+/* Summary section */
+.summary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+.summary h2 {
+    margin: 0 0 10px 0;
+    font-size: 1.5em;
+}
+
+.summary .total {
+    font-size: 2em;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+/* Coverage indicators */
+.coverage-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.coverage-high { background-color: #28a745; }
+.coverage-good { background-color: #6cb33f; }
+.coverage-moderate { background-color: #ffc107; }
+.coverage-low { background-color: #fd7e14; }
+.coverage-poor { background-color: #dc3545; }
+
+/* Source code styling */
+.source pre {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 15px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    overflow-x: auto;
+}
+
+/* Line numbers */
+.linenos {
+    background-color: #e9ecef;
+    color: #6c757d;
+    padding-right: 10px;
+    text-align: right;
+    user-select: none;
+}
+
+/* Covered lines */
+.covered {
+    background-color: #d4edda !important;
+}
+
+/* Uncovered lines */
+.uncovered {
+    background-color: #f8d7da !important;
+}
+
+/* Excluded lines */
+.excluded {
+    background-color: #fff3cd !important;
+}
+
+/* Branch coverage indicators */
+.branch {
+    background-color: #cce5ff;
+    border-left: 3px solid #007bff;
+    padding-left: 5px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    #index table {
+        font-size: 14px;
+    }
+
+    #index th, #index td {
+        padding: 8px;
+    }
+
+    .summary {
+        padding: 15px;
+    }
+
+    .summary .total {
+        font-size: 1.5em;
+    }
+}
+
+/* Footer */
+.footer {
+    text-align: center;
+    margin-top: 40px;
+    padding: 20px;
+    color: #6c757d;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Context switching */
+.context-switch {
+    background-color: #e9ecef;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    border-left: 4px solid #007bff;
+}
+
+/* Keyboard shortcuts help */
+.keyboard-help {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #343a40;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.keyboard-help:hover {
+    opacity: 1;
+}

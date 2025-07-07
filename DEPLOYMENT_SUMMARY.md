@@ -14,7 +14,7 @@ Added simple backup commands to the main CLI:
 # Backup current configuration
 calendarbot --backup
 
-# List available backups  
+# List available backups
 calendarbot --list-backups
 
 # Restore from backup
@@ -43,7 +43,7 @@ The `scripts/dev_setup.py` script remains useful for contributors:
 
 **Eliminated unnecessary features:**
 - ❌ Systemd service management scripts
-- ❌ Cross-platform deployment automation  
+- ❌ Cross-platform deployment automation
 - ❌ Production environment detection
 - ❌ Automated user/directory creation
 - ❌ Service health monitoring setup
@@ -67,7 +67,7 @@ The `scripts/dev_setup.py` script remains useful for contributors:
 Calendar Bot now has the right level of deployment tooling:
 
 - **Simple:** Configuration backup/restore utilities
-- **Practical:** Development environment setup for contributors  
+- **Practical:** Development environment setup for contributors
 - **Appropriate:** No unnecessary enterprise features
 - **Working:** All tools tested and functional
 

@@ -5,7 +5,7 @@
 
 /**
  * E-ink Calendar Bot JavaScript Module
- * 
+ *
  * Optimized for Raspberry Pi e-ink displays with focus on:
  * - Minimal DOM manipulations to reduce e-ink refresh cycles
  * - Touch-optimized interactions for 44px minimum touch targets
@@ -24,20 +24,20 @@ const EInkCalendar = {
         // E-ink display specifications (portrait mode)
         displayWidth: 480,
         displayHeight: 800,
-        
+
         // Performance settings optimized for e-ink
         refreshThrottle: 500, // Minimum time between API calls (ms)
         touchThrottle: 300,   // Minimum time between touch events (ms)
         swipeThreshold: 80,   // Increased threshold for more deliberate swipes
-        
+
         // Battery conservation
         autoRefreshEnabled: false, // Disabled for e-ink to save battery
         animationsEnabled: false,  // Disabled for e-ink display
         transitionsEnabled: false, // Disabled for e-ink display
-        
+
         // Touch targets (minimum 44px for accessibility)
         minTouchTarget: 44,
-        
+
         // API endpoints
         endpoints: {
             refresh: '/api/refresh',
@@ -45,7 +45,7 @@ const EInkCalendar = {
             status: '/api/status'
         }
     },
-    
+
     // Runtime state
     state: {
         currentTheme: 'eink-rpi',
@@ -54,10 +54,10 @@ const EInkCalendar = {
         pendingUpdates: new Set(),
         initialized: false
     },
-    
+
     // Event handlers storage
     handlers: new Map(),
-    
+
     // Performance monitoring
     performance: {
         apiCallCount: 0,
@@ -78,27 +78,27 @@ function initializeEInkCalendar() {
         console.log('E-ink Calendar already initialized');
         return;
     }
-    
+
     console.log('Initializing E-ink Calendar Bot for Raspberry Pi');
-    
+
     // Detect and set theme
     detectAndSetTheme();
-    
+
     // Setup optimized event handling (status updates only)
     setupEInkEventHandling();
-    
+
     // Setup performance monitoring
     setupPerformanceMonitoring();
-    
+
     // Disable problematic features for e-ink
     disableEInkProblematicFeatures();
-    
+
     // Setup content update handlers
     setupContentUpdateHandling();
-    
+
     // Mark as initialized
     EInkCalendar.state.initialized = true;
-    
+
     console.log('E-ink Calendar initialization complete');
     logPerformanceMetrics();
 }
@@ -109,16 +109,16 @@ function initializeEInkCalendar() {
 function detectAndSetTheme() {
     const htmlElement = document.documentElement;
     const themeClasses = htmlElement.className.match(/theme-(\w+)/);
-    
+
     if (themeClasses) {
         EInkCalendar.state.currentTheme = themeClasses[1];
     }
-    
+
     // Ensure e-ink optimizations are applied
     if (EInkCalendar.state.currentTheme === 'eink-rpi') {
         applyEInkOptimizations();
     }
-    
+
     console.log(`Theme detected: ${EInkCalendar.state.currentTheme}`);
 }
 
@@ -139,16 +139,16 @@ function applyEInkOptimizations() {
         }
     `;
     document.head.appendChild(style);
-    
+
     // Set viewport meta for precise e-ink display
     const viewport = document.querySelector('meta[name="viewport"]');
     if (viewport) {
-        viewport.setAttribute('content', 
+        viewport.setAttribute('content',
             'width=800, height=480, initial-scale=1.0, user-scalable=no, ' +
             'minimal-ui, viewport-fit=cover'
         );
     }
-    
+
     console.log('E-ink display optimizations applied');
 }
 
@@ -159,19 +159,19 @@ function disableEInkProblematicFeatures() {
     // Disable text selection to prevent refresh issues
     document.body.style.userSelect = 'none';
     document.body.style.webkitUserSelect = 'none';
-    
+
     // Disable context menu on long press
     document.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         return false;
     }, { passive: false });
-    
+
     // Disable drag operations
     document.addEventListener('dragstart', (e) => {
         e.preventDefault();
         return false;
     }, { passive: false });
-    
+
     // Prevent zoom gestures
     document.addEventListener('wheel', (e) => {
         if (e.ctrlKey) {
@@ -179,7 +179,7 @@ function disableEInkProblematicFeatures() {
             return false;
         }
     }, { passive: false });
-    
+
     console.log('E-ink problematic features disabled');
 }
 
@@ -192,7 +192,7 @@ function disableEInkProblematicFeatures() {
  */
 function setupEInkEventHandling() {
     console.log('Setting up E-ink event handling for status updates...');
-    
+
     // Only handle theme toggle button if present
     const setupThemeListener = () => {
         const themeButton = document.querySelector('.theme-toggle, button[data-action="theme"]');
@@ -206,10 +206,10 @@ function setupEInkEventHandling() {
             }, { passive: false });
         }
     };
-    
+
     // Setup theme listener immediately
     setupThemeListener();
-    
+
     // Also setup listeners after DOM mutations for theme button
     const observer = new MutationObserver((mutations) => {
         let shouldSetupListeners = false;
@@ -226,19 +226,19 @@ function setupEInkEventHandling() {
                 }
             }
         });
-        
+
         if (shouldSetupListeners) {
             console.log('DOM mutation detected, re-setting up theme listener');
             setTimeout(setupThemeListener, 100);
         }
     });
-    
+
     // Observe the entire document for theme button changes
     observer.observe(document.body, {
         childList: true,
         subtree: true
     });
-    
+
     console.log('E-ink event handling setup complete (status mode)');
 }
 
@@ -258,26 +258,26 @@ async function refresh() {
         console.log('Refresh blocked - already loading');
         return;
     }
-    
+
     console.log('E-ink refresh requested');
     EInkCalendar.state.isLoading = true;
-    
+
     try {
         showEInkLoadingIndicator('Refreshing...');
-        
+
         // Track performance
         EInkCalendar.performance.apiCallCount++;
         EInkCalendar.performance.lastApiCall = Date.now();
-        
+
         const response = await fetch(EInkCalendar.config.endpoints.refresh, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success && data.html) {
             await updateEInkContent(data.html);
             EInkCalendar.state.lastRefresh = Date.now();
@@ -285,7 +285,7 @@ async function refresh() {
         } else {
             showEInkErrorMessage('Refresh failed');
         }
-        
+
     } catch (error) {
         console.error('Refresh error:', error);
         showEInkErrorMessage('Refresh error');
@@ -300,7 +300,7 @@ async function refresh() {
  */
 async function toggleTheme() {
     console.log('E-ink theme toggle requested');
-    
+
     try {
         const response = await fetch(EInkCalendar.config.endpoints.theme, {
             method: 'POST',
@@ -309,24 +309,24 @@ async function toggleTheme() {
             },
             body: JSON.stringify({})
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             EInkCalendar.state.currentTheme = data.theme;
-            
+
             // Update HTML class efficiently
             const htmlElement = document.documentElement;
             htmlElement.className = htmlElement.className.replace(/theme-\w+/, `theme-${data.theme}`);
-            
+
             // Re-apply e-ink optimizations if needed
             if (data.theme === 'eink-rpi') {
                 applyEInkOptimizations();
             }
-            
+
             console.log(`Theme changed to: ${data.theme}`);
         }
-        
+
     } catch (error) {
         console.error('Theme toggle error:', error);
     }
@@ -343,18 +343,18 @@ function setupContentUpdateHandling() {
     // Monitor for dynamic content changes
     const observer = new MutationObserver((mutations) => {
         let hasSignificantChanges = false;
-        
+
         mutations.forEach((mutation) => {
             if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
                 hasSignificantChanges = true;
             }
         });
-        
+
         if (hasSignificantChanges) {
             EInkCalendar.performance.domUpdateCount++;
         }
     });
-    
+
     // Observe main content area
     const contentArea = document.querySelector('.calendar-content');
     if (contentArea) {
@@ -363,7 +363,7 @@ function setupContentUpdateHandling() {
             subtree: true
         });
     }
-    
+
     console.log('Content update monitoring initialized');
 }
 
@@ -373,25 +373,25 @@ function setupContentUpdateHandling() {
  */
 async function updateEInkContent(newHTML) {
     const startTime = performance.now();
-    
+
     try {
         // Parse the new HTML
         const parser = new DOMParser();
         const newDoc = parser.parseFromString(newHTML, 'text/html');
-        
+
         // Update only specific sections to minimize e-ink refreshes
         const sectionsToUpdate = [
             '.calendar-title',
             '.calendar-status',
             '.calendar-content'
         ];
-        
+
         let updatedSections = 0;
-        
+
         for (const selector of sectionsToUpdate) {
             const oldElement = document.querySelector(selector);
             const newElement = newDoc.querySelector(selector);
-            
+
             if (oldElement && newElement) {
                 // Check if content actually changed to avoid unnecessary updates
                 if (oldElement.innerHTML !== newElement.innerHTML) {
@@ -400,24 +400,24 @@ async function updateEInkContent(newHTML) {
                 }
             }
         }
-        
+
         // Update page title if changed
         if (newDoc.title && newDoc.title !== document.title) {
             document.title = newDoc.title;
         }
-        
+
         // Ensure theme class is maintained
         const newThemeClass = newDoc.documentElement.className.match(/theme-\w+/);
         if (newThemeClass) {
             document.documentElement.className = document.documentElement.className.replace(/theme-\w+/, newThemeClass[0]);
         }
-        
+
         // Track performance
         EInkCalendar.performance.domUpdateCount++;
         const duration = performance.now() - startTime;
-        
+
         console.log(`Updated ${updatedSections} sections in ${duration.toFixed(2)}ms`);
-        
+
     } catch (error) {
         console.error('Error updating e-ink content:', error);
         throw error;
@@ -434,7 +434,7 @@ async function updateEInkContent(newHTML) {
  */
 function showEInkLoadingIndicator(message = 'Loading...') {
     let indicator = document.getElementById('eink-loading-indicator');
-    
+
     if (!indicator) {
         indicator = document.createElement('div');
         indicator.id = 'eink-loading-indicator';
@@ -453,7 +453,7 @@ function showEInkLoadingIndicator(message = 'Loading...') {
         `;
         document.body.appendChild(indicator);
     }
-    
+
     indicator.textContent = message;
     indicator.style.display = 'block';
 }
@@ -479,12 +479,12 @@ function showEInkStatusFeedback(message) {
         // Briefly highlight the status display to show something changed
         const originalBorder = statusDisplay.style.border;
         statusDisplay.style.border = '2px solid #000';
-        
+
         setTimeout(() => {
             statusDisplay.style.border = originalBorder;
         }, 300);
     }
-    
+
     console.log(`Status feedback: ${message}`);
 }
 
@@ -497,7 +497,7 @@ function showEInkErrorMessage(message) {
 }
 
 /**
- * Show success message for e-ink displays  
+ * Show success message for e-ink displays
  * @param {string} message - Success message
  */
 function showEInkSuccessMessage(message) {
@@ -525,10 +525,10 @@ function showEInkMessage(message, type = 'info') {
         max-width: 300px;
         ${type === 'error' ? 'background: #000; color: #fff;' : 'background: #fff; color: #000;'}
     `;
-    
+
     messageEl.textContent = message;
     document.body.appendChild(messageEl);
-    
+
     // Remove after delay (no fade for e-ink)
     setTimeout(() => {
         if (messageEl.parentNode) {
@@ -548,21 +548,21 @@ function setupPerformanceMonitoring() {
     // Monitor frame rate and performance metrics
     let frameCount = 0;
     let lastFrameTime = performance.now();
-    
+
     function checkPerformance() {
         frameCount++;
         const currentTime = performance.now();
-        
+
         // Log performance metrics every minute
         if (currentTime - lastFrameTime > 60000) {
             logPerformanceMetrics();
             lastFrameTime = currentTime;
             frameCount = 0;
         }
-        
+
         requestAnimationFrame(checkPerformance);
     }
-    
+
     // Start monitoring only if needed (can be disabled for battery saving)
     if (console.debug) {
         requestAnimationFrame(checkPerformance);
@@ -576,12 +576,12 @@ function logPerformanceMetrics() {
     const metrics = {
         apiCalls: EInkCalendar.performance.apiCallCount,
         domUpdates: EInkCalendar.performance.domUpdateCount,
-        lastApiCall: EInkCalendar.performance.lastApiCall ? 
+        lastApiCall: EInkCalendar.performance.lastApiCall ?
             new Date(EInkCalendar.performance.lastApiCall).toLocaleTimeString() : 'Never',
-        memoryUsage: performance.memory ? 
+        memoryUsage: performance.memory ?
             `${Math.round(performance.memory.usedJSHeapSize / 1024 / 1024)}MB` : 'Unknown'
     };
-    
+
     console.log('E-ink Performance Metrics:', metrics);
 }
 
@@ -594,13 +594,13 @@ function logPerformanceMetrics() {
 function throttle(func, wait) {
     let timeout;
     let previous = 0;
-    
+
     return function() {
         const now = Date.now();
         const remaining = wait - (now - previous);
         const context = this;
         const args = arguments;
-        
+
         if (remaining <= 0 || remaining > wait) {
             if (timeout) {
                 clearTimeout(timeout);
@@ -628,7 +628,7 @@ function throttle(func, wait) {
 function setupEventCardInteractions() {
     const container = document.querySelector('.calendar-content');
     if (!container) return;
-    
+
     // Event delegation for event cards
     container.addEventListener('click', (event) => {
         const eventCard = event.target.closest('[data-event-id]');
@@ -637,7 +637,7 @@ function setupEventCardInteractions() {
             handleEventCardClick(eventId, eventCard);
         }
     }, { passive: true });
-    
+
     console.log('Event card interactions setup complete');
 }
 
@@ -649,12 +649,12 @@ function setupEventCardInteractions() {
 function handleEventCardClick(eventId, cardElement) {
     // For e-ink displays, provide minimal interaction
     console.log(`Event card clicked: ${eventId}`);
-    
+
     // Could implement modal or detail view here
     // For now, just provide visual feedback
     const originalBorder = cardElement.style.border;
     cardElement.style.border = '3px solid #000';
-    
+
     setTimeout(() => {
         cardElement.style.border = originalBorder;
     }, 300);
@@ -695,11 +695,11 @@ window.calendarBot = {
 // Comprehensive debug function
 function debugNavigationSetup() {
     console.log('=== E-ink Navigation Debug Report ===');
-    
+
     // Check for buttons
     const buttons = document.querySelectorAll('button');
     console.log(`Total buttons found: ${buttons.length}`);
-    
+
     buttons.forEach((btn, i) => {
         console.log(`Button ${i + 1}:`, {
             classes: btn.className,
@@ -709,29 +709,29 @@ function debugNavigationSetup() {
             disabled: btn.disabled
         });
     });
-    
+
     // Check remaining elements specifically
     const remainingElements = [
         { selector: '.theme-toggle', expected: 'Theme button' },
         { selector: 'button[data-action="theme"]', expected: 'Data-action theme' },
         { selector: '.calendar-status', expected: 'Status display' }
     ];
-    
+
     remainingElements.forEach(({ selector, expected }) => {
         const element = document.querySelector(selector);
         console.log(`${expected}: ${element ? 'FOUND' : 'MISSING'} (${selector})`);
     });
-    
+
     // Check global functions (navigation removed)
     console.log('Global functions:', {
         toggleTheme: typeof window.toggleTheme,
         refresh: typeof window.refresh
     });
-    
+
     // Check state
     console.log('E-ink state:', EInkCalendar.state);
     console.log('E-ink config:', EInkCalendar.config);
-    
+
     console.log('=== End Debug Report ===');
 }
 
