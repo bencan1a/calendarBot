@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
 from ..security.logging import SecurityEventLogger
@@ -226,7 +226,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_500(str(e))
 
     def _send_response(
-        self, status_code: int, content: str | bytes, content_type: str, binary: bool = False
+        self, status_code: int, content: Union[str, bytes], content_type: str, binary: bool = False
     ):
         """Send HTTP response."""
         self.send_response(status_code)
@@ -413,7 +413,7 @@ class WebServer:
             if hasattr(self.display_manager.renderer, "render_events"):
                 html_result = self.display_manager.renderer.render_events(events, status_info)
                 logger.debug(f"Generated HTML length: {len(html_result)} characters")
-                return html_result
+                return str(html_result)
             else:
                 logger.error("HTML renderer does not have render_events method")
                 return "<html><body><h1>Error: HTML renderer not available</h1></body></html>"
@@ -530,4 +530,5 @@ class WebServer:
     @property
     def url(self) -> str:
         """Get the server URL."""
-        return f"http://{self.host}:{self.port}"
+        url: str = f"http://{self.host}:{self.port}"
+        return url

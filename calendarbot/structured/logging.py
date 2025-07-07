@@ -67,7 +67,7 @@ class LogContext:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert context to dictionary for logging."""
-        context_dict = {}
+        context_dict: Dict[str, Any] = {}
 
         if self.correlation_id:
             context_dict["correlation_id"] = str(self.correlation_id)
@@ -83,13 +83,13 @@ class LogContext:
             context_dict["component"] = self.component
         if self.source_file:
             context_dict["source_file"] = self.source_file
-        if self.source_line:
+        if self.source_line is not None:
             context_dict["source_line"] = self.source_line
         if self.function_name:
             context_dict["function_name"] = self.function_name
         if self.thread_id:
             context_dict["thread_id"] = self.thread_id
-        if self.process_id:
+        if self.process_id is not None:
             context_dict["process_id"] = self.process_id
 
         context_dict["timestamp"] = self.timestamp.isoformat()
@@ -101,7 +101,8 @@ class LogContext:
     def from_frame(cls, frame: Optional[Any] = None) -> "LogContext":
         """Create context from current execution frame."""
         if frame is None:
-            frame = inspect.currentframe().f_back
+            current_frame = inspect.currentframe()
+            frame = current_frame.f_back if current_frame else None
 
         context = cls()
 
@@ -110,7 +111,9 @@ class LogContext:
             context.source_line = frame.f_lineno
             context.function_name = frame.f_code.co_name
             context.thread_id = str(threading.get_ident())
-            context.process_id = os.getpid() if "os" in sys.modules else None
+            import os
+
+            context.process_id = os.getpid()
 
         return context
 
@@ -214,8 +217,11 @@ class StructuredFormatter(logging.Formatter):
                 "process",
                 "message",
             ):
-                log_entry["extra"] = log_entry.get("extra", {})
-                log_entry["extra"][key] = value
+                if "extra" not in log_entry:
+                    log_entry["extra"] = {}
+                extra_dict = log_entry["extra"]
+                if isinstance(extra_dict, dict):
+                    extra_dict[key] = value
 
         # Format according to specified type
         if self.format_type == "json":
@@ -296,7 +302,9 @@ class StructuredLogger:
         if context is None:
             context = LogContext.get_current()
             if context is None:
-                context = LogContext.from_frame(inspect.currentframe().f_back)
+                current_frame = inspect.currentframe()
+                frame = current_frame.f_back if current_frame else None
+                context = LogContext.from_frame(frame)
 
         # Set context as current
         old_context = LogContext.get_current()

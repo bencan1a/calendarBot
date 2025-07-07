@@ -241,12 +241,20 @@ class InteractiveController:
                 # Check if cache has been updated
                 cache_status = await self.cache_manager.get_cache_status()
 
+                # Normalize cache status timestamp for comparison
+                last_update_normalized: Optional[datetime] = None
+                if cache_status.last_update:
+                    # Convert string timestamp to datetime for comparison
+                    last_update_normalized = datetime.fromisoformat(
+                        cache_status.last_update.replace("Z", "+00:00")
+                    )
+
                 if self._last_data_update is None or (
-                    cache_status.last_update and cache_status.last_update != self._last_data_update
+                    last_update_normalized and last_update_normalized != self._last_data_update
                 ):
 
                     # Data has been updated, refresh display
-                    self._last_data_update = cache_status.last_update
+                    self._last_data_update = last_update_normalized
                     await self._update_display()
                     logger.debug("Display refreshed due to data update")
 
@@ -305,7 +313,7 @@ class InteractiveController:
             )
 
             # Group events by date
-            events_by_date = {}
+            events_by_date: Dict[date, List[CachedEvent]] = {}
             current_date = start_of_week
 
             while current_date <= end_of_week:
@@ -315,7 +323,18 @@ class InteractiveController:
             for event in all_events:
                 try:
                     logger.info(f"DEBUG: Processing event '{event.subject}' for date grouping")
-                    event_date = event.start_dt.date()
+                    # Use the start_dt property which provides parsed datetime
+                    if hasattr(event, "start_dt"):
+                        event_date = event.start_dt.date()
+                    else:
+                        # Fallback to parsing start_datetime string
+                        from datetime import datetime
+
+                        start_datetime = datetime.fromisoformat(
+                            event.start_datetime.replace("Z", "+00:00")
+                        )
+                        event_date = start_datetime.date()
+
                     logger.info(f"DEBUG: Event date parsed as: {event_date}")
                     if event_date in events_by_date:
                         events_by_date[event_date].append(event)
@@ -366,7 +385,8 @@ class InteractiveController:
             ):
 
                 # Enable split display with default settings
-                self.display_manager.renderer.enable_split_display(max_log_lines=5)
+                if self.display_manager.renderer is not None:
+                    self.display_manager.renderer.enable_split_display(max_log_lines=5)
                 logger.debug("Split display logging enabled for interactive mode")
             else:
                 logger.debug("Split display logging not available for current renderer")
@@ -381,7 +401,8 @@ class InteractiveController:
                 self.display_manager.renderer, "disable_split_display"
             ):
 
-                self.display_manager.renderer.disable_split_display()
+                if self.display_manager.renderer is not None:
+                    self.display_manager.renderer.disable_split_display()
                 logger.debug("Split display logging disabled")
         except Exception as e:
             logger.warning(f"Failed to disable split display logging: {e}")

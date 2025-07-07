@@ -139,7 +139,7 @@ class CacheManager:
                 )
 
             # Store in database with cache monitoring
-            with cache_monitor("database_store", len(cached_events)):
+            with cache_monitor("database_store", "cache_manager"):
                 success = await self.db.store_events(cached_events)
 
             logger.debug(f"Database store_events returned: {success}")
@@ -174,7 +174,7 @@ class CacheManager:
             List of cached events
         """
         try:
-            with cache_monitor("date_range_query"):
+            with cache_monitor("date_range_query", "cache_manager"):
                 events = await self.db.get_events_by_date_range(start_date, end_date)
             logger.debug(f"Retrieved {len(events)} cached events")
             return events
@@ -207,7 +207,7 @@ class CacheManager:
             List of today's cached events
         """
         try:
-            with cache_monitor("todays_events_query"):
+            with cache_monitor("todays_events_query", "cache_manager"):
                 events = await self.db.get_todays_events()
             logger.debug(f"Retrieved {len(events)} today's cached events")
             return events

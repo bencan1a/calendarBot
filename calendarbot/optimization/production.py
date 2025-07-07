@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple, Union
 
 from ..utils.logging import get_logger
 
@@ -80,7 +80,7 @@ class ProductionLogFilter(logging.Filter):
         super().__init__()
         self.rules = sorted(rules, key=lambda r: r.priority, reverse=True)
         self.settings = settings
-        self.message_counts = defaultdict(int)
+        self.message_counts: Dict[str, int] = defaultdict(int)
         self.last_reset = datetime.utcnow()
         self.reset_interval = timedelta(minutes=5)
 
@@ -151,7 +151,7 @@ class LogVolumeAnalyzer:
     def __init__(self, settings: Optional[Any] = None):
         self.settings = settings
         self.logger = get_logger("log_volume_analyzer")
-        self.analysis_cache = {}
+        self.analysis_cache: Dict[str, Any] = {}
 
     def analyze_log_files(self, log_dir: Union[str, Path], hours: int = 24) -> Dict[str, Any]:
         """
@@ -170,7 +170,7 @@ class LogVolumeAnalyzer:
         if not log_dir.exists():
             return {"error": f"Log directory {log_dir} does not exist"}
 
-        analysis = {
+        analysis: Dict[str, Any] = {
             "analysis_time": datetime.utcnow().isoformat(),
             "log_directory": str(log_dir),
             "time_range_hours": hours,
@@ -195,11 +195,16 @@ class LogVolumeAnalyzer:
                 analysis["total_size_mb"] += file_stats["size_mb"]
 
                 # Aggregate by level and logger
-                for level, count in file_stats["by_level"].items():
-                    analysis["by_level"][level] += count
+                by_level_stats: DefaultDict[str, int] = file_stats["by_level"]
+                by_logger_stats: DefaultDict[str, int] = file_stats["by_logger"]
+                analysis_by_level: DefaultDict[str, int] = analysis["by_level"]
+                analysis_by_logger: DefaultDict[str, int] = analysis["by_logger"]
 
-                for logger, count in file_stats["by_logger"].items():
-                    analysis["by_logger"][logger] += count
+                for level, count in by_level_stats.items():
+                    analysis_by_level[level] += count
+
+                for logger, count in by_logger_stats.items():
+                    analysis_by_logger[logger] += count
 
             except Exception as e:
                 self.logger.warning(f"Failed to analyze {log_file}: {e}")
@@ -214,7 +219,7 @@ class LogVolumeAnalyzer:
 
     def _analyze_file(self, log_file: Path, cutoff_time: datetime) -> Dict[str, Any]:
         """Analyze a single log file."""
-        stats = {
+        stats: Dict[str, Any] = {
             "lines": 0,
             "size_mb": log_file.stat().st_size / 1024 / 1024,
             "by_level": defaultdict(int),
@@ -224,19 +229,22 @@ class LogVolumeAnalyzer:
         try:
             with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
                 for line in f:
-                    stats["lines"] += 1
+                    lines_count: int = stats["lines"]
+                    stats["lines"] = lines_count + 1
 
                     # Parse log line for level and logger
                     level_match = re.search(r" - (DEBUG|INFO|WARNING|ERROR|CRITICAL) - ", line)
                     if level_match:
-                        stats["by_level"][level_match.group(1)] += 1
+                        by_level_dict: DefaultDict[str, int] = stats["by_level"]
+                        by_level_dict[level_match.group(1)] += 1
 
                     # Extract logger name
                     logger_match = re.search(
                         r"(\w+(?:\.\w+)*) - (DEBUG|INFO|WARNING|ERROR|CRITICAL)", line
                     )
                     if logger_match:
-                        stats["by_logger"][logger_match.group(1)] += 1
+                        by_logger_dict: DefaultDict[str, int] = stats["by_logger"]
+                        by_logger_dict[logger_match.group(1)] += 1
 
         except Exception as e:
             self.logger.warning(f"Error reading {log_file}: {e}")
@@ -247,7 +255,7 @@ class LogVolumeAnalyzer:
         self, log_files: List[Path], cutoff_time: datetime, limit: int = 10
     ) -> List[Dict[str, Any]]:
         """Find frequently occurring log messages."""
-        message_patterns = defaultdict(int)
+        message_patterns: Dict[str, int] = defaultdict(int)
 
         for log_file in log_files:
             try:
@@ -291,7 +299,8 @@ class LogVolumeAnalyzer:
 
         # High-volume logger optimization
         total_lines = analysis["total_lines"]
-        for logger, count in analysis["by_logger"].items():
+        by_logger: DefaultDict[str, int] = analysis["by_logger"]
+        for logger, count in by_logger.items():
             if count > total_lines * 0.1:  # Logger produces >10% of logs
                 recommendations.append(
                     {
@@ -306,7 +315,8 @@ class LogVolumeAnalyzer:
                 )
 
         # Debug level optimization
-        debug_count = analysis["by_level"].get("DEBUG", 0)
+        by_level: DefaultDict[str, int] = analysis["by_level"]
+        debug_count = by_level.get("DEBUG", 0)
         if debug_count > total_lines * 0.2:  # >20% debug logs
             recommendations.append(
                 {
@@ -320,7 +330,8 @@ class LogVolumeAnalyzer:
             )
 
         # Frequent message rate limiting
-        for msg_info in analysis["frequent_messages"][:3]:  # Top 3 frequent messages
+        frequent_messages: List[Dict[str, Any]] = analysis["frequent_messages"]
+        for msg_info in frequent_messages[:3]:  # Top 3 frequent messages
             if msg_info["count"] > 100:
                 recommendations.append(
                     {
@@ -366,7 +377,7 @@ class DebugStatementAnalyzer:
         """
         root_dir = Path(root_dir)
 
-        analysis = {
+        analysis: Dict[str, Any] = {
             "analysis_time": datetime.utcnow().isoformat(),
             "root_directory": str(root_dir),
             "total_files": 0,
@@ -386,9 +397,14 @@ class DebugStatementAnalyzer:
             try:
                 file_analysis = self._analyze_python_file(py_file)
 
-                analysis["print_statements"].extend(file_analysis["print_statements"])
-                analysis["debug_logs"].extend(file_analysis["debug_logs"])
-                analysis["todo_comments"].extend(file_analysis["todo_comments"])
+                # Extend analysis lists with file results
+                print_statements: List[Dict[str, Any]] = analysis["print_statements"]
+                debug_logs: List[Dict[str, Any]] = analysis["debug_logs"]
+                todo_comments: List[Dict[str, Any]] = analysis["todo_comments"]
+
+                print_statements.extend(file_analysis["print_statements"])
+                debug_logs.extend(file_analysis["debug_logs"])
+                todo_comments.extend(file_analysis["todo_comments"])
 
             except Exception as e:
                 self.logger.warning(f"Failed to analyze {py_file}: {e}")
@@ -400,7 +416,7 @@ class DebugStatementAnalyzer:
 
     def _analyze_python_file(self, file_path: Path) -> Dict[str, Any]:
         """Analyze a single Python file for debug statements."""
-        file_analysis = {
+        file_analysis: Dict[str, Any] = {
             "file": str(file_path),
             "print_statements": [],
             "debug_logs": [],
@@ -417,7 +433,9 @@ class DebugStatementAnalyzer:
                 tree = ast.parse(content)
                 print_finder = PrintStatementFinder(file_path)
                 print_finder.visit(tree)
-                file_analysis["print_statements"] = print_finder.print_statements
+                print_statements_list: List[Dict[str, Any]] = file_analysis["print_statements"]
+                print_statements_list.clear()
+                print_statements_list.extend(print_finder.print_statements)
             except SyntaxError:
                 # Fallback to regex for syntax errors
                 self._find_prints_regex(lines, file_path, file_analysis)
@@ -426,7 +444,8 @@ class DebugStatementAnalyzer:
             for line_num, line in enumerate(lines, 1):
                 # Debug log statements
                 if re.search(r"\.debug\s*\(|logging\.debug\s*\(|logger\.debug\s*\(", line):
-                    file_analysis["debug_logs"].append(
+                    debug_logs_list: List[Dict[str, Any]] = file_analysis["debug_logs"]
+                    debug_logs_list.append(
                         {
                             "file": str(file_path),
                             "line": line_num,
@@ -438,7 +457,8 @@ class DebugStatementAnalyzer:
                 # TODO/FIXME comments
                 todo_match = re.search(r"#\s*(TODO|FIXME|HACK|XXX)(.*)$", line, re.IGNORECASE)
                 if todo_match:
-                    file_analysis["todo_comments"].append(
+                    todo_comments_list: List[Dict[str, Any]] = file_analysis["todo_comments"]
+                    todo_comments_list.append(
                         {
                             "file": str(file_path),
                             "line": line_num,
@@ -453,11 +473,14 @@ class DebugStatementAnalyzer:
 
         return file_analysis
 
-    def _find_prints_regex(self, lines: List[str], file_path: Path, file_analysis: Dict[str, Any]):
+    def _find_prints_regex(
+        self, lines: List[str], file_path: Path, file_analysis: Dict[str, Any]
+    ) -> None:
         """Fallback regex-based print statement detection."""
         for line_num, line in enumerate(lines, 1):
             if re.search(r"\bprint\s*\(", line):
-                file_analysis["print_statements"].append(
+                print_statements_list: List[Dict[str, Any]] = file_analysis["print_statements"]
+                print_statements_list.append(
                     {
                         "file": str(file_path),
                         "line": line_num,
@@ -471,9 +494,10 @@ class DebugStatementAnalyzer:
         suggestions = []
 
         # Print statement suggestions
+        print_statements: List[Dict[str, Any]] = analysis["print_statements"]
         core_prints = [
             p
-            for p in analysis["print_statements"]
+            for p in print_statements
             if not any(lib in p["file"] for lib in ["/site-packages/", "/venv/", "/env/"])
         ]
 
@@ -489,26 +513,28 @@ class DebugStatementAnalyzer:
             )
 
         # Debug log suggestions
-        if analysis["debug_logs"]:
+        debug_logs: List[Dict[str, Any]] = analysis["debug_logs"]
+        if debug_logs:
             suggestions.append(
                 {
                     "type": "debug_review",
                     "priority": "low",
-                    "count": len(analysis["debug_logs"]),
-                    "suggestion": f'Review {len(analysis["debug_logs"])} debug log statements for production relevance',
-                    "files_affected": len(set(d["file"] for d in analysis["debug_logs"])),
+                    "count": len(debug_logs),
+                    "suggestion": f"Review {len(debug_logs)} debug log statements for production relevance",
+                    "files_affected": len(set(d["file"] for d in debug_logs)),
                 }
             )
 
         # TODO comment suggestions
-        if analysis["todo_comments"]:
+        todo_comments: List[Dict[str, Any]] = analysis["todo_comments"]
+        if todo_comments:
             suggestions.append(
                 {
                     "type": "technical_debt",
                     "priority": "low",
-                    "count": len(analysis["todo_comments"]),
-                    "suggestion": f'Address {len(analysis["todo_comments"])} TODO/FIXME comments',
-                    "files_affected": len(set(t["file"] for t in analysis["todo_comments"])),
+                    "count": len(todo_comments),
+                    "suggestion": f"Address {len(todo_comments)} TODO/FIXME comments",
+                    "files_affected": len(set(t["file"] for t in todo_comments)),
                 }
             )
 
@@ -520,7 +546,7 @@ class PrintStatementFinder(ast.NodeVisitor):
 
     def __init__(self, file_path: Path):
         self.file_path = file_path
-        self.print_statements = []
+        self.print_statements: List[Dict[str, Any]] = []
 
     def visit_Call(self, node):
         """Visit function calls to find print statements."""
@@ -672,7 +698,7 @@ class LoggingOptimizer:
         Returns:
             Comprehensive analysis and optimization results
         """
-        results = {
+        results: Dict[str, Any] = {
             "optimization_time": datetime.utcnow().isoformat(),
             "log_analysis": {},
             "code_analysis": {},
@@ -689,9 +715,15 @@ class LoggingOptimizer:
         results["code_analysis"] = self.debug_analyzer.analyze_codebase(code_dir)
 
         # Generate comprehensive recommendations
-        all_recommendations = []
-        all_recommendations.extend(results["log_analysis"].get("optimization_opportunities", []))
-        all_recommendations.extend(results["code_analysis"].get("optimization_suggestions", []))
+        all_recommendations: List[Dict[str, Any]] = []
+        log_analysis: Dict[str, Any] = results["log_analysis"]
+        code_analysis: Dict[str, Any] = results["code_analysis"]
+
+        log_opportunities = log_analysis.get("optimization_opportunities", [])
+        code_suggestions = code_analysis.get("optimization_suggestions", [])
+
+        all_recommendations.extend(log_opportunities)
+        all_recommendations.extend(code_suggestions)
 
         # Prioritize recommendations
         priority_order = {"high": 3, "medium": 2, "low": 1}
@@ -716,7 +748,7 @@ class LoggingOptimizer:
             ),
             "low_priority": len([r for r in all_recommendations if r.get("priority") == "low"]),
             "estimated_total_reduction": total_estimated_reduction,
-            "current_log_volume_mb": results["log_analysis"].get("total_size_mb", 0),
+            "current_log_volume_mb": log_analysis.get("total_size_mb", 0),
         }
 
         return results

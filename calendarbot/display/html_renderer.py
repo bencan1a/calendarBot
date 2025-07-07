@@ -40,7 +40,7 @@ class HTMLRenderer:
             interactive_mode = status_info.get("interactive_mode", False) if status_info else False
 
             # Get date information
-            if interactive_mode and status_info.get("selected_date"):
+            if interactive_mode and status_info and status_info.get("selected_date"):
                 display_date = status_info["selected_date"]
             else:
                 display_date = datetime.now().strftime("%A, %B %d")
@@ -53,7 +53,7 @@ class HTMLRenderer:
 
             # Generate navigation help if interactive
             nav_help = ""
-            if interactive_mode:
+            if interactive_mode and status_info:
                 nav_help = self._render_navigation_help(status_info)
 
             # Build complete HTML

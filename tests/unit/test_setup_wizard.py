@@ -243,7 +243,7 @@ class TestSetupWizard:
         assert result["auth_type"] == "basic"
         assert result["username"] == "testuser"
         assert result["password"] == "testpass"
-        mock_logger_instance.log_auth_event.assert_called_once()
+        mock_logger_instance.log_authentication_success.assert_called_once()
 
     @patch("calendarbot.setup_wizard.SecurityEventLogger")
     def test_configure_authentication_bearer(
@@ -258,7 +258,7 @@ class TestSetupWizard:
 
         assert result["auth_type"] == "bearer"
         assert result["token"] == "test_token"
-        mock_logger_instance.log_auth_event.assert_called_once()
+        mock_logger_instance.log_authentication_success.assert_called_once()
 
     def test_configure_advanced_settings_defaults(self, wizard, mock_input):
         """Test configure_advanced_settings method with default values."""

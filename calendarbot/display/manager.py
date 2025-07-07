@@ -2,11 +2,12 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from ..cache.models import CachedEvent
 from .console_renderer import ConsoleRenderer
 from .html_renderer import HTMLRenderer
+from .renderer_protocol import RendererProtocol
 from .rpi_html_renderer import RaspberryPiHTMLRenderer
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,9 @@ class DisplayManager:
             settings: Application settings
         """
         self.settings = settings
-        self.renderer = None
+        self.renderer: Optional[Union[ConsoleRenderer, HTMLRenderer, RaspberryPiHTMLRenderer]] = (
+            None
+        )
 
         # Initialize appropriate renderer based on settings
         logger.info(f"DIAGNOSTIC: display_type = '{settings.display_type}'")
@@ -67,6 +70,10 @@ class DisplayManager:
             display_status["last_update"] = datetime.now().isoformat()
 
             # Render events
+            if self.renderer is None:
+                logger.error("No renderer available")
+                return False
+
             content = self.renderer.render_events(events, display_status)
 
             # Display content
@@ -103,6 +110,10 @@ class DisplayManager:
                 logger.debug("Display disabled in settings")
                 return True
 
+            if self.renderer is None:
+                logger.error("No renderer available")
+                return False
+
             content = self.renderer.render_error(error_message, cached_events)
 
             # Display content
@@ -135,6 +146,10 @@ class DisplayManager:
             if not self.settings.display_enabled:
                 logger.debug("Display disabled in settings")
                 return True
+
+            if self.renderer is None:
+                logger.error("No renderer available")
+                return False
 
             content = self.renderer.render_authentication_prompt(verification_uri, user_code)
 
@@ -183,7 +198,11 @@ class DisplayManager:
             content = "\n".join(lines)
 
             # Display content
-            if clear_screen and hasattr(self.renderer, "display_with_clear"):
+            if (
+                clear_screen
+                and self.renderer is not None
+                and hasattr(self.renderer, "display_with_clear")
+            ):
                 self.renderer.display_with_clear(content)
             else:
                 print(content)
@@ -198,7 +217,7 @@ class DisplayManager:
     def clear_display(self):
         """Clear the display."""
         try:
-            if hasattr(self.renderer, "clear_screen"):
+            if self.renderer is not None and hasattr(self.renderer, "clear_screen"):
                 self.renderer.clear_screen()
             else:
                 import os

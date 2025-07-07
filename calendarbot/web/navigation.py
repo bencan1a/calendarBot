@@ -2,7 +2,7 @@
 
 import logging
 from datetime import date
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ..ui.navigation import NavigationState
 
@@ -21,7 +21,7 @@ class WebNavigationHandler:
         self.navigation_state = navigation_state or NavigationState()
 
         # Track navigation state for web interface
-        self._navigation_callbacks = []
+        self._navigation_callbacks: List[Callable[[date, Dict[str, Any]], None]] = []
 
         # Setup navigation state callbacks
         self.navigation_state.add_change_callback(self._on_navigation_changed)

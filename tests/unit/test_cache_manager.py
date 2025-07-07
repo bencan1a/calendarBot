@@ -575,8 +575,8 @@ class TestPerformanceMonitoring:
 
             await cache_manager.cache_events(sample_calendar_events)
 
-            # Should be called with cache name and expected item count
-            mock_monitor.assert_called_with("database_store", len(sample_calendar_events))
+            # Should be called with cache name and cache manager identifier
+            mock_monitor.assert_called_with("database_store", "cache_manager")
 
 
 @pytest.mark.slow
