@@ -315,9 +315,14 @@ class WebServer:
             def handler(*args, **kwargs):
                 return WebRequestHandler(*args, web_server=self, **kwargs)
 
-            # Create and start server
+            # Create and start server with improved configuration
             self.server = HTTPServer((self.host, self.port), handler)
-            self.server_thread = Thread(target=self.server.serve_forever, daemon=True)
+
+            # Configure server for faster shutdown
+            self.server.timeout = 1.0  # Shorter timeout for request handling
+
+            # Use non-daemon thread to avoid abrupt termination issues
+            self.server_thread = Thread(target=self._serve_with_cleanup, daemon=False)
             self.server_thread.start()
 
             self.running = True
@@ -327,24 +332,83 @@ class WebServer:
             logger.error(f"Failed to start web server: {e}")
             raise
 
+    def _serve_with_cleanup(self):
+        """Serve requests with proper cleanup handling."""
+        try:
+            logger.debug("Server thread started, beginning serve_forever()")
+            self.server.serve_forever()
+            logger.debug("serve_forever() completed normally")
+        except Exception as e:
+            if self.running:  # Only log if we didn't expect this
+                logger.warning(f"Server thread ended with exception: {e}")
+        finally:
+            logger.debug("Server thread cleanup completed")
+
     def stop(self):
-        """Stop the web server."""
+        """Stop the web server with improved shutdown handling."""
         if not self.running:
+            logger.debug("Web server already stopped or not running")
             return
+
+        logger.info("Starting web server shutdown process...")
+        self.running = False  # Set this early to prevent new operations
 
         try:
             if self.server:
-                self.server.shutdown()
+                logger.debug("Calling server.shutdown()...")
+
+                # Use threading to timeout the shutdown call
+                import threading
+
+                shutdown_complete = threading.Event()
+                shutdown_error = None
+
+                def shutdown_server():
+                    nonlocal shutdown_error
+                    try:
+                        self.server.shutdown()
+                        shutdown_complete.set()
+                    except Exception as e:
+                        shutdown_error = e
+                        shutdown_complete.set()
+
+                shutdown_thread = threading.Thread(target=shutdown_server, daemon=True)
+                shutdown_thread.start()
+
+                # Wait for shutdown with timeout
+                if shutdown_complete.wait(timeout=3.0):
+                    if shutdown_error:
+                        logger.warning(f"Server shutdown completed with error: {shutdown_error}")
+                    else:
+                        logger.debug("server.shutdown() completed successfully")
+                else:
+                    logger.warning("server.shutdown() timed out after 3 seconds - forcing close")
+
+                logger.debug("Calling server.server_close()...")
                 self.server.server_close()
+                logger.debug("server.server_close() completed")
 
-            if self.server_thread:
-                self.server_thread.join(timeout=5)
+            if self.server_thread and self.server_thread.is_alive():
+                logger.debug("Waiting for server thread to join (timeout=3s)...")
+                self.server_thread.join(timeout=3)
+                if self.server_thread.is_alive():
+                    logger.warning(
+                        "Server thread did not terminate within 3 seconds - continuing anyway"
+                    )
+                    # Note: Since we changed to non-daemon thread, it will eventually stop
+                else:
+                    logger.debug("Server thread joined successfully")
 
-            self.running = False
-            logger.info("Web server stopped")
+            logger.info("Web server stopped successfully")
 
         except Exception as e:
             logger.error(f"Error stopping web server: {e}")
+            import traceback
+
+            logger.error(f"Shutdown traceback: {traceback.format_exc()}")
+
+        # Always ensure running is False
+        self.running = False
 
     def get_calendar_html(self) -> str:
         """Get current calendar HTML content."""
@@ -362,11 +426,39 @@ class WebServer:
                     f"Interactive mode - getting events for {selected_date} ({start_datetime} to {end_datetime})"
                 )
 
-                # This should be async, but we're in sync context
-                # In a real implementation, we'd need to handle this properly
-                events = asyncio.run(
-                    self.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
-                )
+                # Handle async call from sync context properly
+                try:
+                    # Try to get the running event loop
+                    loop = asyncio.get_running_loop()
+                    # If we're in an event loop, we can't use asyncio.run()
+                    # Create a task and run it synchronously (this is for web server context)
+                    import concurrent.futures
+                    import threading
+
+                    # Run the async function in a separate thread to avoid event loop conflicts
+                    def run_async_in_thread():
+                        import asyncio
+
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        try:
+                            return new_loop.run_until_complete(
+                                self.cache_manager.get_events_by_date_range(
+                                    start_datetime, end_datetime
+                                )
+                            )
+                        finally:
+                            new_loop.close()
+
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(run_async_in_thread)
+                        events = future.result(timeout=5.0)
+
+                except RuntimeError:
+                    # No running event loop, safe to use asyncio.run()
+                    events = asyncio.run(
+                        self.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
+                    )
 
                 logger.debug(f"Retrieved {len(events)} events for selected date")
 
@@ -390,9 +482,38 @@ class WebServer:
                     f"Non-interactive mode - getting events for today {today} ({start_datetime} to {end_datetime})"
                 )
 
-                events = asyncio.run(
-                    self.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
-                )
+                # Handle async call from sync context properly
+                try:
+                    # Try to get the running event loop
+                    loop = asyncio.get_running_loop()
+                    # If we're in an event loop, we can't use asyncio.run()
+                    # Run the async function in a separate thread to avoid event loop conflicts
+                    import concurrent.futures
+                    import threading
+
+                    def run_async_in_thread():
+                        import asyncio
+
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        try:
+                            return new_loop.run_until_complete(
+                                self.cache_manager.get_events_by_date_range(
+                                    start_datetime, end_datetime
+                                )
+                            )
+                        finally:
+                            new_loop.close()
+
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(run_async_in_thread)
+                        events = future.result(timeout=5.0)
+
+                except RuntimeError:
+                    # No running event loop, safe to use asyncio.run()
+                    events = asyncio.run(
+                        self.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
+                    )
 
                 logger.debug(f"Retrieved {len(events)} events for today")
 

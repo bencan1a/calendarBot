@@ -641,3 +641,43 @@ class TestIntegrationScenarios:
 
         item = data["items"][0]
         assert item["duration_ms"] == 0
+
+    @patch("builtins.print")
+    def test_print_console_report_empty_component_stats(self, mock_print):
+        """Test print_console_report with empty component stats (covers missing branch)."""
+        results = ValidationResults()
+
+        # Don't add any results - this creates empty component_stats
+        results.print_console_report()
+
+        # Should still print header and basic info
+        all_prints = [
+            str(call.args[0]) if call.args else str(call) for call in mock_print.call_args_list
+        ]
+        all_content = " ".join(all_prints)
+
+        assert "CALENDAR BOT VALIDATION REPORT" in all_content
+        assert "Total Tests: 0" in all_content
+        # Component Results section should be skipped due to empty stats
+
+    @patch("builtins.print")
+    def test_print_console_report_no_verbose_no_issues(self, mock_print):
+        """Test print_console_report with verbose=False, no failures, no warnings (covers missing branch)."""
+        results = ValidationResults()
+
+        # Add only successful results - no failures or warnings
+        results.add_success("auth", "test1", "Success 1")
+        results.add_success("api", "test2", "Success 2")
+        results.add_skipped("cache", "test3", "Skipped")  # Skipped is not a failure/warning
+
+        results.print_console_report(verbose=False)
+
+        all_prints = [
+            str(call.args[0]) if call.args else str(call) for call in mock_print.call_args_list
+        ]
+        all_content = " ".join(all_prints)
+
+        assert "CALENDAR BOT VALIDATION REPORT" in all_content
+        assert "Total Tests: 3" in all_content
+        # Detailed Results section should NOT appear since no failures/warnings and not verbose
+        assert "Detailed Results:" not in all_content

@@ -1,165 +1,91 @@
-# Coverage.py configuration for CalendarBot
-# Comprehensive coverage tracking with advanced reporting
-
+# Coverage configuration optimized for sequential test execution
 [run]
-# Source code to analyze
 source = calendarbot
-
-# Include branch coverage analysis
 branch = True
+# CRITICAL: Parallel processing disabled for sequential execution
+parallel = False
+concurrency = thread
+timid = False
 
-# Enable parallel processing support
-parallel = True
-
-# Include context for better debugging
-context = "${COVERAGE_CONTEXT}"
-
-# Files and directories to include in coverage
-include =
-    calendarbot/*
-    calendarbot/**/*
-
-# Files and directories to exclude from coverage
+# Comprehensive omit patterns for clean coverage
 omit =
-    # Test files
     */tests/*
     */test_*
-    */*test*
-
-    # Python cache
     */__pycache__/*
-    */.pytest_cache/*
-
-    # Virtual environments
     */venv/*
     */env/*
-    */.venv/*
-    */.env/*
-
-    # Configuration files
-    */config/*.py
-    */config/**/*.py
-    *.yaml
-    *.yml
-    *.json
-    *.toml
-
-    # Setup and build files
-    setup.py
-    setup.cfg
-    pyproject.toml
-    */migrations/*
-
-    # Development and debugging scripts
-    */scripts/*
+    */node_modules/*
     debug_*.py
     test_*.py
+    setup.py
+    */migrations/*
+    */conftest.py
+    */.tox/*
+    */coverage/*
+    */htmlcov/*
+    *_temp.py
+    *_backup.py
+    validate_*.py
+    simple_*.py
+    memory_leak_*.py
+    parallel_execution_test.py
 
-    # Entry points (often have conditional execution)
-    */main.py
-    */__main__.py
-
-    # Vendor libraries and external dependencies
-    */vendor/*
-    */third_party/*
-    */external/*
-
-    # Generated files
-    */static/*
-    */templates/*
-
-# Plugins for advanced coverage features
-# plugins =
-    # coverage_conditional_plugin
+# Data collection optimization
+data_file = .coverage
+disable_warnings =
+    no-data-collected
+    couldnt-parse
 
 [report]
-# Coverage thresholds - fail if below these percentages
-# Temporarily lowered from 80% to allow commits while improving coverage
-fail_under = 55
-
-# Report precision
+# Quality thresholds
+fail_under = 80
 precision = 2
-
-# Show missing line numbers
 show_missing = True
-
-# Skip covered files in report
 skip_covered = False
-
-# Skip empty files
-skip_empty = False
-
-# Sort output by coverage percentage
+skip_empty = True
 sort = Cover
 
-# Lines to exclude from coverage reporting
+# Enhanced exclusion patterns
 exclude_lines =
-    # Have to re-enable the standard pragma
     pragma: no cover
-
-    # Don't complain about missing debug-only code
+    pragma: nocover
     def __repr__
-    if self\.debug
-    if settings\.DEBUG
-
-    # Don't complain if tests don't hit defensive assertion code
+    def __str__
     raise AssertionError
     raise NotImplementedError
-
-    # Don't complain if non-runnable code isn't run
+    raise ValueError.*not implemented
+    if __name__ == .__main__.:
+    if TYPE_checking:
+    if typing.TYPE_CHECKING:
+    @(abc\.)?abstractmethod
+    class .*\bProtocol\):
+    def test_.*
+    async def test_.*
+    # Debug code
+    if self\.debug:
+    if settings\.DEBUG:
+    # Test-only code
     if 0:
     if False:
-    if __name__ == .__main__.:
-
-    # Don't complain about abstract methods
-    @(abc\.)?abstractmethod
-
-    # Don't complain about protocol methods
-    class .*\bProtocol\):
-
-    # Don't complain about type checking imports
-    if TYPE_CHECKING:
-
-    # Don't complain about logging setup
-    if not logging_configured:
-
-    # Don't complain about platform-specific code
+    # Platform-specific code
     if sys\.platform
-    if platform\.system
-
-    # Don't complain about version checks
-    if sys\.version_info
-
-# Partial branches to exclude
-partial_branches =
-    pragma: no branch
-    if DEBUG:
-    if not DEBUG:
 
 [html]
-# HTML report configuration
 directory = htmlcov
-title = CalendarBot Coverage Report
+title = CalendarBot Test Coverage Report
 show_contexts = True
 skip_covered = False
-skip_empty = False
-
-# Extra CSS for better presentation
-extra_css = coverage-custom.css
+skip_empty = True
 
 [xml]
-# XML report for CI/CD integration
 output = coverage.xml
 
 [json]
-# JSON report for programmatic analysis
 output = coverage.json
 show_contexts = True
 
+# Path mapping for accurate reporting
 [paths]
-# Path mapping for different environments
 source =
     calendarbot/
-    /app/calendarbot/
-    /home/*/projects/calendarBot/calendarbot/
-    /opt/calendarbot/calendarbot/
+    */calendarbot/

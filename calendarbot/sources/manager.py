@@ -51,12 +51,12 @@ class SourceManager:
                 await self.add_ics_source(
                     name="primary",
                     url=self.settings.ics_url,
-                    auth_type=getattr(self.settings, "ics_auth_type", None),
+                    auth_type=getattr(self.settings, "ics_auth_type", "none"),
                     username=getattr(self.settings, "ics_username", None),
                     password=getattr(self.settings, "ics_password", None),
                     bearer_token=getattr(self.settings, "ics_bearer_token", None),
                     refresh_interval=getattr(self.settings, "ics_refresh_interval", 300),
-                    timeout=getattr(self.settings, "ics_timeout", 30),
+                    timeout=getattr(self.settings, "ics_timeout", 10),
                 )
 
                 logger.info("Default ICS source configured successfully")

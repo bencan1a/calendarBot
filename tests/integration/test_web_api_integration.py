@@ -24,7 +24,7 @@ class TestWebAPIBackendIntegration:
     """Test suite for web API integration with backend components."""
 
     @pytest_asyncio.fixture
-    async def web_api_setup(self, test_settings, temp_database):
+    async def web_api_setup(self, test_settings, populated_test_database):
         """Set up web server with real backend components for integration testing."""
         # Initialize real backend components
         cache_manager = CacheManager(test_settings)
@@ -162,7 +162,7 @@ class TestWebServerLifecycleIntegration:
     """Test suite for web server lifecycle with backend components."""
 
     @pytest_asyncio.fixture
-    async def server_lifecycle_setup(self, test_settings, temp_database):
+    async def server_lifecycle_setup(self, test_settings, populated_test_database):
         """Set up for server lifecycle testing."""
         # Use different port for lifecycle tests
         test_settings.web_port = 8999
@@ -246,7 +246,7 @@ class TestDataFlowIntegration:
     """Test suite for complete data flow through web API."""
 
     @pytest_asyncio.fixture
-    async def data_flow_setup(self, test_settings, temp_database):
+    async def data_flow_setup(self, test_settings, populated_test_database):
         """Set up complete data flow testing environment."""
         cache_manager = CacheManager(test_settings)
         await cache_manager.initialize()
@@ -405,7 +405,7 @@ class TestSecurityIntegration:
     """Test suite for security aspects of web API integration."""
 
     @pytest_asyncio.fixture
-    async def security_setup(self, test_settings, temp_database):
+    async def security_setup(self, test_settings, populated_test_database):
         """Set up for security testing."""
         cache_manager = CacheManager(test_settings)
         await cache_manager.initialize()
@@ -480,7 +480,7 @@ class TestWebAPIStateManagement:
     """Test suite for state management across web API operations."""
 
     @pytest_asyncio.fixture
-    async def state_management_setup(self, test_settings, temp_database):
+    async def state_management_setup(self, test_settings, populated_test_database):
         """Set up for state management testing."""
         cache_manager = CacheManager(test_settings)
         await cache_manager.initialize()

@@ -716,20 +716,32 @@ async def run_web_mode(args) -> int:
             # Stop background fetching
             logger.debug("Cancelling background fetch task...")
             fetch_task.cancel()
+
+            logger.debug("Waiting for background fetch task to complete...")
             try:
-                await fetch_task
+                await asyncio.wait_for(fetch_task, timeout=10.0)
+                logger.debug("Background fetch task completed normally")
             except asyncio.CancelledError:
                 logger.debug("Background fetch task cancelled successfully")
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Background fetch task did not cancel within 10 seconds - this may indicate a hanging task"
+                )
             except Exception as e:
-                logger.error(f"Error cancelling background fetch task: {e}")
+                logger.error(f"Unexpected error during background fetch task cancellation: {e}")
 
             # Cleanup
             try:
                 logger.debug("Running application cleanup...")
-                await app.cleanup()
+                await asyncio.wait_for(app.cleanup(), timeout=10.0)
                 logger.info("Application cleanup completed")
+            except asyncio.TimeoutError:
+                logger.warning("Application cleanup timed out after 10 seconds")
             except Exception as e:
                 logger.error(f"Error during application cleanup: {e}")
+                import traceback
+
+                logger.error(f"Cleanup traceback: {traceback.format_exc()}")
 
         logger.info("Web mode completed successfully")
         return 0
