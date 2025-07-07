@@ -1,0 +1,337 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.9"
+  COVERAGE_THRESHOLD: 80
+
+jobs:
+  # Quick feedback - Critical path tests (runs on every commit)
+  critical-path:
+    name: Critical Path Tests (<5min)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        . venv/bin/activate
+        pip install --upgrade pip
+        pip install -e ".[dev,test]"
+
+    - name: Run critical path tests
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --critical-path
+
+    - name: Upload coverage reports (critical path)
+      uses: codecov/codecov-action@v4
+      if: always()
+      with:
+        file: ./coverage.xml
+        flags: critical-path
+        name: critical-path-coverage
+
+  # Code quality checks
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        . venv/bin/activate
+        pip install --upgrade pip
+        pip install -e ".[dev,test]"
+        pip install bandit[toml] flake8
+
+    - name: Run linting
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --lint
+
+    - name: Run type checking
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --type-check
+
+    - name: Run security analysis
+      run: |
+        . venv/bin/activate
+        bandit -r calendarbot/ -f json -o bandit-report.json || true
+        bandit -r calendarbot/ --severity-level medium
+
+  # Full test suite (only on pull requests and main branch)
+  full-tests:
+    name: Full Test Suite
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    timeout-minutes: 45
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        . venv/bin/activate
+        pip install --upgrade pip
+        pip install -e ".[dev,test]"
+
+    - name: Install browser dependencies
+      run: |
+        # Install playwright browsers for browser tests
+        . venv/bin/activate
+        pip install playwright
+        playwright install chromium --with-deps
+
+    - name: Run full test suite
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --full-regression
+
+    - name: Generate coverage report
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --coverage-report
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      if: always()
+      with:
+        file: ./coverage.xml
+        flags: full-suite
+        name: full-suite-coverage-py${{ matrix.python-version }}
+
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-py${{ matrix.python-version }}
+        path: |
+          htmlcov/
+          coverage.xml
+          coverage.json
+          pytest-results.xml
+        retention-days: 5
+
+  # Coverage enforcement (blocks merge if coverage drops)
+  coverage-gate:
+    name: Coverage Enforcement
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [critical-path, full-tests]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        . venv/bin/activate
+        pip install --upgrade pip
+        pip install -e ".[dev,test]"
+
+    - name: Validate coverage threshold
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --coverage --coverage-fail-under ${{ env.COVERAGE_THRESHOLD }}
+
+    - name: Coverage differential analysis
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --coverage-diff
+
+  # Security tests (always run on PRs)
+  security:
+    name: Security Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        . venv/bin/activate
+        pip install --upgrade pip
+        pip install -e ".[dev,test]"
+
+    - name: Run security tests
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --security
+
+  # Browser tests (only on PRs to main)
+  browser-tests:
+    name: Browser Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        . venv/bin/activate
+        pip install --upgrade pip
+        pip install -e ".[dev,test]"
+        pip install playwright
+
+    - name: Install browser dependencies
+      run: |
+        . venv/bin/activate
+        playwright install chromium --with-deps
+
+    - name: Run browser tests
+      run: |
+        . venv/bin/activate
+        python tests/run_tests.py --browser
+
+    - name: Upload browser test artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: browser-test-results
+        path: |
+          tests/browser/screenshots/
+          tests/browser/reports/
+        retention-days: 3
+
+  # Deployment readiness check
+  deployment-check:
+    name: Deployment Readiness
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [critical-path, quality, full-tests, coverage-gate, security]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        . venv/bin/activate
+        pip install --upgrade pip
+        pip install -e ".[dev,test]"
+
+    - name: Validate application startup
+      run: |
+        . venv/bin/activate
+        timeout 30 python -m calendarbot --help || true
+
+    - name: Generate deployment artifacts
+      run: |
+        . venv/bin/activate
+        python setup.py sdist bdist_wheel
+
+    - name: Upload deployment artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-artifacts
+        path: |
+          dist/
+          htmlcov/
+          coverage.xml
+        retention-days: 7

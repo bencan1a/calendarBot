@@ -8,7 +8,7 @@ This document describes the interactive date navigation feature implemented for 
 
 ### Navigation Controls
 - **← (Left Arrow)**: Navigate to previous day
-- **→ (Right Arrow)**: Navigate to next day  
+- **→ (Right Arrow)**: Navigate to next day
 - **Space**: Jump to today
 - **Home**: Jump to start of current week (Monday)
 - **End**: Jump to end of current week (Sunday)
@@ -34,7 +34,7 @@ This document describes the interactive date navigation feature implemented for 
 class NavigationState:
     def __init__(self):
         self.selected_date = date.today()
-    
+
     def navigate_forward(self, days: int = 1)
     def navigate_backward(self, days: int = 1)
     def jump_to_today(self)
@@ -81,7 +81,7 @@ python main.py --interactive
 
 ### Navigation Examples
 1. **View tomorrow's events**: Press → (right arrow)
-2. **Go back to yesterday**: Press ← (left arrow) 
+2. **Go back to yesterday**: Press ← (left arrow)
 3. **Jump to today**: Press Space
 4. **See start of week**: Press Home
 5. **Exit navigation**: Press ESC
@@ -119,7 +119,7 @@ Updated: 06:12 | 🌐 Live Data | 📶 Online
 
 ### Background Data Fetching
 - **Decoupled operation**: Data fetching runs independently of UI navigation
-- **Cache integration**: Events retrieved from SQLite database by date range  
+- **Cache integration**: Events retrieved from SQLite database by date range
 - **Live updates**: Display refreshes when cache is updated
 
 ### Keyboard Input Processing

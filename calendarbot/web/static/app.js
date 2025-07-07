@@ -12,26 +12,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function initializeApp() {
     console.log('Calendar Bot Web Interface loaded');
-    
+
     // Detect current theme from HTML class
     const htmlElement = document.documentElement;
     const themeClasses = htmlElement.className.match(/theme-(\w+)/);
     if (themeClasses) {
         currentTheme = themeClasses[1];
     }
-    
+
     // Setup navigation button click handlers
     setupNavigationButtons();
-    
+
     // Setup keyboard navigation
     setupKeyboardNavigation();
-    
+
     // Setup auto-refresh
     setupAutoRefresh();
-    
+
     // Setup touch/mobile enhancements
     setupMobileEnhancements();
-    
+
     console.log(`Initialized with theme: ${currentTheme}`);
 }
 
@@ -48,7 +48,7 @@ function setupNavigationButtons() {
             }
         }
     });
-    
+
     console.log('Navigation button handlers setup complete');
 }
 
@@ -60,7 +60,7 @@ function setupKeyboardNavigation() {
         if (navigationKeys.includes(event.key)) {
             event.preventDefault();
         }
-        
+
         switch(event.key) {
             case 'ArrowLeft':
                 navigate('prev');
@@ -93,12 +93,12 @@ function setupKeyboardNavigation() {
 function setupAutoRefresh() {
     // Get auto-refresh interval from server or default to 60 seconds
     const refreshInterval = 60000; // 60 seconds
-    
+
     if (autoRefreshEnabled) {
         autoRefreshInterval = setInterval(function() {
             refreshSilent();
         }, refreshInterval);
-        
+
         console.log(`Auto-refresh enabled: ${refreshInterval/1000}s interval`);
     }
 }
@@ -123,20 +123,20 @@ function setupMobileEnhancements() {
     // Add touch event listeners for swipe navigation
     let touchStartX = 0;
     let touchEndX = 0;
-    
+
     document.addEventListener('touchstart', function(event) {
         touchStartX = event.changedTouches[0].screenX;
     });
-    
+
     document.addEventListener('touchend', function(event) {
         touchEndX = event.changedTouches[0].screenX;
         handleSwipe();
     });
-    
+
     function handleSwipe() {
         const swipeThreshold = 50; // Minimum distance for a swipe
         const swipeDistance = touchEndX - touchStartX;
-        
+
         if (Math.abs(swipeDistance) > swipeThreshold) {
             if (swipeDistance > 0) {
                 // Swipe right - go to previous day
@@ -147,7 +147,7 @@ function setupMobileEnhancements() {
             }
         }
     }
-    
+
     // Prevent zoom on double-tap for iOS
     let lastTouchEnd = 0;
     document.addEventListener('touchend', function(event) {
@@ -162,10 +162,10 @@ function setupMobileEnhancements() {
 // Navigation functions
 async function navigate(action) {
     console.log(`Navigation action: ${action}`);
-    
+
     try {
         showLoadingIndicator();
-        
+
         const response = await fetch('/api/navigate', {
             method: 'POST',
             headers: {
@@ -173,9 +173,9 @@ async function navigate(action) {
             },
             body: JSON.stringify({ action: action })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success && data.html) {
             // Update the page content
             updatePageContent(data.html);
@@ -183,7 +183,7 @@ async function navigate(action) {
             console.error('Navigation failed:', data.error);
             showErrorMessage('Navigation failed');
         }
-        
+
     } catch (error) {
         console.error('Navigation error:', error);
         showErrorMessage('Navigation error: ' + error.message);
@@ -195,7 +195,7 @@ async function navigate(action) {
 // Theme switching
 async function toggleTheme() {
     console.log('Toggling theme');
-    
+
     try {
         const response = await fetch('/api/theme', {
             method: 'POST',
@@ -204,23 +204,23 @@ async function toggleTheme() {
             },
             body: JSON.stringify({})
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             currentTheme = data.theme;
-            
+
             // Update HTML class
             document.documentElement.className = document.documentElement.className.replace(/theme-\w+/, `theme-${currentTheme}`);
-            
+
             console.log(`Theme changed to: ${currentTheme}`);
-            
+
             // Visual feedback
             flashThemeChange();
         } else {
             console.error('Theme toggle failed');
         }
-        
+
     } catch (error) {
         console.error('Theme toggle error:', error);
     }
@@ -229,26 +229,26 @@ async function toggleTheme() {
 // Data refresh
 async function refresh() {
     console.log('Manual refresh requested');
-    
+
     try {
         showLoadingIndicator('Refreshing...');
-        
+
         const response = await fetch('/api/refresh', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success && data.html) {
             updatePageContent(data.html);
             showSuccessMessage('Data refreshed');
         } else {
             showErrorMessage('Refresh failed');
         }
-        
+
     } catch (error) {
         console.error('Refresh error:', error);
         showErrorMessage('Refresh error: ' + error.message);
@@ -266,14 +266,14 @@ async function refreshSilent() {
                 'Content-Type': 'application/json',
             },
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success && data.html) {
             updatePageContent(data.html);
             console.log('Auto-refresh completed');
         }
-        
+
     } catch (error) {
         console.error('Silent refresh error:', error);
     }
@@ -284,7 +284,7 @@ function updatePageContent(newHTML) {
     // Parse the new HTML
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(newHTML, 'text/html');
-    
+
     // Update specific sections
     const sectionsToUpdate = [
         '.calendar-title',
@@ -297,32 +297,32 @@ function updatePageContent(newHTML) {
         'header',
         '.header'
     ];
-    
+
     sectionsToUpdate.forEach(selector => {
         const oldElement = document.querySelector(selector);
         const newElement = newDoc.querySelector(selector);
-        
+
         if (oldElement && newElement) {
             oldElement.innerHTML = newElement.innerHTML;
         }
     });
-    
+
     // Also update any elements with date-related text content
     // This ensures date displays in headers get updated
     const headerElements = document.querySelectorAll('h1, h2, h3, .title');
     const newHeaderElements = newDoc.querySelectorAll('h1, h2, h3, .title');
-    
+
     headerElements.forEach((oldEl, index) => {
         if (newHeaderElements[index]) {
             oldEl.innerHTML = newHeaderElements[index].innerHTML;
         }
     });
-    
+
     // Update page title
     if (newDoc.title) {
         document.title = newDoc.title;
     }
-    
+
     // Ensure theme class is maintained
     document.documentElement.className = document.documentElement.className.replace(/theme-\w+/, `theme-${currentTheme}`);
 }
@@ -350,7 +350,7 @@ function flashNavigationFeedback(action) {
         white-space: nowrap;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     `;
-    
+
     const icons = {
         'prev': '← Previous',
         'next': 'Next →',
@@ -358,10 +358,10 @@ function flashNavigationFeedback(action) {
         'week-start': '⏮ Week Start',
         'week-end': 'Week End ⏭'
     };
-    
+
     feedback.textContent = icons[action] || action;
     document.body.appendChild(feedback);
-    
+
     // Animate
     setTimeout(() => feedback.style.opacity = '1', 10);
     setTimeout(() => {
@@ -385,9 +385,9 @@ function flashThemeChange() {
         pointer-events: none;
         transition: opacity 0.2s ease;
     `;
-    
+
     document.body.appendChild(overlay);
-    
+
     setTimeout(() => overlay.style.opacity = '0.3', 10);
     setTimeout(() => {
         overlay.style.opacity = '0';
@@ -398,7 +398,7 @@ function flashThemeChange() {
 // Loading indicator
 function showLoadingIndicator(message = 'Loading...') {
     let indicator = document.getElementById('loading-indicator');
-    
+
     if (!indicator) {
         indicator = document.createElement('div');
         indicator.id = 'loading-indicator';
@@ -416,7 +416,7 @@ function showLoadingIndicator(message = 'Loading...') {
         `;
         document.body.appendChild(indicator);
     }
-    
+
     indicator.textContent = message;
     indicator.style.display = 'block';
 }
@@ -444,14 +444,14 @@ function showMessage(message, type = 'info') {
         text-align: center;
         opacity: 0;
         transition: opacity 0.3s ease;
-        ${type === 'error' ? 'background: #dc3545; color: white;' : 
-          type === 'success' ? 'background: #28a745; color: white;' : 
+        ${type === 'error' ? 'background: #dc3545; color: white;' :
+          type === 'success' ? 'background: #28a745; color: white;' :
           'background: #17a2b8; color: white;'}
     `;
-    
+
     messageEl.textContent = message;
     document.body.appendChild(messageEl);
-    
+
     setTimeout(() => messageEl.style.opacity = '1', 10);
     setTimeout(() => {
         messageEl.style.opacity = '0';

@@ -1,8 +1,8 @@
 # Deployment Guide
 
-**Document Version:** 2.0  
-**Last Updated:** January 7, 2025  
-**System Version:** CalendarBot v1.0.0 - ICS Calendar System  
+**Document Version:** 2.0
+**Last Updated:** January 7, 2025
+**System Version:** CalendarBot v1.0.0 - ICS Calendar System
 **Target Audience:** System Administrators, DevOps Engineers, End Users
 
 This guide covers deployment methods for CalendarBot, including package installation, containerization, and service configuration. All deployment methods focus on application-level setup without hardware-specific requirements.
@@ -30,23 +30,23 @@ graph TD
     A[CalendarBot Deployment] --> B[Package Installation]
     A --> C[Source Installation]
     A --> D[Container Deployment]
-    
+
     B --> B1[pip install calendarbot]
     B --> B2[System Package Manager]
-    
+
     C --> C1[Git Clone + Development Setup]
     C --> C2[Source Distribution]
-    
+
     D --> D1[Docker Container]
     D --> D2[Container Orchestration]
-    
+
     B1 --> E[Configuration Setup]
     B2 --> E
     C1 --> E
     C2 --> E
     D1 --> E
     D2 --> E
-    
+
     E --> F[Operational Modes]
     F --> F1[Interactive Mode]
     F --> F2[Web Server Mode]
@@ -57,14 +57,14 @@ graph TD
 ### System Requirements
 
 **Minimum Requirements**:
-- Python 3.8+ 
+- Python 3.8+
 - 100MB available storage
 - 64MB RAM
 - Network connectivity for ICS feeds
 
 **Recommended Requirements**:
 - Python 3.10+
-- 500MB available storage  
+- 500MB available storage
 - 256MB RAM
 - Stable internet connection
 
@@ -365,20 +365,20 @@ calendarbot --web --port 3000 --auto-open
 server {
     listen 80;
     server_name calendar.yourdomain.com;
-    
+
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # WebSocket support (if needed for future features)
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }
-    
+
     # Static assets
     location /static/ {
         alias /opt/calendarbot/venv/lib/python3.*/site-packages/calendarbot/web/static/;
@@ -415,7 +415,7 @@ upstream calendarbot_backends {
 server {
     listen 80;
     server_name calendar.yourdomain.com;
-    
+
     location / {
         proxy_pass http://calendarbot_backends;
         # ... proxy headers as above
@@ -756,7 +756,7 @@ fi
 ics:
   url: "your-calendar-url"
   timeout: 15  # Reduced timeout
-  
+
 refresh_interval: 600  # 10 minutes (less frequent updates)
 cache_ttl: 7200       # 2 hours (longer cache)
 
@@ -883,7 +883,7 @@ sqlite3 ~/.local/share/calendarbot/calendar_cache.db ".timer on" "VACUUM;" ".tim
 For deployment issues:
 
 1. **Check Logs**: Review systemd logs or application logs for error messages
-2. **Test Configuration**: Run `calendarbot --test-mode --verbose` 
+2. **Test Configuration**: Run `calendarbot --test-mode --verbose`
 3. **Verify Network**: Ensure ICS URLs are accessible
 4. **Check Resources**: Monitor memory, CPU, and disk usage
 5. **Review Documentation**: Check [ARCHITECTURE.md](ARCHITECTURE.md) for system design

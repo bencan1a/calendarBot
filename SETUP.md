@@ -272,12 +272,12 @@ retry_backoff_factor: 1.5  # Exponential backoff multiplier
 ics:
   url: "your-calendar-url"
   auth_type: "none"
-  
+
   # HTTP settings
   verify_ssl: true          # Validate SSL certificates
   timeout: 30              # Request timeout
   user_agent: "CalendarBot/1.0"
-  
+
   # Processing settings
   filter_busy_only: true   # Only show busy/tentative events
   enable_caching: true     # Enable HTTP caching (ETags)
@@ -301,7 +301,7 @@ logging:
   console_enabled: true
   console_level: "WARNING"
   console_colors: true
-  
+
   # File logging
   file_enabled: true
   file_level: "DEBUG"
@@ -309,11 +309,11 @@ logging:
   file_prefix: "calendarbot"
   max_log_files: 5
   include_function_names: true
-  
+
   # Interactive mode
   interactive_split_display: true
   interactive_log_lines: 5
-  
+
   # Third-party libraries
   third_party_level: "WARNING"
 ```

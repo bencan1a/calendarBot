@@ -1,0 +1,270 @@
+# GitLab CI Configuration for CalendarBot Test Suite
+
+stages:
+  - validate
+  - test-critical
+  - test-comprehensive
+  - security
+  - deploy-validation
+
+variables:
+  PYTHON_VERSION: "3.9"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  VIRTUAL_ENV: "$CI_PROJECT_DIR/venv"
+
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+# Template for Python setup
+.python_setup: &python_setup
+  image: python:${PYTHON_VERSION}
+  before_script:
+    - python -m pip install --upgrade pip
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install -r requirements.txt
+    - pip install pytest-xdist pytest-timeout pytest-html pytest-json-report
+
+# Quick validation stage
+lint-and-format:
+  stage: validate
+  <<: *python_setup
+  script:
+    - source venv/bin/activate
+    - python tests/run_tests.py --lint
+  artifacts:
+    reports:
+      junit: lint-report.xml
+    expire_in: 1 day
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+type-checking:
+  stage: validate
+  <<: *python_setup
+  script:
+    - source venv/bin/activate
+    - pip install mypy
+    - python tests/run_tests.py --type-check
+  artifacts:
+    reports:
+      junit: mypy-report.xml
+    expire_in: 1 day
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Critical path tests for fast feedback
+critical-path-tests:
+  stage: test-critical
+  <<: *python_setup
+  script:
+    - source venv/bin/activate
+    - timeout 6m python tests/run_tests.py --critical-path
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    reports:
+      junit: tests-report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - htmlcov/
+      - coverage.xml
+      - coverage.json
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+# Smart test selection for targeted testing
+smart-test-selection:
+  stage: test-critical
+  <<: *python_setup
+  script:
+    - source venv/bin/activate
+    - python tests/run_tests.py --smart-selection
+  artifacts:
+    paths:
+      - htmlcov/
+      - coverage.xml
+    expire_in: 3 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "calendarbot/**/*"
+        - "tests/**/*"
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+
+# Comprehensive regression testing
+full-regression-tests:
+  stage: test-comprehensive
+  <<: *python_setup
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11"]
+  before_script:
+    - apt-get update && apt-get install -y xvfb
+    - python -m pip install --upgrade pip
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install -r requirements.txt
+    - pip install pytest-xdist pytest-timeout pytest-html pytest-json-report
+    - pip install playwright pytest-playwright
+    - playwright install chromium firefox
+  script:
+    - source venv/bin/activate
+    - timeout 35m xvfb-run -a python tests/run_tests.py --full-regression
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    reports:
+      junit: tests-report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - htmlcov/
+      - coverage.xml
+      - coverage.json
+      - tests/browser/visual_output/
+      - tests/browser/reports/
+    expire_in: 14 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+  timeout: 45 minutes
+
+# Performance testing
+performance-tests:
+  stage: test-comprehensive
+  <<: *python_setup
+  before_script:
+    - python -m pip install --upgrade pip
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install -r requirements.txt
+    - pip install pytest-benchmark memory-profiler
+  script:
+    - source venv/bin/activate
+    - python tests/run_tests.py --performance
+  artifacts:
+    paths:
+      - benchmark-results.json
+      - performance-report.html
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+
+# Security testing stage
+security-scan:
+  stage: security
+  <<: *python_setup
+  before_script:
+    - python -m pip install --upgrade pip
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install -r requirements.txt
+    - pip install bandit safety
+  script:
+    - source venv/bin/activate
+    - python tests/run_tests.py --security
+    - bandit -r calendarbot/ -f json -o bandit-report.json || true
+    - safety check --json --output safety-report.json || true
+  artifacts:
+    paths:
+      - bandit-report.json
+      - safety-report.json
+      - htmlcov/security/
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+# Suite analysis and optimization
+suite-analysis:
+  stage: test-comprehensive
+  <<: *python_setup
+  script:
+    - source venv/bin/activate
+    - python tests/run_tests.py --suite-analysis
+    - python tests/run_tests.py --optimize-suites
+  artifacts:
+    paths:
+      - suite-analysis-report.json
+      - optimization-recommendations.txt
+    expire_in: 14 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+
+# Build and package verification
+build-verification:
+  stage: deploy-validation
+  <<: *python_setup
+  before_script:
+    - python -m pip install --upgrade pip
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install build twine
+  script:
+    - source venv/bin/activate
+    - python -m build
+    - twine check dist/*
+    - pip install dist/*.whl
+    - python -c "import calendarbot; print('Package installed successfully')"
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 7 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+# Release verification (manual)
+release-validation:
+  stage: deploy-validation
+  <<: *python_setup
+  script:
+    - source venv/bin/activate
+    - python tests/run_tests.py --full-regression
+    - python tests/run_tests.py --suite-analysis
+  artifacts:
+    paths:
+      - htmlcov/
+      - coverage.xml
+      - release-validation-report.html
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: manual
+  timeout: 45 minutes
+
+# Scheduled jobs
+nightly-regression:
+  extends: full-regression-tests
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  variables:
+    PYTHON_VERSION: "3.9"
+
+weekly-analysis:
+  extends: suite-analysis
+  script:
+    - source venv/bin/activate
+    - python tests/run_tests.py --suite-analysis --days 7
+    - python tests/run_tests.py --optimize-suites
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

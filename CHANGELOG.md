@@ -13,7 +13,7 @@ This major version completely replaces the Microsoft Graph API implementation wi
 #### Configuration Changes (BREAKING)
 - **Removed**: All Microsoft Graph API configuration options
   - `client_id` (Azure Application ID)
-  - `tenant_id` (Azure Tenant ID)  
+  - `tenant_id` (Azure Tenant ID)
   - `client_secret` (Azure Application Secret)
   - `calendar_id` (Graph API Calendar ID)
 - **Added**: ICS calendar configuration

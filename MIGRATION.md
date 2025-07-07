@@ -1,8 +1,8 @@
 # Migration Guide
 
-**Document Version:** 2.0  
-**Last Updated:** January 7, 2025  
-**Migration Scope:** Configuration and Version Migrations  
+**Document Version:** 2.0
+**Last Updated:** January 7, 2025
+**Migration Scope:** Configuration and Version Migrations
 **Target Audience:** Existing Users, System Administrators
 
 This guide covers migration procedures for CalendarBot, including configuration updates, version upgrades, and transitioning between different operational modes.
@@ -29,19 +29,19 @@ graph TD
     A --> C[Version Upgrades]
     A --> D[Mode Transitions]
     A --> E[Data Migration]
-    
+
     B --> B1[YAML Schema Updates]
     B --> B2[Environment Variable Changes]
     B --> B3[Authentication Updates]
-    
+
     C --> C1[Package Updates]
     C --> C2[Dependency Updates]
     C --> C3[Breaking Changes]
-    
+
     D --> D1[Console → Web Mode]
     D --> D2[Standalone → Service]
     D --> D3[Development → Production]
-    
+
     E --> E1[Cache Migration]
     E --> E2[Configuration Transfer]
     E --> E3[Log Migration]
@@ -318,15 +318,15 @@ sudo systemctl status calendarbot.service
 logging:
   console_level: "DEBUG"
   file_level: "DEBUG"
-  
+
 refresh_interval: 60  # Fast refresh for development
 
-# Production configuration  
+# Production configuration
 logging:
   console_level: "WARNING"
   file_level: "INFO"
   max_log_files: 5
-  
+
 refresh_interval: 300  # Conservative refresh for production
 cache_ttl: 3600
 
@@ -401,7 +401,7 @@ NEW_CACHE="$HOME/.local/share/calendarbot/calendar_cache.db"
 if [ -f "$OLD_CACHE" ]; then
     mkdir -p "$(dirname "$NEW_CACHE")"
     cp "$OLD_CACHE" "$NEW_CACHE"
-    
+
     # Verify migration
     calendarbot --test-mode --components cache
 fi
@@ -448,7 +448,7 @@ USER_CONFIG="$HOME/.config/calendarbot/config.yaml"
 if [ -f "$PROJECT_CONFIG" ]; then
     mkdir -p "$(dirname "$USER_CONFIG")"
     cp "$PROJECT_CONFIG" "$USER_CONFIG"
-    
+
     # Test new location
     calendarbot --test-mode --verbose
 fi
@@ -742,13 +742,13 @@ if grep -q "web:" ~/.config/calendarbot/config.yaml; then
     timeout 10s calendarbot --web --port 8081 &
     WEB_PID=$!
     sleep 3
-    
+
     if curl -f -s http://localhost:8081 > /dev/null; then
         echo "✅ Web mode working"
     else
         echo "❌ Web mode not responding"
     fi
-    
+
     kill $WEB_PID 2>/dev/null
 fi
 

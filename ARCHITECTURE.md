@@ -1,8 +1,8 @@
 # CalendarBot System Architecture
 
-**Document Version:** 3.0  
-**Last Updated:** January 7, 2025  
-**Architecture Version:** ICS Calendar System v1.0  
+**Document Version:** 3.0
+**Last Updated:** January 7, 2025
+**Architecture Version:** ICS Calendar System v1.0
 **Target Audience:** Developers, System Architects, Technical Contributors
 
 ## Executive Summary
@@ -22,13 +22,13 @@ This document outlines the complete system architecture for CalendarBot, an ICS-
 - **HTTP Client**: [`httpx`](https://pypi.org/project/httpx/) (async HTTP with authentication support)
 - **Data Validation**: [`pydantic`](https://pypi.org/project/pydantic/) v2.0+ (settings and data model validation)
 - **Database**: [`aiosqlite`](https://pypi.org/project/aiosqlite/) (async SQLite for event caching)
-- **Configuration**: [`PyYAML`](https://pypi.org/project/PyYAML/) + [`pydantic-settings`](https://pypi.org/project/pydantic-settings/) 
+- **Configuration**: [`PyYAML`](https://pypi.org/project/PyYAML/) + [`pydantic-settings`](https://pypi.org/project/pydantic-settings/)
 - **Date/Time**: [`python-dateutil`](https://pypi.org/project/python-dateutil/) + [`pytz`](https://pypi.org/project/pytz/) (timezone handling)
 - **Scheduling**: [`APScheduler`](https://pypi.org/project/APScheduler/) (background task scheduling)
 
 ### Universal Calendar Support
 - **Microsoft Outlook/Office 365**: Published calendar ICS URLs
-- **Google Calendar**: Secret iCal format URLs  
+- **Google Calendar**: Secret iCal format URLs
 - **Apple iCloud Calendar**: Public calendar ICS URLs
 - **CalDAV Servers**: Nextcloud, Radicale, SOGo, etc.
 - **Any RFC 5545 compliant** calendar system
@@ -44,47 +44,47 @@ graph TB
         EP2[calendarbot.__main__.py]
         EP3[calendarbot CLI]
     end
-    
+
     subgraph "Core Application"
         MAIN[calendarbot.main.CalendarBot]
         SETTINGS[config.settings.CalendarBotSettings]
         WIZARD[calendarbot.setup_wizard.SetupWizard]
     end
-    
+
     subgraph "Data Layer"
         SOURCES[sources.SourceManager]
         ICS[ics.ICSFetcher + ICSParser]
         CACHE[cache.CacheManager + Database]
     end
-    
+
     subgraph "Presentation Layer"
         DISPLAY[display.DisplayManager]
         UI[ui.InteractiveController]
         WEB[web.WebServer]
     end
-    
+
     subgraph "Infrastructure"
         UTILS[utils.logging + helpers]
         VALIDATION[validation.ValidationRunner]
     end
-    
+
     EP1 --> MAIN
     EP2 --> MAIN
     EP3 --> MAIN
-    
+
     MAIN --> SOURCES
     MAIN --> CACHE
     MAIN --> DISPLAY
-    
+
     SOURCES --> ICS
     ICS --> CACHE
-    
+
     DISPLAY --> UI
     DISPLAY --> WEB
-    
+
     MAIN --> VALIDATION
     MAIN --> UTILS
-    
+
     WIZARD --> SETTINGS
     WIZARD --> ICS
 ```
@@ -195,7 +195,7 @@ sequenceDiagram
     participant Cache as CacheManager
     participant Display as DisplayManager
     participant UI as User Interface
-    
+
     Timer->>SM: Trigger refresh cycle
     SM->>ICS: Fetch ICS content
     ICS->>ICS: HTTP request with auth
@@ -215,18 +215,18 @@ flowchart TD
     B -->|Project Dir| C[config/config.yaml]
     B -->|User Home| D[~/.config/calendarbot/config.yaml]
     B -->|None Found| E[Environment Variables]
-    
+
     C --> F[Load YAML + Env Vars]
     D --> F
     E --> G[Env Vars Only]
-    
+
     F --> H[Pydantic Validation]
     G --> H
-    
+
     H --> I{Valid Config?}
     I -->|Yes| J[Initialize Components]
     I -->|No| K[Setup Wizard]
-    
+
     K --> L[Generate config.yaml]
     L --> H
 ```
@@ -299,11 +299,11 @@ rpi:
 # Example from config/settings.py
 class CalendarBotSettings(BaseSettings):
     """Type-safe configuration with automatic validation."""
-    
+
     # ICS configuration with validation
     ics_url: Optional[str] = Field(None, description="ICS calendar URL")
     ics_auth_type: Optional[str] = Field(None, regex="^(none|basic|bearer)$")
-    
+
     # Automatic environment variable mapping
     class Config:
         env_prefix = "CALENDARBOT_"
@@ -393,7 +393,7 @@ The [`validation`](calendarbot/validation/) module provides comprehensive testin
 # Validation runner supports component-specific testing
 class ValidationRunner:
     """Comprehensive system validation."""
-    
+
     async def run_validation(self) -> ValidationResults:
         """Run validation for specified components."""
         if 'ics' in self.components:
@@ -445,7 +445,7 @@ calendarbot --test-mode --output-format json > validation-results.json
 ### Async/Await Benefits
 
 - **Non-blocking I/O**: HTTP requests don't block UI updates
-- **Concurrent Operations**: Multiple data sources can be fetched simultaneously  
+- **Concurrent Operations**: Multiple data sources can be fetched simultaneously
 - **Responsive UI**: Interactive mode remains responsive during background fetching
 - **Resource Efficiency**: Minimal thread overhead compared to threading approaches
 
@@ -460,7 +460,7 @@ calendarbot = "main:main_entry"
 
 # Multiple execution methods
 python main.py                    # Direct execution
-python -m calendarbot            # Module execution  
+python -m calendarbot            # Module execution
 calendarbot                      # Installed package
 ```
 
@@ -499,7 +499,7 @@ calendarBot/
 # Example: Extend sources for CalDAV protocol
 class CalDAVSource(BaseSource):
     """Direct CalDAV server integration."""
-    
+
     async def fetch_events(self) -> List[CalendarEvent]:
         """Fetch events using CalDAV protocol."""
         pass
@@ -511,7 +511,7 @@ class CalDAVSource(BaseSource):
 # Example: Custom display renderer
 class CustomRenderer(BaseRenderer):
     """Custom output format renderer."""
-    
+
     async def render_events(self, events: List[CalendarEvent]) -> str:
         """Render events in custom format."""
         pass
