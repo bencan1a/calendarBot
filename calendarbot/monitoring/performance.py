@@ -277,17 +277,19 @@ class PerformanceLogger:
             memory_info = process.memory_info()
 
             # Log RSS (Resident Set Size) memory
+            rss_mb = float(memory_info.rss) / 1024 / 1024
+            vms_mb = float(memory_info.vms) / 1024 / 1024
             rss_metric = PerformanceMetric(
                 name="memory_rss",
                 metric_type=MetricType.MEMORY,
-                value=memory_info.rss / 1024 / 1024,  # Convert to MB
+                value=rss_mb,
                 unit="MB",
                 component=component,
                 operation=operation,
                 correlation_id=correlation_id,
                 metadata={
                     "memory_type": "rss",
-                    "vms": memory_info.vms / 1024 / 1024,  # Virtual memory
+                    "vms": vms_mb,
                     "pid": process.pid,
                 },
             )
@@ -295,18 +297,21 @@ class PerformanceLogger:
 
             # System memory usage
             system_memory = psutil.virtual_memory()
+            total_mb = float(system_memory.total) / 1024 / 1024
+            available_mb = float(system_memory.available) / 1024 / 1024
+            used_mb = float(system_memory.used) / 1024 / 1024
             system_metric = PerformanceMetric(
                 name="system_memory_usage",
                 metric_type=MetricType.SYSTEM,
-                value=system_memory.percent,
+                value=float(system_memory.percent),
                 unit="percent",
                 component=component,
                 operation=operation,
                 correlation_id=correlation_id,
                 metadata={
-                    "total_mb": system_memory.total / 1024 / 1024,
-                    "available_mb": system_memory.available / 1024 / 1024,
-                    "used_mb": system_memory.used / 1024 / 1024,
+                    "total_mb": total_mb,
+                    "available_mb": available_mb,
+                    "used_mb": used_mb,
                 },
             )
             self.log_metric(system_metric)
@@ -433,12 +438,12 @@ class PerformanceLogger:
 
         # Calculate average request duration
         request_metrics = [m for m in recent_metrics if m.metric_type == MetricType.REQUEST]
-        avg_request_duration = 0
+        avg_request_duration = 0.0
         if request_metrics:
             durations = [
                 float(m.value) for m in request_metrics if isinstance(m.value, (int, float))
             ]
-            avg_request_duration = sum(durations) / len(durations) if durations else 0
+            avg_request_duration = sum(durations) / len(durations) if durations else 0.0
 
         return {
             "total_metrics": len(recent_metrics),

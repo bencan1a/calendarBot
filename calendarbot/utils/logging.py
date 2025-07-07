@@ -7,7 +7,7 @@ import sys
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Deque, List, Optional
 
 # Lazy imports moved to function level to avoid circular dependencies
 
@@ -28,7 +28,7 @@ def verbose(self, message, *args, **kwargs):
 
 
 # Add verbose method to all Logger instances
-logging.Logger.verbose = verbose
+logging.Logger.verbose = verbose  # type: ignore[attr-defined]
 
 
 def get_log_level(level_name: str) -> int:
@@ -46,7 +46,8 @@ def get_log_level(level_name: str) -> int:
     level_name = level_name.upper()
     if level_name == "VERBOSE":
         return VERBOSE
-    return getattr(logging, level_name)
+    level: int = getattr(logging, level_name)
+    return level
 
 
 class AutoColoredFormatter(logging.Formatter):
@@ -159,7 +160,7 @@ class SplitDisplayHandler(logging.Handler):
         super().__init__()
         self.display_manager = display_manager
         self.max_log_lines = max_log_lines
-        self.log_buffer = deque(maxlen=max_log_lines)
+        self.log_buffer: Deque[str] = deque(maxlen=max_log_lines)
 
     def emit(self, record):
         """Add log record to buffer and trigger display update."""
@@ -168,7 +169,9 @@ class SplitDisplayHandler(logging.Handler):
             self.log_buffer.append(formatted_msg)
 
             # Update display manager's log area
-            if hasattr(self.display_manager.renderer, "update_log_area"):
+            if self.display_manager.renderer is not None and hasattr(
+                self.display_manager.renderer, "update_log_area"
+            ):
                 self.display_manager.renderer.update_log_area(list(self.log_buffer))
         except Exception:
             # Don't let logging errors break the application
@@ -284,7 +287,7 @@ def setup_enhanced_logging(
         if hasattr(settings.logging, "structured_format") and settings.logging.structured_format:
             from ..structured.logging import StructuredFormatter
 
-            file_formatter = StructuredFormatter(
+            file_formatter: logging.Formatter = StructuredFormatter(
                 format_type="json", include_context=True, include_source=True
             )
         else:
@@ -316,10 +319,11 @@ def setup_enhanced_logging(
         logging.getLogger(lib).setLevel(third_party_level)
 
     # 5. Store references for access by other modules
-    logger._security_logger = security_logger
-    logger._performance_monitor = performance_monitor
-    logger._structured_logger = structured_logger
-    logger._optimizer = optimizer
+    # Type ignore because we're dynamically adding attributes to logger
+    logger._security_logger = security_logger  # type: ignore[attr-defined]
+    logger._performance_monitor = performance_monitor  # type: ignore[attr-defined]
+    logger._structured_logger = structured_logger  # type: ignore[attr-defined]
+    logger._optimizer = optimizer  # type: ignore[attr-defined]
 
     logger.info(
         "Enhanced logging system with security, performance, structured logging, and optimization initialized"

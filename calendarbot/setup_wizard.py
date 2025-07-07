@@ -5,7 +5,7 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
@@ -284,7 +284,7 @@ For other calendar services:
 
         auth_type = self.get_choice("Select authentication method:", auth_types, auth_descriptions)
 
-        auth_config = {"auth_type": auth_type}
+        auth_config: Dict[str, Any] = {"auth_type": auth_type}
 
         if auth_type == "basic":
             print("\n📝 Basic Authentication Setup:")
@@ -293,11 +293,9 @@ For other calendar services:
 
             # Log authentication setup with credential masking
             security_logger = SecurityEventLogger()
-            security_logger.log_auth_event(
-                event_type="credential_setup",
+            security_logger.log_authentication_success(
                 user_id=mask_credentials(username),
-                status="success",
-                details=f"Basic auth configured for user: {mask_credentials(username)}",
+                details={"event_type": "credential_setup", "auth_method": "basic"},
             )
 
             auth_config["username"] = username
@@ -309,11 +307,9 @@ For other calendar services:
 
             # Log token setup with credential masking
             security_logger = SecurityEventLogger()
-            security_logger.log_auth_event(
-                event_type="token_setup",
+            security_logger.log_authentication_success(
                 user_id="wizard_user",
-                status="success",
-                details=f"Bearer token configured: {mask_credentials(token)}",
+                details={"event_type": "token_setup", "auth_method": "bearer"},
             )
 
             auth_config["token"] = token
@@ -326,7 +322,7 @@ For other calendar services:
 
         print("Configure advanced settings (or press Enter for defaults):")
 
-        settings = {}
+        settings: Dict[str, Any] = {}
 
         # Refresh interval
         refresh_str = self.get_input("Refresh interval in seconds", default="300", required=False)
@@ -353,8 +349,8 @@ For other calendar services:
 
         # Logging level
         log_levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
-        log_level = self.get_choice("Choose default logging level:", log_levels)
-        settings["log_level"] = log_level
+        log_level_str = self.get_choice("Choose default logging level:", log_levels)
+        settings["log_level"] = log_level_str
 
         return settings
 
@@ -366,14 +362,25 @@ For other calendar services:
 
         try:
             # Create ICS source from config
+            from .ics.models import AuthType
+
+            auth_type_str = ics_config.get("auth_type", "none")
+            if auth_type_str == "basic":
+                auth_type = AuthType.BASIC
+            elif auth_type_str == "bearer":
+                auth_type = AuthType.BEARER
+            else:
+                auth_type = AuthType.NONE
+
             auth = ICSAuth(
-                auth_type=ics_config.get("auth_type", "none"),
+                type=auth_type,
                 username=ics_config.get("username"),
                 password=ics_config.get("password"),
                 bearer_token=ics_config.get("token"),
             )
 
             source = ICSSource(
+                name="Setup Wizard Test",
                 url=ics_config["url"],
                 auth=auth,
                 validate_ssl=ics_config.get("verify_ssl", True),
@@ -476,7 +483,7 @@ For other calendar services:
 
         return yaml_content
 
-    def save_configuration(self, config_content: str) -> Path:
+    def save_configuration(self, config_content: str) -> Optional[Path]:
         """Save configuration to file."""
         self.print_section("Saving Configuration")
 
@@ -528,20 +535,23 @@ For other calendar services:
             print(f"❌ Failed to save configuration: {e}")
             return None
 
-    def show_completion_message(self, config_path: Path):
+    def show_completion_message(self, config_path: Optional[Path]):
         """Show completion message with next steps."""
         self.print_header("Setup Complete! 🎉")
 
-        print(f"📁 Configuration file: {config_path}")
-        print("\n🚀 Next Steps:")
-        print("   calendarbot --test-mode    # Test your configuration")
-        print("   calendarbot --interactive  # Interactive calendar view")
-        print("   calendarbot --web          # Web interface")
-        print("   calendarbot --rpi --web    # Raspberry Pi e-ink mode")
+        if config_path:
+            print(f"📁 Configuration file: {config_path}")
+            print("\n🚀 Next Steps:")
+            print("   calendarbot --test-mode    # Test your configuration")
+            print("   calendarbot --interactive  # Interactive calendar view")
+            print("   calendarbot --web          # Web interface")
+            print("   calendarbot --rpi --web    # Raspberry Pi e-ink mode")
 
-        print("\n📝 Customization:")
-        print(f"   Edit {config_path} for advanced settings")
-        print("   See config/config.yaml.example for all options")
+            print("\n📝 Customization:")
+            print(f"   Edit {config_path} for advanced settings")
+            print("   See config/config.yaml.example for all options")
+        else:
+            print("⚠️ Configuration file could not be saved")
 
         print("\n📖 Documentation:")
         print("   README.md     - General usage")

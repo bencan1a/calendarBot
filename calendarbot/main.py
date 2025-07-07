@@ -5,7 +5,7 @@ import logging
 import signal
 import sys
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, List, Optional
 
 from config.settings import settings
 
@@ -17,7 +17,7 @@ from .utils.process import kill_calendarbot_processes
 
 # Set up logging
 logger = setup_logging(
-    log_level=settings.log_level,
+    log_level=str(settings.log_level),
     log_file=settings.log_file,
     log_dir=settings.config_dir if settings.log_file else None,
 )
@@ -149,8 +149,11 @@ class CalendarBot:
         """
         try:
             # Try to get cached events to show alongside error
-            cached_events = await safe_async_call(
-                self.cache_manager.get_todays_cached_events, default=[], log_errors=False
+            cached_events: List[Any] = (
+                await safe_async_call(
+                    self.cache_manager.get_todays_cached_events, default=[], log_errors=False
+                )
+                or []
             )
 
             await self.display_manager.display_error(error_message, cached_events)

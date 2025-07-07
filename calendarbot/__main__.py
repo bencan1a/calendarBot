@@ -5,10 +5,10 @@ import asyncio
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 
-def check_configuration() -> tuple[bool, Optional[Path]]:
+def check_configuration() -> Tuple[bool, Optional[Path]]:
     """Check if Calendar Bot is configured and return config file path.
 
     Returns:

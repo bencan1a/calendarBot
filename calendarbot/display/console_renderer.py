@@ -44,7 +44,7 @@ class ConsoleRenderer:
 
             # Header - use selected date if in interactive mode
             lines.append("=" * self.width)
-            if interactive_mode and status_info.get("selected_date"):
+            if interactive_mode and status_info and status_info.get("selected_date"):
                 lines.append(f"📅 MICROSOFT 365 CALENDAR - {status_info['selected_date']}")
             else:
                 lines.append(f"📅 MICROSOFT 365 CALENDAR - {datetime.now().strftime('%A, %B %d')}")
@@ -80,7 +80,7 @@ class ConsoleRenderer:
                     lines.append("-" * self.width)
 
             # Interactive navigation help
-            if interactive_mode:
+            if interactive_mode and status_info:
                 lines.append(self._render_navigation_help(status_info))
                 lines.append("-" * self.width)
 

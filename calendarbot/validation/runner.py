@@ -48,9 +48,9 @@ class ValidationRunner:
         self.logger = get_validation_logger("validation")
 
         # Component instances (to be initialized during run)
-        self.source_manager = None
-        self.cache_manager = None
-        self.display_manager = None
+        self.source_manager: Optional[Any] = None
+        self.cache_manager: Optional[Any] = None
+        self.display_manager: Optional[Any] = None
 
         self.logger.info(f"ValidationRunner initialized for {self.test_date.date()}")
         if self.end_date != self.test_date:
@@ -164,6 +164,18 @@ class ValidationRunner:
 
         try:
             # Test source manager properties
+            if self.source_manager is None:
+                self.results.add_failure(
+                    "sources",
+                    test_name,
+                    "Source manager not initialized",
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+                log_validation_result(
+                    self.logger, test_name, False, "Source manager not initialized"
+                )
+                return
+
             source_count = len(self.source_manager.sources)
             has_primary_source = bool(getattr(self.settings, "ics_url", None))
 
@@ -203,6 +215,18 @@ class ValidationRunner:
 
         try:
             # Perform health checks on all sources
+            if self.source_manager is None:
+                self.results.add_failure(
+                    "sources",
+                    test_name,
+                    "Source manager not initialized",
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+                log_validation_result(
+                    self.logger, test_name, False, "Source manager not initialized"
+                )
+                return
+
             health_status = await self.source_manager.get_health_status()
             duration_ms = int((time.time() - start_time) * 1000)
 
@@ -266,6 +290,18 @@ class ValidationRunner:
 
         try:
             # Try to fetch events from sources
+            if self.source_manager is None:
+                self.results.add_failure(
+                    "sources",
+                    test_name,
+                    "Source manager not initialized",
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+                log_validation_result(
+                    self.logger, test_name, False, "Source manager not initialized"
+                )
+                return
+
             events = await self.source_manager.fetch_events()
             duration_ms = int((time.time() - start_time) * 1000)
 
@@ -308,6 +344,18 @@ class ValidationRunner:
         start_time = time.time()
 
         try:
+            if self.cache_manager is None:
+                self.results.add_failure(
+                    "cache",
+                    test_name,
+                    "Cache manager not initialized",
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+                log_validation_result(
+                    self.logger, test_name, False, "Cache manager not initialized"
+                )
+                return
+
             init_success = await self.cache_manager.initialize()
             duration_ms = int((time.time() - start_time) * 1000)
 
@@ -347,6 +395,18 @@ class ValidationRunner:
         start_time = time.time()
 
         try:
+            if self.cache_manager is None:
+                self.results.add_failure(
+                    "cache",
+                    test_name,
+                    "Cache manager not initialized",
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+                log_validation_result(
+                    self.logger, test_name, False, "Cache manager not initialized"
+                )
+                return
+
             # Test getting cached events
             cached_events = await self.cache_manager.get_todays_cached_events()
 
@@ -381,6 +441,18 @@ class ValidationRunner:
         start_time = time.time()
 
         try:
+            if self.cache_manager is None:
+                self.results.add_failure(
+                    "cache",
+                    test_name,
+                    "Cache manager not initialized",
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+                log_validation_result(
+                    self.logger, test_name, False, "Cache manager not initialized"
+                )
+                return
+
             cache_status = await self.cache_manager.get_cache_status()
             is_fresh = await self.cache_manager.is_cache_fresh()
 
@@ -429,6 +501,18 @@ class ValidationRunner:
         start_time = time.time()
 
         try:
+            if self.display_manager is None:
+                self.results.add_failure(
+                    "display",
+                    test_name,
+                    "Display manager not initialized",
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+                log_validation_result(
+                    self.logger, test_name, False, "Display manager not initialized"
+                )
+                return
+
             # Test display manager properties
             display_type = self.display_manager.settings.display_type
             display_enabled = self.display_manager.settings.display_enabled
@@ -469,6 +553,18 @@ class ValidationRunner:
                 "total_events": 0,
                 "consecutive_failures": 0,
             }
+
+            if self.display_manager is None:
+                self.results.add_failure(
+                    "display",
+                    test_name,
+                    "Display manager not initialized",
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+                log_validation_result(
+                    self.logger, test_name, False, "Display manager not initialized"
+                )
+                return
 
             # Test display with empty events (validation mode)
             display_success = await self.display_manager.display_events([], status_info)

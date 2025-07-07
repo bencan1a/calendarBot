@@ -23,7 +23,7 @@ def get_local_network_interface() -> str:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             # Use Google's public DNS (doesn't actually connect)
             s.connect(("8.8.8.8", 80))
-            local_ip = s.getsockname()[0]
+            local_ip: str = s.getsockname()[0]
 
             # Validate that we got a private network address
             if _is_private_ip(local_ip):
@@ -39,11 +39,11 @@ def get_local_network_interface() -> str:
     try:
         # Method 2: Get hostname-based address
         hostname = socket.gethostname()
-        local_ip = socket.gethostbyname(hostname)
+        hostname_ip: str = socket.gethostbyname(hostname)
 
-        if _is_private_ip(local_ip) and local_ip != "127.0.0.1":
-            logger.info(f"Detected network interface via hostname: {local_ip}")
-            return local_ip
+        if _is_private_ip(hostname_ip) and hostname_ip != "127.0.0.1":
+            logger.info(f"Detected network interface via hostname: {hostname_ip}")
+            return hostname_ip
 
     except Exception as e:
         logger.warning(f"Failed to detect interface via hostname: {e}")

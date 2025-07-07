@@ -127,6 +127,8 @@ class ValidationResults:
         if not self.end_time:
             self.finalize()
 
+        # After finalize(), end_time should not be None
+        assert self.end_time is not None
         total_duration = (self.end_time - self.start_time).total_seconds()
 
         # Count by status
@@ -251,9 +253,9 @@ class ValidationResults:
         summary = self.get_summary()
 
         # Convert items to dictionaries
-        items_data = []
+        items_data: List[Dict[str, Any]] = []
         for item in self.items:
-            item_data = {
+            item_data: Dict[str, Any] = {
                 "component": item.component,
                 "test_name": item.test_name,
                 "status": item.status.value,

@@ -4,7 +4,7 @@ import asyncio
 import functools
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Optional, Type, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +61,19 @@ async def retry_with_backoff(
             delay = min(delay * backoff_factor, max_delay)
 
     # Re-raise the last exception
-    raise last_exception
+    if last_exception is not None:
+        raise last_exception
+    # This should never happen given the logic above, but satisfy mypy
+    raise Exception("Function failed with no recorded exception")
 
 
 async def safe_async_call(
-    func: Callable[..., Awaitable[T]], default: T = None, log_errors: bool = True, *args, **kwargs
-) -> T:
+    func: Callable[..., Awaitable[T]],
+    default: Optional[T] = None,
+    log_errors: bool = True,
+    *args,
+    **kwargs,
+) -> Optional[T]:
     """Safely call an async function with error handling.
 
     Args:
@@ -266,7 +273,7 @@ class CircuitBreaker:
         self,
         failure_threshold: int = 5,
         recovery_timeout: int = 60,
-        expected_exception: type = Exception,
+        expected_exception: Type[Exception] = Exception,
     ):
         """Initialize circuit breaker.
 
@@ -280,7 +287,7 @@ class CircuitBreaker:
         self.expected_exception = expected_exception
 
         self.failure_count = 0
-        self.last_failure_time = None
+        self.last_failure_time: Optional[float] = None
         self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
 
     async def call(self, func: Callable[..., Awaitable[T]], *args, **kwargs) -> T:
@@ -298,7 +305,10 @@ class CircuitBreaker:
             Exception: If circuit is open or function fails
         """
         if self.state == "OPEN":
-            if (datetime.now().timestamp() - self.last_failure_time) < self.recovery_timeout:
+            if (
+                self.last_failure_time is not None
+                and (datetime.now().timestamp() - self.last_failure_time) < self.recovery_timeout
+            ):
                 raise Exception("Circuit breaker is OPEN")
             else:
                 self.state = "HALF_OPEN"
@@ -309,7 +319,7 @@ class CircuitBreaker:
             return result
         except self.expected_exception as e:
             self.on_failure()
-            raise e
+            raise
 
     def on_success(self):
         """Handle successful call."""

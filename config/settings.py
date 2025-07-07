@@ -2,11 +2,11 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Pattern
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
-from pydantic_settings import BaseSettings
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _get_safe_web_host() -> str:
@@ -20,7 +20,44 @@ def _get_safe_web_host() -> str:
         return "127.0.0.1"
 
 
-# Import security logging for credential masking
+# Security logging fallbacks - avoid name conflicts with imports
+def _mask_credentials_fallback(
+    text: str, custom_patterns: Optional[Dict[str, Pattern[Any]]] = None
+) -> str:
+    """Fallback credential masking function."""
+    if not text:
+        return text
+    return text[:2] + "*" * (len(text) - 4) + text[-2:] if len(text) > 4 else "***"
+
+
+class _SecurityEventLoggerFallback:
+    """Fallback security event logger."""
+
+    def log_event(self, event: Any) -> None:
+        pass
+
+
+class _SecurityEventFallback:
+    """Fallback security event."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class _SecurityEventTypeFallback:
+    """Fallback security event type."""
+
+    SYSTEM_CREDENTIAL_ACCESS = "credential_access"
+
+
+class _SecuritySeverityFallback:
+    """Fallback security severity."""
+
+    LOW = "low"
+
+
+# Import security logging for credential masking with fallbacks
 try:
     from calendarbot.security.logging import (
         SecurityEvent,
@@ -30,25 +67,12 @@ try:
         mask_credentials,
     )
 except ImportError:
-    # Fallback for when the module is not available
-    def mask_credentials(value):
-        if not value:
-            return value
-        return value[:2] + "*" * (len(value) - 4) + value[-2:] if len(value) > 4 else "***"
-
-    class SecurityEventLogger:
-        def log_event(self, event):
-            pass
-
-    class SecurityEvent:
-        def __init__(self, **kwargs):
-            pass
-
-    class SecurityEventType:
-        SYSTEM_CREDENTIAL_ACCESS = "credential_access"
-
-    class SecuritySeverity:
-        LOW = "low"
+    # Use fallback implementations
+    mask_credentials = _mask_credentials_fallback
+    SecurityEventLogger = _SecurityEventLoggerFallback  # type: ignore
+    SecurityEvent = _SecurityEventFallback  # type: ignore
+    SecurityEventType = _SecurityEventTypeFallback()  # type: ignore
+    SecuritySeverity = _SecuritySeverityFallback()  # type: ignore
 
 
 class LoggingSettings(BaseModel):
@@ -225,7 +249,7 @@ class CalendarBotSettings(BaseSettings):
     max_retries: int = Field(default=3, description="Maximum retry attempts")
     retry_backoff_factor: float = Field(default=1.5, description="Exponential backoff factor")
 
-    model_config = ConfigDict(
+    model_config = SettingsConfigDict(
         env_prefix="CALENDARBOT_", env_file=".env", env_file_encoding="utf-8", case_sensitive=False
     )
 
