@@ -3,7 +3,7 @@
 import logging
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
 import pytest
 
@@ -585,3 +585,73 @@ class TestIntegrationScenarios:
             # Verify error handling worked - should have set component to 'system'
             assert record.component == "system"
             assert record.msecs_formatted == "000"  # Should handle invalid msecs
+
+    def test_formatter_handles_none_msecs(self):
+        """Test formatter handles None msecs value."""
+        formatter = ValidationFormatter("%(message)s")
+
+        record = Mock()
+        record.name = "calendarbot.test"
+        record.msecs = None  # This should trigger line 20
+
+        with patch.object(logging.Formatter, "format", return_value="formatted"):
+            result = formatter.format(record)
+
+        assert hasattr(record, "msecs_formatted")
+        assert record.msecs_formatted == "000"  # Should handle None msecs as 0
+        assert record.component == "test"
+        assert result == "formatted"
+
+    def test_formatter_handles_attribute_error_in_component_extraction(self):
+        """Test formatter handles AttributeError when extracting component."""
+        formatter = ValidationFormatter("%(message)s")
+
+        # Create a mock that causes AttributeError in the component extraction try block
+        record = Mock()
+        record.msecs = 123.0
+
+        # Mock getattr to raise AttributeError to trigger line 33
+        with patch("calendarbot.validation.logging_setup.getattr") as mock_getattr:
+
+            def side_effect(obj, attr, default=None):
+                if attr == "msecs":
+                    return 123.0
+                elif attr == "name":
+                    raise AttributeError("name access failed")
+                return default
+
+            mock_getattr.side_effect = side_effect
+
+            with patch.object(logging.Formatter, "format", return_value="formatted"):
+                result = formatter.format(record)
+
+                assert result == "formatted"
+                assert record.component == "system"  # Should fallback to system
+                assert record.msecs_formatted == "123"
+
+    def test_formatter_handles_type_error_in_component_extraction(self):
+        """Test formatter handles TypeError when extracting component."""
+        formatter = ValidationFormatter("%(message)s")
+
+        # Create a mock that causes TypeError in the component extraction try block
+        record = Mock()
+        record.msecs = 456.0
+
+        # Mock getattr to raise TypeError to trigger line 34
+        with patch("calendarbot.validation.logging_setup.getattr") as mock_getattr:
+
+            def side_effect(obj, attr, default=None):
+                if attr == "msecs":
+                    return 456.0
+                elif attr == "name":
+                    raise TypeError("name type error")
+                return default
+
+            mock_getattr.side_effect = side_effect
+
+            with patch.object(logging.Formatter, "format", return_value="formatted"):
+                result = formatter.format(record)
+
+                assert result == "formatted"
+                assert record.component == "system"  # Should fallback to system
+                assert record.msecs_formatted == "456"

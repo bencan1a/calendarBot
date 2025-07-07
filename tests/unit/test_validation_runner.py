@@ -3,7 +3,7 @@
 import asyncio
 import time
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock, patch
 
 import pytest
 
@@ -448,6 +448,380 @@ class TestValidationRunner:
             mock_json.assert_called_once()
 
 
+class TestEdgeCasesAndErrorHandling:
+    """Test edge cases and error handling scenarios."""
+
+    @pytest.fixture
+    def mock_settings(self):
+        """Create mock settings for testing."""
+        settings = Mock()
+        settings.database_file = "/tmp/test.db"
+        settings.display_type = "console"
+        settings.display_enabled = True
+        settings.ics_url = "http://example.com/calendar.ics"
+        return settings
+
+    @pytest.fixture
+    def validation_runner(self, mock_settings):
+        """Create ValidationRunner instance for testing."""
+        with patch("calendarbot.validation.runner.settings", mock_settings):
+            runner = ValidationRunner()
+            return runner
+
+    @pytest.mark.asyncio
+    async def test_source_manager_init_when_manager_is_none(self, validation_runner):
+        """Test source manager init when source_manager is None."""
+        # Ensure source_manager is None
+        validation_runner.source_manager = None
+
+        await validation_runner._test_source_manager_init()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "source_manager_init"
+        ]
+        assert len(failures) == 1
+        assert "Source manager not initialized" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_source_manager_init_with_exception(self, validation_runner):
+        """Test source manager init with exception during evaluation."""
+        # Create a mock that raises exception when accessing sources
+        mock_source_manager = Mock()
+        mock_source_manager.sources = Mock(side_effect=Exception("Source access error"))
+        validation_runner.source_manager = mock_source_manager
+
+        await validation_runner._test_source_manager_init()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "source_manager_init"
+        ]
+        assert len(failures) == 1
+        assert "Source manager init error" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_source_health_checks_when_manager_is_none(self, validation_runner):
+        """Test source health checks when source_manager is None."""
+        validation_runner.source_manager = None
+
+        await validation_runner._test_source_health_checks()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "source_health_checks"
+        ]
+        assert len(failures) == 1
+        assert "Source manager not initialized" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_source_health_checks_with_exception(self, validation_runner):
+        """Test source health checks with exception."""
+        mock_source_manager = AsyncMock()
+        mock_source_manager.get_health_status.side_effect = Exception("Health check error")
+        validation_runner.source_manager = mock_source_manager
+
+        await validation_runner._test_source_health_checks()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "source_health_checks"
+        ]
+        assert len(failures) == 1
+        assert "Source health check error" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_source_health_checks_all_unhealthy(self, validation_runner):
+        """Test source health checks when all sources are unhealthy."""
+        mock_health_status = {"source1": Mock(is_healthy=False), "source2": Mock(is_healthy=False)}
+
+        mock_source_manager = AsyncMock()
+        mock_source_manager.get_health_status.return_value = mock_health_status
+        validation_runner.source_manager = mock_source_manager
+
+        await validation_runner._test_source_health_checks()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "source_health_checks"
+        ]
+        assert len(failures) == 1
+        assert "All sources unhealthy" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_ics_fetch_when_manager_is_none(self, validation_runner):
+        """Test ICS fetch when source_manager is None."""
+        validation_runner.source_manager = None
+
+        await validation_runner._test_ics_fetch()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "ics_fetch"
+        ]
+        assert len(failures) == 1
+        assert "Source manager not initialized" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_ics_fetch_with_exception(self, validation_runner):
+        """Test ICS fetch with exception."""
+        mock_source_manager = AsyncMock()
+        mock_source_manager.fetch_events.side_effect = Exception("Fetch error")
+        validation_runner.source_manager = mock_source_manager
+
+        await validation_runner._test_ics_fetch()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "ics_fetch"
+        ]
+        assert len(failures) == 1
+        assert "ICS fetch error" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_cache_init_when_manager_is_none(self, validation_runner):
+        """Test cache init when cache_manager is None."""
+        validation_runner.cache_manager = None
+
+        await validation_runner._test_cache_init()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "cache_initialization"
+        ]
+        assert len(failures) == 1
+        assert "Cache manager not initialized" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_cache_init_with_exception(self, validation_runner):
+        """Test cache init with exception."""
+        mock_cache_manager = AsyncMock()
+        mock_cache_manager.initialize.side_effect = Exception("Cache init error")
+        validation_runner.cache_manager = mock_cache_manager
+
+        await validation_runner._test_cache_init()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "cache_initialization"
+        ]
+        assert len(failures) == 1
+        assert "Cache init error" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_cache_operations_when_manager_is_none(self, validation_runner):
+        """Test cache operations when cache_manager is None."""
+        validation_runner.cache_manager = None
+
+        await validation_runner._test_cache_operations()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "cache_operations"
+        ]
+        assert len(failures) == 1
+        assert "Cache manager not initialized" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_cache_operations_with_exception(self, validation_runner):
+        """Test cache operations with exception."""
+        mock_cache_manager = AsyncMock()
+        mock_cache_manager.get_todays_cached_events.side_effect = Exception("Cache ops error")
+        validation_runner.cache_manager = mock_cache_manager
+
+        await validation_runner._test_cache_operations()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "cache_operations"
+        ]
+        assert len(failures) == 1
+        assert "Cache operations error" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_cache_status_when_manager_is_none(self, validation_runner):
+        """Test cache status when cache_manager is None."""
+        validation_runner.cache_manager = None
+
+        await validation_runner._test_cache_status()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "cache_status"
+        ]
+        assert len(failures) == 1
+        assert "Cache manager not initialized" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_cache_status_with_exception(self, validation_runner):
+        """Test cache status with exception."""
+        mock_cache_manager = AsyncMock()
+        mock_cache_manager.get_cache_status.side_effect = Exception("Cache status error")
+        validation_runner.cache_manager = mock_cache_manager
+
+        await validation_runner._test_cache_status()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "cache_status"
+        ]
+        assert len(failures) == 1
+        assert "Cache status error" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_display_init_when_manager_is_none(self, validation_runner):
+        """Test display init when display_manager is None."""
+        validation_runner.display_manager = None
+
+        await validation_runner._test_display_init()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE
+            and item.test_name == "display_initialization"
+        ]
+        assert len(failures) == 1
+        assert "Display manager not initialized" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_display_init_with_exception(self, validation_runner):
+        """Test display init with exception."""
+        # Create a mock that raises exception when accessing settings.display_type
+        mock_settings = Mock()
+        type(mock_settings).display_type = PropertyMock(
+            side_effect=Exception("Display access error")
+        )
+
+        mock_display_manager = Mock()
+        mock_display_manager.settings = mock_settings
+        validation_runner.display_manager = mock_display_manager
+
+        await validation_runner._test_display_init()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE
+            and item.test_name == "display_initialization"
+        ]
+        assert len(failures) == 1
+        assert "Display init error" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_display_rendering_when_manager_is_none(self, validation_runner):
+        """Test display rendering when display_manager is None."""
+        validation_runner.display_manager = None
+
+        await validation_runner._test_display_rendering()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "display_rendering"
+        ]
+        assert len(failures) == 1
+        assert "Display manager not initialized" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_display_rendering_with_exception(self, validation_runner):
+        """Test display rendering with exception."""
+        mock_display_manager = AsyncMock()
+        mock_display_manager.display_events.side_effect = Exception("Display render error")
+        validation_runner.display_manager = mock_display_manager
+
+        await validation_runner._test_display_rendering()
+
+        # Check that failure was recorded
+        failures = [
+            item
+            for item in validation_runner.results.items
+            if item.status == ValidationStatus.FAILURE and item.test_name == "display_rendering"
+        ]
+        assert len(failures) == 1
+        assert "Display rendering error" in failures[0].message
+
+    @pytest.mark.asyncio
+    async def test_cleanup_components_with_none_manager(self, validation_runner):
+        """Test component cleanup when cache_manager is None."""
+        validation_runner.cache_manager = None
+
+        # Should not raise exception
+        await validation_runner._cleanup_components()
+
+    @pytest.mark.parametrize(
+        "components",
+        [
+            ["sources"],
+            ["cache"],
+            ["display"],
+            ["sources", "cache"],
+            ["cache", "display"],
+            ["sources", "display"],
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_run_validation_selective_component_combinations(self, mock_settings, components):
+        """Test validation run with different component combinations."""
+        with patch("calendarbot.validation.runner.settings", mock_settings):
+            runner = ValidationRunner(components=components)
+
+            with patch.object(runner, "_initialize_components"):
+                with patch.object(runner, "_validate_source_connectivity") as mock_sources:
+                    with patch.object(runner, "_validate_cache_operations") as mock_cache:
+                        with patch.object(
+                            runner, "_validate_display_functionality"
+                        ) as mock_display:
+                            with patch.object(runner, "_cleanup_components"):
+
+                                await runner.run_validation()
+
+                                # Check that only requested components were validated
+                                if "sources" in components:
+                                    mock_sources.assert_called_once()
+                                else:
+                                    mock_sources.assert_not_called()
+
+                                if "cache" in components:
+                                    mock_cache.assert_called_once()
+                                else:
+                                    mock_cache.assert_not_called()
+
+                                if "display" in components:
+                                    mock_display.assert_called_once()
+                                else:
+                                    mock_display.assert_not_called()
+
+
 class TestIntegrationScenarios:
     """Test integration scenarios and edge cases."""
 
@@ -571,3 +945,94 @@ class TestIntegrationScenarios:
 
                 mock_get_logger.assert_called_with("validation")
                 assert runner.logger == mock_logger
+
+    @pytest.mark.asyncio
+    async def test_cache_status_with_object_dict_conversion(self, mock_settings):
+        """Test cache status when cache_status has __dict__ attribute."""
+        with patch("calendarbot.validation.runner.settings", mock_settings):
+            runner = ValidationRunner()
+
+            # Create a simple object with __dict__ attribute
+            class MockCacheStatus:
+                def __init__(self):
+                    self.status = "ok"
+                    self.count = 5
+
+            mock_cache_status = MockCacheStatus()
+
+            mock_cache_manager = AsyncMock()
+            mock_cache_manager.get_cache_status.return_value = mock_cache_status
+            mock_cache_manager.is_cache_fresh.return_value = True
+            runner.cache_manager = mock_cache_manager
+
+            await runner._test_cache_status()
+
+            # Check that success was recorded with correct details
+            successes = [
+                item
+                for item in runner.results.items
+                if item.status == ValidationStatus.SUCCESS and item.test_name == "cache_status"
+            ]
+            assert len(successes) == 1
+            assert successes[0].details["cache_status"] == {"status": "ok", "count": 5}
+
+    @pytest.mark.asyncio
+    async def test_cache_status_without_dict_attribute(self, mock_settings):
+        """Test cache status when cache_status doesn't have __dict__ attribute."""
+        with patch("calendarbot.validation.runner.settings", mock_settings):
+            runner = ValidationRunner()
+
+            # Create a mock object without __dict__
+            mock_cache_status = "simple_status_string"
+
+            mock_cache_manager = AsyncMock()
+            mock_cache_manager.get_cache_status.return_value = mock_cache_status
+            mock_cache_manager.is_cache_fresh.return_value = False
+            runner.cache_manager = mock_cache_manager
+
+            await runner._test_cache_status()
+
+            # Check that success was recorded with string conversion
+            successes = [
+                item
+                for item in runner.results.items
+                if item.status == ValidationStatus.SUCCESS and item.test_name == "cache_status"
+            ]
+            assert len(successes) == 1
+            assert successes[0].details["cache_status"] == "simple_status_string"
+
+    def test_initialization_with_date_range_logging(self, mock_settings):
+        """Test initialization logging when end_date differs from test_date."""
+        test_date = datetime(2023, 1, 15)
+        end_date = datetime(2023, 1, 17)
+
+        with patch("calendarbot.validation.runner.settings", mock_settings):
+            with patch("calendarbot.validation.runner.get_validation_logger") as mock_get_logger:
+                mock_logger = Mock()
+                mock_get_logger.return_value = mock_logger
+
+                runner = ValidationRunner(test_date=test_date, end_date=end_date)
+
+                # Check that date range was logged
+                info_calls = [call for call in mock_logger.info.call_args_list]
+                assert len(info_calls) >= 3  # At least 3 info calls during initialization
+
+                # Check that date range logging happened
+                date_range_logged = any("Date range:" in str(call) for call in info_calls)
+                assert date_range_logged
+
+    def test_initialization_without_date_range_logging(self, mock_settings):
+        """Test initialization logging when end_date equals test_date."""
+        test_date = datetime(2023, 1, 15)
+
+        with patch("calendarbot.validation.runner.settings", mock_settings):
+            with patch("calendarbot.validation.runner.get_validation_logger") as mock_get_logger:
+                mock_logger = Mock()
+                mock_get_logger.return_value = mock_logger
+
+                runner = ValidationRunner(test_date=test_date, end_date=test_date)
+
+                # Check that date range was NOT logged (since dates are the same)
+                info_calls = [call for call in mock_logger.info.call_args_list]
+                date_range_logged = any("Date range:" in str(call) for call in info_calls)
+                assert not date_range_logged
