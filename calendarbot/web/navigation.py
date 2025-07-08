@@ -120,7 +120,7 @@ class WebNavigationHandler:
         """
         return "← → Navigate | Space: Today | Home/End: Week | R: Refresh | T: Theme"
 
-    def add_navigation_callback(self, callback):
+    def add_navigation_callback(self, callback: Callable[[date, Dict[str, Any]], None]) -> None:
         """Add callback for navigation changes.
 
         Args:
@@ -129,7 +129,7 @@ class WebNavigationHandler:
         self._navigation_callbacks.append(callback)
         logger.debug("Added web navigation callback")
 
-    def remove_navigation_callback(self, callback):
+    def remove_navigation_callback(self, callback: Callable[[date, Dict[str, Any]], None]) -> None:
         """Remove navigation callback.
 
         Args:
@@ -139,7 +139,7 @@ class WebNavigationHandler:
             self._navigation_callbacks.remove(callback)
             logger.debug("Removed web navigation callback")
 
-    def _on_navigation_changed(self, new_date: date):
+    def _on_navigation_changed(self, new_date: date) -> None:
         """Handle navigation state changes.
 
         Args:
@@ -184,6 +184,6 @@ class WebNavigationHandler:
         """Get display-friendly date string."""
         return self.navigation_state.get_display_date()
 
-    def update_today(self):
+    def update_today(self) -> None:
         """Update the reference to today's date."""
         self.navigation_state.update_today()

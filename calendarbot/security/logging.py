@@ -5,7 +5,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Pattern
@@ -53,14 +53,14 @@ class SecuritySeverity(Enum):
     HIGH = ("high", 3)
     CRITICAL = ("critical", 4)
 
-    def __init__(self, name: str, priority: int):
+    def __init__(self, name: str, priority: int) -> None:
         self.severity_name = name
         self.priority = priority
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.severity_name
 
-    def __lt__(self, other):
+    def __lt__(self, other: "SecuritySeverity") -> bool:
         return self.priority < other.priority
 
 
@@ -71,7 +71,7 @@ class SecurityEvent:
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     event_type: SecurityEventType = SecurityEventType.SYSTEM_SECURITY_VIOLATION
     severity: SecuritySeverity = SecuritySeverity.LOW
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     user_id: Optional[str] = None
     session_id: Optional[str] = None
     source_ip: Optional[str] = None
@@ -179,7 +179,7 @@ def mask_credentials(text: str, custom_patterns: Optional[Dict[str, Pattern]] = 
 
     for pattern_name, pattern in patterns.items():
 
-        def mask_match(match):
+        def mask_match(match: Any) -> str:
             prefix = match.group(1) if match.lastindex >= 1 else ""
             credential = match.group(2) if match.lastindex >= 2 else match.group(0)
 
@@ -198,11 +198,11 @@ class SecureFormatter(logging.Formatter):
 
     def __init__(
         self,
-        *args,
+        *args: Any,
         enable_masking: bool = True,
         custom_patterns: Optional[Dict[str, Pattern]] = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.enable_masking = enable_masking
         self.custom_patterns = custom_patterns or {}
@@ -218,11 +218,11 @@ class SecureFormatter(logging.Formatter):
         # Apply credential masking
         return mask_credentials(formatted, self.custom_patterns)
 
-    def add_pattern(self, name: str, pattern: Pattern):
+    def add_pattern(self, name: str, pattern: Pattern) -> None:
         """Add a custom masking pattern."""
         self.custom_patterns[name] = pattern
 
-    def remove_pattern(self, name: str):
+    def remove_pattern(self, name: str) -> None:
         """Remove a custom masking pattern."""
         self.custom_patterns.pop(name, None)
 
@@ -230,7 +230,7 @@ class SecureFormatter(logging.Formatter):
 class SecurityEventLogger:
     """Centralized security event logging system."""
 
-    def __init__(self, settings: Optional[Any] = None):
+    def __init__(self, settings: Optional[Any] = None) -> None:
         self.settings = settings
         # Lazy import to avoid circular dependency
         from ..utils.logging import get_logger
@@ -279,7 +279,7 @@ class SecurityEventLogger:
 
         return audit_logger
 
-    def log_event(self, event: SecurityEvent):
+    def log_event(self, event: SecurityEvent) -> None:
         """
         Log a security event to both standard and audit logs.
 
@@ -310,7 +310,7 @@ class SecurityEventLogger:
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Log successful authentication event."""
         event = SecurityEvent(
             event_type=SecurityEventType.AUTH_SUCCESS,
@@ -328,7 +328,7 @@ class SecurityEventLogger:
         user_id: Optional[str] = None,
         reason: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Log failed authentication event."""
         event_details = details or {}
         if reason:
@@ -346,7 +346,7 @@ class SecurityEventLogger:
 
     def log_token_refresh(
         self, user_id: Optional[str] = None, session_id: Optional[str] = None, success: bool = True
-    ):
+    ) -> None:
         """Log token refresh event."""
         event = SecurityEvent(
             event_type=SecurityEventType.AUTH_TOKEN_REFRESH,
@@ -360,7 +360,7 @@ class SecurityEventLogger:
 
     def log_input_validation_failure(
         self, input_type: str, validation_error: str, details: Optional[Dict[str, Any]] = None
-    ):
+    ) -> None:
         """Log input validation failure."""
         event_details = details or {}
         event_details.update({"input_type": input_type, "validation_error": validation_error})
@@ -376,7 +376,7 @@ class SecurityEventLogger:
 
     def log_credential_access(
         self, resource: str, access_type: str = "read", user_id: Optional[str] = None
-    ):
+    ) -> None:
         """Log credential access event."""
         event = SecurityEvent(
             event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
@@ -394,7 +394,7 @@ class SecurityEventLogger:
         description: str,
         severity: SecuritySeverity = SecuritySeverity.HIGH,
         details: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Log general security violation."""
         event_details = details or {}
         event_details.update({"violation_type": violation_type, "description": description})
@@ -418,7 +418,7 @@ class SecurityEventLogger:
         }
         return mapping.get(severity, logging.WARNING)
 
-    def _add_to_cache(self, event: SecurityEvent):
+    def _add_to_cache(self, event: SecurityEvent) -> None:
         """Add event to in-memory cache for analysis."""
         self._event_cache.append(event)
 
@@ -502,7 +502,7 @@ def get_security_logger(settings: Optional[Any] = None) -> SecurityEventLogger:
     return _security_logger
 
 
-def init_security_logging(settings: Any):
+def init_security_logging(settings: Any) -> SecurityEventLogger:
     """Initialize security logging system with settings."""
     global _security_logger
     _security_logger = SecurityEventLogger(settings)

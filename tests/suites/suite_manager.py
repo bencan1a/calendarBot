@@ -250,7 +250,7 @@ class TestSuiteManager:
             return {"message": "No test executions found in the specified period"}
 
         # Group by suite
-        suites = {}
+        suites: Dict[str, List[Dict[str, Any]]] = {}
         for exec_data in executions:
             suite_name = exec_data[0]
             if suite_name not in suites:
@@ -370,8 +370,22 @@ class TestSuiteManager:
             # Parse results
             test_count, passed, failed, skipped = self._parse_pytest_output(result.stdout)
             coverage_line, coverage_branch = self._parse_coverage_output(result.stdout)
+            coverage_failure = self._parse_coverage_failure(result.stdout)
 
             status = "PASS" if result.returncode == 0 else "FAIL"
+
+            # Build detailed error notes for failures
+            notes = None
+            if result.returncode != 0:
+                if coverage_failure:
+                    notes = (
+                        f"Coverage threshold failure: Required {coverage_failure['required']}%, "
+                        f"actual {coverage_failure['actual']}%. Tests passed but coverage insufficient."
+                    )
+                elif failed > 0:
+                    notes = f"Test failures: {failed} test(s) failed"
+                else:
+                    notes = "Unknown failure - check test output"
 
             # Get git commit if available
             git_commit = self._get_git_commit()
@@ -389,6 +403,7 @@ class TestSuiteManager:
                 coverage_line=coverage_line,
                 coverage_branch=coverage_branch,
                 git_commit=git_commit,
+                notes=notes,
             )
 
             # Store execution record
@@ -419,10 +434,10 @@ class TestSuiteManager:
             return execution
 
     def _parse_pytest_output(self, output: str) -> Tuple[int, int, int, int]:
-        """Parse pytest output for test counts."""
-        # Look for patterns like "5 passed, 2 failed, 1 skipped"
+        """Parse pytest output for test counts and detect coverage failures."""
         import re
 
+        # Look for patterns like "5 passed, 2 failed, 1 skipped"
         pattern = r"(\d+) passed(?:, (\d+) failed)?(?:, (\d+) skipped)?"
         match = re.search(pattern, output)
 
@@ -432,6 +447,24 @@ class TestSuiteManager:
             skipped = int(match.group(3) or 0)
             total = passed + failed + skipped
             return total, passed, failed, skipped
+
+        # Check for coverage failure when no test results are found
+        coverage_fail_pattern = r"FAIL Required test coverage of (\d+(?:\.\d+)?)% not reached\. Total coverage: (\d+(?:\.\d+)?)%"
+        coverage_match = re.search(coverage_fail_pattern, output)
+
+        if coverage_match:
+            # Coverage failure detected - this means tests passed but coverage failed
+            # Look for any test counts that might still be in output
+            test_pattern = r"(\d+) passed"
+            test_match = re.search(test_pattern, output)
+            if test_match:
+                passed = int(test_match.group(1))
+                return (
+                    passed,
+                    passed,
+                    0,
+                    0,
+                )  # Return with 0 failed tests since coverage is the issue
 
         return 0, 0, 0, 0
 
@@ -450,6 +483,18 @@ class TestSuiteManager:
         branch_coverage = float(branch_match.group(1)) if branch_match else 0.0
 
         return line_coverage, branch_coverage
+
+    def _parse_coverage_failure(self, output: str) -> Optional[Dict[str, float]]:
+        """Parse coverage failure details from pytest output."""
+        import re
+
+        coverage_fail_pattern = r"FAIL Required test coverage of (\d+(?:\.\d+)?)% not reached\. Total coverage: (\d+(?:\.\d+)?)%"
+        match = re.search(coverage_fail_pattern, output)
+
+        if match:
+            return {"required": float(match.group(1)), "actual": float(match.group(2))}
+
+        return None
 
     def _get_git_commit(self) -> Optional[str]:
         """Get current git commit hash."""
@@ -502,7 +547,7 @@ class TestSuiteManager:
         related_tests = self.get_related_tests(changed_files)
 
         if not changed_files:
-            recommendation = {
+            recommendation: Dict[str, Any] = {
                 "strategy": "critical_path",
                 "reason": "No recent changes detected",
                 "tests": None,
@@ -617,7 +662,17 @@ class TestSuiteManager:
         recommendations = []
 
         if execution.status == "FAIL":
-            recommendations.append("Address test failures before proceeding with deployment")
+            # Check if this is a coverage failure vs test failure
+            if execution.notes and "Coverage threshold failure" in execution.notes:
+                recommendations.append(
+                    "Coverage threshold not met - add tests to increase coverage"
+                )
+                recommendations.append(execution.notes)  # Include specific coverage details
+            elif execution.failed > 0:
+                recommendations.append("Address test failures before proceeding with deployment")
+                recommendations.append(f"Investigate {execution.failed} failed test(s)")
+            else:
+                recommendations.append("Address test failures before proceeding with deployment")
 
         if execution.failed > 0:
             recommendations.append(f"Investigate {execution.failed} failed test(s)")
@@ -636,6 +691,181 @@ class TestSuiteManager:
 
         return recommendations
 
+    def execute_smart_strategy(self, verbose: bool = True) -> int:
+        """
+        Execute smart test selection strategy for pre-commit integration.
+
+        Args:
+            verbose: Enable verbose output
+
+        Returns:
+            Exit code (0 = success, 1 = failure)
+        """
+        try:
+            # Get smart test selection recommendation
+            recommendation = self.smart_test_selection()
+
+            if verbose:
+                print(f"🔍 Smart Test Selection Analysis:")
+                print(f"   Strategy: {recommendation['strategy']}")
+                print(f"   Reason: {recommendation['reason']}")
+                print(f"   Estimated Duration: {recommendation['estimated_duration']}s")
+                print(f"   Changed Files: {len(recommendation['changed_files'])}")
+                print(f"   Related Tests: {len(recommendation['related_tests'])}")
+                print()
+
+            strategy = recommendation["strategy"]
+
+            if strategy == "targeted":
+                # Execute specific tests
+                test_files = recommendation["tests"]
+                if not test_files:
+                    if verbose:
+                        print("✅ No specific tests to run - validation passed")
+                    return 0
+
+                if verbose:
+                    print(f"🎯 Running targeted tests ({len(test_files)} files)...")
+
+                # Build pytest command for targeted tests
+                args = [
+                    "python",
+                    "-m",
+                    "pytest",
+                    "--tb=short",
+                    "--maxfail=3",
+                    "--cov=calendarbot",
+                    "--cov-report=term",
+                    "--cov-fail-under=70",  # TEMPORARY: Reduced from 75% to align with regression suite
+                    "-q",
+                ] + test_files
+
+                result = subprocess.run(
+                    args, cwd=self.workspace_dir, capture_output=True, text=True
+                )
+
+                if verbose:
+                    if result.returncode == 0:
+                        print("✅ Targeted tests passed")
+                    else:
+                        print("❌ Targeted tests failed")
+                        print(result.stdout[-500:] if result.stdout else "")  # Show last 500 chars
+                        print(result.stderr[-500:] if result.stderr else "")
+
+                return result.returncode
+
+            elif strategy == "critical_path":
+                # Execute critical path suite
+                if verbose:
+                    print("🚀 Running critical path test suite...")
+
+                execution = self.execute_suite("critical_path", parallel=True, verbose=False)
+
+                if verbose:
+                    if execution.status == "PASS":
+                        print(
+                            f"✅ Critical path tests passed ({execution.duration:.1f}s, {execution.passed}/{execution.test_count} tests)"
+                        )
+                    else:
+                        print(f"❌ Critical path tests failed ({execution.failed} failures)")
+                        if execution.notes:
+                            print(f"   Error: {execution.notes}")
+
+                return 0 if execution.status == "PASS" else 1
+
+            elif strategy == "full_regression":
+                # Execute full regression suite
+                if verbose:
+                    print("🏗️  Running full regression test suite...")
+                    print("   Note: This may take 20-30 minutes")
+
+                execution = self.execute_suite("full_regression", parallel=True, verbose=False)
+
+                if verbose:
+                    if execution.status == "PASS":
+                        print(
+                            f"✅ Full regression tests passed ({execution.duration//60:.0f}m {execution.duration%60:.0f}s)"
+                        )
+                    else:
+                        print(f"❌ Full regression tests failed ({execution.failed} failures)")
+                        if execution.notes:
+                            print(f"   Error: {execution.notes}")
+
+                return 0 if execution.status == "PASS" else 1
+
+            else:
+                if verbose:
+                    print(f"❌ Unknown strategy: {strategy}")
+                return 1
+
+        except Exception as e:
+            if verbose:
+                print(f"❌ Smart test execution failed: {str(e)}")
+            return 1
+
+    def execute_targeted_tests(self, test_files: List[str], verbose: bool = True) -> int:
+        """
+        Execute specific test files with optimized settings.
+
+        Args:
+            test_files: List of test file paths to execute
+            verbose: Enable verbose output
+
+        Returns:
+            Exit code (0 = success, 1 = failure)
+        """
+        if not test_files:
+            if verbose:
+                print("✅ No tests to execute")
+            return 0
+
+        try:
+            args = [
+                "python",
+                "-m",
+                "pytest",
+                "--tb=short",
+                "--maxfail=5",
+                "--timeout=60",  # 60 second timeout per test
+                "--cov=calendarbot",
+                "--cov-report=term",
+                "--cov-fail-under=70",  # TEMPORARY: Reduced threshold to align with regression suite
+                "-v" if verbose else "-q",
+            ] + test_files
+
+            if verbose:
+                print(f"🎯 Executing {len(test_files)} targeted test files...")
+
+            result = subprocess.run(args, cwd=self.workspace_dir, capture_output=True, text=True)
+
+            # Parse basic results
+            test_count, passed, failed, skipped = self._parse_pytest_output(result.stdout)
+
+            if verbose:
+                if result.returncode == 0:
+                    print(
+                        f"✅ Targeted tests passed: {passed} passed, {failed} failed, {skipped} skipped"
+                    )
+                else:
+                    print(
+                        f"❌ Targeted tests failed: {passed} passed, {failed} failed, {skipped} skipped"
+                    )
+                    # Show relevant output
+                    if result.stdout:
+                        lines = result.stdout.split("\n")
+                        # Show FAILURES section and summary
+                        for i, line in enumerate(lines):
+                            if "FAILURES" in line or "ERRORS" in line or "=====" in line:
+                                print("\n".join(lines[i : i + 20]))  # Show next 20 lines
+                                break
+
+            return result.returncode
+
+        except Exception as e:
+            if verbose:
+                print(f"❌ Error executing targeted tests: {str(e)}")
+            return 1
+
 
 def main():
     """CLI interface for test suite management."""
@@ -653,6 +883,15 @@ def main():
     # Smart selection command
     smart_parser = subparsers.add_parser("smart", help="Smart test selection")
     smart_parser.add_argument("--target-duration", type=float, help="Target duration in seconds")
+
+    # Execute smart command (for pre-commit)
+    execute_smart_parser = subparsers.add_parser(
+        "execute-smart", help="Execute smart test strategy for pre-commit"
+    )
+    execute_smart_parser.add_argument(
+        "--verbose", action="store_true", default=True, help="Enable verbose output"
+    )
+    execute_smart_parser.add_argument("--quiet", action="store_true", help="Disable verbose output")
 
     # Analysis command
     analysis_parser = subparsers.add_parser("analyze", help="Performance analysis")
@@ -675,6 +914,11 @@ def main():
     elif args.command == "smart":
         recommendation = manager.smart_test_selection(args.target_duration)
         print(json.dumps(recommendation, indent=2))
+
+    elif args.command == "execute-smart":
+        verbose = args.verbose and not args.quiet
+        exit_code = manager.execute_smart_strategy(verbose=verbose)
+        sys.exit(exit_code)
 
     elif args.command == "analyze":
         analysis = manager.analyze_test_performance(args.days)

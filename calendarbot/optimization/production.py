@@ -8,7 +8,7 @@ import re
 import uuid
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple, Union
@@ -81,7 +81,7 @@ class ProductionLogFilter(logging.Filter):
         self.rules = sorted(rules, key=lambda r: r.priority, reverse=True)
         self.settings = settings
         self.message_counts: Dict[str, int] = defaultdict(int)
-        self.last_reset = datetime.now(UTC)
+        self.last_reset = datetime.now(timezone.utc)
         self.reset_interval = timedelta(minutes=5)
 
         # Performance optimization tracking
@@ -93,7 +93,7 @@ class ProductionLogFilter(logging.Filter):
         self.total_count += 1
 
         # Reset counters periodically
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         if now - self.last_reset > self.reset_interval:
             self.message_counts.clear()
             self.last_reset = now
@@ -165,13 +165,13 @@ class LogVolumeAnalyzer:
             Analysis results with optimization recommendations
         """
         log_dir = Path(log_dir)
-        cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
 
         if not log_dir.exists():
             return {"error": f"Log directory {log_dir} does not exist"}
 
         analysis: Dict[str, Any] = {
-            "analysis_time": datetime.now(UTC).isoformat(),
+            "analysis_time": datetime.now(timezone.utc).isoformat(),
             "log_directory": str(log_dir),
             "time_range_hours": hours,
             "total_files": 0,
@@ -362,7 +362,7 @@ class LogVolumeAnalyzer:
 class DebugStatementAnalyzer:
     """Analyzes source code for debug statements and print() calls."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = get_logger("debug_analyzer")
 
     def analyze_codebase(self, root_dir: Union[str, Path]) -> Dict[str, Any]:
@@ -378,7 +378,7 @@ class DebugStatementAnalyzer:
         root_dir = Path(root_dir)
 
         analysis: Dict[str, Any] = {
-            "analysis_time": datetime.now(UTC).isoformat(),
+            "analysis_time": datetime.now(timezone.utc).isoformat(),
             "root_directory": str(root_dir),
             "total_files": 0,
             "python_files": 0,
@@ -548,7 +548,7 @@ class PrintStatementFinder(ast.NodeVisitor):
         self.file_path = file_path
         self.print_statements: List[Dict[str, Any]] = []
 
-    def visit_Call(self, node):
+    def visit_Call(self, node: ast.Call) -> None:
         """Visit function calls to find print statements."""
         if (isinstance(node.func, ast.Name) and node.func.id == "print") or (
             isinstance(node.func, ast.Attribute) and node.func.attr == "print"
@@ -579,7 +579,7 @@ class LoggingOptimizer:
         # Load default optimization rules
         self._load_default_rules()
 
-    def _load_default_rules(self):
+    def _load_default_rules(self) -> None:
         """Load default optimization rules."""
         default_rules = [
             # Volume reduction rules
@@ -625,7 +625,7 @@ class LoggingOptimizer:
 
         self.rules.extend(default_rules)
 
-    def add_rule(self, rule: OptimizationRule):
+    def add_rule(self, rule: OptimizationRule) -> None:
         """Add a custom optimization rule."""
         self.rules.append(rule)
         self.rules.sort(key=lambda r: r.priority, reverse=True)
@@ -699,7 +699,7 @@ class LoggingOptimizer:
             Comprehensive analysis and optimization results
         """
         results: Dict[str, Any] = {
-            "optimization_time": datetime.now(UTC).isoformat(),
+            "optimization_time": datetime.now(timezone.utc).isoformat(),
             "log_analysis": {},
             "code_analysis": {},
             "optimization_summary": {},

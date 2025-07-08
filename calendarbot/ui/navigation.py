@@ -40,7 +40,7 @@ class NavigationState:
         """Get today's date."""
         return self._today
 
-    def update_today(self):
+    def update_today(self) -> None:
         """Update the internal reference to today's date."""
         self._today = date.today()
 
@@ -178,7 +178,7 @@ class NavigationState:
             relative = self.get_relative_description()
             return f"{base_format} ({relative})"
 
-    def add_change_callback(self, callback: Callable[[date], None]):
+    def add_change_callback(self, callback: Callable[[date], None]) -> None:
         """Add a callback to be called when the selected date changes.
 
         Args:
@@ -187,7 +187,7 @@ class NavigationState:
         self._change_callbacks.append(callback)
         logger.debug("Added date change callback")
 
-    def remove_change_callback(self, callback: Callable[[date], None]):
+    def remove_change_callback(self, callback: Callable[[date], None]) -> None:
         """Remove a date change callback.
 
         Args:
@@ -197,7 +197,7 @@ class NavigationState:
             self._change_callbacks.remove(callback)
             logger.debug("Removed date change callback")
 
-    def _notify_change(self):
+    def _notify_change(self) -> None:
         """Notify all registered callbacks of date change."""
         for callback in self._change_callbacks:
             try:

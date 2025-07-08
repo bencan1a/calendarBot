@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import Any, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
 from ..security.logging import SecurityEventLogger
@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 class WebRequestHandler(BaseHTTPRequestHandler):
     """HTTP request handler for calendar web interface."""
 
-    def __init__(self, *args, web_server=None, **kwargs):
+    def __init__(self, *args: Any, web_server: Optional["WebServer"] = None, **kwargs: Any) -> None:
         self.web_server = web_server
         self.security_logger = SecurityEventLogger()
         super().__init__(*args, **kwargs)
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         """Handle GET requests."""
         try:
             parsed_url = urlparse(self.path)
@@ -46,7 +46,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.error(f"Error handling GET request: {e}")
             self._send_500(str(e))
 
-    def do_POST(self):
+    def do_POST(self) -> None:
         """Handle POST requests."""
         try:
             parsed_url = urlparse(self.path)
@@ -69,7 +69,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.error(f"Error handling POST request: {e}")
             self._send_500(str(e))
 
-    def _serve_calendar_page(self, query_params: Dict):
+    def _serve_calendar_page(self, query_params: Dict[str, List[str]]) -> None:
         """Serve the main calendar page."""
         try:
             if not self.web_server:
@@ -85,7 +85,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.error(f"Error serving calendar page: {e}")
             self._send_500(str(e))
 
-    def _handle_api_request(self, path: str, params):
+    def _handle_api_request(
+        self, path: str, params: Union[Dict[str, List[str]], Dict[str, Any]]
+    ) -> None:
         """Handle API requests."""
         try:
             if not self.web_server:
@@ -107,7 +109,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.error(f"Error handling API request: {e}")
             self._send_json_response(500, {"error": str(e)})
 
-    def _handle_navigation_api(self, params):
+    def _handle_navigation_api(self, params: Union[Dict[str, List[str]], Dict[str, Any]]) -> None:
         """Handle navigation API requests."""
         logger.debug(f"Navigation API params type: {type(params)}")
         logger.debug(f"Navigation API params content: {params}")
@@ -156,16 +158,19 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # No logging for successful validation - only security violations are logged
         logger.debug(f"Valid navigation action: {action}")
 
-        success = self.web_server.handle_navigation(action)
+        if self.web_server:
+            success = self.web_server.handle_navigation(action)
 
-        if success:
-            # Get updated HTML content
-            html_content = self.web_server.get_calendar_html()
-            self._send_json_response(200, {"success": True, "html": html_content})
+            if success:
+                # Get updated HTML content
+                html_content = self.web_server.get_calendar_html()
+                self._send_json_response(200, {"success": True, "html": html_content})
+            else:
+                self._send_json_response(400, {"error": "Invalid navigation action"})
         else:
-            self._send_json_response(400, {"error": "Invalid navigation action"})
+            self._send_json_response(500, {"error": "Web server not available"})
 
-    def _handle_theme_api(self, params):
+    def _handle_theme_api(self, params: Union[Dict[str, List[str]], Dict[str, Any]]) -> None:
         """Handle theme switching API requests."""
         theme = (
             params.get("theme", [""])[0]
@@ -173,26 +178,38 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             else params.get("theme", "")
         )
 
+        if not self.web_server:
+            self._send_json_response(500, {"error": "Web server not available"})
+            return
+
         if theme:
-            success = self.web_server.set_theme(theme)
+            success = self.web_server.set_theme(str(theme))
             self._send_json_response(200, {"success": success, "theme": theme})
         else:
             # Toggle theme
             new_theme = self.web_server.toggle_theme()
             self._send_json_response(200, {"success": True, "theme": new_theme})
 
-    def _handle_refresh_api(self):
+    def _handle_refresh_api(self) -> None:
         """Handle refresh API requests."""
+        if not self.web_server:
+            self._send_json_response(500, {"error": "Web server not available"})
+            return
+
         success = self.web_server.refresh_data()
         html_content = self.web_server.get_calendar_html()
         self._send_json_response(200, {"success": success, "html": html_content})
 
-    def _handle_status_api(self):
+    def _handle_status_api(self) -> None:
         """Handle status API requests."""
+        if not self.web_server:
+            self._send_json_response(500, {"error": "Web server not available"})
+            return
+
         status = self.web_server.get_status()
         self._send_json_response(200, status)
 
-    def _serve_static_file(self, path: str):
+    def _serve_static_file(self, path: str) -> None:
         """Serve static files (CSS, JS, etc.)."""
         try:
             # Remove /static/ prefix
@@ -227,7 +244,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
     def _send_response(
         self, status_code: int, content: Union[str, bytes], content_type: str, binary: bool = False
-    ):
+    ) -> None:
         """Send HTTP response."""
         self.send_response(status_code)
         self.send_header("Content-Type", content_type)
@@ -243,20 +260,20 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         self.wfile.write(content_bytes)
 
-    def _send_json_response(self, status_code: int, data: Dict):
+    def _send_json_response(self, status_code: int, data: Dict[str, Any]) -> None:
         """Send JSON response."""
         json_content = json.dumps(data, indent=2)
         self._send_response(status_code, json_content, "application/json")
 
-    def _send_404(self):
+    def _send_404(self) -> None:
         """Send 404 Not Found response."""
         self._send_response(404, "404 Not Found", "text/plain")
 
-    def _send_500(self, error_message: str):
+    def _send_500(self, error_message: str) -> None:
         """Send 500 Internal Server Error response."""
         self._send_response(500, f"500 Internal Server Error: {error_message}", "text/plain")
 
-    def log_message(self, format, *args):
+    def log_message(self, format: str, *args: Any) -> None:
         """Override to use our logger."""
         logger.debug(f"HTTP {format % args}")
 
@@ -264,7 +281,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 class WebServer:
     """Simple web server for calendar HTML interface."""
 
-    def __init__(self, settings, display_manager, cache_manager, navigation_state=None):
+    def __init__(
+        self,
+        settings: Any,
+        display_manager: Any,
+        cache_manager: Any,
+        navigation_state: Optional[Any] = None,
+    ) -> None:
         """Initialize web server.
 
         Args:
@@ -284,13 +307,13 @@ class WebServer:
         self.theme = settings.web_theme
 
         # Server instance
-        self.server = None
-        self.server_thread = None
+        self.server: Optional[HTTPServer] = None
+        self.server_thread: Optional[Thread] = None
         self.running = False
 
         logger.info(f"Web server initialized on {self.host}:{self.port}")
 
-    def start(self):
+    def start(self) -> None:
         """Start the web server."""
         if self.running:
             logger.warning("Web server already running")
@@ -312,7 +335,7 @@ class WebServer:
                 logger.debug("Auto-cleanup of existing processes disabled in configuration")
 
             # Create custom request handler with web server reference
-            def handler(*args, **kwargs):
+            def handler(*args: Any, **kwargs: Any) -> WebRequestHandler:
                 return WebRequestHandler(*args, web_server=self, **kwargs)
 
             # Create and start server with improved configuration
@@ -332,11 +355,12 @@ class WebServer:
             logger.error(f"Failed to start web server: {e}")
             raise
 
-    def _serve_with_cleanup(self):
+    def _serve_with_cleanup(self) -> None:
         """Serve requests with proper cleanup handling."""
         try:
             logger.debug("Server thread started, beginning serve_forever()")
-            self.server.serve_forever()
+            if self.server:
+                self.server.serve_forever()
             logger.debug("serve_forever() completed normally")
         except Exception as e:
             if self.running:  # Only log if we didn't expect this
@@ -344,7 +368,7 @@ class WebServer:
         finally:
             logger.debug("Server thread cleanup completed")
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the web server with improved shutdown handling."""
         if not self.running:
             logger.debug("Web server already stopped or not running")
@@ -363,10 +387,11 @@ class WebServer:
                 shutdown_complete = threading.Event()
                 shutdown_error = None
 
-                def shutdown_server():
+                def shutdown_server() -> None:
                     nonlocal shutdown_error
                     try:
-                        self.server.shutdown()
+                        if self.server:
+                            self.server.shutdown()
                         shutdown_complete.set()
                     except Exception as e:
                         shutdown_error = e
@@ -436,7 +461,7 @@ class WebServer:
                     import threading
 
                     # Run the async function in a separate thread to avoid event loop conflicts
-                    def run_async_in_thread():
+                    def run_async_in_thread() -> Any:
                         import asyncio
 
                         new_loop = asyncio.new_event_loop()
@@ -491,7 +516,7 @@ class WebServer:
                     import concurrent.futures
                     import threading
 
-                    def run_async_in_thread():
+                    def run_async_in_thread() -> Any:
                         import asyncio
 
                         new_loop = asyncio.new_event_loop()

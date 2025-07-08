@@ -18,7 +18,7 @@ class ProcessInfo:
         self.command = command
         self.full_command = full_command
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"PID {self.pid}: {self.command}"
 
 

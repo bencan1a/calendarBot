@@ -7,7 +7,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
 from pathlib import Path
@@ -41,7 +41,7 @@ class PerformanceMetric:
     metric_type: MetricType = MetricType.GAUGE
     value: Union[float, int, str] = 0
     unit: str = ""
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     component: str = ""
     operation: str = ""
     correlation_id: Optional[str] = None
@@ -66,7 +66,7 @@ class PerformanceMetric:
 class PerformanceLogger:
     """Centralized performance metrics logging and collection."""
 
-    def __init__(self, settings: Optional[Any] = None):
+    def __init__(self, settings: Optional[Any] = None) -> None:
         self.settings = settings
         self.logger = get_logger("performance")
         self.metrics_logger = self._setup_metrics_logger()
@@ -124,7 +124,7 @@ class PerformanceLogger:
 
         return metrics_logger
 
-    def log_metric(self, metric: PerformanceMetric):
+    def log_metric(self, metric: PerformanceMetric) -> None:
         """
         Log a performance metric.
 
@@ -245,7 +245,7 @@ class PerformanceLogger:
         component: str = "http_client",
         correlation_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Log HTTP request performance metrics."""
         request_metric = PerformanceMetric(
             name="http_request_duration",
@@ -270,7 +270,7 @@ class PerformanceLogger:
         component: str = "system",
         operation: str = "memory_check",
         correlation_id: Optional[str] = None,
-    ):
+    ) -> None:
         """Log current memory usage metrics."""
         try:
             process = psutil.Process()
@@ -327,7 +327,7 @@ class PerformanceLogger:
         total_requests: int,
         component: str = "cache",
         correlation_id: Optional[str] = None,
-    ):
+    ) -> None:
         """Log cache performance metrics."""
         hit_rate = hits / total_requests if total_requests > 0 else 0
         miss_rate = misses / total_requests if total_requests > 0 else 0
@@ -358,7 +358,7 @@ class PerformanceLogger:
         component: str = "database",
         correlation_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Log database operation performance."""
         db_metric = PerformanceMetric(
             name="database_query_duration",
@@ -372,7 +372,7 @@ class PerformanceLogger:
         )
         self.log_metric(db_metric)
 
-    def _check_thresholds(self, metric: PerformanceMetric):
+    def _check_thresholds(self, metric: PerformanceMetric) -> None:
         """Check if metric exceeds defined thresholds and log warnings/errors."""
         if metric.metric_type == MetricType.REQUEST and "duration" in metric.name:
             duration = float(metric.value)
@@ -407,7 +407,7 @@ class PerformanceLogger:
                     f"Cache miss rate high: {miss_rate:.1%} exceeds {self.thresholds['cache_miss_rate_warning']:.1%} threshold"
                 )
 
-    def _add_to_cache(self, metric: PerformanceMetric):
+    def _add_to_cache(self, metric: PerformanceMetric) -> None:
         """Add metric to in-memory cache."""
         self._metrics_cache.append(metric)
 
@@ -417,7 +417,7 @@ class PerformanceLogger:
 
     def get_performance_summary(self, hours: int = 1) -> Dict[str, Any]:
         """Get performance summary for the specified time period."""
-        cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
         recent_metrics = [m for m in self._metrics_cache if m.timestamp > cutoff_time]
 
         if not recent_metrics:
@@ -458,7 +458,7 @@ class PerformanceLogger:
 class PerformanceLoggerMixin:
     """Mixin class to add performance logging capabilities to any class."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._perf_logger = get_performance_logger()
 
@@ -489,7 +489,7 @@ class PerformanceLoggerMixin:
         operation: str = "",
         correlation_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Log a performance metric for this component."""
         component = self.__class__.__name__
         metric = PerformanceMetric(
@@ -511,7 +511,7 @@ def performance_timer(
     component: str = "",
     correlation_id: Optional[str] = None,
     logger: Optional[PerformanceLogger] = None,
-):
+) -> Any:
     """
     Context manager for timing operations.
 
@@ -535,7 +535,7 @@ def performance_monitor(
     component: str = "",
     track_memory: bool = False,
     correlation_id: Optional[str] = None,
-):
+) -> Callable:
     """
     Decorator for automatic performance monitoring of functions.
 
@@ -554,7 +554,7 @@ def performance_monitor(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             perf_logger = get_performance_logger()
             op_name = operation or func.__name__
             comp_name = component or func.__module__.split(".")[-1]
@@ -584,7 +584,7 @@ def memory_monitor(
     operation: str = "memory_check",
     correlation_id: Optional[str] = None,
     logger: Optional[PerformanceLogger] = None,
-):
+) -> Any:
     """
     Context manager for monitoring memory usage during operations.
 
@@ -611,7 +611,7 @@ def cache_monitor(
     component: str = "cache",
     correlation_id: Optional[str] = None,
     logger: Optional[PerformanceLogger] = None,
-):
+) -> Any:
     """
     Context manager for monitoring cache performance.
 
@@ -623,18 +623,18 @@ def cache_monitor(
     perf_logger = logger or get_performance_logger()
 
     class CacheMonitor:
-        def __init__(self):
+        def __init__(self) -> None:
             self.hits = 0
             self.misses = 0
 
-        def record_hit(self):
+        def record_hit(self) -> None:
             self.hits += 1
 
-        def record_miss(self):
+        def record_miss(self) -> None:
             self.misses += 1
 
         @property
-        def total_requests(self):
+        def total_requests(self) -> int:
             return self.hits + self.misses
 
     monitor = CacheMonitor()
@@ -665,7 +665,7 @@ def get_performance_logger(settings: Optional[Any] = None) -> PerformanceLogger:
     return _performance_logger
 
 
-def init_performance_logging(settings: Any):
+def init_performance_logging(settings: Any) -> PerformanceLogger:
     """Initialize performance logging system with settings."""
     global _performance_logger
     _performance_logger = PerformanceLogger(settings)

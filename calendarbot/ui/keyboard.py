@@ -4,7 +4,7 @@ import asyncio
 import logging
 import sys
 from enum import Enum
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class KeyCode(Enum):
 class KeyboardHandler:
     """Handles keyboard input for interactive navigation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize keyboard handler."""
         self._running = False
         self._key_callbacks: Dict[KeyCode, Callable] = {}
@@ -38,10 +38,10 @@ class KeyboardHandler:
 
         logger.debug("Keyboard handler initialized")
 
-    def _setup_platform_input(self):
+    def _setup_platform_input(self) -> None:
         """Set up platform-specific keyboard input handling."""
         self._fallback_mode = False
-        self._old_settings = None
+        self._old_settings: Optional[List[Any]] = None
 
         try:
             if sys.platform == "win32":
@@ -51,11 +51,11 @@ class KeyboardHandler:
                 self._kbhit = msvcrt.kbhit
             else:
                 # Unix-like systems (Linux, macOS) - simplified for raw mode
-                def _getch():
+                def _getch() -> str:
                     """Read a single character in raw mode."""
                     return sys.stdin.read(1)
 
-                def _kbhit():
+                def _kbhit() -> bool:
                     """Check for available input using select."""
                     import select
 
@@ -68,7 +68,7 @@ class KeyboardHandler:
             logger.warning(f"Could not import platform-specific keyboard modules: {e}")
             self._setup_fallback_input()
 
-    def _setup_terminal(self):
+    def _setup_terminal(self) -> None:
         """Set up terminal for raw input mode on Unix systems."""
         if sys.platform != "win32":
             try:
@@ -92,24 +92,24 @@ class KeyboardHandler:
                 logger.warning(f"Could not set terminal to raw mode: {e}")
                 self._setup_fallback_input()
 
-    def _setup_fallback_input(self):
+    def _setup_fallback_input(self) -> None:
         """Setup fallback input method if raw mode fails."""
         logger.info("Using fallback input method - press Enter after each key")
         self._fallback_mode = True
 
-        def _getch_fallback():
+        def _getch_fallback() -> str:
             try:
                 return input("Enter key (or 'left', 'right', 'space', 'esc'): ").strip()
             except EOFError:
                 return "esc"
 
-        def _kbhit_fallback():
+        def _kbhit_fallback() -> bool:
             return True  # Always ready in fallback mode
 
         self._getch = _getch_fallback
         self._kbhit = _kbhit_fallback
 
-    def _restore_terminal(self):
+    def _restore_terminal(self) -> None:
         """Restore terminal settings on Unix systems."""
         if sys.platform != "win32" and self._old_settings:
             try:
@@ -201,7 +201,7 @@ class KeyboardHandler:
 
         return KeyCode.UNKNOWN
 
-    def register_key_handler(self, key_code: KeyCode, callback: Callable):
+    def register_key_handler(self, key_code: KeyCode, callback: Callable) -> None:
         """Register a callback for a specific key.
 
         Args:
@@ -211,7 +211,7 @@ class KeyboardHandler:
         self._key_callbacks[key_code] = callback
         logger.debug(f"Registered handler for key: {key_code}")
 
-    def register_raw_key_handler(self, callback: Callable[[str], None]):
+    def register_raw_key_handler(self, callback: Callable[[str], None]) -> None:
         """Register a callback for raw key input.
 
         Args:
@@ -220,7 +220,7 @@ class KeyboardHandler:
         self._raw_key_callback = callback
         logger.debug("Registered raw key handler")
 
-    def unregister_key_handler(self, key_code: KeyCode):
+    def unregister_key_handler(self, key_code: KeyCode) -> None:
         """Unregister a key handler.
 
         Args:
@@ -230,7 +230,7 @@ class KeyboardHandler:
             del self._key_callbacks[key_code]
             logger.debug(f"Unregistered handler for key: {key_code}")
 
-    async def start_listening(self):
+    async def start_listening(self) -> None:
         """Start listening for keyboard input."""
         if self._running:
             logger.warning("Keyboard handler already running")
@@ -250,12 +250,12 @@ class KeyboardHandler:
             self._running = False
             logger.info("Stopped keyboard input listening")
 
-    def stop_listening(self):
+    def stop_listening(self) -> None:
         """Stop listening for keyboard input."""
         self._running = False
         logger.debug("Keyboard handler stop requested")
 
-    async def _input_loop(self):
+    async def _input_loop(self) -> None:
         """Main input loop for capturing keystrokes."""
         while self._running:
             try:
@@ -296,7 +296,7 @@ class KeyboardHandler:
                 logger.error(f"Error in keyboard input loop: {e}")
                 await asyncio.sleep(0.1)
 
-    async def _read_key_sequence(self):
+    async def _read_key_sequence(self) -> str:
         """Read a complete key sequence, handling escape sequences properly."""
         try:
             key_data = self._getch()
@@ -323,15 +323,15 @@ class KeyboardHandler:
                         break
 
                 logger.debug(f"Final escape sequence: {repr(sequence)}")
-                return sequence
+                return str(sequence)
             else:
-                return key_data
+                return str(key_data)
 
         except Exception as e:
             logger.debug(f"Error reading key sequence: {e}")
             return ""
 
-    async def _handle_key_input(self, key_data: str):
+    async def _handle_key_input(self, key_data: str) -> None:
         """Handle a key input.
 
         Args:

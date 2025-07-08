@@ -166,7 +166,7 @@ setup(
     },
     # Additional data files
     data_files=[
-        ("share/doc/calendarbot", ["README.md", "INSTALL.md", "USAGE.md"]),
+        ("share/doc/calendarbot", ["README.md", "docs/INSTALL.md", "docs/USAGE.md"]),
         ("share/calendarbot/config", ["config/config.yaml.example"]),
     ],
     # Custom install commands

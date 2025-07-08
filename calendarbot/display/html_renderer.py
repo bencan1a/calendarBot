@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class HTMLRenderer:
     """Renders calendar events to HTML for web display and e-ink testing."""
 
-    def __init__(self, settings):
+    def __init__(self, settings: Any) -> None:
         """Initialize HTML renderer.
 
         Args:

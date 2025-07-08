@@ -7,7 +7,7 @@ import sys
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Deque, List, Optional
+from typing import TYPE_CHECKING, Any, Deque, List, Optional, Union
 
 # Lazy imports moved to function level to avoid circular dependencies
 
@@ -21,7 +21,7 @@ VERBOSE = 15
 logging.addLevelName(VERBOSE, "VERBOSE")
 
 
-def verbose(self, message, *args, **kwargs):
+def verbose(self: logging.Logger, message: Any, *args: Any, **kwargs: Any) -> None:
     """Add verbose() method to Logger class."""
     if self.isEnabledFor(VERBOSE):
         self._log(VERBOSE, message, args, **kwargs)
@@ -64,12 +64,12 @@ class AutoColoredFormatter(logging.Formatter):
         "RESET": {"truecolor": "\033[0m", "basic": "\033[0m", "none": ""},
     }
 
-    def __init__(self, *args, enable_colors: bool = True, **kwargs):
+    def __init__(self, *args: Any, enable_colors: bool = True, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.enable_colors = enable_colors
         self.color_mode = self._detect_color_support() if enable_colors else "none"
 
-    def _detect_color_support(self):
+    def _detect_color_support(self) -> str:
         """Auto-detect terminal color capabilities."""
         # Check if output is not a TTY
         if not hasattr(sys.stdout, "isatty") or not sys.stdout.isatty():
@@ -93,7 +93,7 @@ class AutoColoredFormatter(logging.Formatter):
 
         return "none"
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         """Format log record with colors if supported."""
         # Get base formatted message
         formatted = super().format(record)
@@ -117,7 +117,9 @@ class AutoColoredFormatter(logging.Formatter):
 class TimestampedFileHandler(logging.FileHandler):
     """Handler that creates timestamped log files per execution."""
 
-    def __init__(self, log_dir, prefix="calendarbot", max_files=5):
+    def __init__(
+        self, log_dir: Union[str, Path], prefix: str = "calendarbot", max_files: int = 5
+    ) -> None:
         self.log_dir = Path(log_dir)
         self.prefix = prefix
         self.max_files = max_files
@@ -136,7 +138,7 @@ class TimestampedFileHandler(logging.FileHandler):
         # Clean up old files
         self.cleanup_old_files()
 
-    def cleanup_old_files(self):
+    def cleanup_old_files(self) -> None:
         """Remove log files beyond max_files limit, keeping most recent."""
         pattern = f"{self.prefix}_*.log"
         log_files = list(self.log_dir.glob(pattern))
@@ -156,13 +158,13 @@ class TimestampedFileHandler(logging.FileHandler):
 class SplitDisplayHandler(logging.Handler):
     """Handler that maintains a reserved log area in interactive mode."""
 
-    def __init__(self, display_manager: "DisplayManager", max_log_lines=5):
+    def __init__(self, display_manager: "DisplayManager", max_log_lines: int = 5) -> None:
         super().__init__()
         self.display_manager = display_manager
         self.max_log_lines = max_log_lines
         self.log_buffer: Deque[str] = deque(maxlen=max_log_lines)
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         """Add log record to buffer and trigger display update."""
         try:
             formatted_msg = self.format(record)
@@ -412,7 +414,9 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(f"calendarbot.{name}")
 
 
-def apply_command_line_overrides(settings: "CalendarBotSettings", args) -> "CalendarBotSettings":
+def apply_command_line_overrides(
+    settings: "CalendarBotSettings", args: Any
+) -> "CalendarBotSettings":
     """Apply command-line argument overrides to logging settings.
 
     Args:

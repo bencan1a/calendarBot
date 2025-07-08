@@ -3,7 +3,7 @@
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from dateutil import tz
 from dateutil.rrule import rrule, rrulestr
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class ICSParser:
     """iCalendar parser with Microsoft Outlook compatibility."""
 
-    def __init__(self, settings):
+    def __init__(self, settings: Any) -> None:
         """Initialize ICS parser.
 
         Args:
@@ -254,7 +254,7 @@ class ICSParser:
             logger.error(f"Failed to parse event component: {e}")
             return None
 
-    def _parse_datetime(self, dt_prop, default_timezone: Optional[str] = None) -> datetime:
+    def _parse_datetime(self, dt_prop: Any, default_timezone: Optional[str] = None) -> datetime:
         """Parse iCalendar datetime property.
 
         Args:
@@ -283,7 +283,7 @@ class ICSParser:
             # Date object - convert to datetime at midnight
             return datetime.combine(dt, datetime.min.time()).replace(tzinfo=timezone.utc)
 
-    def _parse_datetime_optional(self, dt_prop) -> Optional[datetime]:
+    def _parse_datetime_optional(self, dt_prop: Any) -> Optional[datetime]:
         """Parse optional datetime property.
 
         Args:
@@ -300,7 +300,7 @@ class ICSParser:
         except Exception:
             return None
 
-    def _parse_status(self, status_prop) -> Optional[str]:
+    def _parse_status(self, status_prop: Any) -> Optional[str]:
         """Parse event status.
 
         Args:
@@ -336,7 +336,7 @@ class ICSParser:
         else:  # OPAQUE or default
             return EventStatus.BUSY
 
-    def _parse_attendee(self, attendee_prop) -> Optional[Attendee]:
+    def _parse_attendee(self, attendee_prop: Any) -> Optional[Attendee]:
         """Parse attendee from iCalendar property.
 
         Args:

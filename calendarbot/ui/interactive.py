@@ -44,7 +44,7 @@ class InteractiveController:
 
         logger.info("Interactive controller initialized")
 
-    def _setup_keyboard_handlers(self):
+    def _setup_keyboard_handlers(self) -> None:
         """Set up keyboard event handlers."""
         # Navigation keys
         self.keyboard.register_key_handler(KeyCode.LEFT_ARROW, self._handle_previous_day)
@@ -60,37 +60,37 @@ class InteractiveController:
 
         logger.debug("Keyboard handlers configured")
 
-    async def _handle_previous_day(self):
+    async def _handle_previous_day(self) -> None:
         """Handle left arrow key - go to previous day."""
         self.navigation.navigate_backward()
         logger.debug("User navigated to previous day")
 
-    async def _handle_next_day(self):
+    async def _handle_next_day(self) -> None:
         """Handle right arrow key - go to next day."""
         self.navigation.navigate_forward()
         logger.debug("User navigated to next day")
 
-    async def _handle_jump_to_today(self):
+    async def _handle_jump_to_today(self) -> None:
         """Handle space key - jump to today."""
         self.navigation.jump_to_today()
         logger.debug("User jumped to today")
 
-    async def _handle_start_of_week(self):
+    async def _handle_start_of_week(self) -> None:
         """Handle home key - jump to start of week."""
         self.navigation.jump_to_start_of_week()
         logger.debug("User jumped to start of week")
 
-    async def _handle_end_of_week(self):
+    async def _handle_end_of_week(self) -> None:
         """Handle end key - jump to end of week."""
         self.navigation.jump_to_end_of_week()
         logger.debug("User jumped to end of week")
 
-    async def _handle_exit(self):
+    async def _handle_exit(self) -> None:
         """Handle escape key - exit interactive mode."""
         logger.info("User requested exit from interactive mode")
         await self.stop()
 
-    def _on_date_changed(self, new_date: date):
+    def _on_date_changed(self, new_date: date) -> None:
         """Handle date change events from navigation.
 
         Args:
@@ -100,7 +100,7 @@ class InteractiveController:
         # Trigger display update
         asyncio.create_task(self._update_display())
 
-    async def start(self, initial_date: Optional[date] = None):
+    async def start(self, initial_date: Optional[date] = None) -> None:
         """Start interactive mode.
 
         Args:
@@ -151,7 +151,7 @@ class InteractiveController:
             self._cleanup_split_display_logging()
             logger.info("Interactive mode stopped")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop interactive mode."""
         self._running = False
         self.keyboard.stop_listening()
@@ -161,7 +161,7 @@ class InteractiveController:
 
         logger.debug("Interactive controller stop requested")
 
-    async def _update_display(self):
+    async def _update_display(self) -> None:
         """Update the display with current date's events."""
         try:
             # Get events for selected date
@@ -234,7 +234,7 @@ class InteractiveController:
                 "error": str(e),
             }
 
-    async def _background_update_loop(self):
+    async def _background_update_loop(self) -> None:
         """Background loop to check for data updates."""
         while self._running:
             try:
@@ -376,7 +376,7 @@ class InteractiveController:
             "week_context": self.navigation.get_week_context(),
         }
 
-    def _setup_split_display_logging(self):
+    def _setup_split_display_logging(self) -> None:
         """Set up split display logging for interactive mode."""
         try:
             # Check if we have a console renderer that supports split display
@@ -393,7 +393,7 @@ class InteractiveController:
         except Exception as e:
             logger.warning(f"Failed to enable split display logging: {e}")
 
-    def _cleanup_split_display_logging(self):
+    def _cleanup_split_display_logging(self) -> None:
         """Clean up split display logging when exiting interactive mode."""
         try:
             # Disable split display if supported

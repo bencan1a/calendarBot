@@ -28,6 +28,6 @@ __all__ = [
 
 
 # Convenience function for quick access
-def get_logger():
+def get_logger() -> PerformanceLogger:
     """Get the global performance logger instance."""
     return get_performance_logger()

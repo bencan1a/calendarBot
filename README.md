@@ -1,447 +1,54 @@
 # Calendar Bot
 
-A modern ICS calendar display application that fetches and displays your calendar events from any ICS-compatible calendar service. Features interactive navigation, web interface, and comprehensive setup wizard.
+📅 **Calendar Bot** is a terminal-based calendar utility that integrates with ICS calendar feeds. Provides interactive calendar navigation, real-time updates, and cross-platform compatibility.
 
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Platform](https://img.shields.io/badge/platform-Cross--Platform-brightgreen.svg)
+## Features
+- 📋 Interactive navigation with keyboard controls
+- Real-time data fetching from ICS feeds
+- Mobile-friendly web interface
+- Custom configuration via YAML or environment variables
+- Built-in setup wizard for quick configuration
+- Comprehensive logging system for troubleshooting
 
-## Overview
-
-Calendar Bot transforms any computer into a dedicated calendar display that shows your daily schedule from ICS calendar feeds. It supports all major calendar services including Microsoft Outlook, Google Calendar, Apple iCloud, and CalDAV servers.
-
-### Key Features
-
-- **Universal ICS Support**: Works with any calendar that exports ICS feeds
-- **Multiple Display Modes**: Console, interactive navigation, and web interface
-- **Intelligent Setup Wizard**: Service templates for easy configuration
-- **Offline Resilience**: SQLite caching for network interruptions
-- **Real-time Updates**: Automatic refresh with configurable intervals
-- **Secure Authentication**: Support for Basic Auth and Bearer tokens
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.8 or higher
-- Internet connection for calendar feeds
-- ICS calendar URL from your calendar service
-
-### Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd calendarBot
-   ```
-
-2. **Set up Python environment**:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-
-3. **Run the setup wizard**:
-   ```bash
-   python main.py --setup
-   ```
-
-The setup wizard will guide you through:
-- Selecting your calendar service (Outlook, Google, iCloud, CalDAV)
-- Entering your ICS calendar URL
-- Configuring authentication if needed
-- Testing your connection
-- Generating configuration file
-
-### First Run
-
-After setup, start Calendar Bot:
-
+## Installation
+1. Clone the repository and install dependencies:
 ```bash
-python main.py
-```
-
-You'll see your calendar displayed like this:
-
-```
-============================================================
-📅 ICS CALENDAR - Monday, January 15
-============================================================
-Updated: 10:05 | 🌐 Live Data
-
-▶ CURRENT EVENT
-
-  Team Standup
-  10:00 - 10:30
-  📍 Conference Room A
-  ⏱️  25 minutes remaining
-
-📋 NEXT UP
-
-• Project Review
-  11:00 - 12:00 | 📍 Online
-
-• Lunch Meeting
-  12:30 - 13:30 | 📍 Restaurant
-
-============================================================
-```
-
-## Operational Modes
-
-### Interactive Mode
-Navigate your calendar with keyboard controls:
-```bash
-python main.py --interactive
-```
-- **Arrow keys**: Navigate between dates
-- **Space**: Jump to today
-- **ESC**: Exit
-
-### Web Interface Mode
-Access calendar through web browser:
-```bash
-python main.py --web
-```
-- Opens web interface on `http://localhost:8080`
-- Mobile-friendly responsive design
-- Real-time updates
-
-### Test Mode
-Validate your configuration:
-```bash
-python main.py --test-mode --verbose
-```
-- Tests ICS feed connectivity
-- Validates configuration
-- Displays diagnostic information
-
-### Setup Mode
-Reconfigure Calendar Bot:
-```bash
-python main.py --setup
-```
-- Interactive setup wizard
-- Service templates for popular calendars
-- Real-time connection testing
-
-### Daemon Mode (Default)
-Continuous operation with automatic updates:
-```bash
-python main.py
-```
-- Updates every 5 minutes
-- Console display with status indicators
-- Graceful error handling
-
-## Configuration
-
-### Configuration Wizard
-
-The easiest way to configure Calendar Bot is using the interactive wizard:
-
-```bash
-python main.py --setup
-```
-
-The wizard provides templates for:
-- **Microsoft Outlook**: Step-by-step URL extraction
-- **Google Calendar**: Secret iCal URL guidance
-- **Apple iCloud**: Public calendar setup
-- **CalDAV Servers**: Generic CalDAV configuration
-- **Custom Sources**: Any ICS-compatible service
-
-### Manual Configuration
-
-Edit [`config/config.yaml`](config/config.yaml):
-
-```yaml
-# ICS Calendar Configuration
-ics:
-  url: "https://outlook.live.com/.../calendar.ics"
-  auth_type: "none"  # Options: none, basic, bearer
-  verify_ssl: true
-
-# Application Settings
-refresh_interval: 300  # 5 minutes
-cache_ttl: 3600       # 1 hour
-log_level: "INFO"
-
-# Display Settings
-display_enabled: true
-display_type: "console"
-```
-
-### Environment Variables
-
-Override any setting with environment variables:
-
-```bash
-export CALENDARBOT_ICS_URL="your-calendar-url"
-export CALENDARBOT_LOG_LEVEL="DEBUG"
-export CALENDARBOT_REFRESH_INTERVAL="300"
-```
-
-## Getting Your Calendar URL
-
-### Microsoft Outlook
-1. Go to Outlook.com → Calendar
-2. Settings → View all Outlook settings → Calendar → Shared calendars
-3. Under "Publish a calendar", select your calendar
-4. Set permissions and click Publish
-5. Copy the ICS link
-
-### Google Calendar
-1. Go to Google Calendar → Settings
-2. Select your calendar from the left sidebar
-3. Scroll to "Integrate calendar"
-4. Copy "Secret address in iCal format"
-
-### Apple iCloud
-1. Open Calendar on Mac or iCloud.com
-2. Right-click your calendar → Share Calendar
-3. Enable "Public Calendar"
-4. Copy the provided URL
-
-### CalDAV Servers
-For Nextcloud, ownCloud, and other CalDAV servers:
-```
-https://your-server.com/remote.php/dav/calendars/username/calendar/?export
-```
-
-## Command Line Options
-
-```bash
-python main.py [OPTIONS]
-
-Setup and Configuration:
-  --setup                    Run configuration wizard
-  --backup                   Backup current configuration
-  --restore FILE             Restore from backup
-  --list-backups            List available backups
-
-Operational Modes:
-  --interactive, -i         Interactive navigation mode
-  --web, -w                 Web server mode
-  --test-mode              Validation and testing mode
-
-Web Server Options:
-  --port PORT              Web server port (default: 8080)
-  --host HOST              Web server host (default: 0.0.0.0)
-  --auto-open              Auto-open browser
-
-Testing Options:
-  --verbose, -v            Enable verbose output
-  --date DATE              Test specific date (YYYY-MM-DD)
-  --components LIST        Test specific components
-  --output-format FORMAT   Output format (console, json)
-
-Logging Options:
-  --log-level LEVEL        Set log level
-  --quiet, -q              Only show errors
-  --no-file-logging        Disable file logging
-```
-
-## Architecture
-
-Calendar Bot uses a modular architecture:
-
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│ Source Manager  │    │   ICS Fetcher    │    │ Cache Manager   │
-│                 │    │                  │    │                 │
-│ • Multi-source  │───▶│ • HTTP Client    │───▶│ • SQLite WAL    │
-│ • Health Check  │    │ • Auth Support   │    │ • TTL Caching   │
-│ • Auto Config   │    │ • Retry Logic    │    │ • Offline Mode  │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-          │                        │                        │
-          │                        │                        │
-          └────────────────────────┼────────────────────────┘
-                                   │
-                          ┌─────────────────┐
-                          │ Display Manager │
-                          │                 │
-                          │ • Console Out   │
-                          │ • Web Interface │
-                          │ • Status Info   │
-                          └─────────────────┘
-```
-
-### Key Components
-
-- **ICS Processing**: [`calendarbot/ics/`](calendarbot/ics/) - HTTP fetching and parsing
-- **Source Management**: [`calendarbot/sources/`](calendarbot/sources/) - Multi-source coordination
-- **Cache Management**: [`calendarbot/cache/`](calendarbot/cache/) - SQLite-based caching
-- **Display Management**: [`calendarbot/display/`](calendarbot/display/) - Output rendering
-- **Web Interface**: [`calendarbot/web/`](calendarbot/web/) - HTTP server and UI
-- **Interactive UI**: [`calendarbot/ui/`](calendarbot/ui/) - Keyboard navigation
-- **Configuration**: [`config/`](config/) - Settings and validation
-
-## Troubleshooting
-
-### Common Issues
-
-**"Cannot connect to ICS feed"**
-```bash
-# Test your URL directly
-python test_ics.py --url "your-ics-url" --verbose
-```
-
-**"Invalid ICS format"**
-- Verify URL returns ICS content starting with `BEGIN:VCALENDAR`
-- Check if authentication is required
-- Use `--validate-only` flag for format testing
-
-**Events not showing**
-- Ensure events are marked as "BUSY" or "TENTATIVE"
-- Check timezone settings
-- Verify date ranges
-
-**Authentication issues**
-```bash
-# Test with credentials
-python test_ics.py --url "url" --auth-type basic --username "user" --password "pass"
-```
-
-### Debug Mode
-
-Enable detailed logging:
-```bash
-export CALENDARBOT_LOG_LEVEL="DEBUG"
-python main.py --verbose
-```
-
-### Reset Configuration
-
-```bash
-# Backup current config
-python main.py --backup
-
-# Reset and reconfigure
-rm config/config.yaml
-python main.py --setup
-```
-
-## Development
-
-### Setting Up Development Environment
-
-```bash
-# Clone repository
-git clone <repository-url>
-cd calendarBot
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate
-
-# Install dependencies
+git clone https://github.com/yourusername/CalendarBot.git
+cd CalendarBot
+. venv/bin/activate  # Use ". venv\bin\activate" on Windows
 pip install -r requirements.txt
-
-# Run tests
-python main.py --test-mode --verbose
 ```
+2. **See [Install Guide](docs/INSTALL.md)** for detailed steps.
 
-### Running Tests
-
+## Quick Setup
+1. Run the interactive setup wizard:
 ```bash
-# Test ICS functionality
-python test_ics.py --url "test-url" --verbose
+calendarbot --setup
+```
+2. Follow on-screen prompts to configure your ICS feed.
 
-# Test interactive mode
-python test_interactive.py
+**See [Quick Start Guide](quick_start.md)** for common configurations.
 
-# Validate configuration
-python main.py --test-mode --components auth,api,cache,display
+## Usage
+
+Daily operation modes:
+```bash
+# Interactive navigation with terminal UI
+calendarbot  # Launches interactive mode
+
+# Start web interface on port 8080
+calendarbot --web
 ```
 
-### Project Structure
+<!-- Improved maintainability and consistency with CLI structure. -->
 
-```
-calendarBot/
-├── main.py                    # Application entry point
-├── config/
-│   ├── settings.py           # Configuration management
-│   ├── config.yaml.example   # Example configuration
-│   └── config.yaml           # User configuration
-├── calendarbot/
-│   ├── main.py               # Core application logic
-│   ├── setup_wizard.py       # Interactive configuration
-│   ├── ics/                  # ICS processing
-│   ├── sources/              # Calendar source management
-│   ├── cache/                # Local data caching
-│   ├── display/              # Display management
-│   ├── ui/                   # Interactive interface
-│   ├── web/                  # Web interface
-│   ├── utils/                # Utility functions
-│   └── validation/           # Testing framework
-├── test_ics.py               # ICS testing utility
-├── test_interactive.py       # Interactive mode testing
-└── requirements.txt          # Python dependencies
-```
+_For advanced features, see [Usage Guide](docs/USAGE.md)_
 
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [INSTALL.md](INSTALL.md) | Installation and dependency setup |
-| [SETUP.md](SETUP.md) | Configuration wizard guide |
-| [USAGE.md](USAGE.md) | Operational modes and daily usage |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture details |
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes and test thoroughly
-4. Commit your changes: `git commit -m 'Add amazing feature'`
-5. Push to your fork: `git push origin feature/amazing-feature`
-6. Open a Pull Request
-
-### Development Guidelines
-
-- Follow PEP 8 coding standards
-- Add type hints for new functions
-- Include docstrings for public methods
-- Test changes with `--test-mode --verbose`
-- Update documentation for user-facing changes
-
-## Security
-
-### Data Privacy
-- All calendar data processed locally
-- No cloud storage of personal information
-- HTTPS used for all calendar feed requests
-- Optional credential encryption
-
-### Network Security
-- SSL certificate validation by default
-- Configurable timeout and retry limits
-- No external dependencies beyond calendar feeds
-- Minimal attack surface
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-### Getting Help
-
-1. Check this README for common questions
-2. Run diagnostics: `python main.py --test-mode --verbose`
-3. Test ICS feed: `python test_ics.py --url "your-url" --verbose`
-4. Review the [troubleshooting guide](USAGE.md#troubleshooting)
-5. Search existing GitHub issues
-6. Create a detailed issue with logs and configuration
-
-### Community
-
-- **GitHub Issues**: Bug reports and feature requests
-- **Discussions**: Questions and community support
-- **Pull Requests**: Code contributions welcome
-
+## Additional Resources
+📋 **[Full Installation Guide](docs/FULL_INSTALL.md)** (includes backup/restore)
+📋 **[Architecture Overview](docs/ARCHITECTURE.md)** (system design, components)
+📋 **[Community Contributions](CONTRIBUTING.md)** (developer guidelines)
 ---
-
-**Calendar Bot** - Transforming any computer into a dedicated calendar display with modern Python architecture and comprehensive ICS support.
+### Get Support
+- 🗺️ **GitHub Issues**: Post bugs/bugs at [GitHub Issues](https://github.com/yourusername/CalendarBot/issues/new)
+- 📢 **Discussion Forum**: Join community discussions at [Forum](link.to/community)

@@ -172,8 +172,19 @@ class TestValidationFormatter:
 
         # Create a mock record that raises AttributeError
         record = Mock()
-        record.name = None
-        type(record).name = property(side_effect=AttributeError("No name"))
+
+        # DIAGNOSTIC: Properly configure Mock to simulate LogRecord with AttributeError
+        # Set all required string attributes that logging formatter expects
+        record.exc_text = ""
+        record.exc_info = None
+        record.stack_info = None
+        record.getMessage.return_value = "Test message"
+
+        # Configure the mock to raise AttributeError when name is accessed
+        def raise_attribute_error():
+            raise AttributeError("No name")
+
+        type(record).name = property(raise_attribute_error)
 
         # Should not raise exception and set component to system
         result = formatter.format(record)
@@ -500,13 +511,20 @@ class TestIntegrationScenarios:
         """Test error handling in ValidationFormatter."""
         formatter = ValidationFormatter("%(component)s - %(message)s")
 
-        # Create a problematic record
+        # Create a properly configured mock record that simulates missing attributes
         record = Mock()
         record.name = "calendarbot.test"
         record.getMessage.return_value = "Test message"
 
-        # Remove msecs attribute to trigger exception path
-        del record.msecs
+        # DIAGNOSTIC: Properly configure Mock to behave like a LogRecord
+        # Set required attributes that logging formatter expects as strings
+        record.exc_text = ""  # Must be string, not Mock
+        record.exc_info = None
+        record.stack_info = None
+
+        # Remove msecs attribute to test missing attribute handling
+        if hasattr(record, "msecs"):
+            del record.msecs
 
         # Should not raise exception
         try:

@@ -334,7 +334,7 @@ class DatabaseManager:
             logger.error(f"Failed to get cache metadata: {e}")
             return CacheMetadata()
 
-    async def update_cache_metadata(self, **kwargs) -> bool:
+    async def update_cache_metadata(self, **kwargs: Any) -> bool:
         """Update cache metadata.
 
         Args:

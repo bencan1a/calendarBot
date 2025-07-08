@@ -135,6 +135,11 @@ class ICSSourceHandler:
                     self._last_modified = response.last_modified
 
                 # Parse ICS content
+                if response.content is None:
+                    error_msg = "Empty ICS content received"
+                    self._record_failure(error_msg)
+                    raise SourceDataError(error_msg, self.config.name)
+
                 parse_result = self.parser.parse_ics_content(response.content)
 
                 if not parse_result.success:
@@ -263,7 +268,7 @@ class ICSSourceHandler:
 
         return filtered_events
 
-    def _record_success(self, response_time_ms: float, event_count: int):
+    def _record_success(self, response_time_ms: float, event_count: int) -> None:
         """Record successful operation.
 
         Args:
@@ -273,7 +278,7 @@ class ICSSourceHandler:
         self.metrics.record_success(response_time_ms, event_count)
         self.health.update_success(response_time_ms, event_count)
 
-    def _record_failure(self, error_message: str):
+    def _record_failure(self, error_message: str) -> None:
         """Record failed operation.
 
         Args:
@@ -304,13 +309,13 @@ class ICSSourceHandler:
             "cache_headers": {"etag": self._last_etag, "last_modified": self._last_modified},
         }
 
-    def clear_cache_headers(self):
+    def clear_cache_headers(self) -> None:
         """Clear cached HTTP headers to force full refresh."""
         self._last_etag = None
         self._last_modified = None
         logger.debug(f"Cache headers cleared for {self.config.name}")
 
-    def update_config(self, new_config: SourceConfig):
+    def update_config(self, new_config: SourceConfig) -> None:
         """Update source configuration.
 
         Args:

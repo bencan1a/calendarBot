@@ -40,13 +40,12 @@ This document outlines the complete system architecture for CalendarBot, an ICS-
 ```mermaid
 graph TB
     subgraph "Entry Points"
-        EP1[main.py]
+        CLI_MAIN["calendarbot/cli/__init__.py"]
         EP2[calendarbot.__main__.py]
-        EP3[calendarbot CLI]
     end
 
     subgraph "Core Application"
-        MAIN[calendarbot.main.CalendarBot]
+        MAIN[calendarbot.cli.main_entry() → calendarbot.main.CalendarBot]
         SETTINGS[config.settings.CalendarBotSettings]
         WIZARD[calendarbot.setup_wizard.SetupWizard]
     end
