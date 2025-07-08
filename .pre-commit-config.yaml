@@ -43,40 +43,42 @@ repos:
   # Type checking - temporarily disabled to enable commits
   # Core modules (sources/, cache/, ics/) are verified clean with 0 MyPy errors
   # TODO: Re-enable after fixing remaining type issues in other modules
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.10.0
-  #   hooks:
-  #     - id: mypy
-  #       additional_dependencies: [
-  #         types-PyYAML,
-  #         types-requests,
-  #         types-psutil,
-  #         types-pytz,
-  #         types-python-dateutil,
-  #         types-setuptools,
-  #         pydantic>=2.0.0,
-  #         httpx>=0.25.0,
-  #         pytest>=7.4.0,
-  #         pytest-asyncio>=0.21.0,
-  #         aiosqlite>=0.19.0,
-  #         icalendar>=5.0.0,
-  #         APScheduler>=3.10.0,
-  #         cryptography>=41.0.0
-  #       ]
-  #       args: [--config-file=pyproject.toml]
-  #       files: ^calendarbot/(sources|cache|ics)/[^/]+\.py$
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [
+          types-PyYAML,
+          types-requests,
+          types-psutil,
+          types-pytz,
+          types-python-dateutil,
+          types-setuptools,
+          pydantic>=2.0.0,
+          httpx>=0.25.0,
+          pytest>=7.4.0,
+          pytest-asyncio>=0.21.0,
+          aiosqlite>=0.19.0,
+          icalendar>=5.0.0,
+          APScheduler>=3.10.0,
+          cryptography>=41.0.0
+        ]
+        args: [--config-file=pyproject.toml]
+        files: ^calendarbot/(sources|cache|ics)/[^/]+\.py$
 
-  # Critical path tests - temporarily disabled due to browser test timeouts
-  # TODO: Re-enable after fixing browser test stability issues
-  # - repo: local
-  #   hooks:
-  #     - id: critical-path-tests
-  #       name: Critical Path Tests
-  #       entry: sh -c '. venv/bin/activate && python tests/run_tests.py --critical-path'
-  #       language: system
-  #       pass_filenames: false
-  #       stages: [pre-commit]
-  #       verbose: true
+  # Critical path tests - Fast feedback (unit tests only, no browser tests)
+  # Fixed: Removed browser/smoke tests to prevent parallel execution conflicts
+  - repo: local
+    hooks:
+      - id: critical-path-tests
+        name: Critical Path Tests (Unit Only)
+        entry: sh -c '. venv/bin/activate && python tests/run_tests.py --critical-path'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        verbose: true
+        # Fail fast - don't continue with other hooks if critical tests fail
+        fail_fast: true
 
   # # Coverage validation - ensure minimum coverage
   # - repo: local
