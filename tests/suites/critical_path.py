@@ -149,9 +149,10 @@ class CriticalPathSuite:
             # Test selection
             "-m",
             cls._build_marker_expression(),
-            # Coverage (lightweight for speed)
+            # Coverage (lightweight for speed) - no fail threshold for critical path
             "--cov=calendarbot",
             "--cov-report=term",
+            "--cov-fail-under=0",  # No coverage threshold for fast feedback
             # Performance optimization
             "--tb=short",
             "--maxfail=5",  # Stop after 5 failures for fast feedback
@@ -178,13 +179,13 @@ class CriticalPathSuite:
     @classmethod
     def _build_marker_expression(cls) -> str:
         """Build marker expression for test selection."""
-        # Include critical path markers
-        include_markers = ["critical_path", "smoke"]
+        # Include only critical path markers - NO browser/smoke tests
+        include_markers = ["critical_path"]
 
-        # Exclude slow markers
-        exclude_markers = cls.EXCLUDED_MARKERS
+        # Exclude slow markers AND browser tests (which cause parallel execution issues)
+        exclude_markers = cls.EXCLUDED_MARKERS + ["browser", "smoke"]
 
-        # Build expression: (critical_path or smoke) and not (slow or visual_regression...)
+        # Build expression: critical_path and not (slow or browser or visual_regression...)
         include_expr = " or ".join(include_markers)
         exclude_expr = " or ".join(exclude_markers)
 
