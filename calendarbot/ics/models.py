@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class AuthType(str, Enum):
@@ -192,7 +192,10 @@ class DateTimeInfo(BaseModel):
     date_time: datetime = Field(..., description="The date and time")
     time_zone: str = Field(default="UTC", description="Time zone")
 
-    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
+    @field_serializer("date_time")
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Serialize datetime to ISO format."""
+        return dt.isoformat()
 
 
 class Location(BaseModel):
@@ -259,6 +262,9 @@ class CalendarEvent(BaseModel):
             EventStatus.WORKING_ELSEWHERE,
         ]
 
-    model_config = ConfigDict(
-        use_enum_values=True, json_encoders={datetime: lambda v: v.isoformat() if v else None}
-    )
+    model_config = ConfigDict(use_enum_values=True)
+
+    @field_serializer("created_date_time", "last_modified_date_time")
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Serialize datetime fields to ISO format."""
+        return dt.isoformat() if dt else None

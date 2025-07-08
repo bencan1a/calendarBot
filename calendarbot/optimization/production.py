@@ -8,7 +8,7 @@ import re
 import uuid
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple, Union
@@ -81,7 +81,7 @@ class ProductionLogFilter(logging.Filter):
         self.rules = sorted(rules, key=lambda r: r.priority, reverse=True)
         self.settings = settings
         self.message_counts: Dict[str, int] = defaultdict(int)
-        self.last_reset = datetime.utcnow()
+        self.last_reset = datetime.now(UTC)
         self.reset_interval = timedelta(minutes=5)
 
         # Performance optimization tracking
@@ -93,7 +93,7 @@ class ProductionLogFilter(logging.Filter):
         self.total_count += 1
 
         # Reset counters periodically
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         if now - self.last_reset > self.reset_interval:
             self.message_counts.clear()
             self.last_reset = now
@@ -165,13 +165,13 @@ class LogVolumeAnalyzer:
             Analysis results with optimization recommendations
         """
         log_dir = Path(log_dir)
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+        cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
 
         if not log_dir.exists():
             return {"error": f"Log directory {log_dir} does not exist"}
 
         analysis: Dict[str, Any] = {
-            "analysis_time": datetime.utcnow().isoformat(),
+            "analysis_time": datetime.now(UTC).isoformat(),
             "log_directory": str(log_dir),
             "time_range_hours": hours,
             "total_files": 0,
@@ -378,7 +378,7 @@ class DebugStatementAnalyzer:
         root_dir = Path(root_dir)
 
         analysis: Dict[str, Any] = {
-            "analysis_time": datetime.utcnow().isoformat(),
+            "analysis_time": datetime.now(UTC).isoformat(),
             "root_directory": str(root_dir),
             "total_files": 0,
             "python_files": 0,
@@ -699,7 +699,7 @@ class LoggingOptimizer:
             Comprehensive analysis and optimization results
         """
         results: Dict[str, Any] = {
-            "optimization_time": datetime.utcnow().isoformat(),
+            "optimization_time": datetime.now(UTC).isoformat(),
             "log_analysis": {},
             "code_analysis": {},
             "optimization_summary": {},

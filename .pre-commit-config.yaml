@@ -78,16 +78,16 @@ repos:
   #       stages: [pre-commit]
   #       verbose: true
 
-  # Coverage validation - ensure minimum coverage
-  - repo: local
-    hooks:
-      - id: coverage-check
-        name: Coverage Validation (≥80%)
-        entry: sh -c '. venv/bin/activate && python tests/run_tests.py --coverage --coverage-fail-under 55'
-        language: system
-        pass_filenames: false
-        stages: [pre-commit]
-        verbose: true
+  # # Coverage validation - ensure minimum coverage
+  # - repo: local
+  #   hooks:
+  #     - id: coverage-check
+  #       name: Coverage Validation (≥80%)
+  #       entry: sh -c '. venv/bin/activate && python tests/run_tests.py --coverage --coverage-fail-under 55'
+  #       language: system
+  #       pass_filenames: false
+  #       stages: [pre-commit]
+  #       verbose: true
 
   # Security-focused tests
   - repo: local

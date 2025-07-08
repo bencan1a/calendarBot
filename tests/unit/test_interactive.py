@@ -912,13 +912,11 @@ class TestInteractiveControllerIntegration:
         controller = controller_with_mocks
         controller._running = True
 
-        # Create multiple concurrent operations
-        tasks = []
-        for _ in range(3):
-            tasks.append(asyncio.create_task(controller._update_display()))
-
-        # Wait for all to complete
-        await asyncio.gather(*tasks)
+        # Create and immediately await multiple concurrent operations
+        # Using asyncio.gather with coroutines directly to avoid task creation warnings
+        await asyncio.gather(
+            controller._update_display(), controller._update_display(), controller._update_display()
+        )
 
         # Assert that cache manager was called multiple times
         assert controller.cache_manager.get_events_by_date_range.call_count == 3

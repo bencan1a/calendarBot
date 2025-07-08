@@ -13,7 +13,7 @@ import pytest_asyncio
 from calendarbot.cache.models import CachedEvent, CacheMetadata
 
 
-class TestDatabaseManager:
+class DatabaseTestManager:
     """Manages test database creation and population."""
 
     def __init__(self, db_path: Path):
@@ -315,9 +315,9 @@ class DatabaseScenarios:
 
 
 @pytest_asyncio.fixture
-async def test_database_manager(temp_database: Path) -> AsyncGenerator[TestDatabaseManager, None]:
+async def test_database_manager(temp_database: Path) -> AsyncGenerator[DatabaseTestManager, None]:
     """Create a test database manager."""
-    manager = TestDatabaseManager(temp_database)
+    manager = DatabaseTestManager(temp_database)
     await manager.create_tables()
     yield manager
     await manager.clear_all_data()
@@ -325,8 +325,8 @@ async def test_database_manager(temp_database: Path) -> AsyncGenerator[TestDatab
 
 @pytest_asyncio.fixture
 async def populated_test_database(
-    test_database_manager: TestDatabaseManager,
-) -> TestDatabaseManager:
+    test_database_manager: DatabaseTestManager,
+) -> DatabaseTestManager:
     """Create a test database populated with sample data."""
     scenario = DatabaseScenarios.fresh_cache_scenario()
 
@@ -337,7 +337,7 @@ async def populated_test_database(
 
 
 @pytest_asyncio.fixture
-async def stale_cache_database(test_database_manager: TestDatabaseManager) -> TestDatabaseManager:
+async def stale_cache_database(test_database_manager: DatabaseTestManager) -> DatabaseTestManager:
     """Create a test database with stale cache data."""
     scenario = DatabaseScenarios.stale_cache_scenario()
 
@@ -349,8 +349,8 @@ async def stale_cache_database(test_database_manager: TestDatabaseManager) -> Te
 
 @pytest_asyncio.fixture
 async def performance_test_database(
-    test_database_manager: TestDatabaseManager,
-) -> TestDatabaseManager:
+    test_database_manager: DatabaseTestManager,
+) -> DatabaseTestManager:
     """Create a test database with large amount of data for performance testing."""
     scenario = DatabaseScenarios.performance_test_scenario(500)  # 500 events for testing
 

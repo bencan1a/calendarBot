@@ -23,6 +23,7 @@ from tests.fixtures.mock_ics_data import ICSDataFactory
 
 
 @pytest.mark.unit
+@pytest.mark.critical_path
 class TestICSParserInitialization:
     """Test suite for ICS parser initialization."""
 
@@ -42,6 +43,7 @@ class TestICSParserInitialization:
 
 
 @pytest.mark.unit
+@pytest.mark.critical_path
 class TestICSContentParsing:
     """Test suite for ICS content parsing."""
 
@@ -64,6 +66,16 @@ class TestICSContentParsing:
         assert result.ics_version == "2.0"
         assert result.prodid == "-//Test//CalendarBot Test//EN"
 
+    def test_parse_ics_content_success_structure(self, ics_parser, sample_ics_content):
+        """Test parse result structure on success."""
+        result = ics_parser.parse_ics_content(sample_ics_content)
+
+        assert result.success is True
+        assert hasattr(result, "events")
+        assert hasattr(result, "calendar_name")
+        assert hasattr(result, "total_components")
+        assert hasattr(result, "event_count")
+
     def test_parse_empty_ics_content(self, ics_parser):
         """Test parsing empty ICS calendar."""
         ics_content = ICSDataFactory.create_empty_ics()
@@ -74,6 +86,13 @@ class TestICSContentParsing:
         assert len(result.events) == 0
         assert result.event_count == 0
         assert result.total_components > 0  # Calendar itself is a component
+
+    def test_parse_empty_ics_content_string(self, ics_parser):
+        """Test parsing empty ICS content string."""
+        result = ics_parser.parse_ics_content("")
+
+        assert result.success is False
+        assert result.error_message is not None
 
     def test_parse_all_day_events(self, ics_parser):
         """Test parsing all-day events."""
@@ -122,6 +141,14 @@ class TestICSContentParsing:
         assert result.success is False
         assert result.error_message is not None
         assert "content line could not be parsed into parts" in result.error_message.lower()
+
+    def test_parse_invalid_ics_content_simple(self, ics_parser):
+        """Test parsing invalid ICS content with simple string."""
+        invalid_content = "INVALID CONTENT"
+        result = ics_parser.parse_ics_content(invalid_content)
+
+        assert result.success is False
+        assert result.error_message is not None
 
     def test_parse_ics_with_calendar_properties(self, ics_parser):
         """Test parsing ICS with calendar-level properties."""
@@ -218,6 +245,26 @@ class TestEventComponentParsing:
             parsed_event.end.date_time > parsed_event.start.date_time
         )  # Should have default 1-hour duration
 
+    @pytest.mark.critical_path
+    def test_parse_event_component_basic(self, ics_parser):
+        """Test parsing basic event component."""
+        from datetime import datetime, timezone
+
+        from icalendar import Event as ICalEvent
+
+        # Create a minimal event component
+        component = ICalEvent()
+        component.add("UID", "test-event-1")
+        component.add("SUMMARY", "Test Event")
+        component.add("DTSTART", datetime.now(timezone.utc))
+        component.add("DTEND", datetime.now(timezone.utc))
+
+        event = ics_parser._parse_event_component(component)
+
+        assert event is not None
+        assert event.id == "test-event-1"
+        assert event.subject == "Test Event"
+
     def test_parse_event_without_dtstart_returns_none(self, ics_parser):
         """Test parsing event without DTSTART returns None."""
         event = ICalEvent()
@@ -227,6 +274,19 @@ class TestEventComponentParsing:
         parsed_event = ics_parser._parse_event_component(event)
 
         assert parsed_event is None
+
+    @pytest.mark.critical_path
+    def test_parse_event_component_missing_dtstart(self, ics_parser):
+        """Test parsing event component without DTSTART returns None."""
+        from icalendar import Event as ICalEvent
+
+        component = ICalEvent()
+        component.add("UID", "test-event-1")
+        component.add("SUMMARY", "Test Event")
+
+        event = ics_parser._parse_event_component(component)
+
+        assert event is None
 
     def test_parse_event_with_duration(self, ics_parser):
         """Test parsing event with DURATION instead of DTEND."""
@@ -403,6 +463,20 @@ class TestDateTimeParsing:
         assert result == dt_with_tz
         assert result.tzinfo is not None
 
+    @pytest.mark.critical_path
+    def test_parse_datetime_with_timezone_prop(self, ics_parser):
+        """Test parsing datetime with timezone using prop."""
+        from datetime import datetime, timezone
+
+        from icalendar.prop import vDDDTypes
+
+        dt = datetime.now(timezone.utc)
+        dt_prop = vDDDTypes(dt)
+
+        parsed_dt = ics_parser._parse_datetime(dt_prop)
+
+        assert parsed_dt.tzinfo is not None
+
     def test_parse_datetime_without_timezone_uses_default(self, ics_parser):
         """Test parsing datetime without timezone uses default timezone."""
         dt_no_tz = datetime(2025, 1, 7, 14, 0, 0)
@@ -423,6 +497,20 @@ class TestDateTimeParsing:
         result = ics_parser._parse_datetime(mock_prop)
 
         assert result.tzinfo == timezone.utc
+
+    @pytest.mark.critical_path
+    def test_parse_datetime_without_timezone_uses_utc(self, ics_parser):
+        """Test parsing datetime without timezone uses UTC."""
+        from datetime import datetime
+
+        from icalendar.prop import vDDDTypes
+
+        dt = datetime.now()  # No timezone
+        dt_prop = vDDDTypes(dt)
+
+        parsed_dt = ics_parser._parse_datetime(dt_prop)
+
+        assert parsed_dt.tzinfo is not None
 
     def test_parse_datetime_with_invalid_default_timezone(self, ics_parser):
         """Test parsing datetime with invalid default timezone falls back to UTC."""
@@ -456,6 +544,13 @@ class TestDateTimeParsing:
         result = ics_parser._parse_datetime_optional(None)
         assert result is None
 
+    @pytest.mark.critical_path
+    def test_parse_datetime_optional_none(self, ics_parser):
+        """Test parsing optional datetime when None."""
+        result = ics_parser._parse_datetime_optional(None)
+
+        assert result is None
+
     def test_parse_datetime_optional_with_valid_datetime(self, ics_parser):
         """Test parsing optional datetime with valid datetime."""
         dt = datetime(2025, 1, 7, 14, 0, 0, tzinfo=timezone.utc)
@@ -465,6 +560,21 @@ class TestDateTimeParsing:
         result = ics_parser._parse_datetime_optional(mock_prop)
 
         assert result == dt
+
+    @pytest.mark.critical_path
+    def test_parse_datetime_optional_valid(self, ics_parser):
+        """Test parsing optional datetime when valid."""
+        from datetime import datetime, timezone
+
+        from icalendar.prop import vDDDTypes
+
+        dt = datetime.now(timezone.utc)
+        dt_prop = vDDDTypes(dt)
+
+        result = ics_parser._parse_datetime_optional(dt_prop)
+
+        assert result is not None
+        assert isinstance(result, datetime)
 
     def test_parse_datetime_optional_with_exception(self, ics_parser):
         """Test parsing optional datetime with exception returns None."""
@@ -502,6 +612,14 @@ class TestStatusAndTransparencyMapping:
         result = ics_parser._parse_status("cancelled")
         assert result == "CANCELLED"
 
+    @pytest.mark.critical_path
+    def test_parse_status_values(self, ics_parser):
+        """Test parsing various status values."""
+        assert ics_parser._parse_status("CONFIRMED") == "CONFIRMED"
+        assert ics_parser._parse_status("CANCELLED") == "CANCELLED"
+        assert ics_parser._parse_status("TENTATIVE") == "TENTATIVE"
+        assert ics_parser._parse_status(None) is None
+
     @pytest.mark.parametrize(
         "transparency,status,expected",
         [
@@ -517,6 +635,22 @@ class TestStatusAndTransparencyMapping:
     def test_map_transparency_to_status(self, ics_parser, transparency, status, expected):
         """Test mapping transparency and status to EventStatus."""
         result = ics_parser._map_transparency_to_status(transparency, status)
+        assert result == expected
+
+    @pytest.mark.critical_path
+    @pytest.mark.parametrize(
+        "transparency,status,expected",
+        [
+            ("OPAQUE", "CONFIRMED", EventStatus.BUSY),
+            ("TRANSPARENT", "CONFIRMED", EventStatus.FREE),
+            ("OPAQUE", "TENTATIVE", EventStatus.TENTATIVE),
+            ("OPAQUE", "CANCELLED", EventStatus.FREE),
+        ],
+    )
+    def test_map_transparency_to_status_critical(self, ics_parser, transparency, status, expected):
+        """Test transparency mapping to event status."""
+        result = ics_parser._map_transparency_to_status(transparency, status)
+
         assert result == expected
 
 
@@ -547,6 +681,22 @@ class TestAttendeesParsing:
         assert result.type == AttendeeType.REQUIRED
         assert result.response_status == ResponseStatus.ACCEPTED
 
+    @pytest.mark.critical_path
+    def test_parse_attendee_basic_critical(self, ics_parser):
+        """Test parsing basic attendee."""
+        from icalendar.prop import vCalAddress
+
+        attendee_prop = vCalAddress("mailto:test@example.com")
+        attendee_prop.params["CN"] = "Test User"
+        attendee_prop.params["ROLE"] = "REQ-PARTICIPANT"
+        attendee_prop.params["PARTSTAT"] = "ACCEPTED"
+
+        attendee = ics_parser._parse_attendee(attendee_prop)
+
+        assert attendee is not None
+        assert attendee.email == "test@example.com"
+        assert attendee.name == "Test User"
+
     def test_parse_attendee_without_mailto_prefix(self, ics_parser):
         """Test parsing attendee without mailto: prefix."""
         mock_attendee = MagicMock()
@@ -558,6 +708,19 @@ class TestAttendeesParsing:
         assert result is not None
         assert result.email == "test@example.com"
         assert result.name == "test"  # Should use email prefix as name
+
+    @pytest.mark.critical_path
+    def test_parse_attendee_minimal(self, ics_parser):
+        """Test parsing attendee with minimal info."""
+        from icalendar.prop import vCalAddress
+
+        attendee_prop = vCalAddress("mailto:test@example.com")
+
+        attendee = ics_parser._parse_attendee(attendee_prop)
+
+        assert attendee is not None
+        assert attendee.email == "test@example.com"
+        assert attendee.name == "test"  # Extracted from email
 
     @pytest.mark.parametrize(
         "role,expected_type",
@@ -633,6 +796,18 @@ class TestCalendarProperties:
         assert result == "Test Value"
         mock_calendar.get.assert_called_once_with("TEST-PROP")
 
+    @pytest.mark.critical_path
+    def test_get_calendar_property_exists(self, ics_parser):
+        """Test getting calendar property that exists."""
+        from icalendar import Calendar
+
+        cal = Calendar()
+        cal.add("PRODID", "Test Calendar")
+
+        prop = ics_parser._get_calendar_property(cal, "PRODID")
+
+        assert prop == "Test Calendar"
+
     def test_get_calendar_property_nonexistent(self, ics_parser):
         """Test getting non-existent calendar property."""
         mock_calendar = MagicMock()
@@ -641,6 +816,17 @@ class TestCalendarProperties:
         result = ics_parser._get_calendar_property(mock_calendar, "NONEXISTENT")
 
         assert result is None
+
+    @pytest.mark.critical_path
+    def test_get_calendar_property_missing(self, ics_parser):
+        """Test getting calendar property that doesn't exist."""
+        from icalendar import Calendar
+
+        cal = Calendar()
+
+        prop = ics_parser._get_calendar_property(cal, "NONEXISTENT")
+
+        assert prop is None
 
     def test_get_calendar_property_exception(self, ics_parser):
         """Test getting calendar property with exception."""
@@ -718,6 +904,41 @@ class TestEventFiltering:
         assert "Free Event" not in event_subjects
         assert "Cancelled Event" not in event_subjects
 
+    @pytest.mark.critical_path
+    def test_filter_busy_events_critical(self, ics_parser, sample_events):
+        """Test filtering to only busy events."""
+        # Modify sample events to test filtering
+        sample_events[0].show_as = EventStatus.BUSY
+        sample_events[0].is_cancelled = False
+        sample_events[1].show_as = EventStatus.FREE
+        sample_events[1].is_cancelled = False
+        # Ensure tentative event is also set to FREE for this test
+        sample_events[2].show_as = EventStatus.FREE
+        sample_events[2].is_cancelled = False
+
+        filtered = ics_parser.filter_busy_events(sample_events)
+
+        # Should only include busy events
+        assert len(filtered) == 1
+        assert filtered[0].show_as == EventStatus.BUSY
+
+    @pytest.mark.critical_path
+    def test_filter_busy_events_excludes_cancelled(self, ics_parser, sample_events):
+        """Test that cancelled events are filtered out."""
+        sample_events[0].show_as = EventStatus.BUSY
+        sample_events[0].is_cancelled = True
+        # Ensure all other events are not considered busy or are cancelled
+        sample_events[1].show_as = EventStatus.FREE
+        sample_events[1].is_cancelled = False
+        sample_events[2].show_as = EventStatus.FREE
+        sample_events[2].is_cancelled = False
+        sample_events[3].show_as = EventStatus.BUSY
+        sample_events[3].is_cancelled = True
+
+        filtered = ics_parser.filter_busy_events(sample_events)
+
+        assert len(filtered) == 0
+
 
 @pytest.mark.unit
 class TestRecurrenceExpansion:
@@ -769,6 +990,17 @@ class TestRecurrenceExpansion:
         assert len(expanded_events) == len(sample_events)
         assert expanded_events == sample_events
 
+    @pytest.mark.critical_path
+    def test_expand_recurring_events_placeholder_critical(self, ics_parser, sample_events):
+        """Test recurring events expansion placeholder."""
+        start_date = datetime.now()
+        end_date = datetime.now()
+
+        # Currently returns events as-is (placeholder implementation)
+        expanded = ics_parser.expand_recurring_events(sample_events, start_date, end_date)
+
+        assert expanded == sample_events
+
 
 @pytest.mark.unit
 class TestICSValidation:
@@ -787,6 +1019,13 @@ class TestICSValidation:
 
         assert result is True
 
+    @pytest.mark.critical_path
+    def test_validate_ics_content_valid(self, ics_parser, sample_ics_content):
+        """Test validation of valid ICS content."""
+        is_valid = ics_parser.validate_ics_content(sample_ics_content)
+
+        assert is_valid is True
+
     def test_validate_empty_ics_content(self, ics_parser):
         """Test validation of empty ICS content."""
         with patch.object(ics_parser.security_logger, "log_input_validation_failure") as mock_log:
@@ -794,6 +1033,13 @@ class TestICSValidation:
 
         assert result is False
         mock_log.assert_called_once()
+
+    @pytest.mark.critical_path
+    def test_validate_ics_content_empty(self, ics_parser):
+        """Test validation of empty content."""
+        is_valid = ics_parser.validate_ics_content("")
+
+        assert is_valid is False
 
     def test_validate_none_ics_content(self, ics_parser):
         """Test validation of None ICS content."""
@@ -815,6 +1061,14 @@ class TestICSValidation:
         args = mock_log.call_args[1]
         assert "Missing BEGIN:VCALENDAR marker" in args["validation_error"]
 
+    @pytest.mark.critical_path
+    def test_validate_ics_content_missing_begin(self, ics_parser):
+        """Test validation when BEGIN:VCALENDAR is missing."""
+        invalid_content = "END:VCALENDAR"
+        is_valid = ics_parser.validate_ics_content(invalid_content)
+
+        assert is_valid is False
+
     def test_validate_ics_content_missing_end_vcalendar(self, ics_parser):
         """Test validation of ICS content missing END:VCALENDAR."""
         ics_content = "BEGIN:VCALENDAR\nVERSION:2.0"
@@ -826,6 +1080,14 @@ class TestICSValidation:
         mock_log.assert_called_once()
         args = mock_log.call_args[1]
         assert "Missing END:VCALENDAR marker" in args["validation_error"]
+
+    @pytest.mark.critical_path
+    def test_validate_ics_content_missing_end(self, ics_parser):
+        """Test validation when END:VCALENDAR is missing."""
+        invalid_content = "BEGIN:VCALENDAR\nVERSION:2.0"
+        is_valid = ics_parser.validate_ics_content(invalid_content)
+
+        assert is_valid is False
 
     def test_validate_ics_content_parsing_failure(self, ics_parser):
         """Test validation when icalendar parsing fails."""
@@ -852,6 +1114,57 @@ class TestICSValidation:
 
 
 @pytest.mark.unit
+class TestICSParserSecurity:
+    """Security-related ICS parser tests."""
+
+    @pytest.fixture
+    def ics_parser(self, test_settings):
+        """Create ICS parser instance."""
+        return ICSParser(test_settings)
+
+    def test_validate_ics_content_security_logging(self, ics_parser):
+        """Test that invalid content triggers security logging."""
+        # Security logger should log validation failures
+        is_valid = ics_parser.validate_ics_content("MALICIOUS CONTENT")
+
+        assert is_valid is False
+        # Security logger should have been called (tested via behavior)
+
+    def test_parse_large_ics_content(self, ics_parser):
+        """Test parsing very large ICS content doesn't hang."""
+        # Create content that's large but still valid
+        large_content = "BEGIN:VCALENDAR\nVERSION:2.0\n"
+        for i in range(100):  # Not too large to avoid memory issues
+            large_content += f"BEGIN:VEVENT\nUID:event-{i}\nSUMMARY:Event {i}\nEND:VEVENT\n"
+        large_content += "END:VCALENDAR"
+
+        result = ics_parser.parse_ics_content(large_content)
+
+        # Should handle large content gracefully
+        assert (
+            result.success is True or result.success is False
+        )  # Either works, just shouldn't hang
+
+    def test_parse_malformed_datetime(self, ics_parser):
+        """Test handling malformed datetime in events."""
+        malformed_ics = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:test-malformed
+SUMMARY:Test Event
+DTSTART:INVALID_DATE
+END:VEVENT
+END:VCALENDAR"""
+
+        result = ics_parser.parse_ics_content(malformed_ics)
+
+        # Should either parse successfully (skipping bad event) or fail gracefully
+        assert isinstance(result.success, bool)
+        if not result.success:
+            assert result.error_message is not None
+
+
+@pytest.mark.unit
 class TestEdgeCasesAndErrorHandling:
     """Test suite for edge cases and error handling."""
 
@@ -871,6 +1184,23 @@ class TestEdgeCasesAndErrorHandling:
 
         assert parsed_event is not None
         assert parsed_event.id == "12345678-1234-5678-9012-123456789abc"
+
+    @pytest.mark.critical_path
+    def test_parse_event_component_missing_uid(self, ics_parser):
+        """Test parsing event component without UID generates one."""
+        from datetime import datetime, timezone
+
+        from icalendar import Event as ICalEvent
+
+        component = ICalEvent()
+        component.add("SUMMARY", "Test Event")
+        component.add("DTSTART", datetime.now(timezone.utc))
+
+        event = ics_parser._parse_event_component(component)
+
+        assert event is not None
+        assert event.id is not None  # Should generate UUID
+        assert len(event.id) > 0
 
     def test_parse_event_with_missing_summary_uses_default(self, ics_parser):
         """Test parsing event without SUMMARY uses default title."""
@@ -1168,6 +1498,7 @@ END:VCALENDAR"""
         assert result.event_count == 0
         assert result.total_components == 1  # Just the calendar component
 
+    @pytest.mark.performance
     def test_parse_large_calendar_performance(self, ics_parser):
         """Test parsing large calendar for performance."""
         large_ics = ICSDataFactory.create_large_ics(50)  # 50 events

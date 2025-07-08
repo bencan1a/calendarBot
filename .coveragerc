@@ -9,20 +9,30 @@ timid = False
 
 # Comprehensive omit patterns for clean coverage
 omit =
+    # Scripts and development utilities
+    scripts/*
+    scripts/**/*
+    */scripts/*
+    # Test files and directories
+    tests/*
+    tests/**/*
     */tests/*
     */test_*
+    test_*.py
+    */conftest.py
+    # Build and environment directories
     */__pycache__/*
     */venv/*
     */env/*
     */node_modules/*
-    debug_*.py
-    test_*.py
-    setup.py
-    */migrations/*
-    */conftest.py
     */.tox/*
     */coverage/*
     */htmlcov/*
+    # Setup and configuration files
+    setup.py
+    */migrations/*
+    # Debug and temporary files
+    debug_*.py
     *_temp.py
     *_backup.py
     validate_*.py

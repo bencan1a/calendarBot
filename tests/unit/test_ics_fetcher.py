@@ -1,4 +1,4 @@
-"""Unit tests for ICS fetcher and HTTP client functionality."""
+"""Consolidated ICS fetcher tests combining comprehensive coverage with optimized critical paths."""
 
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -9,15 +9,28 @@ import pytest_asyncio
 
 from calendarbot.ics.exceptions import ICSAuthError, ICSFetchError, ICSNetworkError
 from calendarbot.ics.fetcher import ICSFetcher
-from calendarbot.ics.models import ICSAuth, ICSSource
+from calendarbot.ics.models import AuthType, ICSAuth, ICSSource
 from tests.fixtures.mock_ics_data import ICSDataFactory, MockHTTPResponses, SSRFTestCases
 from tests.fixtures.mock_servers import MockICSServer
 
 
+@pytest.fixture
+def mock_ics_source():
+    """Create mock ICS source for testing."""
+    return ICSSource(
+        name="test_source",
+        url="https://example.com/calendar.ics",
+        auth=ICSAuth(),
+        timeout=10,
+        validate_ssl=True,
+        custom_headers={},
+    )
+
+
 @pytest.mark.unit
 @pytest.mark.critical_path
-class TestICSFetcher:
-    """Test suite for ICS fetcher functionality."""
+class TestICSFetcherCore:
+    """Core ICS fetcher functionality tests with critical path coverage."""
 
     @pytest_asyncio.fixture
     async def ics_fetcher(self, test_settings):
@@ -26,17 +39,21 @@ class TestICSFetcher:
         yield fetcher
         await fetcher._close_client()
 
+    @pytest.fixture
+    def fetcher(self, test_settings):
+        """Create ICS fetcher instance (optimized fixture)."""
+        return ICSFetcher(test_settings)
+
     @pytest_asyncio.fixture
     async def basic_ics_source(self):
         """Create a basic ICS source for testing."""
         return ICSSource(
+            name="basic_test_source",
             url="https://example.com/calendar.ics",
             auth=ICSAuth(),
             timeout=10,
             validate_ssl=True,
             custom_headers={},
-            max_retries=2,
-            retry_backoff=1.0,
         )
 
     @pytest.mark.asyncio
@@ -44,6 +61,12 @@ class TestICSFetcher:
         """Test ICS fetcher initialization."""
         fetcher = ICSFetcher(test_settings)
 
+        assert fetcher.settings == test_settings
+        assert fetcher.client is None
+        assert fetcher.security_logger is not None
+
+    def test_fetcher_initialization_optimized(self, fetcher, test_settings):
+        """Test fetcher initializes correctly (optimized version)."""
         assert fetcher.settings == test_settings
         assert fetcher.client is None
         assert fetcher.security_logger is not None
@@ -62,6 +85,27 @@ class TestICSFetcher:
         assert ics_fetcher.client.follow_redirects is True
         # Note: httpx.AsyncClient doesn't have a verify attribute directly accessible
         # SSL verification is handled internally through the client configuration
+
+    @pytest.mark.asyncio
+    async def test_ensure_client_creates_client(self, fetcher):
+        """Test client creation (optimized version)."""
+        await fetcher._ensure_client()
+
+        assert fetcher.client is not None
+        assert not fetcher.client.is_closed
+
+        await fetcher._close_client()
+
+    @pytest.mark.asyncio
+    async def test_ensure_client_reuses_existing(self, fetcher):
+        """Test client reuse when already exists."""
+        await fetcher._ensure_client()
+        first_client = fetcher.client
+
+        await fetcher._ensure_client()
+
+        assert fetcher.client is first_client
+        await fetcher._close_client()
 
     @pytest.mark.asyncio
     async def test_client_headers(self, ics_fetcher):
@@ -85,6 +129,22 @@ class TestICSFetcher:
         assert ics_fetcher.client.is_closed
 
     @pytest.mark.asyncio
+    async def test_close_client_when_exists(self, fetcher):
+        """Test closing existing client (optimized version)."""
+        await fetcher._ensure_client()
+        assert not fetcher.client.is_closed
+
+        await fetcher._close_client()
+
+        assert fetcher.client.is_closed
+
+    @pytest.mark.asyncio
+    async def test_close_client_when_none(self, fetcher):
+        """Test closing client when none exists."""
+        # Should not raise exception
+        await fetcher._close_client()
+
+    @pytest.mark.asyncio
     async def test_context_manager(self, test_settings):
         """Test ICS fetcher as async context manager."""
         async with ICSFetcher(test_settings) as fetcher:
@@ -92,6 +152,16 @@ class TestICSFetcher:
             assert not fetcher.client.is_closed
 
         # Client should be closed after exiting context
+        assert fetcher.client.is_closed
+
+    @pytest.mark.asyncio
+    async def test_context_manager_entry_exit(self, fetcher):
+        """Test async context manager functionality (optimized version)."""
+        async with fetcher as f:
+            assert f is fetcher
+            assert fetcher.client is not None
+
+        # Client should be closed after exit
         assert fetcher.client.is_closed
 
 
@@ -108,6 +178,11 @@ class TestSSRFProtection:
         yield fetcher
         await fetcher._close_client()
 
+    @pytest.fixture
+    def fetcher(self, test_settings):
+        """Create ICS fetcher instance (optimized fixture)."""
+        return ICSFetcher(test_settings)
+
     @pytest.mark.parametrize("malicious_url", SSRFTestCases.MALICIOUS_URLS)
     @pytest.mark.asyncio
     async def test_ssrf_protection_blocks_malicious_urls(self, ics_fetcher, malicious_url):
@@ -121,6 +196,75 @@ class TestSSRFProtection:
         """Test that SSRF protection allows safe URLs."""
         is_safe = ics_fetcher._validate_url_for_ssrf(safe_url)
         assert is_safe is True, f"URL should be allowed: {safe_url}"
+
+    @pytest.mark.parametrize(
+        "url,expected",
+        [
+            ("https://example.com/calendar.ics", True),
+            ("http://example.com/calendar.ics", True),
+            ("ftp://example.com/calendar.ics", False),
+            ("https://localhost/calendar.ics", False),
+            ("https://127.0.0.1/calendar.ics", False),
+            ("https://192.168.1.1/calendar.ics", False),
+            ("https://10.0.0.1/calendar.ics", False),
+        ],
+    )
+    def test_validate_url_for_ssrf_optimized(self, fetcher, url, expected):
+        """Test SSRF validation for various URLs (optimized version)."""
+        result = fetcher._validate_url_for_ssrf(url)
+
+        assert result == expected
+
+    def test_validate_url_malformed(self, fetcher):
+        """Test validation of malformed URL."""
+        result = fetcher._validate_url_for_ssrf("not-a-url")
+
+        assert result is False
+
+    def test_validate_url_encoded_localhost(self, fetcher):
+        """Test validation catches encoded localhost attempts."""
+        # 127.0.0.1 as decimal: 2130706433
+        result = fetcher._validate_url_for_ssrf("http://2130706433/test")
+
+        assert result is False
+
+    def test_validate_url_hex_localhost(self, fetcher):
+        """Test validation catches hex-encoded localhost."""
+        # 127.0.0.1 as hex: 0x7f000001
+        result = fetcher._validate_url_for_ssrf("http://0x7f000001/test")
+
+        assert result is False
+
+    @pytest.mark.parametrize(
+        "malicious_url",
+        [
+            "http://localhost:8080/internal",
+            "https://127.0.0.1/admin",
+            "http://192.168.1.1/config",
+            "https://10.0.0.1/secret",
+            "http://169.254.169.254/metadata",  # AWS metadata
+            "ftp://example.com/file",
+            "file:///etc/passwd",
+            "ldap://internal.server/",
+        ],
+    )
+    def test_ssrf_protection_blocks_malicious_urls_optimized(self, fetcher, malicious_url):
+        """Test SSRF protection blocks various malicious URLs (optimized version)."""
+        result = fetcher._validate_url_for_ssrf(malicious_url)
+
+        assert result is False
+
+    def test_ssrf_protection_allows_safe_urls_optimized(self, fetcher):
+        """Test SSRF protection allows safe external URLs (optimized version)."""
+        safe_urls = [
+            "https://calendar.google.com/calendar.ics",
+            "http://example.com/public/calendar.ics",
+            "https://outlook.office365.com/owa/calendar.ics",
+        ]
+
+        for url in safe_urls:
+            result = fetcher._validate_url_for_ssrf(url)
+            assert result is True, f"URL should be allowed: {url}"
 
     @pytest.mark.asyncio
     async def test_ssrf_protection_blocks_fetch(self, ics_fetcher):
@@ -171,6 +315,11 @@ class TestICSFetching:
         yield fetcher
         await fetcher._close_client()
 
+    @pytest.fixture
+    def fetcher(self, test_settings):
+        """Create ICS fetcher instance (optimized fixture)."""
+        return ICSFetcher(test_settings)
+
     @pytest_asyncio.fixture
     async def mock_ics_server(self):
         """Create a mock ICS server."""
@@ -199,6 +348,32 @@ class TestICSFetching:
         content_type = response.headers.get("Content-Type") or response.headers.get("content-type")
         assert content_type == "text/calendar"
         assert mock_ics_server.get_request_count() == 1
+
+    @pytest.mark.asyncio
+    async def test_fetch_ics_success_optimized(self, fetcher, mock_ics_source, mock_http_response):
+        """Test successful ICS fetch (optimized version)."""
+        mock_http_response.text = "Mock ICS content"
+
+        with patch.object(fetcher, "_validate_url_for_ssrf", return_value=True), patch.object(
+            fetcher, "_make_request_with_retry", return_value=mock_http_response
+        ):
+
+            result = await fetcher.fetch_ics(mock_ics_source)
+
+            assert result.success is True
+            assert result.content == "Mock ICS content"
+            assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_fetch_ics_ssrf_blocked(self, fetcher, mock_ics_source):
+        """Test ICS fetch blocked by SSRF protection."""
+        with patch.object(fetcher, "_validate_url_for_ssrf", return_value=False):
+
+            result = await fetcher.fetch_ics(mock_ics_source)
+
+            assert result.success is False
+            assert result.status_code == 403
+            assert "security reasons" in result.error_message
 
     @pytest.mark.asyncio
     async def test_fetch_with_conditional_headers(self, ics_fetcher, mock_ics_server):
@@ -248,9 +423,28 @@ class TestICSFetching:
         assert "Authentication failed" in str(exc_info.value)
 
     @pytest.mark.asyncio
+    async def test_fetch_ics_auth_error_optimized(self, fetcher, mock_ics_source):
+        """Test ICS fetch with authentication error (optimized version)."""
+        import httpx
+
+        auth_error_response = MagicMock()
+        auth_error_response.status_code = 401
+        auth_error_response.reason_phrase = "Unauthorized"
+
+        with patch.object(fetcher, "_validate_url_for_ssrf", return_value=True), patch.object(
+            fetcher,
+            "_make_request_with_retry",
+            side_effect=httpx.HTTPStatusError(
+                "Auth failed", request=MagicMock(), response=auth_error_response
+            ),
+        ), pytest.raises(ICSAuthError):
+
+            await fetcher.fetch_ics(mock_ics_source)
+
+    @pytest.mark.asyncio
     async def test_basic_authentication(self, ics_fetcher):
         """Test basic authentication handling."""
-        auth = ICSAuth(type="basic", username="test", password="pass")
+        auth = ICSAuth(type=AuthType.BASIC, username="test", password="pass")
         headers = auth.get_headers()
 
         assert "Authorization" in headers
@@ -266,7 +460,7 @@ class TestICSFetching:
     @pytest.mark.asyncio
     async def test_bearer_authentication(self, ics_fetcher):
         """Test bearer token authentication."""
-        auth = ICSAuth(type="bearer", bearer_token="test-token-123")
+        auth = ICSAuth(type=AuthType.BEARER, bearer_token="test-token-123")
         headers = auth.get_headers()
 
         assert "Authorization" in headers
@@ -297,6 +491,20 @@ class TestICSFetching:
                 or "timeout" in str(exc_info.value).lower()
             )
 
+    @pytest.mark.asyncio
+    async def test_fetch_ics_timeout_optimized(self, fetcher, mock_ics_source):
+        """Test ICS fetch with timeout (optimized version)."""
+        import httpx
+
+        with patch.object(fetcher, "_validate_url_for_ssrf", return_value=True), patch.object(
+            fetcher, "_make_request_with_retry", side_effect=httpx.TimeoutException("Timeout")
+        ):
+
+            result = await fetcher.fetch_ics(mock_ics_source)
+
+            assert result.success is False
+            assert "timeout" in result.error_message.lower()
+
     @patch("httpx.AsyncClient.get")
     @pytest.mark.asyncio
     async def test_network_error_handling(self, mock_get, ics_fetcher):
@@ -310,6 +518,17 @@ class TestICSFetching:
 
         with pytest.raises(ICSNetworkError):
             await ics_fetcher.fetch_ics(source)
+
+    @pytest.mark.asyncio
+    async def test_fetch_ics_network_error_optimized(self, fetcher, mock_ics_source):
+        """Test ICS fetch with network error (optimized version)."""
+        import httpx
+
+        with patch.object(fetcher, "_validate_url_for_ssrf", return_value=True), patch.object(
+            fetcher, "_make_request_with_retry", side_effect=httpx.NetworkError("Network error")
+        ), pytest.raises(ICSNetworkError):
+
+            await fetcher.fetch_ics(mock_ics_source)
 
     @pytest.mark.asyncio
     async def test_retry_logic(self, ics_fetcher):
@@ -343,6 +562,69 @@ class TestICSFetching:
             assert mock_get.call_count == 3
 
     @pytest.mark.asyncio
+    async def test_make_request_with_retry_success_first_attempt(self, fetcher, mock_http_response):
+        """Test successful request on first attempt (optimized version)."""
+        fetcher.client = AsyncMock()
+        fetcher.client.get.return_value = mock_http_response
+
+        result = await fetcher._make_request_with_retry("https://example.com", {}, 10, True)
+
+        assert result == mock_http_response
+        fetcher.client.get.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_make_request_with_retry_success_after_retry(
+        self, fetcher, mock_http_response, test_settings
+    ):
+        """Test successful request after retry (optimized version)."""
+        import httpx
+
+        test_settings.max_retries = 1
+        fetcher.client = AsyncMock()
+
+        # First call fails, second succeeds
+        fetcher.client.get.side_effect = [httpx.TimeoutException("Timeout"), mock_http_response]
+
+        with patch("asyncio.sleep"):  # Speed up test
+            result = await fetcher._make_request_with_retry("https://example.com", {}, 10, True)
+
+        assert result == mock_http_response
+        assert fetcher.client.get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_make_request_with_retry_max_retries_exceeded(self, fetcher, test_settings):
+        """Test request fails after max retries (optimized version)."""
+        import httpx
+
+        test_settings.max_retries = 1
+        fetcher.client = AsyncMock()
+        fetcher.client.get.side_effect = httpx.TimeoutException("Timeout")
+
+        with patch("asyncio.sleep"), pytest.raises(httpx.TimeoutException):
+
+            await fetcher._make_request_with_retry("https://example.com", {}, 10, True)
+
+    @pytest.mark.asyncio
+    async def test_make_request_with_retry_http_error_no_retry(self, fetcher):
+        """Test HTTP errors are not retried (optimized version)."""
+        import httpx
+
+        fetcher.client = AsyncMock()
+
+        error_response = MagicMock()
+        error_response.status_code = 404
+
+        fetcher.client.get.side_effect = httpx.HTTPStatusError(
+            "Not found", request=MagicMock(), response=error_response
+        )
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await fetcher._make_request_with_retry("https://example.com", {}, 10, True)
+
+        # Should only try once for HTTP errors
+        fetcher.client.get.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_connection_test_head_request(self, ics_fetcher, mock_ics_server):
         """Test connection testing with HEAD request."""
         source = ICSSource(
@@ -353,6 +635,24 @@ class TestICSFetching:
         with patch.object(ics_fetcher, "_validate_url_for_ssrf", return_value=True):
             success = await ics_fetcher.test_connection(source)
         assert success is True
+
+    @pytest.mark.asyncio
+    async def test_test_connection_success_head(self, fetcher, mock_ics_source):
+        """Test successful connection test with HEAD request (optimized version)."""
+        # Mock the client and prevent _ensure_client from replacing it
+        mock_client = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_client.head = AsyncMock(return_value=mock_response)
+
+        # Patch _ensure_client to prevent real client creation
+        with patch.object(fetcher, "_ensure_client", new_callable=AsyncMock):
+            fetcher.client = mock_client
+
+            result = await fetcher.test_connection(mock_ics_source)
+
+            assert result is True
+            mock_client.head.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_connection_test_fallback_to_get(self, ics_fetcher):
@@ -380,6 +680,39 @@ class TestICSFetching:
             mock_fetch.assert_called_once_with(source)
 
     @pytest.mark.asyncio
+    async def test_test_connection_head_not_allowed_fallback_get(self, fetcher, mock_ics_source):
+        """Test connection test falls back to GET when HEAD not allowed (optimized version)."""
+        # Mock the client and prevent _ensure_client from replacing it
+        mock_client = AsyncMock()
+        head_response = MagicMock()
+        head_response.status_code = 405
+        mock_client.head = AsyncMock(return_value=head_response)
+
+        # Patch _ensure_client to prevent real client creation
+        with patch.object(fetcher, "_ensure_client", new_callable=AsyncMock), patch.object(
+            fetcher, "fetch_ics"
+        ) as mock_fetch:
+
+            fetcher.client = mock_client
+            mock_fetch.return_value = MagicMock(success=True)
+
+            result = await fetcher.test_connection(mock_ics_source)
+
+            assert result is True
+            mock_client.head.assert_called_once()
+            mock_fetch.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_test_connection_failure(self, fetcher, mock_ics_source):
+        """Test connection test failure (optimized version)."""
+        fetcher.client = AsyncMock()
+        fetcher.client.head.side_effect = Exception("Connection failed")
+
+        result = await fetcher.test_connection(mock_ics_source)
+
+        assert result is False
+
+    @pytest.mark.asyncio
     async def test_conditional_headers_generation(self, ics_fetcher):
         """Test generation of conditional request headers."""
         etag = "12345"
@@ -390,6 +723,31 @@ class TestICSFetching:
         assert headers["If-None-Match"] == etag
         assert headers["If-Modified-Since"] == last_modified
 
+    def test_get_conditional_headers_with_etag(self, fetcher):
+        """Test getting conditional headers with ETag (optimized version)."""
+        headers = fetcher.get_conditional_headers(etag='"123"', last_modified=None)
+
+        assert headers["If-None-Match"] == '"123"'
+        assert "If-Modified-Since" not in headers
+
+    def test_get_conditional_headers_with_last_modified(self, fetcher):
+        """Test getting conditional headers with Last-Modified (optimized version)."""
+        headers = fetcher.get_conditional_headers(
+            etag=None, last_modified="Wed, 21 Oct 2015 07:28:00 GMT"
+        )
+
+        assert headers["If-Modified-Since"] == "Wed, 21 Oct 2015 07:28:00 GMT"
+        assert "If-None-Match" not in headers
+
+    def test_get_conditional_headers_with_both(self, fetcher):
+        """Test getting conditional headers with both ETag and Last-Modified (optimized version)."""
+        headers = fetcher.get_conditional_headers(
+            etag='"123"', last_modified="Wed, 21 Oct 2015 07:28:00 GMT"
+        )
+
+        assert headers["If-None-Match"] == '"123"'
+        assert headers["If-Modified-Since"] == "Wed, 21 Oct 2015 07:28:00 GMT"
+
     @pytest.mark.asyncio
     async def test_empty_conditional_headers(self, ics_fetcher):
         """Test conditional headers with empty values."""
@@ -398,6 +756,73 @@ class TestICSFetching:
 
         headers = ics_fetcher.get_conditional_headers("", "")
         assert headers == {}
+
+    def test_get_conditional_headers_empty(self, fetcher):
+        """Test getting conditional headers when no values provided (optimized version)."""
+        headers = fetcher.get_conditional_headers()
+
+        assert headers == {}
+
+    def test_create_response_success(self, fetcher, mock_http_response):
+        """Test creating response from successful HTTP response (optimized version)."""
+        mock_http_response.text = "Mock ICS content"
+        mock_http_response.headers = {"content-type": "text/calendar", "etag": "123"}
+
+        result = fetcher._create_response(mock_http_response)
+
+        assert result.success is True
+        assert result.content == "Mock ICS content"
+        assert result.etag == "123"
+
+    def test_create_response_304_not_modified(self, fetcher):
+        """Test creating response for 304 Not Modified (optimized version)."""
+        mock_response = MagicMock()
+        mock_response.status_code = 304
+        mock_response.headers = {"etag": "123"}
+
+        result = fetcher._create_response(mock_response)
+
+        assert result.success is True
+        assert result.status_code == 304
+        assert result.content is None
+
+    def test_create_response_empty_content(self, fetcher):
+        """Test creating response with empty content (optimized version)."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = ""
+        mock_response.headers = {}
+
+        result = fetcher._create_response(mock_response)
+
+        assert result.success is False
+        assert "Empty content" in result.error_message
+
+    def test_create_response_invalid_content_type(self, fetcher):
+        """Test creating response with unexpected content type (optimized version)."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "Some content"
+        mock_response.headers = {"content-type": "text/html"}
+
+        result = fetcher._create_response(mock_response)
+
+        # Should still create response but log warning
+        assert result.success is True
+        assert result.content == "Some content"
+
+    def test_create_response_missing_ics_markers(self, fetcher):
+        """Test creating response without ICS markers (optimized version)."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "Not ICS content"
+        mock_response.headers = {"content-type": "text/calendar"}
+
+        result = fetcher._create_response(mock_response)
+
+        # Should still create response but log warning
+        assert result.success is True
+        assert result.content == "Not ICS content"
 
     @pytest.mark.asyncio
     async def test_content_validation(self, ics_fetcher):
@@ -476,6 +901,7 @@ class TestICSFetching:
 
 
 @pytest.mark.unit
+@pytest.mark.performance
 class TestPerformance:
     """Performance-related tests for ICS fetcher."""
 

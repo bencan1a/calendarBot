@@ -8,7 +8,7 @@ import threading
 import uuid
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from functools import wraps
 from pathlib import Path
@@ -63,7 +63,7 @@ class LogContext:
     thread_id: Optional[str] = None
     process_id: Optional[int] = None
     custom_fields: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert context to dictionary for logging."""

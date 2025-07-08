@@ -5,7 +5,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Pattern
@@ -71,7 +71,7 @@ class SecurityEvent:
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     event_type: SecurityEventType = SecurityEventType.SYSTEM_SECURITY_VIOLATION
     severity: SecuritySeverity = SecuritySeverity.LOW
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     user_id: Optional[str] = None
     session_id: Optional[str] = None
     source_ip: Optional[str] = None

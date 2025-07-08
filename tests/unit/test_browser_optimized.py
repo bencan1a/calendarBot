@@ -255,7 +255,8 @@ class TestBrowserPerformance:
         async def mock_browser_operation():
             mock_page = MagicMock()
             mock_page.goto("http://localhost:8998")
-            return True
+            # Assert that the operation was successful
+            assert mock_page.goto.called
 
         async def run_concurrent_operations():
             # Run multiple mock operations concurrently

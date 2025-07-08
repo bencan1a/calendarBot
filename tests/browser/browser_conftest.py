@@ -2,6 +2,17 @@
 
 import pytest
 
+# Apply warning filters for websockets deprecation warnings
+try:
+    from calendarbot.utils.warnings_filter import filter_warnings
+
+    filter_warnings()
+except ImportError:
+    # Fallback if the warning filter module is not available
+    import warnings
+
+    warnings.filterwarnings("ignore", category=DeprecationWarning, message="remove loop argument")
+
 try:
     from pyppeteer import launch
 
