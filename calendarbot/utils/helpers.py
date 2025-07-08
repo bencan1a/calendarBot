@@ -3,8 +3,10 @@
 import asyncio
 import functools
 import logging
+import os
+import subprocess
 from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable, Optional, Type, TypeVar
+from typing import Any, Awaitable, Callable, Optional, Type, TypeVar, Union
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +20,8 @@ async def retry_with_backoff(
     initial_delay: float = 1.0,
     max_delay: float = 60.0,
     exceptions: tuple = (Exception,),
-    *args,
-    **kwargs,
+    *args: Any,
+    **kwargs: Any,
 ) -> T:
     """Retry an async function with exponential backoff.
 
@@ -71,8 +73,8 @@ async def safe_async_call(
     func: Callable[..., Awaitable[T]],
     default: Optional[T] = None,
     log_errors: bool = True,
-    *args,
-    **kwargs,
+    *args: Any,
+    **kwargs: Any,
 ) -> Optional[T]:
     """Safely call an async function with error handling.
 
@@ -236,7 +238,7 @@ def parse_iso_datetime(dt_string: str) -> Optional[datetime]:
         return None
 
 
-def rate_limit(calls_per_second: float):
+def rate_limit(calls_per_second: float) -> Callable:
     """Decorator to rate limit function calls.
 
     Args:
@@ -248,9 +250,9 @@ def rate_limit(calls_per_second: float):
     min_interval = 1.0 / calls_per_second
     last_called = [0.0]
 
-    def decorator(func):
+    def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             elapsed = asyncio.get_event_loop().time() - last_called[0]
             left_to_wait = min_interval - elapsed
             if left_to_wait > 0:
@@ -290,7 +292,7 @@ class CircuitBreaker:
         self.last_failure_time: Optional[float] = None
         self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
 
-    async def call(self, func: Callable[..., Awaitable[T]], *args, **kwargs) -> T:
+    async def call(self, func: Callable[..., Awaitable[T]], *args: Any, **kwargs: Any) -> T:
         """Call function through circuit breaker.
 
         Args:
@@ -321,15 +323,44 @@ class CircuitBreaker:
             self.on_failure()
             raise
 
-    def on_success(self):
+    def on_success(self) -> None:
         """Handle successful call."""
         self.failure_count = 0
         self.state = "CLOSED"
 
-    def on_failure(self):
+    def on_failure(self) -> None:
         """Handle failed call."""
         self.failure_count += 1
         self.last_failure_time = datetime.now().timestamp()
 
         if self.failure_count >= self.failure_threshold:
             self.state = "OPEN"
+
+
+def secure_clear_screen() -> bool:
+    """Securely clear the console screen using subprocess.
+
+    This function replaces os.system() calls to prevent shell injection vulnerabilities.
+    Uses subprocess.run() with shell=False for security.
+
+    Returns:
+        True if screen was cleared successfully, False otherwise
+    """
+    try:
+        if os.name == "posix":
+            # Unix/Linux/macOS systems
+            subprocess.run(["clear"], check=True, timeout=5)
+        else:
+            # Windows systems - use cmd.exe /c cls to avoid shell=True
+            subprocess.run(["cmd.exe", "/c", "cls"], check=True, timeout=5)
+        return True
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
+        logger.warning(f"Failed to clear screen: {e}")
+        # Fallback: print enough newlines to simulate screen clearing
+        print("\n" * 50)
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error clearing screen: {e}")
+        # Fallback: print enough newlines to simulate screen clearing
+        print("\n" * 50)
+        return False

@@ -85,7 +85,7 @@ class SourceHealthCheck(BaseModel):
         """Check if source has errors."""
         return self.status == SourceStatus.ERROR
 
-    def update_success(self, response_time: float, events_count: int = 0):
+    def update_success(self, response_time: float, events_count: int = 0) -> None:
         """Update with successful fetch information."""
         self.status = SourceStatus.HEALTHY
         self.response_time_ms = response_time
@@ -93,7 +93,7 @@ class SourceHealthCheck(BaseModel):
         self.events_fetched = events_count
         self.error_message = None
 
-    def update_error(self, error_message: str, http_status: Optional[int] = None):
+    def update_error(self, error_message: str, http_status: Optional[int] = None) -> None:
         """Update with error information."""
         self.status = SourceStatus.ERROR
         self.error_message = error_message
@@ -147,7 +147,7 @@ class SourceMetrics(BaseModel):
         time_diff = datetime.now() - self.last_successful_fetch
         return time_diff.total_seconds() < 86400  # 24 hours
 
-    def record_success(self, response_time_ms: float, event_count: int):
+    def record_success(self, response_time_ms: float, event_count: int) -> None:
         """Record a successful fetch."""
         self.total_requests += 1
         self.successful_requests += 1
@@ -167,7 +167,7 @@ class SourceMetrics(BaseModel):
         self.last_fetch_time = now
         self.last_successful_fetch = now
 
-    def record_failure(self, error_message: str):
+    def record_failure(self, error_message: str) -> None:
         """Record a failed fetch."""
         self.total_requests += 1
         self.failed_requests += 1
@@ -183,7 +183,7 @@ class SourceMetrics(BaseModel):
             self.first_fetch_time = now
         self.last_fetch_time = now
 
-    def _update_response_times(self, response_time_ms: float):
+    def _update_response_times(self, response_time_ms: float) -> None:
         """Update response time statistics."""
         if self.successful_requests == 1:
             # First successful request

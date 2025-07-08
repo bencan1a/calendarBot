@@ -26,11 +26,11 @@ __all__ = [
 
 
 # Convenience functions for quick access
-def get_optimizer():
+def get_optimizer() -> LoggingOptimizer:
     """Get a logging optimizer instance."""
     return LoggingOptimizer()
 
 
-def get_volume_analyzer():
+def get_volume_analyzer() -> LogVolumeAnalyzer:
     """Get a log volume analyzer instance."""
     return LogVolumeAnalyzer()

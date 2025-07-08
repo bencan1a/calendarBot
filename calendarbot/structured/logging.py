@@ -8,7 +8,7 @@ import threading
 import uuid
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
 from pathlib import Path
@@ -32,7 +32,7 @@ class LogLevel(Enum):
 class CorrelationID:
     """Manages correlation IDs for request tracing."""
 
-    def __init__(self, correlation_id: Optional[str] = None):
+    def __init__(self, correlation_id: Optional[str] = None) -> None:
         self.id = correlation_id or self.generate()
 
     @staticmethod
@@ -63,7 +63,7 @@ class LogContext:
     thread_id: Optional[str] = None
     process_id: Optional[int] = None
     custom_fields: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert context to dictionary for logging."""
@@ -122,11 +122,11 @@ class LogContext:
         """Get current context from thread-local storage."""
         return getattr(_context_storage, "context", None)
 
-    def set_current(self):
+    def set_current(self) -> None:
         """Set this context as current in thread-local storage."""
         _context_storage.context = self
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: Any) -> None:
         """Update context fields."""
         for key, value in kwargs.items():
             if hasattr(self, key):
@@ -148,7 +148,7 @@ class StructuredFormatter(logging.Formatter):
         include_context: bool = True,
         include_source: bool = True,
         timestamp_format: str = "%Y-%m-%d %H:%M:%S.%f",
-    ):
+    ) -> None:
         super().__init__()
         self.format_type = format_type.lower()
         self.include_context = include_context
@@ -261,7 +261,7 @@ class StructuredFormatter(logging.Formatter):
 class StructuredLogger:
     """Enhanced logger with structured logging capabilities."""
 
-    def __init__(self, name: str, settings: Optional[Any] = None):
+    def __init__(self, name: str, settings: Optional[Any] = None) -> None:
         self.name = name
         self.settings = settings
         self.logger = logging.getLogger(name)
@@ -270,7 +270,7 @@ class StructuredLogger:
         # Set up structured formatter if not already configured
         self._setup_structured_handler()
 
-    def _setup_structured_handler(self):
+    def _setup_structured_handler(self) -> None:
         """Set up structured logging handler."""
         # Check if structured handler already exists
         for handler in self.logger.handlers:
@@ -296,7 +296,7 @@ class StructuredLogger:
         context: Optional[LogContext] = None,
         extra: Optional[Dict[str, Any]] = None,
         exc_info: Optional[Any] = None,
-    ):
+    ) -> None:
         """Log message with structured context."""
         # Get or create context
         if context is None:
@@ -330,7 +330,7 @@ class StructuredLogger:
         message: str,
         context: Optional[LogContext] = None,
         extra: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Log trace message."""
         self._log_with_context(LogLevel.TRACE.value, message, context, extra)
 
@@ -339,7 +339,7 @@ class StructuredLogger:
         message: str,
         context: Optional[LogContext] = None,
         extra: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Log debug message."""
         self._log_with_context(logging.DEBUG, message, context, extra)
 
@@ -348,7 +348,7 @@ class StructuredLogger:
         message: str,
         context: Optional[LogContext] = None,
         extra: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Log info message."""
         self._log_with_context(logging.INFO, message, context, extra)
 
@@ -357,7 +357,7 @@ class StructuredLogger:
         message: str,
         context: Optional[LogContext] = None,
         extra: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Log warning message."""
         self._log_with_context(logging.WARNING, message, context, extra)
 
@@ -367,7 +367,7 @@ class StructuredLogger:
         context: Optional[LogContext] = None,
         extra: Optional[Dict[str, Any]] = None,
         exc_info: Optional[Any] = None,
-    ):
+    ) -> None:
         """Log error message."""
         self._log_with_context(logging.ERROR, message, context, extra, exc_info)
 
@@ -377,7 +377,7 @@ class StructuredLogger:
         context: Optional[LogContext] = None,
         extra: Optional[Dict[str, Any]] = None,
         exc_info: Optional[Any] = None,
-    ):
+    ) -> None:
         """Log critical message."""
         self._log_with_context(logging.CRITICAL, message, context, extra, exc_info)
 
@@ -386,11 +386,11 @@ class StructuredLogger:
         message: str,
         context: Optional[LogContext] = None,
         extra: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Log audit message."""
         self._log_with_context(LogLevel.AUDIT.value, message, context, extra)
 
-    def with_context(self, **kwargs) -> "StructuredLogger":
+    def with_context(self, **kwargs: Any) -> "StructuredLogger":
         """Create logger with additional context."""
         context = LogContext.get_current() or LogContext()
         context.update(**kwargs)
@@ -406,7 +406,7 @@ class StructuredLogger:
 class ContextualLoggerMixin:
     """Mixin to add structured logging capabilities to any class."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._structured_logger = get_structured_logger(self.__class__.__name__)
 
@@ -422,43 +422,43 @@ class ContextualLoggerMixin:
         current_context = LogContext.get_current()
         return current_context.correlation_id if current_context else None
 
-    def log_trace(self, message: str, **kwargs):
+    def log_trace(self, message: str, **kwargs: Any) -> None:
         """Log trace message with component context."""
         context = self.get_base_context()
         context.update(**kwargs)
         self._structured_logger.trace(message, context)
 
-    def log_debug(self, message: str, **kwargs):
+    def log_debug(self, message: str, **kwargs: Any) -> None:
         """Log debug message with component context."""
         context = self.get_base_context()
         context.update(**kwargs)
         self._structured_logger.debug(message, context)
 
-    def log_info(self, message: str, **kwargs):
+    def log_info(self, message: str, **kwargs: Any) -> None:
         """Log info message with component context."""
         context = self.get_base_context()
         context.update(**kwargs)
         self._structured_logger.info(message, context)
 
-    def log_warning(self, message: str, **kwargs):
+    def log_warning(self, message: str, **kwargs: Any) -> None:
         """Log warning message with component context."""
         context = self.get_base_context()
         context.update(**kwargs)
         self._structured_logger.warning(message, context)
 
-    def log_error(self, message: str, exc_info: Optional[Any] = None, **kwargs):
+    def log_error(self, message: str, exc_info: Optional[Any] = None, **kwargs: Any) -> None:
         """Log error message with component context."""
         context = self.get_base_context()
         context.update(**kwargs)
         self._structured_logger.error(message, context, exc_info=exc_info)
 
-    def log_critical(self, message: str, exc_info: Optional[Any] = None, **kwargs):
+    def log_critical(self, message: str, exc_info: Optional[Any] = None, **kwargs: Any) -> None:
         """Log critical message with component context."""
         context = self.get_base_context()
         context.update(**kwargs)
         self._structured_logger.critical(message, context, exc_info=exc_info)
 
-    def log_audit(self, message: str, **kwargs):
+    def log_audit(self, message: str, **kwargs: Any) -> None:
         """Log audit message with component context."""
         context = self.get_base_context()
         context.update(**kwargs)
@@ -466,7 +466,7 @@ class ContextualLoggerMixin:
 
 
 @contextmanager
-def correlation_context(correlation_id: Optional[Union[str, CorrelationID]] = None):
+def correlation_context(correlation_id: Optional[Union[str, CorrelationID]] = None) -> Any:
     """
     Context manager for correlation ID tracking.
 
@@ -504,7 +504,7 @@ def request_context(
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
     correlation_id: Optional[Union[str, CorrelationID]] = None,
-):
+) -> Any:
     """
     Context manager for HTTP request tracking.
 
@@ -542,8 +542,8 @@ def operation_context(
     operation: str,
     component: Optional[str] = None,
     correlation_id: Optional[Union[str, CorrelationID]] = None,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """
     Context manager for operation tracking.
 
@@ -581,7 +581,9 @@ def operation_context(
             delattr(_context_storage, "context")
 
 
-def with_correlation_id(correlation_id: Optional[Union[str, CorrelationID]] = None):
+def with_correlation_id(
+    correlation_id: Optional[Union[str, CorrelationID]] = None
+) -> Callable[[Callable], Callable]:
     """
     Decorator to automatically add correlation ID to function context.
 
@@ -593,7 +595,7 @@ def with_correlation_id(correlation_id: Optional[Union[str, CorrelationID]] = No
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             with correlation_context(correlation_id):
                 return func(*args, **kwargs)
 

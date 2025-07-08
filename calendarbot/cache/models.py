@@ -49,9 +49,9 @@ class CalendarEvent(BaseModel):
     last_modified: Optional[datetime] = None
 
     @field_serializer("start_time", "end_time", "last_modified")
-    def serialize_datetime(self, dt: datetime) -> str:
+    def serialize_datetime(self, dt: Optional[datetime]) -> Optional[str]:
         """Serialize datetime fields to ISO format."""
-        return dt.isoformat() if dt else None
+        return dt.isoformat() if dt is not None else None
 
     @property
     def duration_minutes(self) -> int:

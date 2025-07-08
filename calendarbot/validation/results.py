@@ -32,7 +32,7 @@ class ValidationItem:
 class ValidationResults:
     """Tracks and reports validation results for test mode."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize validation results tracking."""
         self.items: List[ValidationItem] = []
         self.start_time: datetime = datetime.now()

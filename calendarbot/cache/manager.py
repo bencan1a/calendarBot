@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from ..ics.models import CalendarEvent
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class CacheManager:
     """Manages calendar event caching with TTL and offline functionality."""
 
-    def __init__(self, settings):
+    def __init__(self, settings: Any) -> None:
         """Initialize cache manager.
 
         Args:
@@ -300,7 +300,7 @@ class CacheManager:
             logger.error(f"Failed to clear cache: {e}")
             return False
 
-    async def _update_fetch_metadata(self, success: bool, error: Optional[str] = None):
+    async def _update_fetch_metadata(self, success: bool, error: Optional[str] = None) -> None:
         """Update metadata after a fetch attempt.
 
         Args:

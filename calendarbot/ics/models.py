@@ -145,11 +145,11 @@ class ICSValidationResult(BaseModel):
             and self.parse_successful
         )
 
-    def add_error(self, error: str):
+    def add_error(self, error: str) -> None:
         """Add an error message."""
         self.errors.append(error)
 
-    def add_warning(self, warning: str):
+    def add_warning(self, warning: str) -> None:
         """Add a warning message."""
         self.warnings.append(warning)
 
@@ -264,7 +264,7 @@ class CalendarEvent(BaseModel):
 
     model_config = ConfigDict(use_enum_values=True)
 
-    @field_serializer("created_date_time", "last_modified_date_time")
+    @field_serializer("created_date_time", "last_modified_date_time", when_used="unless-none")
     def serialize_datetime(self, dt: datetime) -> str:
         """Serialize datetime fields to ISO format."""
-        return dt.isoformat() if dt else None
+        return dt.isoformat()

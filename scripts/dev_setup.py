@@ -344,7 +344,7 @@ def main():
     os.environ['CALENDARBOT_CONFIG'] = str(project_root / "config" / "development" / "config.yaml")
 
     # Run with development configuration
-    cmd = [sys.executable, "main.py", "--web", "--verbose"]
+    cmd = [sys.executable, "-m", "calendarbot", "--web", "--verbose"]
 
     print(f"Starting Calendar Bot in development mode...")
     print(f"Config: {os.environ.get('CALENDARBOT_CONFIG')}")
@@ -528,7 +528,7 @@ if __name__ == "__main__":
                         "name": "Calendar Bot - Interactive",
                         "type": "python",
                         "request": "launch",
-                        "program": "main.py",
+                        "module": "calendarbot",
                         "args": ["--interactive", "--verbose"],
                         "console": "integratedTerminal",
                         "env": {
@@ -541,7 +541,7 @@ if __name__ == "__main__":
                         "name": "Calendar Bot - Web",
                         "type": "python",
                         "request": "launch",
-                        "program": "main.py",
+                        "module": "calendarbot",
                         "args": ["--web", "--verbose", "--auto-open"],
                         "console": "integratedTerminal",
                         "env": {
@@ -554,7 +554,7 @@ if __name__ == "__main__":
                         "name": "Calendar Bot - Test Mode",
                         "type": "python",
                         "request": "launch",
-                        "program": "main.py",
+                        "module": "calendarbot",
                         "args": ["--test-mode", "--verbose"],
                         "console": "integratedTerminal",
                         "env": {
@@ -663,9 +663,9 @@ if __name__ == "__main__":
         print("   python scripts/dev/lint.py        # Run code quality checks")
 
         print("\n🔧 Development Commands:")
-        print("   python main.py --web --verbose     # Web interface with debug")
-        print("   python main.py --test-mode         # Run validation tests")
-        print("   python main.py --setup             # Setup wizard")
+        print("   python -m calendarbot --web --verbose     # Web interface with debug")
+        print("   python -m calendarbot --test-mode         # Run validation tests")
+        print("   python -m calendarbot --setup             # Setup wizard")
 
         print("\n📝 Code Quality:")
         print("   black .                            # Format code")

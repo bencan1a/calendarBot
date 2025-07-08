@@ -4,7 +4,7 @@ import asyncio
 import ipaddress
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 from urllib.parse import urlparse
 
 import httpx
@@ -36,16 +36,16 @@ class ICSFetcher:
 
         logger.debug("ICS fetcher initialized")
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "ICSFetcher":
         """Async context manager entry."""
         await self._ensure_client()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
         await self._close_client()
 
-    async def _ensure_client(self):
+    async def _ensure_client(self) -> None:
         """Ensure HTTP client exists."""
         if self.client is None or self.client.is_closed:
             timeout = httpx.Timeout(
@@ -64,7 +64,7 @@ class ICSFetcher:
                 },
             )
 
-    async def _close_client(self):
+    async def _close_client(self) -> None:
         """Close HTTP client."""
         if self.client and not self.client.is_closed:
             await self.client.aclose()

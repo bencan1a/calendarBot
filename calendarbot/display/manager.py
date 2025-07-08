@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 from ..cache.models import CachedEvent
+from ..utils.helpers import secure_clear_screen
 from .console_renderer import ConsoleRenderer
 from .html_renderer import HTMLRenderer
 from .renderer_protocol import RendererProtocol
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 class DisplayManager:
     """Manages display output and coordination between data and renderers."""
 
-    def __init__(self, settings):
+    def __init__(self, settings: Any) -> None:
         """Initialize display manager.
 
         Args:
@@ -214,18 +215,21 @@ class DisplayManager:
             logger.error(f"Failed to display status: {e}")
             return False
 
-    def clear_display(self):
-        """Clear the display."""
+    def clear_display(self) -> bool:
+        """Clear the display securely.
+
+        Returns:
+            True if display was cleared successfully, False otherwise
+        """
         try:
             if self.renderer is not None and hasattr(self.renderer, "clear_screen"):
-                self.renderer.clear_screen()
+                return self.renderer.clear_screen()
             else:
-                import os
-
-                os.system("clear" if os.name == "posix" else "cls")
+                return secure_clear_screen()
 
         except Exception as e:
             logger.error(f"Failed to clear display: {e}")
+            return False
 
     def get_renderer_info(self) -> Dict[str, Any]:
         """Get information about the current renderer.

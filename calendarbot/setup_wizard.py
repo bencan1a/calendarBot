@@ -5,7 +5,7 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import yaml
 
@@ -114,24 +114,28 @@ For other calendar services:
         ),
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize setup wizard."""
-        self.config_data = {}
+        self.config_data: Dict[str, Any] = {}
         self.settings = None
 
-    def print_header(self, title: str):
+    def print_header(self, title: str) -> None:
         """Print a formatted header."""
         print("\n" + "=" * 60)
         print(f"📅 {title}")
         print("=" * 60)
 
-    def print_section(self, title: str):
+    def print_section(self, title: str) -> None:
         """Print a formatted section header."""
         print(f"\n🔧 {title}")
         print("-" * 40)
 
     def get_input(
-        self, prompt: str, default: Optional[str] = None, required: bool = True, validate_func=None
+        self,
+        prompt: str,
+        default: Optional[str] = None,
+        required: bool = True,
+        validate_func: Optional[Callable[[str], bool]] = None,
     ) -> str:
         """Get user input with validation."""
         while True:
@@ -535,7 +539,7 @@ For other calendar services:
             print(f"❌ Failed to save configuration: {e}")
             return None
 
-    def show_completion_message(self, config_path: Optional[Path]):
+    def show_completion_message(self, config_path: Optional[Path]) -> None:
         """Show completion message with next steps."""
         self.print_header("Setup Complete! 🎉")
 
@@ -555,8 +559,8 @@ For other calendar services:
 
         print("\n📖 Documentation:")
         print("   README.md     - General usage")
-        print("   INSTALL.md    - Installation guide")
-        print("   USAGE.md      - Detailed usage examples")
+        print("   docs/INSTALL.md    - Installation guide")
+        print("   docs/USAGE.md      - Detailed usage examples")
 
         print("\n" + "=" * 60)
 

@@ -118,7 +118,7 @@ def apply_test_warning_filters() -> None:
 
 
 # Convenience function for one-liner import and application
-def filter_warnings():
+def filter_warnings() -> None:
     """Convenience function to apply all warning filters."""
     apply_test_warning_filters()
 

@@ -26,7 +26,7 @@ logger = setup_logging(
 class CalendarBot:
     """Main Calendar Bot application coordinating all components."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Calendar Bot application."""
         self.settings = settings
         self.running = False
@@ -141,7 +141,7 @@ class CalendarBot:
             logger.error(f"Failed to update display: {e}")
             return False
 
-    async def handle_error_display(self, error_message: str):
+    async def handle_error_display(self, error_message: str) -> None:
         """Display error message with cached events if available.
 
         Args:
@@ -161,7 +161,7 @@ class CalendarBot:
         except Exception as e:
             logger.error(f"Failed to display error: {e}")
 
-    async def refresh_cycle(self):
+    async def refresh_cycle(self) -> None:
         """Perform one refresh cycle - fetch data and update display."""
         try:
             logger.debug("Starting refresh cycle")
@@ -193,7 +193,7 @@ class CalendarBot:
             logger.error(f"Error during refresh cycle: {e}")
             await self.handle_error_display(f"System Error: {str(e)[:50]}...")
 
-    async def run_background_fetch(self):
+    async def run_background_fetch(self) -> None:
         """Run background data fetching without display updates."""
         logger.info(
             f"Starting background data fetching (interval: {self.settings.refresh_interval}s)"
@@ -223,7 +223,7 @@ class CalendarBot:
 
         logger.info("Background data fetching stopped")
 
-    async def run_scheduler(self):
+    async def run_scheduler(self) -> None:
         """Run the main refresh scheduler."""
         logger.info(f"Starting refresh scheduler (interval: {self.settings.refresh_interval}s)")
 
@@ -251,7 +251,7 @@ class CalendarBot:
 
         logger.info("Refresh scheduler stopped")
 
-    async def start(self):
+    async def start(self) -> bool:
         """Start the Calendar Bot application."""
         try:
             logger.info("Starting Calendar Bot...")
@@ -292,13 +292,13 @@ class CalendarBot:
         finally:
             await self.cleanup()
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the Calendar Bot application."""
         logger.info("Stopping Calendar Bot...")
         self.running = False
         self.shutdown_event.set()
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """Clean up resources."""
         try:
             logger.info("Cleaning up resources...")
@@ -351,10 +351,10 @@ class CalendarBot:
             return {"error": str(e)}
 
 
-def setup_signal_handlers(app: CalendarBot):
+def setup_signal_handlers(app: CalendarBot) -> None:
     """Set up signal handlers for graceful shutdown."""
 
-    def signal_handler(signum, frame):
+    def signal_handler(signum: int, frame: Any) -> None:
         logger.info(f"Received signal {signum}")
         asyncio.create_task(app.stop())
 
@@ -362,7 +362,7 @@ def setup_signal_handlers(app: CalendarBot):
     signal.signal(signal.SIGTERM, signal_handler)
 
 
-def check_first_run_configuration():
+def check_first_run_configuration() -> bool:
     """Check if this is a first run and provide setup guidance."""
     from pathlib import Path
 
@@ -384,7 +384,7 @@ def check_first_run_configuration():
     return False
 
 
-async def main():
+async def main() -> int:
     """Main entry point for the application with first-run detection."""
     try:
         # Check if configuration exists

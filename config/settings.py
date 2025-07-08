@@ -2,11 +2,21 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Pattern
+from typing import Any, Dict, Optional, Pattern, Type, Union
 
 import yaml
 from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+try:
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+
+    PYDANTIC_V2 = True
+    SettingsConfigDictType = SettingsConfigDict
+except ImportError:
+    from pydantic import BaseSettings  # type: ignore
+
+    PYDANTIC_V2 = False
+    SettingsConfigDictType = None  # type: ignore
 
 
 def _get_safe_web_host() -> str:
@@ -249,11 +259,22 @@ class CalendarBotSettings(BaseSettings):
     max_retries: int = Field(default=3, description="Maximum retry attempts")
     retry_backoff_factor: float = Field(default=1.5, description="Exponential backoff factor")
 
-    model_config = SettingsConfigDict(
-        env_prefix="CALENDARBOT_", env_file=".env", env_file_encoding="utf-8", case_sensitive=False
-    )
+    if PYDANTIC_V2 and SettingsConfigDictType is not None:
+        model_config = SettingsConfigDictType(
+            env_prefix="CALENDARBOT_",
+            env_file=".env",
+            env_file_encoding="utf-8",
+            case_sensitive=False,
+        )
+    else:
+        # For older pydantic versions, use Config class
+        class Config:
+            env_prefix = "CALENDARBOT_"
+            env_file = ".env"
+            env_file_encoding = "utf-8"
+            case_sensitive = False
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         # Ensure directories exist
         self.config_dir.mkdir(parents=True, exist_ok=True)
@@ -266,7 +287,7 @@ class CalendarBotSettings(BaseSettings):
         # Validate required configuration
         self._validate_required_config()
 
-    def _validate_required_config(self):
+    def _validate_required_config(self) -> None:
         """Validate that required configuration is present."""
         if not self.ics_url:
             raise ValueError(
@@ -288,7 +309,7 @@ class CalendarBotSettings(BaseSettings):
 
         return None
 
-    def _load_yaml_config(self):
+    def _load_yaml_config(self) -> None:
         """Load configuration from YAML file if it exists."""
         config_file = self._find_config_file()
         if not config_file:

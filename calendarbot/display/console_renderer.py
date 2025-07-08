@@ -3,9 +3,10 @@
 import logging
 import os
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from ..cache.models import CachedEvent
+from ..utils.helpers import secure_clear_screen
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 class ConsoleRenderer:
     """Renders calendar events to console/terminal for testing."""
 
-    def __init__(self, settings):
+    def __init__(self, settings: Any) -> None:
         """Initialize console renderer.
 
         Args:
@@ -21,7 +22,7 @@ class ConsoleRenderer:
         """
         self.settings = settings
         self.width = 60  # Console display width
-        self.log_area_lines = []  # Reserved log area for split display
+        self.log_area_lines: List[str] = []  # Reserved log area for split display
         self.log_area_enabled = False  # Enable split display mode
 
         logger.debug("Console renderer initialized")
@@ -337,13 +338,15 @@ class ConsoleRenderer:
 
         return "\n".join(lines)
 
-    def clear_screen(self):
-        """Clear the console screen."""
-        import os
+    def clear_screen(self) -> bool:
+        """Clear the console screen securely.
 
-        os.system("clear" if os.name == "posix" else "cls")
+        Returns:
+            True if screen was cleared successfully, False otherwise
+        """
+        return secure_clear_screen()
 
-    def display_with_clear(self, content: str):
+    def display_with_clear(self, content: str) -> None:
         """Display content after clearing screen.
 
         Args:
@@ -358,7 +361,7 @@ class ConsoleRenderer:
             print(content)
             print()  # Extra newline for spacing
 
-    def enable_split_display(self, max_log_lines: int = 5):
+    def enable_split_display(self, max_log_lines: int = 5) -> None:
         """Enable split display mode for interactive logging.
 
         Args:
@@ -369,13 +372,13 @@ class ConsoleRenderer:
         self.log_area_lines = []
         logger.debug("Split display mode enabled")
 
-    def disable_split_display(self):
+    def disable_split_display(self) -> None:
         """Disable split display mode."""
         self.log_area_enabled = False
         self.log_area_lines = []
         logger.debug("Split display mode disabled")
 
-    def update_log_area(self, log_lines: List[str]):
+    def update_log_area(self, log_lines: List[str]) -> None:
         """Update the reserved log area with new log lines.
 
         Args:
@@ -387,7 +390,7 @@ class ConsoleRenderer:
         self.log_area_lines = log_lines[-self.max_log_lines :] if log_lines else []
         logger.debug(f"Log area updated with {len(self.log_area_lines)} lines")
 
-    def _display_with_split_logging(self, content: str):
+    def _display_with_split_logging(self, content: str) -> None:
         """Display content with preserved log area at bottom.
 
         Args:

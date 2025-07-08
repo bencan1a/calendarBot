@@ -11,7 +11,7 @@ from typing import Dict, Optional
 class ValidationFormatter(logging.Formatter):
     """Custom formatter for validation logging with component context."""
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         """Format log record with enhanced information."""
         # Add timestamp with milliseconds - handle edge cases
         try:
@@ -50,7 +50,7 @@ class ComponentFilter(logging.Filter):
             set(allowed_components) if allowed_components is not None else None
         )
 
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord) -> bool:
         """Filter log records based on component."""
         if not self.allowed_components:
             return True
@@ -172,7 +172,9 @@ def get_validation_logger(component: str) -> logging.Logger:
     return logging.getLogger(f"calendarbot.{component}")
 
 
-def log_validation_start(logger: logging.Logger, test_name: str, details: Optional[Dict] = None):
+def log_validation_start(
+    logger: logging.Logger, test_name: str, details: Optional[Dict] = None
+) -> None:
     """Log the start of a validation test.
 
     Args:
@@ -192,7 +194,7 @@ def log_validation_result(
     success: bool,
     message: str,
     duration_ms: Optional[int] = None,
-):
+) -> None:
     """Log the result of a validation test.
 
     Args:

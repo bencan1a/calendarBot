@@ -21,7 +21,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
     - Fixed 800x480 viewport dimensions
     """
 
-    def __init__(self, settings):
+    def __init__(self, settings: Any) -> None:
         """Initialize RPI HTML renderer.
 
         Args:

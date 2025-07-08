@@ -80,7 +80,7 @@ class SourceManager:
         bearer_token: Optional[str] = None,
         refresh_interval: int = 300,
         timeout: int = 30,
-        **kwargs,
+        **kwargs: Any,
     ) -> bool:
         """Add an ICS calendar source.
 
@@ -478,7 +478,7 @@ class SourceManager:
             "source_names": list(self._sources.keys()),
         }
 
-    async def refresh_source_configs(self):
+    async def refresh_source_configs(self) -> None:
         """Refresh configurations for all sources from settings."""
         try:
             # For now, just log that this would refresh from settings
@@ -498,7 +498,7 @@ class SourceManager:
         except Exception as e:
             logger.error(f"Failed to refresh source configurations: {e}")
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """Clean up resources."""
         try:
             logger.info("Cleaning up source manager")
