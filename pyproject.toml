@@ -206,6 +206,22 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "browser: Tests that use browser automation",
+    "e2e: End-to-end tests for complete workflows",
+    "security: Security-focused tests",
+    "network: Tests that require network access",
+    "performance: Performance and load tests",
+    "accessibility: Accessibility and WCAG compliance tests",
+    "cross_browser: Cross-browser compatibility tests",
+    "visual_regression: Visual regression and screenshot comparison tests",
+    "responsive: Responsive design and viewport tests",
+    "coverage: Tests specifically for coverage validation",
+    "critical: Critical path tests for CI/CD",
+    "critical_path: Essential tests for CI/CD pipeline (fast execution)",
+    "fast: Quick-executing tests (under 30 seconds)",
+    "smoke: Basic functionality verification tests",
+    "regression: Full regression testing",
+    "targeted: Tests selected based on code changes",
 ]
 
 [tool.coverage.run]

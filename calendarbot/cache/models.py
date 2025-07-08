@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import pytz
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 
 class CalendarEvent(BaseModel):
@@ -48,7 +48,10 @@ class CalendarEvent(BaseModel):
     source_name: Optional[str] = None
     last_modified: Optional[datetime] = None
 
-    model_config = {"json_encoders": {datetime: lambda v: v.isoformat()}}
+    @field_serializer("start_time", "end_time", "last_modified")
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Serialize datetime fields to ISO format."""
+        return dt.isoformat() if dt else None
 
     @property
     def duration_minutes(self) -> int:

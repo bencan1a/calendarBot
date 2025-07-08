@@ -6,7 +6,7 @@ import logging
 import tempfile
 import uuid
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, mock_open, patch
 
@@ -278,7 +278,7 @@ class TestProductionLogFilter:
         filter_instance = ProductionLogFilter(sample_rules)
 
         # Set a past reset time to trigger reset
-        filter_instance.last_reset = datetime.utcnow() - timedelta(minutes=10)
+        filter_instance.last_reset = datetime.now(UTC) - timedelta(minutes=10)
 
         record = Mock()
         record.name = "test.module"
@@ -575,7 +575,7 @@ class TestLogVolumeAnalyzer:
         log_file.write_text(log_content)
 
         log_files = [log_file]
-        cutoff_time = datetime.utcnow() - timedelta(hours=24)
+        cutoff_time = datetime.now(UTC) - timedelta(hours=24)
 
         frequent_messages = analyzer._find_frequent_messages(log_files, cutoff_time, limit=5)
 
@@ -598,7 +598,7 @@ class TestLogVolumeAnalyzer:
 
             with patch.object(analyzer.logger, "warning") as mock_warning:
                 result = analyzer._find_frequent_messages(
-                    [log_file], datetime.utcnow() - timedelta(hours=1)
+                    [log_file], datetime.now(UTC) - timedelta(hours=1)
                 )
 
                 # Should handle file error gracefully and return empty list
@@ -620,7 +620,7 @@ Invalid log line without proper format
             """.strip()
             log_file.write_text(log_content)
 
-            cutoff_time = datetime.utcnow() - timedelta(hours=24)
+            cutoff_time = datetime.now(UTC) - timedelta(hours=24)
             stats = analyzer._analyze_file(log_file, cutoff_time)
 
             assert stats["lines"] == 5  # Should count all lines including invalid
@@ -656,8 +656,8 @@ def test_function():
     logger.debug("Debug log message")
     logger.info("Info message")
     # TODO: Fix this function
-    # FIXME: This is broken
-    return True
+    # FIXME: This is broken - need to implement proper test logic
+    assert True, "Test placeholder - needs proper implementation"
 
 def another_function():
     print(f"Another print: {42}")
@@ -1341,7 +1341,7 @@ def function():
             """.strip()
             log_file.write_text(log_content)
 
-            cutoff_time = datetime.utcnow() - timedelta(hours=24)
+            cutoff_time = datetime.now(UTC) - timedelta(hours=24)
             frequent_messages = analyzer._find_frequent_messages([log_file], cutoff_time, limit=10)
 
             # Should handle edge cases gracefully

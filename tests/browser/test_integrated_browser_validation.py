@@ -16,6 +16,17 @@ import pytest
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+# Apply warning filters for websockets deprecation warnings
+try:
+    from calendarbot.utils.warnings_filter import filter_warnings
+
+    filter_warnings()
+except ImportError:
+    # Fallback if the warning filter module is not available
+    import warnings
+
+    warnings.filterwarnings("ignore", category=DeprecationWarning, message="remove loop argument")
+
 try:
     from pyppeteer import launch
 
@@ -224,8 +235,6 @@ async def _test_browser_core_functionality(settings):
             await page.setViewport({"width": 1280, "height": 720, "isMobile": False})
             await asyncio.sleep(0.5)
 
-            return True
-
         finally:
             await browser.close()
 
@@ -241,12 +250,10 @@ def test_browser_view_rendering(test_settings):
     start_time = time.time()
 
     # Use asyncio.run to avoid pytest-asyncio event loop conflicts
-    result = asyncio.run(_test_browser_core_functionality(test_settings))
+    asyncio.run(_test_browser_core_functionality(test_settings))
 
     elapsed = time.time() - start_time
     print(f"\n📊 Browser rendering test completed in {elapsed:.2f} seconds")
-
-    assert result, "Browser view rendering test failed"
 
 
 async def _test_navigation_functionality(settings):
@@ -283,8 +290,6 @@ async def _test_navigation_functionality(settings):
             toggle_theme_exists = await page.evaluate('typeof window.toggleTheme === "function"')
             assert toggle_theme_exists, "Toggle theme function not available"
 
-            return True
-
         finally:
             await browser.close()
 
@@ -299,12 +304,10 @@ def test_navigation_forward_back(test_settings):
     """Test navigation forward/back functionality."""
     start_time = time.time()
 
-    result = asyncio.run(_test_navigation_functionality(test_settings))
+    asyncio.run(_test_navigation_functionality(test_settings))
 
     elapsed = time.time() - start_time
     print(f"\n📊 Navigation test completed in {elapsed:.2f} seconds")
-
-    assert result, "Navigation functionality test failed"
 
 
 async def _test_calendar_information_display(settings):
@@ -345,8 +348,6 @@ async def _test_calendar_information_display(settings):
             status_text = await page.evaluate('document.querySelector(".status-line").textContent')
             assert "Theme:" in status_text, "Theme information not in status line"
 
-            return True
-
         finally:
             await browser.close()
 
@@ -361,12 +362,10 @@ def test_calendar_information_display(test_settings):
     """Test calendar information display functionality."""
     start_time = time.time()
 
-    result = asyncio.run(_test_calendar_information_display(test_settings))
+    asyncio.run(_test_calendar_information_display(test_settings))
 
     elapsed = time.time() - start_time
     print(f"\n📊 Calendar information test completed in {elapsed:.2f} seconds")
-
-    assert result, "Calendar information display test failed"
 
 
 @pytest.mark.browser
@@ -379,20 +378,17 @@ def test_integrated_browser_validation_suite(test_settings):
 
     # Test 1: Browser view rendering
     print("📄 Testing browser view rendering...")
-    result1 = asyncio.run(_test_browser_core_functionality(test_settings))
-    assert result1, "Browser view rendering failed"
+    asyncio.run(_test_browser_core_functionality(test_settings))
     print("✓ Browser view rendering: PASSED")
 
     # Test 2: Navigation functionality
     print("🧭 Testing navigation functionality...")
-    result2 = asyncio.run(_test_navigation_functionality(test_settings))
-    assert result2, "Navigation functionality failed"
+    asyncio.run(_test_navigation_functionality(test_settings))
     print("✓ Navigation functionality: PASSED")
 
     # Test 3: Calendar information display
     print("📅 Testing calendar information display...")
-    result3 = asyncio.run(_test_calendar_information_display(test_settings))
-    assert result3, "Calendar information display failed"
+    asyncio.run(_test_calendar_information_display(test_settings))
     print("✓ Calendar information display: PASSED")
 
     elapsed = time.time() - start_time

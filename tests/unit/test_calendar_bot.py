@@ -1,6 +1,7 @@
-"""Unit tests for main CalendarBot application class."""
+"""Consolidated CalendarBot tests combining comprehensive coverage with optimized critical paths."""
 
 import asyncio
+import gc
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -55,8 +56,9 @@ class TestCalendarBotInitialization:
 
 
 @pytest.mark.unit
-class TestCalendarBotInitialize:
-    """Test suite for CalendarBot initialization process."""
+@pytest.mark.critical_path
+class TestCalendarBotCore:
+    """Core CalendarBot functionality tests with critical path coverage."""
 
     @pytest_asyncio.fixture
     async def calendar_bot_mock(self, test_settings):
@@ -70,6 +72,18 @@ class TestCalendarBotInitialize:
             bot.display_manager = MagicMock()
 
             yield bot
+
+    @pytest.fixture
+    def calendar_bot(
+        self, test_settings, mock_cache_manager, mock_source_manager, mock_display_manager
+    ):
+        """Create CalendarBot with mocked dependencies using fixtures."""
+        with patch("calendarbot.main.settings", test_settings):
+            bot = CalendarBot()
+            bot.cache_manager = mock_cache_manager
+            bot.source_manager = mock_source_manager
+            bot.display_manager = mock_display_manager
+            return bot
 
     @pytest.mark.asyncio
     async def test_initialize_success(self, calendar_bot_mock):
@@ -109,6 +123,33 @@ class TestCalendarBotInitialize:
         calendar_bot_mock.cache_manager.initialize.side_effect = Exception("Init error")
 
         success = await calendar_bot_mock.initialize()
+
+        assert success is False
+
+    @pytest.mark.asyncio
+    async def test_initialization_success_optimized(self, calendar_bot):
+        """Test successful CalendarBot initialization (optimized version)."""
+        success = await calendar_bot.initialize()
+
+        assert success is True
+        calendar_bot.cache_manager.initialize.assert_called_once()
+        calendar_bot.source_manager.initialize.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_initialization_cache_failure_optimized(self, calendar_bot):
+        """Test initialization failure when cache manager fails (optimized version)."""
+        calendar_bot.cache_manager.initialize.return_value = False
+
+        success = await calendar_bot.initialize()
+
+        assert success is False
+
+    @pytest.mark.asyncio
+    async def test_initialization_source_failure_optimized(self, calendar_bot):
+        """Test initialization failure when source manager fails (optimized version)."""
+        calendar_bot.source_manager.initialize.return_value = False
+
+        success = await calendar_bot.initialize()
 
         assert success is False
 
@@ -224,11 +265,10 @@ class TestDisplayUpdate:
             yield bot
 
     @pytest.mark.asyncio
-    async def test_update_display_success(self, calendar_bot_for_display):
+    async def test_update_display_success(self, calendar_bot_for_display, sample_events):
         """Test successful display update."""
         # Mock cached events and status
-        mock_events = [MagicMock(), MagicMock()]
-        calendar_bot_for_display.cache_manager.get_todays_cached_events.return_value = mock_events
+        calendar_bot_for_display.cache_manager.get_todays_cached_events.return_value = sample_events
 
         mock_cache_status = MagicMock()
         mock_cache_status.last_update = datetime.now()
@@ -252,9 +292,9 @@ class TestDisplayUpdate:
         events_arg = call_args[0][0]
         status_arg = call_args[0][1]
 
-        assert events_arg == mock_events
+        assert events_arg == sample_events
         assert status_arg["connection_status"] == "Online"
-        assert status_arg["total_events"] == len(mock_events)
+        assert status_arg["total_events"] == len(sample_events)
 
     @pytest.mark.asyncio
     async def test_update_display_with_stale_cache(self, calendar_bot_for_display):
@@ -322,17 +362,14 @@ class TestDisplayUpdate:
         assert success is False
 
     @pytest.mark.asyncio
-    async def test_handle_error_display(self, calendar_bot_for_display):
+    async def test_handle_error_display(self, calendar_bot_for_display, sample_events):
         """Test error display handling."""
-        mock_cached_events = [MagicMock()]
-        calendar_bot_for_display.cache_manager.get_todays_cached_events.return_value = (
-            mock_cached_events
-        )
+        calendar_bot_for_display.cache_manager.get_todays_cached_events.return_value = sample_events
 
         await calendar_bot_for_display.handle_error_display("Test error message")
 
         calendar_bot_for_display.display_manager.display_error.assert_called_once_with(
-            "Test error message", mock_cached_events
+            "Test error message", sample_events
         )
 
     @pytest.mark.asyncio
@@ -729,6 +766,15 @@ class TestUtilityFunctions:
 
             assert result is True
 
+    def test_check_first_run_configuration_with_url(self):
+        """Test first run check when ICS URL is configured."""
+        with patch("calendarbot.main.settings") as mock_settings:
+            mock_settings.ics_url = "https://example.com/calendar.ics"
+
+            with patch("pathlib.Path.exists", return_value=False):
+                result = check_first_run_configuration()
+                assert result is True
+
     def test_check_first_run_configuration_missing(self, tmp_path):
         """Test first run check when configuration is missing."""
         with patch("calendarbot.main.settings") as mock_settings, patch(
@@ -817,6 +863,7 @@ class TestErrorConditions:
 
 
 @pytest.mark.unit
+@pytest.mark.performance
 class TestPerformanceAndConcurrency:
     """Test suite for performance and concurrency aspects."""
 
@@ -871,6 +918,54 @@ class TestPerformanceAndConcurrency:
         # All should succeed
         assert all(results)
         performance_tracker.assert_performance("concurrent_fetch", 5.0)
+
+    @pytest.mark.asyncio
+    async def test_concurrent_operations_optimized(self, test_settings, performance_tracker):
+        """Test that concurrent operations don't interfere (optimized version)."""
+        with patch("calendarbot.main.settings", test_settings):
+            bot = CalendarBot()
+            bot.cache_manager = AsyncMock()
+            bot.source_manager = AsyncMock()
+            bot.display_manager = MagicMock()
+
+            # Configure for success
+            mock_health = MagicMock()
+            mock_health.is_healthy = True
+            bot.source_manager.health_check.return_value = mock_health
+            bot.source_manager.fetch_and_cache_events.return_value = True
+
+            async def fetch_operation():
+                return await bot.fetch_and_cache_events()
+
+            performance_tracker.start_timer("concurrent_operations")
+
+            # Run multiple operations concurrently
+            results = await asyncio.gather(fetch_operation(), fetch_operation(), fetch_operation())
+
+            performance_tracker.end_timer("concurrent_operations")
+
+            # All should succeed
+            assert all(results)
+            performance_tracker.assert_performance("concurrent_operations", 2.0)
+
+    @pytest.mark.asyncio
+    async def test_initialization_performance_optimized(self, test_settings, performance_tracker):
+        """Test initialization performance (optimized version)."""
+        with patch("calendarbot.main.settings", test_settings):
+            bot = CalendarBot()
+            bot.cache_manager = AsyncMock()
+            bot.source_manager = AsyncMock()
+            bot.display_manager = MagicMock()
+
+            bot.cache_manager.initialize.return_value = True
+            bot.source_manager.initialize.return_value = True
+
+            performance_tracker.start_timer("initialization")
+            success = await bot.initialize()
+            performance_tracker.end_timer("initialization")
+
+            assert success is True
+            performance_tracker.assert_performance("initialization", 1.0)
 
     @pytest.mark.asyncio
     async def test_memory_usage_during_long_operation(

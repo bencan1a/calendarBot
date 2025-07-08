@@ -1,4 +1,4 @@
-"""Unit tests for source manager functionality."""
+"""Consolidated unit tests for source manager functionality."""
 
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import pytest_asyncio
 
-from calendarbot.cache.models import CalendarEvent
+from calendarbot.ics.models import CalendarEvent, DateTimeInfo, EventStatus
 from calendarbot.sources.exceptions import SourceConnectionError, SourceError
 from calendarbot.sources.ics_source import ICSSourceHandler
 from calendarbot.sources.manager import SourceManager
@@ -18,7 +18,7 @@ class TestSourceManagerInitialization:
     """Test suite for source manager initialization."""
 
     def test_source_manager_creation(self, test_settings, cache_manager):
-        """Test source manager creation."""
+        """Test source manager creation with proper initialization."""
         source_mgr = SourceManager(test_settings, cache_manager)
 
         assert source_mgr.settings == test_settings
@@ -29,31 +29,26 @@ class TestSourceManagerInitialization:
         assert source_mgr._consecutive_failures == 0
 
     @pytest.mark.asyncio
-    async def test_source_manager_initialization_with_ics_url(self, test_settings, cache_manager):
-        """Test source manager initialization with ICS URL in settings."""
+    async def test_initialize_with_ics_url(self, test_settings, cache_manager):
+        """Test initialization with ICS URL configured."""
         test_settings.ics_url = "https://example.com/calendar.ics"
         source_mgr = SourceManager(test_settings, cache_manager)
 
-        with patch.object(source_mgr, "add_ics_source", return_value=True) as mock_add:
+        with patch("calendarbot.sources.manager.ICSSourceHandler") as mock_handler_class:
+            mock_handler = AsyncMock()
+            mock_health = MagicMock()
+            mock_health.is_healthy = True
+            mock_handler.test_connection.return_value = mock_health
+            mock_handler_class.return_value = mock_handler
+
             success = await source_mgr.initialize()
 
             assert success is True
-            mock_add.assert_called_once_with(
-                name="primary",
-                url="https://example.com/calendar.ics",
-                auth_type="none",
-                username=None,
-                password=None,
-                bearer_token=None,
-                refresh_interval=300,
-                timeout=10,
-            )
+            assert "primary" in source_mgr._sources
 
     @pytest.mark.asyncio
-    async def test_source_manager_initialization_without_ics_url(
-        self, test_settings, cache_manager
-    ):
-        """Test source manager initialization without ICS URL."""
+    async def test_initialize_without_ics_url(self, test_settings, cache_manager):
+        """Test initialization without ICS URL."""
         test_settings.ics_url = None
         source_mgr = SourceManager(test_settings, cache_manager)
 
@@ -61,9 +56,7 @@ class TestSourceManagerInitialization:
         assert success is False
 
     @pytest.mark.asyncio
-    async def test_source_manager_initialization_with_auth_settings(
-        self, test_settings, cache_manager
-    ):
+    async def test_initialize_with_auth_settings(self, test_settings, cache_manager):
         """Test initialization with authentication settings."""
         test_settings.ics_url = "https://example.com/calendar.ics"
         test_settings.ics_auth_type = "basic"
@@ -94,7 +87,7 @@ class TestSourceManagement:
 
     @pytest_asyncio.fixture
     async def source_manager_with_mock(self, test_settings, cache_manager):
-        """Create source manager with mocked ICS handler."""
+        """Create source manager with mocked dependencies."""
         source_mgr = SourceManager(test_settings, cache_manager)
         yield source_mgr
         await source_mgr.cleanup()
@@ -149,7 +142,7 @@ class TestSourceManagement:
             assert config.auth_config == {"token": "test-token-123"}
 
     @pytest.mark.asyncio
-    async def test_add_ics_source_connection_test_failure(self, source_manager_with_mock):
+    async def test_add_ics_source_connection_failure(self, source_manager_with_mock):
         """Test ICS source addition when connection test fails."""
         with patch("calendarbot.sources.manager.ICSSourceHandler") as mock_handler_class:
             mock_handler = AsyncMock()
@@ -199,14 +192,14 @@ class TestSourceManagement:
             assert "temp_source" not in source_manager_with_mock._source_configs
 
     @pytest.mark.asyncio
-    async def test_remove_nonexistent_source(self, source_manager_with_mock):
+    async def test_remove_source_not_found(self, source_manager_with_mock):
         """Test removing a source that doesn't exist."""
         success = await source_manager_with_mock.remove_source("nonexistent")
         assert success is False
 
     @pytest.mark.asyncio
     async def test_remove_source_with_exception(self, source_manager_with_mock):
-        """Test source removal with exception."""
+        """Test source removal with exception handling."""
         # Add a source first
         mock_handler = AsyncMock()
         source_manager_with_mock._sources["test"] = mock_handler
@@ -229,81 +222,72 @@ class TestSourceManagement:
 
 @pytest.mark.unit
 class TestEventFetching:
-    """Test suite for event fetching operations."""
+    """Test suite for event fetching and caching operations."""
 
     @pytest_asyncio.fixture
     async def source_manager_with_sources(self, test_settings, cache_manager):
         """Create source manager with mock sources."""
         source_mgr = SourceManager(test_settings, cache_manager)
 
-        # Add mock sources
+        # Add mock sources with proper event data
         mock_handler1 = AsyncMock()
-        # Make is_healthy return boolean directly, not a coroutine
         mock_handler1.is_healthy = MagicMock(return_value=True)
+        now = datetime.now()
         mock_handler1.fetch_events.return_value = [
             CalendarEvent(
                 id="event1",
-                title="Event 1",
-                start_time=datetime.now(),
-                end_time=datetime.now() + timedelta(hours=1),
-                status="busy",
-                show_as="busy",
+                subject="Event 1",
+                start=DateTimeInfo(date_time=now, time_zone="UTC"),
+                end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+                show_as=EventStatus.BUSY,
             )
         ]
-        # Mock the event fetching methods
         mock_handler1.get_todays_events.return_value = [
             CalendarEvent(
                 id="event1",
-                title="Event 1",
-                start_time=datetime.now(),
-                end_time=datetime.now() + timedelta(hours=1),
-                status="busy",
-                show_as="busy",
+                subject="Event 1",
+                start=DateTimeInfo(date_time=now, time_zone="UTC"),
+                end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+                show_as=EventStatus.BUSY,
             )
         ]
         mock_handler1.get_events_for_date_range.return_value = [
             CalendarEvent(
                 id="event1",
-                title="Event 1",
-                start_time=datetime.now(),
-                end_time=datetime.now() + timedelta(hours=1),
-                status="busy",
-                show_as="busy",
+                subject="Event 1",
+                start=DateTimeInfo(date_time=now, time_zone="UTC"),
+                end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+                show_as=EventStatus.BUSY,
             )
         ]
 
         mock_handler2 = AsyncMock()
-        # Make is_healthy return boolean directly, not a coroutine
         mock_handler2.is_healthy = MagicMock(return_value=True)
         mock_handler2.fetch_events.return_value = [
             CalendarEvent(
                 id="event2",
-                title="Event 2",
-                start_time=datetime.now(),
-                end_time=datetime.now() + timedelta(hours=1),
-                status="busy",
-                show_as="busy",
+                subject="Event 2",
+                start=DateTimeInfo(date_time=now, time_zone="UTC"),
+                end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+                show_as=EventStatus.BUSY,
             )
         ]
-        # Mock the event fetching methods
         mock_handler2.get_todays_events.return_value = [
             CalendarEvent(
                 id="event2",
-                title="Event 2",
-                start_time=datetime.now(),
-                end_time=datetime.now() + timedelta(hours=1),
-                status="busy",
-                show_as="busy",
+                subject="Event 2",
+                start=DateTimeInfo(date_time=now, time_zone="UTC"),
+                end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+                show_as=EventStatus.BUSY,
             )
         ]
         mock_handler2.get_events_for_date_range.return_value = [
             CalendarEvent(
                 id="event2",
-                title="Event 2",
-                start_time=datetime.now(),
-                end_time=datetime.now() + timedelta(hours=1),
-                status="busy",
-                show_as="busy",
+                subject="Event 2",
+                start=DateTimeInfo(date_time=now, time_zone="UTC"),
+                end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+                show_as=EventStatus.BUSY,
             )
         ]
 
@@ -315,7 +299,6 @@ class TestEventFetching:
     @pytest.mark.asyncio
     async def test_fetch_and_cache_events_success(self, source_manager_with_sources):
         """Test successful event fetching and caching."""
-        # Mock cache manager to avoid field validation issues
         with patch.object(
             source_manager_with_sources.cache_manager,
             "cache_events",
@@ -329,9 +312,10 @@ class TestEventFetching:
             assert source_manager_with_sources._last_successful_update is not None
 
     @pytest.mark.asyncio
-    async def test_fetch_and_cache_events_no_sources(self, source_manager, cache_manager):
+    async def test_fetch_and_cache_events_no_sources(self, test_settings, cache_manager):
         """Test fetching events with no configured sources."""
-        success = await source_manager.fetch_and_cache_events()
+        source_mgr = SourceManager(test_settings, cache_manager)
+        success = await source_mgr.fetch_and_cache_events()
         assert success is False
 
     @pytest.mark.asyncio
@@ -352,7 +336,6 @@ class TestEventFetching:
             "Fetch error"
         )
 
-        # Mock cache manager to avoid field validation issues
         with patch.object(
             source_manager_with_sources.cache_manager,
             "cache_events",
@@ -394,25 +377,38 @@ class TestEventFetching:
         """Test getting today's events from all sources."""
         events = await source_manager_with_sources.get_todays_events()
 
-        assert len(events) == 2  # Should deduplicate and return all events
+        assert len(events) == 2  # Should get events from both sources
         assert all(isinstance(event, CalendarEvent) for event in events)
+
+    @pytest.mark.asyncio
+    async def test_get_todays_events_with_duplicates(self, source_manager_with_sources):
+        """Test getting today's events with duplicate removal."""
+        # Create duplicate event with same ID
+        now = datetime.now()
+        duplicate_event = CalendarEvent(
+            id="event1",  # Same ID as first source
+            subject="Duplicate Event",
+            start=DateTimeInfo(date_time=now, time_zone="UTC"),
+            end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+            show_as=EventStatus.BUSY,
+        )
+
+        # Add duplicate to second source
+        source_manager_with_sources._sources["source2"].get_todays_events.return_value = [
+            duplicate_event
+        ]
+
+        events = await source_manager_with_sources.get_todays_events()
+
+        # Should deduplicate events
+        assert len(events) == 1
+        assert events[0].id == "event1"
 
     @pytest.mark.asyncio
     async def test_get_events_for_date_range(self, source_manager_with_sources):
         """Test getting events for date range."""
         start_date = datetime.now()
         end_date = start_date + timedelta(days=1)
-
-        # Mock the events to have proper structure to avoid sort and id attribute errors
-        mock_events = []
-        for i, handler in enumerate(source_manager_with_sources._sources.values()):
-            mock_event = MagicMock(spec=CalendarEvent)
-            mock_event.id = f"event_{i}"  # Set the id attribute for deduplication
-            mock_event.start = MagicMock()
-            mock_event.start.date_time = start_date + timedelta(hours=i)
-            mock_event.start_time = start_date + timedelta(hours=i)
-            mock_events.append(mock_event)
-            handler.get_events_for_date_range.return_value = [mock_event]
 
         events = await source_manager_with_sources.get_events_for_date_range(start_date, end_date)
 
@@ -422,30 +418,61 @@ class TestEventFetching:
             handler.get_events_for_date_range.assert_called_once_with(start_date, end_date)
 
     @pytest.mark.asyncio
-    async def test_deduplicate_events(self, source_manager):
+    async def test_get_events_for_date_range_with_error(self, source_manager_with_sources):
+        """Test getting events for date range with source error."""
+        source_manager_with_sources._sources["source1"].get_events_for_date_range.side_effect = (
+            Exception("Range error")
+        )
+
+        start_date = datetime.now()
+        end_date = start_date + timedelta(days=1)
+
+        events = await source_manager_with_sources.get_events_for_date_range(start_date, end_date)
+
+        # Should handle errors gracefully
+        assert isinstance(events, list)
+
+    def test_deduplicate_events(self, test_settings, cache_manager):
         """Test event deduplication functionality."""
+        source_mgr = SourceManager(test_settings, cache_manager)
+
         # Create duplicate events
         now = datetime.now()
         event1 = CalendarEvent(
-            id="dup", title="Duplicate Event", start_time=now, end_time=now + timedelta(hours=1)
+            id="dup",
+            subject="Duplicate Event",
+            start=DateTimeInfo(date_time=now, time_zone="UTC"),
+            end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
         )
         event2 = CalendarEvent(
-            id="dup", title="Duplicate Event", start_time=now, end_time=now + timedelta(hours=1)
+            id="dup",
+            subject="Duplicate Event",
+            start=DateTimeInfo(date_time=now, time_zone="UTC"),
+            end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
         )
         event3 = CalendarEvent(
-            id="unique", title="Unique Event", start_time=now, end_time=now + timedelta(hours=1)
+            id="unique",
+            subject="Unique Event",
+            start=DateTimeInfo(date_time=now, time_zone="UTC"),
+            end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
         )
 
-        deduplicated = source_manager._deduplicate_events([event1, event2, event3])
+        deduplicated = source_mgr._deduplicate_events([event1, event2, event3])
 
         assert len(deduplicated) == 2
         assert deduplicated[0].id == "dup"
         assert deduplicated[1].id == "unique"
 
+    def test_deduplicate_events_empty_list(self, test_settings, cache_manager):
+        """Test deduplication with empty list."""
+        source_mgr = SourceManager(test_settings, cache_manager)
+        unique_events = source_mgr._deduplicate_events([])
+        assert unique_events == []
+
 
 @pytest.mark.unit
 class TestSourceHealth:
-    """Test suite for source health checking."""
+    """Test suite for source health checking and monitoring."""
 
     @pytest_asyncio.fixture
     async def source_manager_with_health_sources(self, test_settings, cache_manager):
@@ -454,7 +481,6 @@ class TestSourceHealth:
 
         # Healthy source
         healthy_handler = AsyncMock()
-        # Make is_healthy return boolean directly, not a coroutine
         healthy_handler.is_healthy = MagicMock(return_value=True)
         healthy_handler.test_connection.return_value.is_healthy = True
         healthy_handler.test_connection.return_value.status = SourceStatus.HEALTHY
@@ -464,7 +490,6 @@ class TestSourceHealth:
 
         # Unhealthy source
         unhealthy_handler = AsyncMock()
-        # Make is_healthy return boolean directly, not a coroutine
         unhealthy_handler.is_healthy = MagicMock(return_value=False)
         unhealthy_handler.test_connection.return_value.is_healthy = False
         unhealthy_handler.test_connection.return_value.status = SourceStatus.ERROR
@@ -508,7 +533,6 @@ class TestSourceHealth:
 
     def test_get_source_status(self, source_manager_with_health_sources):
         """Test getting status of all sources."""
-        # Mock status return values - make sure they're not coroutines
         source_manager_with_health_sources._sources["healthy"].get_status = MagicMock(
             return_value={"status": "healthy"}
         )
@@ -523,14 +547,12 @@ class TestSourceHealth:
         assert status["healthy"]["status"] == "healthy"
         assert status["unhealthy"]["status"] == "error"
 
-    @pytest.mark.asyncio
-    async def test_is_healthy_with_healthy_sources(self, source_manager_with_health_sources):
+    def test_is_healthy_with_healthy_sources(self, source_manager_with_health_sources):
         """Test source manager health with healthy sources."""
         is_healthy = source_manager_with_health_sources.is_healthy()
         assert is_healthy is True
 
-    @pytest.mark.asyncio
-    async def test_is_healthy_with_no_healthy_sources(self, source_manager_with_health_sources):
+    def test_is_healthy_with_no_healthy_sources(self, source_manager_with_health_sources):
         """Test source manager health with no healthy sources."""
         # Make all sources unhealthy
         for handler in source_manager_with_health_sources._sources.values():
@@ -539,9 +561,10 @@ class TestSourceHealth:
         is_healthy = source_manager_with_health_sources.is_healthy()
         assert is_healthy is False
 
-    def test_is_healthy_with_no_sources(self, source_manager):
+    def test_is_healthy_with_no_sources(self, test_settings, cache_manager):
         """Test source manager health with no sources."""
-        is_healthy = source_manager.is_healthy()
+        source_mgr = SourceManager(test_settings, cache_manager)
+        is_healthy = source_mgr.is_healthy()
         assert is_healthy is False
 
     @pytest.mark.asyncio
@@ -577,9 +600,10 @@ class TestSourceHealth:
         assert "All 2 sources are unhealthy" in health_result.status_message
 
     @pytest.mark.asyncio
-    async def test_health_check_no_sources(self, source_manager):
+    async def test_health_check_no_sources(self, test_settings, cache_manager):
         """Test health check with no sources configured."""
-        health_result = await source_manager.health_check()
+        source_mgr = SourceManager(test_settings, cache_manager)
+        health_result = await source_mgr.health_check()
 
         assert health_result.is_healthy is False
         assert "No sources configured" in health_result.status_message
@@ -596,7 +620,6 @@ class TestSourceInfo:
 
         # Mock handler and config
         mock_handler = AsyncMock()
-        # Make is_healthy return boolean directly, not a coroutine
         mock_handler.is_healthy = MagicMock(return_value=True)
 
         mock_config = MagicMock()
@@ -627,9 +650,10 @@ class TestSourceInfo:
         assert info.is_configured is True
 
     @pytest.mark.asyncio
-    async def test_get_source_info_nonexistent(self, source_manager):
+    async def test_get_source_info_not_configured(self, test_settings, cache_manager):
         """Test getting info for nonexistent source."""
-        info = await source_manager.get_source_info("nonexistent")
+        source_mgr = SourceManager(test_settings, cache_manager)
+        info = await source_mgr.get_source_info("nonexistent")
 
         assert info.status == "not_configured"
         assert info.url == ""
@@ -697,9 +721,10 @@ class TestSourceInfo:
         assert isinstance(detailed_info.health, SourceHealthCheck)
         assert isinstance(detailed_info.metrics, SourceMetrics)
 
-    def test_get_detailed_source_info_nonexistent(self, source_manager):
+    def test_get_detailed_source_info_nonexistent(self, test_settings, cache_manager):
         """Test getting detailed info for nonexistent source."""
-        detailed_info = source_manager.get_detailed_source_info("nonexistent")
+        source_mgr = SourceManager(test_settings, cache_manager)
+        detailed_info = source_mgr.get_detailed_source_info("nonexistent")
         assert detailed_info is None
 
     def test_get_summary_status(self, source_manager_with_info):
@@ -718,10 +743,11 @@ class TestSourceConfiguration:
     """Test suite for source configuration management."""
 
     @pytest.mark.asyncio
-    async def test_refresh_source_configs(self, source_manager):
+    async def test_refresh_source_configs(self, test_settings, cache_manager):
         """Test refreshing source configurations."""
+        source_mgr = SourceManager(test_settings, cache_manager)
         # This is a placeholder implementation in the current code
-        await source_manager.refresh_source_configs()
+        await source_mgr.refresh_source_configs()
         # Should not raise exceptions
 
     @pytest.mark.asyncio
@@ -744,9 +770,10 @@ class TestSourceConfiguration:
         # Should handle the configuration change
 
     @pytest.mark.asyncio
-    async def test_cleanup(self, source_manager):
+    async def test_cleanup(self, test_settings, cache_manager):
         """Test source manager cleanup."""
-        await source_manager.cleanup()
+        source_mgr = SourceManager(test_settings, cache_manager)
+        await source_mgr.cleanup()
         # Should not raise exceptions
 
 
@@ -756,33 +783,32 @@ class TestErrorHandling:
 
     @pytest_asyncio.fixture
     async def source_manager_with_sources(self, test_settings, cache_manager):
-        """Create source manager with mock sources."""
+        """Create source manager with mock sources for error testing."""
         source_mgr = SourceManager(test_settings, cache_manager)
 
         # Add mock sources
+        now = datetime.now()
         mock_handler1 = AsyncMock()
-        # Make is_healthy return boolean directly, not a coroutine
         mock_handler1.is_healthy = MagicMock(return_value=True)
         mock_handler1.fetch_events.return_value = [
             CalendarEvent(
                 id="event1",
-                title="Event 1",
-                start_time=datetime.now(),
-                end_time=datetime.now() + timedelta(hours=1),
-                status="busy",
+                subject="Event 1",
+                start=DateTimeInfo(date_time=now, time_zone="UTC"),
+                end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+                show_as=EventStatus.BUSY,
             )
         ]
 
         mock_handler2 = AsyncMock()
-        # Make is_healthy return boolean directly, not a coroutine
         mock_handler2.is_healthy = MagicMock(return_value=True)
         mock_handler2.fetch_events.return_value = [
             CalendarEvent(
                 id="event2",
-                title="Event 2",
-                start_time=datetime.now(),
-                end_time=datetime.now() + timedelta(hours=1),
-                status="busy",
+                subject="Event 2",
+                start=DateTimeInfo(date_time=now, time_zone="UTC"),
+                end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+                show_as=EventStatus.BUSY,
             )
         ]
 
@@ -816,55 +842,40 @@ class TestErrorHandling:
         # Should still get events from other sources
         assert len(events) >= 0
 
-    @pytest.mark.asyncio
-    async def test_get_events_for_date_range_with_error(self, source_manager_with_sources):
-        """Test getting events for date range with source error."""
-        source_manager_with_sources._sources["source1"].get_events_for_date_range.side_effect = (
-            Exception("Range error")
-        )
-
-        start_date = datetime.now()
-        end_date = start_date + timedelta(days=1)
-
-        events = await source_manager_with_sources.get_events_for_date_range(start_date, end_date)
-
-        # Should handle errors gracefully
-        assert isinstance(events, list)
-
 
 @pytest.mark.unit
+@pytest.mark.performance
 class TestPerformance:
     """Performance tests for source manager."""
 
     @pytest_asyncio.fixture
     async def source_manager_with_sources(self, test_settings, cache_manager):
-        """Create source manager with mock sources."""
+        """Create source manager with mock sources for performance testing."""
         source_mgr = SourceManager(test_settings, cache_manager)
 
         # Add mock sources
+        now = datetime.now()
         mock_handler1 = AsyncMock()
-        # Make is_healthy return boolean directly, not a coroutine
         mock_handler1.is_healthy = MagicMock(return_value=True)
         mock_handler1.fetch_events.return_value = [
             CalendarEvent(
                 id="event1",
-                title="Event 1",
-                start_time=datetime.now(),
-                end_time=datetime.now() + timedelta(hours=1),
-                status="busy",
+                subject="Event 1",
+                start=DateTimeInfo(date_time=now, time_zone="UTC"),
+                end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+                show_as=EventStatus.BUSY,
             )
         ]
 
         mock_handler2 = AsyncMock()
-        # Make is_healthy return boolean directly, not a coroutine
         mock_handler2.is_healthy = MagicMock(return_value=True)
         mock_handler2.fetch_events.return_value = [
             CalendarEvent(
                 id="event2",
-                title="Event 2",
-                start_time=datetime.now(),
-                end_time=datetime.now() + timedelta(hours=1),
-                status="busy",
+                subject="Event 2",
+                start=DateTimeInfo(date_time=now, time_zone="UTC"),
+                end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+                show_as=EventStatus.BUSY,
             )
         ]
 
@@ -903,16 +914,17 @@ class TestPerformance:
         source_mgr = SourceManager(test_settings, cache_manager)
 
         # Add many mock sources
+        now = datetime.now()
         for i in range(10):
             mock_handler = AsyncMock()
-            # Make is_healthy return boolean directly, not a coroutine
             mock_handler.is_healthy = MagicMock(return_value=True)
             mock_handler.fetch_events.return_value = [
                 CalendarEvent(
                     id=f"event{i}",
-                    title=f"Event {i}",
-                    start_time=datetime.now(),
-                    end_time=datetime.now() + timedelta(hours=1),
+                    subject=f"Event {i}",
+                    start=DateTimeInfo(date_time=now, time_zone="UTC"),
+                    end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
+                    show_as=EventStatus.BUSY,
                 )
             ]
             source_mgr._sources[f"source{i}"] = mock_handler

@@ -147,14 +147,21 @@ class ValidationRunner:
         """Validate source connectivity functionality."""
         self.logger.info("Validating source connectivity")
 
-        # Test source manager initialization
-        await self._test_source_manager_init()
+        try:
+            # Test source manager initialization
+            await self._test_source_manager_init()
 
-        # Test source health checks
-        await self._test_source_health_checks()
+            # Test source health checks
+            await self._test_source_health_checks()
 
-        # Test ICS fetching
-        await self._test_ics_fetch()
+            # Test ICS fetching
+            await self._test_ics_fetch()
+
+        except Exception as e:
+            self.logger.error(f"Source validation error: {e}")
+            self.results.add_failure(
+                "sources", "source_validation", f"Source validation failed: {str(e)}"
+            )
 
     async def _test_source_manager_init(self) -> None:
         """Test source manager initialization."""
@@ -328,14 +335,21 @@ class ValidationRunner:
         """Validate cache functionality."""
         self.logger.info("Validating cache operations")
 
-        # Test cache initialization
-        await self._test_cache_init()
+        try:
+            # Test cache initialization
+            await self._test_cache_init()
 
-        # Test cache operations
-        await self._test_cache_operations()
+            # Test cache operations
+            await self._test_cache_operations()
 
-        # Test cache status
-        await self._test_cache_status()
+            # Test cache status
+            await self._test_cache_status()
+
+        except Exception as e:
+            self.logger.error(f"Cache validation error: {e}")
+            self.results.add_failure(
+                "cache", "cache_validation", f"Cache validation failed: {str(e)}"
+            )
 
     async def _test_cache_init(self) -> None:
         """Test cache initialization."""
@@ -488,11 +502,18 @@ class ValidationRunner:
         """Validate display functionality."""
         self.logger.info("Validating display functionality")
 
-        # Test display initialization
-        await self._test_display_init()
+        try:
+            # Test display initialization
+            await self._test_display_init()
 
-        # Test display rendering (with mock data)
-        await self._test_display_rendering()
+            # Test display rendering (with mock data)
+            await self._test_display_rendering()
+
+        except Exception as e:
+            self.logger.error(f"Display validation error: {e}")
+            self.results.add_failure(
+                "display", "display_validation", f"Display validation failed: {str(e)}"
+            )
 
     async def _test_display_init(self) -> None:
         """Test display manager initialization."""

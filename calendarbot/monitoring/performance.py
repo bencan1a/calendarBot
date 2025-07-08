@@ -7,7 +7,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from functools import wraps
 from pathlib import Path
@@ -41,7 +41,7 @@ class PerformanceMetric:
     metric_type: MetricType = MetricType.GAUGE
     value: Union[float, int, str] = 0
     unit: str = ""
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     component: str = ""
     operation: str = ""
     correlation_id: Optional[str] = None
@@ -417,7 +417,7 @@ class PerformanceLogger:
 
     def get_performance_summary(self, hours: int = 1) -> Dict[str, Any]:
         """Get performance summary for the specified time period."""
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+        cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
         recent_metrics = [m for m in self._metrics_cache if m.timestamp > cutoff_time]
 
         if not recent_metrics:
