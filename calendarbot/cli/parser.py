@@ -11,10 +11,20 @@ from typing import List, Optional
 
 
 def create_parser() -> argparse.ArgumentParser:
-    """Create command line argument parser.
+    """Create command line argument parser with comprehensive configuration options.
+
+    Builds a comprehensive ArgumentParser with all supported command-line options
+    organized into logical groups for setup, testing, display modes, logging,
+    and operational modes (interactive, web, RPI).
 
     Returns:
-        Configured ArgumentParser instance
+        argparse.ArgumentParser: Fully configured ArgumentParser instance with all
+            command-line options, help text, and validation rules
+
+    Example:
+        >>> parser = create_parser()
+        >>> args = parser.parse_args(['--web', '--port', '3000', '--verbose'])
+        >>> print(f"Running web server on port {args.port}")
     """
     parser = argparse.ArgumentParser(
         description="Calendar Bot - ICS calendar display with interactive navigation and web interface",
@@ -246,16 +256,26 @@ Examples:
 
 
 def parse_date(date_str: str) -> datetime:
-    """Parse date string in YYYY-MM-DD format.
+    """Parse date string in YYYY-MM-DD format for command-line arguments.
+
+    Validates and converts a date string into a datetime object for use
+    in test mode and date range operations.
 
     Args:
-        date_str: Date string to parse
+        date_str (str): Date string to parse in YYYY-MM-DD format
 
     Returns:
-        Parsed datetime object
+        datetime: Parsed datetime object set to midnight (00:00:00)
 
     Raises:
-        argparse.ArgumentTypeError: If date format is invalid
+        argparse.ArgumentTypeError: If date format is invalid or date is not parseable
+
+    Example:
+        >>> date_obj = parse_date("2024-01-15")
+        >>> print(date_obj)  # 2024-01-15 00:00:00
+        >>>
+        >>> # Invalid format raises error
+        >>> parse_date("15-01-2024")  # Raises ArgumentTypeError
     """
     try:
         return datetime.strptime(date_str, "%Y-%m-%d")
@@ -266,14 +286,28 @@ def parse_date(date_str: str) -> datetime:
 def parse_components(components_str: str) -> List[str]:
     """Parse components string into a list of valid component names.
 
+    Validates and processes a comma-separated string of component names
+    for test mode component selection, ensuring all components are valid.
+
     Args:
-        components_str: Comma-separated string of component names
+        components_str (str): Comma-separated string of component names
 
     Returns:
-        List of valid component names
+        List[str]: List of valid, normalized component names
 
     Raises:
-        argparse.ArgumentTypeError: If any component is invalid
+        argparse.ArgumentTypeError: If any component is invalid or unrecognized
+
+    Example:
+        >>> components = parse_components("sources,cache,display")
+        >>> print(components)  # ['sources', 'cache', 'display']
+        >>>
+        >>> # Handles whitespace and case normalization
+        >>> components = parse_components(" SOURCES, Cache , display ")
+        >>> print(components)  # ['sources', 'cache', 'display']
+        >>>
+        >>> # Invalid component raises error
+        >>> parse_components("invalid,sources")  # Raises ArgumentTypeError
     """
     valid_components = ["sources", "cache", "display", "validation", "logging", "network"]
 

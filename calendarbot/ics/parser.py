@@ -406,25 +406,59 @@ class ICSParser:
     ) -> List[CalendarEvent]:
         """Expand recurring events within date range.
 
-        Note: This is a placeholder for basic recurrence expansion.
-        Full recurrence handling is complex and would require more sophisticated logic.
+        **IMPLEMENTATION STATUS: PLACEHOLDER - NOT YET IMPLEMENTED**
+
+        This method is currently a placeholder that returns events unchanged.
+        Full recurrence expansion will be implemented in a future release.
+
+        **Planned Implementation:**
+
+        The full implementation will handle:
+
+        1. **RRULE Processing**: Parse RRULE properties using dateutil.rrule
+        2. **Occurrence Generation**: Create individual CalendarEvent instances for each occurrence
+        3. **Exception Handling**: Process EXDATE (excluded dates) and RDATE (additional dates)
+        4. **Recurrence Modifications**: Handle modified occurrences (RECURRENCE-ID)
+        5. **Performance Optimization**: Limit expansion to the requested date range
+        6. **Timezone Handling**: Proper timezone conversion for recurring events
+
+        **Implementation Timeline:** Targeted for version 2.0
+
+        **Current Behavior:** Returns original events list unchanged
 
         Args:
-            events: List of calendar events
-            start_date: Start of date range
-            end_date: End of date range
+            events (List[CalendarEvent]): List of calendar events, including recurring events
+            start_date (datetime): Start of expansion date range
+            end_date (datetime): End of expansion date range
 
         Returns:
-            List with recurring events expanded
+            List[CalendarEvent]: List with recurring events expanded (currently unchanged)
+
+        Note:
+            Current implementation is a placeholder. Recurring events are currently
+            handled by showing only the master event. For proper recurrence support,
+            use a fully-featured calendar library or wait for the full implementation.
+
+        Example:
+            >>> parser = ICSParser(settings)
+            >>> events = [recurring_event, single_event]
+            >>> expanded = parser.expand_recurring_events(
+            ...     events,
+            ...     datetime(2024, 1, 1),
+            ...     datetime(2024, 1, 31)
+            ... )
+            >>> # Currently returns original events unchanged
         """
-        # For now, just return the events as-is
-        # In a full implementation, this would:
-        # 1. Identify recurring events
-        # 2. Use rrule to expand occurrences
-        # 3. Generate individual CalendarEvent instances for each occurrence
-        # 4. Handle exceptions and modifications
+        # TODO: Implement full recurrence expansion using dateutil.rrule
+        # TODO: Add support for EXDATE and RDATE processing
+        # TODO: Handle RECURRENCE-ID for modified occurrences
+        # TODO: Add timezone-aware recurrence handling
+        # TODO: Optimize performance for large date ranges
 
         logger.debug("Recurrence expansion not yet implemented, returning original events")
+        logger.info(
+            f"Placeholder: Would expand {len([e for e in events if e.is_recurring])} recurring events from {start_date} to {end_date}"
+        )
         return events
 
     def filter_busy_events(self, events: List[CalendarEvent]) -> List[CalendarEvent]:

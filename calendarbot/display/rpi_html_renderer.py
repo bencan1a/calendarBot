@@ -294,7 +294,12 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         return "\n".join(section_parts)
 
     def _format_current_event_rpi(self, event: CachedEvent) -> str:
-        """Format current event with Phase 3 information architecture structure.
+        """Format current event with Phase 3 information architecture structure for 800x480px displays.
+
+        Creates a prominently styled event card for currently active meetings with
+        enhanced visual hierarchy, duration calculations, location formatting, and
+        time remaining indicators. Implements Phase 3 design system with consistent
+        spacing, typography, and visual coding for different event states.
 
         Phase 3 Current Event Card Structure:
         [3px Black Border - 16px Padding]
@@ -304,10 +309,33 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         ⏱️ 25 minutes remaining (14px, urgent styling)
 
         Args:
-            event: Current event to format
+            event: Current event to format. Must be a CachedEvent instance with:
+                  - start_dt (datetime): Event start time, timezone-aware preferred
+                  - end_dt (datetime): Event end time for duration calculation
+                  - subject (str): Event title/summary, will be HTML-escaped
+                  - location_display_name (str, optional): Physical location name
+                  - is_online_meeting (bool): True for virtual meetings
+                  - id (str): Unique event identifier for DOM data attributes
+                  Event should satisfy is_current() == True for proper context.
 
         Returns:
-            HTML string for the Phase 3 current event card
+            str: Complete HTML string containing a Phase 3 current event card with:
+                - Event title with ▶ prefix and proper HTML escaping
+                - Time range with calculated duration in minutes
+                - Location information with appropriate icons (📍/💻)
+                - Time remaining with urgency styling (red background if ≤5 min)
+                - Semantic HTML with ARIA attributes for accessibility
+                - CSS classes for responsive styling and visual hierarchy
+
+        Raises:
+            AttributeError: If event lacks required start_dt, end_dt, or subject
+            TypeError: If event is not a CachedEvent instance
+            ValueError: If datetime calculations fail due to invalid timestamps
+
+        Note:
+            Filters out "Microsoft Teams Meeting" text from location display
+            to avoid redundancy with is_online_meeting indicator. Duration
+            calculation uses total_seconds() for accuracy across timezones.
         """
         # Calculate duration
         duration_mins = (event.end_dt - event.start_dt).total_seconds() / 60
@@ -433,13 +461,49 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         return ""
 
     def _format_later_event_rpi(self, event: CachedEvent) -> str:
-        """Format later event with Phase 3 compact list format and Phase 5 accessibility.
+        """Format later event with Phase 3 compact list format and comprehensive accessibility support.
+
+        Creates a streamlined list item for events occurring later in the day, designed
+        for the "Later Today" section. Implements semantic HTML with full ARIA labeling,
+        keyboard navigation support, and screen reader compatibility following WCAG 2.1
+        guidelines for inclusive calendar interfaces.
 
         Args:
-            event: Later event to format
+            event: Later event to format. Must be a CachedEvent instance with:
+                  - subject (str): Event title, used in ARIA labels and display text
+                  - location_display_name (str, optional): Meeting location
+                  - is_online_meeting (bool): Virtual meeting indicator
+                  - id (str): Unique identifier for DOM data attributes
+                  - format_time_range() method: Returns formatted time display
 
         Returns:
-            HTML string for the Phase 3 later event list item with Phase 5 accessibility
+            str: Semantic HTML list item with comprehensive accessibility features:
+                - Proper list item role and ARIA labeling for screen readers
+                - Event title with HTML escaping for XSS protection
+                - Time range with location indicators (📍 physical, 💻 online)
+                - Descriptive aria-label including full event context
+                - Keyboard-accessible markup for navigation
+                - Microsoft Teams Meeting text filtering for cleaner display
+
+        Accessibility Context:
+            - ARIA role="listitem" for proper list semantics
+            - aria-label provides full event context for screen readers
+            - Event title and details are semantically separated
+            - Visual icons (📍💻) supplemented with text alternatives
+            - Supports keyboard navigation and focus management
+            - Compatible with high contrast themes and screen magnification
+
+        Note:
+            Filters "Microsoft Teams Meeting" text from location display to avoid
+            redundancy with the 💻 Online indicator. Location text is truncated
+            and properly escaped to prevent layout issues and security vulnerabilities.
+
+        Example Output:
+            <li class="later-event" data-event-id="evt123" role="listitem"
+                aria-label="Later Event: Team Standup">
+                <span class="event-title">Team Standup</span>
+                <span class="event-details">2:00 PM - 3:00 PM | 💻 Online</span>
+            </li>
         """
         # Location information with visual indicators - filter out Microsoft Teams Meeting text
         location_text = ""
