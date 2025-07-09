@@ -105,7 +105,7 @@ class CredentialMaskingPatterns:
     """Predefined patterns for credential detection and masking."""
 
     # Compiled regex patterns for various credential types
-    PATTERNS: Dict[str, Pattern] = {
+    PATTERNS: Dict[str, Pattern[str]] = {
         "password": re.compile(r'(password["\s]*[:=]["\s]*)([^"\s,}]+)', re.IGNORECASE),
         "token": re.compile(r'(token["\s]*[:=]["\s]*)([^"\s,}]+)', re.IGNORECASE),
         "bearer": re.compile(r'(bearer["\s]+)([a-zA-Z0-9._-]+)', re.IGNORECASE),
@@ -157,7 +157,7 @@ class CredentialMaskingPatterns:
         return f"{prefix}{'*' * mask_length}{suffix}"
 
 
-def mask_credentials(text: str, custom_patterns: Optional[Dict[str, Pattern]] = None) -> str:
+def mask_credentials(text: str, custom_patterns: Optional[Dict[str, Pattern[str]]] = None) -> str:
     """
     Mask credentials in text using predefined and custom patterns.
 
@@ -200,7 +200,7 @@ class SecureFormatter(logging.Formatter):
         self,
         *args: Any,
         enable_masking: bool = True,
-        custom_patterns: Optional[Dict[str, Pattern]] = None,
+        custom_patterns: Optional[Dict[str, Pattern[str]]] = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -218,7 +218,7 @@ class SecureFormatter(logging.Formatter):
         # Apply credential masking
         return mask_credentials(formatted, self.custom_patterns)
 
-    def add_pattern(self, name: str, pattern: Pattern) -> None:
+    def add_pattern(self, name: str, pattern: Pattern[str]) -> None:
         """Add a custom masking pattern."""
         self.custom_patterns[name] = pattern
 

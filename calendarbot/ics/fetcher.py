@@ -100,6 +100,23 @@ class ICSFetcher:
 
             # Check for localhost/private IP addresses
             hostname = parsed.hostname
+            if not hostname:
+                # Reject URLs with empty hostnames
+                event = SecurityEvent(
+                    event_type=SecurityEventType.SYSTEM_SECURITY_VIOLATION,
+                    severity=SecuritySeverity.HIGH,
+                    resource=url,
+                    action="url_validation",
+                    result="blocked",
+                    details={
+                        "violation_type": "ssrf_attempt",
+                        "description": f"Blocked URL with empty hostname: {url}",
+                        "source_ip": "internal",
+                    },
+                )
+                self.security_logger.log_event(event)
+                return False
+
             if hostname:
                 # First try standard IP parsing
                 try:

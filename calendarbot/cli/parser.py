@@ -7,7 +7,7 @@ including setup of argument groups, validation, and parsing logic.
 import argparse
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -228,7 +228,7 @@ def parse_date(date_str: str) -> datetime:
         raise argparse.ArgumentTypeError(f"Invalid date format: {date_str}. Use YYYY-MM-DD")
 
 
-def parse_components(components_str: str) -> list:
+def parse_components(components_str: str) -> List[str]:
     """Parse components string into a list of valid component names.
 
     Args:

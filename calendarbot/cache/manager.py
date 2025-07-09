@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..ics.models import CalendarEvent
 
@@ -332,7 +332,7 @@ class CacheManager:
         except Exception as e:
             logger.error(f"Failed to update fetch metadata: {e}")
 
-    async def get_cache_summary(self) -> dict:
+    async def get_cache_summary(self) -> Dict[str, Any]:
         """Get a summary of cache status for display/logging.
 
         Returns:

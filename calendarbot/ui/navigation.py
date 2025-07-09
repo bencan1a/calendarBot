@@ -3,7 +3,7 @@
 import logging
 from datetime import date, datetime, timedelta
 from enum import Enum
-from typing import Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +205,7 @@ class NavigationState:
             except Exception as e:
                 logger.error(f"Error in date change callback: {e}")
 
-    def get_week_context(self) -> dict:
+    def get_week_context(self) -> Dict[str, Any]:
         """Get context about the selected date's week.
 
         Returns:

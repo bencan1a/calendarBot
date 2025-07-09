@@ -6,7 +6,7 @@ import logging
 import os
 import subprocess
 from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable, Optional, Type, TypeVar, Union
+from typing import Any, Awaitable, Callable, Optional, Tuple, Type, TypeVar, Union
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ async def retry_with_backoff(
     backoff_factor: float = 1.5,
     initial_delay: float = 1.0,
     max_delay: float = 60.0,
-    exceptions: tuple = (Exception,),
+    exceptions: Tuple[Type[Exception], ...] = (Exception,),
     *args: Any,
     **kwargs: Any,
 ) -> T:
@@ -214,11 +214,12 @@ def validate_email(email: str) -> bool:
     """
     import re
 
-    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    # More strict pattern that doesn't allow consecutive dots
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$"
     return bool(re.match(pattern, email))
 
 
-def parse_iso_datetime(dt_string: str) -> Optional[datetime]:
+def parse_iso_datetime(dt_string: Optional[str]) -> Optional[datetime]:
     """Parse ISO datetime string with error handling.
 
     Args:
@@ -227,6 +228,10 @@ def parse_iso_datetime(dt_string: str) -> Optional[datetime]:
     Returns:
         Parsed datetime or None if parsing fails
     """
+    if dt_string is None:
+        logger.debug("Failed to parse datetime 'None': Input is None")
+        return None
+
     try:
         # Handle various ISO formats
         if dt_string.endswith("Z"):
@@ -238,7 +243,9 @@ def parse_iso_datetime(dt_string: str) -> Optional[datetime]:
         return None
 
 
-def rate_limit(calls_per_second: float) -> Callable:
+def rate_limit(
+    calls_per_second: float,
+) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
     """Decorator to rate limit function calls.
 
     Args:
@@ -250,7 +257,7 @@ def rate_limit(calls_per_second: float) -> Callable:
     min_interval = 1.0 / calls_per_second
     last_called = [0.0]
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             elapsed = asyncio.get_event_loop().time() - last_called[0]

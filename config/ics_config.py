@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 
 class ICSAuth(BaseModel):
@@ -16,14 +16,14 @@ class ICSAuth(BaseModel):
 
     @field_validator("type")
     @classmethod
-    def validate_auth_type(cls, v):
+    def validate_auth_type(cls, v: Any) -> Any:
         if v is not None and v not in ["basic", "bearer"]:
             raise ValueError('auth_type must be "basic", "bearer", or null')
         return v
 
     @field_validator("username", "password")
     @classmethod
-    def validate_basic_auth(cls, v, info):
+    def validate_basic_auth(cls, v: Any, info: ValidationInfo) -> Any:
         if info.data.get("type") == "basic":
             if info.field_name == "username" and not v:
                 raise ValueError("username required for basic auth")
@@ -33,7 +33,7 @@ class ICSAuth(BaseModel):
 
     @field_validator("bearer_token")
     @classmethod
-    def validate_bearer_auth(cls, v, info):
+    def validate_bearer_auth(cls, v: Any, info: ValidationInfo) -> Any:
         auth_type = info.data.get("type")
         if auth_type == "bearer" and not v:
             raise ValueError("bearer_token required for bearer auth")
@@ -65,21 +65,21 @@ class ICSSourceConfig(BaseModel):
 
     @field_validator("url")
     @classmethod
-    def validate_url(cls, v):
+    def validate_url(cls, v: Any) -> Any:
         if not v.startswith(("http://", "https://")):
             raise ValueError("URL must start with http:// or https://")
         return v
 
     @field_validator("refresh_interval")
     @classmethod
-    def validate_refresh_interval(cls, v):
+    def validate_refresh_interval(cls, v: Any) -> Any:
         if v < 60:
             raise ValueError("refresh_interval must be at least 60 seconds")
         return v
 
     @field_validator("timeout")
     @classmethod
-    def validate_timeout(cls, v):
+    def validate_timeout(cls, v: Any) -> Any:
         if v < 1:
             raise ValueError("timeout must be at least 1 second")
         return v
@@ -112,7 +112,7 @@ class ICSConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     @classmethod
-    def from_settings(cls, settings) -> "ICSConfig":
+    def from_settings(cls, settings: Any) -> "ICSConfig":
         """Create ICS config from application settings.
 
         Args:

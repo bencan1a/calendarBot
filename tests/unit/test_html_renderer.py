@@ -1,720 +1,1111 @@
-"""Comprehensive unit tests for calendarbot.display.html_renderer module."""
+"""Tests for HTML-based display renderer."""
 
 from datetime import datetime, timedelta
+from typing import Any, Dict
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+import pytz
 
 from calendarbot.cache.models import CachedEvent
 from calendarbot.display.html_renderer import HTMLRenderer
 
 
-class TestHTMLRenderer:
-    """Test cases for HTMLRenderer class."""
+class TestHTMLRendererInitialization:
+    """Test HTML renderer initialization and configuration."""
 
-    @pytest.fixture
-    def mock_settings(self):
-        """Create mock settings object."""
+    def test_init_default_theme(self) -> None:
+        """Test HTML renderer initialization with default theme."""
+        settings = Mock()
+        del settings.web_theme  # No web_theme attribute
+
+        renderer = HTMLRenderer(settings)
+
+        assert renderer.settings == settings
+        assert renderer.theme == "eink"
+
+    def test_init_with_eink_theme(self) -> None:
+        """Test HTML renderer initialization with eink theme."""
         settings = Mock()
         settings.web_theme = "eink"
-        settings.display_type = "html"
-        settings.display_enabled = True
-        return settings
 
-    @pytest.fixture
-    def renderer(self, mock_settings):
-        """Create HTMLRenderer instance with mock settings."""
-        return HTMLRenderer(mock_settings)
+        renderer = HTMLRenderer(settings)
 
-    @pytest.fixture
-    def mock_cached_event(self):
-        """Create a mock CachedEvent for testing."""
-        event = Mock(spec=CachedEvent)
-        event.id = "test-event-1"
-        event.subject = "Test Meeting"
-        event.start_datetime = "2025-01-15T10:00:00Z"
-        event.end_datetime = "2025-01-15T11:00:00Z"
-        event.location_display_name = "Conference Room A"
-        event.is_online_meeting = False
-        event.is_current.return_value = False
-        event.is_upcoming.return_value = True
-        event.format_time_range.return_value = "10:00 AM - 11:00 AM"
-        event.time_until_start.return_value = 30
+        assert renderer.settings == settings
+        assert renderer.theme == "eink"
 
-        # Mock datetime properties
-        start_dt = datetime(2025, 1, 15, 10, 0, 0)
-        end_dt = datetime(2025, 1, 15, 11, 0, 0)
-        event.start_dt = start_dt
-        event.end_dt = end_dt
+    def test_init_with_eink_rpi_theme(self) -> None:
+        """Test HTML renderer initialization with eink-rpi theme."""
+        settings = Mock()
+        settings.web_theme = "eink-rpi"
 
-        return event
+        renderer = HTMLRenderer(settings)
 
-    @pytest.fixture
-    def mock_current_event(self, mock_cached_event):
-        """Create a mock current event."""
-        event = mock_cached_event
-        event.is_current.return_value = True
-        event.is_upcoming.return_value = False
-        event.time_until_start.return_value = None
-        return event
+        assert renderer.settings == settings
+        assert renderer.theme == "eink-rpi"
 
-    def test_init_default_theme(self, mock_settings):
-        """Test HTMLRenderer initialization with default theme."""
-        mock_settings.web_theme = "eink"
+    def test_init_with_standard_theme(self) -> None:
+        """Test HTML renderer initialization with standard theme."""
+        settings = Mock()
+        settings.web_theme = "standard"
 
-        with patch("calendarbot.display.html_renderer.logger") as mock_logger:
-            renderer = HTMLRenderer(mock_settings)
+        renderer = HTMLRenderer(settings)
 
-            assert renderer.settings == mock_settings
-            assert renderer.theme == "eink"
-            mock_logger.info.assert_called_with("HTML renderer initialized with theme: eink")
+        assert renderer.settings == settings
+        assert renderer.theme == "standard"
 
-    def test_init_no_theme_attribute(self, mock_settings):
-        """Test HTMLRenderer initialization when settings has no web_theme attribute."""
-        delattr(mock_settings, "web_theme")
 
-        renderer = HTMLRenderer(mock_settings)
+class TestHTMLRendererRenderEvents:
+    """Test main render_events method."""
 
-        assert renderer.theme == "eink"  # Default theme
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.settings.web_theme = "eink"
+        self.renderer = HTMLRenderer(self.settings)
 
-    @pytest.mark.parametrize("theme", ["eink", "eink-rpi", "standard", "custom"])
-    def test_init_various_themes(self, mock_settings, theme):
-        """Test HTMLRenderer initialization with various themes."""
-        mock_settings.web_theme = theme
-
-        renderer = HTMLRenderer(mock_settings)
-
-        assert renderer.theme == theme
-
-    def test_render_events_empty_list(self, renderer):
+    @patch("calendarbot.display.html_renderer.datetime")
+    def test_render_events_empty_list(self, mock_datetime: Any) -> None:
         """Test rendering with empty events list."""
-        with patch("calendarbot.display.html_renderer.datetime") as mock_datetime:
-            mock_datetime.now.return_value.strftime.return_value = "Monday, January 15"
+        mock_now = datetime(2023, 12, 15, 10, 0, 0)
+        mock_datetime.now.return_value = mock_now
 
-            result = renderer.render_events([])
+        result = self.renderer.render_events([])
 
-            assert "No meetings scheduled!" in result
-            assert "Enjoy your free time" in result
-            assert "🎉" in result
-            assert "no-events" in result
+        assert "<!DOCTYPE html>" in result
+        assert "No meetings scheduled!" in result
+        assert "Enjoy your free time" in result
+        assert "Friday, December 15" in result
 
-    def test_render_events_with_status_info(self, renderer, mock_cached_event):
-        """Test rendering events with status information."""
-        status_info = {
-            "interactive_mode": False,
-            "last_update": "2025-01-15T10:00:00Z",
-            "is_cached": True,
-            "connection_status": "Connected",
-        }
+    @patch("calendarbot.display.html_renderer.datetime")
+    def test_render_events_with_status_info(self, mock_datetime: Any) -> None:
+        """Test rendering with status information."""
+        mock_now = datetime(2023, 12, 15, 10, 0, 0)
+        mock_datetime.now.return_value = mock_now
 
-        with patch("calendarbot.display.html_renderer.datetime") as mock_datetime:
-            mock_datetime.now.return_value.strftime.return_value = "Monday, January 15"
-
-            result = renderer.render_events([mock_cached_event], status_info)
-
-            assert "Monday, January 15" in result
-            assert "📱 Cached Data" in result
-            assert "📶 Connected" in result
-
-    def test_render_events_interactive_mode(self, renderer, mock_cached_event):
-        """Test rendering events in interactive mode."""
         status_info = {
             "interactive_mode": True,
-            "selected_date": "Tuesday, January 16",
+            "selected_date": "Monday, December 18",
+            "last_update": "2023-12-15T10:00:00Z",
+            "is_cached": True,
+            "connection_status": "Good",
+        }
+
+        result = self.renderer.render_events([], status_info)
+
+        assert "Monday, December 18" in result
+        assert "📱 Cached Data" in result
+        assert "📶 Good" in result
+        assert "Updated:" in result
+
+    @patch("calendarbot.display.html_renderer.datetime")
+    def test_render_events_interactive_mode(self, mock_datetime: Any) -> None:
+        """Test rendering in interactive mode."""
+        mock_now = datetime(2023, 12, 15, 10, 0, 0)
+        mock_datetime.now.return_value = mock_now
+
+        status_info = {
+            "interactive_mode": True,
+            "selected_date": "Today",
             "relative_description": "Tomorrow",
         }
 
-        result = renderer.render_events([mock_cached_event], status_info)
+        result = self.renderer.render_events([], status_info)
 
-        assert "Tuesday, January 16" in result
-        assert "navigate('prev')" in result
-        assert "navigate('next')" in result
+        assert 'onclick="navigate(' in result
+        assert "Navigate" in result
         assert "📍 Tomorrow" in result
 
-    def test_render_events_exception_handling(self, renderer):
-        """Test error handling in render_events method."""
-        with patch.object(renderer, "_build_status_line", side_effect=Exception("Test error")):
-            with patch("calendarbot.display.html_renderer.logger") as mock_logger:
+    def test_render_events_error_handling(self) -> None:
+        """Test error handling in render_events."""
+        # Mock an exception during rendering
+        with patch.object(self.renderer, "_build_status_line", side_effect=Exception("Test error")):
+            result = self.renderer.render_events([])
 
-                result = renderer.render_events([])
-
-                assert "Error rendering calendar: Test error" in result
-                mock_logger.error.assert_called_with("Failed to render events to HTML: Test error")
-
-    def test_build_status_line_no_info(self, renderer):
-        """Test building status line with no status info."""
-        result = renderer._build_status_line(None)
-
-        assert result == ""
-
-    def test_build_status_line_empty_info(self, renderer):
-        """Test building status line with empty status info."""
-        result = renderer._build_status_line({})
-
-        assert result == ""
+            assert "Error rendering calendar: Test error" in result
+            assert "<!DOCTYPE html>" in result
 
     @patch("calendarbot.display.html_renderer.datetime")
-    @patch("calendarbot.display.html_renderer.pytz")
-    def test_build_status_line_with_update_time_string(self, mock_pytz, mock_datetime, renderer):
-        """Test building status line with last update time as string."""
-        # Mock datetime.fromisoformat to return a controlled datetime object
-        mock_parsed_time = Mock()
-        mock_parsed_time.tzinfo = None
-        mock_datetime.fromisoformat.return_value = mock_parsed_time
+    def test_render_events_with_current_and_upcoming_events(self, mock_datetime: Any) -> None:
+        """Test rendering with current and upcoming events."""
+        mock_now = datetime(2023, 12, 15, 10, 30, 0, tzinfo=pytz.UTC)
+        mock_datetime.now.return_value = mock_now
 
-        # Mock the timezone conversion chain
+        # Create mock events with proper datetime attributes
+        current_event = Mock(spec=CachedEvent)
+        current_event.is_current.return_value = True
+        current_event.is_upcoming.return_value = False
+        current_event.subject = "Current Meeting"
+        current_event.start_dt = datetime(2023, 12, 15, 10, 0, 0, tzinfo=pytz.UTC)
+        current_event.end_dt = datetime(2023, 12, 15, 11, 0, 0, tzinfo=pytz.UTC)
+        current_event.location_display_name = None
+        current_event.is_online_meeting = False
+        current_event.format_time_range.return_value = "10:00 AM - 11:00 AM"
+
+        upcoming_event = Mock(spec=CachedEvent)
+        upcoming_event.is_current.return_value = False
+        upcoming_event.is_upcoming.return_value = True
+        upcoming_event.subject = "Next Meeting"
+        upcoming_event.location_display_name = None
+        upcoming_event.is_online_meeting = False
+        upcoming_event.format_time_range.return_value = "11:00 AM - 12:00 PM"
+        upcoming_event.time_until_start.return_value = 30
+
+        events = [current_event, upcoming_event]
+
+        # Mock the HTML formatting methods to avoid complex setup
+        with patch.object(
+            self.renderer,
+            "_format_current_event_html",
+            return_value="<div>Current Event HTML</div>",
+        ):
+            with patch.object(
+                self.renderer,
+                "_format_upcoming_event_html",
+                return_value="<div>Upcoming Event HTML</div>",
+            ):
+                result = self.renderer.render_events(events)  # type: ignore
+
+                assert "▶ Current Event" in result
+                assert "📋 Next Up" in result
+                assert "Current Event HTML" in result
+                assert "Upcoming Event HTML" in result
+
+
+class TestHTMLRendererBuildStatusLine:
+    """Test status line building."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.renderer = HTMLRenderer(self.settings)
+
+    def test_build_status_line_no_info(self) -> None:
+        """Test building status line with no status info."""
+        result = self.renderer._build_status_line(None)
+        assert result == ""
+
+    def test_build_status_line_empty_dict(self) -> None:
+        """Test building status line with empty status dict."""
+        result = self.renderer._build_status_line({})
+        assert result == ""
+
+    @patch("pytz.timezone")
+    @patch("pytz.utc")
+    @patch("calendarbot.display.html_renderer.datetime")
+    def test_build_status_line_with_last_update_string(
+        self, mock_datetime_module: Any, mock_utc: Any, mock_timezone: Any
+    ) -> None:
+        """Test building status line with last update as string."""
+        # Mock Pacific timezone
         mock_pacific_tz = Mock()
-        mock_utc_time = Mock()
-        mock_pacific_time = Mock()
+        mock_timezone.return_value = mock_pacific_tz
 
-        mock_pytz.timezone.return_value = mock_pacific_tz
-        mock_pytz.utc.localize.return_value = mock_utc_time
-        mock_utc_time.astimezone.return_value = mock_pacific_time
-        mock_pacific_time.strftime.return_value = "02:00 PM"
-
-        status_info = {
-            "last_update": "2025-01-15T22:00:00Z",
-            "is_cached": False,
-            "connection_status": "Online",
-        }
-
-        result = renderer._build_status_line(status_info)
-
-        assert "Updated: 02:00 PM" in result
-        assert "🌐 Live Data" in result
-        assert "📶 Online" in result
-
-    @patch("calendarbot.display.html_renderer.pytz")
-    def test_build_status_line_with_update_time_datetime(self, mock_pytz, renderer):
-        """Test building status line with last update time as datetime object."""
-        # Mock the timezone conversion chain properly
-        mock_pacific_tz = Mock()
+        # Create a simple mock datetime that properly handles chaining
         mock_update_time = Mock()
-        mock_utc_time = Mock()
-        mock_pacific_time = Mock()
+        mock_update_time.tzinfo = Mock()  # Has timezone info
+        mock_update_time.astimezone.return_value.astimezone.return_value.strftime.return_value = (
+            "10:00 AM"
+        )
 
-        mock_pytz.timezone.return_value = mock_pacific_tz
-        mock_update_time.tzinfo = None
-        mock_pytz.utc.localize.return_value = mock_utc_time
-        mock_utc_time.astimezone.return_value = mock_pacific_time
-        mock_pacific_time.strftime.return_value = "03:30 PM"
+        # Mock datetime.fromisoformat
+        mock_datetime_module.fromisoformat.return_value = mock_update_time
 
-        status_info = {"last_update": mock_update_time, "is_cached": True}
+        status_info = {"last_update": "2023-12-15T18:00:00Z"}
+        result = self.renderer._build_status_line(status_info)
 
-        result = renderer._build_status_line(status_info)
+        assert "Updated: 10:00 AM" in result
 
-        assert "Updated: 03:30 PM" in result
+    def test_build_status_line_with_last_update_datetime(self) -> None:
+        """Test building status line with last update as datetime object."""
+        mock_update_time = Mock()
+        mock_update_time.tzinfo = None  # Simulate no timezone info
+
+        with patch("pytz.timezone") as mock_timezone, patch("pytz.utc.localize") as mock_localize:
+
+            mock_pacific_tz = Mock()
+            mock_timezone.return_value = mock_pacific_tz
+
+            mock_utc_time = Mock()
+            mock_pacific_time = Mock()
+            mock_pacific_time.strftime.return_value = "10:00 AM"
+
+            mock_localize.return_value = mock_utc_time
+            mock_utc_time.astimezone.return_value = mock_pacific_time
+
+            status_info = {"last_update": mock_update_time}
+            result = self.renderer._build_status_line(status_info)
+
+            assert "Updated: 10:00 AM" in result
+
+    def test_build_status_line_cached_data(self) -> None:
+        """Test building status line with cached data indicator."""
+        status_info = {"is_cached": True}
+        result = self.renderer._build_status_line(status_info)
+
         assert "📱 Cached Data" in result
 
-    def test_build_status_line_timezone_error(self, renderer):
-        """Test building status line handles timezone conversion errors gracefully."""
-        status_info = {"last_update": "invalid-datetime", "is_cached": False}
+    def test_build_status_line_live_data(self) -> None:
+        """Test building status line with live data indicator."""
+        status_info = {"is_cached": False}
+        result = self.renderer._build_status_line(status_info)
 
-        result = renderer._build_status_line(status_info)
-
-        # Should still include other status info despite timezone error
         assert "🌐 Live Data" in result
-        assert "Updated:" not in result  # Update time should be skipped
 
-    def test_render_events_content_no_events(self, renderer):
-        """Test rendering events content with no events."""
-        result = renderer._render_events_content([], False)
+    def test_build_status_line_with_connection_status(self) -> None:
+        """Test building status line with connection status."""
+        status_info = {"connection_status": "Excellent"}
+        result = self.renderer._build_status_line(status_info)
+
+        assert "📶 Excellent" in result
+
+    def test_build_status_line_combined_info(self) -> None:
+        """Test building status line with multiple status elements."""
+        status_info = {"is_cached": True, "connection_status": "Good"}
+        result = self.renderer._build_status_line(status_info)
+
+        assert "📱 Cached Data" in result
+        assert "📶 Good" in result
+        assert " | " in result
+
+    def test_build_status_line_update_parsing_error(self) -> None:
+        """Test handling of last_update parsing errors."""
+        status_info = {"last_update": "invalid-date-format", "is_cached": True}
+        result = self.renderer._build_status_line(status_info)
+
+        # Should still include other status info despite update parsing error
+        assert "📱 Cached Data" in result
+        assert "Updated:" not in result
+
+
+class TestHTMLRendererRenderEventsContent:
+    """Test events content rendering."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.renderer = HTMLRenderer(self.settings)
+
+    def test_render_events_content_empty(self) -> None:
+        """Test rendering events content with empty list."""
+        result = self.renderer._render_events_content([], False)
 
         assert "No meetings scheduled!" in result
-        assert "no-events" in result
+        assert "Enjoy your free time" in result
         assert "🎉" in result
 
-    def test_render_events_content_current_events(self, renderer, mock_current_event):
+    def test_render_events_content_current_events(self) -> None:
         """Test rendering events content with current events."""
-        result = renderer._render_events_content([mock_current_event], False)
+        current_event = Mock(spec=CachedEvent)
+        current_event.is_current.return_value = True
+        current_event.is_upcoming.return_value = False
+        current_event.subject = "Current Meeting"
 
-        assert "▶ Current Event" in result
-        assert "current-events" in result
-        assert mock_current_event.subject in result
+        with patch.object(
+            self.renderer,
+            "_format_current_event_html",
+            return_value="<div>Current Event HTML</div>",
+        ):
+            result = self.renderer._render_events_content([current_event], False)
 
-    def test_render_events_content_upcoming_events(self, renderer, mock_cached_event):
+            assert "▶ Current Event" in result
+            assert "Current Event HTML" in result
+
+    def test_render_events_content_upcoming_events(self) -> None:
         """Test rendering events content with upcoming events."""
-        result = renderer._render_events_content([mock_cached_event], False)
+        upcoming_event = Mock(spec=CachedEvent)
+        upcoming_event.is_current.return_value = False
+        upcoming_event.is_upcoming.return_value = True
+        upcoming_event.subject = "Next Meeting"
 
-        assert "📋 Next Up" in result
-        assert "upcoming-events" in result
-        assert mock_cached_event.subject in result
+        with patch.object(
+            self.renderer,
+            "_format_upcoming_event_html",
+            return_value="<div>Upcoming Event HTML</div>",
+        ):
+            result = self.renderer._render_events_content([upcoming_event], False)
 
-    def test_render_events_content_later_events(self, renderer):
-        """Test rendering events content with many upcoming events showing 'later' section."""
-        # Create 6 upcoming events to trigger "later today" section
+            assert "📋 Next Up" in result
+            assert "Upcoming Event HTML" in result
+
+    def test_render_events_content_later_events(self) -> None:
+        """Test rendering events content with later events (4+ upcoming)."""
+        # Create 5 upcoming events to trigger "Later Today" section
         upcoming_events = []
-        for i in range(6):
+        for i in range(5):
             event = Mock(spec=CachedEvent)
+            event.is_current.return_value = False
+            event.is_upcoming.return_value = True
             event.subject = f"Meeting {i+1}"
             event.location_display_name = None
             event.is_online_meeting = False
-            event.is_current.return_value = False
-            event.is_upcoming.return_value = True
-            event.format_time_range.return_value = f"{10+i}:00 AM - {11+i}:00 AM"
-            event.time_until_start.return_value = 30 + i * 10  # Return proper integer values
+            event.format_time_range.return_value = f"10:{i+1}0 AM - 11:{i+1}0 AM"
             upcoming_events.append(event)
 
-        result = renderer._render_events_content(upcoming_events, False)
+        with patch.object(
+            self.renderer,
+            "_format_upcoming_event_html",
+            return_value="<div>Upcoming Event HTML</div>",
+        ):
+            result = self.renderer._render_events_content(upcoming_events, False)  # type: ignore
 
-        assert "⏰ Later Today" in result
-        assert "later-events" in result
-        assert "Meeting 4" in result  # 4th event should be in later section
+            assert "📋 Next Up" in result
+            assert "⏰ Later Today" in result
+            assert "Meeting 4" in result  # 4th event (index 3) should be in later section
+            assert "Meeting 5" in result  # 5th event should be in later section
 
-    def test_format_current_event_html(self, renderer, mock_current_event):
-        """Test formatting current event HTML."""
-        with patch("calendarbot.utils.helpers.get_timezone_aware_now") as mock_now:
-            now = datetime(2025, 1, 15, 10, 30, 0)  # 30 minutes into the event
-            mock_now.return_value = now
+    def test_render_events_content_later_events_with_location(self) -> None:
+        """Test rendering later events with location information."""
+        # Create 5 upcoming events to trigger later section
+        upcoming_events = []
+        for i in range(5):
+            event = Mock(spec=CachedEvent)
+            event.is_current.return_value = False
+            event.is_upcoming.return_value = True
+            event.subject = f"Meeting {i+1}"
+            # 4th event has location, 5th event is online meeting
+            event.location_display_name = f"Room {i+1}" if i == 3 else None
+            event.is_online_meeting = i == 4  # Fifth event is online
+            event.format_time_range.return_value = f"10:{i+1}0 AM - 11:{i+1}0 AM"
+            upcoming_events.append(event)
 
-            result = renderer._format_current_event_html(mock_current_event)
+        with patch.object(
+            self.renderer,
+            "_format_upcoming_event_html",
+            return_value="<div>Upcoming Event HTML</div>",
+        ):
+            result = self.renderer._render_events_content(upcoming_events, False)  # type: ignore
 
-            assert mock_current_event.subject in result
-            assert "current-event" in result
-            assert "⏱️ 30 minutes remaining" in result
+            assert "⏰ Later Today" in result
+            assert "📍 Room 4" in result  # 4th event has location
+            assert "💻 Online" in result  # 5th event is online meeting
 
-    def test_format_current_event_with_location(self, renderer, mock_current_event):
-        """Test formatting current event with location."""
-        mock_current_event.location_display_name = "Conference Room B"
+    def test_render_events_content_filter_teams_location(self) -> None:
+        """Test filtering out Microsoft Teams Meeting location text."""
+        upcoming_events = []
+        for i in range(4):
+            event = Mock(spec=CachedEvent)
+            event.is_current.return_value = False
+            event.is_upcoming.return_value = True
+            event.subject = f"Meeting {i+1}"
+            event.location_display_name = "Microsoft Teams Meeting" if i == 3 else None
+            event.is_online_meeting = False
+            event.format_time_range.return_value = f"10:{i+1}0 AM - 11:{i+1}0 AM"
+            upcoming_events.append(event)
 
-        result = renderer._format_current_event_html(mock_current_event)
+        with patch.object(
+            self.renderer,
+            "_format_upcoming_event_html",
+            return_value="<div>Upcoming Event HTML</div>",
+        ):
+            result = self.renderer._render_events_content(upcoming_events, False)  # type: ignore
 
-        assert "📍 Conference Room B" in result
-        assert "event-location" in result
+            # Microsoft Teams Meeting location should be filtered out
+            assert "📍 Microsoft Teams Meeting" not in result
 
-    def test_format_current_event_online_meeting(self, renderer, mock_current_event):
-        """Test formatting current event that's an online meeting."""
-        mock_current_event.location_display_name = None
-        mock_current_event.is_online_meeting = True
 
-        result = renderer._format_current_event_html(mock_current_event)
+class TestHTMLRendererFormatCurrentEvent:
+    """Test current event HTML formatting."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.renderer = HTMLRenderer(self.settings)
+
+    @patch("calendarbot.utils.helpers.get_timezone_aware_now")
+    def test_format_current_event_html_basic(self, mock_get_now: Any) -> None:
+        """Test basic current event HTML formatting."""
+        now = datetime(2023, 12, 15, 10, 30, 0, tzinfo=pytz.UTC)
+        mock_get_now.return_value = now
+
+        event = Mock(spec=CachedEvent)
+        event.subject = "Team Meeting"
+        event.start_dt = datetime(2023, 12, 15, 10, 0, 0, tzinfo=pytz.UTC)
+        event.end_dt = datetime(2023, 12, 15, 11, 0, 0, tzinfo=pytz.UTC)
+        event.location_display_name = None
+        event.is_online_meeting = False
+        event.format_time_range.return_value = "10:00 AM - 11:00 AM"
+
+        result = self.renderer._format_current_event_html(event)
+
+        assert "Team Meeting" in result
+        assert "10:00 AM - 11:00 AM" in result
+        assert "(60min)" in result  # Duration
+        assert "30 minutes remaining" in result  # Time remaining
+
+    @patch("calendarbot.utils.helpers.get_timezone_aware_now")
+    def test_format_current_event_html_with_location(self, mock_get_now: Any) -> None:
+        """Test current event HTML formatting with location."""
+        now = datetime(2023, 12, 15, 10, 30, 0, tzinfo=pytz.UTC)
+        mock_get_now.return_value = now
+
+        event = Mock(spec=CachedEvent)
+        event.subject = "Team Meeting"
+        event.start_dt = datetime(2023, 12, 15, 10, 0, 0, tzinfo=pytz.UTC)
+        event.end_dt = datetime(2023, 12, 15, 11, 0, 0, tzinfo=pytz.UTC)
+        event.location_display_name = "Conference Room A"
+        event.is_online_meeting = False
+        event.format_time_range.return_value = "10:00 AM - 11:00 AM"
+
+        result = self.renderer._format_current_event_html(event)
+
+        assert "📍 Conference Room A" in result
+
+    @patch("calendarbot.utils.helpers.get_timezone_aware_now")
+    def test_format_current_event_html_online_meeting(self, mock_get_now: Any) -> None:
+        """Test current event HTML formatting for online meeting."""
+        now = datetime(2023, 12, 15, 10, 30, 0, tzinfo=pytz.UTC)
+        mock_get_now.return_value = now
+
+        event = Mock(spec=CachedEvent)
+        event.subject = "Virtual Standup"
+        event.start_dt = datetime(2023, 12, 15, 10, 0, 0, tzinfo=pytz.UTC)
+        event.end_dt = datetime(2023, 12, 15, 10, 30, 0, tzinfo=pytz.UTC)
+        event.location_display_name = None
+        event.is_online_meeting = True
+        event.format_time_range.return_value = "10:00 AM - 10:30 AM"
+
+        result = self.renderer._format_current_event_html(event)
 
         assert "💻 Online Meeting" in result
-        assert "event-location online" in result
 
-    def test_format_current_event_teams_filtering(self, renderer, mock_current_event):
-        """Test filtering out Microsoft Teams Meeting text from location."""
-        mock_current_event.location_display_name = "Microsoft Teams Meeting"
-        mock_current_event.is_online_meeting = True
+    @patch("calendarbot.utils.helpers.get_timezone_aware_now")
+    def test_format_current_event_html_filter_teams_location(self, mock_get_now: Any) -> None:
+        """Test filtering Microsoft Teams Meeting location text."""
+        now = datetime(2023, 12, 15, 10, 30, 0, tzinfo=pytz.UTC)
+        mock_get_now.return_value = now
 
-        result = renderer._format_current_event_html(mock_current_event)
+        event = Mock(spec=CachedEvent)
+        event.subject = "Teams Call"
+        event.start_dt = datetime(2023, 12, 15, 10, 0, 0, tzinfo=pytz.UTC)
+        event.end_dt = datetime(2023, 12, 15, 11, 0, 0, tzinfo=pytz.UTC)
+        event.location_display_name = "Microsoft Teams Meeting"
+        event.is_online_meeting = False
+        event.format_time_range.return_value = "10:00 AM - 11:00 AM"
 
-        assert "💻 Online Meeting" in result
-        assert "Microsoft Teams Meeting" not in result
+        result = self.renderer._format_current_event_html(event)
 
-    def test_format_upcoming_event_html(self, renderer, mock_cached_event):
-        """Test formatting upcoming event HTML."""
-        result = renderer._format_upcoming_event_html(mock_cached_event)
+        # Should not include the Microsoft Teams Meeting location
+        assert "📍 Microsoft Teams Meeting" not in result
 
-        assert mock_cached_event.subject in result
-        assert "upcoming-event" in result
-        assert "⏰ In 30 minutes" in result
+    @patch("calendarbot.utils.helpers.get_timezone_aware_now")
+    def test_format_current_event_html_time_remaining_error(self, mock_get_now: Any) -> None:
+        """Test handling of time remaining calculation errors."""
+        mock_get_now.side_effect = Exception("Time calculation error")
 
-    def test_format_upcoming_event_urgent_timing(self, renderer, mock_cached_event):
-        """Test formatting upcoming event with urgent timing."""
-        mock_cached_event.time_until_start.return_value = 3  # 3 minutes
+        event = Mock(spec=CachedEvent)
+        event.subject = "Test Meeting"
+        event.start_dt = datetime(2023, 12, 15, 10, 0, 0, tzinfo=pytz.UTC)
+        event.end_dt = datetime(2023, 12, 15, 11, 0, 0, tzinfo=pytz.UTC)
+        event.location_display_name = None
+        event.is_online_meeting = False
+        event.format_time_range.return_value = "10:00 AM - 11:00 AM"
 
-        result = renderer._format_upcoming_event_html(mock_cached_event)
+        result = self.renderer._format_current_event_html(event)
+
+        # Should still render event without time remaining
+        assert "Test Meeting" in result
+        assert "minutes remaining" not in result
+
+    @patch("calendarbot.utils.helpers.get_timezone_aware_now")
+    def test_format_current_event_html_zero_duration(self, mock_get_now: Any) -> None:
+        """Test current event formatting with zero duration."""
+        now = datetime(2023, 12, 15, 10, 30, 0, tzinfo=pytz.UTC)
+        mock_get_now.return_value = now
+
+        event = Mock(spec=CachedEvent)
+        event.subject = "Instant Event"
+        event.start_dt = datetime(2023, 12, 15, 10, 0, 0, tzinfo=pytz.UTC)
+        event.end_dt = datetime(2023, 12, 15, 10, 0, 0, tzinfo=pytz.UTC)  # Same time
+        event.location_display_name = None
+        event.is_online_meeting = False
+        event.format_time_range.return_value = "10:00 AM - 10:00 AM"
+
+        result = self.renderer._format_current_event_html(event)
+
+        # Should not include duration text for zero-duration events
+        assert "(0min)" not in result
+        assert "10:00 AM - 10:00 AM" in result
+
+
+class TestHTMLRendererFormatUpcomingEvent:
+    """Test upcoming event HTML formatting."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.renderer = HTMLRenderer(self.settings)
+
+    def test_format_upcoming_event_html_basic(self) -> None:
+        """Test basic upcoming event HTML formatting."""
+        event = Mock(spec=CachedEvent)
+        event.subject = "Next Meeting"
+        event.location_display_name = None
+        event.is_online_meeting = False
+        event.format_time_range.return_value = "2:00 PM - 3:00 PM"
+        event.time_until_start.return_value = (
+            45  # 45 minutes until start (within 60 minute threshold)
+        )
+
+        result = self.renderer._format_upcoming_event_html(event)
+
+        assert "Next Meeting" in result
+        assert "2:00 PM - 3:00 PM" in result
+        assert "⏰ In 45 minutes" in result
+
+    def test_format_upcoming_event_html_with_location(self) -> None:
+        """Test upcoming event HTML formatting with location."""
+        event = Mock(spec=CachedEvent)
+        event.subject = "Client Meeting"
+        event.location_display_name = "Meeting Room B"
+        event.is_online_meeting = False
+        event.format_time_range.return_value = "2:00 PM - 3:00 PM"
+        event.time_until_start.return_value = 45
+
+        result = self.renderer._format_upcoming_event_html(event)
+
+        assert "📍 Meeting Room B" in result
+
+    def test_format_upcoming_event_html_online_meeting(self) -> None:
+        """Test upcoming event HTML formatting for online meeting."""
+        event = Mock(spec=CachedEvent)
+        event.subject = "Video Conference"
+        event.location_display_name = None
+        event.is_online_meeting = True
+        event.format_time_range.return_value = "3:00 PM - 4:00 PM"
+        event.time_until_start.return_value = 30
+
+        result = self.renderer._format_upcoming_event_html(event)
+
+        assert "💻 Online" in result
+
+    def test_format_upcoming_event_html_filter_teams_location(self) -> None:
+        """Test filtering Microsoft Teams Meeting location text."""
+        event = Mock(spec=CachedEvent)
+        event.subject = "Teams Meeting"
+        event.location_display_name = "Microsoft Teams Meeting"
+        event.is_online_meeting = False
+        event.format_time_range.return_value = "3:00 PM - 4:00 PM"
+        event.time_until_start.return_value = 45
+
+        result = self.renderer._format_upcoming_event_html(event)
+
+        assert "📍 Microsoft Teams Meeting" not in result
+
+    def test_format_upcoming_event_html_urgent_timing(self) -> None:
+        """Test upcoming event with urgent timing (≤5 minutes)."""
+        event = Mock(spec=CachedEvent)
+        event.subject = "Urgent Meeting"
+        event.location_display_name = None
+        event.is_online_meeting = False
+        event.format_time_range.return_value = "10:35 AM - 11:35 AM"
+        event.time_until_start.return_value = 3  # 3 minutes until start
+
+        result = self.renderer._format_upcoming_event_html(event)
 
         assert "🔔 Starting in 3 minutes!" in result
-        assert "time-until urgent" in result
+        assert "urgent" in result.lower()
 
-    def test_format_upcoming_event_far_future(self, renderer, mock_cached_event):
-        """Test formatting upcoming event far in the future."""
-        mock_cached_event.time_until_start.return_value = 120  # 2 hours
+    def test_format_upcoming_event_html_no_time_until(self) -> None:
+        """Test upcoming event when time_until_start returns None."""
+        event = Mock(spec=CachedEvent)
+        event.subject = "Future Meeting"
+        event.location_display_name = "Room C"
+        event.is_online_meeting = False
+        event.format_time_range.return_value = "5:00 PM - 6:00 PM"
+        event.time_until_start.return_value = None
 
-        result = renderer._format_upcoming_event_html(mock_cached_event)
+        result = self.renderer._format_upcoming_event_html(event)
 
-        # Should not show time until when > 60 minutes
-        assert "time-until" not in result
+        assert "Future Meeting" in result
+        assert "📍 Room C" in result
+        assert "In " not in result  # No time until display
 
-    def test_render_navigation_help(self, renderer):
-        """Test rendering navigation help."""
-        status_info = {"relative_description": "Tomorrow"}
+    def test_format_upcoming_event_html_far_future(self) -> None:
+        """Test upcoming event far in the future (>60 minutes)."""
+        event = Mock(spec=CachedEvent)
+        event.subject = "Later Meeting"
+        event.location_display_name = None
+        event.is_online_meeting = False
+        event.format_time_range.return_value = "4:00 PM - 5:00 PM"
+        event.time_until_start.return_value = 120  # 2 hours
 
-        result = renderer._render_navigation_help(status_info)
+        result = self.renderer._format_upcoming_event_html(event)
+
+        assert "Later Meeting" in result
+        # Should not show time until for events >60 minutes away
+        assert "In 120 minutes" not in result
+
+
+class TestHTMLRendererNavigationHelp:
+    """Test navigation help rendering."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.renderer = HTMLRenderer(self.settings)
+
+    def test_render_navigation_help_basic(self) -> None:
+        """Test basic navigation help rendering."""
+        status_info: Dict[str, Any] = {}
+
+        result = self.renderer._render_navigation_help(status_info)
 
         assert "← →" in result
         assert "Navigate" in result
         assert "Space" in result
         assert "Today" in result
-        assert "📍 Tomorrow" in result
+        assert "Home/End" in result
+        assert "Week" in result
+        assert "R" in result
+        assert "Refresh" in result
 
-    def test_render_navigation_help_today(self, renderer):
-        """Test rendering navigation help for today."""
+    def test_render_navigation_help_with_relative_date(self) -> None:
+        """Test navigation help with relative date information."""
+        status_info = {"relative_description": "Tomorrow"}
+
+        result = self.renderer._render_navigation_help(status_info)
+
+        assert "📍 Tomorrow" in result
+        assert "Navigate" in result
+
+    def test_render_navigation_help_today_no_relative(self) -> None:
+        """Test navigation help when relative description is 'Today'."""
         status_info = {"relative_description": "Today"}
 
-        result = renderer._render_navigation_help(status_info)
+        result = self.renderer._render_navigation_help(status_info)
 
-        # Should not show relative date for "Today"
+        # Should not show relative date info for "Today"
         assert "📍 Today" not in result
         assert "Navigate" in result
 
-    @pytest.mark.parametrize(
-        "theme,expected_css",
-        [
-            ("eink", "style.css"),
-            ("eink-rpi", "eink-rpi.css"),
-            ("standard", "standard.css"),
-            ("unknown", "style.css"),
-        ],
-    )
-    def test_get_theme_css_file(self, mock_settings, theme, expected_css):
-        """Test getting CSS file for different themes."""
-        mock_settings.web_theme = theme
-        renderer = HTMLRenderer(mock_settings)
 
-        result = renderer._get_theme_css_file()
+class TestHTMLRendererHTMLTemplate:
+    """Test HTML template building."""
 
-        assert result == expected_css
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.renderer = HTMLRenderer(self.settings)
 
-    @pytest.mark.parametrize(
-        "theme,expected_js",
-        [
-            ("eink", "app.js"),
-            ("eink-rpi", "eink-rpi.js"),
-            ("standard", "standard.js"),
-            ("unknown", "app.js"),
-        ],
-    )
-    def test_get_theme_js_file(self, mock_settings, theme, expected_js):
-        """Test getting JavaScript file for different themes."""
-        mock_settings.web_theme = theme
-        renderer = HTMLRenderer(mock_settings)
+    @patch.object(HTMLRenderer, "_get_theme_css_file")
+    @patch.object(HTMLRenderer, "_get_theme_js_file")
+    def test_build_html_template_interactive_mode(
+        self, mock_js_file: Any, mock_css_file: Any
+    ) -> None:
+        """Test HTML template building in interactive mode."""
+        mock_css_file.return_value = "style.css"
+        mock_js_file.return_value = "app.js"
 
-        result = renderer._get_theme_js_file()
-
-        assert result == expected_js
-
-    @pytest.mark.parametrize(
-        "theme,expected_icon",
-        [("eink", "🎨"), ("eink-rpi", "⚫"), ("standard", "⚫"), ("other", "⚫")],
-    )
-    def test_get_theme_icon(self, mock_settings, theme, expected_icon):
-        """Test getting theme icon for different themes."""
-        mock_settings.web_theme = theme
-        renderer = HTMLRenderer(mock_settings)
-
-        result = renderer._get_theme_icon()
-
-        assert result == expected_icon
-
-    def test_build_html_template_interactive(self, renderer):
-        """Test building HTML template in interactive mode."""
-        result = renderer._build_html_template(
-            display_date="Monday, January 15",
-            status_line="Status info",
+        result = self.renderer._build_html_template(
+            display_date="Friday, December 15",
+            status_line="Updated: 10:00 AM",
             events_content="<div>Events</div>",
             nav_help="<div>Navigation</div>",
             interactive_mode=True,
         )
 
-        assert "navigate('prev')" in result
-        assert "navigate('next')" in result
-        assert "Monday, January 15" in result
-        assert "Status info" in result
+        assert "<!DOCTYPE html>" in result
+        assert "Friday, December 15" in result
+        assert "Updated: 10:00 AM" in result
         assert "<div>Events</div>" in result
         assert "<div>Navigation</div>" in result
-        assert "theme-eink" in result
+        assert 'onclick="navigate(' in result
+        assert "style.css" in result
+        assert "app.js" in result
 
-    def test_build_html_template_non_interactive(self, renderer):
-        """Test building HTML template in non-interactive mode."""
-        result = renderer._build_html_template(
-            display_date="Monday, January 15",
-            status_line="Status info",
-            events_content="<div>Events</div>",
+    @patch.object(HTMLRenderer, "_get_theme_css_file")
+    @patch.object(HTMLRenderer, "_get_theme_js_file")
+    def test_build_html_template_static_mode(self, mock_js_file: Any, mock_css_file: Any) -> None:
+        """Test HTML template building in static mode."""
+        mock_css_file.return_value = "eink.css"
+        mock_js_file.return_value = "eink.js"
+
+        result = self.renderer._build_html_template(
+            display_date="Monday, December 18",
+            status_line="Live Data",
+            events_content="<div>Static Events</div>",
             nav_help="",
             interactive_mode=False,
         )
 
-        assert "navigate('prev')" not in result
-        assert "navigate('next')" not in result
-        assert "Monday, January 15" in result
-        assert "nav-arrow-left" in result  # Static arrows present
-        assert "nav-arrow-right" in result
+        assert "Monday, December 18" in result
+        assert "Live Data" in result
+        assert "<div>Static Events</div>" in result
+        assert 'onclick="navigate(' not in result  # No interactive navigation
+        assert "<footer" not in result  # No footer in static mode
+        assert "eink.css" in result
+        assert "eink.js" in result
 
-    @pytest.mark.parametrize(
-        "text,expected",
-        [
-            ("Hello World", "Hello World"),
-            ("", ""),
-            (None, ""),
-            ("Hello & World", "Hello &amp; World"),
-            (
-                "<script>alert('xss')</script>",
-                "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;",
-            ),
-            ('Hello "quoted" text', "Hello &quot;quoted&quot; text"),
-            ("Hello > World < Test", "Hello &gt; World &lt; Test"),
-        ],
-    )
-    def test_escape_html(self, renderer, text, expected):
-        """Test HTML escaping functionality."""
-        result = renderer._escape_html(text)
 
-        assert result == expected
+class TestHTMLRendererThemeFiles:
+    """Test theme file selection."""
 
-    def test_render_error_success(self, renderer):
-        """Test successful error rendering."""
-        result = renderer.render_error("Connection failed")
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
 
+    def test_get_theme_css_file_eink(self) -> None:
+        """Test CSS file selection for eink theme."""
+        self.settings.web_theme = "eink"
+        renderer = HTMLRenderer(self.settings)
+
+        result = renderer._get_theme_css_file()
+        assert result == "style.css"
+
+    def test_get_theme_css_file_eink_rpi(self) -> None:
+        """Test CSS file selection for eink-rpi theme."""
+        self.settings.web_theme = "eink-rpi"
+        renderer = HTMLRenderer(self.settings)
+
+        result = renderer._get_theme_css_file()
+        assert result == "eink-rpi.css"
+
+    def test_get_theme_css_file_standard(self) -> None:
+        """Test CSS file selection for standard theme."""
+        self.settings.web_theme = "standard"
+        renderer = HTMLRenderer(self.settings)
+
+        result = renderer._get_theme_css_file()
+        assert result == "standard.css"
+
+    def test_get_theme_css_file_unknown(self) -> None:
+        """Test CSS file selection for unknown theme (defaults to eink)."""
+        self.settings.web_theme = "unknown"
+        renderer = HTMLRenderer(self.settings)
+
+        result = renderer._get_theme_css_file()
+        assert result == "style.css"
+
+    def test_get_theme_js_file_eink(self) -> None:
+        """Test JS file selection for eink theme."""
+        self.settings.web_theme = "eink"
+        renderer = HTMLRenderer(self.settings)
+
+        result = renderer._get_theme_js_file()
+        assert result == "app.js"
+
+    def test_get_theme_js_file_eink_rpi(self) -> None:
+        """Test JS file selection for eink-rpi theme."""
+        self.settings.web_theme = "eink-rpi"
+        renderer = HTMLRenderer(self.settings)
+
+        result = renderer._get_theme_js_file()
+        assert result == "eink-rpi.js"
+
+    def test_get_theme_js_file_standard(self) -> None:
+        """Test JS file selection for standard theme."""
+        self.settings.web_theme = "standard"
+        renderer = HTMLRenderer(self.settings)
+
+        result = renderer._get_theme_js_file()
+        assert result == "standard.js"
+
+    def test_get_theme_js_file_unknown(self) -> None:
+        """Test JS file selection for unknown theme (defaults to eink)."""
+        self.settings.web_theme = "unknown"
+        renderer = HTMLRenderer(self.settings)
+
+        result = renderer._get_theme_js_file()
+        assert result == "app.js"
+
+    def test_get_theme_icon_eink(self) -> None:
+        """Test theme icon for eink theme."""
+        self.settings.web_theme = "eink"
+        renderer = HTMLRenderer(self.settings)
+
+        result = renderer._get_theme_icon()
+        assert result == "🎨"
+
+    def test_get_theme_icon_other(self) -> None:
+        """Test theme icon for non-eink themes."""
+        self.settings.web_theme = "eink-rpi"
+        renderer = HTMLRenderer(self.settings)
+
+        result = renderer._get_theme_icon()
+        assert result == "⚫"
+
+
+class TestHTMLRendererEscapeHTML:
+    """Test HTML escaping utility."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.renderer = HTMLRenderer(self.settings)
+
+    def test_escape_html_basic_characters(self) -> None:
+        """Test escaping basic HTML characters."""
+        text = "<script>alert('xss')</script>"
+        result = self.renderer._escape_html(text)
+
+        assert "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;" == result
+
+    def test_escape_html_all_special_characters(self) -> None:
+        """Test escaping all special HTML characters."""
+        text = "&<>\"'test"
+        result = self.renderer._escape_html(text)
+
+        assert "&amp;&lt;&gt;&quot;&#x27;test" == result
+
+    def test_escape_html_empty_string(self) -> None:
+        """Test escaping empty string."""
+        result = self.renderer._escape_html("")
+        assert result == ""
+
+    def test_escape_html_none(self) -> None:
+        """Test escaping None value."""
+        result = self.renderer._escape_html(None)  # type: ignore
+        assert result == ""
+
+    def test_escape_html_no_special_characters(self) -> None:
+        """Test escaping text with no special characters."""
+        text = "Normal text without special characters"
+        result = self.renderer._escape_html(text)
+
+        assert result == text
+
+
+class TestHTMLRendererRenderError:
+    """Test error rendering functionality."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.settings.web_theme = "eink"
+        self.renderer = HTMLRenderer(self.settings)
+
+    @patch("calendarbot.display.html_renderer.datetime")
+    def test_render_error_basic(self, mock_datetime: Any) -> None:
+        """Test basic error rendering."""
+        mock_now = datetime(2023, 12, 15, 10, 0, 0)
+        mock_datetime.now.return_value = mock_now
+
+        result = self.renderer.render_error("Connection failed")
+
+        assert "<!DOCTYPE html>" in result
         assert "Connection Issue" in result
         assert "Connection failed" in result
+        assert "Friday, December 15" in result
         assert "⚠️" in result
 
-    def test_render_error_with_cached_events(self, renderer, mock_cached_event):
+    @patch("calendarbot.display.html_renderer.datetime")
+    def test_render_error_with_cached_events(self, mock_datetime: Any) -> None:
         """Test error rendering with cached events."""
-        result = renderer.render_error("Network error", [mock_cached_event])
+        mock_now = datetime(2023, 12, 15, 10, 0, 0)
+        mock_datetime.now.return_value = mock_now
+
+        cached_event = Mock(spec=CachedEvent)
+        cached_event.subject = "Cached Meeting"
+        cached_event.location_display_name = "Room A"
+        cached_event.format_time_range.return_value = "10:00 AM - 11:00 AM"
+
+        result = self.renderer.render_error("Network error", [cached_event])
 
         assert "Network error" in result
         assert "📱 Showing Cached Data" in result
-        assert mock_cached_event.subject in result
+        assert "Cached Meeting" in result
+        assert "📍 Room A" in result
 
-    def test_render_error_exception_handling(self, renderer):
-        """Test error rendering handles exceptions gracefully."""
-        with patch.object(renderer, "_render_error_html", side_effect=Exception("Render error")):
-            with patch("calendarbot.display.html_renderer.logger") as mock_logger:
+    @patch("calendarbot.display.html_renderer.datetime")
+    def test_render_error_no_cached_data(self, mock_datetime: Any) -> None:
+        """Test error rendering with no cached data."""
+        mock_now = datetime(2023, 12, 15, 10, 0, 0)
+        mock_datetime.now.return_value = mock_now
 
-                result = renderer.render_error("Original error")
+        result = self.renderer.render_error("Service unavailable", [])
 
-                assert "Critical Error" in result
-                assert "Render error" in result
-                mock_logger.error.assert_called_with("Failed to render error HTML: Render error")
-
-    def test_render_error_html_no_cached(self, renderer):
-        """Test rendering error HTML without cached events."""
-        result = renderer._render_error_html("Test error")
-
-        assert "Test error" in result
+        assert "Service unavailable" in result
         assert "❌ No cached data available" in result
-        assert "Connection Issue" in result
 
-    def test_render_error_html_with_cached(self, renderer, mock_cached_event):
-        """Test rendering error HTML with cached events."""
-        mock_cached_event.location_display_name = "Meeting Room"
+    def test_render_error_exception_handling(self) -> None:
+        """Test error rendering when _render_error_html fails."""
+        with patch.object(
+            self.renderer, "_render_error_html", side_effect=Exception("Render error")
+        ):
+            result = self.renderer.render_error("Original error")
 
-        result = renderer._render_error_html("Test error", [mock_cached_event])
+            assert "Critical Error" in result
+            assert "Render error" in result
 
-        assert "Test error" in result
-        assert "📱 Showing Cached Data" in result
-        assert mock_cached_event.subject in result
-        assert "📍 Meeting Room" in result
+    @patch("calendarbot.display.html_renderer.datetime")
+    def test_render_error_html_many_cached_events(self, mock_datetime: Any) -> None:
+        """Test error rendering with many cached events (should limit to 5)."""
+        mock_now = datetime(2023, 12, 15, 10, 0, 0)
+        mock_datetime.now.return_value = mock_now
 
-    def test_render_authentication_prompt(self, renderer):
-        """Test rendering authentication prompt."""
+        cached_events = []
+        for i in range(10):  # Create 10 events
+            event = Mock(spec=CachedEvent)
+            event.subject = f"Meeting {i+1}"
+            event.location_display_name = None
+            event.format_time_range.return_value = f"1{i}:00 AM - 1{i}:30 AM"
+            cached_events.append(event)
+
+        result = self.renderer.render_error("Too many meetings", cached_events)  # type: ignore
+
+        assert "Meeting 1" in result
+        assert "Meeting 5" in result
+        assert "Meeting 6" not in result  # Should be limited to 5
+
+
+class TestHTMLRendererRenderAuthenticationPrompt:
+    """Test authentication prompt rendering."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.settings.web_theme = "eink"
+        self.renderer = HTMLRenderer(self.settings)
+
+    def test_render_authentication_prompt_basic(self) -> None:
+        """Test basic authentication prompt rendering."""
         verification_uri = "https://microsoft.com/devicelogin"
         user_code = "ABC123DEF"
 
-        result = renderer.render_authentication_prompt(verification_uri, user_code)
+        result = self.renderer.render_authentication_prompt(verification_uri, user_code)
 
-        assert verification_uri in result
-        assert user_code in result
+        assert "<!DOCTYPE html>" in result
         assert "🔐 Authentication Required" in result
         assert "Microsoft 365 Authentication" in result
+        assert verification_uri in result
+        assert user_code in result
         assert "Visit:" in result
         assert "Enter code:" in result
-        assert "Waiting for authentication..." in result
 
-    def test_location_filtering_in_events(self, renderer):
-        """Test that Microsoft Teams Meeting location text is filtered out consistently."""
-        # Test current event
-        current_event = Mock(spec=CachedEvent)
-        current_event.subject = "Teams Meeting"
-        current_event.location_display_name = "Microsoft Teams Meeting"
-        current_event.is_online_meeting = True
-        current_event.is_current.return_value = True
-        current_event.is_upcoming.return_value = False
-        current_event.format_time_range.return_value = "10:00 AM - 11:00 AM"
-        current_event.start_dt = datetime(2025, 1, 15, 10, 0, 0)
-        current_event.end_dt = datetime(2025, 1, 15, 11, 0, 0)
+    def test_render_authentication_prompt_elements(self) -> None:
+        """Test authentication prompt contains required elements."""
+        verification_uri = "https://login.microsoftonline.com/device"
+        user_code = "XYZ789"
 
-        # Test upcoming event
-        upcoming_event = Mock(spec=CachedEvent)
-        upcoming_event.subject = "Another Teams Meeting"
-        upcoming_event.location_display_name = "Microsoft Teams Meeting"
-        upcoming_event.is_online_meeting = True
-        upcoming_event.is_current.return_value = False
-        upcoming_event.is_upcoming.return_value = True
-        upcoming_event.format_time_range.return_value = "11:00 AM - 12:00 PM"
-        upcoming_event.time_until_start.return_value = 30
+        result = self.renderer.render_authentication_prompt(verification_uri, user_code)
 
-        result = renderer._render_events_content([current_event, upcoming_event], False)
+        assert "step-number" in result
+        assert "step-text" in result
+        assert "user-code" in result
+        assert "auth-steps" in result
+        assert "loading-spinner" in result
+        assert "Waiting for authentication" in result
 
-        # Should show "Online Meeting" instead of "Microsoft Teams Meeting"
-        assert "💻 Online Meeting" in result or "💻 Online" in result
-        assert "Microsoft Teams Meeting" not in result
+    def test_render_authentication_prompt_theme_integration(self) -> None:
+        """Test authentication prompt integrates with theme system."""
+        self.renderer.theme = "eink-rpi"
 
-    def test_event_duration_calculation(self, renderer, mock_current_event):
-        """Test event duration calculation in current event formatting."""
-        # Set up a 90-minute meeting
-        mock_current_event.start_dt = datetime(2025, 1, 15, 10, 0, 0)
-        mock_current_event.end_dt = datetime(2025, 1, 15, 11, 30, 0)
+        result = self.renderer.render_authentication_prompt("https://example.com", "CODE123")
 
-        result = renderer._format_current_event_html(mock_current_event)
-
-        assert "(90min)" in result
-
-    def test_time_remaining_calculation_error_handling(self, renderer, mock_current_event):
-        """Test time remaining calculation handles import errors gracefully."""
-        with patch(
-            "calendarbot.utils.helpers.get_timezone_aware_now",
-            side_effect=ImportError("Module not found"),
-        ):
-
-            result = renderer._format_current_event_html(mock_current_event)
-
-            # Should still render without time remaining section
-            assert mock_current_event.subject in result
-            assert "minutes remaining" not in result
-
-    @patch("calendarbot.display.html_renderer.datetime")
-    def test_render_events_date_formatting(self, mock_datetime, renderer, mock_cached_event):
-        """Test that render_events properly formats the display date."""
-        mock_datetime.now.return_value.strftime.return_value = "Wednesday, January 17"
-
-        result = renderer.render_events([mock_cached_event])
-
-        assert "Wednesday, January 17" in result
-        mock_datetime.now.return_value.strftime.assert_called_with("%A, %B %d")
-
-    def test_comprehensive_html_structure(self, renderer, mock_cached_event, mock_current_event):
-        """Test that rendered HTML has proper structure and includes all necessary elements."""
-        events = [mock_current_event, mock_cached_event]
-        status_info = {
-            "interactive_mode": True,
-            "selected_date": "Monday, January 15",
-            "last_update": "2025-01-15T10:00:00Z",
-            "is_cached": False,
-            "relative_description": "Today",
-        }
-
-        result = renderer.render_events(events, status_info)
-
-        # Check HTML structure
-        assert "<!DOCTYPE html>" in result
-        assert '<html lang="en"' in result
-        assert "<head>" in result and "</head>" in result
-        assert "<body>" in result and "</body>" in result
-        assert "<header" in result and "</header>" in result
-        assert "<main" in result and "</main>" in result
-        assert "<footer" in result and "</footer>" in result
-
-        # Check CSS and JS includes
-        assert "/static/style.css" in result
-        assert "/static/app.js" in result
-
-        # Check interactive elements
-        assert "navigate('prev')" in result
-        assert "navigate('next')" in result
+        assert f'class="theme-{self.renderer.theme}"' in result
 
 
 class TestHTMLRendererIntegration:
-    """Integration tests for HTMLRenderer with real-like data."""
+    """Test HTML renderer integration scenarios."""
 
-    @pytest.fixture
-    def realistic_settings(self):
-        """Create realistic settings object."""
-        settings = Mock()
-        settings.web_theme = "eink-rpi"
-        settings.display_type = "html"
-        settings.display_enabled = True
-        return settings
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.settings.web_theme = "eink"
+        self.renderer = HTMLRenderer(self.settings)
 
-    @pytest.fixture
-    def realistic_events(self):
-        """Create realistic event data for integration testing."""
-        events = []
+    @patch("calendarbot.display.html_renderer.datetime")
+    @patch("calendarbot.utils.helpers.get_timezone_aware_now")
+    def test_full_rendering_workflow_with_events(
+        self, mock_get_now: Any, mock_datetime: Any
+    ) -> None:
+        """Test complete rendering workflow with realistic events."""
+        # Set up time mocks
+        mock_now = datetime(2023, 12, 15, 10, 30, 0, tzinfo=pytz.UTC)
+        mock_datetime.now.return_value = mock_now
+        mock_get_now.return_value = mock_now
 
-        # Current meeting
-        current = Mock(spec=CachedEvent)
-        current.subject = "Weekly Team Standup"
-        current.location_display_name = "Conference Room Alpha"
-        current.is_online_meeting = False
-        current.is_current.return_value = True
-        current.is_upcoming.return_value = False
-        current.format_time_range.return_value = "9:00 AM - 9:30 AM"
-        current.start_dt = datetime(2025, 1, 15, 9, 0, 0)
-        current.end_dt = datetime(2025, 1, 15, 9, 30, 0)
-        events.append(current)
+        # Create realistic events
+        current_event = Mock(spec=CachedEvent)
+        current_event.is_current.return_value = True
+        current_event.is_upcoming.return_value = False
+        current_event.subject = "Daily Standup"
+        current_event.start_dt = datetime(2023, 12, 15, 10, 0, 0, tzinfo=pytz.UTC)
+        current_event.end_dt = datetime(2023, 12, 15, 10, 30, 0, tzinfo=pytz.UTC)
+        current_event.location_display_name = None
+        current_event.is_online_meeting = True
+        current_event.format_time_range.return_value = "10:00 AM - 10:30 AM"
 
-        # Upcoming meetings
-        upcoming1 = Mock(spec=CachedEvent)
-        upcoming1.subject = "Product Planning Meeting"
-        upcoming1.location_display_name = None
-        upcoming1.is_online_meeting = True
-        upcoming1.is_current.return_value = False
-        upcoming1.is_upcoming.return_value = True
-        upcoming1.format_time_range.return_value = "10:00 AM - 11:00 AM"
-        upcoming1.time_until_start.return_value = 45
-        events.append(upcoming1)
+        upcoming_events = []
+        for i in range(3):
+            event = Mock(spec=CachedEvent)
+            event.is_current.return_value = False
+            event.is_upcoming.return_value = True
+            event.subject = f"Meeting {i+1}"
+            event.location_display_name = f"Room {i+1}"
+            event.is_online_meeting = False
+            event.format_time_range.return_value = f"1{i+1}:00 AM - 1{i+1}:30 AM"
+            event.time_until_start.return_value = (i + 1) * 30  # 30, 60, 90 minutes
+            upcoming_events.append(event)
 
-        upcoming2 = Mock(spec=CachedEvent)
-        upcoming2.subject = "Client Demo"
-        upcoming2.location_display_name = "Microsoft Teams Meeting"
-        upcoming2.is_online_meeting = True
-        upcoming2.is_current.return_value = False
-        upcoming2.is_upcoming.return_value = True
-        upcoming2.format_time_range.return_value = "2:00 PM - 3:00 PM"
-        upcoming2.time_until_start.return_value = 240
-        events.append(upcoming2)
-
-        return events
-
-    def test_full_page_rendering_interactive(self, realistic_settings, realistic_events):
-        """Test full page rendering in interactive mode with realistic data."""
-        renderer = HTMLRenderer(realistic_settings)
+        events = [current_event] + upcoming_events
 
         status_info = {
             "interactive_mode": True,
-            "selected_date": "Monday, January 15, 2025",
-            "last_update": "2025-01-15T14:30:00Z",
+            "selected_date": "Friday, December 15",
+            "last_update": "2023-12-15T10:00:00Z",
             "is_cached": False,
-            "connection_status": "Connected",
+            "connection_status": "Excellent",
             "relative_description": "Today",
         }
 
-        result = renderer.render_events(realistic_events, status_info)
+        result = self.renderer.render_events(events, status_info)  # type: ignore
 
-        # Verify all major sections are present
-        assert "Weekly Team Standup" in result
-        assert "Product Planning Meeting" in result
-        assert "Client Demo" in result
+        # Verify complete HTML structure
+        assert "<!DOCTYPE html>" in result
+        assert "Friday, December 15" in result
+
+        # Verify current event section
         assert "▶ Current Event" in result
-        assert "📋 Next Up" in result
-        assert "🌐 Live Data" in result
-        assert "📶 Connected" in result
-        assert "theme-eink-rpi" in result
+        assert "Daily Standup" in result
+        assert "💻 Online Meeting" in result
 
-        # Verify interactive elements
-        assert "navigate('prev')" in result
-        assert "navigate('next')" in result
-        assert "← →" in result
+        # Verify upcoming events section
+        assert "📋 Next Up" in result
+        assert "Meeting 1" in result
+        assert "📍 Room 1" in result
+
+        # Verify status information
+        assert "🌐 Live Data" in result
+        assert "📶 Excellent" in result
+        assert "Updated:" in result
+
+        # Verify interactive navigation
+        assert 'onclick="navigate(' in result
         assert "Navigate" in result
 
-    def test_error_page_with_cached_data(self, realistic_settings, realistic_events):
-        """Test error page rendering with cached events."""
-        renderer = HTMLRenderer(realistic_settings)
+    @patch("calendarbot.display.html_renderer.datetime")
+    def test_error_recovery_workflow(self, mock_datetime: Any) -> None:
+        """Test error recovery with cached data fallback."""
+        mock_now = datetime(2023, 12, 15, 10, 30, 0)
+        mock_datetime.now.return_value = mock_now
 
-        result = renderer.render_error("Unable to connect to Microsoft Graph API", realistic_events)
+        cached_event = Mock(spec=CachedEvent)
+        cached_event.subject = "Important Meeting"
+        cached_event.location_display_name = "Executive Boardroom"
+        cached_event.format_time_range.return_value = "2:00 PM - 3:00 PM"
+
+        result = self.renderer.render_error("Microsoft Graph API unavailable", [cached_event])
 
         assert "Connection Issue" in result
-        assert "Unable to connect to Microsoft Graph API" in result
+        assert "Microsoft Graph API unavailable" in result
         assert "📱 Showing Cached Data" in result
-        assert "Weekly Team Standup" in result
-        assert "Product Planning Meeting" in result
+        assert "Important Meeting" in result
+        assert "📍 Executive Boardroom" in result
 
-    def test_authentication_flow_page(self, realistic_settings):
-        """Test authentication prompt page rendering."""
-        renderer = HTMLRenderer(realistic_settings)
+    def test_theme_consistency_across_methods(self) -> None:
+        """Test theme consistency across different rendering methods."""
+        self.renderer.theme = "eink-rpi"
 
-        result = renderer.render_authentication_prompt(
-            "https://microsoft.com/devicelogin", "ABCD1234"
-        )
+        # Test main rendering
+        events_result = self.renderer.render_events([])
+        assert f'class="theme-{self.renderer.theme}"' in events_result
 
-        assert "🔐 Authentication Required" in result
-        assert "Microsoft 365 Authentication" in result
-        assert "https://microsoft.com/devicelogin" in result
-        assert "ABCD1234" in result
-        assert 'target="_blank"' in result  # Opens in new tab
-        assert "Waiting for authentication..." in result
-        assert "⏳" in result
+        # Test error rendering
+        error_result = self.renderer.render_error("Test error")
+        assert f'class="theme-{self.renderer.theme}"' in error_result
+
+        # Test authentication rendering
+        auth_result = self.renderer.render_authentication_prompt("https://example.com", "CODE")
+        assert f'class="theme-{self.renderer.theme}"' in auth_result

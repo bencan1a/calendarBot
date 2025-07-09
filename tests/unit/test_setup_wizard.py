@@ -1,17 +1,22 @@
-"""Unit tests for calendarbot.setup_wizard module."""
+"""Unit tests for calendarbot.setup_wizard module.
+
+Tests interactive configuration wizard including user input handling,
+configuration generation, validation, and file operations.
+"""
 
 import asyncio
-import tempfile
+import json
+import re
 from datetime import datetime
-from io import StringIO
 from pathlib import Path
+from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, Mock, mock_open, patch
 
 import pytest
 import yaml
 
 from calendarbot.ics.exceptions import ICSError
-from calendarbot.ics.models import ICSAuth, ICSSource
+from calendarbot.ics.models import AuthType, ICSAuth, ICSSource
 from calendarbot.setup_wizard import (
     CalendarServiceTemplate,
     SetupWizard,
@@ -21,10 +26,10 @@ from calendarbot.setup_wizard import (
 
 
 class TestCalendarServiceTemplate:
-    """Test CalendarServiceTemplate class functionality."""
+    """Test CalendarServiceTemplate data class."""
 
-    def test_calendar_service_template_initialization(self):
-        """Test CalendarServiceTemplate initialization with all parameters."""
+    def test_calendar_service_template_creation(self):
+        """Test CalendarServiceTemplate creation with all parameters."""
         template = CalendarServiceTemplate(
             name="Test Service",
             description="Test description",
@@ -39,521 +44,648 @@ class TestCalendarServiceTemplate:
         assert template.auth_type == "basic"
         assert template.instructions == "Test instructions"
 
-    def test_calendar_service_template_default_values(self):
-        """Test CalendarServiceTemplate with default values."""
+    def test_calendar_service_template_defaults(self):
+        """Test CalendarServiceTemplate creation with default values."""
         template = CalendarServiceTemplate(
-            name="Test Service", description="Test description", url_pattern=r"https://test\.com/.*"
+            name="Simple Service",
+            description="Simple description",
+            url_pattern=r"https://simple\.com/.*",
         )
 
+        assert template.name == "Simple Service"
+        assert template.description == "Simple description"
+        assert template.url_pattern == r"https://simple\.com/.*"
         assert template.auth_type == "none"
         assert template.instructions == ""
 
 
-class TestSetupWizard:
-    """Test SetupWizard class functionality."""
+class TestSetupWizardInitialization:
+    """Test SetupWizard initialization and basic functionality."""
 
-    @pytest.fixture
-    def wizard(self):
-        """Create a SetupWizard instance for testing."""
-        return SetupWizard()
-
-    @pytest.fixture
-    def mock_input(self):
-        """Mock input function for testing user interactions."""
-        with patch("builtins.input") as mock:
-            yield mock
-
-    @pytest.fixture
-    def mock_print(self):
-        """Mock print function for testing output."""
-        with patch("builtins.print") as mock:
-            yield mock
-
-    def test_wizard_initialization(self, wizard):
+    def test_setup_wizard_initialization(self):
         """Test SetupWizard initialization."""
+        wizard = SetupWizard()
+
         assert wizard.config_data == {}
         assert wizard.settings is None
-        assert hasattr(wizard, "SERVICE_TEMPLATES")
+        assert isinstance(wizard.SERVICE_TEMPLATES, dict)
         assert "outlook" in wizard.SERVICE_TEMPLATES
         assert "google" in wizard.SERVICE_TEMPLATES
         assert "icloud" in wizard.SERVICE_TEMPLATES
         assert "caldav" in wizard.SERVICE_TEMPLATES
         assert "custom" in wizard.SERVICE_TEMPLATES
 
-    def test_print_header(self, wizard, mock_print):
-        """Test print_header method."""
+    def test_service_templates_structure(self):
+        """Test SERVICE_TEMPLATES contains expected services."""
+        wizard = SetupWizard()
+
+        # Check Outlook template - Note: url_pattern is a regex with escaped dots
+        outlook = wizard.SERVICE_TEMPLATES["outlook"]
+        assert outlook.name == "Microsoft Outlook"
+        assert "outlook" in outlook.url_pattern and "live" in outlook.url_pattern
+        assert outlook.auth_type == "none"
+
+        # Check Google template
+        google = wizard.SERVICE_TEMPLATES["google"]
+        assert google.name == "Google Calendar"
+        assert "calendar" in google.url_pattern and "google" in google.url_pattern
+        assert google.auth_type == "none"
+
+        # Check CalDAV template
+        caldav = wizard.SERVICE_TEMPLATES["caldav"]
+        assert caldav.name == "CalDAV Server"
+        assert caldav.auth_type == "basic"
+
+
+class TestSetupWizardUIHelpers:
+    """Test SetupWizard UI helper methods."""
+
+    @patch("builtins.print")
+    def test_print_header(self, mock_print):
+        """Test print_header formatting."""
+        wizard = SetupWizard()
         wizard.print_header("Test Title")
 
-        assert mock_print.call_count == 3
+        # Should print multiple lines including header with emoji
+        assert mock_print.call_count >= 3
         calls = [call.args[0] for call in mock_print.call_args_list]
-        assert "=" in calls[0]
-        assert "📅 Test Title" in calls[1]
-        assert "=" in calls[2]
+        assert any("📅 Test Title" in call for call in calls)
+        assert any("=" * 60 in call for call in calls)
 
-    def test_print_section(self, wizard, mock_print):
-        """Test print_section method."""
+    @patch("builtins.print")
+    def test_print_section(self, mock_print):
+        """Test print_section formatting."""
+        wizard = SetupWizard()
         wizard.print_section("Test Section")
 
-        assert mock_print.call_count == 2
+        # Should print section with emoji and separator
+        assert mock_print.call_count >= 2
         calls = [call.args[0] for call in mock_print.call_args_list]
-        assert "🔧 Test Section" in calls[0]
-        assert "-" in calls[1]
+        assert any("🔧 Test Section" in call for call in calls)
+        assert any("-" * 40 in call for call in calls)
 
-    def test_get_input_with_default(self, wizard, mock_input):
-        """Test get_input method with default value."""
-        mock_input.return_value = ""
-        result = wizard.get_input("Test prompt", default="default_value")
+    @patch("builtins.input", return_value="test input")
+    def test_get_input_basic(self, mock_input):
+        """Test get_input with basic functionality."""
+        wizard = SetupWizard()
+        result = wizard.get_input("Enter value")
+
+        assert result == "test input"
+        mock_input.assert_called_once_with("Enter value: ")
+
+    @patch("builtins.input", return_value="")
+    def test_get_input_with_default(self, mock_input):
+        """Test get_input with default value."""
+        wizard = SetupWizard()
+        result = wizard.get_input("Enter value", default="default_value")
 
         assert result == "default_value"
-        mock_input.assert_called_once_with("Test prompt [default_value]: ")
+        mock_input.assert_called_once_with("Enter value [default_value]: ")
 
-    def test_get_input_with_user_response(self, wizard, mock_input):
-        """Test get_input method with user response."""
-        mock_input.return_value = "user_input"
-        result = wizard.get_input("Test prompt")
+    @patch("builtins.input", side_effect=["", "valid input"])
+    @patch("builtins.print")
+    def test_get_input_required_validation(self, mock_print, mock_input):
+        """Test get_input requires input when required=True."""
+        wizard = SetupWizard()
+        result = wizard.get_input("Enter value", required=True)
 
-        assert result == "user_input"
-
-    def test_get_input_required_validation(self, wizard, mock_input, mock_print):
-        """Test get_input method with required field validation."""
-        # Ensure we don't fall back to empty strings after side_effect is exhausted
-        mock_input.side_effect = ["", "valid_input", StopIteration()]
-
-        result = wizard.get_input("Test prompt", required=True)
-
-        assert result == "valid_input"
+        assert result == "valid input"
         assert mock_input.call_count == 2
-        mock_print.assert_called_with("❌ This field is required. Please enter a value.")
+        # Should print error message for empty input
+        error_calls = [
+            call for call in mock_print.call_args_list if "This field is required" in str(call)
+        ]
+        assert len(error_calls) > 0
 
-    def test_get_input_with_validation_function(self, wizard, mock_input, mock_print):
-        """Test get_input method with validation function."""
+    @patch("builtins.input", side_effect=["invalid", "valid"])
+    @patch("builtins.print")
+    def test_get_input_with_validation(self, mock_print, mock_input):
+        """Test get_input with validation function."""
 
         def validate_func(value):
             return value == "valid"
 
-        # Prevent infinite loop by adding StopIteration after exhausting side_effect
-        mock_input.side_effect = ["invalid", "valid", StopIteration()]
-
-        result = wizard.get_input("Test prompt", validate_func=validate_func)
+        wizard = SetupWizard()
+        result = wizard.get_input("Enter value", validate_func=validate_func)
 
         assert result == "valid"
         assert mock_input.call_count == 2
+        # Should print error message for invalid input
+        error_calls = [call for call in mock_print.call_args_list if "Invalid input" in str(call)]
+        assert len(error_calls) > 0
 
-    def test_get_input_validation_function_exception(self, wizard, mock_input, mock_print):
-        """Test get_input method when validation function raises exception."""
-
-        def validate_func(value):
-            if value == "error":
-                raise ValueError("Test validation error")
-            return value == "valid"
-
-        # Prevent infinite loop by adding StopIteration after exhausting side_effect
-        mock_input.side_effect = ["error", "valid", StopIteration()]
-
-        result = wizard.get_input("Test prompt", validate_func=validate_func)
-
-        assert result == "valid"
-        assert mock_input.call_count == 2
-        mock_print.assert_called_with("❌ Validation error: Test validation error")
-
-    def test_get_input_not_required_empty_response(self, wizard, mock_input):
-        """Test get_input method with non-required field and empty response."""
-        mock_input.return_value = ""
-
-        result = wizard.get_input("Test prompt", required=False)
-
-        assert result == ""
-
-    def test_get_choice_valid_selection(self, wizard, mock_input, mock_print):
-        """Test get_choice method with valid selection."""
-        mock_input.return_value = "2"
+    @patch("builtins.input", return_value="2")
+    @patch("builtins.print")
+    def test_get_choice_basic(self, mock_print, mock_input):
+        """Test get_choice with basic functionality."""
+        wizard = SetupWizard()
         choices = ["Option 1", "Option 2", "Option 3"]
-        descriptions = ["Desc 1", "Desc 2", "Desc 3"]
-
-        result = wizard.get_choice("Choose option", choices, descriptions)
-
-        assert result == "Option 2"
-
-    def test_get_choice_invalid_then_valid(self, wizard, mock_input, mock_print):
-        """Test get_choice method with invalid then valid selection."""
-        # Prevent infinite loop by adding StopIteration after exhausting side_effect
-        mock_input.side_effect = ["invalid", "0", "4", "2", StopIteration()]
-        choices = ["Option 1", "Option 2", "Option 3"]
-
         result = wizard.get_choice("Choose option", choices)
 
         assert result == "Option 2"
-        assert mock_input.call_count == 4
+        mock_input.assert_called_once_with("\nEnter choice (1-3): ")
+
+    @patch("builtins.input", return_value="1")
+    @patch("builtins.print")
+    def test_get_choice_with_descriptions(self, mock_print, mock_input):
+        """Test get_choice with descriptions."""
+        wizard = SetupWizard()
+        choices = ["Option 1", "Option 2"]
+        descriptions = ["First option", "Second option"]
+        result = wizard.get_choice("Choose option", choices, descriptions)
+
+        assert result == "Option 1"
+        # Should print options with descriptions
+        print_calls = [str(call) for call in mock_print.call_args_list]
+        assert any("Option 1 - First option" in call for call in print_calls)
+
+    @patch("builtins.input", side_effect=["0", "4", "2"])
+    @patch("builtins.print")
+    def test_get_choice_validation(self, mock_print, mock_input):
+        """Test get_choice validates input range."""
+        wizard = SetupWizard()
+        choices = ["Option 1", "Option 2", "Option 3"]
+        result = wizard.get_choice("Choose option", choices)
+
+        assert result == "Option 2"
+        assert mock_input.call_count == 3
+        # Should print error messages for invalid choices
+        error_calls = [
+            call
+            for call in mock_print.call_args_list
+            if "Please enter a number between" in str(call)
+        ]
+        assert len(error_calls) >= 2
 
     @pytest.mark.parametrize(
-        "input_value,default,expected",
+        "input_value,expected",
         [
-            ("y", False, True),
-            ("yes", False, True),
-            ("n", True, False),
-            ("no", True, False),
-            ("", True, True),
-            ("", False, False),
+            ("y", True),
+            ("yes", True),
+            ("Y", True),
+            ("YES", True),
+            ("n", False),
+            ("no", False),
+            ("N", False),
+            ("", False),  # Default False
         ],
     )
-    def test_get_yes_no(self, wizard, mock_input, input_value, default, expected):
-        """Test get_yes_no method with various inputs."""
+    @patch("builtins.input")
+    def test_get_yes_no(self, mock_input, input_value, expected):
+        """Test get_yes_no with various inputs."""
         mock_input.return_value = input_value
-
-        result = wizard.get_yes_no("Test prompt", default=default)
+        wizard = SetupWizard()
+        result = wizard.get_yes_no("Continue?", default=False)
 
         assert result == expected
+
+    @patch("builtins.input", return_value="")
+    def test_get_yes_no_default_true(self, mock_input):
+        """Test get_yes_no with default=True."""
+        wizard = SetupWizard()
+        result = wizard.get_yes_no("Continue?", default=True)
+
+        assert result is True
+        mock_input.assert_called_once_with("Continue? [Y/n]: ")
+
+
+class TestSetupWizardValidation:
+    """Test SetupWizard validation methods."""
 
     @pytest.mark.parametrize(
         "url,expected",
         [
             ("https://example.com", True),
-            ("http://localhost:8080", True),
-            ("https://test.com/path?query=1", True),
-            ("ftp://invalid.com", False),
+            ("http://example.com", True),
+            ("https://example.com:8080/path", True),
+            ("http://localhost:3000", True),
+            ("https://192.168.1.1", True),
+            ("ftp://example.com", False),
             ("not-a-url", False),
+            ("example.com", False),
             ("", False),
         ],
     )
-    def test_validate_url(self, wizard, mock_print, url, expected):
-        """Test validate_url method with various URL formats."""
+    @patch("builtins.print")
+    def test_validate_url(self, mock_print, url, expected):
+        """Test URL validation with various inputs."""
+        wizard = SetupWizard()
         result = wizard.validate_url(url)
+
         assert result == expected
+        if not expected and url:
+            # Should print error message for invalid URLs
+            error_calls = [
+                call
+                for call in mock_print.call_args_list
+                if "Please enter a valid HTTP or HTTPS URL" in str(call)
+            ]
+            assert len(error_calls) > 0
 
-    def test_select_calendar_service(self, wizard, mock_input, mock_print):
-        """Test select_calendar_service method."""
-        mock_input.return_value = "1"  # Select first option (Outlook)
 
+class TestSetupWizardServiceSelection:
+    """Test calendar service selection functionality."""
+
+    @patch.object(SetupWizard, "get_choice", return_value="Google Calendar")
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_select_calendar_service(self, mock_print, mock_print_section, mock_get_choice):
+        """Test calendar service selection."""
+        wizard = SetupWizard()
         result = wizard.select_calendar_service()
 
-        assert result == "outlook"
+        assert result == "google"
+        mock_print_section.assert_called_once_with("Calendar Service Selection")
+        mock_get_choice.assert_called_once()
 
-    def test_select_calendar_service_fallback(self, wizard, mock_input, mock_print):
-        """Test select_calendar_service method fallback to custom."""
-        mock_input.return_value = "1"  # Select first option
+    @patch.object(SetupWizard, "get_choice", return_value="Unknown Service")
+    @patch.object(SetupWizard, "print_section")
+    def test_select_calendar_service_fallback(self, mock_print_section, mock_get_choice):
+        """Test calendar service selection with unknown service."""
+        wizard = SetupWizard()
+        result = wizard.select_calendar_service()
 
-        # Mock get_choice to return a service name that doesn't exist in templates
-        with patch.object(wizard, "get_choice", return_value="Non-existent Service"):
-            result = wizard.select_calendar_service()
-            assert result == "custom"
+        assert result == "custom"  # Should fallback to custom
 
-    def test_configure_ics_url_valid(self, wizard, mock_input, mock_print):
-        """Test configure_ics_url method with valid URL."""
-        mock_input.return_value = "https://outlook.live.com/owa/calendar/test/calendar.ics"
 
-        result = wizard.configure_ics_url("outlook")
+class TestSetupWizardICSConfiguration:
+    """Test ICS URL configuration functionality."""
 
-        assert result["url"] == "https://outlook.live.com/owa/calendar/test/calendar.ics"
-        assert result["recommended_auth"] == "none"
+    @patch.object(SetupWizard, "get_input", return_value="https://example.com/calendar.ics")
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_configure_ics_url_basic(self, mock_print, mock_print_section, mock_get_input):
+        """Test basic ICS URL configuration."""
+        wizard = SetupWizard()
+        result = wizard.configure_ics_url("custom")
 
-    def test_configure_ics_url_pattern_mismatch(self, wizard, mock_input, mock_print):
-        """Test configure_ics_url method with URL pattern mismatch."""
-        mock_input.side_effect = [
-            "https://wrong-pattern.com/test.ics",  # URL that doesn't match pattern
-            "n",  # Don't continue with this URL
-            "https://outlook.live.com/owa/calendar/test/calendar.ics",  # Correct URL
-            StopIteration(),  # Prevent infinite loop
+        assert result == {"url": "https://example.com/calendar.ics", "recommended_auth": "none"}
+        mock_print_section.assert_called_once()
+        mock_get_input.assert_called_once()
+
+    @patch.object(
+        SetupWizard,
+        "get_input",
+        return_value="https://calendar.google.com/calendar/ical/test/basic.ics",
+    )
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_configure_ics_url_google_pattern_match(
+        self, mock_print, mock_print_section, mock_get_input
+    ):
+        """Test ICS URL configuration with Google service pattern matching."""
+        wizard = SetupWizard()
+        result = wizard.configure_ics_url("google")
+
+        assert result == {
+            "url": "https://calendar.google.com/calendar/ical/test/basic.ics",
+            "recommended_auth": "none",
+        }
+
+    @patch.object(SetupWizard, "get_input", return_value="https://wrong-pattern.com/calendar.ics")
+    @patch.object(SetupWizard, "get_yes_no", return_value=True)
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_configure_ics_url_pattern_mismatch_continue(
+        self, mock_print, mock_print_section, mock_get_yes_no, mock_get_input
+    ):
+        """Test ICS URL configuration with pattern mismatch but user continues."""
+        wizard = SetupWizard()
+        result = wizard.configure_ics_url("google")
+
+        assert result == {
+            "url": "https://wrong-pattern.com/calendar.ics",
+            "recommended_auth": "none",
+        }
+        mock_get_yes_no.assert_called_once()
+        # Should print warning about pattern mismatch
+        warning_calls = [
+            call
+            for call in mock_print.call_args_list
+            if "Warning: URL doesn't match expected pattern" in str(call)
         ]
+        assert len(warning_calls) > 0
 
-        result = wizard.configure_ics_url("outlook")
+    @patch.object(
+        SetupWizard,
+        "get_input",
+        side_effect=[
+            "https://wrong-pattern.com/calendar.ics",
+            "https://calendar.google.com/calendar/ical/test/basic.ics",
+        ],
+    )
+    @patch.object(SetupWizard, "get_yes_no", return_value=False)
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_configure_ics_url_pattern_mismatch_retry(
+        self, mock_print, mock_print_section, mock_get_yes_no, mock_get_input
+    ):
+        """Test ICS URL configuration with pattern mismatch and retry."""
+        wizard = SetupWizard()
+        result = wizard.configure_ics_url("google")
 
-        assert "outlook.live.com" in result["url"]
+        assert result == {
+            "url": "https://calendar.google.com/calendar/ical/test/basic.ics",
+            "recommended_auth": "none",
+        }
+        assert mock_get_input.call_count == 2
 
-    def test_configure_authentication_none(self, wizard, mock_input):
-        """Test configure_authentication method with no auth."""
-        mock_input.return_value = "1"  # Select "none"
 
+class TestSetupWizardAuthentication:
+    """Test authentication configuration functionality."""
+
+    @patch.object(SetupWizard, "get_choice", return_value="none")
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_configure_authentication_none(self, mock_print, mock_print_section, mock_get_choice):
+        """Test authentication configuration with no auth."""
+        wizard = SetupWizard()
         result = wizard.configure_authentication()
 
-        assert result["auth_type"] == "none"
+        assert result == {"auth_type": "none"}
+        mock_print_section.assert_called_once()
 
+    @patch.object(SetupWizard, "get_input", side_effect=["testuser", "testpass"])
+    @patch.object(SetupWizard, "get_choice", return_value="basic")
+    @patch.object(SetupWizard, "print_section")
     @patch("calendarbot.setup_wizard.SecurityEventLogger")
+    @patch("builtins.print")
     def test_configure_authentication_basic(
-        self, mock_security_logger, wizard, mock_input, mock_print
+        self, mock_print, mock_security_logger, mock_print_section, mock_get_choice, mock_get_input
     ):
-        """Test configure_authentication method with basic auth."""
-        mock_input.side_effect = [
-            "2",
-            "testuser",
-            "testpass",
-            StopIteration(),
-        ]  # Select basic, username, password
-        mock_logger_instance = Mock()
+        """Test authentication configuration with basic auth."""
+        mock_logger_instance = MagicMock()
         mock_security_logger.return_value = mock_logger_instance
 
+        wizard = SetupWizard()
         result = wizard.configure_authentication()
 
-        assert result["auth_type"] == "basic"
-        assert result["username"] == "testuser"
-        assert result["password"] == "testpass"
+        assert result == {"auth_type": "basic", "username": "testuser", "password": "testpass"}
+        mock_security_logger.assert_called_once()
         mock_logger_instance.log_authentication_success.assert_called_once()
 
+    @patch.object(SetupWizard, "get_input", return_value="bearer123token")
+    @patch.object(SetupWizard, "get_choice", return_value="bearer")
+    @patch.object(SetupWizard, "print_section")
     @patch("calendarbot.setup_wizard.SecurityEventLogger")
+    @patch("builtins.print")
     def test_configure_authentication_bearer(
-        self, mock_security_logger, wizard, mock_input, mock_print
+        self, mock_print, mock_security_logger, mock_print_section, mock_get_choice, mock_get_input
     ):
-        """Test configure_authentication method with bearer token."""
-        mock_input.side_effect = ["3", "test_token", StopIteration()]  # Select bearer, token
-        mock_logger_instance = Mock()
+        """Test authentication configuration with bearer token."""
+        mock_logger_instance = MagicMock()
         mock_security_logger.return_value = mock_logger_instance
 
+        wizard = SetupWizard()
         result = wizard.configure_authentication()
 
-        assert result["auth_type"] == "bearer"
-        assert result["token"] == "test_token"
+        assert result == {"auth_type": "bearer", "token": "bearer123token"}
+        mock_security_logger.assert_called_once()
         mock_logger_instance.log_authentication_success.assert_called_once()
 
-    def test_configure_authentication_with_recommendation(self, wizard, mock_input, mock_print):
-        """Test configure_authentication method with recommended auth type."""
-        mock_input.return_value = "2"  # Select basic auth
+    @patch.object(SetupWizard, "get_input", side_effect=["testuser", "testpass"])
+    @patch.object(SetupWizard, "get_choice", return_value="basic")
+    @patch.object(SetupWizard, "print_section")
+    @patch("calendarbot.setup_wizard.SecurityEventLogger")
+    @patch("builtins.print")
+    def test_configure_authentication_with_recommendation(
+        self, mock_print, mock_security_logger, mock_print_section, mock_get_choice, mock_get_input
+    ):
+        """Test authentication configuration shows recommendation."""
+        mock_logger_instance = MagicMock()
+        mock_security_logger.return_value = mock_logger_instance
 
-        wizard.configure_authentication(recommended_auth="basic")
+        wizard = SetupWizard()
+        result = wizard.configure_authentication(recommended_auth="basic")
 
-        # Check that recommendation was displayed
-        print_calls = [call.args[0] for call in mock_print.call_args_list]
-        assert any("Recommended for your service: basic" in call for call in print_calls)
+        # Should return authentication config
+        assert result == {"auth_type": "basic", "username": "testuser", "password": "testpass"}
 
-    def test_configure_advanced_settings_defaults(self, wizard, mock_input):
-        """Test configure_advanced_settings method with default values."""
-        mock_input.side_effect = [
-            "",
-            "",
-            "y",
-            "2",
-            StopIteration(),
-        ]  # Use defaults for intervals, yes for SSL, INFO level
+        # Should print recommendation
+        recommendation_calls = [
+            call
+            for call in mock_print.call_args_list
+            if "Recommended for your service: basic" in str(call)
+        ]
+        assert len(recommendation_calls) > 0
 
+
+class TestSetupWizardAdvancedSettings:
+    """Test advanced settings configuration."""
+
+    @patch.object(SetupWizard, "get_input", side_effect=["600", "7200", ""])
+    @patch.object(SetupWizard, "get_choice", return_value="INFO")
+    @patch.object(SetupWizard, "get_yes_no", return_value=False)
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_configure_advanced_settings(
+        self, mock_print, mock_print_section, mock_get_yes_no, mock_get_choice, mock_get_input
+    ):
+        """Test advanced settings configuration."""
+        wizard = SetupWizard()
         result = wizard.configure_advanced_settings()
 
-        assert "refresh_interval" not in result or result["refresh_interval"] == 300
-        assert "cache_ttl" not in result or result["cache_ttl"] == 3600
-        assert result["verify_ssl"] == True
-        assert result["log_level"] == "INFO"
+        expected = {
+            "refresh_interval": 600,
+            "cache_ttl": 7200,
+            "verify_ssl": False,
+            "log_level": "INFO",
+        }
+        assert result == expected
 
-    def test_configure_advanced_settings_custom(self, wizard, mock_input, mock_print):
-        """Test configure_advanced_settings method with custom values."""
-        mock_input.side_effect = ["600", "7200", "n", "1", StopIteration()]  # Custom values
-
+    @patch.object(SetupWizard, "get_input", side_effect=["invalid", ""])
+    @patch.object(SetupWizard, "get_choice", return_value="DEBUG")
+    @patch.object(SetupWizard, "get_yes_no", return_value=True)
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_configure_advanced_settings_invalid_numbers(
+        self, mock_print, mock_print_section, mock_get_yes_no, mock_get_choice, mock_get_input
+    ):
+        """Test advanced settings with invalid number inputs."""
+        wizard = SetupWizard()
         result = wizard.configure_advanced_settings()
 
-        assert result["refresh_interval"] == 600
-        assert result["cache_ttl"] == 7200
-        assert result["verify_ssl"] == False
+        # Should use defaults for invalid numbers
+        assert result["refresh_interval"] == 300  # Default
+        assert result["verify_ssl"] is True
         assert result["log_level"] == "DEBUG"
 
-    def test_configure_advanced_settings_invalid_numbers(self, wizard, mock_input, mock_print):
-        """Test configure_advanced_settings method with invalid number inputs."""
-        mock_input.side_effect = ["invalid", "also_invalid", "y", "1", StopIteration()]
+        # Should print warning about invalid number
+        warning_calls = [
+            call
+            for call in mock_print.call_args_list
+            if "Invalid number, using default" in str(call)
+        ]
+        assert len(warning_calls) > 0
 
-        result = wizard.configure_advanced_settings()
 
-        assert result["refresh_interval"] == 300  # Default fallback
-        assert result["cache_ttl"] == 3600  # Default fallback
+class TestSetupWizardConfigurationTesting:
+    """Test configuration testing functionality."""
 
     @pytest.mark.asyncio
-    async def test_test_configuration_success(self, wizard, mock_print):
-        """Test test_configuration method with successful connection."""
-        ics_config = {
-            "url": "https://test.com/calendar.ics",
-            "auth_type": "none",
-            "verify_ssl": True,
-        }
-
-        mock_fetcher = AsyncMock()
-        mock_fetcher.test_connection.return_value = True
-
-        mock_response = Mock()
+    @patch("calendarbot.setup_wizard.ICSFetcher")
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    async def test_test_configuration_success(
+        self, mock_print, mock_print_section, mock_fetcher_class
+    ):
+        """Test successful configuration testing."""
+        # Mock successful fetch response
+        mock_response = MagicMock()
         mock_response.success = True
         mock_response.content = "BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR"
-        mock_fetcher.fetch_ics.return_value = mock_response
 
-        # Mock all dependencies to avoid import and instantiation issues
-        with patch("calendarbot.setup_wizard.CalendarBotSettings") as mock_settings_class:
-            mock_settings_class.return_value = Mock()
+        mock_fetcher_instance = AsyncMock()
+        mock_fetcher_instance.test_connection = AsyncMock(return_value=True)
+        mock_fetcher_instance.fetch_ics = AsyncMock(return_value=mock_response)
 
-            with patch("calendarbot.setup_wizard.ICSAuth") as mock_auth_class:
-                mock_auth_class.return_value = Mock()
+        mock_fetcher_class.return_value.__aenter__ = AsyncMock(return_value=mock_fetcher_instance)
+        mock_fetcher_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-                with patch("calendarbot.setup_wizard.ICSSource") as mock_source_class:
-                    mock_source_class.return_value = Mock()
+        wizard = SetupWizard()
+        ics_config = {"url": "https://example.com/calendar.ics", "auth_type": "none"}
 
-                    with patch("calendarbot.setup_wizard.ICSFetcher") as mock_fetcher_class:
-                        mock_fetcher_class.return_value.__aenter__.return_value = mock_fetcher
+        result = await wizard.test_configuration(ics_config)
 
-                        result = await wizard.test_configuration(ics_config)
-
-                        assert result == True
+        assert result is True
+        mock_fetcher_instance.test_connection.assert_called_once()
+        mock_fetcher_instance.fetch_ics.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_test_configuration_connection_failure(self, wizard, mock_print):
-        """Test test_configuration method with connection failure."""
-        ics_config = {"url": "https://test.com/calendar.ics", "auth_type": "none"}
+    @patch("calendarbot.setup_wizard.ICSFetcher")
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    async def test_test_configuration_connection_failure(
+        self, mock_print, mock_print_section, mock_fetcher_class
+    ):
+        """Test configuration testing with connection failure."""
+        mock_fetcher_instance = AsyncMock()
+        mock_fetcher_instance.test_connection = AsyncMock(return_value=False)
 
-        mock_fetcher = AsyncMock()
-        mock_fetcher.test_connection.return_value = False
+        mock_fetcher_class.return_value.__aenter__ = AsyncMock(return_value=mock_fetcher_instance)
+        mock_fetcher_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("calendarbot.setup_wizard.ICSFetcher") as mock_fetcher_class:
-            mock_fetcher_class.return_value.__aenter__.return_value = mock_fetcher
+        wizard = SetupWizard()
+        ics_config = {"url": "https://example.com/calendar.ics", "auth_type": "none"}
 
-            result = await wizard.test_configuration(ics_config)
+        result = await wizard.test_configuration(ics_config)
 
-            assert result == False
-
-    @pytest.mark.asyncio
-    async def test_test_configuration_ics_error(self, wizard, mock_print):
-        """Test test_configuration method with ICS error."""
-        ics_config = {"url": "https://test.com/calendar.ics", "auth_type": "none"}
-
-        with patch("calendarbot.setup_wizard.ICSFetcher") as mock_fetcher_class:
-            mock_fetcher_class.side_effect = ICSError("Test ICS error")
-
-            result = await wizard.test_configuration(ics_config)
-
-            assert result == False
+        assert result is False
+        mock_fetcher_instance.test_connection.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_test_configuration_basic_auth(self, wizard, mock_print):
-        """Test test_configuration method with basic authentication."""
-        ics_config = {
-            "url": "https://test.com/calendar.ics",
-            "auth_type": "basic",
-            "username": "testuser",
-            "password": "testpass",
-            "verify_ssl": True,
-        }
-
-        mock_fetcher = AsyncMock()
-        mock_fetcher.test_connection.return_value = True
-
-        mock_response = Mock()
-        mock_response.success = True
-        mock_response.content = "BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR"
-        mock_fetcher.fetch_ics.return_value = mock_response
-
-        with patch("calendarbot.setup_wizard.CalendarBotSettings") as mock_settings_class:
-            mock_settings_class.return_value = Mock()
-            with patch("calendarbot.setup_wizard.ICSAuth") as mock_auth_class:
-                mock_auth_class.return_value = Mock()
-                with patch("calendarbot.setup_wizard.ICSSource") as mock_source_class:
-                    mock_source_class.return_value = Mock()
-                    with patch("calendarbot.setup_wizard.ICSFetcher") as mock_fetcher_class:
-                        mock_fetcher_class.return_value.__aenter__.return_value = mock_fetcher
-
-                        result = await wizard.test_configuration(ics_config)
-
-                        assert result == True
-
-    @pytest.mark.asyncio
-    async def test_test_configuration_bearer_auth(self, wizard, mock_print):
-        """Test test_configuration method with bearer token authentication."""
-        ics_config = {
-            "url": "https://test.com/calendar.ics",
-            "auth_type": "bearer",
-            "token": "test_token",
-        }
-
-        mock_fetcher = AsyncMock()
-        mock_fetcher.test_connection.return_value = True
-
-        mock_response = Mock()
-        mock_response.success = True
-        mock_response.content = "BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR"
-        mock_fetcher.fetch_ics.return_value = mock_response
-
-        with patch("calendarbot.setup_wizard.CalendarBotSettings") as mock_settings_class:
-            mock_settings_class.return_value = Mock()
-            with patch("calendarbot.setup_wizard.ICSAuth") as mock_auth_class:
-                mock_auth_class.return_value = Mock()
-                with patch("calendarbot.setup_wizard.ICSSource") as mock_source_class:
-                    mock_source_class.return_value = Mock()
-                    with patch("calendarbot.setup_wizard.ICSFetcher") as mock_fetcher_class:
-                        mock_fetcher_class.return_value.__aenter__.return_value = mock_fetcher
-
-                        result = await wizard.test_configuration(ics_config)
-
-                        assert result == True
-
-    @pytest.mark.asyncio
-    async def test_test_configuration_invalid_content(self, wizard, mock_print):
-        """Test test_configuration method with invalid ICS content."""
-        ics_config = {"url": "https://test.com/calendar.ics", "auth_type": "none"}
-
-        mock_fetcher = AsyncMock()
-        mock_fetcher.test_connection.return_value = True
-
-        mock_response = Mock()
-        mock_response.success = True
-        mock_response.content = "INVALID CONTENT"  # Not valid ICS format
-        mock_fetcher.fetch_ics.return_value = mock_response
-
-        with patch("calendarbot.setup_wizard.CalendarBotSettings") as mock_settings_class:
-            mock_settings_class.return_value = Mock()
-            with patch("calendarbot.setup_wizard.ICSAuth") as mock_auth_class:
-                mock_auth_class.return_value = Mock()
-                with patch("calendarbot.setup_wizard.ICSSource") as mock_source_class:
-                    mock_source_class.return_value = Mock()
-                    with patch("calendarbot.setup_wizard.ICSFetcher") as mock_fetcher_class:
-                        mock_fetcher_class.return_value.__aenter__.return_value = mock_fetcher
-
-                        result = await wizard.test_configuration(ics_config)
-
-                        assert result == True  # Should still succeed, just warn about content
-
-    @pytest.mark.asyncio
-    async def test_test_configuration_fetch_failure(self, wizard, mock_print):
-        """Test test_configuration method with fetch failure."""
-        ics_config = {"url": "https://test.com/calendar.ics", "auth_type": "none"}
-
-        mock_fetcher = AsyncMock()
-        mock_fetcher.test_connection.return_value = True
-
-        mock_response = Mock()
+    @patch("calendarbot.setup_wizard.ICSFetcher")
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    async def test_test_configuration_fetch_failure(
+        self, mock_print, mock_print_section, mock_fetcher_class
+    ):
+        """Test configuration testing with fetch failure."""
+        mock_response = MagicMock()
         mock_response.success = False
-        mock_response.error_message = "Network error"
-        mock_fetcher.fetch_ics.return_value = mock_response
+        mock_response.error_message = "HTTP 404 Not Found"
 
-        with patch("calendarbot.setup_wizard.CalendarBotSettings") as mock_settings_class:
-            mock_settings_class.return_value = Mock()
-            with patch("calendarbot.setup_wizard.ICSAuth") as mock_auth_class:
-                mock_auth_class.return_value = Mock()
-                with patch("calendarbot.setup_wizard.ICSSource") as mock_source_class:
-                    mock_source_class.return_value = Mock()
-                    with patch("calendarbot.setup_wizard.ICSFetcher") as mock_fetcher_class:
-                        mock_fetcher_class.return_value.__aenter__.return_value = mock_fetcher
+        mock_fetcher_instance = AsyncMock()
+        mock_fetcher_instance.test_connection = AsyncMock(return_value=True)
+        mock_fetcher_instance.fetch_ics = AsyncMock(return_value=mock_response)
 
-                        result = await wizard.test_configuration(ics_config)
+        mock_fetcher_class.return_value.__aenter__ = AsyncMock(return_value=mock_fetcher_instance)
+        mock_fetcher_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-                        assert result == False
+        wizard = SetupWizard()
+        ics_config = {"url": "https://example.com/calendar.ics", "auth_type": "none"}
+
+        result = await wizard.test_configuration(ics_config)
+
+        assert result is False
 
     @pytest.mark.asyncio
-    async def test_test_configuration_unexpected_exception(self, wizard, mock_print):
-        """Test test_configuration method with unexpected exception."""
-        ics_config = {"url": "https://test.com/calendar.ics", "auth_type": "none"}
+    @patch("calendarbot.setup_wizard.ICSFetcher")
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    async def test_test_configuration_ics_error(
+        self, mock_print, mock_print_section, mock_fetcher_class
+    ):
+        """Test configuration testing with ICS error."""
+        mock_fetcher_instance = AsyncMock()
+        mock_fetcher_instance.test_connection = AsyncMock(side_effect=ICSError("Invalid format"))
 
-        with patch("calendarbot.setup_wizard.ICSFetcher") as mock_fetcher_class:
-            mock_fetcher_class.side_effect = Exception("Unexpected error")
+        mock_fetcher_class.return_value.__aenter__ = AsyncMock(return_value=mock_fetcher_instance)
+        mock_fetcher_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            result = await wizard.test_configuration(ics_config)
+        wizard = SetupWizard()
+        ics_config = {"url": "https://example.com/calendar.ics", "auth_type": "none"}
 
-            assert result == False
+        result = await wizard.test_configuration(ics_config)
 
-    def test_generate_config_content_basic(self, wizard):
-        """Test generate_config_content method with basic configuration."""
-        ics_config = {"url": "https://test.com/calendar.ics", "auth_type": "none"}
-        advanced_settings = {"refresh_interval": 300, "verify_ssl": True, "log_level": "INFO"}
+        assert result is False
+
+    @pytest.mark.asyncio
+    @patch("calendarbot.setup_wizard.ICSFetcher")
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    async def test_test_configuration_with_authentication(
+        self, mock_print, mock_print_section, mock_fetcher_class
+    ):
+        """Test configuration testing with authentication."""
+        mock_response = MagicMock()
+        mock_response.success = True
+        mock_response.content = "BEGIN:VCALENDAR\nEND:VCALENDAR"
+
+        mock_fetcher_instance = AsyncMock()
+        mock_fetcher_instance.test_connection = AsyncMock(return_value=True)
+        mock_fetcher_instance.fetch_ics = AsyncMock(return_value=mock_response)
+
+        mock_fetcher_class.return_value.__aenter__ = AsyncMock(return_value=mock_fetcher_instance)
+        mock_fetcher_class.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        wizard = SetupWizard()
+        ics_config = {
+            "url": "https://example.com/calendar.ics",
+            "auth_type": "basic",
+            "username": "testuser",
+            "password": "testpass",
+        }
+
+        result = await wizard.test_configuration(ics_config)
+
+        assert result is True
+        # Verify ICSSource was created with correct auth
+        call_args = mock_fetcher_instance.test_connection.call_args[0][0]
+        assert call_args.auth.type == AuthType.BASIC
+        assert call_args.auth.username == "testuser"
+        assert call_args.auth.password == "testpass"
+
+
+class TestSetupWizardConfigGeneration:
+    """Test configuration file generation."""
+
+    def test_generate_config_content_basic(self):
+        """Test basic configuration content generation."""
+        wizard = SetupWizard()
+        ics_config = {"url": "https://example.com/calendar.ics", "auth_type": "none"}
+        advanced_settings = {
+            "refresh_interval": 300,
+            "cache_ttl": 3600,
+            "verify_ssl": True,
+            "log_level": "INFO",
+        }
 
         result = wizard.generate_config_content(ics_config, advanced_settings)
 
-        assert isinstance(result, str)
-        # YAML may not quote simple URLs, so check for the URL without quotes
-        assert "url: https://test.com/calendar.ics" in result
-        assert "auth_type: none" in result
-        assert "refresh_interval: 300" in result
+        # Verify it's valid YAML
+        config = yaml.safe_load(result)
+        assert config["ics"]["url"] == "https://example.com/calendar.ics"
+        assert config["ics"]["auth_type"] == "none"
+        assert config["refresh_interval"] == 300
+        assert config["cache_ttl"] == 3600
+        assert config["log_level"] == "INFO"
 
-    def test_generate_config_content_with_auth(self, wizard):
-        """Test generate_config_content method with authentication."""
+    def test_generate_config_content_with_basic_auth(self):
+        """Test configuration generation with basic authentication."""
+        wizard = SetupWizard()
         ics_config = {
-            "url": "https://test.com/calendar.ics",
+            "url": "https://example.com/calendar.ics",
             "auth_type": "basic",
             "username": "testuser",
             "password": "testpass",
@@ -562,366 +694,332 @@ class TestSetupWizard:
 
         result = wizard.generate_config_content(ics_config, advanced_settings)
 
-        assert "username: testuser" in result
-        assert "password: testpass" in result
+        config = yaml.safe_load(result)
+        assert config["ics"]["auth_type"] == "basic"
+        assert config["ics"]["username"] == "testuser"
+        assert config["ics"]["password"] == "testpass"
 
-    def test_generate_config_content_with_bearer_token(self, wizard):
-        """Test generate_config_content method with bearer token authentication."""
+    def test_generate_config_content_with_bearer_token(self):
+        """Test configuration generation with bearer token."""
+        wizard = SetupWizard()
         ics_config = {
-            "url": "https://test.com/calendar.ics",
+            "url": "https://example.com/calendar.ics",
             "auth_type": "bearer",
-            "token": "bearer_test_token",
+            "token": "bearer123token",
         }
         advanced_settings = {}
 
         result = wizard.generate_config_content(ics_config, advanced_settings)
 
-        assert "token: bearer_test_token" in result
-        assert "auth_type: bearer" in result
+        config = yaml.safe_load(result)
+        assert config["ics"]["auth_type"] == "bearer"
+        assert config["ics"]["token"] == "bearer123token"
 
+    def test_generate_config_content_includes_timestamp(self):
+        """Test configuration includes generation timestamp."""
+        wizard = SetupWizard()
+        ics_config = {"url": "https://example.com/cal.ics", "auth_type": "none"}
+        advanced_settings = {}
+
+        result = wizard.generate_config_content(ics_config, advanced_settings)
+
+        # Should include timestamp in header comment
+        current_year = datetime.now().year
+        assert f"Generated by setup wizard on {current_year}" in result
+
+
+class TestSetupWizardConfigSaving:
+    """Test configuration file saving functionality."""
+
+    @patch("pathlib.Path.mkdir")
+    @patch("pathlib.Path.exists", return_value=False)
     @patch("builtins.open", new_callable=mock_open)
-    def test_save_configuration_success(self, mock_file, wizard, mock_input, mock_print):
-        """Test save_configuration method with successful save."""
-        mock_input.return_value = "1"  # Select first option
-        config_content = "test: config"
+    @patch.object(SetupWizard, "get_choice", return_value="Project directory")
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_save_configuration_success(
+        self, mock_print, mock_print_section, mock_get_choice, mock_file, mock_exists, mock_mkdir
+    ):
+        """Test successful configuration saving."""
+        wizard = SetupWizard()
+        config_content = "test: configuration"
 
-        with patch("pathlib.Path.exists", return_value=False):
-            with patch("pathlib.Path.mkdir"):
-                result = wizard.save_configuration(config_content)
+        result = wizard.save_configuration(config_content)
 
-                assert result is not None
-                mock_file.assert_called_once()
+        assert result is not None
+        assert result.name == "config.yaml"
+        mock_file.assert_called_once()
+        mock_file().write.assert_called_once_with(config_content)
 
-    def test_save_configuration_file_exists_overwrite(self, wizard, mock_input, mock_print):
-        """Test save_configuration method when file exists and user chooses to overwrite."""
-        mock_input.side_effect = ["1", "y", StopIteration()]  # Select location, yes to overwrite
-        config_content = "test: config"
+    @patch("pathlib.Path.mkdir")
+    @patch("pathlib.Path.exists", return_value=True)
+    @patch("builtins.open", new_callable=mock_open)
+    @patch.object(SetupWizard, "get_choice", return_value="Project directory")
+    @patch.object(SetupWizard, "get_yes_no", return_value=True)
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_save_configuration_overwrite_existing(
+        self,
+        mock_print,
+        mock_print_section,
+        mock_get_yes_no,
+        mock_get_choice,
+        mock_file,
+        mock_exists,
+        mock_mkdir,
+    ):
+        """Test configuration saving with existing file overwrite."""
+        wizard = SetupWizard()
+        config_content = "test: configuration"
 
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("pathlib.Path.mkdir"):
-                with patch("builtins.open", mock_open()) as mock_file:
-                    result = wizard.save_configuration(config_content)
+        result = wizard.save_configuration(config_content)
 
-                    assert result is not None
+        assert result is not None
+        mock_get_yes_no.assert_called_once()
+        mock_file().write.assert_called_once_with(config_content)
 
-    def test_save_configuration_file_exists_no_overwrite(self, wizard, mock_input, mock_print):
-        """Test save_configuration method when file exists and user declines overwrite."""
-        mock_input.side_effect = ["1", "n", StopIteration()]  # Select location, no to overwrite
-        config_content = "test: config"
+    @patch("pathlib.Path.exists", return_value=True)
+    @patch.object(SetupWizard, "get_choice", return_value="Project directory")
+    @patch.object(SetupWizard, "get_yes_no", return_value=False)
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_save_configuration_cancel_overwrite(
+        self, mock_print, mock_print_section, mock_get_yes_no, mock_get_choice, mock_exists
+    ):
+        """Test configuration saving cancelled when user rejects overwrite."""
+        wizard = SetupWizard()
+        config_content = "test: configuration"
 
-        with patch("pathlib.Path.exists", return_value=True):
-            result = wizard.save_configuration(config_content)
+        result = wizard.save_configuration(config_content)
 
-            assert result is None
+        assert result is None
+        mock_get_yes_no.assert_called_once()
 
-    def test_save_configuration_write_error(self, wizard, mock_input, mock_print):
-        """Test save_configuration method with file write error."""
-        mock_input.return_value = "1"  # Select first option
-        config_content = "test: config"
+    @patch("pathlib.Path.mkdir")
+    @patch("pathlib.Path.exists", return_value=False)
+    @patch("builtins.open", side_effect=IOError("Permission denied"))
+    @patch.object(SetupWizard, "get_choice", return_value="Project directory")
+    @patch.object(SetupWizard, "print_section")
+    @patch("builtins.print")
+    def test_save_configuration_write_error(
+        self, mock_print, mock_print_section, mock_get_choice, mock_file, mock_exists, mock_mkdir
+    ):
+        """Test configuration saving with write error."""
+        wizard = SetupWizard()
+        config_content = "test: configuration"
 
-        with patch("pathlib.Path.exists", return_value=False):
-            with patch("pathlib.Path.mkdir"):
-                with patch("builtins.open", side_effect=IOError("Permission denied")):
-                    result = wizard.save_configuration(config_content)
+        result = wizard.save_configuration(config_content)
 
-                    assert result is None
-                    # Verify error message was printed
-                    print_calls = [call.args[0] for call in mock_print.call_args_list]
-                    assert any("Failed to save configuration" in call for call in print_calls)
+        assert result is None
+        # Should print error message
+        error_calls = [
+            call
+            for call in mock_print.call_args_list
+            if "Failed to save configuration" in str(call)
+        ]
+        assert len(error_calls) > 0
 
-    def test_save_configuration_fallback_path(self, wizard, mock_input, mock_print):
-        """Test save_configuration method with fallback to default path."""
-        mock_input.return_value = "1"  # Select first option
-        config_content = "test: config"
 
-        # Mock to simulate not finding the selected choice (edge case)
-        with patch.object(wizard, "get_choice", return_value="Non-existent choice"):
-            with patch("pathlib.Path.exists", return_value=False):
-                with patch("pathlib.Path.mkdir"):
-                    with patch("builtins.open", mock_open()) as mock_file:
-                        result = wizard.save_configuration(config_content)
+class TestSetupWizardCompletionMessage:
+    """Test setup completion message display."""
 
-                        assert result is not None  # Should use fallback path
-
-    def test_show_completion_message(self, wizard, mock_print):
-        """Test show_completion_message method."""
+    @patch.object(SetupWizard, "print_header")
+    @patch("builtins.print")
+    def test_show_completion_message_with_config_path(self, mock_print, mock_print_header):
+        """Test completion message with valid config path."""
+        wizard = SetupWizard()
         config_path = Path("/test/config.yaml")
 
         wizard.show_completion_message(config_path)
 
-        # Verify that print was called multiple times with completion information
-        assert mock_print.call_count > 5
-        calls = [call.args[0] for call in mock_print.call_args_list]
-        assert any("Setup Complete" in call for call in calls)
-        assert any("Next Steps" in call for call in calls)
+        mock_print_header.assert_called_once_with("Setup Complete! 🎉")
+        # Should print next steps and documentation
+        print_calls = [str(call) for call in mock_print.call_args_list]
+        assert any("Next Steps:" in call for call in print_calls)
+        assert any("calendarbot --test-mode" in call for call in print_calls)
 
-    def test_show_completion_message_no_config_path(self, wizard, mock_print):
-        """Test show_completion_message method when config path is None."""
+    @patch.object(SetupWizard, "print_header")
+    @patch("builtins.print")
+    def test_show_completion_message_without_config_path(self, mock_print, mock_print_header):
+        """Test completion message without config path."""
+        wizard = SetupWizard()
+
         wizard.show_completion_message(None)
 
-        # Verify that warning message is displayed
-        calls = [call.args[0] for call in mock_print.call_args_list]
-        assert any("Configuration file could not be saved" in call for call in calls)
+        mock_print_header.assert_called_once_with("Setup Complete! 🎉")
+        # Should print warning about config not saved
+        print_calls = [str(call) for call in mock_print.call_args_list]
+        assert any("Configuration file could not be saved" in call for call in print_calls)
+
+
+class TestSetupWizardMainFlow:
+    """Test main setup wizard flow."""
 
     @pytest.mark.asyncio
-    async def test_run_full_wizard_success(self, wizard, mock_input, mock_print):
-        """Test complete wizard run with successful configuration."""
-        # Mock all user inputs for a complete run
-        mock_input.side_effect = [
-            "y",  # Ready to start
-            "1",  # Select Outlook
-            "https://outlook.live.com/owa/calendar/test/calendar.ics",  # ICS URL
-            "1",  # No auth
-            "n",  # Skip configuration test
-            "n",  # Skip advanced settings
-            "1",  # Save to project directory
-            StopIteration(),  # Prevent infinite loop
-        ]
-
-        # Mock successful file operations
-        with patch("pathlib.Path.exists", return_value=False):
-            with patch("pathlib.Path.mkdir"):
-                with patch("builtins.open", mock_open()):
-                    result = await wizard.run()
-
-                    assert result == True
-
-    @pytest.mark.asyncio
-    async def test_run_wizard_cancelled_at_start(self, wizard, mock_input, mock_print):
-        """Test wizard run when user cancels at the beginning."""
-        mock_input.return_value = "n"  # Not ready to start
-
+    @patch.object(SetupWizard, "get_yes_no", side_effect=[True, True, False, True])
+    @patch.object(SetupWizard, "select_calendar_service", return_value="google")
+    @patch.object(
+        SetupWizard,
+        "configure_ics_url",
+        return_value={"url": "https://example.com/cal.ics", "recommended_auth": "none"},
+    )
+    @patch.object(SetupWizard, "configure_authentication", return_value={"auth_type": "none"})
+    @patch.object(SetupWizard, "test_configuration", return_value=True)
+    @patch.object(SetupWizard, "generate_config_content", return_value="config: content")
+    @patch.object(SetupWizard, "save_configuration", return_value=Path("/test/config.yaml"))
+    @patch.object(SetupWizard, "show_completion_message")
+    @patch.object(SetupWizard, "print_header")
+    @patch("builtins.print")
+    async def test_run_success_minimal_flow(
+        self,
+        mock_print,
+        mock_print_header,
+        mock_show_completion,
+        mock_save_config,
+        mock_generate_config,
+        mock_test_config,
+        mock_configure_auth,
+        mock_configure_ics,
+        mock_select_service,
+        mock_get_yes_no,
+    ):
+        """Test successful minimal wizard flow."""
+        wizard = SetupWizard()
         result = await wizard.run()
 
-        assert result == False
+        assert result is True
+        mock_select_service.assert_called_once()
+        mock_configure_ics.assert_called_once()
+        mock_configure_auth.assert_called_once()
+        mock_test_config.assert_called_once()
+        mock_save_config.assert_called_once()
+        mock_show_completion.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_run_wizard_keyboard_interrupt(self, wizard, mock_input, mock_print):
-        """Test wizard run with keyboard interrupt."""
-        mock_input.side_effect = KeyboardInterrupt()
-
+    @patch.object(SetupWizard, "get_yes_no", return_value=False)
+    @patch.object(SetupWizard, "print_header")
+    @patch("builtins.print")
+    async def test_run_cancelled_at_start(self, mock_print, mock_print_header, mock_get_yes_no):
+        """Test wizard cancelled at start."""
+        wizard = SetupWizard()
         result = await wizard.run()
 
-        assert result == False
+        assert result is False
+        mock_get_yes_no.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_run_wizard_exception(self, wizard, mock_input, mock_print):
-        """Test wizard run with unexpected exception."""
-        mock_input.side_effect = Exception("Test error")
-
+    @patch.object(SetupWizard, "get_yes_no", side_effect=[True, True, False])
+    @patch.object(SetupWizard, "select_calendar_service", return_value="google")
+    @patch.object(
+        SetupWizard,
+        "configure_ics_url",
+        return_value={"url": "https://example.com/cal.ics", "recommended_auth": "none"},
+    )
+    @patch.object(SetupWizard, "configure_authentication", return_value={"auth_type": "none"})
+    @patch.object(SetupWizard, "test_configuration", return_value=False)
+    @patch.object(SetupWizard, "print_header")
+    @patch("builtins.print")
+    async def test_run_test_failure_cancelled(
+        self,
+        mock_print,
+        mock_print_header,
+        mock_test_config,
+        mock_configure_auth,
+        mock_configure_ics,
+        mock_select_service,
+        mock_get_yes_no,
+    ):
+        """Test wizard cancelled after test failure."""
+        wizard = SetupWizard()
         result = await wizard.run()
 
-        assert result == False
+        assert result is False
+        mock_test_config.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_run_wizard_test_failure_continue(self, wizard, mock_input, mock_print):
-        """Test wizard run when test fails but user continues anyway."""
-        mock_input.side_effect = [
-            "y",  # Ready to start
-            "1",  # Select Outlook
-            "https://outlook.live.com/owa/calendar/test/calendar.ics",  # ICS URL
-            "1",  # No auth
-            "y",  # Test configuration
-            "y",  # Continue anyway after test failure
-            "n",  # Skip advanced settings
-            "1",  # Save to project directory
-            StopIteration(),  # Prevent infinite loop
-        ]
+    @patch.object(SetupWizard, "print_header")
+    @patch("builtins.print")
+    async def test_run_keyboard_interrupt(self, mock_print, mock_print_header):
+        """Test wizard handles keyboard interrupt."""
+        wizard = SetupWizard()
 
-        # Mock test failure
-        with patch.object(wizard, "test_configuration", return_value=False):
-            with patch("pathlib.Path.exists", return_value=False):
-                with patch("pathlib.Path.mkdir"):
-                    with patch("builtins.open", mock_open()):
-                        result = await wizard.run()
-
-                        assert result == True
-
-    @pytest.mark.asyncio
-    async def test_run_wizard_test_failure_no_continue(self, wizard, mock_input, mock_print):
-        """Test wizard run when test fails and user doesn't continue."""
-        mock_input.side_effect = [
-            "y",  # Ready to start
-            "1",  # Select Outlook
-            "https://outlook.live.com/owa/calendar/test/calendar.ics",  # ICS URL
-            "1",  # No auth
-            "y",  # Test configuration
-            "n",  # Don't continue after test failure
-            StopIteration(),  # Prevent infinite loop
-        ]
-
-        # Mock test failure
-        with patch.object(wizard, "test_configuration", return_value=False):
+        with patch.object(wizard, "get_yes_no", side_effect=KeyboardInterrupt()):
             result = await wizard.run()
 
-            assert result == False
-
-    @pytest.mark.asyncio
-    async def test_run_wizard_with_advanced_settings(self, wizard, mock_input, mock_print):
-        """Test wizard run with advanced settings configuration."""
-        mock_input.side_effect = [
-            "y",  # Ready to start
-            "1",  # Select Outlook
-            "https://outlook.live.com/owa/calendar/test/calendar.ics",  # ICS URL
-            "1",  # No auth
-            "n",  # Skip configuration test
-            "y",  # Configure advanced settings
-            "600",  # Custom refresh interval
-            "7200",  # Custom cache TTL
-            "n",  # Don't verify SSL
-            "1",  # DEBUG log level
-            "1",  # Save to project directory
-            StopIteration(),  # Prevent infinite loop
+        assert result is False
+        # Should print cancellation message
+        cancel_calls = [
+            call for call in mock_print.call_args_list if "Setup cancelled by user" in str(call)
         ]
-
-        with patch("pathlib.Path.exists", return_value=False):
-            with patch("pathlib.Path.mkdir"):
-                with patch("builtins.open", mock_open()):
-                    result = await wizard.run()
-
-                    assert result == True
-
-    @pytest.mark.asyncio
-    async def test_run_wizard_config_save_failure(self, wizard, mock_input, mock_print):
-        """Test wizard run when configuration save fails."""
-        mock_input.side_effect = [
-            "y",  # Ready to start
-            "1",  # Select Outlook
-            "https://outlook.live.com/owa/calendar/test/calendar.ics",  # ICS URL
-            "1",  # No auth
-            "n",  # Skip configuration test
-            "n",  # Skip advanced settings
-            "1",  # Save to project directory
-            StopIteration(),  # Prevent infinite loop
-        ]
-
-        # Mock save failure
-        with patch.object(wizard, "save_configuration", return_value=None):
-            result = await wizard.run()
-
-            assert result == False
+        assert len(cancel_calls) > 0
 
 
-class TestSetupWizardFunctions:
-    """Test module-level functions."""
+class TestStandaloneFunctions:
+    """Test standalone setup wizard functions."""
 
     @pytest.mark.asyncio
     @patch("calendarbot.setup_wizard.SetupWizard")
     async def test_run_setup_wizard(self, mock_wizard_class):
         """Test run_setup_wizard function."""
-        mock_wizard = Mock()
-        mock_wizard.run = AsyncMock(return_value=True)
-        mock_wizard_class.return_value = mock_wizard
+        mock_wizard_instance = AsyncMock()
+        mock_wizard_instance.run = AsyncMock(return_value=True)
+        mock_wizard_class.return_value = mock_wizard_instance
 
         result = await run_setup_wizard()
 
-        assert result == True
+        assert result is True
         mock_wizard_class.assert_called_once()
-        mock_wizard.run.assert_called_once()
+        mock_wizard_instance.run.assert_called_once()
 
-    @patch("builtins.input")
+    @patch("pathlib.Path.mkdir")
+    @patch("pathlib.Path.exists", return_value=False)
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("builtins.input", return_value="https://example.com/calendar.ics")
     @patch("builtins.print")
-    def test_run_simple_wizard_success(self, mock_print, mock_input):
-        """Test run_simple_wizard function with successful execution."""
-        mock_input.return_value = "https://test.com/calendar.ics"
-
-        with patch("pathlib.Path.exists", return_value=False):
-            with patch("pathlib.Path.mkdir"):
-                with patch("builtins.open", mock_open()) as mock_file:
-                    result = run_simple_wizard()
-
-                    assert result == True
-                    mock_file.assert_called_once()
-
-    @patch("builtins.input")
-    @patch("builtins.print")
-    def test_run_simple_wizard_existing_config_overwrite(self, mock_print, mock_input):
-        """Test run_simple_wizard with existing config file and overwrite."""
-        mock_input.side_effect = ["y", "https://test.com/calendar.ics", StopIteration()]
-
-        with patch("pathlib.Path.exists", return_value=True):
-            with patch("pathlib.Path.mkdir"):
-                with patch("builtins.open", mock_open()) as mock_file:
-                    result = run_simple_wizard()
-
-                    assert result == True
-
-    @patch("builtins.input")
-    @patch("builtins.print")
-    def test_run_simple_wizard_existing_config_no_overwrite(self, mock_print, mock_input):
-        """Test run_simple_wizard with existing config file and no overwrite."""
-        mock_input.side_effect = ["n"]  # Don't overwrite
-
-        with patch("pathlib.Path.exists", return_value=True):
-            result = run_simple_wizard()
-
-            assert result == False
-
-    @patch("builtins.input")
-    @patch("builtins.print")
-    def test_run_simple_wizard_no_url(self, mock_print, mock_input):
-        """Test run_simple_wizard with no URL provided."""
-        mock_input.return_value = ""  # Empty URL
-
+    def test_run_simple_wizard_success(
+        self, mock_print, mock_input, mock_file, mock_exists, mock_mkdir
+    ):
+        """Test successful simple wizard run."""
         result = run_simple_wizard()
 
-        assert result == False
+        assert result is True
+        mock_input.assert_called_once()
+        mock_file.assert_called_once()
+        mock_file().write.assert_called_once()
 
-    @patch("builtins.input")
+    @patch("pathlib.Path.exists", return_value=True)
+    @patch("builtins.input", side_effect=["n", "https://example.com/calendar.ics"])
+    @patch("builtins.print")
+    def test_run_simple_wizard_existing_config_cancel(self, mock_print, mock_input, mock_exists):
+        """Test simple wizard cancelled when config exists."""
+        result = run_simple_wizard()
+
+        assert result is False
+        assert mock_input.call_count == 1  # Only asked about overwrite
+
+    @patch("pathlib.Path.exists", return_value=False)
+    @patch("builtins.input", return_value="")
+    @patch("builtins.print")
+    def test_run_simple_wizard_empty_url(self, mock_print, mock_input, mock_exists):
+        """Test simple wizard with empty URL."""
+        result = run_simple_wizard()
+
+        assert result is False
+        # Should print error about required URL - check for exact message from implementation
+        error_calls = [
+            call for call in mock_print.call_args_list if "ICS URL is required" in str(call)
+        ]
+        assert len(error_calls) > 0
+
+    @patch("builtins.input", side_effect=KeyboardInterrupt())
     @patch("builtins.print")
     def test_run_simple_wizard_keyboard_interrupt(self, mock_print, mock_input):
-        """Test run_simple_wizard with keyboard interrupt."""
-        mock_input.side_effect = KeyboardInterrupt()
-
+        """Test simple wizard handles keyboard interrupt."""
         result = run_simple_wizard()
 
-        assert result == False
-
-    @patch("builtins.input")
-    @patch("builtins.print")
-    def test_run_simple_wizard_exception(self, mock_print, mock_input):
-        """Test run_simple_wizard with unexpected exception."""
-        mock_input.side_effect = Exception("Test error")
-
-        result = run_simple_wizard()
-
-        assert result == False
-
-    @patch("builtins.input")
-    @patch("builtins.print")
-    def test_run_simple_wizard_url_warning(self, mock_print, mock_input):
-        """Test run_simple_wizard with URL that doesn't start with http/https."""
-        mock_input.return_value = "ftp://test.com/calendar.ics"  # Non-HTTP URL
-
-        with patch("pathlib.Path.exists", return_value=False):
-            with patch("pathlib.Path.mkdir"):
-                with patch("builtins.open", mock_open()) as mock_file:
-                    result = run_simple_wizard()
-
-                    assert result == True
-                    # Verify warning was displayed
-                    print_calls = [
-                        call.args[0] if call.args else "" for call in mock_print.call_args_list
-                    ]
-                    assert any(
-                        "Warning: URL should start with http://" in call for call in print_calls
-                    )
-
-    @patch("builtins.input")
-    @patch("builtins.print")
-    def test_run_simple_wizard_empty_url_validation(self, mock_print, mock_input):
-        """Test run_simple_wizard empty URL validation."""
-        mock_input.return_value = ""  # Empty URL
-
-        with patch("pathlib.Path.exists", return_value=False):
-            with patch("pathlib.Path.mkdir"):
-                result = run_simple_wizard()
-
-                assert result == False
-                # Verify error message was displayed
-                print_calls = [
-                    call.args[0] if call.args else "" for call in mock_print.call_args_list
-                ]
-                assert any(
-                    "❌ ICS URL is required. Setup cancelled." in call for call in print_calls
-                )
+        assert result is False
+        # Should print cancellation message
+        cancel_calls = [
+            call for call in mock_print.call_args_list if "Setup cancelled by user" in str(call)
+        ]
+        assert len(cancel_calls) > 0

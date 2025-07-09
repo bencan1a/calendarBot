@@ -25,7 +25,9 @@ class HTMLRenderer:
 
         logger.info(f"HTML renderer initialized with theme: {self.theme}")
 
-    def render_events(self, events: List[CachedEvent], status_info: Optional[dict] = None) -> str:
+    def render_events(
+        self, events: List[CachedEvent], status_info: Optional[Dict[str, Any]] = None
+    ) -> str:
         """Render events to formatted HTML output.
 
         Args:
@@ -71,7 +73,7 @@ class HTMLRenderer:
             logger.error(f"Failed to render events to HTML: {e}")
             return self._render_error_html(f"Error rendering calendar: {e}")
 
-    def _build_status_line(self, status_info: Optional[dict]) -> str:
+    def _build_status_line(self, status_info: Optional[Dict[str, Any]]) -> str:
         """Build status information line.
 
         Args:

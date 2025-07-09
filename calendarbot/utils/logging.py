@@ -79,12 +79,16 @@ class AutoColoredFormatter(logging.Formatter):
         term = os.environ.get("TERM", "").lower()
         colorterm = os.environ.get("COLORTERM", "").lower()
 
+        # Check for dumb terminal first (highest priority)
+        if term == "dumb":
+            return "none"
+
         # Check for truecolor support
         if colorterm in ("truecolor", "24bit") or "256color" in term:
             return "truecolor"
 
         # Check for basic color support
-        if term and term != "dumb" and "color" in term:
+        if term and "color" in term:
             return "basic"
 
         # Windows Terminal detection

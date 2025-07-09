@@ -1,867 +1,644 @@
-"""Consolidated unit tests for cache manager functionality."""
+"""Unit tests for Cache Manager functionality."""
 
 from datetime import datetime, timedelta
 from typing import List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
 from calendarbot.cache.manager import CacheManager
-from calendarbot.cache.models import CachedEvent
-from calendarbot.ics.models import CalendarEvent, DateTimeInfo, EventStatus, Location
-from tests.fixtures.mock_ics_data import ICSDataFactory
-from tests.fixtures.test_databases import DatabaseScenarios
+from calendarbot.cache.models import CachedEvent, CacheMetadata
+from calendarbot.ics.models import CalendarEvent, DateTimeInfo, EventStatus
 
 
-@pytest.mark.unit
 class TestCacheManagerInitialization:
-    """Test suite for cache manager initialization."""
+    """Test CacheManager initialization and setup."""
 
-    def test_cache_manager_creation(self, test_settings):
-        """Test cache manager creation with settings."""
-        cache_mgr = CacheManager(test_settings)
+    def test_init_creates_database_manager(self, test_settings):
+        """Test that CacheManager.__init__ creates DatabaseManager correctly."""
+        with patch("calendarbot.cache.manager.DatabaseManager") as mock_db:
+            cache_manager = CacheManager(test_settings)
 
-        assert cache_mgr.settings == test_settings
-        assert cache_mgr.db is not None
-        assert str(cache_mgr.db.database_path) == str(test_settings.database_file)
-
-    @pytest.mark.asyncio
-    async def test_cache_manager_initialization(self, cache_manager):
-        """Test cache manager initialization process."""
-        # Should already be initialized by fixture
-        assert cache_manager is not None
-
-        # Test database tables exist - check if they can be queried
-        try:
-            await cache_manager.get_cache_status()
-            # If this doesn't throw, tables exist
-            assert True
-        except Exception:
-            assert False, "Database tables not properly initialized"
+            assert cache_manager.settings == test_settings
+            mock_db.assert_called_once_with(test_settings.database_file)
+            assert cache_manager.db == mock_db.return_value
 
     @pytest.mark.asyncio
-    async def test_initialization_creates_tables(self, cache_manager):
-        """Test that initialization creates required database tables."""
-        # The cache_manager fixture already has the database initialized
+    async def test_initialize_success(self, test_settings):
+        """Test successful cache manager initialization."""
+        with patch("calendarbot.cache.manager.DatabaseManager") as mock_db:
+            mock_db_instance = mock_db.return_value
+            mock_db_instance.initialize = AsyncMock(return_value=True)
 
-        # Verify initialization was successful by testing operations
-        status = await cache_manager.get_cache_status()
-        assert status is not None
+            cache_manager = CacheManager(test_settings)
+            cache_manager.cleanup_old_events = AsyncMock(return_value=5)
 
-        # Test that we can perform basic operations (which require tables)
-        from datetime import datetime, timedelta
+            result = await cache_manager.initialize()
 
-        now = datetime.now()
-        start_date = now.date()
-        end_date = (now + timedelta(days=1)).date()
-
-        events = await cache_manager.get_cached_events(start_date, end_date)
-        assert events == []
+            assert result is True
+            mock_db_instance.initialize.assert_called_once()
+            cache_manager.cleanup_old_events.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_initialization_cleans_old_events(self, cache_manager):
-        """Test that initialization triggers cleanup of old events."""
-        with patch.object(cache_manager, "cleanup_old_events") as mock_cleanup:
-            mock_cleanup.return_value = 5
+    async def test_initialize_database_failure(self, test_settings):
+        """Test initialization failure when database setup fails."""
+        with patch("calendarbot.cache.manager.DatabaseManager") as mock_db:
+            mock_db_instance = mock_db.return_value
+            mock_db_instance.initialize = AsyncMock(return_value=False)
 
-            await cache_manager.initialize()
-            mock_cleanup.assert_called_once()
+            cache_manager = CacheManager(test_settings)
 
-    @pytest.mark.asyncio
-    async def test_mock_cache_manager_initialization(self):
-        """Test cache manager initialization with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.initialize.return_value = True
+            result = await cache_manager.initialize()
 
-        result = await mock_cache_manager.initialize()
-
-        assert result is True
-        mock_cache_manager.initialize.assert_called_once()
-
-
-@pytest.mark.unit
-class TestEventConversion:
-    """Test suite for event conversion between API and cached formats."""
+            assert result is False
 
     @pytest.mark.asyncio
-    async def test_convert_api_event_to_cached_ics_format(self, cache_manager):
+    async def test_initialize_exception_handling(self, test_settings):
+        """Test exception handling during initialization."""
+        with patch("calendarbot.cache.manager.DatabaseManager") as mock_db:
+            mock_db_instance = mock_db.return_value
+            mock_db_instance.initialize.side_effect = Exception("Database connection failed")
+
+            cache_manager = CacheManager(test_settings)
+
+            result = await cache_manager.initialize()
+
+            assert result is False
+
+
+class TestCacheManagerEventConversion:
+    """Test CacheManager._convert_api_event_to_cached() method."""
+
+    @pytest.fixture
+    def cache_manager(self, test_settings):
+        """Create CacheManager instance for testing."""
+        with patch("calendarbot.cache.manager.DatabaseManager"):
+            return CacheManager(test_settings)
+
+    def test_convert_ics_event_to_cached(self, cache_manager, sample_events):
         """Test conversion of ICS CalendarEvent to CachedEvent."""
-        now = datetime.now()
-
-        # Create ICS-style event (enum show_as)
-        api_event = CalendarEvent(
-            id="ics_event_1",
-            subject="ICS Test Event",
-            body_preview="Test event from ICS source",
-            start=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
-            end=DateTimeInfo(date_time=now + timedelta(hours=2), time_zone="UTC"),
-            is_all_day=False,
-            show_as=EventStatus.BUSY,
-            is_cancelled=False,
-            is_organizer=True,
-            location=Location(display_name="ICS Location", address="123 ICS St"),
-            is_online_meeting=False,
-            online_meeting_url=None,
-            is_recurring=False,
-            last_modified_date_time=now,
-        )
+        api_event = sample_events[0]  # From conftest.py fixture
 
         cached_event = cache_manager._convert_api_event_to_cached(api_event)
 
-        assert cached_event.id == "cached_ics_event_1"
-        assert cached_event.graph_id == "ics_event_1"
-        assert cached_event.subject == "ICS Test Event"
-        assert cached_event.show_as == "busy"
-        assert cached_event.location_display_name == "ICS Location"
-        assert cached_event.location_address == "123 ICS St"
-        assert cached_event.web_link is None  # ICS events don't have web links
-        assert cached_event.series_master_id is None
+        # Verify basic conversion
+        assert cached_event.graph_id == api_event.id
+        assert cached_event.subject == api_event.subject
+        assert cached_event.body_preview == api_event.body_preview
+        assert cached_event.is_all_day == api_event.is_all_day
+        assert cached_event.is_cancelled == api_event.is_cancelled
+        assert cached_event.is_organizer == api_event.is_organizer
 
-    @pytest.mark.asyncio
-    async def test_convert_api_event_with_graph_format(self, cache_manager):
-        """Test conversion of Microsoft Graph CalendarEvent to CachedEvent."""
+        # Verify datetime conversion
+        assert cached_event.start_datetime == api_event.start.date_time.isoformat()
+        assert cached_event.end_datetime == api_event.end.date_time.isoformat()
+        assert cached_event.start_timezone == api_event.start.time_zone
+        assert cached_event.end_timezone == api_event.end.time_zone
+
+        # Verify show_as handling for ICS events (string format)
+        assert cached_event.show_as == str(api_event.show_as)
+
+        # Verify cached metadata
+        assert cached_event.cached_at is not None
+        assert cached_event.id.startswith("cached_")
+
+    def test_convert_graph_api_event_to_cached(self, cache_manager):
+        """Test conversion of Microsoft Graph API event to CachedEvent."""
+        # Create mock Graph API event with .value attribute
         now = datetime.now()
-
-        # Create event that simulates Graph API format
-        api_event = CalendarEvent(
-            id="graph_event_1",
-            subject="Graph Test Event",
-            body_preview="Test event from Graph API",
-            start=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
-            end=DateTimeInfo(date_time=now + timedelta(hours=2), time_zone="UTC"),
-            is_all_day=False,
-            show_as=EventStatus.BUSY,
-            is_cancelled=False,
-            is_organizer=True,
-            location=Location(display_name="Graph Location", address="456 Graph Ave"),
-            is_online_meeting=True,
-            online_meeting_url="https://teams.microsoft.com/l/meetup/test",
-            is_recurring=True,
-            last_modified_date_time=now,
-        )
-
-        # Mock Graph API attributes by adding them as dynamic attributes
         mock_show_as = MagicMock()
         mock_show_as.value = "busy"
+
+        mock_location = MagicMock()
+        mock_location.address = "123 Test St"
+
+        api_event = MagicMock()
+        api_event.id = "graph_event_123"
+        api_event.subject = "Graph API Meeting"
+        api_event.body_preview = "Graph API event body"
+        api_event.start.date_time = now
+        api_event.end.date_time = now + timedelta(hours=1)
+        api_event.start.time_zone = "UTC"
+        api_event.end.time_zone = "UTC"
+        api_event.is_all_day = False
         api_event.show_as = mock_show_as
-
-        # Mock the conversion method to simulate Graph API attributes
-        with patch.object(cache_manager, "_convert_api_event_to_cached") as mock_convert:
-            mock_cached_event = CachedEvent(
-                id="cached_graph_event_1",
-                graph_id="graph_event_1",
-                subject="Graph Test Event",
-                body_preview="Test event from Graph API",
-                start_datetime=(now + timedelta(hours=1)).isoformat(),
-                end_datetime=(now + timedelta(hours=2)).isoformat(),
-                start_timezone="UTC",
-                end_timezone="UTC",
-                is_all_day=False,
-                show_as="busy",
-                is_cancelled=False,
-                is_organizer=True,
-                location_display_name="Graph Location Display",
-                location_address="456 Graph Ave",
-                is_online_meeting=True,
-                online_meeting_url="https://teams.microsoft.com/l/meetup/test",
-                is_recurring=True,
-                cached_at=now.isoformat(),
-                last_modified=now.isoformat(),
-                web_link="https://outlook.office365.com/event/123",
-                series_master_id="series_123",
-            )
-            mock_convert.return_value = mock_cached_event
-
-            cached_event = cache_manager._convert_api_event_to_cached(api_event)
-
-            assert cached_event.show_as == "busy"
-            assert cached_event.location_display_name == "Graph Location Display"
-            assert cached_event.web_link == "https://outlook.office365.com/event/123"
-            assert cached_event.series_master_id == "series_123"
-
-    @pytest.mark.asyncio
-    async def test_convert_all_day_event(self, cache_manager):
-        """Test conversion of all-day events."""
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
-        api_event = CalendarEvent(
-            id="all_day_event",
-            subject="All Day Event",
-            body_preview="This is an all-day event",
-            start=DateTimeInfo(date_time=today, time_zone="UTC"),
-            end=DateTimeInfo(date_time=today + timedelta(days=1), time_zone="UTC"),
-            is_all_day=True,
-            show_as=EventStatus.FREE,
-            is_cancelled=False,
-            is_organizer=False,
-            location=None,
-            is_online_meeting=False,
-            online_meeting_url=None,
-            is_recurring=False,
-            last_modified_date_time=today,
-        )
+        api_event.is_cancelled = False
+        api_event.is_organizer = True
+        api_event.location = mock_location
+        api_event.is_online_meeting = False
+        api_event.online_meeting_url = None
+        api_event.is_recurring = False
+        api_event.last_modified_date_time = now
+        api_event.location_display = "Test Location"
+        api_event.web_link = "https://example.com/event"
+        api_event.series_master_id = None
 
         cached_event = cache_manager._convert_api_event_to_cached(api_event)
 
-        assert cached_event.is_all_day is True
-        assert cached_event.show_as == "free"
-        assert cached_event.location_display_name is None
-        assert cached_event.location_address is None
+        # Verify Graph API specific conversions
+        assert cached_event.show_as == "busy"  # .value extracted
+        assert cached_event.location_display_name == "Test Location"
+        assert cached_event.location_address == "123 Test St"
+        assert cached_event.web_link == "https://example.com/event"
+        assert cached_event.series_master_id is None
 
-    @pytest.mark.asyncio
-    async def test_convert_event_with_minimal_data(self, cache_manager):
+    def test_convert_event_with_minimal_data(self, cache_manager):
         """Test conversion of event with minimal required data."""
         now = datetime.now()
 
-        api_event = CalendarEvent(
-            id="minimal_event",
-            subject="Minimal Event",
-            body_preview="",
-            start=DateTimeInfo(date_time=now, time_zone="UTC"),
-            end=DateTimeInfo(date_time=now + timedelta(hours=1), time_zone="UTC"),
-            is_all_day=False,
-            show_as=EventStatus.BUSY,
-            is_cancelled=False,
-            is_organizer=False,
-            location=None,
-            is_online_meeting=False,
-            online_meeting_url=None,
-            is_recurring=False,
-            last_modified_date_time=None,
-        )
+        # Create minimal event
+        api_event = MagicMock()
+        api_event.id = "minimal_event"
+        api_event.subject = "Minimal Event"
+        api_event.body_preview = "Minimal body"
+        api_event.start.date_time = now
+        api_event.end.date_time = now + timedelta(hours=1)
+        api_event.start.time_zone = "UTC"
+        api_event.end.time_zone = "UTC"
+        api_event.is_all_day = False
+        api_event.show_as = "free"  # String format (ICS style)
+        api_event.is_cancelled = False
+        api_event.is_organizer = False
+        api_event.location = None
+        api_event.is_online_meeting = False
+        api_event.online_meeting_url = None
+        api_event.is_recurring = False
+        api_event.last_modified_date_time = None
 
         cached_event = cache_manager._convert_api_event_to_cached(api_event)
 
-        assert cached_event.id == "cached_minimal_event"
-        assert cached_event.body_preview == ""
+        # Verify minimal data handling
+        assert cached_event.graph_id == "minimal_event"
+        assert cached_event.subject == "Minimal Event"
+        assert cached_event.location_display_name is None
+        assert cached_event.location_address is None
+        assert cached_event.web_link is None
         assert cached_event.last_modified is None
 
 
-@pytest.mark.unit
-@pytest.mark.critical_path
-class TestCacheOperations:
-    """Test suite for cache storage and retrieval operations."""
+class TestCacheManagerCacheEvents:
+    """Test CacheManager.cache_events() method."""
+
+    @pytest.fixture
+    def cache_manager_with_mocks(self, test_settings):
+        """Create CacheManager with mocked database."""
+        with patch("calendarbot.cache.manager.DatabaseManager") as mock_db:
+            cache_manager = CacheManager(test_settings)
+            cache_manager.db = AsyncMock()
+            cache_manager._update_fetch_metadata = AsyncMock()
+            return cache_manager
 
     @pytest.mark.asyncio
-    async def test_cache_events_success(self, cache_manager, sample_calendar_events):
-        """Test successful caching of events."""
-        success = await cache_manager.cache_events(sample_calendar_events)
-        assert success is True
+    async def test_cache_events_success(self, cache_manager_with_mocks, sample_events):
+        """Test successful event caching."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.db.store_events.return_value = True
 
-        # Verify events were stored
-        cached_events = await cache_manager.get_todays_cached_events()
-        assert len(cached_events) > 0
-
-    @pytest.mark.asyncio
-    async def test_cache_events_success_mock(self, sample_events):
-        """Test caching events successfully with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.cache_events.return_value = True
-
-        result = await mock_cache_manager.cache_events(sample_events)
+        result = await cache_manager.cache_events(sample_events)
 
         assert result is True
-        mock_cache_manager.cache_events.assert_called_once_with(sample_events)
+        cache_manager.db.store_events.assert_called_once()
+
+        # Verify events were converted to cached events
+        call_args = cache_manager.db.store_events.call_args[0][0]
+        assert len(call_args) == len(sample_events)
+        assert all(hasattr(event, "cached_at") for event in call_args)
+
+        # Verify metadata update
+        cache_manager._update_fetch_metadata.assert_called_once_with(success=True, error=None)
 
     @pytest.mark.asyncio
-    async def test_cache_empty_events_list(self, cache_manager):
-        """Test caching empty events list."""
-        success = await cache_manager.cache_events([])
-        assert success is True
+    async def test_cache_events_empty_list(self, cache_manager_with_mocks):
+        """Test caching empty event list."""
+        cache_manager = cache_manager_with_mocks
 
-        # Should update metadata even with empty list
-        metadata = await cache_manager.get_cache_status()
-        assert metadata.last_update is not None
+        result = await cache_manager.cache_events([])
 
-    @pytest.mark.asyncio
-    async def test_cache_none_events(self, cache_manager):
-        """Test caching None events."""
-        success = await cache_manager.cache_events(None)
-        assert success is True
+        assert result is True
+        cache_manager.db.store_events.assert_not_called()
+        cache_manager._update_fetch_metadata.assert_called_once_with(success=True, error=None)
 
     @pytest.mark.asyncio
-    async def test_cache_events_with_database_error(self, cache_manager, sample_calendar_events):
-        """Test cache events with database error."""
-        with patch.object(cache_manager.db, "store_events", return_value=False):
-            success = await cache_manager.cache_events(sample_calendar_events)
-            assert success is False
+    async def test_cache_events_none_input(self, cache_manager_with_mocks):
+        """Test caching None input."""
+        cache_manager = cache_manager_with_mocks
+
+        result = await cache_manager.cache_events(None)
+
+        assert result is True
+        cache_manager.db.store_events.assert_not_called()
+        cache_manager._update_fetch_metadata.assert_called_once_with(success=True, error=None)
 
     @pytest.mark.asyncio
-    async def test_cache_events_failure_mock(self, sample_events):
-        """Test caching events failure with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.cache_events.return_value = False
+    async def test_cache_events_database_failure(self, cache_manager_with_mocks, sample_events):
+        """Test handling of database storage failure."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.db.store_events.return_value = False
 
-        result = await mock_cache_manager.cache_events(sample_events)
+        result = await cache_manager.cache_events(sample_events)
 
         assert result is False
+        cache_manager._update_fetch_metadata.assert_called_once_with(
+            success=False, error="Database storage failed"
+        )
 
     @pytest.mark.asyncio
-    async def test_get_cached_events_by_date_range(self, populated_test_database):
-        """Test retrieving cached events by date range."""
-        cache_mgr = CacheManager(populated_test_database.settings)
-        cache_mgr.db = populated_test_database.db
+    async def test_cache_events_exception_handling(self, cache_manager_with_mocks, sample_events):
+        """Test exception handling during event caching."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.db.store_events.side_effect = Exception("Connection timeout")
 
-        now = datetime.now()
-        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        result = await cache_manager.cache_events(sample_events)
+
+        assert result is False
+        cache_manager._update_fetch_metadata.assert_called_once_with(
+            success=False, error="Connection timeout"
+        )
+
+
+class TestCacheManagerRetrieveEvents:
+    """Test CacheManager event retrieval methods."""
+
+    @pytest.fixture
+    def cache_manager_with_mocks(self, test_settings):
+        """Create CacheManager with mocked database."""
+        with patch("calendarbot.cache.manager.DatabaseManager"):
+            cache_manager = CacheManager(test_settings)
+            cache_manager.db = AsyncMock()
+            return cache_manager
+
+    @pytest.mark.asyncio
+    async def test_get_cached_events_success(self, cache_manager_with_mocks):
+        """Test successful retrieval of cached events by date range."""
+        cache_manager = cache_manager_with_mocks
+
+        # Mock database response
+        mock_events = [
+            MagicMock(id="cached_event1", subject="Event 1"),
+            MagicMock(id="cached_event2", subject="Event 2"),
+        ]
+        cache_manager.db.get_events_by_date_range.return_value = mock_events
+
+        start_date = datetime.now()
         end_date = start_date + timedelta(days=1)
 
-        events = await cache_mgr.get_cached_events(start_date, end_date)
-        assert isinstance(events, list)
+        result = await cache_manager.get_cached_events(start_date, end_date)
+
+        assert result == mock_events
+        cache_manager.db.get_events_by_date_range.assert_called_once_with(start_date, end_date)
 
     @pytest.mark.asyncio
-    async def test_get_todays_cached_events(self, cache_manager):
-        """Test retrieving today's cached events."""
-        events = await cache_manager.get_todays_cached_events()
-        assert isinstance(events, list)
+    async def test_get_cached_events_exception(self, cache_manager_with_mocks):
+        """Test exception handling during event retrieval."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.db.get_events_by_date_range.side_effect = Exception("Database error")
 
-        # With empty database, should return empty list
-        assert len(events) == 0
+        start_date = datetime.now()
+        end_date = start_date + timedelta(days=1)
 
-    @pytest.mark.asyncio
-    async def test_get_todays_cached_events_mock(self, sample_events):
-        """Test getting today's events with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.get_todays_cached_events.return_value = sample_events
+        result = await cache_manager.get_cached_events(start_date, end_date)
 
-        events = await mock_cache_manager.get_todays_cached_events()
-
-        assert len(events) == len(sample_events)
-        assert events == sample_events
+        assert result == []
 
     @pytest.mark.asyncio
-    async def test_get_todays_cached_events_empty_mock(self):
-        """Test getting today's events when cache is empty."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.get_todays_cached_events.return_value = []
+    async def test_get_todays_cached_events_success(self, cache_manager_with_mocks):
+        """Test successful retrieval of today's cached events."""
+        cache_manager = cache_manager_with_mocks
 
-        events = await mock_cache_manager.get_todays_cached_events()
+        mock_events = [MagicMock(id="today_event", subject="Today's Event")]
+        cache_manager.db.get_todays_events.return_value = mock_events
 
-        assert events == []
-        mock_cache_manager.get_todays_cached_events.assert_called_once()
+        result = await cache_manager.get_todays_cached_events()
+
+        assert result == mock_events
+        cache_manager.db.get_todays_events.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_events_by_date_range_alias(self, cache_manager):
+    async def test_get_todays_cached_events_exception(self, cache_manager_with_mocks):
+        """Test exception handling during today's events retrieval."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.db.get_todays_events.side_effect = Exception("Database error")
+
+        result = await cache_manager.get_todays_cached_events()
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_get_events_by_date_range_alias(self, cache_manager_with_mocks):
         """Test that get_events_by_date_range is an alias for get_cached_events."""
-        now = datetime.now()
-        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        cache_manager = cache_manager_with_mocks
+
+        mock_events = [MagicMock(id="range_event")]
+        cache_manager.db.get_events_by_date_range.return_value = mock_events
+
+        start_date = datetime.now()
         end_date = start_date + timedelta(days=1)
 
-        events1 = await cache_manager.get_cached_events(start_date, end_date)
-        events2 = await cache_manager.get_events_by_date_range(start_date, end_date)
+        result = await cache_manager.get_events_by_date_range(start_date, end_date)
 
-        assert events1 == events2
+        assert result == mock_events
+        cache_manager.db.get_events_by_date_range.assert_called_once_with(start_date, end_date)
 
 
-@pytest.mark.unit
-class TestCacheFreshness:
-    """Test suite for cache TTL and freshness logic."""
+class TestCacheManagerFreshness:
+    """Test CacheManager cache freshness and status methods."""
 
-    @pytest.mark.asyncio
-    async def test_is_cache_fresh_with_recent_data(self, cache_manager):
-        """Test cache freshness with recent data."""
-        # Simulate recent successful fetch
-        now = datetime.now()
-        await cache_manager._update_fetch_metadata(success=True)
-
-        is_fresh = await cache_manager.is_cache_fresh()
-        assert is_fresh is True
+    @pytest.fixture
+    def cache_manager_with_mocks(self, test_settings):
+        """Create CacheManager with mocked database."""
+        with patch("calendarbot.cache.manager.DatabaseManager"):
+            cache_manager = CacheManager(test_settings)
+            cache_manager.db = AsyncMock()
+            return cache_manager
 
     @pytest.mark.asyncio
-    async def test_is_cache_fresh_mock_true(self):
-        """Test cache freshness check returns True with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.is_cache_fresh.return_value = True
+    async def test_is_cache_fresh_with_fresh_cache(self, cache_manager_with_mocks):
+        """Test cache freshness check with fresh cache."""
+        cache_manager = cache_manager_with_mocks
 
-        result = await mock_cache_manager.is_cache_fresh()
+        # Mock fresh metadata
+        mock_metadata = MagicMock()
+        mock_metadata.last_successful_fetch_dt = datetime.now() - timedelta(minutes=30)
+        mock_metadata.is_cache_expired.return_value = False
+        cache_manager.db.get_cache_metadata.return_value = mock_metadata
+
+        result = await cache_manager.is_cache_fresh()
 
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_is_cache_fresh_mock_false(self):
-        """Test cache freshness check returns False with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.is_cache_fresh.return_value = False
+    async def test_is_cache_fresh_with_stale_cache(self, cache_manager_with_mocks):
+        """Test cache freshness check with stale cache."""
+        cache_manager = cache_manager_with_mocks
 
-        result = await mock_cache_manager.is_cache_fresh()
+        # Mock stale metadata
+        mock_metadata = MagicMock()
+        mock_metadata.last_successful_fetch_dt = datetime.now() - timedelta(hours=2)
+        mock_metadata.is_cache_expired.return_value = True
+        cache_manager.db.get_cache_metadata.return_value = mock_metadata
+
+        result = await cache_manager.is_cache_fresh()
 
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_is_cache_stale_with_old_data(self, stale_cache_database):
-        """Test cache staleness with old data."""
-        cache_mgr = CacheManager(stale_cache_database.settings)
-        cache_mgr.db = stale_cache_database.db
+    async def test_is_cache_fresh_no_successful_fetch(self, cache_manager_with_mocks):
+        """Test cache freshness check with no successful fetch recorded."""
+        cache_manager = cache_manager_with_mocks
 
-        is_fresh = await cache_mgr.is_cache_fresh()
-        assert is_fresh is False
+        # Mock metadata with no successful fetch
+        mock_metadata = MagicMock()
+        mock_metadata.last_successful_fetch_dt = None
+        cache_manager.db.get_cache_metadata.return_value = mock_metadata
 
-    @pytest.mark.asyncio
-    async def test_is_cache_fresh_with_no_data(self, cache_manager):
-        """Test cache freshness with no prior fetch."""
-        is_fresh = await cache_manager.is_cache_fresh()
-        assert is_fresh is False
+        result = await cache_manager.is_cache_fresh()
 
-    @pytest.mark.asyncio
-    async def test_cache_status_includes_freshness(self, cache_manager):
-        """Test that cache status includes freshness information."""
-        status = await cache_manager.get_cache_status()
-
-        assert hasattr(status, "is_stale")
-        assert hasattr(status, "cache_ttl_seconds")
-        assert status.cache_ttl_seconds == cache_manager.settings.cache_ttl
+        assert result is False
 
     @pytest.mark.asyncio
-    async def test_cache_status_with_fresh_data(self, cache_manager):
-        """Test cache status with fresh data."""
-        # Create fresh cache scenario
-        await cache_manager._update_fetch_metadata(success=True)
+    async def test_is_cache_fresh_exception(self, cache_manager_with_mocks):
+        """Test cache freshness check with exception."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.db.get_cache_metadata.side_effect = Exception("Database error")
 
-        status = await cache_manager.get_cache_status()
-        assert status.is_stale is False
+        result = await cache_manager.is_cache_fresh()
 
-    @pytest.mark.asyncio
-    async def test_cache_status_with_stale_data(self, stale_cache_database):
-        """Test cache status with stale data."""
-        cache_mgr = CacheManager(stale_cache_database.settings)
-        cache_mgr.db = stale_cache_database.db
-
-        status = await cache_mgr.get_cache_status()
-        assert status.is_stale is True
-
-
-@pytest.mark.unit
-class TestCacheMetadata:
-    """Test suite for cache metadata management."""
+        assert result is False
 
     @pytest.mark.asyncio
-    async def test_update_fetch_metadata_success(self, cache_manager):
-        """Test updating metadata after successful fetch."""
-        await cache_manager._update_fetch_metadata(success=True)
+    async def test_get_cache_status_success(self, cache_manager_with_mocks, test_settings):
+        """Test successful cache status retrieval."""
+        cache_manager = cache_manager_with_mocks
 
-        metadata = await cache_manager.get_cache_status()
-        assert metadata.last_update is not None
-        assert metadata.consecutive_failures == 0
-        # Database stores None as string "None", so check for both
-        assert metadata.last_error is None or metadata.last_error == "None"
+        # Mock metadata
+        mock_metadata = MagicMock()
+        mock_metadata.last_update = datetime.now()
+        cache_manager.db.get_cache_metadata.return_value = mock_metadata
+        cache_manager.is_cache_fresh = AsyncMock(return_value=True)
 
-    @pytest.mark.asyncio
-    async def test_update_fetch_metadata_failure(self, cache_manager):
-        """Test updating metadata after failed fetch."""
-        error_message = "Network timeout"
-        await cache_manager._update_fetch_metadata(success=False, error=error_message)
+        result = await cache_manager.get_cache_status()
 
-        metadata = await cache_manager.get_cache_status()
-        assert metadata.last_update is not None
-        assert metadata.consecutive_failures == 1
-        assert metadata.last_error == error_message
+        assert result == mock_metadata
+        assert result.is_stale is False
+        assert result.cache_ttl_seconds == test_settings.cache_ttl
 
     @pytest.mark.asyncio
-    async def test_consecutive_failures_increment(self, cache_manager):
-        """Test that consecutive failures increment correctly."""
-        # First failure
-        await cache_manager._update_fetch_metadata(success=False, error="Error 1")
-        metadata = await cache_manager.get_cache_status()
-        assert metadata.consecutive_failures == 1
+    async def test_get_cache_status_exception(self, cache_manager_with_mocks):
+        """Test cache status retrieval with exception."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.db.get_cache_metadata.side_effect = Exception("Database error")
 
-        # Second failure
-        await cache_manager._update_fetch_metadata(success=False, error="Error 2")
-        metadata = await cache_manager.get_cache_status()
-        assert metadata.consecutive_failures == 2
+        result = await cache_manager.get_cache_status()
 
-        # Success resets counter
-        await cache_manager._update_fetch_metadata(success=True)
-        metadata = await cache_manager.get_cache_status()
-        assert metadata.consecutive_failures == 0
+        # Should return default CacheMetadata object
+        assert isinstance(result, CacheMetadata)
 
-    @pytest.mark.asyncio
-    async def test_get_cache_status_mock(self):
-        """Test getting cache status with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_status = MagicMock()
-        mock_status.last_update = datetime.now()
-        mock_status.is_stale = False
-        mock_cache_manager.get_cache_status.return_value = mock_status
 
-        status = await mock_cache_manager.get_cache_status()
+class TestCacheManagerCleanupAndMaintenance:
+    """Test CacheManager cleanup and maintenance methods."""
 
-        assert status.last_update is not None
-        assert status.is_stale is False
+    @pytest.fixture
+    def cache_manager_with_mocks(self, test_settings):
+        """Create CacheManager with mocked database."""
+        with patch("calendarbot.cache.manager.DatabaseManager"):
+            cache_manager = CacheManager(test_settings)
+            cache_manager.db = AsyncMock()
+            return cache_manager
 
     @pytest.mark.asyncio
-    async def test_cache_summary_information(self, cache_manager):
-        """Test cache summary provides comprehensive information."""
-        summary = await cache_manager.get_cache_summary()
+    async def test_cleanup_old_events_success(self, cache_manager_with_mocks):
+        """Test successful cleanup of old events."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.db.cleanup_old_events.return_value = 15
 
-        assert "total_events" in summary
-        assert "is_fresh" in summary
-        assert "consecutive_failures" in summary
-        assert "cache_ttl_hours" in summary
-        assert "database_size_mb" in summary
-        assert "journal_mode" in summary
+        result = await cache_manager.cleanup_old_events(days_old=7)
 
-    @pytest.mark.asyncio
-    async def test_get_cache_summary_mock(self):
-        """Test getting cache summary with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_summary = {
-            "total_events": 10,
-            "is_fresh": True,
-            "last_update": datetime.now().isoformat(),
-        }
-        mock_cache_manager.get_cache_summary.return_value = mock_summary
-
-        summary = await mock_cache_manager.get_cache_summary()
-
-        assert summary["total_events"] == 10
-        assert summary["is_fresh"] is True
-        assert "last_update" in summary
+        assert result == 15
+        cache_manager.db.cleanup_old_events.assert_called_once_with(7)
 
     @pytest.mark.asyncio
-    async def test_cache_summary_with_populated_data(self, populated_test_database):
-        """Test cache summary with populated database."""
-        cache_mgr = CacheManager(populated_test_database.settings)
-        cache_mgr.db = populated_test_database.db
+    async def test_cleanup_old_events_custom_days(self, cache_manager_with_mocks):
+        """Test cleanup with custom days parameter."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.db.cleanup_old_events.return_value = 5
 
-        summary = await cache_mgr.get_cache_summary()
-
-        assert summary["total_events"] >= 0
-        assert "last_update" in summary
-        assert summary["database_size_mb"] >= 0
-
-
-@pytest.mark.unit
-class TestCacheCleanup:
-    """Test suite for cache cleanup operations."""
-
-    @pytest.mark.asyncio
-    async def test_cleanup_old_events(self, cache_manager):
-        """Test cleanup of old events."""
-        # Start with empty database
-        count = await cache_manager.cleanup_old_events(days_old=7)
-        assert count >= 0  # Should not error, even with empty database
-
-    @pytest.mark.asyncio
-    async def test_cleanup_old_events_mock(self):
-        """Test cleaning up old events with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.cleanup_old_events.return_value = 5
-
-        result = await mock_cache_manager.cleanup_old_events(days_old=30)
+        result = await cache_manager.cleanup_old_events(days_old=14)
 
         assert result == 5
-        mock_cache_manager.cleanup_old_events.assert_called_once_with(days_old=30)
+        cache_manager.db.cleanup_old_events.assert_called_once_with(14)
 
     @pytest.mark.asyncio
-    async def test_cleanup_old_events_with_data(self, populated_test_database):
-        """Test cleanup with actual data."""
-        cache_mgr = CacheManager(populated_test_database.settings)
-        cache_mgr.db = populated_test_database.db
+    async def test_cleanup_old_events_exception(self, cache_manager_with_mocks):
+        """Test cleanup exception handling."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.db.cleanup_old_events.side_effect = Exception("Database error")
 
-        # Should handle cleanup without errors
-        count = await cache_mgr.cleanup_old_events(days_old=0)  # Remove all
-        assert count >= 0
+        result = await cache_manager.cleanup_old_events()
 
-    @pytest.mark.asyncio
-    async def test_clear_cache_removes_all_data(self, cache_manager, sample_calendar_events):
-        """Test that clear cache removes all data."""
-        # First cache some events
-        await cache_manager.cache_events(sample_calendar_events)
-
-        # Verify data exists using a wide date range query
-        from datetime import datetime, timedelta
-
-        now = datetime.now()
-        start_date = now - timedelta(days=1)
-        end_date = now + timedelta(days=1)
-        events = await cache_manager.get_cached_events(start_date, end_date)
-        assert len(events) > 0
-
-        # Clear cache
-        success = await cache_manager.clear_cache()
-        assert success is True
-
-        # Verify data is gone - clear_cache calls cleanup_old_events(days_old=0)
-        # which removes events where end_datetime < now
-        # So we need to check that no past events remain
-        events = await cache_manager.get_cached_events(start_date, end_date)
-        past_events = [
-            e
-            for e in events
-            if datetime.fromisoformat(e.end_datetime.replace("Z", "+00:00").replace("+00:00", ""))
-            < now
-        ]
-        assert (
-            len(past_events) == 0
-        ), f"Found {len(past_events)} past events that should have been cleared"
-
-        # Verify metadata is reset
-        status = await cache_manager.get_cache_status()
-        assert status.last_update is None or status.consecutive_failures == 0
+        assert result == 0
 
     @pytest.mark.asyncio
-    async def test_clear_cache_with_database_error(self, cache_manager):
-        """Test clear cache handles database errors."""
-        with patch.object(cache_manager, "cleanup_old_events", side_effect=Exception("DB Error")):
-            success = await cache_manager.clear_cache()
-            assert success is False
+    async def test_clear_cache_success(self, cache_manager_with_mocks):
+        """Test successful cache clearing."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.cleanup_old_events = AsyncMock(return_value=10)
+        cache_manager.db.update_cache_metadata.return_value = None
 
-
-@pytest.mark.unit
-class TestErrorHandling:
-    """Test suite for error handling in cache operations."""
-
-    @pytest.mark.asyncio
-    async def test_cache_events_with_conversion_error(self, cache_manager):
-        """Test cache events handles conversion errors."""
-        # Create malformed event data
-        malformed_event = MagicMock()
-        malformed_event.id = None  # This should cause an error
-
-        success = await cache_manager.cache_events([malformed_event])
-        assert success is False
-
-    @pytest.mark.asyncio
-    async def test_cache_events_exception_mock(self, sample_events):
-        """Test caching events with exception using mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.cache_events.side_effect = Exception("Cache write error")
-
-        with pytest.raises(Exception, match="Cache write error"):
-            await mock_cache_manager.cache_events(sample_events)
-
-    @pytest.mark.asyncio
-    async def test_get_cached_events_with_database_error(self, cache_manager):
-        """Test get cached events handles database errors."""
-        with patch.object(
-            cache_manager.db, "get_events_by_date_range", side_effect=Exception("DB Error")
-        ):
-            now = datetime.now()
-            events = await cache_manager.get_cached_events(now, now + timedelta(days=1))
-            assert events == []  # Should return empty list on error
-
-    @pytest.mark.asyncio
-    async def test_get_todays_events_with_database_error(self, cache_manager):
-        """Test get today's events handles database errors."""
-        with patch.object(cache_manager.db, "get_todays_events", side_effect=Exception("DB Error")):
-            events = await cache_manager.get_todays_cached_events()
-            assert events == []  # Should return empty list on error
-
-    @pytest.mark.asyncio
-    async def test_get_events_exception_mock(self):
-        """Test getting events with exception using mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.get_todays_cached_events.side_effect = Exception("Cache read error")
-
-        with pytest.raises(Exception, match="Cache read error"):
-            await mock_cache_manager.get_todays_cached_events()
-
-    @pytest.mark.asyncio
-    async def test_initialization_failure_mock(self):
-        """Test cache manager initialization failure with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.initialize.side_effect = Exception("Database error")
-
-        with pytest.raises(Exception, match="Database error"):
-            await mock_cache_manager.initialize()
-
-    @pytest.mark.asyncio
-    async def test_is_cache_fresh_with_database_error(self, cache_manager):
-        """Test is cache fresh handles database errors."""
-        with patch.object(
-            cache_manager.db, "get_cache_metadata", side_effect=Exception("DB Error")
-        ):
-            is_fresh = await cache_manager.is_cache_fresh()
-            assert is_fresh is False  # Should assume stale on error
-
-    @pytest.mark.asyncio
-    async def test_get_cache_status_with_database_error(self, cache_manager):
-        """Test get cache status handles database errors gracefully."""
-        with patch.object(
-            cache_manager.db, "get_cache_metadata", side_effect=Exception("DB Error")
-        ):
-            status = await cache_manager.get_cache_status()
-            assert status is not None  # Should return default metadata
-
-    @pytest.mark.asyncio
-    async def test_get_cache_summary_with_database_error(self, cache_manager):
-        """Test get cache summary handles database errors."""
-        with patch.object(cache_manager, "get_cache_status", side_effect=Exception("DB Error")):
-            summary = await cache_manager.get_cache_summary()
-            assert summary == {}  # Should return empty dict on error
-
-
-@pytest.mark.unit
-class TestPerformanceMonitoring:
-    """Test suite for performance monitoring decorators."""
-
-    @pytest.mark.asyncio
-    async def test_memory_monitoring_during_conversion(self, cache_manager, sample_calendar_events):
-        """Test memory monitoring during event conversion."""
-        with patch("calendarbot.cache.manager.memory_monitor") as mock_monitor:
-            mock_context = MagicMock()
-            mock_monitor.return_value.__enter__ = MagicMock(return_value=mock_context)
-            mock_monitor.return_value.__exit__ = MagicMock(return_value=None)
-
-            await cache_manager.cache_events(sample_calendar_events)
-
-            mock_monitor.assert_called_with("event_conversion")
-
-    @pytest.mark.asyncio
-    async def test_cache_monitoring_during_storage(self, cache_manager, sample_calendar_events):
-        """Test cache monitoring during database storage."""
-        with patch("calendarbot.cache.manager.cache_monitor") as mock_monitor:
-            mock_context = MagicMock()
-            mock_monitor.return_value.__enter__ = MagicMock(return_value=mock_context)
-            mock_monitor.return_value.__exit__ = MagicMock(return_value=None)
-
-            await cache_manager.cache_events(sample_calendar_events)
-
-            # Should be called with cache name and cache manager identifier
-            mock_monitor.assert_called_with("database_store", "cache_manager")
-
-
-@pytest.mark.unit
-@pytest.mark.performance
-class TestCachePerformance:
-    """Performance tests for cache operations."""
-
-    @pytest.mark.asyncio
-    async def test_cache_large_number_of_events_mock(self, performance_tracker):
-        """Test caching large number of events efficiently with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.cache_events.return_value = True
-
-        # Create many mock events
-        large_event_list = [MagicMock() for _ in range(100)]
-
-        performance_tracker.start_timer("cache_large_events")
-
-        await mock_cache_manager.cache_events(large_event_list)
-
-        performance_tracker.end_timer("cache_large_events")
-
-        # Should complete quickly even with many events (mock)
-        performance_tracker.assert_performance("cache_large_events", 1.0)
-
-    @pytest.mark.asyncio
-    async def test_repeated_cache_operations(self, sample_events, performance_tracker):
-        """Test repeated cache operations perform well with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.cache_events.return_value = True
-        mock_cache_manager.get_todays_cached_events.return_value = []
-        mock_cache_manager.is_cache_fresh.return_value = True
-
-        performance_tracker.start_timer("repeated_operations")
-
-        # Perform multiple operations
-        for _ in range(10):
-            await mock_cache_manager.cache_events(sample_events)
-            await mock_cache_manager.get_todays_cached_events()
-            await mock_cache_manager.is_cache_fresh()
-
-        performance_tracker.end_timer("repeated_operations")
-
-        # Should complete quickly with mocked operations
-        performance_tracker.assert_performance("repeated_operations", 1.0)
-
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_large_event_caching_performance(self, cache_manager, performance_tracker):
-        """Test performance of caching large number of events."""
-        # Create large number of events
-        large_event_list = []
-        now = datetime.now()
-
-        for i in range(1000):
-            event = CalendarEvent(
-                id=f"perf_event_{i}",
-                subject=f"Performance Test Event {i}",
-                body_preview=f"Event {i} for performance testing",
-                start=DateTimeInfo(date_time=now + timedelta(hours=i), time_zone="UTC"),
-                end=DateTimeInfo(date_time=now + timedelta(hours=i + 1), time_zone="UTC"),
-                is_all_day=False,
-                show_as=EventStatus.BUSY,
-                is_cancelled=False,
-                is_organizer=True,
-                location=None,
-                is_online_meeting=False,
-                online_meeting_url=None,
-                is_recurring=False,
-                last_modified_date_time=now,
-            )
-            large_event_list.append(event)
-
-        performance_tracker.start_timer("large_cache")
-        success = await cache_manager.cache_events(large_event_list)
-        performance_tracker.end_timer("large_cache")
-
-        assert success is True
-        # Should complete within 10 seconds for 1000 events
-        performance_tracker.assert_performance("large_cache", 10.0)
-
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_large_retrieval_performance(
-        self, performance_test_database, performance_tracker
-    ):
-        """Test performance of retrieving large number of events."""
-        cache_mgr = CacheManager(performance_test_database.settings)
-        cache_mgr.db = performance_test_database.db
-
-        performance_tracker.start_timer("large_retrieval")
-        events = await cache_mgr.get_todays_cached_events()
-        performance_tracker.end_timer("large_retrieval")
-
-        assert len(events) >= 0
-        # Should complete within 5 seconds
-        performance_tracker.assert_performance("large_retrieval", 5.0)
-
-
-@pytest.mark.unit
-class TestCacheManagerIntegration:
-    """Integration boundary tests for cache manager."""
-
-    @pytest.mark.asyncio
-    async def test_cache_manager_with_real_events(self, sample_events):
-        """Test cache manager handles real event objects with mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.cache_events.return_value = True
-
-        # Use actual sample events instead of mocks
-        result = await mock_cache_manager.cache_events(sample_events)
+        result = await cache_manager.clear_cache()
 
         assert result is True
-
-        # Verify the call was made with actual events
-        mock_cache_manager.cache_events.assert_called_once()
-        call_args = mock_cache_manager.cache_events.call_args[0][0]
-        assert len(call_args) == len(sample_events)
+        cache_manager.cleanup_old_events.assert_called_once_with(days_old=0)
+        cache_manager.db.update_cache_metadata.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_cache_manager_date_filtering(self, sample_events):
-        """Test cache manager date filtering behavior with mocks."""
-        mock_cache_manager = AsyncMock()
-        # Mock returning events for specific date
-        mock_cache_manager.get_todays_cached_events.return_value = sample_events
+    async def test_clear_cache_exception(self, cache_manager_with_mocks):
+        """Test cache clearing with exception."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.cleanup_old_events = AsyncMock(side_effect=Exception("Database error"))
 
-        events = await mock_cache_manager.get_todays_cached_events()
+        result = await cache_manager.clear_cache()
 
-        # Should return the configured events
-        assert len(events) == len(sample_events)
-        assert events == sample_events
+        assert result is False
 
     @pytest.mark.asyncio
-    async def test_cache_manager_cleanup_with_date_param(self):
-        """Test cache manager cleanup with various date parameters using mocks."""
-        mock_cache_manager = AsyncMock()
-        mock_cache_manager.cleanup_old_events.return_value = 3
+    async def test_cleanup_method(self, cache_manager_with_mocks):
+        """Test the cleanup method for resource cleanup."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.cleanup_old_events = AsyncMock(return_value=3)
 
-        # Test different cleanup periods
-        result_30_days = await mock_cache_manager.cleanup_old_events(days_old=30)
-        result_7_days = await mock_cache_manager.cleanup_old_events(days_old=7)
-        result_1_day = await mock_cache_manager.cleanup_old_events(days_old=1)
+        result = await cache_manager.cleanup()
 
-        assert all(result == 3 for result in [result_30_days, result_7_days, result_1_day])
-        assert mock_cache_manager.cleanup_old_events.call_count == 3
+        assert result is True
+        cache_manager.cleanup_old_events.assert_called_once()
+
+
+class TestCacheManagerMetadata:
+    """Test CacheManager metadata management methods."""
+
+    @pytest.fixture
+    def cache_manager_with_mocks(self, test_settings):
+        """Create CacheManager with mocked database."""
+        with patch("calendarbot.cache.manager.DatabaseManager"):
+            cache_manager = CacheManager(test_settings)
+            cache_manager.db = AsyncMock()
+            return cache_manager
+
+    @pytest.mark.asyncio
+    async def test_update_fetch_metadata_success(self, cache_manager_with_mocks):
+        """Test updating metadata after successful fetch."""
+        cache_manager = cache_manager_with_mocks
+
+        await cache_manager._update_fetch_metadata(success=True)
+
+        cache_manager.db.update_cache_metadata.assert_called_once()
+        call_kwargs = cache_manager.db.update_cache_metadata.call_args.kwargs
+
+        assert call_kwargs["consecutive_failures"] == 0
+        assert call_kwargs["last_error"] is None
+        assert call_kwargs["last_error_time"] is None
+        assert call_kwargs["last_update"] is not None
+        assert call_kwargs["last_successful_fetch"] is not None
+
+    @pytest.mark.asyncio
+    async def test_update_fetch_metadata_failure(self, cache_manager_with_mocks):
+        """Test updating metadata after failed fetch."""
+        cache_manager = cache_manager_with_mocks
+
+        # Mock existing metadata
+        mock_metadata = MagicMock()
+        mock_metadata.consecutive_failures = 2
+        cache_manager.db.get_cache_metadata.return_value = mock_metadata
+
+        await cache_manager._update_fetch_metadata(success=False, error="Network timeout")
+
+        # Should increment failure count
+        cache_manager.db.update_cache_metadata.assert_called_once()
+        call_kwargs = cache_manager.db.update_cache_metadata.call_args.kwargs
+
+        assert call_kwargs["consecutive_failures"] == 3
+        assert call_kwargs["last_error"] == "Network timeout"
+        assert call_kwargs["last_error_time"] is not None
+
+    @pytest.mark.asyncio
+    async def test_update_fetch_metadata_exception(self, cache_manager_with_mocks):
+        """Test metadata update exception handling."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.db.update_cache_metadata.side_effect = Exception("Database error")
+
+        # Should not raise exception
+        await cache_manager._update_fetch_metadata(success=True)
+
+        cache_manager.db.update_cache_metadata.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_cache_summary_success(self, cache_manager_with_mocks):
+        """Test successful cache summary retrieval."""
+        cache_manager = cache_manager_with_mocks
+
+        # Mock cache status
+        mock_status = MagicMock()
+        mock_status.total_events = 10
+        mock_status.is_stale = False
+        mock_status.last_update = datetime.now()
+        mock_status.consecutive_failures = 1
+        mock_status.cache_ttl_seconds = 3600
+        mock_status.last_update_dt = datetime.now() - timedelta(minutes=30)
+        mock_status.time_since_last_update.return_value = 30.5
+
+        cache_manager.get_cache_status = AsyncMock(return_value=mock_status)
+
+        # Mock database info
+        mock_db_info = {"file_size_bytes": 1024 * 1024, "journal_mode": "WAL"}  # 1MB
+        cache_manager.db.get_database_info.return_value = mock_db_info
+
+        result = await cache_manager.get_cache_summary()
+
+        assert result["total_events"] == 10
+        assert result["is_fresh"] is True
+        assert result["consecutive_failures"] == 1
+        assert result["cache_ttl_hours"] == 1.0
+        assert result["database_size_mb"] == 1.0
+        assert result["journal_mode"] == "WAL"
+        assert result["minutes_since_update"] == 30.5
+
+    @pytest.mark.asyncio
+    async def test_get_cache_summary_exception(self, cache_manager_with_mocks):
+        """Test cache summary with exception."""
+        cache_manager = cache_manager_with_mocks
+        cache_manager.get_cache_status = AsyncMock(side_effect=Exception("Database error"))
+
+        result = await cache_manager.get_cache_summary()
+
+        assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_cache_manager_integration_flow(test_settings, sample_events):
+    """Integration test of CacheManager workflow."""
+    with patch("calendarbot.cache.manager.DatabaseManager") as mock_db:
+        mock_db_instance = mock_db.return_value
+        mock_db_instance.initialize = AsyncMock(return_value=True)
+        mock_db_instance.store_events = AsyncMock(return_value=True)
+        mock_db_instance.get_todays_events = AsyncMock(return_value=[])
+        mock_metadata = CacheMetadata()
+        mock_db_instance.get_cache_metadata = AsyncMock(return_value=mock_metadata)
+        mock_db_instance.update_cache_metadata = AsyncMock()
+
+        cache_manager = CacheManager(test_settings)
+        cache_manager.cleanup_old_events = AsyncMock(return_value=0)
+
+        # Test complete workflow
+        assert await cache_manager.initialize() is True
+        assert await cache_manager.cache_events(sample_events) is True
+
+        cached_events = await cache_manager.get_todays_cached_events()
+        assert isinstance(cached_events, list)
+
+        is_fresh = await cache_manager.is_cache_fresh()
+        assert isinstance(is_fresh, bool)
+
+        status = await cache_manager.get_cache_status()
+        assert isinstance(status, CacheMetadata)
+
+        cleanup_count = await cache_manager.cleanup_old_events()
+        assert isinstance(cleanup_count, int)
