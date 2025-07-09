@@ -22,7 +22,23 @@ logging.addLevelName(VERBOSE, "VERBOSE")
 
 
 def verbose(self: logging.Logger, message: Any, *args: Any, **kwargs: Any) -> None:
-    """Add verbose() method to Logger class."""
+    """Add verbose() method to Logger class for detailed diagnostic logging.
+
+    This method extends the standard logging.Logger class with a custom VERBOSE
+    level (15) that provides more detailed output than INFO but less than DEBUG.
+    Useful for operational visibility without debug-level verbosity.
+
+    Args:
+        self (logging.Logger): Logger instance (automatically provided)
+        message (Any): Log message or format string
+        *args (Any): Arguments for string formatting
+        **kwargs (Any): Additional keyword arguments for logging
+
+    Example:
+        >>> logger = logging.getLogger(__name__)
+        >>> logger.verbose("Detailed operation info: %s", operation_details)
+        >>> logger.verbose("Processing %d items", item_count, extra={'operation': 'batch'})
+    """
     if self.isEnabledFor(VERBOSE):
         self._log(VERBOSE, message, args, **kwargs)
 
@@ -34,14 +50,28 @@ logging.Logger.verbose = verbose  # type: ignore[attr-defined]
 def get_log_level(level_name: str) -> int:
     """Get numeric log level from string name, including custom VERBOSE level.
 
+    Converts string log level names to their numeric equivalents, with support
+    for the custom VERBOSE level (15) in addition to standard Python logging levels.
+
     Args:
-        level_name: Log level name (DEBUG, VERBOSE, INFO, WARNING, ERROR, CRITICAL)
+        level_name (str): Log level name (DEBUG, VERBOSE, INFO, WARNING, ERROR, CRITICAL)
 
     Returns:
-        Numeric log level value
+        int: Numeric log level value for use with logging methods
 
     Raises:
-        AttributeError: If level name is not recognized
+        AttributeError: If level name is not recognized or invalid
+
+    Example:
+        >>> level = get_log_level("VERBOSE")
+        >>> print(level)  # 15
+        >>>
+        >>> level = get_log_level("INFO")
+        >>> print(level)  # 20
+        >>>
+        >>> # Case insensitive
+        >>> level = get_log_level("debug")
+        >>> print(level)  # 10
     """
     level_name = level_name.upper()
     if level_name == "VERBOSE":
@@ -407,13 +437,26 @@ def setup_logging(
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Get a logger instance for a specific module.
+    """Get a logger instance for a specific module with CalendarBot namespace.
+
+    Creates a properly namespaced logger instance for use within CalendarBot modules.
+    All loggers are prefixed with 'calendarbot.' to maintain consistent logging
+    hierarchy and enable proper filtering and configuration.
 
     Args:
-        name: Logger name (typically __name__)
+        name (str): Logger name, typically the module's __name__ value
 
     Returns:
-        Logger instance
+        logging.Logger: Configured logger instance with CalendarBot namespace
+
+    Example:
+        >>> # In a module file
+        >>> logger = get_logger(__name__)
+        >>> logger.info("Module operation completed")
+        >>>
+        >>> # Or with explicit name
+        >>> cache_logger = get_logger("cache.manager")
+        >>> cache_logger.debug("Cache operation details")
     """
     return logging.getLogger(f"calendarbot.{name}")
 
@@ -423,12 +466,26 @@ def apply_command_line_overrides(
 ) -> "CalendarBotSettings":
     """Apply command-line argument overrides to logging settings.
 
+    Processes command-line arguments and applies them to the logging configuration,
+    following priority order: Command-line > Environment > YAML > Defaults.
+    Modifies the settings object in-place and returns it for convenience.
+
     Args:
-        settings: Current settings object
-        args: Parsed command-line arguments
+        settings (CalendarBotSettings): Current settings object to modify
+        args (Any): Parsed command-line arguments from argparse
 
     Returns:
-        Settings with command-line overrides applied
+        CalendarBotSettings: Settings object with command-line overrides applied
+
+    Example:
+        >>> # Apply verbose logging from command line
+        >>> settings = apply_command_line_overrides(settings, args)
+        >>> if args.verbose:
+        ...     print(f"Console level: {settings.logging.console_level}")  # "VERBOSE"
+        >>>
+        >>> # Apply quiet mode
+        >>> if args.quiet:
+        ...     print(f"Console level: {settings.logging.console_level}")  # "ERROR"
     """
     # Priority: Command-line > Environment > YAML > Defaults
 

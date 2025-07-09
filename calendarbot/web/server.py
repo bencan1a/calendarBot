@@ -321,13 +321,33 @@ class WebServer:
         cache_manager: Any,
         navigation_state: Optional[Any] = None,
     ) -> None:
-        """Initialize web server.
+        """Initialize web server with all required components and configuration.
+
+        Sets up the HTTP server for serving the calendar web interface, configures
+        request handlers, and establishes connections to display and cache management
+        systems. The web server supports both interactive and static display modes.
 
         Args:
-            settings: Application settings
-            display_manager: Display manager for rendering
-            cache_manager: Cache manager for data
-            navigation_state: Optional navigation state for interactive mode
+            settings: Application settings object containing web server configuration.
+                     Must include web_host (str), web_port (int), web_theme (str),
+                     and auto_kill_existing (bool) attributes for proper operation.
+            display_manager: Display manager instance responsible for rendering calendar
+                           content into HTML. Must implement get_calendar_html() and
+                           set_display_type() methods for layout switching functionality.
+            cache_manager: Cache manager instance for event data storage and retrieval.
+                          Must implement async get_events_by_date_range() method for
+                          fetching cached events within specified datetime ranges.
+            navigation_state: Optional navigation state manager for interactive mode.
+                            When provided, enables date navigation controls and maintains
+                            selected_date state. Required for interactive calendar browsing.
+
+        Raises:
+            AttributeError: If required settings attributes are missing
+            TypeError: If managers don't implement required interface methods
+
+        Note:
+            The server is not started automatically. Call start() method after
+            initialization to begin accepting HTTP requests.
         """
         self.settings = settings
         self.display_manager = display_manager

@@ -278,13 +278,33 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         return "\n".join(section_parts)
 
     def _format_current_event_compact(self, event: CachedEvent) -> str:
-        """Format current event with compact structure and truncation.
+        """Format current event with compact structure and truncation for 300x400px displays.
+
+        Creates a compact event card optimized for small screen real estate with
+        aggressive text truncation and essential information only. Calculates duration,
+        formats location data, and includes time remaining indicators with urgency styling.
 
         Args:
-            event: Current event to format
+            event: Current event to format. Must be a CachedEvent instance with valid
+                  start_dt, end_dt, subject, and optional location_display_name and
+                  is_online_meeting attributes. Event should have is_current() == True.
 
         Returns:
-            HTML string for the compact current event card
+            str: HTML string containing a complete event card with:
+                - Truncated event title (max 25 chars)
+                - Time range with duration in minutes
+                - Location information (if available, max 18 chars)
+                - Time remaining with urgency styling (red if ≤5 min)
+
+        Raises:
+            AttributeError: If event lacks required datetime or subject attributes
+            TypeError: If event is not a CachedEvent instance
+
+        Example:
+            >>> event = CachedEvent(subject="Team Meeting", start_dt=..., end_dt=...)
+            >>> html = renderer._format_current_event_compact(event)
+            >>> "▶ Team Meeting" in html
+            True
         """
         # Calculate duration
         duration_mins = (event.end_dt - event.start_dt).total_seconds() / 60
@@ -388,13 +408,38 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         return ""
 
     def _format_time_remaining_compact(self, event: CachedEvent) -> str:
-        """Format time remaining for current event with compact styling.
+        """Format time remaining for current event with compact styling and exception handling.
+
+        Calculates and formats the time remaining until the current event ends,
+        with urgency-based styling for visual alerts. Handles timezone-aware
+        calculations and gracefully manages calculation errors.
 
         Args:
-            event: Current event
+            event: Current event instance. Must have valid end_dt attribute
+                  with timezone-aware datetime for accurate time calculations.
 
         Returns:
-            HTML for compact time remaining
+            str: HTML string with time remaining display, or empty string if:
+                - Time calculation fails due to timezone issues
+                - Event has already ended (time_left <= 0)
+                - Required helper functions are unavailable
+
+                Format: '<div class="time-remaining [urgent]">⏱️ {minutes}min left</div>'
+                The 'urgent' class is applied when ≤5 minutes remain.
+
+        Raises:
+            No exceptions raised - all errors are caught and logged internally.
+            Method returns empty string on any calculation failure.
+
+        Exception Handling:
+            - ImportError: If get_timezone_aware_now() helper is unavailable
+            - AttributeError: If event.end_dt is missing or invalid
+            - TypeError: If datetime calculations fail due to type mismatches
+            - Any other unexpected exceptions during time calculations
+
+        Note:
+            Uses try/except to ensure UI stability even with malformed event data.
+            Timezone awareness is critical for accurate time remaining calculations.
         """
         try:
             from ..utils.helpers import get_timezone_aware_now

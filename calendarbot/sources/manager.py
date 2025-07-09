@@ -165,10 +165,89 @@ class SourceManager:
             return False
 
     async def fetch_and_cache_events(self) -> bool:
-        """Fetch events from all sources and cache them.
+        """Fetch events from all sources and cache them with comprehensive error handling and recovery.
+
+        Orchestrates asynchronous event fetching from all configured calendar sources with robust
+        error handling, health checking, and cache management. Implements graceful degradation,
+        failure tracking, and detailed logging for production reliability and troubleshooting.
+
+        Async Behavior and Execution Flow:
+        1. Health checks - Skip unhealthy sources to prevent cascading failures
+        2. Concurrent fetching - Each source fetched independently with error isolation
+        3. Event aggregation - Combine events from all successful sources
+        4. Cache operations - Atomic caching with rollback on failure
+        5. State tracking - Update success timestamps and failure counters
 
         Returns:
-            True if fetch was successful, False otherwise
+            bool: True if operation completed successfully with events cached,
+                  False if no events were fetched or caching failed.
+                  Success requires at least one source to return events AND
+                  successful cache storage (if cache manager is available).
+
+        Error Recovery Strategies:
+            Source-Level Failures:
+                - Individual source failures don't abort the entire operation
+                - Unhealthy sources are automatically skipped with warning logs
+                - Consecutive failure tracking for source health monitoring
+                - Graceful degradation when some sources are unavailable
+
+            Network and Timeout Handling:
+                - Each source has independent timeout configuration
+                - Network errors are caught and logged without propagation
+                - Retry logic implemented at the source handler level
+                - Connection pooling to optimize resource usage
+
+            Cache Management:
+                - Transactional caching prevents partial data corruption
+                - Cache failures are logged with detailed error information
+                - Rollback mechanisms for incomplete cache operations
+                - Success/failure state tracking for monitoring
+
+        Async Error Handling Patterns:
+            try/except blocks around:
+                - Individual source fetch operations
+                - Cache manager interactions
+                - State update operations
+                - Overall operation coordination
+
+        Timeout and Cancellation:
+            - No explicit timeout on the overall operation
+            - Individual source timeouts configured per source
+            - Async operations are cancellation-safe
+            - Resource cleanup handled by source handlers
+
+        State Management:
+            Success Case:
+                - Updates _last_successful_update timestamp
+                - Resets _consecutive_failures counter to 0
+                - Logs successful operation with event counts
+
+            Failure Case:
+                - Increments _consecutive_failures counter
+                - Preserves _last_successful_update timestamp
+                - Logs detailed failure information for debugging
+
+        Monitoring and Observability:
+            - Debug logging for operation lifecycle tracking
+            - Info logging for successful operations with metrics
+            - Warning logs for skipped unhealthy sources
+            - Error logs for source failures with stack traces
+            - Metrics collection for source success rates
+
+        Example Usage:
+            >>> source_manager = SourceManager(settings, cache_manager)
+            >>> await source_manager.initialize()
+            >>> success = await source_manager.fetch_and_cache_events()
+            >>> if success:
+            ...     print("Events updated successfully")
+            ... else:
+            ...     print("Update failed, check logs for details")
+
+        Performance Considerations:
+            - Sources are processed sequentially (not concurrently) for stability
+            - Memory usage scales with total event count across all sources
+            - Cache operations may involve disk I/O or database transactions
+            - Consider calling frequency to balance freshness vs. resource usage
         """
         try:
             logger.info("DEBUG: SourceManager.fetch_and_cache_events() called")

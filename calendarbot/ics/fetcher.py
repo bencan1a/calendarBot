@@ -70,13 +70,64 @@ class ICSFetcher:
             await self.client.aclose()
 
     def _validate_url_for_ssrf(self, url: str) -> bool:
-        """Validate URL to prevent SSRF attacks.
+        """Validate URL to prevent Server-Side Request Forgery (SSRF) attacks with comprehensive security checks.
+
+        Implements multi-layered security validation to prevent malicious URLs from accessing
+        internal network resources, localhost services, or private IP ranges. Includes detection
+        of encoded IP addresses and alternative representations commonly used in SSRF exploits.
+
+        Security Validation Layers:
+        1. Protocol validation - Only HTTP/HTTPS allowed
+        2. Hostname validation - Rejects empty or malformed hostnames
+        3. IP address validation - Blocks private, loopback, and link-local ranges
+        4. Alternative encoding detection - Prevents decimal/hex IP encoding bypasses
+        5. Hostname pattern matching - Blocks common private network names
 
         Args:
-            url: URL to validate
+            url: URL string to validate for SSRF security risks. Should be a complete
+                HTTP or HTTPS URL with valid hostname/IP and optional path components.
 
         Returns:
-            True if URL is safe, False otherwise
+            bool: True if URL is safe for external requests, False if blocked for security.
+                 All rejections are logged as security events for audit compliance.
+
+        Security Patterns Detected and Blocked:
+            - Non-HTTP(S) protocols: ftp://, file://, gopher://, etc.
+            - Private IPv4 ranges: 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12
+            - IPv6 loopback and link-local: ::1, fe80::/10
+            - Localhost patterns: localhost, 127.0.0.1, 127.x.x.x
+            - Decimal IP encoding: 2130706433 (represents 127.0.0.1)
+            - Hexadecimal IP encoding: 0x7f000001 (represents 127.0.0.1)
+            - Partial private network matches: 192.168.*, 10.*, 172.*
+
+        Security Event Logging:
+            All blocked URLs generate SecurityEvent logs with:
+            - Event type: SYSTEM_SECURITY_VIOLATION
+            - Severity: HIGH for protocol/IP violations, MEDIUM for validation errors
+            - Violation details including detected attack pattern
+            - Source IP tracking for audit trails
+
+        Exception Handling:
+            - Malformed URLs trigger INPUT_VALIDATION_FAILURE events
+            - URL parsing exceptions are caught and logged safely
+            - Returns False for any validation errors to fail securely
+
+        Example Blocked URLs:
+            - http://127.0.0.1/admin
+            - https://192.168.1.1/config
+            - http://2130706433/ (decimal localhost)
+            - ftp://internal.example.com/
+            - http://localhost:8080/api
+
+        Example Allowed URLs:
+            - https://calendar.google.com/calendar/ical/...
+            - https://outlook.office365.com/owa/calendar/...
+            - http://public-calendar.example.com/feed.ics
+
+        Note:
+            This method prioritizes security over functionality - when in doubt,
+            URLs are blocked. Consider allowlisting specific domains if legitimate
+            URLs are incorrectly blocked by hostname pattern matching.
         """
         try:
             parsed = urlparse(url)
@@ -232,14 +283,73 @@ class ICSFetcher:
     async def fetch_ics(
         self, source: ICSSource, conditional_headers: Optional[Dict[str, str]] = None
     ) -> ICSResponse:
-        """Download ICS content from source.
+        """Download ICS content from source with comprehensive error handling and security validation.
+
+        Performs secure HTTP(S) requests to fetch ICS calendar data with built-in SSRF protection,
+        authentication handling, retry logic, and comprehensive error management. Supports conditional
+        requests for efficient caching and implements security logging for audit compliance.
 
         Args:
-            source: ICS source configuration
-            conditional_headers: Optional headers for conditional requests (If-Modified-Since, If-None-Match)
+            source: ICS source configuration containing:
+                   - url (str): HTTP(S) URL to fetch, validated against SSRF attacks
+                   - auth (AuthConfig): Authentication configuration (basic/bearer/none)
+                   - custom_headers (Dict[str, str]): Additional HTTP headers
+                   - timeout (int): Request timeout in seconds
+                   - validate_ssl (bool): SSL certificate validation setting
+            conditional_headers: Optional caching headers for bandwidth optimization:
+                                - "If-Modified-Since": RFC 2822 date string
+                                - "If-None-Match": ETag value from previous response
 
         Returns:
-            ICS response with content or error information
+            ICSResponse: Response object containing:
+                        - success (bool): Operation success indicator
+                        - content (str): ICS calendar data (if successful)
+                        - status_code (int): HTTP response code
+                        - error_message (str): Detailed error description (if failed)
+                        - headers (Dict[str, str]): Response headers
+                        - etag/last_modified: Caching metadata
+
+        Raises:
+            ICSAuthError: Authentication failures (HTTP 401/403):
+                         - Invalid credentials for basic authentication
+                         - Expired or invalid bearer tokens
+                         - Insufficient permissions for calendar access
+
+            ICSNetworkError: Network connectivity issues:
+                            - DNS resolution failures
+                            - Connection timeouts or refused connections
+                            - SSL/TLS handshake failures
+                            - Network unreachability
+
+            ICSTimeoutError: Request timeout scenarios:
+                            - Server response timeout beyond configured limit
+                            - Connection establishment timeout
+                            - Slow server response causing timeout
+
+            ICSFetchError: General fetching errors:
+                          - Invalid ICS content format
+                          - Unexpected server responses
+                          - HTTP client initialization failures
+                          - Malformed source configuration
+
+        Security Features:
+            - SSRF protection prevents access to private networks
+            - URL validation blocks localhost and RFC 1918 addresses
+            - Comprehensive security event logging
+            - SSL certificate validation (configurable)
+            - Request timeout enforcement to prevent resource exhaustion
+
+        Performance Features:
+            - Automatic retry with exponential backoff
+            - Conditional request support for bandwidth optimization
+            - Connection pooling and reuse
+            - Configurable timeouts for different scenarios
+
+        Example:
+            >>> source = ICSSource(url="https://calendar.example.com/cal.ics")
+            >>> response = await fetcher.fetch_ics(source)
+            >>> if response.success:
+            ...     events = parse_ics_content(response.content)
         """
         await self._ensure_client()
 

@@ -228,7 +228,41 @@ class SecureFormatter(logging.Formatter):
 
 
 class SecurityEventLogger:
-    """Centralized security event logging system."""
+    """Centralized security event logging system.
+
+    This class provides comprehensive security event logging capabilities including
+    authentication events, authorization checks, input validation failures, and
+    system security violations. All events are logged to both standard application
+    logs and dedicated security audit logs with automatic credential masking.
+
+    Features:
+        - Structured security event logging with unique event IDs
+        - Automatic credential masking in log output
+        - Dedicated audit trail with file rotation
+        - Event caching for analysis and reporting
+        - Security event classification and severity levels
+
+    Example:
+        >>> security_logger = SecurityEventLogger(settings)
+        >>>
+        >>> # Log authentication failure
+        >>> security_logger.log_authentication_failure(
+        ...     user_id="user123",
+        ...     reason="Invalid password",
+        ...     details={"attempts": 3, "source_ip": "192.168.1.100"}
+        ... )
+        >>>
+        >>> # Log input validation failure
+        >>> security_logger.log_input_validation_failure(
+        ...     input_type="calendar_url",
+        ...     validation_error="Invalid URL format",
+        ...     details={"url": "invalid-url", "source": "web_form"}
+        ... )
+        >>>
+        >>> # Get security summary
+        >>> summary = security_logger.get_security_summary()
+        >>> print(f"Total events: {summary['total_events']}")
+    """
 
     def __init__(self, settings: Optional[Any] = None) -> None:
         self.settings = settings
@@ -361,7 +395,35 @@ class SecurityEventLogger:
     def log_input_validation_failure(
         self, input_type: str, validation_error: str, details: Optional[Dict[str, Any]] = None
     ) -> None:
-        """Log input validation failure."""
+        """Log input validation failure event.
+
+        Records security events when input validation fails, helping identify
+        potential security issues, malformed data, or attack attempts.
+
+        Args:
+            input_type (str): Type of input that failed validation (e.g., 'url', 'email', 'calendar_id')
+            validation_error (str): Description of the validation failure
+            details (Optional[Dict[str, Any]], optional): Additional event details. Defaults to None.
+
+        Example:
+            >>> # Log URL validation failure
+            >>> security_logger.log_input_validation_failure(
+            ...     input_type="calendar_url",
+            ...     validation_error="Invalid URL scheme",
+            ...     details={
+            ...         "url": "ftp://invalid.com/calendar.ics",
+            ...         "expected_schemes": ["http", "https"],
+            ...         "source_form": "calendar_setup"
+            ...     }
+            ... )
+            >>>
+            >>> # Log email validation failure
+            >>> security_logger.log_input_validation_failure(
+            ...     input_type="email_address",
+            ...     validation_error="Malformed email format",
+            ...     details={"input_value": "invalid@", "field": "user_email"}
+            ... )
+        """
         event_details = details or {}
         event_details.update({"input_type": input_type, "validation_error": validation_error})
 

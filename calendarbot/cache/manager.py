@@ -109,13 +109,90 @@ class CacheManager:
     @performance_monitor("cache_events")
     @with_correlation_id()
     async def cache_events(self, api_events: List[CalendarEvent]) -> bool:
-        """Cache events from API response.
+        """Cache events from API response with comprehensive data validation and error handling.
+
+        Processes and stores calendar events from various sources (Microsoft Graph API, ICS feeds)
+        into the local database cache. Implements data transformation, validation, memory monitoring,
+        and atomic transaction handling to ensure data integrity and system reliability.
 
         Args:
-            api_events: List of events from calendar sources
+            api_events: List of CalendarEvent instances from calendar sources. Each event must contain:
+                       Core Attributes:
+                       - id (str): Unique event identifier from source system
+                       - subject (str): Event title/summary
+                       - start (DateTimeType): Event start with date_time and time_zone
+                       - end (DateTimeType): Event end with date_time and time_zone
+                       - is_all_day (bool): All-day event indicator
+                       - show_as (Union[str, Enum]): Availability status (free/busy/tentative/etc.)
+
+                       Optional Attributes:
+                       - body_preview (str): Event description excerpt
+                       - location (LocationType): Physical/virtual location details
+                       - is_online_meeting (bool): Virtual meeting indicator
+                       - online_meeting_url (str): Meeting join URL
+                       - is_cancelled (bool): Cancellation status
+                       - is_organizer (bool): Current user organizer status
+                       - is_recurring (bool): Recurring event indicator
+                       - series_master_id (str): Parent event ID for recurrences
+                       - web_link (str): Calendar web link (Graph API only)
+                       - last_modified_date_time (datetime): Last modification timestamp
+
+                       Supported Source Formats:
+                       - Microsoft Graph API events (msgraph-core objects)
+                       - ICS/CalDAV events (icalendar parsed objects)
+                       - Custom CalendarEvent implementations
 
         Returns:
-            True if caching was successful, False otherwise
+            bool: True if all events were successfully cached with database commit,
+                  False if any critical error occurred during processing or storage.
+                  Empty event lists return True (successful no-op operation).
+
+        Raises:
+            No exceptions propagated - all errors are caught and logged internally.
+            Method designed for resilient operation in production environments.
+
+        Internal Exception Handling:
+            - AttributeError: Missing required event attributes, logged and operation fails
+            - TypeError: Invalid event object types, conversion errors logged
+            - DatabaseError: Storage failures, transaction rollback, metadata updated
+            - MemoryError: Large event list processing failures, monitoring alerts triggered
+            - ValidationError: Event data validation failures, detailed logging
+            - Any other unexpected exceptions during conversion or storage operations
+
+        Data Transformation Process:
+            1. Event Format Detection: Identifies Microsoft Graph vs ICS event structure
+            2. Attribute Mapping: Maps source-specific fields to standardized CachedEvent model
+            3. Type Conversion: Handles datetime, enum, and optional field transformations
+            4. Data Validation: Ensures required fields present and properly formatted
+            5. Memory Monitoring: Tracks memory usage during bulk conversions
+            6. Database Storage: Atomic transaction with rollback on failure
+            7. Metadata Update: Records operation success/failure with timestamps
+
+        Performance Monitoring:
+            - Automatic performance tracking via @performance_monitor decorator
+            - Memory usage monitoring during event conversion operations
+            - Cache operation metrics via @cache_monitor context managers
+            - Correlation ID tracking for distributed tracing (@with_correlation_id)
+
+        Side Effects:
+            - Updates cache metadata with operation timestamp and status
+            - Increments consecutive_failures counter on storage failures
+            - Triggers database cleanup for old events (on successful operations)
+            - Generates structured logs for monitoring and debugging
+            - Updates performance metrics for system health monitoring
+
+        Example:
+            >>> cache_manager = CacheManager(settings)
+            >>> await cache_manager.initialize()
+            >>> graph_events = await msgraph_client.get_calendar_events()
+            >>> success = await cache_manager.cache_events(graph_events)
+            >>> if success:
+            ...     print(f"Cached {len(graph_events)} events successfully")
+
+        Note:
+            This method is designed to be idempotent - calling multiple times with
+            the same events will update existing records rather than create duplicates.
+            Database operations use UPSERT logic based on event graph_id uniqueness.
         """
         try:
             event_count = len(api_events) if api_events else 0

@@ -25,21 +25,36 @@ async def retry_with_backoff(
 ) -> T:
     """Retry an async function with exponential backoff.
 
+    This utility function provides robust retry logic with exponential backoff
+    for handling transient failures in async operations.
+
     Args:
-        func: Async function to retry
-        max_retries: Maximum number of retry attempts
-        backoff_factor: Exponential backoff multiplier
-        initial_delay: Initial delay in seconds
-        max_delay: Maximum delay in seconds
-        exceptions: Tuple of exceptions that trigger retries
-        *args: Arguments to pass to function
-        **kwargs: Keyword arguments to pass to function
+        func (Callable[..., Awaitable[T]]): Async function to retry
+        max_retries (int, optional): Maximum number of retry attempts. Defaults to 3.
+        backoff_factor (float, optional): Exponential backoff multiplier. Defaults to 1.5.
+        initial_delay (float, optional): Initial delay in seconds. Defaults to 1.0.
+        max_delay (float, optional): Maximum delay in seconds. Defaults to 60.0.
+        exceptions (Tuple[Type[Exception], ...], optional): Tuple of exceptions that trigger retries. Defaults to (Exception,).
+        *args (Any): Arguments to pass to function
+        **kwargs (Any): Keyword arguments to pass to function
 
     Returns:
-        Result of the function call
+        T: Result of the function call
 
     Raises:
-        The last exception if all retries fail
+        Exception: The last exception if all retries fail
+
+    Example:
+        >>> async def fetch_data():
+        ...     # Some operation that might fail
+        ...     pass
+        >>>
+        >>> result = await retry_with_backoff(
+        ...     fetch_data,
+        ...     max_retries=5,
+        ...     initial_delay=2.0,
+        ...     exceptions=(ConnectionError, TimeoutError)
+        ... )
     """
     last_exception = None
     delay = initial_delay
@@ -276,7 +291,37 @@ def rate_limit(
 
 
 class CircuitBreaker:
-    """Simple circuit breaker pattern implementation."""
+    """Simple circuit breaker pattern implementation.
+
+    The CircuitBreaker pattern prevents cascading failures by monitoring
+    service calls and stopping requests when failure rate exceeds threshold.
+
+    States:
+        - CLOSED: Normal operation, calls pass through
+        - OPEN: Circuit is open, calls fail immediately
+        - HALF_OPEN: Testing if service has recovered
+
+    Example:
+        >>> # Initialize circuit breaker
+        >>> circuit = CircuitBreaker(
+        ...     failure_threshold=3,
+        ...     recovery_timeout=30,
+        ...     expected_exception=ConnectionError
+        ... )
+        >>>
+        >>> # Use with async function
+        >>> async def unreliable_service():
+        ...     # Some operation that might fail
+        ...     pass
+        >>>
+        >>> try:
+        ...     result = await circuit.call(unreliable_service)
+        ... except Exception as e:
+        ...     print(f"Circuit breaker prevented call: {e}")
+        >>>
+        >>> # Check circuit state
+        >>> print(f"Circuit state: {circuit.state}")
+    """
 
     def __init__(
         self,
@@ -287,9 +332,9 @@ class CircuitBreaker:
         """Initialize circuit breaker.
 
         Args:
-            failure_threshold: Number of failures before opening circuit
-            recovery_timeout: Seconds to wait before trying again
-            expected_exception: Exception type that triggers circuit breaker
+            failure_threshold (int, optional): Number of failures before opening circuit. Defaults to 5.
+            recovery_timeout (int, optional): Seconds to wait before trying again. Defaults to 60.
+            expected_exception (Type[Exception], optional): Exception type that triggers circuit breaker. Defaults to Exception.
         """
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
