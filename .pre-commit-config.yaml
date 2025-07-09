@@ -81,40 +81,33 @@ repos:
   # STAGE 3: Smart Test Execution (90-390 seconds)
   # Intelligent test selection based on code changes and project state
   # ============================================================================
-  # - repo: local
-  #   hooks:
-  #     - id: smart-test-execution
-  #       name: "Smart Test Selection & Execution"
-  #       entry: sh -c '. venv/bin/activate && python tests/suites/suite_manager.py execute-smart'
-  #       language: system
-  #       pass_filenames: false
-  #       stages: [pre-commit]
-  #       verbose: true
+  - repo: local
+    hooks:
+      - id: smart-test-execution
+        name: "Smart Test Selection & Execution"
+        entry: sh -c '. venv/bin/activate && python tests/suites/suite_manager.py execute-smart'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        verbose: true
 
-  #     - id: security-tests
-  #       name: "Security Test Validation"
-  #       entry: sh -c '. venv/bin/activate && python -m pytest -m security --tb=short -q --maxfail=3'
-  #       language: system
-  #       pass_filenames: false
-  #       stages: [pre-commit]
-
-  #     - id: config-validation
-  #       name: "Configuration Validation"
-  #       entry: sh -c '. venv/bin/activate && python -c "import yaml; import config.settings; print(\"✅ Configuration validation passed\")"'
-  #       language: system
-  #       pass_filenames: false
-  #       files: ^(config/.*\.py|.*\.yaml|.*\.yml)$
+      - id: config-validation
+        name: "Configuration Validation"
+        entry: sh -c '. venv/bin/activate && python -c "import yaml; import config.settings; print(\"✅ Configuration validation passed\")"'
+        language: system
+        pass_filenames: false
+        files: ^(config/.*\.py|.*\.yaml|.*\.yml)$
 
   # ============================================================================
-  # STAGE 4: Format Validation (Check-Only Mode)
-  # Validates formatting without modifying files - prevents cascade failures
+  # STAGE 4: Code Formatting (Auto-Fix Mode)
+  # Automatically formats code and sorts imports during pre-commit
   # ============================================================================
   - repo: https://github.com/psf/black
     rev: 24.4.2
     hooks:
       - id: black
-        name: "Code Format Validation (Check-Only)"
-        args: [--check, --line-length=100]
+        name: "Code Formatting (Auto-Fix)"
+        args: [--line-length=100]
         language_version: python3
         stages: [pre-commit]
 
@@ -122,8 +115,8 @@ repos:
     rev: 5.13.2
     hooks:
       - id: isort
-        name: "Import Sort Validation (Check-Only)"
-        args: [--check-only, --profile=black, --line-length=100]
+        name: "Import Sorting (Auto-Fix)"
+        args: [--profile=black, --line-length=100]
         stages: [pre-commit]
 
   # ============================================================================

@@ -4,7 +4,7 @@ import asyncio
 import logging
 import sys
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Awaitable, Callable, Coroutine, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,9 @@ class KeyboardHandler:
     def __init__(self) -> None:
         """Initialize keyboard handler."""
         self._running = False
-        self._key_callbacks: Dict[KeyCode, Callable] = {}
+        self._key_callbacks: Dict[
+            KeyCode, Union[Callable[[], None], Callable[[], Awaitable[None]]]
+        ] = {}
         self._raw_key_callback: Optional[Callable[[str], None]] = None
 
         # Platform-specific setup
@@ -201,7 +203,9 @@ class KeyboardHandler:
 
         return KeyCode.UNKNOWN
 
-    def register_key_handler(self, key_code: KeyCode, callback: Callable) -> None:
+    def register_key_handler(
+        self, key_code: KeyCode, callback: Union[Callable[[], None], Callable[[], Awaitable[None]]]
+    ) -> None:
         """Register a callback for a specific key.
 
         Args:

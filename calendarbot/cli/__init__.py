@@ -45,6 +45,17 @@ async def main_entry() -> int:
     if hasattr(args, "list_backups") and args.list_backups:
         return list_backups()
 
+    # Validate mutually exclusive modes BEFORE executing any mode
+    mode_count = sum(
+        [
+            getattr(args, "test_mode", False),
+            getattr(args, "interactive", False),
+            getattr(args, "web", False),
+        ]
+    )
+    if mode_count > 1:
+        parser.error("Only one mode can be specified: --test-mode, --interactive, or --web")
+
     # Handle test mode - can run even without configuration
     if hasattr(args, "test_mode") and args.test_mode:
         return await run_test_mode(args)
@@ -57,17 +68,6 @@ async def main_entry() -> int:
         show_setup_guidance()
         print(f"\n💡 Tip: Run 'calendarbot --setup' to get started quickly!\n")
         return 1
-
-    # Validate mutually exclusive modes
-    mode_count = sum(
-        [
-            getattr(args, "test_mode", False),
-            getattr(args, "interactive", False),
-            getattr(args, "web", False),
-        ]
-    )
-    if mode_count > 1:
-        parser.error("Only one mode can be specified: --test-mode, --interactive, or --web")
 
     # Run in specified mode
     if hasattr(args, "interactive") and args.interactive:

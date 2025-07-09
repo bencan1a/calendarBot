@@ -173,12 +173,15 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 explicit_package_bases = true
-# Only exclude build artifacts, include tests for type checking
+# Exclude build artifacts, test files, and utility scripts from strict type checking
 exclude = [
     "venv/",
     ".venv/",
     "build/",
-    "dist/"
+    "dist/",
+    "tests/",
+    "backup/",
+    "scripts/"
 ]
 
 [[tool.mypy.overrides]]

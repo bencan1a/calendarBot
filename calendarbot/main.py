@@ -5,7 +5,7 @@ import logging
 import signal
 import sys
 from datetime import datetime, timedelta
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from config.settings import settings
 
@@ -316,7 +316,7 @@ class CalendarBot:
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
 
-    async def status(self) -> dict:
+    async def status(self) -> Dict[str, Any]:
         """Get current application status.
 
         Returns:

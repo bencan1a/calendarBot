@@ -65,6 +65,11 @@ def _is_private_ip(ip: str) -> bool:
         if len(octets) != 4:
             return False
 
+        # Validate that all octets are in valid range (0-255)
+        for octet in octets:
+            if not (0 <= octet <= 255):
+                return False
+
         # Private IP ranges:
         # 10.0.0.0/8 (10.0.0.0 - 10.255.255.255)
         # 172.16.0.0/12 (172.16.0.0 - 172.31.255.255)
@@ -76,8 +81,8 @@ def _is_private_ip(ip: str) -> bool:
             return True
         elif octets[0] == 192 and octets[1] == 168:
             return True
-        elif ip == "127.0.0.1":
-            return True  # Localhost
+        elif octets[0] == 127:
+            return True  # Localhost range (127.0.0.0/8)
 
         return False
 

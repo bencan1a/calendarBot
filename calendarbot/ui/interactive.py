@@ -34,7 +34,7 @@ class InteractiveController:
         # State
         self._running = False
         self._last_data_update: Optional[datetime] = None
-        self._background_update_task: Optional[asyncio.Task] = None
+        self._background_update_task: Optional[asyncio.Task[Any]] = None
 
         # Setup keyboard handlers
         self._setup_keyboard_handlers()

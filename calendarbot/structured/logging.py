@@ -583,7 +583,7 @@ def operation_context(
 
 def with_correlation_id(
     correlation_id: Optional[Union[str, CorrelationID]] = None
-) -> Callable[[Callable], Callable]:
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator to automatically add correlation ID to function context.
 
@@ -593,7 +593,7 @@ def with_correlation_id(
             logger.info("Processing")  # Will include correlation ID
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             with correlation_context(correlation_id):

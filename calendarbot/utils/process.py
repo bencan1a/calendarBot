@@ -45,14 +45,17 @@ def find_calendarbot_processes() -> List[ProcessInfo]:
                     for line in result.stdout.strip().split("\n"):
                         if line:
                             parts = line.split(None, 1)
-                            if len(parts) >= 2:
+                            # Check if line has space after PID (indicating command part, even if empty)
+                            has_command_part = len(parts) >= 2 or (len(parts) == 1 and " " in line)
+
+                            if has_command_part:
                                 try:
                                     pid = int(parts[0])
-                                    full_command = parts[1]
+                                    full_command = parts[1] if len(parts) > 1 else ""
 
                                     # Extract just the command name
                                     command_parts = full_command.split()
-                                    command = command_parts[0] if command_parts else full_command
+                                    command = command_parts[0] if command_parts else ""
 
                                     # Skip our own process
                                     if pid != os.getpid():

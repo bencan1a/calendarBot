@@ -27,7 +27,9 @@ class ConsoleRenderer:
 
         logger.debug("Console renderer initialized")
 
-    def render_events(self, events: List[CachedEvent], status_info: Optional[dict] = None) -> str:
+    def render_events(
+        self, events: List[CachedEvent], status_info: Optional[Dict[str, Any]] = None
+    ) -> str:
         """Render events to formatted console output.
 
         Args:

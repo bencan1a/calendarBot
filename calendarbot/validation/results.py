@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 
 class ValidationStatus(Enum):
@@ -37,7 +37,7 @@ class ValidationResults:
         self.items: List[ValidationItem] = []
         self.start_time: datetime = datetime.now()
         self.end_time: Optional[datetime] = None
-        self.components_tested: set = set()
+        self.components_tested: Set[str] = set()
 
     def add_result(
         self,

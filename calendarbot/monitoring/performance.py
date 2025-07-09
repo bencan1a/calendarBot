@@ -535,7 +535,7 @@ def performance_monitor(
     component: str = "",
     track_memory: bool = False,
     correlation_id: Optional[str] = None,
-) -> Callable:
+) -> Callable[..., Any]:
     """
     Decorator for automatic performance monitoring of functions.
 
@@ -552,7 +552,7 @@ def performance_monitor(
             pass
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             perf_logger = get_performance_logger()
