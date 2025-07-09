@@ -2,10 +2,11 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from ..cache.models import CachedEvent
 from ..utils.helpers import secure_clear_screen
+from .compact_eink_renderer import CompactEInkRenderer
 from .console_renderer import ConsoleRenderer
 from .html_renderer import HTMLRenderer
 from .renderer_protocol import RendererProtocol
@@ -24,9 +25,7 @@ class DisplayManager:
             settings: Application settings
         """
         self.settings = settings
-        self.renderer: Optional[Union[ConsoleRenderer, HTMLRenderer, RaspberryPiHTMLRenderer]] = (
-            None
-        )
+        self.renderer: Optional[RendererProtocol] = None
 
         # Initialize appropriate renderer based on settings
         logger.info(f"DIAGNOSTIC: display_type = '{settings.display_type}'")
@@ -38,12 +37,105 @@ class DisplayManager:
             logger.info("DIAGNOSTIC: Using HTMLRenderer")
         elif settings.display_type == "rpi" or settings.display_type == "rpi-html":
             self.renderer = RaspberryPiHTMLRenderer(settings)
-            logger.info("DIAGNOSTIC: Using RaspberryPiHTMLRenderer (THIS IS THE PROBLEM!)")
+            logger.info("DIAGNOSTIC: Using RaspberryPiHTMLRenderer")
+        elif settings.display_type == "eink-compact-300x400":
+            self.renderer = CompactEInkRenderer(settings)
+            logger.info("DIAGNOSTIC: Using CompactEInkRenderer for 300x400 e-ink display")
         else:
             logger.warning(f"Unknown display type: {settings.display_type}, defaulting to console")
             self.renderer = ConsoleRenderer(settings)
 
         logger.info(f"Display manager initialized with {settings.display_type} renderer")
+
+    def set_display_type(self, display_type: str) -> bool:
+        """Change the display type at runtime.
+
+        Args:
+            display_type: New display type (standard, eink-rpi, eink-compact-300x400)
+
+        Returns:
+            True if display type was changed successfully
+        """
+        # Map display types to settings display_type values
+        type_mapping = {
+            "standard": "html",
+            "eink-rpi": "rpi",
+            "eink-compact-300x400": "eink-compact-300x400",
+        }
+
+        mapped_type = type_mapping.get(display_type, display_type)
+        valid_types = ["html", "rpi", "eink-compact-300x400", "console"]
+
+        if mapped_type not in valid_types:
+            logger.warning(f"Invalid display type: {display_type}")
+            return False
+
+        if mapped_type == self.settings.display_type:
+            logger.debug(f"Display type already set to: {display_type}")
+            return True
+
+        try:
+            # Create new renderer based on mapped type
+            old_display_type = self.settings.display_type
+
+            new_renderer: RendererProtocol
+            if mapped_type == "console":
+                new_renderer = ConsoleRenderer(self.settings)
+            elif mapped_type == "html":
+                new_renderer = HTMLRenderer(self.settings)
+            elif mapped_type == "rpi" or mapped_type == "rpi-html":
+                new_renderer = RaspberryPiHTMLRenderer(self.settings)
+            elif mapped_type == "eink-compact-300x400":
+                new_renderer = CompactEInkRenderer(self.settings)
+            else:
+                logger.warning(f"Unknown mapped display type: {mapped_type}, defaulting to console")
+                new_renderer = ConsoleRenderer(self.settings)
+
+            # Update current state
+            self.settings.display_type = mapped_type
+            self.renderer = new_renderer
+
+            logger.info(
+                f"Display type changed from {old_display_type} to {mapped_type} (requested: {display_type})"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to change display type to {display_type}: {e}")
+            return False
+
+    def get_display_type(self) -> str:
+        """Get the current display type.
+
+        Returns:
+            Current display type name (mapped to user-friendly names)
+        """
+        # Map internal types back to user-friendly names
+        type_mapping = {
+            "html": "standard",
+            "rpi": "eink-rpi",
+            "rpi-html": "eink-rpi",
+            "eink-compact-300x400": "eink-compact-300x400",
+            "console": "console",
+        }
+        return type_mapping.get(self.settings.display_type, self.settings.display_type)
+
+    def get_available_display_types(self) -> List[str]:
+        """Get list of available display types.
+
+        Returns:
+            List of available display type names
+        """
+        return ["standard", "eink-rpi", "eink-compact-300x400"]
+
+    @property
+    def current_display_type(self) -> str:
+        """Get the current display type (for compatibility).
+
+        Returns:
+            Current display type name
+        """
+        return self.get_display_type()
 
     async def display_events(
         self,
@@ -223,7 +315,8 @@ class DisplayManager:
         """
         try:
             if self.renderer is not None and hasattr(self.renderer, "clear_screen"):
-                return self.renderer.clear_screen()
+                self.renderer.clear_screen()
+                return True
             else:
                 return secure_clear_screen()
 

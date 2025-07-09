@@ -121,6 +121,17 @@ Examples:
         "--auto-open", action="store_true", help="Automatically open browser when starting web mode"
     )
 
+    # Display and layout arguments
+    display_group = parser.add_argument_group("display", "Display type and layout options")
+
+    display_group.add_argument(
+        "--display-type",
+        "--layout",
+        choices=["standard", "eink-rpi", "eink-compact-300x400"],
+        default=None,
+        help="Display type/layout to use (standard, eink-rpi, eink-compact-300x400)",
+    )
+
     # Raspberry Pi e-ink display arguments
     rpi_group = parser.add_argument_group("rpi", "Raspberry Pi e-ink display options")
 
@@ -128,15 +139,15 @@ Examples:
         "--rpi",
         "--rpi-mode",
         action="store_true",
-        help="Enable Raspberry Pi e-ink display mode (800x480px optimized)",
+        help="Enable Raspberry Pi e-ink display mode (480x800px optimized) - sets display-type to eink-rpi",
     )
 
     rpi_group.add_argument(
-        "--rpi-width", type=int, default=800, help="RPI display width in pixels (default: 800)"
+        "--rpi-width", type=int, default=480, help="RPI display width in pixels (default: 480)"
     )
 
     rpi_group.add_argument(
-        "--rpi-height", type=int, default=480, help="RPI display height in pixels (default: 480)"
+        "--rpi-height", type=int, default=800, help="RPI display height in pixels (default: 800)"
     )
 
     rpi_group.add_argument(
@@ -144,6 +155,30 @@ Examples:
         choices=["partial", "full"],
         default="partial",
         help="E-ink refresh mode (default: partial)",
+    )
+
+    # Compact e-ink display arguments
+    compact_group = parser.add_argument_group("compact", "Compact e-ink display options")
+
+    compact_group.add_argument(
+        "--compact",
+        "--compact-mode",
+        action="store_true",
+        help="Enable compact e-ink display mode (300x400px optimized) - sets display-type to eink-compact-300x400",
+    )
+
+    compact_group.add_argument(
+        "--compact-width",
+        type=int,
+        default=300,
+        help="Compact display width in pixels (default: 300)",
+    )
+
+    compact_group.add_argument(
+        "--compact-height",
+        type=int,
+        default=400,
+        help="Compact display height in pixels (default: 400)",
     )
 
     # Comprehensive logging arguments

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class RaspberryPiHTMLRenderer(HTMLRenderer):
-    """HTML renderer optimized for Raspberry Pi e-ink displays (800x480px).
+    """HTML renderer optimized for Raspberry Pi e-ink displays (480x800px).
 
     Extends the base HTMLRenderer with RPI-specific layout and components:
     - CSS Grid layout with header, content, and navigation areas
@@ -57,7 +57,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         logger.debug(f"RPI HTML Template - interactive_mode: {interactive_mode}")
         logger.debug(f"RPI HTML Template - display_date: {display_date}")
         logger.debug(
-            f"RPI HTML Template - viewport will be: width=800, height=480 (ISSUE: should be 480x800 for portrait)"
+            f"RPI HTML Template - viewport will be: width=480, height=800 (portrait layout)"
         )
 
         # Generate header navigation with arrow buttons and date
@@ -72,7 +72,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
 <html lang="en" class="theme-{self.theme}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=800, height=480, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=480, height=800, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - {display_date}</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/eink-rpi.css">
@@ -553,7 +553,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
 <html lang="en" class="theme-{self.theme}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=800, height=480, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=480, height=800, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - Authentication Required</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/eink-rpi.css">

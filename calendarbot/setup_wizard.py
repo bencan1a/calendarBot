@@ -460,8 +460,8 @@ For other calendar services:
             # Raspberry Pi E-ink Settings
             "rpi": {
                 "enabled": False,
-                "display_width": 800,
-                "display_height": 480,
+                "display_width": 480,
+                "display_height": 800,
                 "refresh_mode": "partial",
                 "auto_theme": True,
             },
@@ -708,8 +708,8 @@ web:
 # Raspberry Pi E-ink Settings (for --rpi mode)
 rpi:
   enabled: false
-  display_width: 800
-  display_height: 480
+  display_width: 480
+  display_height: 800
   refresh_mode: "partial"
   auto_theme: true
 """

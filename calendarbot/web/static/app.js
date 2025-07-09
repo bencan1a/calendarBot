@@ -85,6 +85,10 @@ function setupKeyboardNavigation() {
             case 'T':
                 toggleTheme();
                 break;
+            case 'l':
+            case 'L':
+                cycleLayout();
+                break;
         }
     });
 }
@@ -223,6 +227,81 @@ async function toggleTheme() {
 
     } catch (error) {
         console.error('Theme toggle error:', error);
+    }
+}
+
+// Layout switching
+async function cycleLayout() {
+    console.log('Cycling layout');
+
+    try {
+        showLoadingIndicator('Switching layout...');
+
+        const response = await fetch('/api/layout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({})
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.html) {
+            // Update the page content with new layout
+            updatePageContent(data.html);
+            
+            console.log(`Layout changed to: ${data.layout}`);
+
+            // Visual feedback
+            showSuccessMessage(`Layout: ${data.layout}`);
+        } else {
+            console.error('Layout cycle failed:', data.error);
+            showErrorMessage('Layout switch failed');
+        }
+
+    } catch (error) {
+        console.error('Layout cycle error:', error);
+        showErrorMessage('Layout switch error: ' + error.message);
+    } finally {
+        hideLoadingIndicator();
+    }
+}
+
+async function setLayout(layout) {
+    console.log(`Setting layout to: ${layout}`);
+
+    try {
+        showLoadingIndicator('Switching layout...');
+
+        const response = await fetch('/api/layout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ layout: layout })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.html) {
+            // Update the page content with new layout
+            updatePageContent(data.html);
+            
+            console.log(`Layout set to: ${data.layout}`);
+
+            // Visual feedback
+            showSuccessMessage(`Layout: ${data.layout}`);
+        } else {
+            console.error('Layout set failed:', data.error);
+            showErrorMessage('Layout switch failed');
+        }
+
+    } catch (error) {
+        console.error('Layout set error:', error);
+        showErrorMessage('Layout switch error: ' + error.message);
+    } finally {
+        hideLoadingIndicator();
     }
 }
 
@@ -479,6 +558,8 @@ function isAutoRefreshEnabled() {
 // Export functions for global access
 window.navigate = navigate;
 window.toggleTheme = toggleTheme;
+window.cycleLayout = cycleLayout;
+window.setLayout = setLayout;
 window.refresh = refresh;
 window.toggleAutoRefresh = toggleAutoRefresh;
 window.getCurrentTheme = getCurrentTheme;
@@ -488,6 +569,8 @@ window.isAutoRefreshEnabled = isAutoRefreshEnabled;
 window.calendarBot = {
     navigate,
     toggleTheme,
+    cycleLayout,
+    setLayout,
     refresh,
     toggleAutoRefresh,
     getCurrentTheme,
