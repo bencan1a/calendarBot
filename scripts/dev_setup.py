@@ -248,8 +248,8 @@ web:
 # Raspberry Pi E-ink Settings
 rpi:
   enabled: false
-  display_width: 800
-  display_height: 480
+  display_width: 480
+  display_height: 800
   refresh_mode: "partial"
   auto_theme: true
 

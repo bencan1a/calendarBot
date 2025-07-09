@@ -98,6 +98,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._handle_navigation_api(params)
             elif path == "/api/theme":
                 self._handle_theme_api(params)
+            elif path == "/api/layout":
+                self._handle_layout_api(params)
             elif path == "/api/refresh":
                 self._handle_refresh_api()
             elif path == "/api/status":
@@ -189,6 +191,37 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             # Toggle theme
             new_theme = self.web_server.toggle_theme()
             self._send_json_response(200, {"success": True, "theme": new_theme})
+
+    def _handle_layout_api(self, params: Union[Dict[str, List[str]], Dict[str, Any]]) -> None:
+        """Handle layout switching API requests."""
+        layout = (
+            params.get("layout", [""])[0]
+            if isinstance(params, dict) and "layout" in params
+            else params.get("layout", "")
+        )
+
+        if not self.web_server:
+            self._send_json_response(500, {"error": "Web server not available"})
+            return
+
+        if layout:
+            success = self.web_server.set_layout(str(layout))
+            if success:
+                # Get updated HTML content with new layout
+                html_content = self.web_server.get_calendar_html()
+                self._send_json_response(
+                    200, {"success": True, "layout": layout, "html": html_content}
+                )
+            else:
+                self._send_json_response(400, {"error": "Invalid layout type"})
+        else:
+            # Cycle through layouts
+            new_layout = self.web_server.cycle_layout()
+            # Get updated HTML content with new layout
+            html_content = self.web_server.get_calendar_html()
+            self._send_json_response(
+                200, {"success": True, "layout": new_layout, "html": html_content}
+            )
 
     def _handle_refresh_api(self) -> None:
         """Handle refresh API requests."""
@@ -607,12 +640,13 @@ class WebServer:
         """Set the display theme.
 
         Args:
-            theme: Theme name (eink, standard, eink-rpi)
+            theme: Theme name (eink, standard, eink-rpi, eink-compact-300x400)
 
         Returns:
             True if theme was set successfully
         """
-        if theme in ["eink", "standard", "eink-rpi"]:
+        valid_themes = ["eink", "standard", "eink-rpi", "eink-compact-300x400"]
+        if theme in valid_themes:
             self.theme = theme
             if hasattr(self.display_manager.renderer, "theme"):
                 self.display_manager.renderer.theme = theme
@@ -628,16 +662,71 @@ class WebServer:
         Returns:
             New theme name
         """
-        # Cycle through available themes: eink -> standard -> eink-rpi -> eink
+        # Cycle through available themes: eink -> standard -> eink-rpi -> eink-compact-300x400 -> eink
         if self.theme == "eink":
             new_theme = "standard"
         elif self.theme == "standard":
             new_theme = "eink-rpi"
-        else:  # eink-rpi or any other
+        elif self.theme == "eink-rpi":
+            new_theme = "eink-compact-300x400"
+        else:  # eink-compact-300x400 or any other
             new_theme = "eink"
 
         self.set_theme(new_theme)
         return new_theme
+
+    def set_layout(self, layout: str) -> bool:
+        """Set the display layout type.
+
+        Args:
+            layout: Layout type (standard, eink-rpi, eink-compact-300x400)
+
+        Returns:
+            True if layout was set successfully
+        """
+        valid_layouts = ["standard", "eink-rpi", "eink-compact-300x400"]
+        if layout in valid_layouts:
+            # Update display manager with new layout
+            success = self.display_manager.set_display_type(layout)
+            if success:
+                # Update theme to match layout
+                self.theme = layout if layout.startswith("eink") else "standard"
+                logger.info(f"Layout changed to: {layout}")
+                return True
+            else:
+                logger.warning(f"Failed to set layout: {layout}")
+                return False
+        else:
+            logger.warning(f"Unknown layout: {layout}")
+            return False
+
+    def cycle_layout(self) -> str:
+        """Cycle through available layouts.
+
+        Returns:
+            New layout name
+        """
+        # Get current layout from display manager
+        current_layout = getattr(self.display_manager, "current_display_type", "standard")
+
+        # Cycle through: standard -> eink-rpi -> eink-compact-300x400 -> standard
+        if current_layout == "standard":
+            new_layout = "eink-rpi"
+        elif current_layout == "eink-rpi":
+            new_layout = "eink-compact-300x400"
+        else:  # eink-compact-300x400 or any other
+            new_layout = "standard"
+
+        self.set_layout(new_layout)
+        return new_layout
+
+    def get_current_layout(self) -> str:
+        """Get the current layout type.
+
+        Returns:
+            Current layout name
+        """
+        return getattr(self.display_manager, "current_display_type", "standard")
 
     def refresh_data(self) -> bool:
         """Trigger data refresh.
@@ -665,6 +754,7 @@ class WebServer:
             "host": self.host,
             "port": self.port,
             "theme": self.theme,
+            "layout": self.get_current_layout(),
             "interactive_mode": self.navigation_state is not None,
             "current_date": (
                 self.navigation_state.selected_date.isoformat()

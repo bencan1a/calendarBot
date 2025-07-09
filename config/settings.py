@@ -234,16 +234,36 @@ class CalendarBotSettings(BaseSettings):
 
     # Display Settings
     display_enabled: bool = Field(default=True, description="Enable display output")
-    display_type: str = Field(default="console", description="Display type: console, html, rpi")
+    display_type: str = Field(
+        default="console", description="Display type: console, html, rpi, eink-compact-300x400"
+    )
 
     # Raspberry Pi E-ink Display Settings
     rpi_enabled: bool = Field(default=False, description="Enable Raspberry Pi e-ink mode")
-    rpi_display_width: int = Field(default=800, description="RPI display width in pixels")
-    rpi_display_height: int = Field(default=480, description="RPI display height in pixels")
+    rpi_display_width: int = Field(default=480, description="RPI display width in pixels")
+    rpi_display_height: int = Field(default=800, description="RPI display height in pixels")
     rpi_refresh_mode: str = Field(
         default="partial", description="E-ink refresh mode: partial, full"
     )
     rpi_auto_theme: bool = Field(default=True, description="Auto-optimize theme for e-ink display")
+
+    # Compact E-ink Display Settings (300x400)
+    compact_eink_enabled: bool = Field(default=False, description="Enable compact e-ink mode")
+    compact_eink_display_width: int = Field(
+        default=300, description="Compact e-ink display width in pixels"
+    )
+    compact_eink_display_height: int = Field(
+        default=400, description="Compact e-ink display height in pixels"
+    )
+    compact_eink_refresh_mode: str = Field(
+        default="partial", description="Compact e-ink refresh mode: partial, full"
+    )
+    compact_eink_auto_theme: bool = Field(
+        default=True, description="Auto-optimize theme for compact e-ink display"
+    )
+    compact_eink_content_truncation: bool = Field(
+        default=True, description="Enable content truncation for compact display"
+    )
 
     # Web/HTML Display Settings
     web_enabled: bool = Field(default=False, description="Enable web server for HTML display")
