@@ -76,6 +76,18 @@ repos:
         name: "⚡ Sort Imports"
         args: [--profile=black, --line-length=100]
 
+  # Auto-staging hook - maintains formatter changes in fast mode
+  - repo: local
+    hooks:
+      - id: auto-stage-formatted-files
+        name: "⚡ Auto-stage Formatted Files"
+        entry: sh -c '. venv/bin/activate && python tools/pre_commit_auto_stager.py'
+        language: system
+        pass_filenames: true
+        always_run: false
+        require_serial: true
+        verbose: false
+
 # ============================================================================
 # CI Configuration (Disabled for fast mode)
 # ============================================================================
