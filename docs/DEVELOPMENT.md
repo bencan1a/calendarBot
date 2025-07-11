@@ -143,8 +143,8 @@ calendarbot/
     ├── navigation.py        # Web navigation handling
     └── static/              # CSS, JavaScript, themes
         ├── style.css        # Standard web theme
-        ├── eink-rpi.css     # E-ink optimized theme
-        ├── eink-rpi.js      # RPI-specific JavaScript
+        ├── eink-compact-300x400.css  # E-ink compact theme
+        ├── eink-compact-300x400.js   # E-ink compact JavaScript
         └── app.js           # Main web application logic
 ```
 

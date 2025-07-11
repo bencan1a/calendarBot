@@ -162,8 +162,6 @@ class ConsoleRenderer:
         if event.location_display_name:
             location = self._truncate_text(event.location_display_name, 45)
             lines.append(f"  📍 {location}")
-        elif event.is_online_meeting:
-            lines.append("  💻 Online Meeting")
 
         # Time remaining
         from ..utils.helpers import get_timezone_aware_now
@@ -195,8 +193,6 @@ class ConsoleRenderer:
         if event.location_display_name:
             location = self._truncate_text(event.location_display_name, 30)
             time_info += f" | 📍 {location}"
-        elif event.is_online_meeting:
-            time_info += " | 💻 Online"
 
         lines.append(time_info)
 
@@ -238,11 +234,7 @@ class ConsoleRenderer:
 
         help_text = " | ".join(help_parts)
 
-        # Add relative date info if available
-        if status_info.get("relative_description"):
-            relative = status_info["relative_description"]
-            if relative != "Today":
-                help_text = f"📍 {relative} | {help_text}"
+        # Relative date info removed for cleaner display
 
         return help_text
 

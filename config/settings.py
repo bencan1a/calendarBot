@@ -235,7 +235,7 @@ class CalendarBotSettings(BaseSettings):
     # Display Settings
     display_enabled: bool = Field(default=True, description="Enable display output")
     display_type: str = Field(
-        default="console", description="Display type: console, html, rpi, eink-compact-300x400"
+        default="console", description="Display type: console, html, rpi, 3x4"
     )
 
     # Raspberry Pi E-ink Display Settings
@@ -271,7 +271,7 @@ class CalendarBotSettings(BaseSettings):
     web_host: str = Field(
         default_factory=lambda: _get_safe_web_host(), description="Host address for web server"
     )
-    web_theme: str = Field(default="eink", description="Web theme: eink, standard")
+    web_theme: str = Field(default="4x8", description="Web theme: 4x8, 3x4")
     web_auto_refresh: int = Field(default=60, description="Auto-refresh interval in seconds")
 
     # Network and Retry Settings

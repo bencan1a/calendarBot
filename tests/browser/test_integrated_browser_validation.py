@@ -60,7 +60,7 @@ def test_settings():
             cache_dir=temp_path / "cache",
             web_host="127.0.0.1",
             web_port=8996,  # Use different port to avoid conflicts
-            web_theme="standard",
+            web_theme="4x8",
             app_name="CalendarBot-IntegratedTest",
             refresh_interval=60,
             max_retries=2,
@@ -93,7 +93,7 @@ async def _setup_web_server(settings):
     mock_renderer.theme = settings.web_theme
     mock_renderer.render_events.return_value = """
     <!DOCTYPE html>
-    <html class="theme-standard">
+    <html class="theme-4x8">
     <head>
         <title>Calendar Bot - Integrated Test</title>
         <style>
@@ -106,7 +106,7 @@ async def _setup_web_server(settings):
         <script>
             window.calendarBot = {
                 initialized: true,
-                theme: 'standard',
+                theme: '4x8',
                 navigate: function(direction) {
                     console.log('Navigate:', direction);
                     return fetch('/api/navigate/' + direction, {method: 'POST'});
@@ -115,7 +115,7 @@ async def _setup_web_server(settings):
                     return this.theme;
                 },
                 toggleTheme: function() {
-                    this.theme = this.theme === 'standard' ? 'eink' : 'standard';
+                    this.theme = this.theme === '4x8' ? '3x4' : '4x8';
                     document.documentElement.className = 'theme-' + this.theme;
                     document.getElementById('current-theme').textContent = this.theme;
                     return fetch('/api/theme', {method: 'POST'});
@@ -158,7 +158,7 @@ async def _setup_web_server(settings):
             </div>
         </div>
         <div class="status-line">
-            Ready • Theme: <span id="current-theme">standard</span> • Integrated Test Mode
+            Ready • Theme: <span id="current-theme">4x8</span> • Integrated Test Mode
         </div>
     </body>
     </html>
@@ -221,7 +221,7 @@ async def _test_browser_core_functionality(settings):
 
             # Test 5: Check theme detection
             theme = await page.evaluate("window.calendarBot.theme")
-            assert theme == "standard", f"Expected theme 'standard', got: {theme}"
+            assert theme == "4x8", f"Expected theme '4x8', got: {theme}"
 
             # Test 6: Test responsive design (mobile viewport)
             await page.setViewport({"width": 375, "height": 667, "isMobile": True})
@@ -245,6 +245,7 @@ async def _test_browser_core_functionality(settings):
 
 @pytest.mark.browser
 @pytest.mark.smoke
+@pytest.mark.timeout(60)  # 60 second timeout
 def test_browser_view_rendering(test_settings):
     """Test that the browser view renders correctly."""
     start_time = time.time()
@@ -409,7 +410,7 @@ if __name__ == "__main__":
             cache_dir=temp_path / "cache",
             web_host="127.0.0.1",
             web_port=8996,
-            web_theme="standard",
+            web_theme="4x8",
             app_name="CalendarBot-Standalone",
             refresh_interval=60,
             max_retries=2,

@@ -388,7 +388,7 @@ class WebAPITestData:
             "running": True,
             "host": "127.0.0.1",
             "port": 8998,
-            "theme": "standard",
+            "theme": "4x8",
             "interactive_mode": False,
             "current_date": datetime.now().date().isoformat(),
         }

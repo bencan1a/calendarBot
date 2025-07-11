@@ -47,11 +47,11 @@ async def run_web_mode(args: Any) -> int:
         # Apply RPI-specific overrides
         updated_settings = apply_rpi_overrides(updated_settings, args)
 
-        # Apply web mode overrides - ensure HTML renderer and eink-rpi theme for web mode
+        # Apply web mode overrides - ensure HTML renderer and 4x8 theme for web mode
         if not hasattr(args, "rpi") or not args.rpi:
-            # Use RPI renderer for proper layout structure in web mode
-            updated_settings.display_type = "rpi"
-            updated_settings.web_theme = "eink-rpi"  # Default to RPI-optimized theme for web mode
+            # Use HTML renderer for proper layout structure in web mode
+            updated_settings.display_type = "html"
+            updated_settings.web_theme = "4x8"  # Default to 4x8 theme for web mode
 
         # Set up enhanced logging for web mode
         logger = setup_enhanced_logging(updated_settings, interactive_mode=False)

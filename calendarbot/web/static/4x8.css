@@ -95,6 +95,15 @@ body {
     white-space: nowrap;
 }
 
+.nav-timestamp {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    white-space: nowrap;
+    min-width: 90px;
+    text-align: left;
+    flex-shrink: 0;
+}
+
 /* Navigation controls */
 .nav-controls {
     display: flex;
@@ -510,6 +519,11 @@ body {
     .header-date {
         font-size: 1rem;
         text-align: center;
+    }
+
+    .nav-timestamp {
+        font-size: 0.7rem;
+        min-width: 70px;
     }
 
     .nav-controls {

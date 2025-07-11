@@ -48,7 +48,7 @@ CalendarBot now needs to support a smaller 300x400 e-ink screen variant used in 
 
 *   Renderer Protocol must account for height-constrained layouts in [`calendarbot/display/renderer_protocol.py`](../calendarbot/display/renderer_protocol.py)
 *   Consider vertical scrolling optimizations for performance impact
-*   Adapt existing `CSS` in [`eink-rpi.css`](../calendarbot/web/static/eink-rpi.css) files
+*   Adapt existing `CSS` in [`eink-compact-300x400.css`](../calendarbot/web/static/eink-compact-300x400.css) files
 
 ## Cross-references
 

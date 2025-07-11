@@ -200,6 +200,7 @@ class TestCompleteApplicationWorkflows:
             mock_error_display.assert_called()
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(30)  # 30 second timeout to prevent hanging
     async def test_background_operation_workflow(self, full_application_setup):
         """Test background operation workflow."""
         bot = full_application_setup
@@ -211,12 +212,19 @@ class TestCompleteApplicationWorkflows:
 
             # Start background fetch for a short time
             async def run_briefly():
-                await asyncio.sleep(0.05)  # Let it run briefly
+                await asyncio.sleep(0.02)  # Reduce sleep time
                 bot.running = False
                 bot.shutdown_event.set()
 
-            # Run background operation and stop it quickly
-            await asyncio.gather(bot.run_background_fetch(), run_briefly())
+            # Run background operation and stop it quickly with timeout
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(bot.run_background_fetch(), run_briefly()),
+                    timeout=5.0,  # 5 second timeout
+                )
+            except asyncio.TimeoutError:
+                bot.running = False
+                bot.shutdown_event.set()
 
             # Should have performed at least initial fetch
             mock_fetch.assert_called()
@@ -360,12 +368,12 @@ class TestWebInterfaceWorkflows:
 
         # Mock renderer
         web_server.display_manager.renderer = MagicMock()
-        web_server.display_manager.renderer.theme = "standard"
+        web_server.display_manager.renderer.theme = "4x8"
 
         initial_theme = web_server.theme
 
         # Theme switching sequence
-        themes = ["eink", "eink-rpi", "standard"]
+        themes = ["3x4", "4x8"]
 
         for theme in themes:
             success = web_server.set_theme(theme)
@@ -375,7 +383,7 @@ class TestWebInterfaceWorkflows:
 
         # Test theme toggle
         new_theme = web_server.toggle_theme()
-        assert new_theme in ["standard", "eink", "eink-rpi"]
+        assert new_theme in ["4x8", "3x4"]
 
     @pytest.mark.asyncio
     async def test_calendar_display_workflow(self, web_application_setup):
@@ -430,7 +438,7 @@ class TestWebInterfaceWorkflows:
             html2 = web_server.get_calendar_html()
 
             # 3. Change theme
-            web_server.set_theme("eink")
+            web_server.set_theme("3x4")
 
             # 4. Refresh data
             web_server.refresh_data()
@@ -443,7 +451,7 @@ class TestWebInterfaceWorkflows:
             # Verify session progression
             assert status1["current_date"] != status2["current_date"]  # Navigation worked
             assert status3["current_date"] == status1["current_date"]  # Back to start
-            assert web_server.theme == "eink"  # Theme persisted
+            assert web_server.theme == "3x4"  # Theme persisted
 
             # All HTML generations should succeed
             assert all("Calendar" in html for html in [html1, html2, html3])

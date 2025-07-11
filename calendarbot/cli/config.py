@@ -229,7 +229,7 @@ def apply_rpi_overrides(settings: Any, args: Any) -> Any:
         # Auto-optimize web theme for RPI
         current_theme = getattr(settings, "web_theme", "NOT_SET")
         if settings.rpi_auto_theme:
-            settings.web_theme = "eink-rpi"
+            settings.web_theme = "3x4"
             logger.info(f"Applied RPI theme override: {current_theme} -> {settings.web_theme}")
         else:
             logger.debug(f"RPI auto theme disabled, keeping web_theme={current_theme}")

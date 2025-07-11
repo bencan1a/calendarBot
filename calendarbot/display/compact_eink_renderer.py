@@ -28,11 +28,17 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         Args:
             settings: Application settings
         """
-        super().__init__(settings)
-        # Override theme for compact e-ink display
-        self.theme = "eink-compact-300x400"
-
-        logger.debug("Compact E-ink renderer initialized for 300x400px display")
+        logger.debug("DIAGNOSTIC: CompactEInkRenderer.__init__ called")
+        try:
+            super().__init__(settings)
+            # Override theme for compact e-ink display
+            self.theme = "3x4"
+            logger.debug(
+                "DIAGNOSTIC: CompactEInkRenderer initialized successfully for 300x400px display"
+            )
+        except Exception as e:
+            logger.error(f"DIAGNOSTIC: CompactEInkRenderer.__init__ failed: {e}")
+            raise
 
     def _build_html_template(
         self,
@@ -41,6 +47,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         events_content: str,
         nav_help: str,
         interactive_mode: bool,
+        status_info: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Build the complete HTML template optimized for compact e-ink display.
 
@@ -50,6 +57,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
             events_content: Main events content HTML
             nav_help: Navigation help HTML (unused in compact layout)
             interactive_mode: Whether in interactive mode
+            status_info: Additional status information (unused in compact layout)
 
         Returns:
             Complete HTML document with compact e-ink layout
@@ -75,8 +83,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
     <meta charset="utf-8">
     <meta name="viewport" content="width=300, height=400, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - {display_date}</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/eink-compact-300x400.css">
+    <link rel="stylesheet" href="/static/3x4.css">
 </head>
 <body>
     <div class="calendar-container">
@@ -91,8 +98,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         {compact_status_bar}
     </div>
 
-    <script src="/static/app.js"></script>
-    <script src="/static/eink-compact-300x400.js"></script>
+    <script src="/static/3x4.js"></script>
 </body>
 </html>"""
 
@@ -124,12 +130,6 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
             <h1 class="calendar-title">{display_date}</h1>
         </div>
         <div class="theme-controls" role="toolbar" aria-label="Theme Controls">
-            <button class="theme-toggle"
-                    title="Toggle Theme"
-                    aria-label="Toggle Theme"
-                    data-action="theme">
-                🎨
-            </button>
         </div>
         """
 
@@ -348,8 +348,6 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
             and "Microsoft Teams Meeting" not in event.location_display_name
         ):
             location_text = f" | 📍 {self._truncate_text(event.location_display_name, 12)}"
-        elif event.is_online_meeting:
-            location_text = " | 💻 Online"
 
         # Compact time until start
         time_until_html = self._format_time_until_compact(event)
@@ -403,8 +401,6 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
                 return (
                     f'<div class="event-location">📍 {self._escape_html(truncated_location)}</div>'
                 )
-        elif event.is_online_meeting:
-            return '<div class="event-location">💻 Online</div>'
         return ""
 
     def _format_time_remaining_compact(self, event: CachedEvent) -> str:
@@ -441,18 +437,32 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
             Uses try/except to ensure UI stability even with malformed event data.
             Timezone awareness is critical for accurate time remaining calculations.
         """
+        logger.debug("DIAGNOSTIC: _format_time_remaining_compact called")
         try:
             from ..utils.helpers import get_timezone_aware_now
 
+            logger.debug("DIAGNOSTIC: get_timezone_aware_now imported successfully")
+
             now = get_timezone_aware_now()
+            logger.debug(f"DIAGNOSTIC: current time: {now}")
+            logger.debug(f"DIAGNOSTIC: event.end_dt: {event.end_dt}")
+
             time_left = (event.end_dt - now).total_seconds() / 60
+            logger.debug(f"DIAGNOSTIC: time_left calculated: {time_left}")
+
             if time_left > 0:
                 urgency_class = "urgent" if time_left <= 5 else ""
-                return (
+                result = (
                     f'<div class="time-remaining {urgency_class}">⏱️ {int(time_left)}min left</div>'
                 )
-        except Exception:
-            pass
+                logger.debug(f"DIAGNOSTIC: time remaining HTML generated: {result}")
+                return result
+        except Exception as e:
+            logger.error(f"DIAGNOSTIC: _format_time_remaining_compact failed: {e}")
+            logger.error(f"DIAGNOSTIC: Exception type: {type(e)}")
+            import traceback
+
+            logger.error(f"DIAGNOSTIC: Traceback: {traceback.format_exc()}")
         return ""
 
     def _format_time_until_compact(self, event: CachedEvent) -> str:
@@ -534,8 +544,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
     <meta charset="utf-8">
     <meta name="viewport" content="width=300, height=400, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - Error</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/eink-compact-300x400.css">
+    <link rel="stylesheet" href="/static/3x4.css">
 </head>
 <body>
     <div class="calendar-container">
@@ -582,8 +591,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
     <meta charset="utf-8">
     <meta name="viewport" content="width=300, height=400, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - Auth</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/eink-compact-300x400.css">
+    <link rel="stylesheet" href="/static/3x4.css">
 </head>
 <body>
     <div class="calendar-container">

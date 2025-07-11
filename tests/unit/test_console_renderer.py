@@ -275,7 +275,8 @@ class TestConsoleRendererFormatCurrentEvent:
         renderer = ConsoleRenderer(Mock())
         lines = renderer._format_current_event(event)
 
-        assert any("💻 Online Meeting" in line for line in lines)
+        # Online meeting indicators were removed per user requirements
+        assert any("Online Meeting" in line for line in lines)
 
     @patch("calendarbot.utils.helpers.get_timezone_aware_now")
     def test_format_current_event_time_remaining(self, mock_now: Any) -> None:
@@ -360,7 +361,8 @@ class TestConsoleRendererFormatUpcomingEvent:
         renderer = ConsoleRenderer(Mock())
         lines = renderer._format_upcoming_event(event)
 
-        assert any("💻 Online" in line for line in lines)
+        # Online meeting indicators were removed per user requirements
+        assert any("Video Call" in line for line in lines)
 
     def test_format_upcoming_event_time_until_urgent(self) -> None:
         """Test upcoming event starting soon (≤5 minutes)."""
@@ -426,13 +428,16 @@ class TestConsoleRendererNavigationHelp:
         assert "End: Week End" in result
 
     def test_render_navigation_help_with_relative_description(self) -> None:
-        """Test navigation help with relative date description."""
+        """Test navigation help no longer shows relative date descriptions."""
         status_info: Dict[str, Any] = {"relative_description": "Tomorrow"}
 
         renderer = ConsoleRenderer(Mock())
         result = renderer._render_navigation_help(status_info)
 
-        assert "📍 Tomorrow" in result
+        # Relative descriptions were removed per user requirements
+        assert "📍 Tomorrow" not in result
+        # Should still show basic navigation controls
+        assert "← → Navigate" in result
 
     def test_render_navigation_help_today_no_relative(self) -> None:
         """Test navigation help doesn't show 'Today' as relative."""

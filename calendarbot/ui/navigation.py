@@ -72,7 +72,7 @@ class NavigationState:
         elif days_diff == -1:
             return "Yesterday"
         elif days_diff > 1:
-            return f"In {days_diff} days"
+            return ""  # Remove "In X days" text
         else:  # days_diff < -1
             return f"{abs(days_diff)} days ago"
 
@@ -169,14 +169,13 @@ class NavigationState:
         return self._selected_date.strftime(format_string)
 
     def get_display_date(self) -> str:
-        """Get display-friendly date string with relative information."""
+        """Get display-friendly date string."""
         base_format = self._selected_date.strftime("%A, %B %d")
 
         if self.is_today():
             return f"TODAY - {base_format}"
         else:
-            relative = self.get_relative_description()
-            return f"{base_format} ({relative})"
+            return base_format
 
     def add_change_callback(self, callback: Callable[[date], None]) -> None:
         """Add a callback to be called when the selected date changes.

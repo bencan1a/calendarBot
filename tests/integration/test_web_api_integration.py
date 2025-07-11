@@ -117,21 +117,21 @@ class TestWebAPIBackendIntegration:
 
         # Mock renderer with theme support
         display_manager.renderer = MagicMock()
-        display_manager.renderer.theme = "standard"
+        display_manager.renderer.theme = "4x8"
 
         initial_theme = web_server.theme
 
         # Test theme setting
-        success = web_server.set_theme("eink")
+        success = web_server.set_theme("3x4")
         assert success is True
-        assert web_server.theme == "eink"
-        assert display_manager.renderer.theme == "eink"
+        assert web_server.theme == "3x4"
+        assert display_manager.renderer.theme == "3x4"
 
         # Test theme toggle
         new_theme = web_server.toggle_theme()
-        assert new_theme == "standard"
-        assert web_server.theme == "standard"
-        assert display_manager.renderer.theme == "standard"
+        assert new_theme == "4x8"
+        assert web_server.theme == "4x8"
+        assert display_manager.renderer.theme == "4x8"
 
     @pytest.mark.asyncio
     async def test_calendar_html_with_real_data(self, web_api_setup):
@@ -333,19 +333,19 @@ class TestDataFlowIntegration:
 
         # Mock renderer
         display_manager.renderer = MagicMock()
-        display_manager.renderer.theme = "standard"
+        display_manager.renderer.theme = "4x8"
 
         # Change theme
-        web_server.set_theme("eink")
-        assert web_server.theme == "eink"
+        web_server.set_theme("3x4")
+        assert web_server.theme == "3x4"
 
         # Perform other operations
         web_server.handle_navigation("next")
         web_server.refresh_data()
 
         # Theme should persist
-        assert web_server.theme == "eink"
-        assert display_manager.renderer.theme == "eink"
+        assert web_server.theme == "3x4"
+        assert display_manager.renderer.theme == "3x4"
 
     @pytest.mark.asyncio
     async def test_error_propagation_through_api(self, data_flow_setup):
@@ -444,7 +444,7 @@ class TestSecurityIntegration:
         web_server.display_manager.renderer = MagicMock()
 
         # Test valid themes
-        valid_themes = ["standard", "eink", "eink-rpi"]
+        valid_themes = ["4x8", "3x4"]
         for theme in valid_themes:
             success = web_server.set_theme(theme)
             assert success is True
@@ -521,23 +521,23 @@ class TestWebAPIStateManagement:
 
         # Mock renderer
         web_server.display_manager.renderer = MagicMock()
-        web_server.display_manager.renderer.theme = "standard"
+        web_server.display_manager.renderer.theme = "4x8"
 
         # Change theme and verify persistence
-        web_server.set_theme("eink")
-        assert web_server.theme == "eink"
+        web_server.set_theme("3x4")
+        assert web_server.theme == "3x4"
 
         # Perform other operations
         web_server.refresh_data()
-        assert web_server.theme == "eink"
+        assert web_server.theme == "3x4"
 
         web_server.handle_navigation("next")
-        assert web_server.theme == "eink"
+        assert web_server.theme == "3x4"
 
         # Toggle theme
         new_theme = web_server.toggle_theme()
-        assert new_theme == "standard"
-        assert web_server.theme == "standard"
+        assert new_theme == "4x8"
+        assert web_server.theme == "4x8"
 
     def test_state_isolation_between_operations(self, state_management_setup):
         """Test that operations don't interfere with each other's state."""
@@ -545,20 +545,20 @@ class TestWebAPIStateManagement:
 
         # Set initial state
         initial_date = navigation_state.selected_date
-        web_server.theme = "eink"
+        web_server.theme = "3x4"
 
         # Perform concurrent-like operations
         status1 = web_server.get_status()
         web_server.handle_navigation("next")
         status2 = web_server.get_status()
-        web_server.set_theme("standard")
+        web_server.set_theme("4x8")
         status3 = web_server.get_status()
 
         # Verify state changes are reflected correctly
         assert status1["current_date"] == initial_date.isoformat()
         assert status2["current_date"] == (initial_date + timedelta(days=1)).isoformat()
         # Theme change should be reflected in subsequent operations
-        assert web_server.theme == "standard"
+        assert web_server.theme == "4x8"
 
     @pytest.mark.asyncio
     async def test_cache_state_affects_api_responses(self, state_management_setup):

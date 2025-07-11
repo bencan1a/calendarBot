@@ -38,7 +38,7 @@ class DisplayManager:
         elif settings.display_type == "rpi" or settings.display_type == "rpi-html":
             self.renderer = RaspberryPiHTMLRenderer(settings)
             logger.info("DIAGNOSTIC: Using RaspberryPiHTMLRenderer")
-        elif settings.display_type == "eink-compact-300x400":
+        elif settings.display_type == "3x4":
             self.renderer = CompactEInkRenderer(settings)
             logger.info("DIAGNOSTIC: Using CompactEInkRenderer for 300x400 e-ink display")
         else:
@@ -51,20 +51,19 @@ class DisplayManager:
         """Change the display type at runtime.
 
         Args:
-            display_type: New display type (standard, eink-rpi, eink-compact-300x400)
+            display_type: New display type (4x8, 3x4)
 
         Returns:
             True if display type was changed successfully
         """
         # Map display types to settings display_type values
         type_mapping = {
-            "standard": "html",
-            "eink-rpi": "rpi",
-            "eink-compact-300x400": "eink-compact-300x400",
+            "4x8": "html",
+            "3x4": "3x4",
         }
 
         mapped_type = type_mapping.get(display_type, display_type)
-        valid_types = ["html", "rpi", "eink-compact-300x400", "console"]
+        valid_types = ["html", "rpi", "3x4", "console"]
 
         if mapped_type not in valid_types:
             logger.warning(f"Invalid display type: {display_type}")
@@ -85,7 +84,7 @@ class DisplayManager:
                 new_renderer = HTMLRenderer(self.settings)
             elif mapped_type == "rpi" or mapped_type == "rpi-html":
                 new_renderer = RaspberryPiHTMLRenderer(self.settings)
-            elif mapped_type == "eink-compact-300x400":
+            elif mapped_type == "3x4":
                 new_renderer = CompactEInkRenderer(self.settings)
             else:
                 logger.warning(f"Unknown mapped display type: {mapped_type}, defaulting to console")
@@ -112,13 +111,15 @@ class DisplayManager:
         """
         # Map internal types back to user-friendly names
         type_mapping = {
-            "html": "standard",
-            "rpi": "eink-rpi",
-            "rpi-html": "eink-rpi",
-            "eink-compact-300x400": "eink-compact-300x400",
+            "html": "4x8",
+            "3x4": "3x4",
             "console": "console",
         }
-        return type_mapping.get(self.settings.display_type, self.settings.display_type)
+        mapped_type = type_mapping.get(self.settings.display_type, self.settings.display_type)
+        logger.debug(
+            f"DIAGNOSTIC LOG: get_display_type() - internal: '{self.settings.display_type}' → mapped: '{mapped_type}'"
+        )
+        return str(mapped_type)
 
     def get_available_display_types(self) -> List[str]:
         """Get list of available display types.
@@ -126,7 +127,7 @@ class DisplayManager:
         Returns:
             List of available display type names
         """
-        return ["standard", "eink-rpi", "eink-compact-300x400"]
+        return ["4x8", "3x4"]
 
     @property
     def current_display_type(self) -> str:

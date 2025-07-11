@@ -174,11 +174,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
     def _handle_theme_api(self, params: Union[Dict[str, List[str]], Dict[str, Any]]) -> None:
         """Handle theme switching API requests."""
-        theme = (
-            params.get("theme", [""])[0]
-            if isinstance(params, dict) and "theme" in params
-            else params.get("theme", "")
-        )
+        if isinstance(params, dict) and "theme" in params:
+            theme_value = params["theme"]
+            # If it's a list (query params), take first element; if string (JSON), use directly
+            theme = theme_value[0] if isinstance(theme_value, list) else theme_value
+        else:
+            theme = ""
 
         if not self.web_server:
             self._send_json_response(500, {"error": "Web server not available"})
@@ -194,11 +195,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
     def _handle_layout_api(self, params: Union[Dict[str, List[str]], Dict[str, Any]]) -> None:
         """Handle layout switching API requests."""
-        layout = (
-            params.get("layout", [""])[0]
-            if isinstance(params, dict) and "layout" in params
-            else params.get("layout", "")
-        )
+        if isinstance(params, dict) and "layout" in params:
+            layout_value = params["layout"]
+            # If it's a list (query params), take first element; if string (JSON), use directly
+            layout = layout_value[0] if isinstance(layout_value, list) else layout_value
+        else:
+            layout = ""
 
         if not self.web_server:
             self._send_json_response(500, {"error": "Web server not available"})
@@ -267,7 +269,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 with open(full_path, "rb") as f:
                     content = f.read()
 
-                self._send_response(200, content, content_type, binary=True)
+                # Send binary response directly
+                self.send_response(200)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
             else:
                 self._send_404()
 
@@ -544,7 +552,6 @@ class WebServer:
                 status_info = {
                     "selected_date": self.navigation_state.get_display_date(),
                     "is_today": self.navigation_state.is_today(),
-                    "relative_description": self.navigation_state.get_relative_description(),
                     "interactive_mode": True,
                     "last_update": datetime.now().isoformat(),
                     "is_cached": False,  # TODO: Get actual cache status
@@ -660,12 +667,12 @@ class WebServer:
         """Set the display theme.
 
         Args:
-            theme: Theme name (eink, standard, eink-rpi, eink-compact-300x400)
+            theme: Theme name (4x8, 3x4)
 
         Returns:
             True if theme was set successfully
         """
-        valid_themes = ["eink", "standard", "eink-rpi", "eink-compact-300x400"]
+        valid_themes = ["4x8", "3x4"]
         if theme in valid_themes:
             self.theme = theme
             if hasattr(self.display_manager.renderer, "theme"):
@@ -682,15 +689,11 @@ class WebServer:
         Returns:
             New theme name
         """
-        # Cycle through available themes: eink -> standard -> eink-rpi -> eink-compact-300x400 -> eink
-        if self.theme == "eink":
-            new_theme = "standard"
-        elif self.theme == "standard":
-            new_theme = "eink-rpi"
-        elif self.theme == "eink-rpi":
-            new_theme = "eink-compact-300x400"
-        else:  # eink-compact-300x400 or any other
-            new_theme = "eink"
+        # Cycle through available themes: 4x8 -> 3x4 -> 4x8
+        if self.theme == "4x8":
+            new_theme = "3x4"
+        else:  # 3x4 or any other
+            new_theme = "4x8"
 
         self.set_theme(new_theme)
         return new_theme
@@ -699,18 +702,20 @@ class WebServer:
         """Set the display layout type.
 
         Args:
-            layout: Layout type (standard, eink-rpi, eink-compact-300x400)
+            layout: Layout type (4x8, 3x4)
 
         Returns:
             True if layout was set successfully
         """
-        valid_layouts = ["standard", "eink-rpi", "eink-compact-300x400"]
+        logger.debug(f"DIAGNOSTIC: set_layout called with layout='{layout}'")
+        valid_layouts = ["4x8", "3x4"]
         if layout in valid_layouts:
-            # Update display manager with new layout
+            logger.debug(f"DIAGNOSTIC: Calling display_manager.set_display_type('{layout}')")
+            # Update display manager with new layout name (no internal mapping needed)
             success = self.display_manager.set_display_type(layout)
             if success:
                 # Update theme to match layout
-                self.theme = layout if layout.startswith("eink") else "standard"
+                self.theme = layout
                 logger.info(f"Layout changed to: {layout}")
                 return True
             else:
@@ -726,17 +731,19 @@ class WebServer:
         Returns:
             New layout name
         """
-        # Get current layout from display manager
-        current_layout = getattr(self.display_manager, "current_display_type", "standard")
+        # Get current layout from display manager (now returns user-facing name)
+        current_layout = self.get_current_layout()
+        logger.debug(f"cycle_layout current_layout='{current_layout}'")
 
-        # Cycle through: standard -> eink-rpi -> eink-compact-300x400 -> standard
-        if current_layout == "standard":
-            new_layout = "eink-rpi"
-        elif current_layout == "eink-rpi":
-            new_layout = "eink-compact-300x400"
-        else:  # eink-compact-300x400 or any other
-            new_layout = "standard"
+        # Cycle through layouts: 4x8 -> 3x4 -> 4x8
+        if current_layout == "4x8":
+            new_layout = "3x4"
+            logger.debug("Cycling 4x8 -> 3x4")
+        else:  # 3x4 or any other
+            new_layout = "4x8"
+            logger.debug(f"Cycling {current_layout} -> 4x8")
 
+        logger.debug(f"cycle_layout calling set_layout('{new_layout}')")
         self.set_layout(new_layout)
         return new_layout
 
@@ -746,7 +753,15 @@ class WebServer:
         Returns:
             Current layout name
         """
-        return getattr(self.display_manager, "current_display_type", "standard")
+        # Use the display manager's proper get_display_type method for consistent mapping
+        if hasattr(self.display_manager, "get_display_type"):
+            current_layout = self.display_manager.get_display_type()
+        else:
+            # Fallback for backwards compatibility
+            current_layout = str(getattr(self.display_manager, "current_display_type", "4x8"))
+
+        logger.debug(f"get_current_layout() returning '{current_layout}'")
+        return str(current_layout)
 
     def refresh_data(self) -> bool:
         """Trigger data refresh.
@@ -786,5 +801,4 @@ class WebServer:
     @property
     def url(self) -> str:
         """Get the server URL."""
-        url: str = f"http://{self.host}:{self.port}"
-        return url
+        return f"http://{self.host}:{self.port}"
