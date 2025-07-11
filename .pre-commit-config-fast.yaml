@@ -1,0 +1,89 @@
+# Fast Pre-commit Configuration for CalendarBot
+# Emergency/Development Mode Configuration
+#
+# Usage: pre-commit run --config .pre-commit-config-fast.yaml
+# Or: PRECOMMIT_CONFIG=.pre-commit-config-fast.yaml pre-commit install
+#
+# Purpose: Provides minimal validation for intensive development sessions
+# Target Time: Under 10 seconds for immediate feedback
+#
+# When to Use:
+# - Rapid prototyping sessions
+# - Emergency bug fixes
+# - Intensive refactoring with frequent commits
+# - When full pre-commit pipeline is too slow for workflow
+#
+# What's Skipped:
+# - Full test suite execution
+# - Comprehensive MyPy type checking
+# - Security scanning (bandit)
+# - Smart test selection
+#
+# What's Included:
+# - Essential syntax validation
+# - Basic code formatting
+# - Critical file checks
+# - Merge conflict detection
+
+# Global configuration for speed
+fail_fast: true
+default_install_hook_types: [pre-commit]
+
+repos:
+  # ============================================================================
+  # ESSENTIAL CHECKS ONLY (Target: 5-8 seconds total)
+  # Absolute minimum validation to prevent broken commits
+  # ============================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      # File syntax validation (critical for runtime)
+      - id: check-yaml
+        name: "⚡ YAML Syntax"
+      - id: check-json
+        name: "⚡ JSON Syntax"
+      - id: check-toml
+        name: "⚡ TOML Syntax"
+      
+      # Prevent obvious commit issues
+      - id: check-merge-conflict
+        name: "⚡ Merge Conflicts"
+      - id: check-added-large-files
+        name: "⚡ Large Files"
+        args: ['--maxkb=1000']
+      
+      # Python syntax (essential)
+      - id: check-ast
+        name: "⚡ Python Syntax"
+        files: \.py$
+
+  # ============================================================================
+  # CODE FORMATTING (Target: 2-3 seconds)
+  # Essential formatting for consistency
+  # ============================================================================
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        name: "⚡ Format Code"
+        args: [--line-length=100, --fast]
+        language_version: python3
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: "⚡ Sort Imports"
+        args: [--profile=black, --line-length=100]
+
+# ============================================================================
+# CI Configuration (Disabled for fast mode)
+# ============================================================================
+ci:
+  skip: []  # Allow CI to run this fast config if needed
+  autofix_commit_msg: |
+    [pre-commit.ci] fast config auto fixes
+    
+    Emergency development mode - full validation pending
+  autofix_prs: false
+  autoupdate_schedule: monthly  # Less frequent updates for stability
