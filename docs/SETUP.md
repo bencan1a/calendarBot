@@ -325,7 +325,7 @@ web:
   enabled: false            # Enable web interface
   port: 8080               # Web server port
   host: "0.0.0.0"          # Bind address
-  theme: "eink-rpi"        # Web theme
+  theme: "4x8"        # Web theme
   auto_refresh: 60         # Auto-refresh interval in seconds
 ```
 

@@ -21,7 +21,7 @@ class HTMLRenderer:
             settings: Application settings
         """
         self.settings = settings
-        self.theme = getattr(settings, "web_theme", "eink")
+        self.theme = getattr(settings, "web_theme", "4x8")
 
         logger.info(f"HTML renderer initialized with theme: {self.theme}")
 
@@ -37,40 +37,57 @@ class HTMLRenderer:
         Returns:
             Formatted HTML string for web display
         """
+        logger.debug(f"DIAGNOSTIC: HTMLRenderer.render_events called with {len(events)} events")
+        logger.debug(f"DIAGNOSTIC: Renderer class: {self.__class__.__name__}")
         try:
             # Determine if we're in interactive mode
             interactive_mode = status_info.get("interactive_mode", False) if status_info else False
+            logger.debug(f"DIAGNOSTIC: interactive_mode: {interactive_mode}")
 
             # Get date information
             if interactive_mode and status_info and status_info.get("selected_date"):
                 display_date = status_info["selected_date"]
             else:
                 display_date = datetime.now().strftime("%A, %B %d")
+            logger.debug(f"DIAGNOSTIC: display_date: {display_date}")
 
             # Build status line
             status_line = self._build_status_line(status_info)
+            logger.debug(f"DIAGNOSTIC: status_line: {status_line}")
 
             # Generate events content
+            logger.debug("DIAGNOSTIC: Calling _render_events_content")
             events_content = self._render_events_content(events, interactive_mode)
+            logger.debug(f"DIAGNOSTIC: events_content length: {len(events_content)}")
 
             # Generate navigation help if interactive
             nav_help = ""
             if interactive_mode and status_info:
                 nav_help = self._render_navigation_help(status_info)
+            logger.debug(f"DIAGNOSTIC: nav_help: {nav_help}")
 
             # Build complete HTML
+            logger.debug("DIAGNOSTIC: About to call _build_html_template")
             html_content = self._build_html_template(
                 display_date=display_date,
                 status_line=status_line,
                 events_content=events_content,
                 nav_help=nav_help,
                 interactive_mode=interactive_mode,
+                status_info=status_info,
+            )
+            logger.debug(
+                f"DIAGNOSTIC: _build_html_template completed, result length: {len(html_content)}"
             )
 
             return html_content
 
         except Exception as e:
-            logger.error(f"Failed to render events to HTML: {e}")
+            logger.error(f"DIAGNOSTIC: HTMLRenderer.render_events failed with error: {e}")
+            logger.error(f"DIAGNOSTIC: Exception type: {type(e)}")
+            import traceback
+
+            logger.error(f"DIAGNOSTIC: Traceback: {traceback.format_exc()}")
             return self._render_error_html(f"Error rendering calendar: {e}")
 
     def _build_status_line(self, status_info: Optional[Dict[str, Any]]) -> str:
@@ -87,39 +104,47 @@ class HTMLRenderer:
 
         status_parts = []
 
-        # Last update time
-        if status_info.get("last_update"):
-            try:
-                if isinstance(status_info["last_update"], str):
-                    update_time = datetime.fromisoformat(
-                        status_info["last_update"].replace("Z", "+00:00")
-                    )
-                else:
-                    update_time = status_info["last_update"]
-
-                # Convert to Pacific timezone (GMT-8/PDT)
-                pacific_tz = pytz.timezone("US/Pacific")
-                if update_time.tzinfo is None:
-                    update_time_utc = pytz.utc.localize(update_time)
-                else:
-                    update_time_utc = update_time.astimezone(pytz.utc)
-
-                update_time_pacific = update_time_utc.astimezone(pacific_tz)
-                status_parts.append(f"Updated: {update_time_pacific.strftime('%I:%M %p')}")
-            except:
-                pass
-
         # Data source indicator
         if status_info.get("is_cached"):
             status_parts.append('<span class="status-cached">📱 Cached Data</span>')
-        else:
-            status_parts.append('<span class="status-live">🌐 Live Data</span>')
 
         # Connection status
         if status_info.get("connection_status"):
             status_parts.append(f'📶 {status_info["connection_status"]}')
 
         return " | ".join(status_parts) if status_parts else ""
+
+    def _get_timestamp_html(self, status_info: Optional[Dict[str, Any]]) -> str:
+        """Generate timestamp HTML for navigation area.
+
+        Args:
+            status_info: Status information dictionary
+
+        Returns:
+            HTML timestamp string
+        """
+        if not status_info or not status_info.get("last_update"):
+            return ""
+
+        try:
+            if isinstance(status_info["last_update"], str):
+                update_time = datetime.fromisoformat(
+                    status_info["last_update"].replace("Z", "+00:00")
+                )
+            else:
+                update_time = status_info["last_update"]
+
+            # Convert to Pacific timezone (GMT-8/PDT)
+            pacific_tz = pytz.timezone("US/Pacific")
+            if update_time.tzinfo is None:
+                update_time_utc = pytz.utc.localize(update_time)
+            else:
+                update_time_utc = update_time.astimezone(pytz.utc)
+
+            update_time_pacific = update_time_utc.astimezone(pacific_tz)
+            return f"Updated: {update_time_pacific.strftime('%I:%M %p')}"
+        except:
+            return ""
 
     def _render_events_content(self, events: List[CachedEvent], interactive_mode: bool) -> str:
         """Render the main events content.
@@ -181,8 +206,6 @@ class HTMLRenderer:
                     and "Microsoft Teams Meeting" not in event.location_display_name
                 ):
                     location_text = f" | 📍 {self._escape_html(event.location_display_name)}"
-                elif event.is_online_meeting:
-                    location_text = " | 💻 Online"
 
                 content_parts.append(
                     f"""
@@ -218,8 +241,6 @@ class HTMLRenderer:
             and "Microsoft Teams Meeting" not in event.location_display_name
         ):
             location_html = f'<div class="event-location">📍 {self._escape_html(event.location_display_name)}</div>'
-        elif event.is_online_meeting:
-            location_html = '<div class="event-location online">💻 Online Meeting</div>'
 
         # Time remaining
         time_remaining_html = ""
@@ -260,8 +281,6 @@ class HTMLRenderer:
             and "Microsoft Teams Meeting" not in event.location_display_name
         ):
             location_html = f" | 📍 {self._escape_html(event.location_display_name)}"
-        elif event.is_online_meeting:
-            location_html = " | 💻 Online"
 
         # Time until start
         time_until_html = ""
@@ -298,16 +317,16 @@ class HTMLRenderer:
             '<span class="nav-key">R</span> Refresh',
         ]
 
-        # Add relative date info if available
+        # Relative date info removed for cleaner display
         relative_info = ""
-        if status_info.get("relative_description"):
-            relative = status_info["relative_description"]
-            if relative != "Today":
-                relative_info = f'<span class="relative-date">📍 {relative}</span> | '
+
+        # Add timestamp to bottom navigation area
+        timestamp_html = self._get_timestamp_html(status_info)
+        timestamp_part = f"{timestamp_html} | " if timestamp_html else ""
 
         return f"""
         <div class="navigation-help">
-            {relative_info}
+            {timestamp_part}{relative_info}
             {' | '.join(help_parts)}
         </div>
         """
@@ -319,6 +338,7 @@ class HTMLRenderer:
         events_content: str,
         nav_help: str,
         interactive_mode: bool,
+        status_info: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Build the complete HTML template.
 
@@ -391,31 +411,31 @@ class HTMLRenderer:
         """Get the CSS file name for the current theme.
 
         Returns:
-            CSS filename (e.g., 'style.css', 'eink-rpi.css')
+            CSS filename (e.g., '4x8.css', '3x4.css')
         """
-        if self.theme == "eink-rpi":
-            return "eink-rpi.css"
-        elif self.theme == "standard":
-            return "standard.css"  # If standard theme exists
-        else:  # Default to "eink" theme
-            return "style.css"
+        if self.theme == "3x4":
+            return "3x4.css"
+        elif self.theme == "4x8":
+            return "4x8.css"
+        else:  # Default fallback
+            return "4x8.css"
 
     def _get_theme_js_file(self) -> str:
         """Get the JavaScript file name for the current theme.
 
         Returns:
-            JavaScript filename (e.g., 'app.js', 'eink-rpi.js')
+            JavaScript filename (e.g., '4x8.js', '3x4.js')
         """
-        if self.theme == "eink-rpi":
-            return "eink-rpi.js"
-        elif self.theme == "standard":
-            return "standard.js"  # If standard theme exists
-        else:  # Default to "eink" theme
-            return "app.js"
+        if self.theme == "3x4":
+            return "3x4.js"
+        elif self.theme == "4x8":
+            return "4x8.js"
+        else:  # Default fallback
+            return "4x8.js"
 
     def _get_theme_icon(self) -> str:
         """Get appropriate icon for current theme."""
-        return "🎨" if self.theme == "eink" else "⚫"
+        return "⚙️" if self.theme == "3x4" else "⚫"
 
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters.

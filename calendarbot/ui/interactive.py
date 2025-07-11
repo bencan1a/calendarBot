@@ -211,7 +211,6 @@ class InteractiveController:
             nav_info = {
                 "selected_date": self.navigation.get_display_date(),
                 "is_today": self.navigation.is_today(),
-                "relative_description": self.navigation.get_relative_description(),
                 "navigation_help": self.keyboard.get_help_text(),
             }
 
@@ -372,7 +371,6 @@ class InteractiveController:
             "is_past": self.navigation.is_past(),
             "is_future": self.navigation.is_future(),
             "days_from_today": self.navigation.days_from_today(),
-            "relative_description": self.navigation.get_relative_description(),
             "week_context": self.navigation.get_week_context(),
         }
 

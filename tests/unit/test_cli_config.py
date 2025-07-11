@@ -374,7 +374,7 @@ class TestApplyRpiOverrides:
         # Create mock settings and args
         mock_settings = MagicMock()
         mock_settings.rpi_auto_theme = True
-        mock_settings.web_theme = "standard"
+        mock_settings.web_theme = "4x8"
 
         mock_args = MagicMock()
         mock_args.rpi = True
@@ -387,12 +387,12 @@ class TestApplyRpiOverrides:
 
             assert result.rpi_enabled is True
             assert result.display_type == "rpi"
-            assert result.web_theme == "eink-rpi"
+            assert result.web_theme == "3x4"
 
     def test_apply_rpi_overrides_disabled(self):
         """Test RPI overrides when RPI mode is disabled."""
         mock_settings = MagicMock()
-        mock_settings.web_theme = "standard"
+        mock_settings.web_theme = "4x8"
 
         mock_args = MagicMock()
         mock_args.rpi = False
@@ -465,7 +465,7 @@ class TestApplyRpiOverrides:
         """Test that proper logging calls are made."""
         mock_settings = MagicMock()
         mock_settings.rpi_auto_theme = True
-        mock_settings.web_theme = "standard"
+        mock_settings.web_theme = "4x8"
 
         mock_args = MagicMock()
         mock_args.rpi = True

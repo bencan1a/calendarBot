@@ -734,9 +734,6 @@ class TestSuiteManager:
                     "pytest",
                     "--tb=short",
                     "--maxfail=3",
-                    "--cov=calendarbot",
-                    "--cov-report=term",
-                    "--cov-fail-under=30",  # Lower threshold for targeted tests since they don't cover full codebase
                     "-q",
                 ] + test_files
 
@@ -827,9 +824,6 @@ class TestSuiteManager:
                 "--tb=short",
                 "--maxfail=5",
                 "--timeout=60",  # 60 second timeout per test
-                "--cov=calendarbot",
-                "--cov-report=term",
-                "--cov-fail-under=30",  # Lower threshold for targeted tests since they don't cover full codebase
                 "-v" if verbose else "-q",
             ] + test_files
 

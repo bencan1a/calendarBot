@@ -156,7 +156,7 @@ graph TB
 ### 3. Web Mode (`--web`)
 **Components**: [`web.WebServer`](calendarbot/web/server.py), [`display.HTMLRenderer`](calendarbot/display/html_renderer.py)
 - Browser-based calendar interface
-- Multiple theme support (standard, eink-rpi)
+- Multiple theme support (4x8, 3x4)
 - Auto-refresh capabilities
 - Mobile-responsive design
 
@@ -280,7 +280,7 @@ web:
   enabled: false
   port: 8080
   host: "0.0.0.0"
-  theme: "eink-rpi"    # eink, eink-rpi, standard
+  theme: "4x8"    # 4x8, 3x4
   auto_refresh: 60
 
 # Raspberry Pi E-ink Settings

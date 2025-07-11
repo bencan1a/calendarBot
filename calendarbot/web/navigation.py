@@ -98,7 +98,6 @@ class WebNavigationHandler:
                 "is_past": self.navigation_state.is_past(),
                 "is_future": self.navigation_state.is_future(),
                 "days_from_today": self.navigation_state.days_from_today(),
-                "relative_description": self.navigation_state.get_relative_description(),
                 "week_context": self.navigation_state.get_week_context(),
                 "formatted_date": self.navigation_state.get_formatted_date(),
                 "navigation_help": self._get_web_navigation_help(),
@@ -175,10 +174,6 @@ class WebNavigationHandler:
     def is_future(self) -> bool:
         """Check if selected date is in the future."""
         return self.navigation_state.is_future()
-
-    def get_relative_description(self) -> str:
-        """Get relative description of selected date."""
-        return self.navigation_state.get_relative_description()
 
     def get_display_date(self) -> str:
         """Get display-friendly date string."""

@@ -29,7 +29,7 @@ The browser test suite provides end-to-end testing of the CalendarBot web interf
 Tests core application functionality:
 - Calendar page loading and initialization
 - Navigation controls (prev, next, today, week-start, week-end)
-- Theme switching (eink, standard, eink-rpi)
+- Theme switching (eink, standard, eink-compact-300x400)
 - JavaScript functionality validation
 - Keyboard navigation support
 - Complete user workflow scenarios

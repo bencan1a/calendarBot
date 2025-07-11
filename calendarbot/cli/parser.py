@@ -137,9 +137,9 @@ Examples:
     display_group.add_argument(
         "--display-type",
         "--layout",
-        choices=["standard", "eink-rpi", "eink-compact-300x400"],
+        choices=["4x8", "3x4"],
         default=None,
-        help="Display type/layout to use (standard, eink-rpi, eink-compact-300x400)",
+        help="Display type/layout to use (4x8 for grid layout, 3x4 for compact layout)",
     )
 
     # Raspberry Pi e-ink display arguments
@@ -149,7 +149,7 @@ Examples:
         "--rpi",
         "--rpi-mode",
         action="store_true",
-        help="Enable Raspberry Pi e-ink display mode (480x800px optimized) - sets display-type to eink-rpi",
+        help="Enable Raspberry Pi e-ink display mode (480x800px optimized) - sets display-type to 3x4",
     )
 
     rpi_group.add_argument(
@@ -174,7 +174,7 @@ Examples:
         "--compact",
         "--compact-mode",
         action="store_true",
-        help="Enable compact e-ink display mode (300x400px optimized) - sets display-type to eink-compact-300x400",
+        help="Enable compact e-ink display mode (300x400px optimized) - sets display-type to 3x4",
     )
 
     compact_group.add_argument(

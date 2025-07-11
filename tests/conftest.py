@@ -50,7 +50,7 @@ def test_settings():
             # Web settings
             self.web_host = "127.0.0.1"
             self.web_port = 8998
-            self.web_theme = "standard"
+            self.web_theme = "4x8"
 
     return MockSettings()
 

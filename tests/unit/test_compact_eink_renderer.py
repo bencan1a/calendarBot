@@ -51,7 +51,7 @@ class TestCompactEInkRenderer:
     def test_init(self, mock_settings):
         """Test CompactEInkRenderer initialization."""
         renderer = CompactEInkRenderer(mock_settings)
-        assert renderer.theme == "eink-compact-300x400"
+        assert renderer.theme == "3x4"
 
     def test_truncate_text_short_text(self, renderer):
         """Test _truncate_text with text shorter than max_length."""
@@ -85,24 +85,23 @@ class TestCompactEInkRenderer:
         )
 
         # Check for compact theme class
-        assert 'class="theme-eink-compact-300x400"' in html
+        assert 'class="theme-3x4"' in html
 
         # Check for compact viewport
         assert "width=300, height=400" in html
 
         # Check for compact CSS
-        assert "eink-compact-300x400.css" in html
+        assert "3x4.css" in html
 
         # Check for compact JS
-        assert "eink-compact-300x400.js" in html
+        assert "3x4.js" in html
 
     def test_generate_compact_header_navigation_interactive(self, renderer):
         """Test compact header navigation in interactive mode."""
         result = renderer._generate_compact_header_navigation("Today", True)
 
-        # Should include theme toggle button
-        assert "theme-toggle" in result
-        assert 'data-action="theme"' in result
+        # Theme toggle button has been removed from compact renderer
+        assert "theme-toggle" not in result
         assert "Today" in result
 
     def test_generate_compact_header_navigation_non_interactive(self, renderer):
@@ -190,15 +189,15 @@ class TestCompactEInkRenderer:
         assert "..." in result
 
     def test_format_event_location_compact_online(self, renderer):
-        """Test compact online location formatting."""
+        """Test compact online location formatting - should return empty string."""
         event = Mock()
         event.location_display_name = None
         event.is_online_meeting = True
 
         result = renderer._format_event_location_compact(event)
 
-        assert "💻 Online" in result
-        assert "event-location" in result
+        # Online meeting indicators were removed, should return empty string
+        assert result == ""
 
     def test_format_event_location_compact_no_location(self, renderer):
         """Test compact formatting with no location."""
@@ -320,7 +319,7 @@ class TestCompactEInkRenderer:
         result = renderer._render_error_html(error_message)
 
         # Check for compact theme
-        assert "theme-eink-compact-300x400" in result
+        assert "theme-3x4" in result
 
         # Check for compact viewport
         assert "width=300, height=400" in result
@@ -336,7 +335,7 @@ class TestCompactEInkRenderer:
         result = renderer.render_authentication_prompt(verification_uri, user_code)
 
         # Check for compact theme
-        assert "theme-eink-compact-300x400" in result
+        assert "theme-3x4" in result
 
         # Check for compact viewport
         assert "width=300, height=400" in result
@@ -405,7 +404,7 @@ class TestCompactEInkRendererIntegration:
             start_timezone="UTC",
             end_timezone="UTC",
             location_display_name=None,
-            is_online_meeting=True,
+            is_online_meeting=True,  # Online meeting flag still present but not displayed
             show_as="busy",
             cached_at=now.isoformat(),
         )

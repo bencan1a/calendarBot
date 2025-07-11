@@ -610,6 +610,9 @@ class TestICSFetcherConnectionTesting:
         """Test connection test failure."""
         fetcher = fetcher_with_mocks
 
+        # Mock _ensure_client to prevent client recreation
+        fetcher._ensure_client = AsyncMock()
+
         # Mock failed HEAD response
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -623,6 +626,9 @@ class TestICSFetcherConnectionTesting:
     async def test_test_connection_exception(self, fetcher_with_mocks, sample_ics_source):
         """Test connection test with exception."""
         fetcher = fetcher_with_mocks
+
+        # Mock _ensure_client to prevent client recreation
+        fetcher._ensure_client = AsyncMock()
 
         # Mock exception during HEAD request
         fetcher.client.head.side_effect = Exception("Network error")

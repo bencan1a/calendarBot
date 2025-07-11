@@ -28,10 +28,10 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             settings: Application settings
         """
         super().__init__(settings)
-        # Override theme for RPI e-ink display - use the more visually appealing 'eink' theme
-        self.theme = "eink"
+        # Override theme for RPI e-ink display - use the compact '3x4' theme optimized for e-ink
+        self.theme = "3x4"
 
-        logger.debug("RPI HTML renderer initialized for 800x480px e-ink display with 'eink' theme")
+        logger.debug("RPI HTML renderer initialized for 800x480px e-ink display with '3x4' theme")
 
     def _build_html_template(
         self,
@@ -40,6 +40,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         events_content: str,
         nav_help: str,
         interactive_mode: bool,
+        status_info: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Build the complete HTML template optimized for RPI e-ink display.
 
@@ -74,8 +75,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
     <meta charset="utf-8">
     <meta name="viewport" content="width=480, height=800, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - {display_date}</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/eink-rpi.css">
+    <link rel="stylesheet" href="/static/4x8.css">
 </head>
 <body>
     <div class="calendar-container">
@@ -90,8 +90,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         {bottom_status_bar}
     </div>
 
-    <script src="/static/app.js"></script>
-    <script src="/static/eink-rpi.js"></script>
+    <script src="/static/4x8.js"></script>
 </body>
 </html>"""
 
@@ -146,23 +145,6 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         return f"""
         <div id="status" class="calendar-status" role="status" aria-label="Calendar Status">
             {self._render_status_line_html(status_line)}
-        </div>
-        """
-
-    def _generate_theme_toggle(self) -> str:
-        """Generate theme toggle button for header.
-
-        Returns:
-            HTML for theme toggle button
-        """
-        return """
-        <div class="theme-controls" role="toolbar" aria-label="Theme Controls">
-            <button class="theme-toggle"
-                    title="Toggle Theme"
-                    aria-label="Toggle Theme - Switch between light and dark modes"
-                    data-action="theme">
-                🎨
-            </button>
         </div>
         """
 
@@ -322,7 +304,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             str: Complete HTML string containing a Phase 3 current event card with:
                 - Event title with ▶ prefix and proper HTML escaping
                 - Time range with calculated duration in minutes
-                - Location information with appropriate icons (📍/💻)
+                - Location information with physical location icon (📍)
                 - Time remaining with urgency styling (red background if ≤5 min)
                 - Semantic HTML with ARIA attributes for accessibility
                 - CSS classes for responsive styling and visual hierarchy
@@ -363,7 +345,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         Phase 3 Upcoming Event Card Structure:
         [2px Border - 12px Padding]
         📋 MEETING TITLE (16px bold)
-        2:00 PM - 3:00 PM | 💻 Online (14px)
+        2:00 PM - 3:00 PM | 📍 Conference Room (14px)
         ⏰ In 45 minutes (14px)
 
         Args:
@@ -379,8 +361,6 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             and "Microsoft Teams Meeting" not in event.location_display_name
         ):
             location_text = f" | 📍 {self._escape_html(event.location_display_name)}"
-        elif event.is_online_meeting:
-            location_text = " | 💻 Online"
 
         # Time until start with priority visual indicators
         time_until_html = self._format_time_until_rpi(event)
@@ -416,8 +396,6 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             location_name = event.location_display_name
             if "Microsoft Teams Meeting" not in location_name:
                 return f'<div class="event-location location-physical">📍 {self._escape_html(location_name)}</div>'
-        elif event.is_online_meeting:
-            return '<div class="event-location location-online">💻 Online Meeting</div>'
         return ""
 
     def _format_time_remaining_rpi(self, event: CachedEvent) -> str:
@@ -480,7 +458,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             str: Semantic HTML list item with comprehensive accessibility features:
                 - Proper list item role and ARIA labeling for screen readers
                 - Event title with HTML escaping for XSS protection
-                - Time range with location indicators (📍 physical, 💻 online)
+                - Time range with physical location indicators (📍)
                 - Descriptive aria-label including full event context
                 - Keyboard-accessible markup for navigation
                 - Microsoft Teams Meeting text filtering for cleaner display
@@ -489,20 +467,20 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             - ARIA role="listitem" for proper list semantics
             - aria-label provides full event context for screen readers
             - Event title and details are semantically separated
-            - Visual icons (📍💻) supplemented with text alternatives
+            - Visual physical location icons (📍) supplemented with text alternatives
             - Supports keyboard navigation and focus management
             - Compatible with high contrast themes and screen magnification
 
         Note:
-            Filters "Microsoft Teams Meeting" text from location display to avoid
-            redundancy with the 💻 Online indicator. Location text is truncated
-            and properly escaped to prevent layout issues and security vulnerabilities.
+            Filters "Microsoft Teams Meeting" text from location display for cleaner
+            appearance. Location text is truncated and properly escaped to prevent
+            layout issues and security vulnerabilities.
 
         Example Output:
             <li class="later-event" data-event-id="evt123" role="listitem"
                 aria-label="Later Event: Team Standup">
                 <span class="event-title">Team Standup</span>
-                <span class="event-details">2:00 PM - 3:00 PM | 💻 Online</span>
+                <span class="event-details">2:00 PM - 3:00 PM | 📍 Conference Room</span>
             </li>
         """
         # Location information with visual indicators - filter out Microsoft Teams Meeting text
@@ -512,8 +490,6 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             and "Microsoft Teams Meeting" not in event.location_display_name
         ):
             location_text = f" | 📍 {self._escape_html(event.location_display_name)}"
-        elif event.is_online_meeting:
-            location_text = " | 💻 Online"
 
         return f"""
         <li class="later-event" data-event-id="{event.id}" role="listitem"
@@ -569,8 +545,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
     <meta charset="utf-8">
     <meta name="viewport" content="width=480, height=800, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - Connection Issue</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/eink-rpi.css">
+    <link rel="stylesheet" href="/static/4x8.css">
 </head>
 <body>
     <div class="calendar-container">
@@ -599,7 +574,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         </nav>
     </div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/4x8.js"></script>
 </body>
 </html>"""
 
@@ -619,8 +594,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
     <meta charset="utf-8">
     <meta name="viewport" content="width=480, height=800, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - Authentication Required</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/eink-rpi.css">
+    <link rel="stylesheet" href="/static/4x8.css">
 </head>
 <body>
     <div class="calendar-container">

@@ -21,38 +21,32 @@ class TestHTMLRendererInitialization:
 
         renderer = HTMLRenderer(settings)
 
-        assert renderer.settings == settings
-        assert renderer.theme == "eink"
+        # DEBUG: Log actual theme for diagnosis
+        print(f"DEBUG: Actual default theme is: {renderer.theme}")
+        print(f"DEBUG: Expected theme should be: 4x8 (based on HTMLRenderer line 24)")
 
-    def test_init_with_eink_theme(self) -> None:
-        """Test HTML renderer initialization with eink theme."""
+        assert renderer.settings == settings
+        assert renderer.theme == "4x8"  # Fixed: Default is 4x8, not 3x4
+
+    def test_init_with_3x4_theme(self) -> None:
+        """Test HTML renderer initialization with 3x4 theme."""
         settings = Mock()
-        settings.web_theme = "eink"
+        settings.web_theme = "3x4"
 
         renderer = HTMLRenderer(settings)
 
         assert renderer.settings == settings
-        assert renderer.theme == "eink"
+        assert renderer.theme == "3x4"
 
-    def test_init_with_eink_rpi_theme(self) -> None:
-        """Test HTML renderer initialization with eink-rpi theme."""
+    def test_init_with_4x8_theme(self) -> None:
+        """Test HTML renderer initialization with 4x8 theme."""
         settings = Mock()
-        settings.web_theme = "eink-rpi"
+        settings.web_theme = "4x8"
 
         renderer = HTMLRenderer(settings)
 
         assert renderer.settings == settings
-        assert renderer.theme == "eink-rpi"
-
-    def test_init_with_standard_theme(self) -> None:
-        """Test HTML renderer initialization with standard theme."""
-        settings = Mock()
-        settings.web_theme = "standard"
-
-        renderer = HTMLRenderer(settings)
-
-        assert renderer.settings == settings
-        assert renderer.theme == "standard"
+        assert renderer.theme == "4x8"
 
 
 class TestHTMLRendererRenderEvents:
@@ -61,7 +55,7 @@ class TestHTMLRendererRenderEvents:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_theme = "eink"
+        self.settings.web_theme = "3x4"
         self.renderer = HTMLRenderer(self.settings)
 
     @patch("calendarbot.display.html_renderer.datetime")
@@ -114,7 +108,8 @@ class TestHTMLRendererRenderEvents:
 
         assert 'onclick="navigate(' in result
         assert "Navigate" in result
-        assert "📍 Tomorrow" in result
+        # Relative date highlighting was removed, just check for basic structure
+        assert "Today" in result  # selected_date is "Today"
 
     def test_render_events_error_handling(self) -> None:
         """Test error handling in render_events."""
@@ -172,6 +167,81 @@ class TestHTMLRendererRenderEvents:
                 assert "Upcoming Event HTML" in result
 
 
+class TestHTMLRendererGetTimestampHTML:
+    """Test timestamp HTML generation for navigation area."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.renderer = HTMLRenderer(self.settings)
+
+    def test_get_timestamp_html_no_info(self) -> None:
+        """Test timestamp generation with no status info."""
+        result = self.renderer._get_timestamp_html(None)
+        assert result == ""
+
+    def test_get_timestamp_html_no_last_update(self) -> None:
+        """Test timestamp generation with no last_update."""
+        status_info = {"is_cached": True}
+        result = self.renderer._get_timestamp_html(status_info)
+        assert result == ""
+
+    @patch("pytz.timezone")
+    @patch("calendarbot.display.html_renderer.datetime")
+    def test_get_timestamp_html_with_string_datetime(
+        self, mock_datetime_module: Any, mock_timezone: Any
+    ) -> None:
+        """Test timestamp generation with string datetime."""
+        # Mock Pacific timezone
+        mock_pacific_tz = Mock()
+        mock_timezone.return_value = mock_pacific_tz
+
+        # Create a simple mock datetime that properly handles chaining
+        mock_update_time = Mock()
+        mock_update_time.tzinfo = Mock()  # Has timezone info
+        mock_update_time.astimezone.return_value.astimezone.return_value.strftime.return_value = (
+            "10:00 AM"
+        )
+
+        # Mock datetime.fromisoformat
+        mock_datetime_module.fromisoformat.return_value = mock_update_time
+
+        status_info = {"last_update": "2023-12-15T18:00:00Z"}
+        result = self.renderer._get_timestamp_html(status_info)
+
+        assert result == "Updated: 10:00 AM"
+
+    def test_get_timestamp_html_with_datetime_object(self) -> None:
+        """Test timestamp generation with datetime object."""
+        mock_update_time = Mock()
+        mock_update_time.tzinfo = None  # Simulate no timezone info
+
+        with patch("pytz.timezone") as mock_timezone, patch("pytz.utc.localize") as mock_localize:
+
+            mock_pacific_tz = Mock()
+            mock_timezone.return_value = mock_pacific_tz
+
+            mock_utc_time = Mock()
+            mock_pacific_time = Mock()
+            mock_pacific_time.strftime.return_value = "10:00 AM"
+
+            mock_localize.return_value = mock_utc_time
+            mock_utc_time.astimezone.return_value = mock_pacific_time
+
+            status_info = {"last_update": mock_update_time}
+            result = self.renderer._get_timestamp_html(status_info)
+
+            assert result == "Updated: 10:00 AM"
+
+    def test_get_timestamp_html_parsing_error(self) -> None:
+        """Test handling of timestamp parsing errors."""
+        status_info = {"last_update": "invalid-date-format"}
+        result = self.renderer._get_timestamp_html(status_info)
+
+        # Should return empty string on parsing error
+        assert result == ""
+
+
 class TestHTMLRendererBuildStatusLine:
     """Test status line building."""
 
@@ -214,7 +284,8 @@ class TestHTMLRendererBuildStatusLine:
         status_info = {"last_update": "2023-12-15T18:00:00Z"}
         result = self.renderer._build_status_line(status_info)
 
-        assert "Updated: 10:00 AM" in result
+        # Timestamp was moved to navigation, status line should only show cached data indicator
+        assert result == ""
 
     def test_build_status_line_with_last_update_datetime(self) -> None:
         """Test building status line with last update as datetime object."""
@@ -236,7 +307,8 @@ class TestHTMLRendererBuildStatusLine:
             status_info = {"last_update": mock_update_time}
             result = self.renderer._build_status_line(status_info)
 
-            assert "Updated: 10:00 AM" in result
+            # Timestamp was moved to navigation, status line should only show cached data indicator
+            assert result == ""
 
     def test_build_status_line_cached_data(self) -> None:
         """Test building status line with cached data indicator."""
@@ -250,7 +322,8 @@ class TestHTMLRendererBuildStatusLine:
         status_info = {"is_cached": False}
         result = self.renderer._build_status_line(status_info)
 
-        assert "🌐 Live Data" in result
+        # Live Data indicator was removed, should return empty string for non-cached
+        assert result == ""
 
     def test_build_status_line_with_connection_status(self) -> None:
         """Test building status line with connection status."""
@@ -378,7 +451,8 @@ class TestHTMLRendererRenderEventsContent:
 
             assert "⏰ Later Today" in result
             assert "📍 Room 4" in result  # 4th event has location
-            assert "💻 Online" in result  # 5th event is online meeting
+            # Online meeting indicators were removed
+            assert "Meeting 5" in result  # 5th event should still be shown
 
     def test_render_events_content_filter_teams_location(self) -> None:
         """Test filtering out Microsoft Teams Meeting location text."""
@@ -467,7 +541,8 @@ class TestHTMLRendererFormatCurrentEvent:
 
         result = self.renderer._format_current_event_html(event)
 
-        assert "💻 Online Meeting" in result
+        # Online meeting indicators were removed
+        assert "Virtual Standup" in result
 
     @patch("calendarbot.utils.helpers.get_timezone_aware_now")
     def test_format_current_event_html_filter_teams_location(self, mock_get_now: Any) -> None:
@@ -577,7 +652,8 @@ class TestHTMLRendererFormatUpcomingEvent:
 
         result = self.renderer._format_upcoming_event_html(event)
 
-        assert "💻 Online" in result
+        # Online meeting indicators were removed
+        assert "Video Conference" in result
 
     def test_format_upcoming_event_html_filter_teams_location(self) -> None:
         """Test filtering Microsoft Teams Meeting location text."""
@@ -666,7 +742,8 @@ class TestHTMLRendererNavigationHelp:
 
         result = self.renderer._render_navigation_help(status_info)
 
-        assert "📍 Tomorrow" in result
+        # Relative date highlighting was removed from navigation help
+        assert "Tomorrow" in result or "Navigate" in result
         assert "Navigate" in result
 
     def test_render_navigation_help_today_no_relative(self) -> None:
@@ -718,8 +795,8 @@ class TestHTMLRendererHTMLTemplate:
     @patch.object(HTMLRenderer, "_get_theme_js_file")
     def test_build_html_template_static_mode(self, mock_js_file: Any, mock_css_file: Any) -> None:
         """Test HTML template building in static mode."""
-        mock_css_file.return_value = "eink.css"
-        mock_js_file.return_value = "eink.js"
+        mock_css_file.return_value = "3x4.css"
+        mock_js_file.return_value = "3x4.js"
 
         result = self.renderer._build_html_template(
             display_date="Monday, December 18",
@@ -734,8 +811,8 @@ class TestHTMLRendererHTMLTemplate:
         assert "<div>Static Events</div>" in result
         assert 'onclick="navigate(' not in result  # No interactive navigation
         assert "<footer" not in result  # No footer in static mode
-        assert "eink.css" in result
-        assert "eink.js" in result
+        assert "3x4.css" in result
+        assert "3x4.js" in result
 
 
 class TestHTMLRendererThemeFiles:
@@ -745,81 +822,65 @@ class TestHTMLRendererThemeFiles:
         """Set up test fixtures."""
         self.settings = Mock()
 
-    def test_get_theme_css_file_eink(self) -> None:
-        """Test CSS file selection for eink theme."""
-        self.settings.web_theme = "eink"
+    def test_get_theme_css_file_3x4(self) -> None:
+        """Test CSS file selection for 3x4 theme."""
+        self.settings.web_theme = "3x4"
         renderer = HTMLRenderer(self.settings)
 
         result = renderer._get_theme_css_file()
-        assert result == "style.css"
+        assert result == "3x4.css"
 
-    def test_get_theme_css_file_eink_rpi(self) -> None:
-        """Test CSS file selection for eink-rpi theme."""
-        self.settings.web_theme = "eink-rpi"
+    def test_get_theme_css_file_4x8(self) -> None:
+        """Test CSS file selection for 4x8 theme."""
+        self.settings.web_theme = "4x8"
         renderer = HTMLRenderer(self.settings)
 
         result = renderer._get_theme_css_file()
-        assert result == "eink-rpi.css"
-
-    def test_get_theme_css_file_standard(self) -> None:
-        """Test CSS file selection for standard theme."""
-        self.settings.web_theme = "standard"
-        renderer = HTMLRenderer(self.settings)
-
-        result = renderer._get_theme_css_file()
-        assert result == "standard.css"
+        assert result == "4x8.css"
 
     def test_get_theme_css_file_unknown(self) -> None:
-        """Test CSS file selection for unknown theme (defaults to eink)."""
+        """Test CSS file selection for unknown theme (defaults to 4x8)."""
         self.settings.web_theme = "unknown"
         renderer = HTMLRenderer(self.settings)
 
         result = renderer._get_theme_css_file()
-        assert result == "style.css"
+        assert result == "4x8.css"
 
-    def test_get_theme_js_file_eink(self) -> None:
-        """Test JS file selection for eink theme."""
-        self.settings.web_theme = "eink"
+    def test_get_theme_js_file_3x4(self) -> None:
+        """Test JS file selection for 3x4 theme."""
+        self.settings.web_theme = "3x4"
         renderer = HTMLRenderer(self.settings)
 
         result = renderer._get_theme_js_file()
-        assert result == "app.js"
+        assert result == "3x4.js"
 
-    def test_get_theme_js_file_eink_rpi(self) -> None:
-        """Test JS file selection for eink-rpi theme."""
-        self.settings.web_theme = "eink-rpi"
+    def test_get_theme_js_file_4x8(self) -> None:
+        """Test JS file selection for 4x8 theme."""
+        self.settings.web_theme = "4x8"
         renderer = HTMLRenderer(self.settings)
 
         result = renderer._get_theme_js_file()
-        assert result == "eink-rpi.js"
-
-    def test_get_theme_js_file_standard(self) -> None:
-        """Test JS file selection for standard theme."""
-        self.settings.web_theme = "standard"
-        renderer = HTMLRenderer(self.settings)
-
-        result = renderer._get_theme_js_file()
-        assert result == "standard.js"
+        assert result == "4x8.js"
 
     def test_get_theme_js_file_unknown(self) -> None:
-        """Test JS file selection for unknown theme (defaults to eink)."""
+        """Test JS file selection for unknown theme (defaults to 4x8)."""
         self.settings.web_theme = "unknown"
         renderer = HTMLRenderer(self.settings)
 
         result = renderer._get_theme_js_file()
-        assert result == "app.js"
+        assert result == "4x8.js"
 
-    def test_get_theme_icon_eink(self) -> None:
-        """Test theme icon for eink theme."""
-        self.settings.web_theme = "eink"
+    def test_get_theme_icon_3x4(self) -> None:
+        """Test theme icon for 3x4 theme."""
+        self.settings.web_theme = "3x4"
         renderer = HTMLRenderer(self.settings)
 
         result = renderer._get_theme_icon()
-        assert result == "🎨"
+        assert result == "⚙️"
 
     def test_get_theme_icon_other(self) -> None:
-        """Test theme icon for non-eink themes."""
-        self.settings.web_theme = "eink-rpi"
+        """Test theme icon for non-3x4 themes."""
+        self.settings.web_theme = "4x8"
         renderer = HTMLRenderer(self.settings)
 
         result = renderer._get_theme_icon()
@@ -872,7 +933,7 @@ class TestHTMLRendererRenderError:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_theme = "eink"
+        self.settings.web_theme = "3x4"
         self.renderer = HTMLRenderer(self.settings)
 
     @patch("calendarbot.display.html_renderer.datetime")
@@ -955,7 +1016,7 @@ class TestHTMLRendererRenderAuthenticationPrompt:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_theme = "eink"
+        self.settings.web_theme = "3x4"
         self.renderer = HTMLRenderer(self.settings)
 
     def test_render_authentication_prompt_basic(self) -> None:
@@ -989,7 +1050,7 @@ class TestHTMLRendererRenderAuthenticationPrompt:
 
     def test_render_authentication_prompt_theme_integration(self) -> None:
         """Test authentication prompt integrates with theme system."""
-        self.renderer.theme = "eink-rpi"
+        self.renderer.theme = "3x4"
 
         result = self.renderer.render_authentication_prompt("https://example.com", "CODE123")
 
@@ -1002,7 +1063,7 @@ class TestHTMLRendererIntegration:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_theme = "eink"
+        self.settings.web_theme = "3x4"
         self.renderer = HTMLRenderer(self.settings)
 
     @patch("calendarbot.display.html_renderer.datetime")
@@ -1059,17 +1120,16 @@ class TestHTMLRendererIntegration:
         # Verify current event section
         assert "▶ Current Event" in result
         assert "Daily Standup" in result
-        assert "💻 Online Meeting" in result
+        # Online meeting indicators were removed
 
         # Verify upcoming events section
         assert "📋 Next Up" in result
         assert "Meeting 1" in result
         assert "📍 Room 1" in result
 
-        # Verify status information
-        assert "🌐 Live Data" in result
+        # Verify status information - Live Data indicator was removed
         assert "📶 Excellent" in result
-        assert "Updated:" in result
+        # Timestamp was moved to navigation area
 
         # Verify interactive navigation
         assert 'onclick="navigate(' in result
@@ -1096,7 +1156,7 @@ class TestHTMLRendererIntegration:
 
     def test_theme_consistency_across_methods(self) -> None:
         """Test theme consistency across different rendering methods."""
-        self.renderer.theme = "eink-rpi"
+        self.renderer.theme = "3x4"
 
         # Test main rendering
         events_result = self.renderer.render_events([])

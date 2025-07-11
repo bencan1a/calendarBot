@@ -210,7 +210,7 @@ web:
   enabled: true
   port: 8080
   host: "0.0.0.0"
-  theme: "eink-rpi"
+  theme: "4x8"
   auto_refresh: 60
 EOF
 ```
@@ -506,7 +506,7 @@ services:
     environment:
       - CALENDARBOT_ICS_URL=https://your-calendar.ics
       - CALENDARBOT_LOG_LEVEL=INFO
-      - CALENDARBOT_WEB_THEME=eink-rpi
+      - CALENDARBOT_WEB_THEME=4x8
     volumes:
       - calendarbot-data:/home/calendarbot/.local/share/calendarbot
       - calendarbot-config:/home/calendarbot/.config/calendarbot

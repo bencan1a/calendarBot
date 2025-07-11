@@ -197,7 +197,7 @@ Configuration management, monitoring, and deployment features.
 **So that** the interface matches my preferences and use case.
 
 **Acceptance Criteria:**
-1. Multiple theme options (standard, dark, high-contrast)
+1. Multiple theme options (4x8, 3x4, high-contrast)
 2. Configurable display density (compact, normal, spacious)
 3. Font size and family customization
 4. Color scheme preferences
