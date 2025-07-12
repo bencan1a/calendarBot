@@ -7,7 +7,6 @@ parallel = True
 # Files to include in coverage
 include = 
     calendarbot/*
-    config/*
 
 # Files to exclude from coverage
 omit =

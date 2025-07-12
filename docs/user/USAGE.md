@@ -12,6 +12,27 @@ This guide covers daily operation and all operational modes of Calendar Bot.
 - [Advanced Operations](#advanced-operations)
 - [See Also](#see-also)
 
+### Display Configuration
+
+To configure CalendarBot for specific display resolutions:
+
+**Supported Display Types**:
+- **4x8 (Standard):** Optimized for typical desktop LCD screens
+- **3x4 (Compact):** Designed for small embedded displays like e-ink panels
+
+**Command Line Selection**:
+```bash
+# Console-only example
+python main.py --display-type 4x8
+
+# Web interface example
+python main.py --web --display-type 3x4
+```
+
+**Tips**:
+- Display type affects layout rendering but maintains data consistency across modes
+- Combine with `--help` for full option details (e.g., `python main.py --web --help`)
+
 ## Operational Modes
 
 ### Interactive Mode (Default)
