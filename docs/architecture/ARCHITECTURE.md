@@ -181,7 +181,177 @@ graph TB
 - Resource monitoring and optimization
 - Signal-based shutdown handling
 
-## 4. Data Flow Architecture
+## 4. Component Dependency Architecture
+
+### Manager→Handler→Protocol Relationship Mapping
+
+The system uses a three-tier architecture with clear dependency relationships:
+
+```mermaid
+graph TB
+    subgraph "Manager Layer"
+        SM[SourceManager]
+        DM[DisplayManager]
+        CM[CacheManager]
+        WS[WebServer]
+    end
+
+    subgraph "Handler Layer"
+        ICSFetcher[ICSFetcher]
+        ICSParser[ICSParser]
+        DBHandler[DatabaseHandler]
+        HTTPHandler[HTTPRequestHandler]
+    end
+
+    subgraph "Protocol Layer"
+        RP[RendererProtocol]
+        IP[ICSSourceProtocol]
+        CP[CacheProtocol]
+    end
+
+    subgraph "Implementation Layer"
+        CR[ConsoleRenderer]
+        HR[HTMLRenderer]
+        RHR[RPIHtmlRenderer]
+        ICSS[ICSSource]
+        DB[Database]
+    end
+
+    %% Manager Dependencies
+    SM --> ICSFetcher
+    SM --> ICSParser
+    DM --> RP
+    CM --> DBHandler
+    WS --> CM
+    WS --> DM
+
+    %% Handler Dependencies
+    ICSFetcher --> IP
+    ICSParser --> IP
+    DBHandler --> CP
+    HTTPHandler --> DM
+
+    %% Protocol Implementations
+    RP --> CR
+    RP --> HR
+    RP --> RHR
+    IP --> ICSS
+    CP --> DB
+
+    %% Cross-Layer Dependencies
+    SM --> CM
+    DM --> CM
+    WS --> SM
+```
+
+### Detailed Component Dependencies
+
+#### 1. **SourceManager Dependencies**
+```python
+# calendarbot/sources/manager.py
+class SourceManager:
+    """Coordinates multiple calendar sources with health monitoring."""
+    
+    # Direct Dependencies:
+    - ICSFetcher: HTTP client for calendar feeds
+    - ICSParser: RFC 5545 compliant parsing
+    - CacheManager: Event storage and retrieval
+    - Logger: Structured logging with context
+    
+    # Protocol Dependencies:
+    - ICSSourceProtocol: Type-safe source definitions
+    - CacheProtocol: Cache operation contracts
+    
+    # Async Coordination:
+    - asyncio.gather(): Concurrent source fetching
+    - asyncio.wait_for(): Timeout management
+    - asyncio.Lock(): Thread-safe cache updates
+```
+
+#### 2. **DisplayManager Dependencies**
+```python
+# calendarbot/display/manager.py
+class DisplayManager:
+    """Coordinates display rendering with renderer selection."""
+    
+    # Direct Dependencies:
+    - RendererProtocol: Type-safe renderer interface
+    - CacheManager: Event data retrieval
+    - Settings: Display configuration
+    
+    # Renderer Implementations:
+    - ConsoleRenderer: Terminal output
+    - HTMLRenderer: Web interface rendering
+    - RPIHtmlRenderer: E-ink optimized rendering
+    
+    # Dependency Injection Pattern:
+    - Runtime renderer selection based on mode
+    - Protocol-based renderer swapping
+    - Configuration-driven behavior
+```
+
+#### 3. **WebServer Dependencies**
+```python
+# calendarbot/web/server.py
+class WebServer(BaseHTTPRequestHandler):
+    """HTTP server with async/sync bridge patterns."""
+    
+    # Manager Dependencies:
+    - DisplayManager: HTML rendering coordination
+    - CacheManager: Event data access
+    - SourceManager: Calendar source management
+    
+    # Async Bridge Dependencies:
+    - ThreadPoolExecutor: Async execution in sync context
+    - asyncio.run_coroutine_threadsafe(): Event loop bridging
+    - concurrent.futures: Thread coordination
+    
+    # Protocol Dependencies:
+    - RendererProtocol: Consistent rendering interface
+    - CacheProtocol: Cache operation contracts
+```
+
+### Component Interaction Patterns
+
+#### Manager Coordination Pattern
+```python
+# Example: DisplayManager → RendererProtocol → Implementation
+async def render_calendar(self, date_range: DateRange) -> str:
+    """Coordinate rendering through protocol interface."""
+    
+    # 1. Get data through CacheManager
+    events = await self.cache_manager.get_events_in_range(date_range)
+    
+    # 2. Delegate to protocol implementation
+    return await self.renderer.render_events(
+        events=events,
+        date_range=date_range,
+        settings=self.settings
+    )
+```
+
+#### Async Bridge Pattern
+```python
+# Example: WebServer async/sync coordination
+def get_calendar_html(self, date_str: str) -> str:
+    """Bridge sync HTTP handler to async operations."""
+    
+    # Create new event loop for async operations
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        # Execute async manager calls in controlled environment
+        future = asyncio.run_coroutine_threadsafe(
+            self._async_get_calendar(date_str),
+            self._async_loop
+        )
+        return future.result(timeout=30)
+    finally:
+        loop.close()
+```
+
+## 5. Data Flow Architecture
 
 ### Event Processing Pipeline
 
@@ -204,6 +374,213 @@ sequenceDiagram
     Cache->>Display: Provide current events
     Display->>UI: Update presentation
     UI->>Timer: Schedule next refresh
+```
+
+### HTTP Request Flow Through Components
+
+```mermaid
+sequenceDiagram
+    participant Client as Browser
+    participant WS as WebServer
+    participant DM as DisplayManager
+    participant CM as CacheManager
+    participant SM as SourceManager
+    participant Renderer as HTMLRenderer
+
+    Client->>WS: GET /calendar/2024-01-15
+    WS->>WS: Parse date parameter
+    WS->>CM: get_events_by_date_range()
+    
+    alt Cache Hit
+        CM->>WS: Return cached events
+    else Cache Miss
+        CM->>SM: refresh_sources()
+        SM->>SM: Fetch from ICS sources
+        SM->>CM: Store new events
+        CM->>WS: Return fresh events
+    end
+    
+    WS->>DM: render_calendar(events)
+    DM->>Renderer: render_events(events)
+    Renderer->>DM: HTML content
+    DM->>WS: Rendered HTML
+    WS->>Client: HTTP 200 + HTML
+```
+
+### Complete System Data Flow
+
+```mermaid
+flowchart TD
+    subgraph "Client Layer"
+        Browser[Web Browser]
+        Console[Console Interface]
+        RPi[Raspberry Pi Display]
+    end
+
+    subgraph "HTTP Server Layer"
+        WS[WebServer]
+        Router[Request Router]
+        StaticHandler[Static File Handler]
+    end
+
+    subgraph "Manager Layer"
+        DM[DisplayManager]
+        SM[SourceManager]
+        CM[CacheManager]
+    end
+
+    subgraph "Protocol Layer"
+        RP[RendererProtocol]
+        ISP[ICSSourceProtocol]
+        CP[CacheProtocol]
+    end
+
+    subgraph "Implementation Layer"
+        HTMLRender[HTMLRenderer]
+        ConsoleRender[ConsoleRenderer]
+        RPIRender[RPIHtmlRenderer]
+        ICSFetch[ICSFetcher]
+        ICSParse[ICSParser]
+        Database[SQLite Database]
+    end
+
+    subgraph "External Layer"
+        ICSFeeds[ICS Calendar Feeds]
+        FileSystem[Local File System]
+    end
+
+    %% Client to Server
+    Browser --> WS
+    Console --> DM
+    RPi --> DM
+
+    %% Server routing
+    WS --> Router
+    Router --> DM
+    Router --> StaticHandler
+
+    %% Manager coordination
+    DM --> CM
+    DM --> RP
+    SM --> CM
+    CM --> CP
+
+    %% Protocol implementations
+    RP --> HTMLRender
+    RP --> ConsoleRender
+    RP --> RPIRender
+    ISP --> ICSFetch
+    ISP --> ICSParse
+    CP --> Database
+
+    %% Data sources
+    SM --> ISP
+    ICSFetch --> ICSFeeds
+    Database --> FileSystem
+
+    %% Data flow arrows
+    ICSFeeds -.->|Calendar Data| ICSFetch
+    ICSFetch -.->|Raw ICS| ICSParse
+    ICSParse -.->|Parsed Events| Database
+    Database -.->|Cached Events| CM
+    CM -.->|Event Data| DM
+    DM -.->|Rendered Output| Browser
+```
+
+### Async Operation Flow
+
+```mermaid
+sequenceDiagram
+    participant WebHandler as HTTP Handler (Sync)
+    participant AsyncBridge as Async Bridge
+    participant EventLoop as Event Loop
+    participant CacheManager as CacheManager (Async)
+    participant Database as SQLite DB
+    participant SourceManager as SourceManager (Async)
+    participant ICSSource as ICS Source
+
+    Note over WebHandler,ICSSource: HTTP Request Processing with Async Bridge
+
+    WebHandler->>AsyncBridge: get_calendar_html(date)
+    AsyncBridge->>EventLoop: Create new event loop
+    AsyncBridge->>EventLoop: run_coroutine_threadsafe()
+    
+    EventLoop->>CacheManager: get_events_by_date_range()
+    CacheManager->>Database: SELECT events WHERE date_range
+    
+    alt Cache Hit (Fresh Data)
+        Database->>CacheManager: Return cached events
+        CacheManager->>EventLoop: Events found
+    else Cache Miss or Stale
+        CacheManager->>SourceManager: refresh_sources()
+        SourceManager->>ICSSource: fetch_ics()
+        ICSSource->>SourceManager: ICS content
+        SourceManager->>CacheManager: store_events()
+        CacheManager->>Database: INSERT/UPDATE events
+        Database->>CacheManager: Success
+        CacheManager->>EventLoop: Fresh events
+    end
+    
+    EventLoop->>AsyncBridge: Return event data
+    AsyncBridge->>WebHandler: Calendar HTML
+    WebHandler->>WebHandler: Send HTTP response
+```
+
+### Cache Management Flow
+
+```mermaid
+flowchart TD
+    subgraph "Cache Request"
+        Request[Cache Request]
+        QueryType{Query Type}
+    end
+
+    subgraph "Cache Layer"
+        CacheManager[Cache Manager]
+        TTLCheck[TTL Validation]
+        ExpiredCheck[Expired Event Cleanup]
+    end
+
+    subgraph "Database Layer"
+        SQLite[(SQLite Database)]
+        WALMode[WAL Mode]
+        Indexes[Optimized Indexes]
+    end
+
+    subgraph "Source Refresh"
+        SourceManager[Source Manager]
+        HTTPFetch[HTTP ICS Fetch]
+        Parse[Event Parsing]
+        Dedup[Event Deduplication]
+    end
+
+    Request --> QueryType
+    
+    QueryType -->|Get Events| CacheManager
+    QueryType -->|Store Events| CacheManager
+    QueryType -->|Cleanup| ExpiredCheck
+    
+    CacheManager --> TTLCheck
+    TTLCheck -->|Fresh| SQLite
+    TTLCheck -->|Stale| SourceManager
+    
+    SourceManager --> HTTPFetch
+    HTTPFetch --> Parse
+    Parse --> Dedup
+    Dedup --> CacheManager
+    
+    CacheManager --> SQLite
+    SQLite --> WALMode
+    SQLite --> Indexes
+    
+    ExpiredCheck --> SQLite
+    
+    SQLite -.->|Cached Data| CacheManager
+    CacheManager -.->|Events| Request
+
+    %% Performance optimizations
+    WALMode -.->|Reduced I/O| SQLite
+    Indexes -.->|Fast Queries| SQLite
 ```
 
 ### Configuration Loading Flow

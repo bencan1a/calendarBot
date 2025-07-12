@@ -193,52 +193,120 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+# Consolidated pytest configuration (migrated from pytest.ini)
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config"
-testpaths = [
-    "tests",
+
+# Test discovery settings
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Exclude problematic directories from test discovery
+norecursedirs = [
+    "bad_unit_tests",
+    "backup",
+    ".git",
+    "__pycache__",
+    ".pytest_cache",
+    "*.egg-info",
+    "MagicMock"
 ]
+
+# Comprehensive test execution options (merged from both files)
+addopts = [
+    "-ra",                    # Show extra test summary info for all except passed
+    "--strict-markers",       # Treat unregistered markers as errors
+    "--strict-config",        # Treat configuration errors as errors
+    "--verbose",              # Verbose output
+    "--tb=short",             # Short traceback format
+    "--maxfail=10",           # Stop after 10 failures
+    "--durations=10",         # Show 10 slowest tests
+]
+
+# Async test support
+asyncio_mode = "auto"
+
+# Console logging configuration
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+# Warning filters (comprehensive approach)
 filterwarnings = [
-    "error",
-    "ignore::UserWarning",
-    "ignore::DeprecationWarning",
-    "ignore::RuntimeWarning",
-    "ignore::PendingDeprecationWarning",
-    "ignore::ResourceWarning",
-    "ignore::ImportWarning",
-    "ignore::FutureWarning",
+    "error",                              # Convert warnings to errors by default
+    "ignore::UserWarning",                # Ignore user warnings
+    "ignore::DeprecationWarning",         # Ignore deprecation warnings
+    "ignore::RuntimeWarning",             # Ignore runtime warnings
+    "ignore::PendingDeprecationWarning",  # Ignore pending deprecation warnings
+    "ignore::ResourceWarning",            # Ignore resource warnings
+    "ignore::ImportWarning",              # Ignore import warnings
+    "ignore::FutureWarning",              # Ignore future warnings
 ]
+
+# Comprehensive test markers (merged from both configurations)
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
-    "browser: Tests that use browser automation",
+    # Basic test categories
+    "unit: Fast unit tests",
+    "integration: Integration tests requiring external dependencies",
     "e2e: End-to-end tests for complete workflows",
-    "security: Security-focused tests",
-    "network: Tests that require network access",
-    "performance: Performance and load tests",
+    
+    # Browser and UI testing
+    "browser: Browser-based validation tests",
     "accessibility: Accessibility and WCAG compliance tests",
     "cross_browser: Cross-browser compatibility tests",
     "visual_regression: Visual regression and screenshot comparison tests",
     "responsive: Responsive design and viewport tests",
-    "coverage: Tests specifically for coverage validation",
-    "critical: Critical path tests for CI/CD",
-    "critical_path: Essential tests for CI/CD pipeline (fast execution)",
+    
+    # Security and network
+    "security: Security-focused tests and vulnerability checks",
+    "network: Tests that require network access",
+    
+    # Performance and execution characteristics
+    "performance: Performance and load tests",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "fast: Quick-executing tests (under 30 seconds)",
+    
+    # CI/CD and workflow
+    "critical_path: Core functionality tests for CI/CD pipeline (fast execution)",
+    "critical: Critical path tests for CI/CD",
     "smoke: Basic functionality verification tests",
     "regression: Full regression testing",
     "targeted: Tests selected based on code changes",
+    
+    # Coverage and validation
+    "coverage: Tests specifically for coverage validation",
 ]
 
 [tool.coverage.run]
+# Comprehensive coverage configuration (migrated from .coveragerc)
 source = ["calendarbot"]
+branch = true
+parallel = true
+
+# Files to include in coverage analysis
+include = [
+    "calendarbot/*",
+    "config/*"
+]
+
+# Files to exclude from coverage analysis
 omit = [
     "*/tests/*",
     "*/test_*",
+    "*/conftest.py",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/env/*",
+    "*/migrations/*",
+    "scripts/*",
     "setup.py",
+    "manage.py",
 ]
 
 [tool.coverage.report]
+# Coverage reporting options with quality thresholds
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
@@ -251,3 +319,19 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
+
+# Minimum coverage thresholds and reporting options
+fail_under = 80
+precision = 2
+show_missing = true
+skip_covered = false
+skip_empty = true
+
+[tool.coverage.html]
+# HTML report configuration
+directory = "htmlcov"
+title = "CalendarBot Test Coverage Report"
+
+[tool.coverage.xml]
+# XML report for CI integration
+output = "coverage.xml"
