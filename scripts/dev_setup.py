@@ -242,7 +242,7 @@ web:
   enabled: true
   port: 8080
   host: "127.0.0.1"        # Localhost only for development
-  theme: "4x8"
+  layout: "4x8"
   auto_refresh: 30         # Faster refresh for development
 
 # Raspberry Pi E-ink Settings
@@ -296,7 +296,7 @@ web:
   enabled: false          # Disabled during tests
   port: 8081             # Different port to avoid conflicts
   host: "127.0.0.1"
-  theme: "4x8"
+  layout: "4x8"
   auto_refresh: 10
 
 # Testing-specific settings

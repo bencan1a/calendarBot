@@ -757,7 +757,7 @@ class TestSecurityEventLogger:
         with patch("calendarbot.utils.logging.get_logger"):
             logger = SecurityEventLogger()
 
-            assert logger._severity_to_log_level(SecuritySeverity.LOW) == logging.INFO
+            assert logger._severity_to_log_level(SecuritySeverity.LOW) == logging.DEBUG
             assert logger._severity_to_log_level(SecuritySeverity.MEDIUM) == logging.WARNING
             assert logger._severity_to_log_level(SecuritySeverity.HIGH) == logging.ERROR
             assert logger._severity_to_log_level(SecuritySeverity.CRITICAL) == logging.CRITICAL

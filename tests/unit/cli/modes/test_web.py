@@ -82,7 +82,6 @@ class TestRunWebMode:
         ), patch(
             "signal.signal"
         ):
-
             # Configure mocks
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
@@ -121,7 +120,6 @@ class TestRunWebMode:
         ) as mock_print, patch(
             "signal.signal"
         ):
-
             result = await web.run_web_mode(mock_args)
 
             assert result == 1
@@ -159,7 +157,6 @@ class TestRunWebMode:
         ), patch(
             "signal.signal"
         ):
-
             # Mock the shutdown event to immediately trigger
             with patch("calendarbot.cli.modes.web.asyncio.Event") as mock_event_class:
                 mock_event = MagicMock()
@@ -199,7 +196,6 @@ class TestRunWebMode:
         ), patch(
             "signal.signal"
         ):
-
             # Mock the shutdown event to immediately trigger
             with patch("calendarbot.cli.modes.web.asyncio.Event") as mock_event_class:
                 mock_event = MagicMock()
@@ -241,7 +237,6 @@ class TestRunWebMode:
         ), patch(
             "signal.signal"
         ):
-
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
 
@@ -282,7 +277,6 @@ class TestRunWebMode:
         ) as mock_traceback, patch(
             "signal.signal"
         ):
-
             result = await web.run_web_mode(mock_args)
 
             assert result == 1
@@ -319,7 +313,6 @@ class TestRunWebMode:
         ), patch(
             "signal.signal"
         ):
-
             # Mock the shutdown event to immediately trigger
             with patch("calendarbot.cli.modes.web.asyncio.Event") as mock_event_class:
                 mock_event = MagicMock()
@@ -330,7 +323,7 @@ class TestRunWebMode:
 
                 assert result == 0
                 mock_rpi_overrides.assert_called_once_with(test_settings, mock_args)
-                # In RPI mode, display_type and web_theme should not be overridden
+                # In RPI mode, display_type and web_layout should not be overridden
                 assert (
                     not hasattr(test_settings, "display_type")
                     or test_settings.display_type != "html"
@@ -364,7 +357,6 @@ class TestRunWebMode:
         ), patch(
             "signal.signal"
         ):
-
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
 
@@ -413,7 +405,6 @@ class TestRunWebMode:
         ), patch(
             "signal.signal"
         ):
-
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
 
@@ -553,7 +544,6 @@ class TestWebModeIntegration:
         ), patch(
             "signal.signal"
         ):
-
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
             mock_task = AsyncMock()
@@ -587,7 +577,7 @@ class TestWebModeIntegration:
 
                 # Verify settings were updated for web mode
                 assert test_settings.display_type == "html"
-                assert test_settings.web_theme == "4x8"
+                assert test_settings.web_layout == "4x8"
                 assert test_settings.web_host == "127.0.0.1"
                 assert test_settings.web_port == 9090
 
@@ -611,7 +601,6 @@ class TestWebModeIntegration:
             with patch("calendarbot.main.CalendarBot", side_effect=exception), patch(
                 "builtins.print"
             ) as mock_print, patch("traceback.print_exc") as mock_traceback, patch("signal.signal"):
-
                 result = await web.run_web_mode(mock_args)
 
                 assert result == 1

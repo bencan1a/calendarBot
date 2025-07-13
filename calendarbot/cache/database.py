@@ -203,9 +203,9 @@ class DatabaseManager:
             start_str = start_date.isoformat()
             end_str = end_date.isoformat()
 
-            logger.info(f"DEBUG: Database query - start_str={start_str}, end_str={end_str}")
-            logger.info(
-                f"DEBUG: Query logic - events WHERE start_datetime <= {end_str} AND end_datetime >= {start_str}"
+            logger.debug(f"Database query - start_str={start_str}, end_str={end_str}")
+            logger.debug(
+                f"Query logic - events WHERE start_datetime <= {end_str} AND end_datetime >= {start_str}"
             )
 
             async with aiosqlite.connect(str(self.database_path)) as db:
@@ -215,7 +215,7 @@ class DatabaseManager:
                 total_cursor = await db.execute("SELECT COUNT(*) as count FROM cached_events")
                 total_row = await total_cursor.fetchone()
                 total_count = total_row["count"] if total_row else 0
-                logger.info(f"DEBUG: Total events in database: {total_count}")
+                logger.debug(f"Total events in database: {total_count}")
 
                 cursor = await db.execute(
                     """
@@ -230,7 +230,7 @@ class DatabaseManager:
                 rows = await cursor.fetchall()
                 row_count = len(list(rows)) if rows else 0
 
-                logger.info(f"DEBUG: Query returned {row_count} rows")
+                logger.debug(f"Query returned {row_count} rows")
 
                 # Convert rows to CachedEvent objects
                 events = []

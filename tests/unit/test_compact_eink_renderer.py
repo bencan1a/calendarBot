@@ -51,7 +51,7 @@ class TestCompactEInkRenderer:
     def test_init(self, mock_settings):
         """Test CompactEInkRenderer initialization."""
         renderer = CompactEInkRenderer(mock_settings)
-        assert renderer.theme == "3x4"
+        assert renderer.layout == "3x4"
 
     def test_truncate_text_short_text(self, renderer):
         """Test _truncate_text with text shorter than max_length."""
@@ -84,8 +84,8 @@ class TestCompactEInkRenderer:
             interactive_mode=True,
         )
 
-        # Check for compact theme class
-        assert 'class="theme-3x4"' in html
+        # Check for compact layout class
+        assert 'class="layout-3x4"' in html
 
         # Check for compact viewport
         assert "width=300, height=400" in html
@@ -101,15 +101,15 @@ class TestCompactEInkRenderer:
         result = renderer._generate_compact_header_navigation("Today", True)
 
         # Theme toggle button has been removed from compact renderer
-        assert "theme-toggle" not in result
+        assert "layout-toggle" not in result
         assert "Today" in result
 
     def test_generate_compact_header_navigation_non_interactive(self, renderer):
         """Test compact header navigation in non-interactive mode."""
         result = renderer._generate_compact_header_navigation("Today", False)
 
-        # Should not include theme toggle button in non-interactive mode
-        assert "theme-toggle" not in result
+        # Should not include layout toggle button in non-interactive mode
+        assert "layout-toggle" not in result
         assert "Today" in result
 
     def test_generate_compact_status_bar(self, renderer):
@@ -293,7 +293,6 @@ class TestCompactEInkRenderer:
         with patch("calendarbot.cache.models.CachedEvent.is_current", return_value=True), patch(
             "calendarbot.cache.models.CachedEvent.is_upcoming", return_value=False
         ):
-
             result = renderer._render_events_content([sample_event], True)
 
             assert "section-current" in result
@@ -304,7 +303,6 @@ class TestCompactEInkRenderer:
         with patch("calendarbot.cache.models.CachedEvent.is_current", return_value=False), patch(
             "calendarbot.cache.models.CachedEvent.is_upcoming", return_value=True
         ):
-
             result = renderer._render_events_content([sample_event], True)
 
             assert "section-upcoming" in result
@@ -318,8 +316,8 @@ class TestCompactEInkRenderer:
 
         result = renderer._render_error_html(error_message)
 
-        # Check for compact theme
-        assert "theme-3x4" in result
+        # Check for compact layout
+        assert "layout-3x4" in result
 
         # Check for compact viewport
         assert "width=300, height=400" in result
@@ -334,8 +332,8 @@ class TestCompactEInkRenderer:
 
         result = renderer.render_authentication_prompt(verification_uri, user_code)
 
-        # Check for compact theme
-        assert "theme-3x4" in result
+        # Check for compact layout
+        assert "layout-3x4" in result
 
         # Check for compact viewport
         assert "width=300, height=400" in result
@@ -437,7 +435,6 @@ class TestCompactEInkRendererIntegration:
         ), patch(
             "calendarbot.cache.models.CachedEvent.time_until_start", mock_time_until_start
         ):
-
             result = renderer._render_events_content(events, True)
 
         # Verify structure

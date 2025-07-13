@@ -1,0 +1,777 @@
+/* ===========================================
+   E-INK COMPACT 300x400 THEME
+   300x400px Display Optimization (Portrait)
+   =========================================== */
+
+/* ===========================================
+   CSS CUSTOM PROPERTIES SYSTEM
+   =========================================== */
+
+.theme-eink-compact-300x400 {
+  /* Display Dimensions - Compact 300x400 */
+  --display-width: 300px;
+  --display-height: 400px;
+
+  /* Layout Grid System - Compact */
+  --header-height: 50px;
+  --status-height: 40px;
+  --content-height: calc(var(--display-height) - var(--header-height) - var(--status-height)); /* 310px */
+  --content-padding: 8px;
+  --grid-gap: 6px;
+
+  /* Touch Target Specifications - Compact but accessible */
+  --touch-target-min: 35px;
+  --touch-target-spacing: 6px;
+  --nav-button-width: 60px;
+  --nav-button-height: var(--touch-target-min);
+  --theme-toggle-size: var(--touch-target-min);
+  --extended-hit-area: 6px;
+
+  /* Typography Scale - Compact E-ink Optimized */
+  --font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+
+  /* Compact Typography Scale */
+  --font-size-h1: 16px;        /* Calendar Title */
+  --font-size-h2: 15px;        /* Section Headers */
+  --font-size-h3: 14px;        /* Event Titles */
+  --font-size-h4: 13px;        /* Event Details */
+  --font-size-body: 12px;      /* Body Text */
+  --font-size-small: 11px;     /* Small Text */
+
+  /* Line Height Variables - Tighter for compact layout */
+  --line-height-tight: 1.1;    /* for headings */
+  --line-height-normal: 1.2;   /* for body text */
+  --line-height-relaxed: 1.3;  /* for dense text */
+
+  /* Compact Readability Spacing */
+  --letter-spacing-normal: 0.01em;
+  --word-spacing-normal: 1.05em;
+  --paragraph-spacing: 6px;
+  --icon-spacing: 3px;
+  --icon-min-size: 12px;
+  --text-max-line-length: 45ch;
+
+  /* Legacy compatibility */
+  --font-size-base: var(--font-size-body);
+  --font-size-large: var(--font-size-h3);
+  --font-size-xl: var(--font-size-h2);
+  --font-size-xxl: var(--font-size-h1);
+
+  /* Color System - High Contrast Monochromatic */
+  --color-primary: #000000;
+  --color-secondary: #ffffff;
+  --color-border: #000000;
+  --color-border-light: #666666;
+  --color-background: #ffffff;
+  --color-surface: #ffffff;
+  --color-text: #000000;
+  --color-text-muted: #333333;
+
+  /* Compact Visual Separator System */
+  --separator-section: 1px solid #000000;     /* Section separators */
+  --separator-section-spacing: 8px;
+  --separator-card-border: 1px solid #000000; /* Card boundaries */
+  --separator-card-padding: 8px;
+  --separator-timeslot: 1px solid #666666;    /* Time slot dividers */
+  --separator-timeslot-spacing: 4px;
+  --separator-subsection: 1px dotted #999999; /* Subsection breaks */
+  --separator-subsection-spacing: 6px;
+
+  /* Component Spacing - Compact */
+  --spacing-xs: 2px;
+  --spacing-sm: 4px;
+  --spacing-md: 6px;
+  --spacing-lg: 8px;
+  --spacing-xl: 12px;
+  --spacing-xxl: 16px;
+
+  /* Border Properties */
+  --border-width: 1px;
+  --border-style: solid;
+  --border-radius: 0; /* Sharp edges for e-ink */
+
+  /* Animation Properties - Disabled for e-ink */
+  --transition-duration: 0s;
+  --animation-duration: 0s;
+
+  /* Compact Section Heights */
+  --current-event-height: 120px;
+  --next-event-height: 80px;
+  --summary-height: 60px;
+}
+
+/* ===========================================
+   BASE RESET AND FOUNDATION
+   =========================================== */
+
+.theme-eink-compact-300x400 * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+
+  /* Disable all animations and transitions for e-ink */
+  transition: none !important;
+  animation: none !important;
+}
+
+.theme-eink-compact-300x400 {
+  width: var(--display-width);
+  height: var(--display-height);
+  background: var(--color-background);
+  color: var(--color-text);
+  overflow: hidden;
+  position: relative;
+}
+
+.theme-eink-compact-300x400 body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-normal);
+  letter-spacing: var(--letter-spacing-normal);
+  word-spacing: var(--word-spacing-normal);
+  background: var(--color-background);
+  color: var(--color-text);
+  width: var(--display-width);
+  height: var(--display-height);
+  overflow: hidden;
+
+  /* Compact Text Rendering Optimization */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1;
+}
+
+/* ===========================================
+   LAYOUT GRID SYSTEM - COMPACT
+   =========================================== */
+
+.theme-eink-compact-300x400 .calendar-container {
+  display: grid;
+  grid-template-rows: var(--header-height) 1fr var(--status-height);
+  grid-template-areas:
+    "header"
+    "content"
+    "status";
+  width: var(--display-width);
+  height: var(--display-height);
+}
+
+.theme-eink-compact-300x400 .calendar-header {
+  grid-area: header;
+  display: grid;
+  grid-template-columns: var(--nav-button-width) 1fr var(--nav-button-width);
+  grid-template-areas: "nav-left title nav-right";
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface);
+  border-bottom: var(--border-width) var(--border-style) var(--color-border);
+  height: var(--header-height);
+}
+
+.theme-eink-compact-300x400 .calendar-content {
+  grid-area: content;
+  padding: var(--content-padding);
+  background: var(--color-background);
+  overflow-y: auto;
+  height: var(--content-height);
+}
+
+.theme-eink-compact-300x400 .calendar-status {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  border-top: var(--border-width) var(--border-style) var(--color-border);
+  height: var(--status-height);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-small);
+  text-align: center;
+}
+
+/* ===========================================
+   COMPACT TYPOGRAPHY COMPONENTS
+   =========================================== */
+
+.theme-eink-compact-300x400 .text-xs {
+  font-size: 10px;
+  line-height: var(--line-height-tight);
+}
+
+.theme-eink-compact-300x400 .text-sm {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-normal);
+}
+
+.theme-eink-compact-300x400 .text-base {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  max-width: var(--text-max-line-length);
+}
+
+.theme-eink-compact-300x400 .text-lg {
+  font-size: var(--font-size-large);
+  line-height: var(--line-height-normal);
+}
+
+.theme-eink-compact-300x400 .text-xl {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+}
+
+.theme-eink-compact-300x400 .text-xxl {
+  font-size: var(--font-size-xxl);
+  line-height: var(--line-height-tight);
+}
+
+.theme-eink-compact-300x400 .font-bold {
+  font-weight: bold;
+}
+
+.theme-eink-compact-300x400 .font-normal {
+  font-weight: normal;
+}
+
+/* ===========================================
+   COMPACT BUTTON COMPONENTS
+   =========================================== */
+
+.theme-eink-compact-300x400 .btn-base {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-width) var(--border-style) var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--font-size-small);
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: var(--border-radius);
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  margin: var(--touch-target-spacing);
+  position: relative;
+}
+
+.theme-eink-compact-300x400 .btn-navigation {
+  width: var(--nav-button-width);
+  height: var(--nav-button-height);
+  font-size: var(--font-size-body);
+}
+
+.theme-eink-compact-300x400 .btn-primary {
+  background: var(--color-primary);
+  color: var(--color-secondary);
+  border-color: var(--color-primary);
+}
+
+.theme-eink-compact-300x400 .btn-secondary {
+  background: var(--color-secondary);
+  color: var(--color-primary);
+  border-color: var(--color-border);
+}
+
+/* Button States - Simplified for e-ink */
+.theme-eink-compact-300x400 .btn-base:hover {
+  opacity: 0.8;
+}
+
+.theme-eink-compact-300x400 .btn-base:active {
+  background: var(--color-border-light);
+}
+
+.theme-eink-compact-300x400 .btn-base:focus {
+  outline: var(--border-width) var(--border-style) var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ===========================================
+   NAVIGATION COMPONENT - COMPACT
+   =========================================== */
+
+.theme-eink-compact-300x400 .nav-controls {
+  grid-area: nav-left;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.theme-eink-compact-300x400 .theme-controls {
+  grid-area: nav-right;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.theme-eink-compact-300x400 .header-main {
+  grid-area: title;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.theme-eink-compact-300x400 .calendar-title {
+  font-size: var(--font-size-h1);
+  font-weight: bold;
+  line-height: var(--line-height-tight);
+  margin: 0;
+}
+
+.theme-eink-compact-300x400 .status-line {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-tight);
+  margin-top: var(--spacing-xs);
+  color: var(--color-text-muted);
+}
+
+.theme-eink-compact-300x400 .theme-toggle {
+  width: var(--theme-toggle-size);
+  height: var(--theme-toggle-size);
+  border: var(--border-width) var(--border-style) var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+  border-radius: var(--border-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: var(--touch-target-spacing);
+  position: relative;
+}
+
+/* ===========================================
+   COMPACT EVENT DISPLAY COMPONENTS
+   =========================================== */
+
+/* Section Headers - Compact */
+.theme-eink-compact-300x400 .section-title {
+  font-size: var(--font-size-h2);
+  font-weight: bold;
+  line-height: var(--line-height-tight);
+  margin: var(--separator-section-spacing) 0 var(--spacing-sm) 0;
+  color: var(--color-text);
+  border-bottom: var(--separator-section);
+  padding-bottom: var(--spacing-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--icon-spacing);
+}
+
+.theme-eink-compact-300x400 .section-title:first-child {
+  margin-top: 0;
+}
+
+/* Current Event Section - Fixed Height */
+.theme-eink-compact-300x400 .section-current {
+  border: 2px solid var(--color-primary);
+  padding: var(--separator-card-padding);
+  background: var(--color-surface);
+  margin-bottom: var(--separator-section-spacing);
+  border-radius: var(--border-radius);
+  height: var(--current-event-height);
+  overflow: hidden;
+}
+
+/* Upcoming Events Section - Fixed Height */
+.theme-eink-compact-300x400 .section-upcoming {
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-sm);
+  background: var(--color-surface);
+  margin-bottom: var(--separator-section-spacing);
+  border-radius: var(--border-radius);
+  height: var(--next-event-height);
+  overflow: hidden;
+}
+
+/* Later Events Section - Fixed Height */
+.theme-eink-compact-300x400 .section-later {
+  border: 1px solid var(--color-border-light);
+  padding: var(--spacing-xs);
+  background: var(--color-surface);
+  margin-bottom: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  height: var(--summary-height);
+  overflow: hidden;
+}
+
+/* Current Event Card */
+.theme-eink-compact-300x400 .current-event {
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  background: var(--color-surface);
+}
+
+.theme-eink-compact-300x400 .current-event .event-title {
+  font-size: var(--font-size-h3);
+  font-weight: bold;
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: var(--icon-spacing);
+}
+
+.theme-eink-compact-300x400 .event-time {
+  font-size: var(--font-size-h4);
+  font-weight: 500;
+  line-height: var(--line-height-normal);
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text);
+}
+
+.theme-eink-compact-300x400 .event-location {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-normal);
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--icon-spacing);
+}
+
+.theme-eink-compact-300x400 .time-remaining {
+  font-size: var(--font-size-small);
+  font-weight: bold;
+  line-height: var(--line-height-normal);
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: var(--icon-spacing);
+}
+
+/* Upcoming Event Card */
+.theme-eink-compact-300x400 .upcoming-event {
+  padding: var(--spacing-xs);
+  border-radius: var(--border-radius);
+  background: var(--color-surface);
+  margin-bottom: var(--spacing-xs);
+}
+
+.theme-eink-compact-300x400 .upcoming-event .event-title {
+  font-size: var(--font-size-h4);
+  font-weight: bold;
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: var(--icon-spacing);
+}
+
+.theme-eink-compact-300x400 .event-details {
+  font-size: var(--font-size-small);
+  font-weight: normal;
+  line-height: var(--line-height-normal);
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text-muted);
+}
+
+.theme-eink-compact-300x400 .time-until {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--icon-spacing);
+}
+
+.theme-eink-compact-300x400 .time-until.urgent {
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+/* Later Events List - Compact */
+.theme-eink-compact-300x400 .later-events-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.theme-eink-compact-300x400 .later-event {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--spacing-xs);
+  border-bottom: var(--separator-timeslot);
+  gap: var(--spacing-sm);
+  min-height: 18px;
+}
+
+.theme-eink-compact-300x400 .later-event:last-child {
+  border-bottom: none;
+}
+
+.theme-eink-compact-300x400 .later-event .event-title {
+  font-size: var(--font-size-small);
+  font-weight: normal;
+  line-height: var(--line-height-normal);
+  color: var(--color-text);
+  flex: 1;
+  margin-right: var(--spacing-sm);
+}
+
+.theme-eink-compact-300x400 .later-event .event-time {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ===========================================
+   STATE COMPONENTS - COMPACT
+   =========================================== */
+
+.theme-eink-compact-300x400 .no-events {
+  text-align: center;
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 150px;
+}
+
+.theme-eink-compact-300x400 .no-events-icon {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--spacing-sm);
+}
+
+.theme-eink-compact-300x400 .no-events h2 {
+  font-size: var(--font-size-large);
+  font-weight: bold;
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text);
+}
+
+.theme-eink-compact-300x400 .no-events p {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-muted);
+}
+
+/* Error State - Compact */
+.theme-eink-compact-300x400 .error-section {
+  text-align: center;
+  padding: var(--spacing-sm);
+  border: var(--border-width) var(--border-style) var(--color-border);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-sm);
+  background: var(--color-surface);
+}
+
+.theme-eink-compact-300x400 .error-icon {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--spacing-sm);
+}
+
+.theme-eink-compact-300x400 .error-title {
+  font-size: var(--font-size-large);
+  font-weight: bold;
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-text);
+}
+
+.theme-eink-compact-300x400 .error-message {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text);
+}
+
+/* ===========================================
+   CONTENT TRUNCATION FOR COMPACT MODE
+   =========================================== */
+
+.theme-eink-compact-300x400 .truncate-25 {
+  max-width: 25ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-eink-compact-300x400 .truncate-20 {
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-eink-compact-300x400 .truncate-15 {
+  max-width: 15ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===========================================
+   UTILITY CLASSES - COMPACT
+   =========================================== */
+
+.theme-eink-compact-300x400 .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.theme-eink-compact-300x400 .text-center {
+  text-align: center;
+}
+
+.theme-eink-compact-300x400 .text-left {
+  text-align: left;
+}
+
+.theme-eink-compact-300x400 .text-right {
+  text-align: right;
+}
+
+.theme-eink-compact-300x400 .flex {
+  display: flex;
+}
+
+.theme-eink-compact-300x400 .flex-col {
+  flex-direction: column;
+}
+
+.theme-eink-compact-300x400 .items-center {
+  align-items: center;
+}
+
+.theme-eink-compact-300x400 .justify-center {
+  justify-content: center;
+}
+
+.theme-eink-compact-300x400 .justify-between {
+  justify-content: space-between;
+}
+
+.theme-eink-compact-300x400 .w-full {
+  width: 100%;
+}
+
+.theme-eink-compact-300x400 .h-full {
+  height: 100%;
+}
+
+/* ===========================================
+   RESPONSIVE ADJUSTMENTS - COMPACT
+   =========================================== */
+
+@media (max-width: 300px) {
+  .theme-eink-compact-300x400 {
+    --nav-button-width: 50px;
+    --content-padding: 6px;
+    --spacing-lg: 6px;
+  }
+
+  .theme-eink-compact-300x400 .calendar-title {
+    font-size: var(--font-size-large);
+  }
+}
+
+@media (max-height: 400px) {
+  .theme-eink-compact-300x400 {
+    --header-height: 40px;
+    --status-height: 35px;
+    --content-padding: 4px;
+  }
+
+  .theme-eink-compact-300x400 .section-title {
+    margin: var(--spacing-sm) 0 var(--spacing-xs) 0;
+  }
+}
+
+/* ===========================================
+   ACCESSIBILITY & TOUCH COMPLIANCE
+   =========================================== */
+
+.theme-eink-compact-300x400 *:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.theme-eink-compact-300x400 *:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.theme-eink-compact-300x400 *:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Enhanced heading structure */
+.theme-eink-compact-300x400 h1, 
+.theme-eink-compact-300x400 h2, 
+.theme-eink-compact-300x400 h3, 
+.theme-eink-compact-300x400 h4, 
+.theme-eink-compact-300x400 h5, 
+.theme-eink-compact-300x400 h6 {
+  margin-top: 0;
+  margin-bottom: var(--paragraph-spacing);
+  line-height: var(--line-height-tight);
+}
+
+.theme-eink-compact-300x400 h1 {
+  font-size: var(--font-size-h1);
+  font-weight: bold;
+}
+
+.theme-eink-compact-300x400 h2 {
+  font-size: var(--font-size-h2);
+  font-weight: bold;
+}
+
+.theme-eink-compact-300x400 h3 {
+  font-size: var(--font-size-h3);
+  font-weight: bold;
+}
+
+.theme-eink-compact-300x400 h4 {
+  font-size: var(--font-size-h4);
+  font-weight: 600;
+}
+
+/* Touch target spacing enforcement */
+.theme-eink-compact-300x400 button + button,
+.theme-eink-compact-300x400 .btn-base + .btn-base {
+  margin-left: var(--touch-target-spacing);
+}
+
+/* ===========================================
+   PRINT OPTIMIZATIONS
+   =========================================== */
+
+@media print {
+  .theme-eink-compact-300x400 {
+    width: 300px;
+    height: 400px;
+  }
+
+  .theme-eink-compact-300x400 .theme-controls {
+    display: none;
+  }
+
+  .theme-eink-compact-300x400 .nav-controls {
+    display: none;
+  }
+
+  .theme-eink-compact-300x400 .calendar-content {
+    height: calc(400px - 50px - 40px);
+  }
+}

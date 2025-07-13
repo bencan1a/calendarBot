@@ -111,27 +111,27 @@ class TestWebAPIBackendIntegration:
         assert status["port"] == web_server.port
 
     @pytest.mark.asyncio
-    async def test_theme_api_with_display_manager(self, web_api_setup):
-        """Test theme API integration with display manager."""
+    async def test_layout_api_with_display_manager(self, web_api_setup):
+        """Test layout API integration with display manager."""
         web_server, cache_manager, source_manager, display_manager, navigation_state = web_api_setup
 
-        # Mock renderer with theme support
+        # Mock renderer with layout support
         display_manager.renderer = MagicMock()
-        display_manager.renderer.theme = "4x8"
+        display_manager.renderer.layout = "4x8"
 
-        initial_theme = web_server.theme
+        initial_layout = web_server.layout
 
-        # Test theme setting
-        success = web_server.set_theme("3x4")
+        # Test layout setting
+        success = web_server.set_layout("3x4")
         assert success is True
-        assert web_server.theme == "3x4"
-        assert display_manager.renderer.theme == "3x4"
+        assert web_server.layout == "3x4"
+        assert display_manager.renderer.layout == "3x4"
 
-        # Test theme toggle
-        new_theme = web_server.toggle_theme()
-        assert new_theme == "4x8"
-        assert web_server.theme == "4x8"
-        assert display_manager.renderer.theme == "4x8"
+        # Test layout toggle
+        new_layout = web_server.toggle_layout()
+        assert new_layout == "4x8"
+        assert web_server.layout == "4x8"
+        assert display_manager.renderer.layout == "4x8"
 
     @pytest.mark.asyncio
     async def test_calendar_html_with_real_data(self, web_api_setup):
@@ -188,7 +188,6 @@ class TestWebServerLifecycleIntegration:
         with patch("calendarbot.web.server.HTTPServer") as mock_http_server, patch(
             "threading.Thread"
         ) as mock_thread:
-
             mock_server_instance = MagicMock()
             mock_http_server.return_value = mock_server_instance
             mock_thread_instance = MagicMock()
@@ -267,9 +266,13 @@ class TestDataFlowIntegration:
     @pytest.mark.asyncio
     async def test_complete_refresh_cycle_via_api(self, data_flow_setup):
         """Test complete refresh cycle triggered via API."""
-        web_server, cache_manager, source_manager, display_manager, navigation_state = (
-            data_flow_setup
-        )
+        (
+            web_server,
+            cache_manager,
+            source_manager,
+            display_manager,
+            navigation_state,
+        ) = data_flow_setup
 
         # Mock external calendar data
         external_events = ICSTestData.create_mock_events(count=4, include_today=True)
@@ -293,9 +296,13 @@ class TestDataFlowIntegration:
     @pytest.mark.asyncio
     async def test_navigation_affects_data_retrieval(self, data_flow_setup):
         """Test that navigation affects which data is retrieved."""
-        web_server, cache_manager, source_manager, display_manager, navigation_state = (
-            data_flow_setup
-        )
+        (
+            web_server,
+            cache_manager,
+            source_manager,
+            display_manager,
+            navigation_state,
+        ) = data_flow_setup
 
         # Create events for different dates
         today = datetime.now().date()
@@ -325,34 +332,42 @@ class TestDataFlowIntegration:
         # (This would be tested more thoroughly in the display component)
 
     @pytest.mark.asyncio
-    async def test_theme_persistence_across_operations(self, data_flow_setup):
-        """Test that theme changes persist across API operations."""
-        web_server, cache_manager, source_manager, display_manager, navigation_state = (
-            data_flow_setup
-        )
+    async def test_layout_persistence_across_operations(self, data_flow_setup):
+        """Test that layout changes persist across API operations."""
+        (
+            web_server,
+            cache_manager,
+            source_manager,
+            display_manager,
+            navigation_state,
+        ) = data_flow_setup
 
         # Mock renderer
         display_manager.renderer = MagicMock()
-        display_manager.renderer.theme = "4x8"
+        display_manager.renderer.layout = "4x8"
 
-        # Change theme
-        web_server.set_theme("3x4")
-        assert web_server.theme == "3x4"
+        # Change layout
+        web_server.set_layout("3x4")
+        assert web_server.layout == "3x4"
 
         # Perform other operations
         web_server.handle_navigation("next")
         web_server.refresh_data()
 
         # Theme should persist
-        assert web_server.theme == "3x4"
-        assert display_manager.renderer.theme == "3x4"
+        assert web_server.layout == "3x4"
+        assert display_manager.renderer.layout == "3x4"
 
     @pytest.mark.asyncio
     async def test_error_propagation_through_api(self, data_flow_setup):
         """Test error propagation from backend to API responses."""
-        web_server, cache_manager, source_manager, display_manager, navigation_state = (
-            data_flow_setup
-        )
+        (
+            web_server,
+            cache_manager,
+            source_manager,
+            display_manager,
+            navigation_state,
+        ) = data_flow_setup
 
         # Mock cache failure
         with patch.object(
@@ -369,9 +384,13 @@ class TestDataFlowIntegration:
     @pytest.mark.asyncio
     async def test_performance_under_load(self, data_flow_setup, performance_tracker):
         """Test API performance under simulated load."""
-        web_server, cache_manager, source_manager, display_manager, navigation_state = (
-            data_flow_setup
-        )
+        (
+            web_server,
+            cache_manager,
+            source_manager,
+            display_manager,
+            navigation_state,
+        ) = data_flow_setup
 
         # Populate cache with substantial data
         large_event_set = ICSTestData.create_mock_events(count=100, include_today=True)
@@ -436,23 +455,23 @@ class TestSecurityIntegration:
             # Should reject all malicious inputs
             assert success is False
 
-    def test_theme_validation_integration(self, security_setup):
-        """Test theme validation with backend components."""
+    def test_layout_validation_integration(self, security_setup):
+        """Test layout validation with backend components."""
         web_server, cache_manager = security_setup
 
         # Mock renderer
         web_server.display_manager.renderer = MagicMock()
 
-        # Test valid themes
-        valid_themes = ["4x8", "3x4"]
-        for theme in valid_themes:
-            success = web_server.set_theme(theme)
+        # Test valid layouts
+        valid_layouts = ["4x8", "3x4"]
+        for layout in valid_layouts:
+            success = web_server.set_layout(layout)
             assert success is True
 
-        # Test invalid themes
-        invalid_themes = ["../etc/passwd", "<script>", "'; DROP TABLE", ""]
-        for theme in invalid_themes:
-            success = web_server.set_theme(theme)
+        # Test invalid layouts
+        invalid_layouts = ["../etc/passwd", "<script>", "'; DROP TABLE", ""]
+        for layout in invalid_layouts:
+            success = web_server.set_layout(layout)
             assert success is False
 
     def test_error_message_sanitization(self, security_setup):
@@ -465,7 +484,6 @@ class TestSecurityIntegration:
             "get_todays_cached_events",
             side_effect=Exception("Database connection failed: password=secret123"),
         ):
-
             html = web_server.get_calendar_html()
 
             # Error message should be sanitized
@@ -515,29 +533,29 @@ class TestWebAPIStateManagement:
         assert date_after_prev == initial_date
         # date_after_today should be close to today
 
-    def test_theme_state_consistency(self, state_management_setup):
-        """Test theme state consistency across operations."""
+    def test_layout_state_consistency(self, state_management_setup):
+        """Test layout state consistency across operations."""
         web_server, navigation_state, cache_manager = state_management_setup
 
         # Mock renderer
         web_server.display_manager.renderer = MagicMock()
-        web_server.display_manager.renderer.theme = "4x8"
+        web_server.display_manager.renderer.layout = "4x8"
 
-        # Change theme and verify persistence
-        web_server.set_theme("3x4")
-        assert web_server.theme == "3x4"
+        # Change layout and verify persistence
+        web_server.set_layout("3x4")
+        assert web_server.layout == "3x4"
 
         # Perform other operations
         web_server.refresh_data()
-        assert web_server.theme == "3x4"
+        assert web_server.layout == "3x4"
 
         web_server.handle_navigation("next")
-        assert web_server.theme == "3x4"
+        assert web_server.layout == "3x4"
 
-        # Toggle theme
-        new_theme = web_server.toggle_theme()
-        assert new_theme == "4x8"
-        assert web_server.theme == "4x8"
+        # Toggle layout
+        new_layout = web_server.toggle_layout()
+        assert new_layout == "4x8"
+        assert web_server.layout == "4x8"
 
     def test_state_isolation_between_operations(self, state_management_setup):
         """Test that operations don't interfere with each other's state."""
@@ -545,20 +563,20 @@ class TestWebAPIStateManagement:
 
         # Set initial state
         initial_date = navigation_state.selected_date
-        web_server.theme = "3x4"
+        web_server.layout = "3x4"
 
         # Perform concurrent-like operations
         status1 = web_server.get_status()
         web_server.handle_navigation("next")
         status2 = web_server.get_status()
-        web_server.set_theme("4x8")
+        web_server.set_layout("4x8")
         status3 = web_server.get_status()
 
         # Verify state changes are reflected correctly
         assert status1["current_date"] == initial_date.isoformat()
         assert status2["current_date"] == (initial_date + timedelta(days=1)).isoformat()
         # Theme change should be reflected in subsequent operations
-        assert web_server.theme == "4x8"
+        assert web_server.layout == "4x8"
 
     @pytest.mark.asyncio
     async def test_cache_state_affects_api_responses(self, state_management_setup):

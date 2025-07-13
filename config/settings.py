@@ -235,7 +235,7 @@ class CalendarBotSettings(BaseSettings):
     # Display Settings
     display_enabled: bool = Field(default=True, description="Enable display output")
     display_type: str = Field(
-        default="console", description="Display type: console, html, rpi, 3x4"
+        default="console", description="Renderer type: console, html, rpi, compact"
     )
 
     # Raspberry Pi E-ink Display Settings
@@ -245,7 +245,9 @@ class CalendarBotSettings(BaseSettings):
     rpi_refresh_mode: str = Field(
         default="partial", description="E-ink refresh mode: partial, full"
     )
-    rpi_auto_theme: bool = Field(default=True, description="Auto-optimize theme for e-ink display")
+    rpi_auto_layout: bool = Field(
+        default=True, description="Auto-optimize layout for e-ink display"
+    )
 
     # Compact E-ink Display Settings (300x400)
     compact_eink_enabled: bool = Field(default=False, description="Enable compact e-ink mode")
@@ -258,8 +260,8 @@ class CalendarBotSettings(BaseSettings):
     compact_eink_refresh_mode: str = Field(
         default="partial", description="Compact e-ink refresh mode: partial, full"
     )
-    compact_eink_auto_theme: bool = Field(
-        default=True, description="Auto-optimize theme for compact e-ink display"
+    compact_eink_auto_layout: bool = Field(
+        default=True, description="Auto-optimize layout for compact e-ink display"
     )
     compact_eink_content_truncation: bool = Field(
         default=True, description="Enable content truncation for compact display"
@@ -271,7 +273,10 @@ class CalendarBotSettings(BaseSettings):
     web_host: str = Field(
         default_factory=lambda: _get_safe_web_host(), description="Host address for web server"
     )
-    web_theme: str = Field(default="4x8", description="Web theme: 4x8, 3x4")
+    web_layout: str = Field(default="4x8", description="Web layout: 4x8, 3x4")
+    layout_name: str = Field(
+        default="4x8", description="Current layout name (alias for web_layout)"
+    )
     web_auto_refresh: int = Field(default=60, description="Auto-refresh interval in seconds")
 
     # Network and Retry Settings
@@ -303,6 +308,9 @@ class CalendarBotSettings(BaseSettings):
 
         # Load YAML configuration
         self._load_yaml_config()
+
+        # Sync layout_name with web_layout
+        self.layout_name = self.web_layout
 
         # Validate required configuration
         self._validate_required_config()
@@ -492,8 +500,11 @@ class CalendarBotSettings(BaseSettings):
                     self.rpi_display_height = rpi_config["display_height"]
                 if "refresh_mode" in rpi_config:
                     self.rpi_refresh_mode = rpi_config["refresh_mode"]
-                if "auto_theme" in rpi_config:
-                    self.rpi_auto_theme = rpi_config["auto_theme"]
+                if "auto_layout" in rpi_config:
+                    self.rpi_auto_layout = rpi_config["auto_layout"]
+                elif "auto_theme" in rpi_config:
+                    # Backward compatibility: map old "auto_theme" to new "auto_layout"
+                    self.rpi_auto_layout = rpi_config["auto_theme"]
 
             # Web settings
             if "web" in config_data:
@@ -504,8 +515,11 @@ class CalendarBotSettings(BaseSettings):
                     self.web_port = web_config["port"]
                 if "host" in web_config:
                     self.web_host = web_config["host"]
-                if "theme" in web_config:
-                    self.web_theme = web_config["theme"]
+                if "layout" in web_config:
+                    self.web_layout = web_config["layout"]
+                elif "theme" in web_config:
+                    # Backward compatibility: map old "theme" to new "layout"
+                    self.web_layout = web_config["theme"]
                 if "auto_refresh" in web_config:
                     self.web_auto_refresh = web_config["auto_refresh"]
             if "request_timeout" in config_data:

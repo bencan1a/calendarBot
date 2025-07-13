@@ -14,39 +14,39 @@ from calendarbot.display.html_renderer import HTMLRenderer
 class TestHTMLRendererInitialization:
     """Test HTML renderer initialization and configuration."""
 
-    def test_init_default_theme(self) -> None:
-        """Test HTML renderer initialization with default theme."""
+    def test_init_default_layout(self) -> None:
+        """Test HTML renderer initialization with default layout."""
         settings = Mock()
-        del settings.web_theme  # No web_theme attribute
+        del settings.web_layout  # No web_layout attribute
 
         renderer = HTMLRenderer(settings)
 
-        # DEBUG: Log actual theme for diagnosis
-        print(f"DEBUG: Actual default theme is: {renderer.theme}")
-        print(f"DEBUG: Expected theme should be: 4x8 (based on HTMLRenderer line 24)")
+        # DEBUG: Log actual layout for diagnosis
+        print(f"DEBUG: Actual default layout is: {renderer.layout}")
+        print(f"DEBUG: Expected layout should be: 4x8 (based on HTMLRenderer line 24)")
 
         assert renderer.settings == settings
-        assert renderer.theme == "4x8"  # Fixed: Default is 4x8, not 3x4
+        assert renderer.layout == "4x8"  # Fixed: Default is 4x8, not 3x4
 
-    def test_init_with_3x4_theme(self) -> None:
-        """Test HTML renderer initialization with 3x4 theme."""
+    def test_init_with_3x4_layout(self) -> None:
+        """Test HTML renderer initialization with 3x4 layout."""
         settings = Mock()
-        settings.web_theme = "3x4"
-
-        renderer = HTMLRenderer(settings)
-
-        assert renderer.settings == settings
-        assert renderer.theme == "3x4"
-
-    def test_init_with_4x8_theme(self) -> None:
-        """Test HTML renderer initialization with 4x8 theme."""
-        settings = Mock()
-        settings.web_theme = "4x8"
+        settings.web_layout = "3x4"
 
         renderer = HTMLRenderer(settings)
 
         assert renderer.settings == settings
-        assert renderer.theme == "4x8"
+        assert renderer.layout == "3x4"
+
+    def test_init_with_4x8_layout(self) -> None:
+        """Test HTML renderer initialization with 4x8 layout."""
+        settings = Mock()
+        settings.web_layout = "4x8"
+
+        renderer = HTMLRenderer(settings)
+
+        assert renderer.settings == settings
+        assert renderer.layout == "4x8"
 
 
 class TestHTMLRendererRenderEvents:
@@ -55,7 +55,7 @@ class TestHTMLRendererRenderEvents:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_theme = "3x4"
+        self.settings.web_layout = "3x4"
         self.renderer = HTMLRenderer(self.settings)
 
     @patch("calendarbot.display.html_renderer.datetime")
@@ -217,7 +217,6 @@ class TestHTMLRendererGetTimestampHTML:
         mock_update_time.tzinfo = None  # Simulate no timezone info
 
         with patch("pytz.timezone") as mock_timezone, patch("pytz.utc.localize") as mock_localize:
-
             mock_pacific_tz = Mock()
             mock_timezone.return_value = mock_pacific_tz
 
@@ -293,7 +292,6 @@ class TestHTMLRendererBuildStatusLine:
         mock_update_time.tzinfo = None  # Simulate no timezone info
 
         with patch("pytz.timezone") as mock_timezone, patch("pytz.utc.localize") as mock_localize:
-
             mock_pacific_tz = Mock()
             mock_timezone.return_value = mock_pacific_tz
 
@@ -765,14 +763,10 @@ class TestHTMLRendererHTMLTemplate:
         self.settings = Mock()
         self.renderer = HTMLRenderer(self.settings)
 
-    @patch.object(HTMLRenderer, "_get_theme_css_file")
-    @patch.object(HTMLRenderer, "_get_theme_js_file")
-    def test_build_html_template_interactive_mode(
-        self, mock_js_file: Any, mock_css_file: Any
-    ) -> None:
+    @patch.object(HTMLRenderer, "_get_dynamic_resources")
+    def test_build_html_template_interactive_mode(self, mock_dynamic_resources: Any) -> None:
         """Test HTML template building in interactive mode."""
-        mock_css_file.return_value = "style.css"
-        mock_js_file.return_value = "app.js"
+        mock_dynamic_resources.return_value = ("style.css", "app.js")
 
         result = self.renderer._build_html_template(
             display_date="Friday, December 15",
@@ -791,12 +785,10 @@ class TestHTMLRendererHTMLTemplate:
         assert "style.css" in result
         assert "app.js" in result
 
-    @patch.object(HTMLRenderer, "_get_theme_css_file")
-    @patch.object(HTMLRenderer, "_get_theme_js_file")
-    def test_build_html_template_static_mode(self, mock_js_file: Any, mock_css_file: Any) -> None:
+    @patch.object(HTMLRenderer, "_get_dynamic_resources")
+    def test_build_html_template_static_mode(self, mock_dynamic_resources: Any) -> None:
         """Test HTML template building in static mode."""
-        mock_css_file.return_value = "3x4.css"
-        mock_js_file.return_value = "3x4.js"
+        mock_dynamic_resources.return_value = ("3x4.css", "3x4.js")
 
         result = self.renderer._build_html_template(
             display_date="Monday, December 18",
@@ -816,74 +808,74 @@ class TestHTMLRendererHTMLTemplate:
 
 
 class TestHTMLRendererThemeFiles:
-    """Test theme file selection."""
+    """Test layout file selection."""
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
 
-    def test_get_theme_css_file_3x4(self) -> None:
-        """Test CSS file selection for 3x4 theme."""
-        self.settings.web_theme = "3x4"
+    def test_get_fallback_css_file_3x4(self) -> None:
+        """Test fallback CSS file selection for 3x4 layout."""
+        self.settings.web_layout = "3x4"
         renderer = HTMLRenderer(self.settings)
 
-        result = renderer._get_theme_css_file()
+        result = renderer._get_fallback_css_file()
         assert result == "3x4.css"
 
-    def test_get_theme_css_file_4x8(self) -> None:
-        """Test CSS file selection for 4x8 theme."""
-        self.settings.web_theme = "4x8"
+    def test_get_fallback_css_file_4x8(self) -> None:
+        """Test fallback CSS file selection for 4x8 layout."""
+        self.settings.web_layout = "4x8"
         renderer = HTMLRenderer(self.settings)
 
-        result = renderer._get_theme_css_file()
+        result = renderer._get_fallback_css_file()
         assert result == "4x8.css"
 
-    def test_get_theme_css_file_unknown(self) -> None:
-        """Test CSS file selection for unknown theme (defaults to 4x8)."""
-        self.settings.web_theme = "unknown"
+    def test_get_fallback_css_file_unknown(self) -> None:
+        """Test fallback CSS file selection for unknown layout (defaults to 4x8)."""
+        self.settings.web_layout = "unknown"
         renderer = HTMLRenderer(self.settings)
 
-        result = renderer._get_theme_css_file()
+        result = renderer._get_fallback_css_file()
         assert result == "4x8.css"
 
-    def test_get_theme_js_file_3x4(self) -> None:
-        """Test JS file selection for 3x4 theme."""
-        self.settings.web_theme = "3x4"
+    def test_get_fallback_js_file_3x4(self) -> None:
+        """Test fallback JS file selection for 3x4 layout."""
+        self.settings.web_layout = "3x4"
         renderer = HTMLRenderer(self.settings)
 
-        result = renderer._get_theme_js_file()
+        result = renderer._get_fallback_js_file()
         assert result == "3x4.js"
 
-    def test_get_theme_js_file_4x8(self) -> None:
-        """Test JS file selection for 4x8 theme."""
-        self.settings.web_theme = "4x8"
+    def test_get_fallback_js_file_4x8(self) -> None:
+        """Test fallback JS file selection for 4x8 layout."""
+        self.settings.web_layout = "4x8"
         renderer = HTMLRenderer(self.settings)
 
-        result = renderer._get_theme_js_file()
+        result = renderer._get_fallback_js_file()
         assert result == "4x8.js"
 
-    def test_get_theme_js_file_unknown(self) -> None:
-        """Test JS file selection for unknown theme (defaults to 4x8)."""
-        self.settings.web_theme = "unknown"
+    def test_get_fallback_js_file_unknown(self) -> None:
+        """Test fallback JS file selection for unknown layout (defaults to 4x8)."""
+        self.settings.web_layout = "unknown"
         renderer = HTMLRenderer(self.settings)
 
-        result = renderer._get_theme_js_file()
+        result = renderer._get_fallback_js_file()
         assert result == "4x8.js"
 
-    def test_get_theme_icon_3x4(self) -> None:
-        """Test theme icon for 3x4 theme."""
-        self.settings.web_theme = "3x4"
+    def test_get_layout_icon_3x4(self) -> None:
+        """Test layout icon for 3x4 layout."""
+        self.settings.web_layout = "3x4"
         renderer = HTMLRenderer(self.settings)
 
-        result = renderer._get_theme_icon()
+        result = renderer._get_layout_icon()
         assert result == "⚙️"
 
-    def test_get_theme_icon_other(self) -> None:
-        """Test theme icon for non-3x4 themes."""
-        self.settings.web_theme = "4x8"
+    def test_get_layout_icon_other(self) -> None:
+        """Test layout icon for non-3x4 layouts."""
+        self.settings.web_layout = "4x8"
         renderer = HTMLRenderer(self.settings)
 
-        result = renderer._get_theme_icon()
+        result = renderer._get_layout_icon()
         assert result == "⚫"
 
 
@@ -933,7 +925,7 @@ class TestHTMLRendererRenderError:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_theme = "3x4"
+        self.settings.web_layout = "3x4"
         self.renderer = HTMLRenderer(self.settings)
 
     @patch("calendarbot.display.html_renderer.datetime")
@@ -1016,7 +1008,7 @@ class TestHTMLRendererRenderAuthenticationPrompt:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_theme = "3x4"
+        self.settings.web_layout = "3x4"
         self.renderer = HTMLRenderer(self.settings)
 
     def test_render_authentication_prompt_basic(self) -> None:
@@ -1048,13 +1040,13 @@ class TestHTMLRendererRenderAuthenticationPrompt:
         assert "loading-spinner" in result
         assert "Waiting for authentication" in result
 
-    def test_render_authentication_prompt_theme_integration(self) -> None:
-        """Test authentication prompt integrates with theme system."""
-        self.renderer.theme = "3x4"
+    def test_render_authentication_prompt_layout_integration(self) -> None:
+        """Test authentication prompt integrates with layout system."""
+        self.renderer.layout = "3x4"
 
         result = self.renderer.render_authentication_prompt("https://example.com", "CODE123")
 
-        assert f'class="theme-{self.renderer.theme}"' in result
+        assert f'class="layout-{self.renderer.layout}"' in result
 
 
 class TestHTMLRendererIntegration:
@@ -1063,7 +1055,7 @@ class TestHTMLRendererIntegration:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_theme = "3x4"
+        self.settings.web_layout = "3x4"
         self.renderer = HTMLRenderer(self.settings)
 
     @patch("calendarbot.display.html_renderer.datetime")
@@ -1154,18 +1146,373 @@ class TestHTMLRendererIntegration:
         assert "Important Meeting" in result
         assert "📍 Executive Boardroom" in result
 
-    def test_theme_consistency_across_methods(self) -> None:
-        """Test theme consistency across different rendering methods."""
-        self.renderer.theme = "3x4"
+    def test_layout_consistency_across_methods(self) -> None:
+        """Test layout consistency across different rendering methods."""
+        self.renderer.layout = "3x4"
 
         # Test main rendering
         events_result = self.renderer.render_events([])
-        assert f'class="theme-{self.renderer.theme}"' in events_result
+        assert f'class="layout-{self.renderer.layout}"' in events_result
 
         # Test error rendering
         error_result = self.renderer.render_error("Test error")
-        assert f'class="theme-{self.renderer.theme}"' in error_result
+        assert f'class="layout-{self.renderer.layout}"' in error_result
 
         # Test authentication rendering
         auth_result = self.renderer.render_authentication_prompt("https://example.com", "CODE")
-        assert f'class="theme-{self.renderer.theme}"' in auth_result
+        assert f'class="layout-{self.renderer.layout}"' in auth_result
+
+
+class TestHTMLRendererViewportConfiguration:
+    """Test viewport meta tag configuration for fixed dimension layouts."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.settings = Mock()
+        self.settings.web_layout = "4x8"
+
+    def test_get_layout_config_with_layout_registry(self) -> None:
+        """Test getting layout config via LayoutRegistry."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        # Mock layout registry with config
+        mock_layout_info = Mock()
+        mock_layout_info.config = {
+            "dimensions": {"fixed_dimensions": True, "optimal_width": 480, "optimal_height": 800}
+        }
+        renderer.layout_registry = Mock()
+        renderer.layout_registry.get_layout.return_value = mock_layout_info
+
+        result = renderer._get_layout_config()
+
+        assert result is not None
+        assert result["dimensions"]["fixed_dimensions"] is True
+        assert result["dimensions"]["optimal_width"] == 480
+
+    @patch("builtins.open")
+    @patch("json.load")
+    @patch("pathlib.Path.exists")
+    def test_get_layout_config_fallback_file_reading(
+        self, mock_exists: Any, mock_json_load: Any, mock_open: Any
+    ) -> None:
+        """Test fallback to direct file reading when LayoutRegistry fails."""
+        self.settings.web_layout = "3x4"
+        renderer = HTMLRenderer(self.settings)
+        renderer.layout_registry = None  # Simulate registry failure
+
+        # Mock file operations
+        mock_exists.return_value = True
+        mock_config = {
+            "dimensions": {"fixed_dimensions": True, "optimal_width": 300, "optimal_height": 400}
+        }
+        mock_json_load.return_value = mock_config
+
+        result = renderer._get_layout_config()
+
+        assert result is not None
+        assert result["dimensions"]["optimal_width"] == 300
+        # Verify that file operations were called (may be called multiple times due to LayoutRegistry)
+        assert mock_exists.called
+        assert mock_open.called
+
+    @patch("pathlib.Path.exists")
+    def test_get_layout_config_file_not_found(self, mock_exists: Any) -> None:
+        """Test handling when layout config file doesn't exist."""
+        self.settings.web_layout = "unknown"
+        renderer = HTMLRenderer(self.settings)
+        renderer.layout_registry = None
+
+        mock_exists.return_value = False
+
+        result = renderer._get_layout_config()
+
+        assert result is None
+
+    @patch("builtins.open")
+    @patch("pathlib.Path.exists")
+    def test_get_layout_config_json_parse_error(self, mock_exists: Any, mock_open: Any) -> None:
+        """Test handling of JSON parsing errors."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+        renderer.layout_registry = None
+
+        mock_exists.return_value = True
+        mock_open.side_effect = Exception("JSON parse error")
+
+        result = renderer._get_layout_config()
+
+        assert result is None
+
+    def test_has_fixed_dimensions_true(self) -> None:
+        """Test _has_fixed_dimensions returns True for fixed dimension layouts."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(
+            renderer, "_get_layout_config", return_value={"dimensions": {"fixed_dimensions": True}}
+        ):
+            result = renderer._has_fixed_dimensions()
+            assert result is True
+
+    def test_has_fixed_dimensions_false(self) -> None:
+        """Test _has_fixed_dimensions returns False for responsive layouts."""
+        self.settings.web_layout = "responsive"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(
+            renderer, "_get_layout_config", return_value={"dimensions": {"fixed_dimensions": False}}
+        ):
+            result = renderer._has_fixed_dimensions()
+            assert result is False
+
+    def test_has_fixed_dimensions_missing_config(self) -> None:
+        """Test _has_fixed_dimensions handles missing config gracefully."""
+        self.settings.web_layout = "unknown"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(renderer, "_get_layout_config", return_value=None):
+            result = renderer._has_fixed_dimensions()
+            assert result is False
+
+    def test_has_fixed_dimensions_missing_dimensions_key(self) -> None:
+        """Test _has_fixed_dimensions handles missing dimensions key."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(renderer, "_get_layout_config", return_value={"other_data": "value"}):
+            result = renderer._has_fixed_dimensions()
+            assert result is False
+
+    def test_has_fixed_dimensions_exception_handling(self) -> None:
+        """Test _has_fixed_dimensions handles exceptions gracefully."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(renderer, "_get_layout_config", side_effect=Exception("Config error")):
+            result = renderer._has_fixed_dimensions()
+            assert result is False
+
+    def test_get_layout_dimensions_valid_config(self) -> None:
+        """Test _get_layout_dimensions returns correct dimensions."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(
+            renderer,
+            "_get_layout_config",
+            return_value={"dimensions": {"optimal_width": 480, "optimal_height": 800}},
+        ):
+            width, height = renderer._get_layout_dimensions()
+            assert width == 480
+            assert height == 800
+
+    def test_get_layout_dimensions_3x4_layout(self) -> None:
+        """Test _get_layout_dimensions for 3x4 layout."""
+        self.settings.web_layout = "3x4"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(
+            renderer,
+            "_get_layout_config",
+            return_value={"dimensions": {"optimal_width": 300, "optimal_height": 400}},
+        ):
+            width, height = renderer._get_layout_dimensions()
+            assert width == 300
+            assert height == 400
+
+    def test_get_layout_dimensions_missing_config(self) -> None:
+        """Test _get_layout_dimensions handles missing config."""
+        self.settings.web_layout = "unknown"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(renderer, "_get_layout_config", return_value=None):
+            width, height = renderer._get_layout_dimensions()
+            assert width is None
+            assert height is None
+
+    def test_get_layout_dimensions_missing_dimensions(self) -> None:
+        """Test _get_layout_dimensions handles missing dimensions key."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(renderer, "_get_layout_config", return_value={"other_data": "value"}):
+            width, height = renderer._get_layout_dimensions()
+            assert width is None
+            assert height is None
+
+    def test_get_layout_dimensions_exception_handling(self) -> None:
+        """Test _get_layout_dimensions handles exceptions gracefully."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(renderer, "_get_layout_config", side_effect=Exception("Dimension error")):
+            width, height = renderer._get_layout_dimensions()
+            assert width is None
+            assert height is None
+
+    def test_generate_viewport_meta_tag_fixed_dimensions_4x8(self) -> None:
+        """Test viewport meta tag generation for fixed 4x8 layout."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(renderer, "_has_fixed_dimensions", return_value=True), patch.object(
+            renderer, "_get_layout_dimensions", return_value=(480, 800)
+        ):
+            result = renderer._generate_viewport_meta_tag()
+
+            assert (
+                result
+                == "width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover"
+            )
+
+    def test_generate_viewport_meta_tag_fixed_dimensions_3x4(self) -> None:
+        """Test viewport meta tag generation for fixed 3x4 layout."""
+        self.settings.web_layout = "3x4"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(renderer, "_has_fixed_dimensions", return_value=True), patch.object(
+            renderer, "_get_layout_dimensions", return_value=(300, 400)
+        ):
+            result = renderer._generate_viewport_meta_tag()
+
+            assert (
+                result
+                == "width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover"
+            )
+
+    def test_generate_viewport_meta_tag_responsive_layout(self) -> None:
+        """Test viewport meta tag generation for responsive layout."""
+        self.settings.web_layout = "responsive"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(renderer, "_has_fixed_dimensions", return_value=False):
+            result = renderer._generate_viewport_meta_tag()
+
+            assert result == "width=device-width, initial-scale=1"
+
+    def test_generate_viewport_meta_tag_fixed_missing_dimensions(self) -> None:
+        """Test viewport meta tag generation when fixed layout missing dimensions."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(renderer, "_has_fixed_dimensions", return_value=True), patch.object(
+            renderer, "_get_layout_dimensions", return_value=(None, None)
+        ):
+            result = renderer._generate_viewport_meta_tag()
+
+            # Should fallback to standard viewport
+            assert result == "width=device-width, initial-scale=1"
+
+    def test_generate_viewport_meta_tag_exception_handling(self) -> None:
+        """Test viewport meta tag generation handles exceptions gracefully."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        with patch.object(
+            renderer, "_has_fixed_dimensions", side_effect=Exception("Viewport error")
+        ):
+            result = renderer._generate_viewport_meta_tag()
+
+            # Should return safe fallback
+            assert result == "width=device-width, initial-scale=1"
+
+    def test_generate_viewport_meta_tag_return_type(self) -> None:
+        """Test viewport meta tag generation returns correct type."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        result = renderer._generate_viewport_meta_tag()
+
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    @patch.object(HTMLRenderer, "_generate_viewport_meta_tag")
+    def test_build_html_template_uses_viewport_meta_tag(self, mock_viewport: Any) -> None:
+        """Test that _build_html_template uses viewport meta tag generation."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        mock_viewport.return_value = "width=480, initial-scale=1, user-scalable=no"
+
+        with patch.object(renderer, "_get_dynamic_resources", return_value=("test.css", "test.js")):
+            result = renderer._build_html_template(
+                display_date="Test Date",
+                status_line="",
+                events_content="<div>Test</div>",
+                nav_help="",
+                interactive_mode=False,
+            )
+
+        mock_viewport.assert_called_once()
+        assert 'content="width=480, initial-scale=1, user-scalable=no"' in result
+
+    @patch.object(HTMLRenderer, "_generate_viewport_meta_tag")
+    def test_render_error_uses_viewport_meta_tag(self, mock_viewport: Any) -> None:
+        """Test that render_error uses viewport meta tag generation."""
+        self.settings.web_layout = "3x4"
+        renderer = HTMLRenderer(self.settings)
+
+        mock_viewport.return_value = "width=300, initial-scale=1, user-scalable=no"
+
+        result = renderer.render_error("Test error")
+
+        mock_viewport.assert_called_once()
+        assert 'content="width=300, initial-scale=1, user-scalable=no"' in result
+
+    @patch.object(HTMLRenderer, "_generate_viewport_meta_tag")
+    def test_render_authentication_prompt_uses_viewport_meta_tag(self, mock_viewport: Any) -> None:
+        """Test that render_authentication_prompt uses viewport meta tag generation."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        mock_viewport.return_value = "width=480, initial-scale=1, user-scalable=no"
+
+        result = renderer.render_authentication_prompt("https://example.com", "CODE123")
+
+        mock_viewport.assert_called_once()
+        assert 'content="width=480, initial-scale=1, user-scalable=no"' in result
+
+    def test_viewport_configuration_integration_4x8_layout(self) -> None:
+        """Test complete viewport configuration workflow for 4x8 layout."""
+        self.settings.web_layout = "4x8"
+        renderer = HTMLRenderer(self.settings)
+
+        # Mock the layout config to simulate fixed dimensions
+        mock_config = {
+            "dimensions": {"fixed_dimensions": True, "optimal_width": 480, "optimal_height": 800}
+        }
+
+        with patch.object(renderer, "_get_layout_config", return_value=mock_config):
+            # Test the complete flow
+            has_fixed = renderer._has_fixed_dimensions()
+            width, height = renderer._get_layout_dimensions()
+            viewport = renderer._generate_viewport_meta_tag()
+
+            assert has_fixed is True
+            assert width == 480
+            assert height == 800
+            assert "user-scalable=no" in viewport
+            assert "viewport-fit=cover" in viewport
+
+    def test_viewport_configuration_integration_3x4_layout(self) -> None:
+        """Test complete viewport configuration workflow for 3x4 layout."""
+        self.settings.web_layout = "3x4"
+        renderer = HTMLRenderer(self.settings)
+
+        # Mock the layout config to simulate fixed dimensions
+        mock_config = {
+            "dimensions": {"fixed_dimensions": True, "optimal_width": 300, "optimal_height": 400}
+        }
+
+        with patch.object(renderer, "_get_layout_config", return_value=mock_config):
+            # Test the complete flow
+            has_fixed = renderer._has_fixed_dimensions()
+            width, height = renderer._get_layout_dimensions()
+            viewport = renderer._generate_viewport_meta_tag()
+
+            assert has_fixed is True
+            assert width == 300
+            assert height == 400
+            assert "user-scalable=no" in viewport
+            assert "viewport-fit=cover" in viewport

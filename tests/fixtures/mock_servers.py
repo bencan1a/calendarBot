@@ -393,7 +393,7 @@ def create_api_test_server(port: int = 8998) -> MockWebServer:
     def status_handler(request_info):
         return {
             "status_code": 200,
-            "content": {"running": True, "host": "127.0.0.1", "port": 8998, "theme": "4x8"},
+            "content": {"running": True, "host": "127.0.0.1", "port": 8998, "layout": "4x8"},
         }
 
     server.set_api_handler("/api/navigate", navigation_handler)

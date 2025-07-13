@@ -60,7 +60,7 @@ def test_settings():
             cache_dir=temp_path / "cache",
             web_host="127.0.0.1",
             web_port=8996,  # Use different port to avoid conflicts
-            web_theme="4x8",
+            web_layout="4x8",
             app_name="CalendarBot-IntegratedTest",
             refresh_interval=60,
             max_retries=2,
@@ -90,10 +90,10 @@ async def _setup_web_server(settings):
 
     # Mock the HTML renderer with comprehensive test content
     mock_renderer = MagicMock()
-    mock_renderer.theme = settings.web_theme
+    mock_renderer.layout = settings.web_layout
     mock_renderer.render_events.return_value = """
     <!DOCTYPE html>
-    <html class="theme-4x8">
+    <html class="layout-4x8">
     <head>
         <title>Calendar Bot - Integrated Test</title>
         <style>
@@ -106,19 +106,19 @@ async def _setup_web_server(settings):
         <script>
             window.calendarBot = {
                 initialized: true,
-                theme: '4x8',
+                layout: '4x8',
                 navigate: function(direction) {
                     console.log('Navigate:', direction);
                     return fetch('/api/navigate/' + direction, {method: 'POST'});
                 },
                 getCurrentTheme: function() {
-                    return this.theme;
+                    return this.layout;
                 },
                 toggleTheme: function() {
-                    this.theme = this.theme === '4x8' ? '3x4' : '4x8';
-                    document.documentElement.className = 'theme-' + this.theme;
-                    document.getElementById('current-theme').textContent = this.theme;
-                    return fetch('/api/theme', {method: 'POST'});
+                    this.layout = this.layout === '4x8' ? '3x4' : '4x8';
+                    document.documentElement.className = 'layout-' + this.layout;
+                    document.getElementById('current-layout').textContent = this.layout;
+                    return fetch('/api/layout', {method: 'POST'});
                 }
             };
 
@@ -158,7 +158,7 @@ async def _setup_web_server(settings):
             </div>
         </div>
         <div class="status-line">
-            Ready • Theme: <span id="current-theme">4x8</span> • Integrated Test Mode
+            Ready • Theme: <span id="current-layout">4x8</span> • Integrated Test Mode
         </div>
     </body>
     </html>
@@ -219,9 +219,9 @@ async def _test_browser_core_functionality(settings):
             events_section = await page.querySelector(".events-section")
             assert events_section, "Events section not found"
 
-            # Test 5: Check theme detection
-            theme = await page.evaluate("window.calendarBot.theme")
-            assert theme == "4x8", f"Expected theme '4x8', got: {theme}"
+            # Test 5: Check layout detection
+            layout = await page.evaluate("window.calendarBot.layout")
+            assert layout == "4x8", f"Expected layout '4x8', got: {layout}"
 
             # Test 6: Test responsive design (mobile viewport)
             await page.setViewport({"width": 375, "height": 667, "isMobile": True})
@@ -287,9 +287,9 @@ async def _test_navigation_functionality(settings):
             navigate_exists = await page.evaluate('typeof window.navigate === "function"')
             assert navigate_exists, "Navigate function not available"
 
-            # Test theme toggle functionality
-            toggle_theme_exists = await page.evaluate('typeof window.toggleTheme === "function"')
-            assert toggle_theme_exists, "Toggle theme function not available"
+            # Test layout toggle functionality
+            toggle_layout_exists = await page.evaluate('typeof window.toggleTheme === "function"')
+            assert toggle_layout_exists, "Toggle layout function not available"
 
         finally:
             await browser.close()
@@ -345,7 +345,7 @@ async def _test_calendar_information_display(settings):
             status_line = await page.querySelector(".status-line")
             assert status_line, "Status line not found"
 
-            # Check status line contains theme info
+            # Check status line contains layout info
             status_text = await page.evaluate('document.querySelector(".status-line").textContent')
             assert "Theme:" in status_text, "Theme information not in status line"
 
@@ -410,7 +410,7 @@ if __name__ == "__main__":
             cache_dir=temp_path / "cache",
             web_host="127.0.0.1",
             web_port=8996,
-            web_theme="4x8",
+            web_layout="4x8",
             app_name="CalendarBot-Standalone",
             refresh_interval=60,
             max_retries=2,

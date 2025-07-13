@@ -28,10 +28,13 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             settings: Application settings
         """
         super().__init__(settings)
-        # Override theme for RPI e-ink display - use the compact '3x4' theme optimized for e-ink
-        self.theme = "3x4"
+        # Use recommended layout for RPI e-ink display if not explicitly set
+        if not hasattr(settings, "web_layout") or not settings.web_layout:
+            self.layout = "3x4"  # Default to compact layout for e-ink displays
 
-        logger.debug("RPI HTML renderer initialized for 800x480px e-ink display with '3x4' theme")
+        logger.debug(
+            f"RPI HTML renderer initialized for 800x480px e-ink display with '{self.layout}' layout"
+        )
 
     def _build_html_template(
         self,
@@ -69,13 +72,16 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         # Generate bottom status bar (replaces navigation)
         bottom_status_bar = self._generate_bottom_status_bar(status_line)
 
+        # Dynamic resource loading using inherited ResourceManager
+        css_file, js_file = self._get_dynamic_resources()
+
         return f"""<!DOCTYPE html>
-<html lang="en" class="theme-{self.theme}">
+<html lang="en" class="layout-{self.layout}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=480, height=800, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - {display_date}</title>
-    <link rel="stylesheet" href="/static/4x8.css">
+    <link rel="stylesheet" href="/static/{css_file}">
 </head>
 <body>
     <div class="calendar-container">
@@ -90,7 +96,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         {bottom_status_bar}
     </div>
 
-    <script src="/static/4x8.js"></script>
+    <script src="/static/{js_file}"></script>
 </body>
 </html>"""
 
@@ -370,7 +376,9 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         urgency_class = (
             "event-urgent"
             if time_until is not None and time_until <= 5
-            else "event-soon" if time_until is not None and time_until <= 30 else ""
+            else "event-soon"
+            if time_until is not None and time_until <= 30
+            else ""
         )
 
         return f"""
@@ -540,7 +548,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             cached_content = '<div class="no-cache">❌ No cached data available</div>'
 
         return f"""<!DOCTYPE html>
-<html lang="en" class="theme-{self.theme}">
+<html lang="en" class="layout-{self.layout}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=480, height=800, initial-scale=1.0, user-scalable=no">
@@ -554,7 +562,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             <div class="header-main">
                 <h1 class="calendar-title">📅 Calendar - {datetime.now().strftime('%A, %B %d')}</h1>
             </div>
-            <div class="theme-controls"></div>
+            <div class="layout-controls"></div>
         </header>
 
         <main class="calendar-content">

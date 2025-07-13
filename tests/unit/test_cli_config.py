@@ -370,46 +370,50 @@ class TestApplyRpiOverrides:
     """Test the apply_rpi_overrides function."""
 
     def test_apply_rpi_overrides_enabled(self):
-        """Test RPI overrides when RPI mode is enabled."""
+        """Test RPI overrides when RPI mode is enabled with layout-renderer separation."""
         # Create mock settings and args
         mock_settings = MagicMock()
-        mock_settings.rpi_auto_theme = True
-        mock_settings.web_theme = "4x8"
+        mock_settings.rpi_auto_layout = True
+        mock_settings.layout_name = "4x8"  # Original layout (renamed from web_layout)
+        mock_settings.display_type = "html"  # Original renderer
 
         mock_args = MagicMock()
         mock_args.rpi = True
         mock_args.rpi_width = None
         mock_args.rpi_height = None
         mock_args.rpi_refresh_mode = None
+        mock_args.layout = None  # Explicitly set to None to trigger auto-layout
 
         with patch("calendarbot.cli.config.logging.getLogger") as mock_logger:
             result = apply_rpi_overrides(mock_settings, mock_args)
 
             assert result.rpi_enabled is True
-            assert result.display_type == "rpi"
-            assert result.web_theme == "3x4"
+            # RPI should change the renderer type to compact (not rpi)
+            assert result.display_type == "compact"
+            # Auto layout should change layout to 3x4 for RPI
+            assert result.layout_name == "3x4"
 
     def test_apply_rpi_overrides_disabled(self):
         """Test RPI overrides when RPI mode is disabled."""
         mock_settings = MagicMock()
-        mock_settings.web_theme = "4x8"
+        mock_settings.layout_name = "4x8"
 
         mock_args = MagicMock()
         mock_args.rpi = False
+        mock_args.compact = False  # Explicitly set to avoid auto-creation
 
-        with patch("calendarbot.cli.config.logging.getLogger"):
+        with patch("calendarbot.cli.config.logging.getLogger") as mock_logger:
             result = apply_rpi_overrides(mock_settings, mock_args)
 
-            # Settings should remain unchanged - check that RPI settings are not modified
-            # Since MagicMock auto-creates attributes, we check that result is same object
+            # Settings should remain unchanged - check that result is same object
             assert result is mock_settings
-            # Verify no RPI-specific settings were applied
-            assert getattr(result, "display_type", None) != "rpi"
+            # Verify the function doesn't log any mode activation messages
+            mock_logger.return_value.info.assert_not_called()
 
     def test_apply_rpi_overrides_with_dimensions(self):
         """Test RPI overrides with custom dimensions."""
         mock_settings = MagicMock()
-        mock_settings.rpi_auto_theme = True
+        mock_settings.rpi_auto_layout = True
 
         mock_args = MagicMock()
         mock_args.rpi = True
@@ -427,8 +431,8 @@ class TestApplyRpiOverrides:
     def test_apply_rpi_overrides_auto_theme_disabled(self):
         """Test RPI overrides when auto theme is disabled."""
         mock_settings = MagicMock()
-        mock_settings.rpi_auto_theme = False
-        mock_settings.web_theme = "custom"
+        mock_settings.rpi_auto_layout = False
+        mock_settings.layout_name = "custom"
 
         mock_args = MagicMock()
         mock_args.rpi = True
@@ -436,13 +440,13 @@ class TestApplyRpiOverrides:
         with patch("calendarbot.cli.config.logging.getLogger"):
             result = apply_rpi_overrides(mock_settings, mock_args)
 
-            # Theme should not be changed
-            assert result.web_theme == "custom"
+            # Layout should not be changed
+            assert result.layout_name == "custom"
 
     @pytest.mark.parametrize(
         "rpi_enabled,expected_display_type",
         [
-            (True, "rpi"),
+            (True, "compact"),
             (False, None),  # Should not set display_type
         ],
     )
@@ -464,8 +468,8 @@ class TestApplyRpiOverrides:
     def test_apply_rpi_overrides_logging_calls(self):
         """Test that proper logging calls are made."""
         mock_settings = MagicMock()
-        mock_settings.rpi_auto_theme = True
-        mock_settings.web_theme = "4x8"
+        mock_settings.rpi_auto_layout = True
+        mock_settings.web_layout = "4x8"
 
         mock_args = MagicMock()
         mock_args.rpi = True

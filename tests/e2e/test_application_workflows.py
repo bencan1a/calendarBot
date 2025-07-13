@@ -32,7 +32,6 @@ class TestCompleteApplicationWorkflows:
         ) as mock_test_conn, patch(
             "calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True
         ):
-
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
             mock_health_result.is_healthy = True
@@ -75,7 +74,6 @@ class TestCompleteApplicationWorkflows:
         ), patch(
             "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
         ) as mock_test_conn:
-
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
             mock_health_result.is_healthy = True
@@ -119,7 +117,6 @@ class TestCompleteApplicationWorkflows:
         ), patch.object(
             bot.display_manager, "display_events", new_callable=AsyncMock, return_value=True
         ) as mock_display:
-
             # Execute complete workflow
             # 1. Fetch and cache events
             fetch_success = await bot.fetch_and_cache_events()
@@ -161,7 +158,6 @@ class TestCompleteApplicationWorkflows:
         ) as mock_fetch, patch.object(
             bot, "update_display", return_value=True
         ) as mock_update:
-
             # Execute refresh cycle
             await bot.refresh_cycle()
 
@@ -187,7 +183,6 @@ class TestCompleteApplicationWorkflows:
         ), patch.object(
             bot, "handle_error_display", new_callable=AsyncMock
         ) as mock_error_display:
-
             # Attempt fetch (should fail)
             success = await bot.fetch_and_cache_events()
             assert success is False
@@ -257,7 +252,6 @@ class TestCompleteApplicationWorkflows:
         with patch.object(bot, "fetch_and_cache_events", return_value=True), patch.object(
             bot, "update_display", return_value=True
         ), patch.object(bot, "refresh_cycle") as mock_refresh:
-
             # Run multiple operations concurrently
             tasks = [bot.refresh_cycle(), bot.fetch_and_cache_events(), bot.update_display()]
 
@@ -281,7 +275,6 @@ class TestWebInterfaceWorkflows:
         ) as mock_test_conn, patch(
             "calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True
         ):
-
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
             mock_health_result.is_healthy = True
@@ -362,28 +355,41 @@ class TestWebInterfaceWorkflows:
             assert isinstance(status, dict)
 
     @pytest.mark.asyncio
-    async def test_theme_switching_workflow(self, web_application_setup):
-        """Test theme switching workflow via web interface."""
+    async def test_layout_switching_workflow(self, web_application_setup):
+        """Test layout switching workflow via web interface."""
         web_server, bot, navigation_state = web_application_setup
 
-        # Mock renderer
-        web_server.display_manager.renderer = MagicMock()
-        web_server.display_manager.renderer.theme = "4x8"
+        # Mock the display manager's set_layout method to avoid renderer replacement
+        with patch.object(
+            web_server.display_manager, "set_layout", return_value=True
+        ) as mock_set_layout:
+            with patch.object(web_server.display_manager, "get_current_layout") as mock_get_layout:
+                # Set up the mock to return the layout that was just set
+                def mock_get_current_layout_side_effect():
+                    if mock_set_layout.call_count > 0:
+                        # Return the last layout that was set
+                        return mock_set_layout.call_args[0][0]
+                    return "4x8"  # default
 
-        initial_theme = web_server.theme
+                mock_get_layout.side_effect = mock_get_current_layout_side_effect
 
-        # Theme switching sequence
-        themes = ["3x4", "4x8"]
+                # Layout switching sequence
+                layouts = ["3x4", "4x8"]
 
-        for theme in themes:
-            success = web_server.set_theme(theme)
-            assert success is True
-            assert web_server.theme == theme
-            assert web_server.display_manager.renderer.theme == theme
+                for layout in layouts:
+                    success = web_server.set_layout(layout)
+                    assert success is True
+                    # Verify set_layout was called with correct layout
+                    mock_set_layout.assert_called_with(layout)
+                    # Check layout through display manager API
+                    current_layout = web_server.display_manager.get_current_layout()
+                    assert current_layout == layout
 
-        # Test theme toggle
-        new_theme = web_server.toggle_theme()
-        assert new_theme in ["4x8", "3x4"]
+                # Test layout toggle
+                new_layout = web_server.cycle_layout()
+                assert new_layout in ["4x8", "3x4"]
+                # Verify the layout was actually set in display manager
+                assert web_server.display_manager.get_current_layout() == new_layout
 
     @pytest.mark.asyncio
     async def test_calendar_display_workflow(self, web_application_setup):
@@ -437,8 +443,8 @@ class TestWebInterfaceWorkflows:
             status2 = web_server.get_status()
             html2 = web_server.get_calendar_html()
 
-            # 3. Change theme
-            web_server.set_theme("3x4")
+            # 3. Change layout
+            web_server.set_layout("3x4")
 
             # 4. Refresh data
             web_server.refresh_data()
@@ -451,7 +457,7 @@ class TestWebInterfaceWorkflows:
             # Verify session progression
             assert status1["current_date"] != status2["current_date"]  # Navigation worked
             assert status3["current_date"] == status1["current_date"]  # Back to start
-            assert web_server.theme == "3x4"  # Theme persisted
+            assert web_server.layout == "3x4"  # Theme persisted
 
             # All HTML generations should succeed
             assert all("Calendar" in html for html in [html1, html2, html3])
@@ -469,7 +475,6 @@ class TestFailureRecoveryWorkflows:
         ) as mock_test_conn, patch(
             "calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True
         ):
-
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
             mock_health_result.is_healthy = True
@@ -553,7 +558,6 @@ class TestFailureRecoveryWorkflows:
         ), patch.object(
             bot, "handle_error_display", new_callable=AsyncMock
         ) as mock_error_display:
-
             # Execute refresh cycle
             await bot.refresh_cycle()
 
@@ -571,7 +575,6 @@ class TestFailureRecoveryWorkflows:
         ) as mock_test_conn, patch(
             "calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True
         ):
-
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
             mock_health_result.is_healthy = True
@@ -631,7 +634,6 @@ class TestPerformanceWorkflows:
         ) as mock_test_conn, patch(
             "calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True
         ):
-
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
             mock_health_result.is_healthy = True
@@ -663,7 +665,6 @@ class TestPerformanceWorkflows:
         ), patch.object(
             bot.display_manager, "display_events", return_value=True
         ):
-
             performance_tracker.start_timer("large_dataset_workflow")
 
             # Execute complete workflow
@@ -691,7 +692,6 @@ class TestPerformanceWorkflows:
         ), patch.object(
             bot.display_manager, "display_events", return_value=True
         ):
-
             performance_tracker.start_timer("high_frequency_operations")
 
             # Perform many operations quickly
@@ -725,7 +725,6 @@ class TestPerformanceWorkflows:
         ), patch.object(
             bot.display_manager, "display_events", return_value=True
         ):
-
             # Perform many cycles
             for _ in range(20):
                 await bot.refresh_cycle()
@@ -755,7 +754,6 @@ class TestPerformanceWorkflows:
         ), patch.object(
             bot.display_manager, "display_events", return_value=True
         ):
-
             performance_tracker.start_timer("concurrent_workflow")
 
             # Run multiple workflows concurrently

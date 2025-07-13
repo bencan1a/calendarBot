@@ -169,17 +169,17 @@ class InteractiveController:
             start_datetime = datetime.combine(selected_date, datetime.min.time())
             end_datetime = start_datetime + timedelta(days=1)
 
-            logger.info(
-                f"DEBUG: Querying events for {selected_date} between {start_datetime} and {end_datetime}"
+            logger.debug(
+                f"Querying events for {selected_date} between {start_datetime} and {end_datetime}"
             )
 
             # Retrieve events from cache
             events = await self.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
 
-            logger.info(f"DEBUG: Found {len(events)} events for {selected_date}")
+            logger.debug(f"Found {len(events)} events for {selected_date}")
             if events:
                 for event in events[:3]:  # Log first 3 events
-                    logger.info(f"DEBUG: Event - {event.subject} at {event.start_datetime}")
+                    logger.debug(f"Event - {event.subject} at {event.start_datetime}")
 
             # Prepare status information
             status_info = await self._get_status_info()
@@ -251,7 +251,6 @@ class InteractiveController:
                 if self._last_data_update is None or (
                     last_update_normalized and last_update_normalized != self._last_data_update
                 ):
-
                     # Data has been updated, refresh display
                     self._last_data_update = last_update_normalized
                     await self._update_display()
@@ -321,7 +320,7 @@ class InteractiveController:
 
             for event in all_events:
                 try:
-                    logger.info(f"DEBUG: Processing event '{event.subject}' for date grouping")
+                    logger.debug(f"Processing event '{event.subject}' for date grouping")
                     # Use the start_dt property which provides parsed datetime
                     if hasattr(event, "start_dt"):
                         event_date = event.start_dt.date()
@@ -334,13 +333,13 @@ class InteractiveController:
                         )
                         event_date = start_datetime.date()
 
-                    logger.info(f"DEBUG: Event date parsed as: {event_date}")
+                    logger.debug(f"Event date parsed as: {event_date}")
                     if event_date in events_by_date:
                         events_by_date[event_date].append(event)
-                        logger.info(f"DEBUG: Added event to date {event_date}")
+                        logger.debug(f"Added event to date {event_date}")
                 except Exception as e:
-                    logger.error(f"DEBUG: Failed to process event '{event.subject}': {e}")
-                    logger.error(f"DEBUG: Event start_datetime raw: '{event.start_datetime}'")
+                    logger.debug(f"Failed to process event '{event.subject}': {e}")
+                    logger.debug(f"Event start_datetime raw: '{event.start_datetime}'")
 
             return events_by_date
 
@@ -381,7 +380,6 @@ class InteractiveController:
             if hasattr(self.display_manager, "renderer") and hasattr(
                 self.display_manager.renderer, "enable_split_display"
             ):
-
                 # Enable split display with default settings
                 if self.display_manager.renderer is not None:
                     self.display_manager.renderer.enable_split_display(max_log_lines=5)
@@ -398,7 +396,6 @@ class InteractiveController:
             if hasattr(self.display_manager, "renderer") and hasattr(
                 self.display_manager.renderer, "disable_split_display"
             ):
-
                 if self.display_manager.renderer is not None:
                     self.display_manager.renderer.disable_split_display()
                 logger.debug("Split display logging disabled")
