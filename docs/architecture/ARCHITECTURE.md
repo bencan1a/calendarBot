@@ -522,6 +522,97 @@ Each layout is defined by a `layout.json` configuration file with the following 
 }
 ```
 
+### Specialized Layout Example: whats-next-view
+
+The **whats-next-view** layout demonstrates advanced layout capabilities with specialized functionality:
+
+```json
+{
+  "name": "whats-next-view",
+  "display_name": "What's Next Countdown",
+  "description": "Countdown timer layout for next meeting with smart detection",
+  "version": "1.0.0",
+  "orientation": "flexible",
+  "dimensions": {
+    "min_width": 320,
+    "min_height": 240,
+    "optimal_width": 800,
+    "optimal_height": 480,
+    "fixed_dimensions": false
+  },
+  "capabilities": {
+    "real_time_updates": true,
+    "countdown_timer": true,
+    "meeting_detection": true,
+    "display_modes": ["countdown", "eink", "standard"],
+    "supported_devices": ["eink", "rpi", "web", "mobile"],
+    "animations": false,
+    "layout_switching": true,
+    "accessibility_features": [
+      "high_contrast_mode",
+      "large_text_support",
+      "screen_reader_announcements"
+    ]
+  },
+  "specialized_features": {
+    "countdown_precision": "seconds",
+    "meeting_detection_algorithm": "next_event_priority",
+    "auto_refresh_interval": 1000,
+    "timezone_aware": true,
+    "fallback_display": "next_day_events"
+  },
+  "resources": {
+    "css": [
+      {
+        "file": "whats-next-view.css",
+        "media": "screen",
+        "priority": 1
+      }
+    ],
+    "js": [
+      {
+        "file": "whats-next-view.js",
+        "type": "module",
+        "priority": 1,
+        "defer": true,
+        "features": ["countdown_timer", "meeting_detection"]
+      }
+    ]
+  },
+  "fallback_layouts": ["4x8", "3x4", "console"],
+  "compatibility": {
+    "min_screen_width": 240,
+    "min_screen_height": 180,
+    "supports_touch": true,
+    "supports_keyboard": true,
+    "eink_optimized": true,
+    "power_efficient": true
+  }
+}
+```
+
+#### whats-next-view Architecture Features
+
+1. **Real-time Countdown System**
+   - JavaScript-based countdown timer with 1-second precision
+   - Automatic detection of next upcoming meeting
+   - Graceful handling of timezone transitions
+
+2. **E-ink Display Optimization**
+   - High contrast CSS with minimal refresh requirements
+   - Power-efficient rendering strategies
+   - Optimized for 800x480px e-ink displays
+
+3. **Meeting Detection Algorithm**
+   - Prioritizes meetings starting within the next 24 hours
+   - Filters out all-day events for countdown accuracy
+   - Fallback to next day's first event when no meetings today
+
+4. **Accessibility Integration**
+   - Large text support for distant viewing
+   - High contrast mode for various lighting conditions
+   - Screen reader announcements for countdown updates
+
 ### Layout Directory Structure
 
 ```
@@ -535,6 +626,12 @@ calendarbot/web/static/layouts/
 │   ├── layout.json
 │   ├── 3x4.css
 │   └── 3x4.js
+├── whats-next-view/
+│   ├── layout.json         # Specialized countdown layout
+│   ├── whats-next-view.css # E-ink optimized styles
+│   ├── whats-next-view.js  # Meeting detection logic
+│   └── assets/
+│       └── countdown-icons/ # Countdown-specific icons
 └── custom-layout/
     ├── layout.json
     ├── custom.css

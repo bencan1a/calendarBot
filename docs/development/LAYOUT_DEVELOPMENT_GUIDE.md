@@ -1118,4 +1118,397 @@ When contributing new layouts to the project:
 
 ---
 
+## Real-World Example: whats-next-view Layout
+
+The [`whats-next-view`](../../calendarbot/web/static/layouts/whats-next-view/) layout serves as a comprehensive example of advanced layout development, showcasing specialized features for meeting countdown and eink display optimization.
+
+### Overview
+
+The whats-next-view layout is a specialized implementation designed for:
+- **Target Display**: 300×400px fixed viewport (portrait orientation)
+- **Primary Use Case**: Focus on next upcoming meeting with real-time countdown
+- **Display Types**: Optimized for eink displays but supports LCD/OLED
+- **Key Features**: Real-time countdown timer, automatic meeting transitions, accessibility compliance
+
+### Configuration Analysis
+
+```json
+{
+  "name": "whats-next-view",
+  "display_name": "What's Next View",
+  "description": "Streamlined countdown layout optimized for 3×4 inch displays, focusing on the next upcoming meeting with real-time countdown timer",
+  "version": "1.0.0",
+  "orientation": "portrait",
+  
+  "dimensions": {
+    "min_width": 300,
+    "min_height": 400,
+    "optimal_width": 300,
+    "optimal_height": 400,
+    "max_width": 300,
+    "max_height": 400,
+    "fixed_dimensions": true,
+    "disable_resize": true
+  },
+  
+  "capabilities": {
+    "countdown_timer": true,
+    "meeting_detection": true,
+    "real_time_updates": true
+  },
+  
+  "layout_specific": {
+    "countdown_features": {
+      "real_time_updates": true,
+      "meeting_detection": true,
+      "automatic_transitions": true,
+      "urgent_highlighting": true,
+      "screen_reader_announcements": true
+    },
+    "visual_design": {
+      "grayscale_palette": "8-shade",
+      "minimal_interface": true,
+      "large_countdown_display": true,
+      "eink_optimized": true
+    }
+  }
+}
+```
+
+**Key Configuration Features:**
+- **Fixed Dimensions**: Prevents resizing for consistent display
+- **Layout-Specific Extensions**: Custom configuration sections for specialized features
+- **Performance Metrics**: Bundle size and update frequency specifications
+- **Accessibility Features**: Comprehensive ARIA support and screen reader compatibility
+
+### CSS Architecture Implementation
+
+The whats-next-view demonstrates advanced CSS patterns:
+
+#### 8-Shade Grayscale Palette System
+```css
+:root {
+    /* 8-shade grayscale palette for eink optimization */
+    --gray-1: #ffffff;  /* Lightest */
+    --gray-2: #e6e6e6;
+    --gray-3: #cccccc;
+    --gray-4: #999999;
+    --gray-5: #666666;
+    --gray-6: #4d4d4d;
+    --gray-7: #333333;
+    --gray-8: #000000;  /* Darkest */
+    
+    /* Semantic color assignments */
+    --background-primary: var(--gray-1);
+    --text-primary: var(--gray-8);
+    --border-medium: var(--gray-4);
+}
+```
+
+#### Fixed Viewport Management
+```css
+/* Full viewport with centering for fixed calendar rectangle */
+html, body {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* Create exact 300x400 container */
+body {
+    width: 300px !important;
+    height: 400px !important;
+    max-width: 300px !important;
+    max-height: 400px !important;
+    min-width: 300px !important;
+    min-height: 400px !important;
+}
+```
+
+#### Theme System Implementation
+```css
+/* Standard theme with subtle shadows and gradients */
+.theme-standard .meeting-card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 6px;
+}
+
+/* Eink theme with sharp edges and no effects */
+.theme-eink * {
+    transition: none !important;
+    animation: none !important;
+    border-radius: 0;
+    box-shadow: none;
+}
+```
+
+#### Accessibility-First Design
+```css
+/* Focus management */
+.meeting-card:focus {
+    outline: 2px solid var(--gray-6);
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    :root {
+        --border-medium: var(--gray-7);
+    }
+    .meeting-card {
+        border-width: 3px;
+    }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .countdown-time.urgent {
+        animation: none;
+    }
+}
+
+/* Screen reader only content */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip: rect(0, 0, 0, 0);
+}
+```
+
+### JavaScript Architecture Implementation
+
+The whats-next-view demonstrates advanced JavaScript patterns:
+
+#### Real-Time Countdown System
+```javascript
+function setupCountdownSystem() {
+    // Start countdown updates every second
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+    }
+    
+    countdownInterval = setInterval(function() {
+        updateCountdown();
+        checkMeetingTransitions();
+    }, 1000);
+}
+
+function updateCountdown() {
+    if (!currentMeeting) return;
+    
+    const now = new Date();
+    const meetingStart = new Date(currentMeeting.start_time);
+    const meetingEnd = new Date(currentMeeting.end_time);
+    
+    let timeRemaining;
+    let labelText;
+    
+    if (now >= meetingStart && now <= meetingEnd) {
+        timeRemaining = meetingEnd - now;
+        labelText = 'Time Remaining';
+    } else if (meetingStart > now) {
+        timeRemaining = meetingStart - now;
+        labelText = 'Starts In';
+    }
+    
+    // Update display and handle urgent state
+    if (timeRemaining < 15 * 60 * 1000) {
+        countdownElement.classList.add('urgent');
+    }
+}
+```
+
+#### Meeting Detection and Transition Logic
+```javascript
+function detectCurrentMeeting() {
+    const now = new Date();
+    currentMeeting = null;
+    
+    for (const meeting of upcomingMeetings) {
+        const meetingStart = new Date(meeting.start_time);
+        const meetingEnd = new Date(meeting.end_time);
+        
+        // Check if meeting is currently happening
+        if (now >= meetingStart && now <= meetingEnd) {
+            currentMeeting = meeting;
+            break;
+        }
+        
+        // Check if meeting is upcoming
+        if (meetingStart > now) {
+            currentMeeting = meeting;
+            break;
+        }
+    }
+    
+    updateMeetingDisplay();
+}
+```
+
+#### Accessibility Integration
+```javascript
+function setupAccessibility() {
+    // Add ARIA live region for countdown announcements
+    const liveRegion = document.createElement('div');
+    liveRegion.id = 'whats-next-live-region';
+    liveRegion.setAttribute('aria-live', 'polite');
+    liveRegion.setAttribute('aria-atomic', 'true');
+    liveRegion.className = 'sr-only';
+    document.body.appendChild(liveRegion);
+
+    // Add focus management for meeting cards
+    const meetingCards = document.querySelectorAll('.meeting-card');
+    meetingCards.forEach((card, index) => {
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', getMeetingAriaLabel(card));
+    });
+}
+
+function announceToScreenReader(message) {
+    const liveRegion = document.getElementById('whats-next-live-region');
+    if (liveRegion) {
+        liveRegion.textContent = message;
+    }
+}
+```
+
+#### API Integration Patterns
+```javascript
+async function loadMeetingData() {
+    try {
+        showLoadingIndicator('Loading meetings...');
+
+        const response = await fetch('/api/refresh', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.html) {
+            parseMeetingDataFromHTML(data.html);
+            updatePageContent(data.html);
+            detectCurrentMeeting();
+            updateCountdown();
+            lastDataUpdate = new Date();
+        } else {
+            showErrorState('Failed to load meeting data');
+        }
+
+    } catch (error) {
+        console.error('Failed to load meeting data', error);
+        showErrorState('Network error occurred');
+    } finally {
+        hideLoadingIndicator();
+    }
+}
+```
+
+### Testing Strategy Implementation
+
+The whats-next-view includes comprehensive Jest testing:
+
+#### Test Structure
+```javascript
+describe('WhatsNextView - Core Functionality', () => {
+    describe('Initialization', () => {
+        it('should initialize with correct default values', () => {
+            // Test initialization logic
+        });
+    });
+
+    describe('Meeting Detection and Filtering', () => {
+        it('should detect the next upcoming meeting correctly', () => {
+            // Test meeting detection algorithms
+        });
+    });
+
+    describe('Countdown Timer Functionality', () => {
+        it('should format countdown time correctly for upcoming meetings', () => {
+            // Test countdown calculations
+        });
+    });
+
+    describe('Accessibility Features', () => {
+        it('should create ARIA live region for announcements', () => {
+            // Test accessibility implementations
+        });
+    });
+});
+```
+
+#### Performance Benchmarks
+```javascript
+describe('WhatsNextView - Performance Benchmarks', () => {
+    it('should parse large HTML responses efficiently', () => {
+        const largeHTML = generateLargeHTML(100); // 100 events
+        const startTime = performance.now();
+        
+        parseMeetingDataFromHTML(largeHTML);
+        
+        const duration = performance.now() - startTime;
+        expect(duration).toBeLessThan(50); // Less than 50ms
+    });
+});
+```
+
+### Development Lessons and Best Practices
+
+From the whats-next-view implementation:
+
+#### 1. **Fixed Viewport Handling**
+- Use exact pixel dimensions with `!important` for fixed displays
+- Center container within full viewport for consistent positioning
+- Prevent scrolling and resizing with `overflow: hidden`
+
+#### 2. **Real-Time Updates**
+- Use `setInterval` for regular updates (1-second intervals for countdown)
+- Implement cleanup patterns to prevent memory leaks
+- Batch DOM updates to minimize reflow/repaint
+
+#### 3. **Theme System Design**
+- Create semantic color variables mapping to palette
+- Use CSS custom properties for dynamic theming
+- Implement theme-specific overrides for different display types
+
+#### 4. **Accessibility Implementation**
+- Always include ARIA live regions for dynamic content
+- Implement proper focus management and keyboard navigation
+- Test with screen readers and accessibility tools
+- Support user preferences (reduced motion, high contrast)
+
+#### 5. **API Integration Patterns**
+- Implement proper error handling and loading states
+- Use async/await for clean asynchronous code
+- Parse HTML responses safely with error boundaries
+- Provide visual feedback for all user actions
+
+#### 6. **Testing Strategy**
+- Write tests for all public functions (100% coverage target)
+- Include performance benchmarks for critical functions
+- Test accessibility features and screen reader compatibility
+- Mock external dependencies for reliable testing
+
+### Usage in Development Workflow
+
+To create a similar specialized layout:
+
+1. **Start with Configuration**: Define exact requirements in `layout.json`
+2. **Implement CSS Architecture**: Create systematic color palette and theme support
+3. **Build JavaScript Logic**: Implement core functionality with proper error handling
+4. **Add Accessibility**: Include ARIA labels, live regions, and keyboard navigation
+5. **Write Comprehensive Tests**: Cover all functionality with unit and integration tests
+6. **Performance Optimization**: Benchmark critical functions and optimize bottlenecks
+
+The whats-next-view layout demonstrates how CalendarBot's layout system can be extended for specialized use cases while maintaining consistency with the overall architecture and design patterns.
+
+---
+
 For additional support or questions about layout development, please refer to the main [Architecture Documentation](../architecture/ARCHITECTURE.md) or submit an issue in the project repository.

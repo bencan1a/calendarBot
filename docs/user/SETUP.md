@@ -325,9 +325,39 @@ web:
   enabled: false            # Enable web interface
   port: 8080               # Web server port
   host: "0.0.0.0"          # Bind address
-  theme: "4x8"        # Web theme
+  theme: "4x8"             # Available layouts: 4x8, 3x4, whats-next-view
   auto_refresh: 60         # Auto-refresh interval in seconds
 ```
+
+#### Available Layout Options
+
+CalendarBot includes several built-in layouts optimized for different use cases:
+
+- **`4x8`** - Standard landscape layout for 4×8 inch displays (default)
+- **`3x4`** - Compact layout for smaller screens or portrait orientation
+- **`whats-next-view`** - Countdown timer layout showing time until next meeting
+
+##### whats-next-view Layout
+
+The **whats-next-view** layout provides a specialized countdown display perfect for:
+- **E-ink displays** - Optimized for high contrast and minimal refresh
+- **Meeting rooms** - Large, readable countdown to next scheduled meeting
+- **Accessibility** - High contrast mode with large text support
+
+**Configuration example**:
+```yaml
+web:
+  enabled: true
+  theme: "whats-next-view"
+  auto_refresh: 5          # Faster refresh for countdown accuracy
+```
+
+**Key features**:
+- Real-time countdown timer with second precision
+- Automatic detection of next upcoming meeting
+- Filters out all-day events for accurate countdown
+- Fallback to next day's first event when no meetings today
+- Power-efficient rendering for e-ink displays
 
 ### Display Settings
 
