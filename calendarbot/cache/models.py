@@ -148,17 +148,7 @@ class CachedEvent(BaseModel):
     @property
     def start_dt(self) -> datetime:
         """Get start datetime as datetime object."""
-        import logging
-
-        logger = logging.getLogger(__name__)
-        try:
-            logger.info(f"DEBUG: Parsing start_datetime: '{self.start_datetime}'")
-            result = datetime.fromisoformat(self.start_datetime.replace("Z", "+00:00"))
-            logger.info(f"DEBUG: Parsed to: {result}")
-            return result
-        except Exception as e:
-            logger.error(f"DEBUG: Failed to parse start_datetime '{self.start_datetime}': {e}")
-            raise
+        return datetime.fromisoformat(self.start_datetime.replace("Z", "+00:00"))
 
     @property
     def end_dt(self) -> datetime:

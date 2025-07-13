@@ -454,7 +454,7 @@ For other calendar services:
                 "enabled": False,
                 "port": 8080,
                 "host": "0.0.0.0",  # nosec B104
-                "theme": "4x8",
+                "layout": "4x8",
                 "auto_refresh": 60,
             },
             # Raspberry Pi E-ink Settings
@@ -702,7 +702,7 @@ web:
   enabled: false
   port: 8080
   host: "0.0.0.0"
-  theme: "4x8"
+  layout: "4x8"
   auto_refresh: 60
 
 # Raspberry Pi E-ink Settings (for --rpi mode)

@@ -1,4 +1,4 @@
-"""Test suite for calendarbot.display.manager module."""
+"""Test suite for calendarbot.display.manager module with new layout-renderer architecture."""
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -11,82 +11,199 @@ from calendarbot.display.manager import DisplayManager
 
 
 class TestDisplayManagerInitialization:
-    """Test DisplayManager initialization and renderer selection."""
+    """Test DisplayManager initialization with renderer factory and layout registry."""
 
-    def test_init_console_renderer(self) -> None:
-        """Test initialization with console display type."""
+    @pytest.fixture
+    def mock_layout_registry(self):
+        """Create mock layout registry."""
+        registry = Mock()
+        registry.get_available_layouts.return_value = ["4x8", "3x4"]
+        registry.validate_layout.return_value = True
+        registry.get_default_layout.return_value = "4x8"
+        return registry
+
+    @pytest.fixture
+    def mock_renderer_factory(self):
+        """Create mock renderer factory."""
+        factory = Mock()
+        mock_renderer = Mock()
+        factory.create_renderer.return_value = mock_renderer
+        return factory
+
+    def test_init_with_renderer_factory(self, mock_layout_registry, mock_renderer_factory) -> None:
+        """Test initialization uses renderer factory instead of direct instantiation."""
+        settings = Mock()
+        settings.display_type = "html"
+        settings.web_layout = "4x8"
+
+        with patch("calendarbot.display.manager.LayoutRegistry", return_value=mock_layout_registry):
+            with patch(
+                "calendarbot.display.manager.RendererFactory", return_value=mock_renderer_factory
+            ):
+                manager = DisplayManager(settings)
+
+                assert manager.settings == settings
+                assert manager.layout_registry == mock_layout_registry
+                assert manager.renderer_factory == mock_renderer_factory
+                mock_renderer_factory.create_renderer.assert_called_once_with("html", settings)
+
+    def test_init_with_layout_registry(self, mock_layout_registry, mock_renderer_factory) -> None:
+        """Test initialization properly sets up layout registry."""
         settings = Mock()
         settings.display_type = "console"
+        settings.web_layout = "3x4"
 
-        with patch("calendarbot.display.manager.ConsoleRenderer") as mock_console:
-            mock_renderer = Mock()
-            mock_console.return_value = mock_renderer
+        with patch("calendarbot.display.manager.LayoutRegistry", return_value=mock_layout_registry):
+            with patch(
+                "calendarbot.display.manager.RendererFactory", return_value=mock_renderer_factory
+            ):
+                manager = DisplayManager(settings)
 
-            manager = DisplayManager(settings)
+                assert manager.layout_registry == mock_layout_registry
+                # Verify layout registry is initialized correctly
+                mock_layout_registry.get_available_layouts.assert_called()
 
-            assert manager.settings == settings
-            assert manager.renderer == mock_renderer
-            mock_console.assert_called_once_with(settings)
+    def test_init_fallback_to_default_layout(
+        self, mock_layout_registry, mock_renderer_factory
+    ) -> None:
+        """Test initialization falls back to default layout for invalid layout."""
+        settings = Mock()
+        settings.display_type = "html"
+        settings.web_layout = "invalid-layout"
 
-    def test_init_html_renderer(self) -> None:
-        """Test initialization with HTML display type."""
+        mock_layout_registry.validate_layout.side_effect = lambda layout: layout in ["4x8", "3x4"]
+        mock_layout_registry.get_default_layout.return_value = "4x8"
+
+        with patch("calendarbot.display.manager.LayoutRegistry", return_value=mock_layout_registry):
+            with patch(
+                "calendarbot.display.manager.RendererFactory", return_value=mock_renderer_factory
+            ):
+                manager = DisplayManager(settings)
+
+                # Should fall back to default layout
+                assert manager.get_layout() == "4x8"
+
+    def test_init_handles_renderer_factory_failure(self, mock_layout_registry) -> None:
+        """Test initialization handles renderer factory failures gracefully."""
         settings = Mock()
         settings.display_type = "html"
 
-        with patch("calendarbot.display.manager.HTMLRenderer") as mock_html:
-            mock_renderer = Mock()
-            mock_html.return_value = mock_renderer
+        mock_factory = Mock()
+        mock_factory.create_renderer.side_effect = Exception("Factory error")
 
-            manager = DisplayManager(settings)
+        with patch("calendarbot.display.manager.LayoutRegistry", return_value=mock_layout_registry):
+            with patch("calendarbot.display.manager.RendererFactory", return_value=mock_factory):
+                # Should not raise exception, should handle gracefully
+                manager = DisplayManager(settings)
+                assert manager.renderer is None
 
-            assert manager.settings == settings
-            assert manager.renderer == mock_renderer
-            mock_html.assert_called_once_with(settings)
 
-    def test_init_rpi_renderer(self) -> None:
-        """Test initialization with Raspberry Pi display type."""
+class TestDisplayManagerLayoutRendererSeparation:
+    """Test layout and renderer separation functionality."""
+
+    @pytest.fixture
+    def mock_setup(self):
+        """Create common mock setup for layout-renderer tests."""
         settings = Mock()
-        settings.display_type = "rpi"
+        settings.display_type = "html"
+        settings.web_layout = "4x8"
+        settings.display_enabled = True
 
-        with patch("calendarbot.display.manager.RaspberryPiHTMLRenderer") as mock_rpi:
-            mock_renderer = Mock()
-            mock_rpi.return_value = mock_renderer
+        layout_registry = Mock()
+        layout_registry.get_available_layouts.return_value = ["4x8", "3x4"]
+        layout_registry.validate_layout.return_value = True
+        layout_registry.get_default_layout.return_value = "4x8"
 
-            manager = DisplayManager(settings)
+        renderer_factory = Mock()
+        mock_renderer = Mock()
+        renderer_factory.create_renderer.return_value = mock_renderer
 
-            assert manager.settings == settings
-            assert manager.renderer == mock_renderer
-            mock_rpi.assert_called_once_with(settings)
+        return settings, layout_registry, renderer_factory, mock_renderer
 
-    def test_init_rpi_html_renderer(self) -> None:
-        """Test initialization with rpi-html display type."""
-        settings = Mock()
-        settings.display_type = "rpi-html"
+    def test_set_layout_independent_of_renderer(self, mock_setup) -> None:
+        """Test that layout can be set independently of renderer."""
+        settings, layout_registry, renderer_factory, mock_renderer = mock_setup
 
-        with patch("calendarbot.display.manager.RaspberryPiHTMLRenderer") as mock_rpi:
-            mock_renderer = Mock()
-            mock_rpi.return_value = mock_renderer
+        with patch("calendarbot.display.manager.LayoutRegistry", return_value=layout_registry):
+            with patch(
+                "calendarbot.display.manager.RendererFactory", return_value=renderer_factory
+            ):
+                manager = DisplayManager(settings)
 
-            manager = DisplayManager(settings)
+                # Set layout to 3x4
+                result = manager.set_layout("3x4")
+                assert result is True
+                assert manager.get_layout() == "3x4"
 
-            assert manager.settings == settings
-            assert manager.renderer == mock_renderer
-            mock_rpi.assert_called_once_with(settings)
+                # Renderer should remain unchanged
+                assert manager.renderer == mock_renderer
 
-    def test_init_unknown_display_type_defaults_to_console(self) -> None:
-        """Test initialization with unknown display type defaults to console."""
-        settings = Mock()
-        settings.display_type = "unknown_type"
+    def test_set_renderer_type_independent_of_layout(self, mock_setup) -> None:
+        """Test that renderer type can be set independently of layout."""
+        settings, layout_registry, renderer_factory, mock_renderer = mock_setup
 
-        with patch("calendarbot.display.manager.ConsoleRenderer") as mock_console:
-            mock_renderer = Mock()
-            mock_console.return_value = mock_renderer
+        with patch("calendarbot.display.manager.LayoutRegistry", return_value=layout_registry):
+            with patch(
+                "calendarbot.display.manager.RendererFactory", return_value=renderer_factory
+            ) as mock_factory_class:
+                # Set up the static method on the mocked class
+                mock_factory_class.get_available_renderers.return_value = [
+                    "html",
+                    "rpi",
+                    "compact",
+                    "console",
+                ]
+                mock_factory_class.create_renderer.return_value = mock_renderer
 
-            manager = DisplayManager(settings)
+                manager = DisplayManager(settings)
+                original_layout = manager.get_layout()
 
-            assert manager.settings == settings
-            assert manager.renderer == mock_renderer
-            mock_console.assert_called_once_with(settings)
+                # Create new renderer for RPI
+                rpi_renderer = Mock()
+                mock_factory_class.create_renderer.return_value = rpi_renderer
+
+                # Set renderer type to RPI
+                result = manager.set_renderer_type("rpi")
+                assert result is True
+                assert manager.get_renderer_type() == "rpi"
+
+                # Layout should remain unchanged
+                assert manager.get_layout() == original_layout
+
+    def test_get_available_layouts_from_registry(self, mock_setup) -> None:
+        """Test getting available layouts from registry."""
+        settings, layout_registry, renderer_factory, mock_renderer = mock_setup
+
+        with patch("calendarbot.display.manager.LayoutRegistry", return_value=layout_registry):
+            with patch(
+                "calendarbot.display.manager.RendererFactory", return_value=renderer_factory
+            ):
+                manager = DisplayManager(settings)
+
+                layouts = manager.get_available_layouts()
+                assert layouts == ["4x8", "3x4"]
+                layout_registry.get_available_layouts.assert_called()
+
+    def test_validate_layout_through_registry(self, mock_setup) -> None:
+        """Test layout validation through registry."""
+        settings, layout_registry, renderer_factory, mock_renderer = mock_setup
+
+        # Set up validation to fail for invalid layout
+        layout_registry.validate_layout.side_effect = lambda layout: layout in ["4x8", "3x4"]
+
+        with patch("calendarbot.display.manager.LayoutRegistry", return_value=layout_registry):
+            with patch(
+                "calendarbot.display.manager.RendererFactory", return_value=renderer_factory
+            ):
+                manager = DisplayManager(settings)
+
+                # Valid layout should succeed
+                result = manager.set_layout("4x8")
+                assert result is True
+
+                # Invalid layout should fail
+                result = manager.set_layout("invalid-layout")
+                assert result is False
 
 
 class TestDisplayManagerDisplayEvents:
@@ -97,11 +214,20 @@ class TestDisplayManagerDisplayEvents:
         settings = Mock()
         settings.display_enabled = display_enabled
         settings.display_type = "console"
+        settings.web_layout = "4x8"
 
-        with patch("calendarbot.display.manager.ConsoleRenderer"):
-            manager = DisplayManager(settings)
-            manager.renderer = Mock()
-            return manager, settings
+        layout_registry = Mock()
+        renderer_factory = Mock()
+        mock_renderer = Mock()
+        renderer_factory.create_renderer.return_value = mock_renderer
+
+        with patch("calendarbot.display.manager.LayoutRegistry", return_value=layout_registry):
+            with patch(
+                "calendarbot.display.manager.RendererFactory", return_value=renderer_factory
+            ):
+                manager = DisplayManager(settings)
+                manager.renderer = mock_renderer
+                return manager, settings
 
     def create_sample_events(self) -> List[CachedEvent]:
         """Create sample cached events for testing."""
@@ -141,7 +267,6 @@ class TestDisplayManagerDisplayEvents:
         with patch("builtins.print") as mock_print, patch(
             "calendarbot.display.manager.datetime"
         ) as mock_datetime:
-
             mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
 
             result = await manager.display_events(events, status_info, clear_screen=True)
@@ -170,7 +295,6 @@ class TestDisplayManagerDisplayEvents:
         with patch("builtins.print") as mock_print, patch(
             "calendarbot.display.manager.datetime"
         ) as mock_datetime:
-
             mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
 
             result = await manager.display_events(events, clear_screen=False)
@@ -191,7 +315,6 @@ class TestDisplayManagerDisplayEvents:
         with patch("builtins.print") as mock_print, patch(
             "calendarbot.display.manager.datetime"
         ) as mock_datetime:
-
             mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
 
             result = await manager.display_events(events, clear_screen=True)
@@ -232,7 +355,6 @@ class TestDisplayManagerDisplayEvents:
         with patch("builtins.print"), patch(
             "calendarbot.display.manager.datetime"
         ) as mock_datetime:
-
             mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
 
             result = await manager.display_events(events, status_info=None)

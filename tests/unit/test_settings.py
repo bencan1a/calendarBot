@@ -454,7 +454,7 @@ class TestCalendarBotSettingsYAMLLoading:
                 "enabled": True,
                 "port": 9090,
                 "host": "192.168.1.100",
-                "theme": "4x8",
+                "layout": "4x8",
                 "auto_refresh": 30,
             },
         }
@@ -470,13 +470,13 @@ class TestCalendarBotSettingsYAMLLoading:
         assert settings.rpi_display_width == 1024
         assert settings.rpi_display_height == 768
         assert settings.rpi_refresh_mode == "full"
-        assert settings.rpi_auto_theme is False
+        assert settings.rpi_auto_layout is False
 
         # Web settings
         assert settings.web_enabled is True
         assert settings.web_port == 9090
         assert settings.web_host == "192.168.1.100"
-        assert settings.web_theme == "4x8"
+        assert settings.web_layout == "4x8"
         assert settings.web_auto_refresh == 30
 
     @patch("config.settings.CalendarBotSettings._validate_required_config")

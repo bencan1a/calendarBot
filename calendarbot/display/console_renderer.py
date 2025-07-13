@@ -24,6 +24,9 @@ class ConsoleRenderer:
         self.width = 60  # Console display width
         self.log_area_lines: List[str] = []  # Reserved log area for split display
         self.log_area_enabled = False  # Enable split display mode
+        self.layout: Optional[str] = getattr(
+            settings, "layout_name", "default"
+        )  # Track current layout
 
         logger.debug("Console renderer initialized")
 

@@ -250,7 +250,7 @@ class SourceManager:
             - Consider calling frequency to balance freshness vs. resource usage
         """
         try:
-            logger.info("DEBUG: SourceManager.fetch_and_cache_events() called")
+            logger.debug("SourceManager.fetch_and_cache_events() called")
             logger.info("Fetching events from all sources")
 
             if not self._sources:

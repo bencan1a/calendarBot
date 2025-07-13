@@ -196,8 +196,8 @@ def list_backups() -> int:
         return 1
 
 
-def apply_rpi_overrides(settings: Any, args: Any) -> Any:
-    """Apply RPI-specific command-line overrides to settings.
+def apply_cli_overrides(settings: Any, args: Any) -> Any:
+    """Apply command-line overrides to settings with proper layout/renderer separation.
 
     Args:
         settings: Current settings object
@@ -208,15 +208,32 @@ def apply_rpi_overrides(settings: Any, args: Any) -> Any:
     """
     logger = logging.getLogger("calendarbot.cli.config")
 
-    logger.debug(f"Applying RPI overrides with args.rpi={getattr(args, 'rpi', False)}")
+    # Handle explicit renderer argument
+    if hasattr(args, "renderer") and args.renderer:
+        settings.display_type = args.renderer
+        logger.debug(f"Set display_type={settings.display_type} from --renderer")
 
+    # Handle explicit layout argument
+    if hasattr(args, "layout") and args.layout:
+        settings.web_layout = args.layout
+        logger.debug(f"Set web_layout={settings.web_layout} from --layout")
+
+    # Handle backward compatibility display-type argument
+    if hasattr(args, "display_type") and args.display_type:
+        # For backward compatibility, treat display_type as layout
+        settings.web_layout = args.display_type
+        logger.debug(
+            f"Set web_layout={settings.web_layout} from --display-type (backward compatibility)"
+        )
+
+    # Handle RPI mode
     if hasattr(args, "rpi") and args.rpi:
-        logger.info(f"RPI mode enabled, auto_theme={settings.rpi_auto_theme}")
+        logger.info(f"RPI mode enabled, auto_layout={getattr(settings, 'rpi_auto_layout', True)}")
 
         # Enable RPI mode
         settings.rpi_enabled = True
-        settings.display_type = "rpi"
-        logger.debug(f"Set display_type={settings.display_type}")
+        settings.display_type = "compact"
+        logger.debug(f"Set display_type={settings.display_type} for RPI mode")
 
         # Apply RPI-specific settings
         if hasattr(args, "rpi_width") and args.rpi_width:
@@ -226,17 +243,55 @@ def apply_rpi_overrides(settings: Any, args: Any) -> Any:
         if hasattr(args, "rpi_refresh_mode") and args.rpi_refresh_mode:
             settings.rpi_refresh_mode = args.rpi_refresh_mode
 
-        # Auto-optimize web theme for RPI
-        current_theme = getattr(settings, "web_theme", "NOT_SET")
-        if settings.rpi_auto_theme:
-            settings.web_theme = "3x4"
-            logger.info(f"Applied RPI theme override: {current_theme} -> {settings.web_theme}")
-        else:
-            logger.debug(f"RPI auto theme disabled, keeping web_theme={current_theme}")
-    else:
-        logger.debug("RPI mode not enabled, keeping original theme")
+        # Auto-optimize layout for RPI (unless explicitly set)
+        if getattr(settings, "rpi_auto_layout", True) and not (
+            hasattr(args, "layout") and args.layout
+        ):
+            current_layout = getattr(settings, "web_layout", "NOT_SET")
+            settings.web_layout = "3x4"
+            # Also update layout_name for consistency
+            if hasattr(settings, "layout_name"):
+                settings.layout_name = "3x4"
+            logger.info(f"Applied RPI layout override: {current_layout} -> {settings.web_layout}")
+
+    # Handle compact mode
+    if hasattr(args, "compact") and args.compact:
+        logger.info("Compact mode enabled")
+
+        # Enable compact mode
+        settings.display_type = "compact"
+        logger.debug(f"Set display_type={settings.display_type} for compact mode")
+
+        # Apply compact-specific settings
+        if hasattr(args, "compact_width") and args.compact_width:
+            settings.compact_display_width = args.compact_width
+        if hasattr(args, "compact_height") and args.compact_height:
+            settings.compact_display_height = args.compact_height
+
+        # Auto-optimize layout for compact display (unless explicitly set)
+        if not (hasattr(args, "layout") and args.layout):
+            current_layout = getattr(settings, "web_layout", "NOT_SET")
+            settings.web_layout = "3x4"
+            logger.info(
+                f"Applied compact layout override: {current_layout} -> {settings.web_layout}"
+            )
 
     return settings
+
+
+def apply_rpi_overrides(settings: Any, args: Any) -> Any:
+    """Apply RPI-specific command-line overrides to settings (deprecated).
+
+    Args:
+        settings: Current settings object
+        args: Parsed command line arguments
+
+    Returns:
+        Updated settings object
+    """
+    logger = logging.getLogger("calendarbot.cli.config")
+    logger.warning("apply_rpi_overrides is deprecated, use apply_cli_overrides instead")
+    return apply_cli_overrides(settings, args)
 
 
 __all__ = [

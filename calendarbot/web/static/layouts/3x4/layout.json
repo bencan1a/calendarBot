@@ -1,0 +1,94 @@
+{
+  "name": "3x4",
+  "display_name": "3×4 Landscape",
+  "description": "Standard landscape layout optimized for 3×4 inch displays and larger screens",
+  "version": "1.0.0",
+  "orientation": "landscape",
+  "dimensions": {
+    "min_width": 300,
+    "min_height": 400,
+    "optimal_width": 300,
+    "optimal_height": 400,
+    "max_width": 300,
+    "max_height": 400,
+    "fixed_dimensions": true,
+    "disable_resize": true
+  },
+  "display_types": [
+    "lcd",
+    "oled",
+    "eink"
+  ],
+  "themes": [
+    "standard",
+    "eink"
+  ],
+  "capabilities": {
+    "grid_dimensions": {
+      "columns": 4,
+      "rows": 8
+    },
+    "display_modes": ["landscape", "standard"],
+    "supported_devices": ["lcd", "oled", "web"],
+    "animations": true,
+    "layout_switching": true
+  },
+  "features": {
+    "responsive": true,
+    "touch_support": true,
+    "keyboard_navigation": true,
+    "auto_refresh": true,
+    "theme_switching": true,
+    "layout_switching": true,
+    "animations": true,
+    "mobile_optimized": true
+  },
+  "resources": {
+    "css": [
+      {
+        "file": "3x4.css",
+        "media": "screen",
+        "priority": 1
+      }
+    ],
+    "js": [
+      {
+        "file": "3x4.js",
+        "type": "module",
+        "priority": 1,
+        "defer": true
+      }
+    ]
+  },
+  "compatibility": {
+    "min_screen_width": 400,
+    "min_screen_height": 300,
+    "supports_touch": true,
+    "supports_keyboard": true,
+    "accessibility_features": [
+      "keyboard_navigation",
+      "focus_management",
+      "screen_reader_support"
+    ]
+  },
+  "performance": {
+    "bundle_size_css": "~25KB",
+    "bundle_size_js": "~20KB",
+    "render_complexity": "medium",
+    "memory_usage": "medium"
+  },
+  "fallback_layouts": [
+    "3x4"
+  ],
+  "metadata": {
+    "created": "2024-01-01",
+    "author": "Calendar Bot Team",
+    "license": "MIT",
+    "tags": [
+      "landscape",
+      "responsive",
+      "general-purpose",
+      "multi-theme"
+    ]
+  }
+}

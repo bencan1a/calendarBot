@@ -47,11 +47,11 @@ async def run_web_mode(args: Any) -> int:
         # Apply RPI-specific overrides
         updated_settings = apply_rpi_overrides(updated_settings, args)
 
-        # Apply web mode overrides - ensure HTML renderer and 4x8 theme for web mode
+        # Apply web mode overrides - ensure HTML renderer and 4x8 layout for web mode
         if not hasattr(args, "rpi") or not args.rpi:
             # Use HTML renderer for proper layout structure in web mode
             updated_settings.display_type = "html"
-            updated_settings.web_theme = "4x8"  # Default to 4x8 theme for web mode
+            updated_settings.web_layout = "4x8"  # Default to 4x8 layout for web mode
 
         # Set up enhanced logging for web mode
         logger = setup_enhanced_logging(updated_settings, interactive_mode=False)
@@ -140,7 +140,7 @@ async def run_web_mode(args: Any) -> int:
 
             # Keep the server running
             print("Web server is running. Press Ctrl+C to stop.")
-            logger.debug("DEBUG: Entering main server loop with graceful shutdown")
+            logger.debug("Entering main server loop with graceful shutdown")
 
             # Wait for shutdown signal using polling to keep event loop responsive
             logger.info("Web server started, waiting for shutdown signal...")
@@ -230,7 +230,7 @@ def apply_web_mode_overrides(settings: Any, args: Any) -> Any:
     """Apply web mode specific setting overrides.
 
     This function will be migrated from root main.py in Phase 2 to handle
-    web mode specific configuration like theme and display type.
+    web mode specific configuration like layout and display type.
 
     Args:
         settings: Application settings object

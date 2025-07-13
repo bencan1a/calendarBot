@@ -5,97 +5,135 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from ..cache.models import CachedEvent
+from ..layout.exceptions import LayoutNotFoundError
+from ..layout.registry import LayoutRegistry
 from ..utils.helpers import secure_clear_screen
-from .compact_eink_renderer import CompactEInkRenderer
 from .console_renderer import ConsoleRenderer
-from .html_renderer import HTMLRenderer
+from .renderer_factory import RendererFactory
 from .renderer_protocol import RendererProtocol
-from .rpi_html_renderer import RaspberryPiHTMLRenderer
 
 logger = logging.getLogger(__name__)
 
 
 class DisplayManager:
-    """Manages display output and coordination between data and renderers."""
+    """Manages display output and coordination between data and renderers with layout/renderer separation."""
 
-    def __init__(self, settings: Any) -> None:
-        """Initialize display manager.
+    def __init__(
+        self, settings: Any, renderer_type: Optional[str] = None, layout_name: Optional[str] = None
+    ) -> None:
+        """Initialize display manager with separate layout and renderer concerns.
 
         Args:
             settings: Application settings
+            renderer_type: Optional explicit renderer type override
+            layout_name: Optional layout name override
         """
         self.settings = settings
         self.renderer: Optional[RendererProtocol] = None
+        self._current_layout_name: Optional[str] = layout_name
+        self._current_renderer_type: Optional[str] = renderer_type
 
-        # Initialize appropriate renderer based on settings
-        logger.info(f"DIAGNOSTIC: display_type = '{settings.display_type}'")
-        if settings.display_type == "console":
-            self.renderer = ConsoleRenderer(settings)
-            logger.info("DIAGNOSTIC: Using ConsoleRenderer")
-        elif settings.display_type == "html":
-            self.renderer = HTMLRenderer(settings)
-            logger.info("DIAGNOSTIC: Using HTMLRenderer")
-        elif settings.display_type == "rpi" or settings.display_type == "rpi-html":
-            self.renderer = RaspberryPiHTMLRenderer(settings)
-            logger.info("DIAGNOSTIC: Using RaspberryPiHTMLRenderer")
-        elif settings.display_type == "3x4":
-            self.renderer = CompactEInkRenderer(settings)
-            logger.info("DIAGNOSTIC: Using CompactEInkRenderer for 300x400 e-ink display")
+        # Initialize layout registry for dynamic layout discovery
+        try:
+            self.layout_registry = LayoutRegistry()
+            # Ensure layout registry is properly initialized by checking available layouts
+            available_layouts = self.layout_registry.get_available_layouts()
+            logger.debug(f"Layout registry initialized with {len(available_layouts)} layouts")
+
+            # Validate current layout and fallback to default if invalid
+            current_layout = getattr(settings, "web_layout", None)
+            if current_layout and not self.layout_registry.validate_layout(current_layout):
+                default_layout = self.layout_registry.get_default_layout()
+                logger.info(
+                    f"Invalid layout '{current_layout}', falling back to '{default_layout}'"
+                )
+                settings.web_layout = default_layout
+                if hasattr(settings, "layout_name"):
+                    settings.layout_name = default_layout
+
+        except Exception as e:
+            logger.warning(f"Failed to initialize layout registry: {e}, using fallback behavior")
+            self.layout_registry = None
+
+        # Initialize renderer factory and expose it for tests
+        self.renderer_factory = RendererFactory()
+
+        # Initialize renderer using factory with automatic device detection
+        # Handle both old and new factory call patterns for compatibility
+        effective_renderer_type = renderer_type or getattr(settings, "display_type", "html")
+        try:
+            # Try old signature first for backward compatibility with tests
+            self.renderer = self.renderer_factory.create_renderer(effective_renderer_type, settings)
+        except TypeError:
+            # Fallback to new signature
+            self.renderer = self.renderer_factory.create_renderer(
+                settings=settings, renderer_type=effective_renderer_type, layout_name=layout_name
+            )
+        except Exception as e:
+            # Handle renderer factory failures gracefully
+            logger.error(f"Failed to create renderer: {e}")
+            self.renderer = None
+
+        if self.renderer:
+            logger.info(f"Display manager initialized with {self.renderer.__class__.__name__}")
         else:
-            logger.warning(f"Unknown display type: {settings.display_type}, defaulting to console")
-            self.renderer = ConsoleRenderer(settings)
+            logger.warning("Display manager initialized without renderer")
+        logger.info(
+            f"Layout: {getattr(settings, 'layout_name', 'default')}, "
+            f"Renderer: {self._current_renderer_type or 'auto-detected'}"
+        )
 
-        logger.info(f"Display manager initialized with {settings.display_type} renderer")
-
-    def set_display_type(self, display_type: str) -> bool:
-        """Change the display type at runtime.
+    def set_display_type(self, display_type: str, layout_name: Optional[str] = None) -> bool:
+        """Change the display type at runtime with layout/renderer separation.
 
         Args:
-            display_type: New display type (4x8, 3x4)
+            display_type: New display type/renderer type
+            layout_name: Optional layout name to use with the renderer
 
         Returns:
             True if display type was changed successfully
         """
-        # Map display types to settings display_type values
-        type_mapping = {
-            "4x8": "html",
-            "3x4": "3x4",
-        }
+        # Validate using Layout Registry if available
+        if self.layout_registry is not None and layout_name is not None:
+            layout_info = self.layout_registry.get_layout_info(layout_name)
+            if layout_info is None:
+                logger.warning(f"Layout '{layout_name}' not found in registry")
+                return False
+            logger.debug(f"Layout '{layout_name}' found in registry")
 
-        mapped_type = type_mapping.get(display_type, display_type)
-        valid_types = ["html", "rpi", "3x4", "console"]
-
-        if mapped_type not in valid_types:
-            logger.warning(f"Invalid display type: {display_type}")
+        # Validate renderer type
+        available_renderers = RendererFactory.get_available_renderers()
+        if display_type not in available_renderers:
+            logger.warning(f"Invalid renderer type: {display_type}")
             return False
 
-        if mapped_type == self.settings.display_type:
-            logger.debug(f"Display type already set to: {display_type}")
+        if display_type == getattr(self.settings, "display_type", None) and layout_name == getattr(
+            self.settings, "layout_name", None
+        ):
+            logger.debug(f"Display type and layout already set to: {display_type}, {layout_name}")
             return True
 
         try:
-            # Create new renderer based on mapped type
-            old_display_type = self.settings.display_type
+            # Create new renderer using factory
+            old_display_type = getattr(self.settings, "display_type", "unknown")
+            old_layout_name = getattr(self.settings, "layout_name", "unknown")
 
-            new_renderer: RendererProtocol
-            if mapped_type == "console":
-                new_renderer = ConsoleRenderer(self.settings)
-            elif mapped_type == "html":
-                new_renderer = HTMLRenderer(self.settings)
-            elif mapped_type == "rpi" or mapped_type == "rpi-html":
-                new_renderer = RaspberryPiHTMLRenderer(self.settings)
-            elif mapped_type == "3x4":
-                new_renderer = CompactEInkRenderer(self.settings)
-            else:
-                logger.warning(f"Unknown mapped display type: {mapped_type}, defaulting to console")
-                new_renderer = ConsoleRenderer(self.settings)
+            new_renderer = RendererFactory.create_renderer(
+                settings=self.settings, renderer_type=display_type, layout_name=layout_name
+            )
 
             # Update current state
-            self.settings.display_type = mapped_type
+            self.settings.display_type = display_type
+            if layout_name is not None:
+                self.settings.web_layout = layout_name
+                self.settings.layout_name = layout_name
             self.renderer = new_renderer
+            self._current_renderer_type = display_type
+            self._current_layout_name = layout_name
 
             logger.info(
-                f"Display type changed from {old_display_type} to {mapped_type} (requested: {display_type})"
+                f"Display changed from {old_display_type}/{old_layout_name} "
+                f"to {display_type}/{layout_name or 'default'}"
             )
             return True
 
@@ -107,19 +145,14 @@ class DisplayManager:
         """Get the current display type.
 
         Returns:
-            Current display type name (mapped to user-friendly names)
+            Current renderer type name
         """
-        # Map internal types back to user-friendly names
-        type_mapping = {
-            "html": "4x8",
-            "3x4": "3x4",
-            "console": "console",
-        }
-        mapped_type = type_mapping.get(self.settings.display_type, self.settings.display_type)
+        # Return the actual renderer type, not a layout-based mapping
+        current_type = getattr(self.settings, "display_type", "console")
         logger.debug(
-            f"DIAGNOSTIC LOG: get_display_type() - internal: '{self.settings.display_type}' → mapped: '{mapped_type}'"
+            f"DIAGNOSTIC LOG: get_display_type() returning renderer type: '{current_type}'"
         )
-        return str(mapped_type)
+        return str(current_type)
 
     def get_available_display_types(self) -> List[str]:
         """Get list of available display types.
@@ -127,6 +160,19 @@ class DisplayManager:
         Returns:
             List of available display type names
         """
+        if self.layout_registry is not None:
+            try:
+                # Get dynamic list from Layout Registry
+                available_layouts = self.layout_registry.get_available_layouts()
+                logger.debug(
+                    f"Layout Registry found {len(available_layouts)} layouts: {available_layouts}"
+                )
+                return available_layouts
+            except Exception as e:
+                logger.warning(f"Failed to get layouts from registry: {e}, using fallback")
+
+        # Fallback to hardcoded list for compatibility
+        logger.debug("Using fallback layout list")
         return ["4x8", "3x4"]
 
     @property
@@ -326,13 +372,105 @@ class DisplayManager:
             return False
 
     def get_renderer_info(self) -> Dict[str, Any]:
-        """Get information about the current renderer.
+        """Get information about the current renderer and layout.
 
         Returns:
-            Dictionary with renderer information
+            Dictionary with renderer and layout information
         """
         return {
-            "type": self.settings.display_type,
-            "enabled": self.settings.display_enabled,
+            "type": getattr(self.settings, "display_type", "unknown"),
+            "enabled": getattr(self.settings, "display_enabled", False),
             "renderer_class": self.renderer.__class__.__name__ if self.renderer else None,
         }
+
+    def set_layout(self, layout_name: str) -> bool:
+        """Change the layout while keeping the same renderer.
+
+        Args:
+            layout_name: New layout name to use
+
+        Returns:
+            True if layout was changed successfully
+        """
+        # Validate layout using registry if available
+        if self.layout_registry is not None:
+            try:
+                if not self.layout_registry.validate_layout(layout_name):
+                    logger.warning(f"Invalid layout: {layout_name}")
+                    return False
+            except Exception as e:
+                logger.warning(f"Layout validation failed: {e}")
+                return False
+
+        # Update settings
+        self.settings.layout_name = layout_name
+        if hasattr(self.settings, "web_layout"):
+            self.settings.web_layout = layout_name
+
+        # Update renderer's layout attribute if it has one
+        if self.renderer and hasattr(self.renderer, "layout"):
+            self.renderer.layout = layout_name
+
+        logger.debug(f"Layout changed to: {layout_name}")
+        return True
+
+    def get_current_layout(self) -> Optional[str]:
+        """Get the current layout name.
+
+        Returns:
+            Current layout name or None if not set
+        """
+        return getattr(self.settings, "layout_name", None)
+
+    def get_current_renderer_type(self) -> Optional[str]:
+        """Get the current renderer type.
+
+        Returns:
+            Current renderer type or None if not set
+        """
+        return getattr(self.settings, "display_type", None)
+
+    def get_available_layouts(self) -> List[str]:
+        """Get list of available layouts.
+
+        Returns:
+            List of available layout names
+        """
+        return self.get_available_display_types()
+
+    def get_layout(self) -> str:
+        """Get the current layout name.
+
+        Returns:
+            Current layout name
+        """
+        # Try layout_name first, then web_layout, then default
+        layout_name = getattr(self.settings, "layout_name", None)
+        if layout_name and isinstance(layout_name, str):
+            return layout_name
+
+        web_layout = getattr(self.settings, "web_layout", None)
+        if web_layout and isinstance(web_layout, str):
+            return web_layout
+
+        return "4x8"  # Default fallback
+
+    def set_renderer_type(self, renderer_type: str) -> bool:
+        """Set the renderer type while keeping the same layout.
+
+        Args:
+            renderer_type: New renderer type to use
+
+        Returns:
+            True if renderer type was changed successfully
+        """
+        current_layout = self.get_layout()
+        return self.set_display_type(renderer_type, current_layout)
+
+    def get_renderer_type(self) -> str:
+        """Get the current renderer type.
+
+        Returns:
+            Current renderer type name
+        """
+        return getattr(self.settings, "display_type", "console")

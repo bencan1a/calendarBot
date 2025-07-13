@@ -77,7 +77,7 @@ class CriticalPathSuite:
             paths=[
                 "tests/unit/test_web_server.py::TestAPIEndpoints::test_status_endpoint",
                 "tests/unit/test_web_server.py::TestAPIEndpoints::test_navigate_endpoint",
-                "tests/unit/test_web_server.py::TestAPIEndpoints::test_theme_endpoint",
+                "tests/unit/test_web_server.py::TestAPIEndpoints::test_layout_endpoint",
                 "tests/unit/test_web_server.py::TestAPIEndpoints::test_refresh_endpoint",
             ],
             markers=["unit", "critical_path"],
@@ -109,7 +109,7 @@ class CriticalPathSuite:
             paths=[
                 "tests/browser/test_web_interface.py::TestBasicFunctionality::test_page_loads",
                 "tests/browser/test_web_interface.py::TestBasicFunctionality::test_navigation_buttons",
-                "tests/browser/test_web_interface.py::TestBasicFunctionality::test_theme_switching",
+                "tests/browser/test_web_interface.py::TestBasicFunctionality::test_layout_switching",
             ],
             markers=["browser", "smoke", "critical_path"],
             max_duration=45,  # 45 seconds

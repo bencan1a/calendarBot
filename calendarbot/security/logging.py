@@ -473,7 +473,7 @@ class SecurityEventLogger:
     def _severity_to_log_level(self, severity: SecuritySeverity) -> int:
         """Convert security severity to logging level."""
         mapping = {
-            SecuritySeverity.LOW: logging.INFO,
+            SecuritySeverity.LOW: logging.DEBUG,
             SecuritySeverity.MEDIUM: logging.WARNING,
             SecuritySeverity.HIGH: logging.ERROR,
             SecuritySeverity.CRITICAL: logging.CRITICAL,

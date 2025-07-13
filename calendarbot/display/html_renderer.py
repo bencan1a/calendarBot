@@ -1,12 +1,17 @@
 """HTML-based display renderer for web interface and e-ink testing."""
 
+import json
 import logging
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import pytz
 
 from ..cache.models import CachedEvent
+from ..layout.exceptions import LayoutNotFoundError
+from ..layout.registry import LayoutRegistry
+from ..layout.resource_manager import ResourceManager
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +26,122 @@ class HTMLRenderer:
             settings: Application settings
         """
         self.settings = settings
-        self.theme = getattr(settings, "web_theme", "4x8")
+        self.layout = getattr(settings, "web_layout", "4x8")
 
-        logger.info(f"HTML renderer initialized with theme: {self.theme}")
+        # Initialize layout management components
+        try:
+            self.layout_registry = LayoutRegistry()
+            self.resource_manager = ResourceManager(self.layout_registry)
+        except Exception as e:
+            logger.warning(f"Failed to initialize layout system: {e}, using fallback behavior")
+            self.layout_registry = None
+            self.resource_manager = None
+
+        logger.info(f"HTML renderer initialized with layout: {self.layout}")
+
+    def _get_layout_config(self) -> Optional[Dict[str, Any]]:
+        """Get layout configuration from layout.json file.
+
+        Returns:
+            Layout configuration dictionary or None if not found
+
+        Raises:
+            None: Exceptions are caught and logged, returning None
+        """
+        try:
+            # Try to get config via LayoutRegistry first
+            if self.layout_registry is not None:
+                layout_info = self.layout_registry.get_layout_info(self.layout)
+                if layout_info:
+                    # LayoutInfo doesn't have config, read the JSON file directly
+                    # but we can use the registry to verify the layout exists
+                    pass
+
+            # Fallback to direct file reading
+            layout_path = Path(f"calendarbot/web/static/layouts/{self.layout}/layout.json")
+            if layout_path.exists():
+                with open(layout_path, "r") as f:
+                    return json.load(f)
+
+            logger.debug(f"Layout config file not found for layout: {self.layout}")
+            return None
+
+        except Exception as e:
+            logger.warning(f"Failed to load layout config for {self.layout}: {e}")
+            return None
+
+    def _has_fixed_dimensions(self) -> bool:
+        """Check if current layout has fixed dimensions enabled.
+
+        Returns:
+            True if layout has fixed_dimensions: true, False otherwise
+        """
+        try:
+            config = self._get_layout_config()
+            if config and "dimensions" in config:
+                return config["dimensions"].get("fixed_dimensions", False)
+            return False
+
+        except Exception as e:
+            logger.warning(f"Error checking fixed dimensions for layout {self.layout}: {e}")
+            return False
+
+    def _get_layout_dimensions(self) -> Tuple[Optional[int], Optional[int]]:
+        """Get layout optimal dimensions.
+
+        Returns:
+            Tuple of (width, height) or (None, None) if not available
+        """
+        try:
+            config = self._get_layout_config()
+            if config and "dimensions" in config:
+                dimensions = config["dimensions"]
+                width = dimensions.get("optimal_width")
+                height = dimensions.get("optimal_height")
+                return width, height
+            return None, None
+
+        except Exception as e:
+            logger.warning(f"Error getting layout dimensions for {self.layout}: {e}")
+            return None, None
+
+    def _generate_viewport_meta_tag(self) -> str:
+        """Generate appropriate viewport meta tag based on layout configuration.
+
+        Returns:
+            Viewport meta tag content string
+        """
+        try:
+            if self._has_fixed_dimensions():
+                width, height = self._get_layout_dimensions()
+
+                if width and height:
+                    # For fixed dimension layouts, create viewport optimized for centering
+                    # - Use device-width but prevent zooming for fixed layouts
+                    # - Add user-scalable=no to prevent scaling issues with centered content
+                    # - Set initial-scale=1 for consistent rendering
+                    viewport_content = (
+                        "width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover"
+                    )
+
+                    logger.debug(
+                        f"Generated fixed dimension viewport for {self.layout} ({width}x{height}): {viewport_content}"
+                    )
+                    return viewport_content
+                else:
+                    logger.warning(
+                        f"Fixed dimensions layout {self.layout} missing width/height, using fallback"
+                    )
+
+            # Standard responsive viewport for non-fixed layouts
+            standard_viewport = "width=device-width, initial-scale=1"
+            logger.debug(f"Generated standard viewport for {self.layout}: {standard_viewport}")
+            return standard_viewport
+
+        except Exception as e:
+            logger.error(f"Error generating viewport meta tag for layout {self.layout}: {e}")
+            # Safe fallback
+            return "width=device-width, initial-scale=1"
 
     def render_events(
         self, events: List[CachedEvent], status_info: Optional[Dict[str, Any]] = None
@@ -352,11 +470,10 @@ class HTMLRenderer:
         Returns:
             Complete HTML document
         """
-        # Dynamic theme resource loading
-        css_file = self._get_theme_css_file()
-        js_file = self._get_theme_js_file()
+        # Dynamic resource loading using ResourceManager
+        css_url, js_url = self._get_dynamic_resources()
 
-        logger.info(f"HTML template using theme '{self.theme}' - CSS: {css_file}, JS: {js_file}")
+        logger.info(f"HTML template using layout '{self.layout}' - CSS: {css_url}, JS: {js_url}")
 
         # Header navigation with arrow buttons and date
         header_navigation = ""
@@ -382,13 +499,16 @@ class HTMLRenderer:
         if interactive_mode and nav_help:
             footer_content = f'<footer class="footer">{nav_help}</footer>'
 
+        # Generate layout-aware viewport meta tag
+        viewport_content = self._generate_viewport_meta_tag()
+
         return f"""<!DOCTYPE html>
-<html lang="en" class="theme-{self.theme}">
+<html lang="en" class="layout-{self.layout}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="{viewport_content}">
     <title>📅 Calendar Bot - {display_date}</title>
-    <link rel="stylesheet" href="/static/{css_file}">
+    <link rel="stylesheet" href="{css_url}">
 </head>
 <body>
     <header class="calendar-header">
@@ -403,39 +523,119 @@ class HTMLRenderer:
 
     {footer_content}
 
-    <script src="/static/{js_file}"></script>
+    <script src="{js_url}"></script>
 </body>
 </html>"""
 
-    def _get_theme_css_file(self) -> str:
-        """Get the CSS file name for the current theme.
+    def _get_dynamic_resources(self) -> Tuple[str, str]:
+        """Get CSS and JS file paths using ResourceManager.
+
+        Returns:
+            Tuple of (css_url, js_url) for web static serving with full paths
+        """
+        if self.resource_manager is not None:
+            try:
+                # Get resource URLs from ResourceManager
+                css_urls = self.resource_manager.get_css_urls(self.layout)
+                js_urls = self.resource_manager.get_js_urls(self.layout)
+
+                # Use full URLs for proper path resolution
+                css_url = css_urls[0] if css_urls else self._get_fallback_css_url()
+                js_url = js_urls[0] if js_urls else self._get_fallback_js_url()
+
+                logger.debug(f"ResourceManager provided: CSS={css_url}, JS={js_url}")
+                return css_url, js_url
+
+            except LayoutNotFoundError:
+                logger.warning(f"Layout '{self.layout}' not found in registry, using fallback")
+            except Exception as e:
+                logger.warning(f"Failed to get resources from ResourceManager: {e}, using fallback")
+
+        # Fallback to full URL paths
+        css_url = self._get_fallback_css_url()
+        js_url = self._get_fallback_js_url()
+        logger.debug(f"Using fallback resources: CSS={css_url}, JS={js_url}")
+        return css_url, js_url
+
+    def _get_fallback_css_url(self) -> str:
+        """Get fallback CSS URL path for the current layout.
+
+        Returns:
+            CSS URL path (e.g., 'layouts/3x4/3x4.css', 'layouts/4x8/4x8.css')
+        """
+        if self.layout == "3x4":
+            return "layouts/3x4/3x4.css"
+        elif self.layout == "4x8":
+            return "layouts/4x8/4x8.css"
+        else:  # Default fallback
+            return "layouts/4x8/4x8.css"
+
+    def _get_fallback_js_url(self) -> str:
+        """Get fallback JavaScript URL path for the current layout.
+
+        Returns:
+            JavaScript URL path (e.g., 'layouts/3x4/3x4.js', 'layouts/4x8/4x8.js')
+        """
+        if self.layout == "3x4":
+            return "layouts/3x4/3x4.js"
+        elif self.layout == "4x8":
+            return "layouts/4x8/4x8.js"
+        else:  # Default fallback
+            return "layouts/4x8/4x8.js"
+
+    def _get_fallback_css_file(self) -> str:
+        """Get fallback CSS file name for the current layout.
+
+        DEPRECATED: Use _get_fallback_css_url() instead.
 
         Returns:
             CSS filename (e.g., '4x8.css', '3x4.css')
         """
-        if self.theme == "3x4":
+        if self.layout == "3x4":
             return "3x4.css"
-        elif self.theme == "4x8":
+        elif self.layout == "4x8":
             return "4x8.css"
         else:  # Default fallback
             return "4x8.css"
 
-    def _get_theme_js_file(self) -> str:
-        """Get the JavaScript file name for the current theme.
+    def _get_fallback_js_file(self) -> str:
+        """Get fallback JavaScript file name for the current layout.
+
+        DEPRECATED: Use _get_fallback_js_url() instead.
 
         Returns:
             JavaScript filename (e.g., '4x8.js', '3x4.js')
         """
-        if self.theme == "3x4":
+        if self.layout == "3x4":
             return "3x4.js"
-        elif self.theme == "4x8":
+        elif self.layout == "4x8":
             return "4x8.js"
         else:  # Default fallback
             return "4x8.js"
 
-    def _get_theme_icon(self) -> str:
-        """Get appropriate icon for current theme."""
-        return "⚙️" if self.theme == "3x4" else "⚫"
+    def _get_theme_css_file(self) -> str:
+        """Get the CSS file name for the current theme.
+
+        DEPRECATED: Use _get_dynamic_resources() instead.
+
+        Returns:
+            CSS filename (e.g., '4x8.css', '3x4.css')
+        """
+        return self._get_fallback_css_file()
+
+    def _get_theme_js_file(self) -> str:
+        """Get the JavaScript file name for the current theme.
+
+        DEPRECATED: Use _get_dynamic_resources() instead.
+
+        Returns:
+            JavaScript filename (e.g., '4x8.js', '3x4.js')
+        """
+        return self._get_fallback_js_file()
+
+    def _get_layout_icon(self) -> str:
+        """Get appropriate icon for current layout."""
+        return "⚙️" if self.layout == "3x4" else "⚫"
 
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters.
@@ -515,11 +715,14 @@ class HTMLRenderer:
         else:
             cached_content = '<div class="no-cache">❌ No cached data available</div>'
 
+        # Generate layout-aware viewport meta tag
+        viewport_content = self._generate_viewport_meta_tag()
+
         return f"""<!DOCTYPE html>
-<html lang="en" class="theme-{self.theme}">
+<html lang="en" class="layout-{self.layout}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="{viewport_content}">
     <title>📅 Calendar Bot - Connection Issue</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -552,11 +755,14 @@ class HTMLRenderer:
         Returns:
             Formatted HTML authentication prompt
         """
+        # Generate layout-aware viewport meta tag
+        viewport_content = self._generate_viewport_meta_tag()
+
         return f"""<!DOCTYPE html>
-<html lang="en" class="theme-{self.theme}">
+<html lang="en" class="layout-{self.layout}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="{viewport_content}">
     <title>📅 Calendar Bot - Authentication Required</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>

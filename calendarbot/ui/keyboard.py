@@ -342,9 +342,9 @@ class KeyboardHandler:
             key_data: Raw key data
         """
         try:
-            # DEBUG: Log what we received and what it parses to
+            # Log what we received and what it parses to
             key_code = self._parse_key_sequence(key_data)
-            logger.info(f"DEBUG: Received key_data={repr(key_data)}, parsed as={key_code}")
+            logger.debug(f"Received key_data={repr(key_data)}, parsed as={key_code}")
 
             # Call raw key handler if registered
             if self._raw_key_callback:
@@ -352,7 +352,7 @@ class KeyboardHandler:
 
             if key_code != KeyCode.UNKNOWN and key_code in self._key_callbacks:
                 callback = self._key_callbacks[key_code]
-                logger.info(f"DEBUG: Executing callback for {key_code}")
+                logger.debug(f"Executing callback for {key_code}")
                 if asyncio.iscoroutinefunction(callback):
                     await callback()
                 else:

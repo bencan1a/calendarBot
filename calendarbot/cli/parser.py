@@ -5,9 +5,103 @@ including setup of argument groups, validation, and parsing logic.
 """
 
 import argparse
+import logging
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
+
+from calendarbot.layout.exceptions import LayoutError
+from calendarbot.layout.registry import LayoutRegistry
+
+logger = logging.getLogger(__name__)
+
+
+class LayoutAction(argparse.Action):
+    """Custom argparse action for layout validation using Layout Registry.
+
+    This action validates layout names against available layouts discovered
+    by the Layout Registry, providing dynamic validation instead of hardcoded choices.
+    """
+
+    def __init__(self, option_strings: List[str], dest: str, **kwargs: Any) -> None:
+        """Initialize the layout action.
+
+        Args:
+            option_strings: Command line option strings (e.g., ['--layout'])
+            dest: Destination attribute name for parsed value
+            **kwargs: Additional argparse action arguments
+        """
+        # Remove choices if provided since we handle validation dynamically
+        kwargs.pop("choices", None)
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: Optional[str] = None,
+    ) -> None:
+        """Validate and set layout value using Layout Registry.
+
+        Args:
+            parser: The ArgumentParser instance
+            namespace: The Namespace object to store parsed values
+            values: The layout name to validate
+            option_string: The option string used to invoke this action
+
+        Raises:
+            argparse.ArgumentTypeError: If layout is invalid or registry fails
+        """
+        layout_name = str(values)
+
+        try:
+            # Initialize layout registry for validation
+            registry = LayoutRegistry()
+
+            # Validate layout exists
+            if not registry.validate_layout(layout_name):
+                available_layouts = registry.get_available_layouts()
+                if available_layouts:
+                    raise argparse.ArgumentTypeError(
+                        f"Invalid layout '{layout_name}'. "
+                        f"Available layouts: {', '.join(available_layouts)}"
+                    )
+                else:
+                    raise argparse.ArgumentTypeError(
+                        f"Invalid layout '{layout_name}'. No layouts available."
+                    )
+
+            # Set the validated layout name
+            setattr(namespace, self.dest, layout_name)
+
+        except argparse.ArgumentTypeError:
+            # Re-raise argparse errors to let argparse handle them
+            raise
+
+        except LayoutError as e:
+            logger.warning(f"Layout registry error during CLI validation: {e}")
+            # Fallback to legacy validation for backward compatibility
+            legacy_layouts = ["4x8", "3x4"]
+            if layout_name not in legacy_layouts:
+                raise argparse.ArgumentTypeError(
+                    f"Invalid layout '{layout_name}'. "
+                    f"Available layouts: {', '.join(legacy_layouts)} "
+                    f"(using fallback validation due to registry error)"
+                )
+            setattr(namespace, self.dest, layout_name)
+
+        except Exception as e:
+            logger.error(f"Unexpected error during layout validation: {e}")
+            # Fallback to legacy validation for robustness
+            legacy_layouts = ["4x8", "3x4"]
+            if layout_name not in legacy_layouts:
+                raise argparse.ArgumentTypeError(
+                    f"Invalid layout '{layout_name}'. "
+                    f"Available layouts: {', '.join(legacy_layouts)} "
+                    f"(using fallback validation due to error)"
+                )
+            setattr(namespace, self.dest, layout_name)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -135,11 +229,26 @@ Examples:
     display_group = parser.add_argument_group("display", "Display type and layout options")
 
     display_group.add_argument(
-        "--display-type",
         "--layout",
-        choices=["4x8", "3x4"],
+        action=LayoutAction,
+        dest="display_type",
         default=None,
-        help="Display type/layout to use (4x8 for grid layout, 3x4 for compact layout)",
+        help="Layout to use for calendar display (dynamically validated against available layouts)",
+    )
+
+    display_group.add_argument(
+        "--renderer",
+        choices=["html", "rpi", "compact"],
+        default=None,
+        help="Renderer type: html (web browser), rpi (Raspberry Pi e-ink), compact (compact e-ink)",
+    )
+
+    # Backward compatibility for display-type
+    display_group.add_argument(
+        "--display-type",
+        action=LayoutAction,
+        default=None,
+        help="Deprecated: use --layout instead. Display type/layout to use",
     )
 
     # Raspberry Pi e-ink display arguments
@@ -149,7 +258,7 @@ Examples:
         "--rpi",
         "--rpi-mode",
         action="store_true",
-        help="Enable Raspberry Pi e-ink display mode (480x800px optimized) - sets display-type to 3x4",
+        help="Enable Raspberry Pi e-ink display mode (480x800px optimized) - sets renderer to 'rpi'",
     )
 
     rpi_group.add_argument(
@@ -174,7 +283,7 @@ Examples:
         "--compact",
         "--compact-mode",
         action="store_true",
-        help="Enable compact e-ink display mode (300x400px optimized) - sets display-type to 3x4",
+        help="Enable compact e-ink display mode (300x400px optimized) - sets renderer to 'compact'",
     )
 
     compact_group.add_argument(
@@ -330,4 +439,5 @@ __all__ = [
     "create_parser",
     "parse_date",
     "parse_components",
+    "LayoutAction",
 ]

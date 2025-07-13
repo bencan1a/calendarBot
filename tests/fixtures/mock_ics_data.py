@@ -44,6 +44,16 @@ class ICSTestData:
                 series_master_id=None,
                 last_modified_date_time=start_time,
             )
+
+            # Add required methods for testing
+            def is_current():
+                return False
+
+            def is_upcoming():
+                return True
+
+            event.is_current = is_current
+            event.is_upcoming = is_upcoming
             events.append(event)
 
         return events
@@ -369,9 +379,9 @@ class WebAPITestData:
         return {"action": action}
 
     @staticmethod
-    def theme_request(theme: str) -> Dict[str, Any]:
-        """Create theme API request data."""
-        return {"theme": theme}
+    def layout_request(layout: str) -> Dict[str, Any]:
+        """Create layout API request data."""
+        return {"layout": layout}
 
     @staticmethod
     def expected_navigation_response(success: bool = True) -> Dict[str, Any]:
@@ -388,7 +398,7 @@ class WebAPITestData:
             "running": True,
             "host": "127.0.0.1",
             "port": 8998,
-            "theme": "4x8",
+            "layout": "4x8",
             "interactive_mode": False,
             "current_date": datetime.now().date().isoformat(),
         }

@@ -31,8 +31,8 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         logger.debug("DIAGNOSTIC: CompactEInkRenderer.__init__ called")
         try:
             super().__init__(settings)
-            # Override theme for compact e-ink display
-            self.theme = "3x4"
+            # Override layout for compact e-ink display
+            self.layout = "3x4"
             logger.debug(
                 "DIAGNOSTIC: CompactEInkRenderer initialized successfully for 300x400px display"
             )
@@ -77,13 +77,16 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         # Generate compact status bar
         compact_status_bar = self._generate_compact_status_bar(status_line)
 
+        # Dynamic resource loading using inherited ResourceManager
+        css_file, js_file = self._get_dynamic_resources()
+
         return f"""<!DOCTYPE html>
-<html lang="en" class="theme-{self.theme}">
+<html lang="en" class="layout-{self.layout}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=300, height=400, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - {display_date}</title>
-    <link rel="stylesheet" href="/static/3x4.css">
+    <link rel="stylesheet" href="/static/{css_file}">
 </head>
 <body>
     <div class="calendar-container">
@@ -98,7 +101,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         {compact_status_bar}
     </div>
 
-    <script src="/static/3x4.js"></script>
+    <script src="/static/{js_file}"></script>
 </body>
 </html>"""
 
@@ -119,7 +122,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
                 <div class="header-main">
                     <h1 class="calendar-title">{display_date}</h1>
                 </div>
-                <div class="theme-controls"></div>
+                <div class="layout-controls"></div>
             </div>
             """
 
@@ -538,13 +541,16 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         else:
             cached_content = '<div class="no-cache">❌ No cached data</div>'
 
+        # Dynamic resource loading using inherited ResourceManager
+        css_file, js_file = self._get_dynamic_resources()
+
         return f"""<!DOCTYPE html>
-<html lang="en" class="theme-{self.theme}">
+<html lang="en" class="layout-{self.layout}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=300, height=400, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - Error</title>
-    <link rel="stylesheet" href="/static/3x4.css">
+    <link rel="stylesheet" href="/static/{css_file}">
 </head>
 <body>
     <div class="calendar-container">
@@ -571,7 +577,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         </div>
     </div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/{js_file}"></script>
 </body>
 </html>"""
 
@@ -585,13 +591,16 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         Returns:
             Formatted HTML authentication prompt with compact layout
         """
+        # Dynamic resource loading using inherited ResourceManager
+        css_file, js_file = self._get_dynamic_resources()
+
         return f"""<!DOCTYPE html>
-<html lang="en" class="theme-{self.theme}">
+<html lang="en" class="layout-{self.layout}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=300, height=400, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - Auth</title>
-    <link rel="stylesheet" href="/static/3x4.css">
+    <link rel="stylesheet" href="/static/{css_file}">
 </head>
 <body>
     <div class="calendar-container">

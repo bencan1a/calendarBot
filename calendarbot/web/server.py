@@ -12,6 +12,8 @@ from threading import Thread
 from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
+from ..layout.registry import LayoutRegistry
+from ..layout.resource_manager import ResourceManager
 from ..security.logging import SecurityEventLogger
 from ..utils.process import auto_cleanup_before_start
 
@@ -96,9 +98,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
             if path == "/api/navigate":
                 self._handle_navigation_api(params)
-            elif path == "/api/theme":
-                self._handle_theme_api(params)
             elif path == "/api/layout":
+                self._handle_layout_api(params)
+            elif path == "/api/theme":
+                # Backward compatibility - redirect to layout API
                 self._handle_layout_api(params)
             elif path == "/api/refresh":
                 self._handle_refresh_api()
@@ -249,25 +252,87 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         try:
             # Remove /static/ prefix
             file_path = path[8:]  # Remove '/static/'
+            logger.debug(f"STATIC_FILE_REQUEST: Extracted file path: {file_path}")
+            logger.debug(f"STATIC_FILE_REQUEST: Original path: {path}")
 
-            # Get the static directory path
-            static_dir = Path(__file__).parent / "static"
-            full_path = static_dir / file_path
+            # Try to find file in multiple locations
+            full_path = None
 
-            # Security check - ensure file is within static directory
-            if not str(full_path.resolve()).startswith(str(static_dir.resolve())):
-                self._send_404()
-                return
+            # First check if this is a layout directory path (e.g., layouts/4x8/4x8.css)
+            if file_path.startswith("layouts/"):
+                # Handle layout directory paths directly
+                layouts_dir = Path(__file__).parent.parent / "layouts"
+                layout_file_path = file_path[8:]  # Remove 'layouts/' prefix
+                layout_path = layouts_dir / layout_file_path
+                logger.debug(f"STATIC_FILE_REQUEST: layouts_dir: {layouts_dir}")
+                logger.debug(f"STATIC_FILE_REQUEST: layout_file_path: {layout_file_path}")
+                logger.debug(f"STATIC_FILE_REQUEST: layout_path: {layout_path}")
+                logger.debug(f"STATIC_FILE_REQUEST: layout_path.exists(): {layout_path.exists()}")
+                logger.debug(
+                    f"STATIC_FILE_REQUEST: layout_path.is_file(): {layout_path.is_file() if layout_path.exists() else 'N/A'}"
+                )
 
-            if full_path.exists() and full_path.is_file():
+                if layout_path.exists() and layout_path.is_file():
+                    # Security check - ensure file is within layouts directory
+                    if str(layout_path.resolve()).startswith(str(layouts_dir.resolve())):
+                        full_path = layout_path
+                        logger.debug(f"STATIC_FILE_REQUEST: Found in layout directory")
+
+            # If not found in layouts, try the legacy static directory (web/static)
+            if not full_path:
+                static_dir = Path(__file__).parent / "static"
+                legacy_path = static_dir / file_path
+                logger.debug(f"STATIC_FILE_REQUEST: Checking legacy path: {legacy_path}")
+
+                if legacy_path.exists() and legacy_path.is_file():
+                    # Security check - ensure file is within static directory
+                    if str(legacy_path.resolve()).startswith(str(static_dir.resolve())):
+                        full_path = legacy_path
+                        logger.debug(f"STATIC_FILE_REQUEST: Found in legacy static directory")
+
+            # If not found in legacy, try the layout directories with filename matching
+            if not full_path:
+                layouts_dir = Path(__file__).parent.parent / "layouts"
+                logger.debug(
+                    f"STATIC_FILE_REQUEST: Checking layouts directory with filename matching: {layouts_dir}"
+                )
+
+                # Check if file matches layout pattern (e.g., "4x8.css" -> "layouts/4x8/4x8.css")
+                if "." in file_path:
+                    name_part = file_path.split(".")[0]  # e.g., "4x8" from "4x8.css"
+                    layout_path = layouts_dir / name_part / file_path
+                    logger.debug(
+                        f"STATIC_FILE_REQUEST: Checking layout filename match path: {layout_path}"
+                    )
+
+                    if layout_path.exists() and layout_path.is_file():
+                        # Security check - ensure file is within layouts directory
+                        if str(layout_path.resolve()).startswith(str(layouts_dir.resolve())):
+                            full_path = layout_path
+                            logger.debug(
+                                f"STATIC_FILE_REQUEST: Found via filename matching in layout directory"
+                            )
+
+            logger.debug(f"STATIC_FILE_REQUEST: Final path resolved: {full_path}")
+            logger.debug(
+                f"STATIC_FILE_REQUEST: File exists: {full_path.exists() if full_path else False}"
+            )
+
+            if full_path and full_path.exists() and full_path.is_file():
                 # Determine content type
                 content_type, _ = mimetypes.guess_type(str(full_path))
                 if not content_type:
                     content_type = "text/plain"
 
+                logger.debug(f"STATIC_FILE_REQUEST: Serving file with content type: {content_type}")
+
                 # Read and serve file
                 with open(full_path, "rb") as f:
                     content = f.read()
+
+                logger.debug(
+                    f"STATIC_FILE_REQUEST: Successfully serving {file_path} ({len(content)} bytes)"
+                )
 
                 # Send binary response directly
                 self.send_response(200)
@@ -277,6 +342,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(content)
             else:
+                logger.warning(f"STATIC_FILE_REQUEST: File not found: {file_path}")
                 self._send_404()
 
         except Exception as e:
@@ -328,6 +394,8 @@ class WebServer:
         display_manager: Any,
         cache_manager: Any,
         navigation_state: Optional[Any] = None,
+        layout_registry: Optional[LayoutRegistry] = None,
+        resource_manager: Optional[ResourceManager] = None,
     ) -> None:
         """Initialize web server with all required components and configuration.
 
@@ -348,6 +416,10 @@ class WebServer:
             navigation_state: Optional navigation state manager for interactive mode.
                             When provided, enables date navigation controls and maintains
                             selected_date state. Required for interactive calendar browsing.
+            layout_registry: Optional layout registry for dynamic layout discovery.
+                           If not provided, a default registry will be created automatically.
+            resource_manager: Optional resource manager for dynamic CSS/JS loading.
+                            If not provided, a manager will be created using the layout registry.
 
         Raises:
             AttributeError: If required settings attributes are missing
@@ -362,10 +434,14 @@ class WebServer:
         self.cache_manager = cache_manager
         self.navigation_state = navigation_state
 
+        # Initialize layout management system
+        self.layout_registry = layout_registry or LayoutRegistry()
+        self.resource_manager = resource_manager or ResourceManager(self.layout_registry)
+
         # Server configuration
         self.host = settings.web_host
         self.port = settings.web_port
-        self.theme = settings.web_theme
+        self.layout = settings.web_layout
 
         # Server instance
         self.server: Optional[HTTPServer] = None
@@ -373,6 +449,9 @@ class WebServer:
         self.running = False
 
         logger.info(f"Web server initialized on {self.host}:{self.port}")
+        logger.debug(
+            f"Layout registry initialized with {len(self.layout_registry.get_available_layouts())} available layouts"
+        )
 
     def start(self) -> None:
         """Start the web server."""
@@ -664,65 +743,61 @@ class WebServer:
             return False
 
     def set_theme(self, theme: str) -> bool:
-        """Set the display theme.
+        """Set the display theme (deprecated - use set_layout instead).
 
         Args:
-            theme: Theme name (4x8, 3x4)
+            theme: Theme name (layout name, e.g. 4x8, 3x4)
 
         Returns:
             True if theme was set successfully
         """
-        valid_themes = ["4x8", "3x4"]
-        if theme in valid_themes:
-            self.theme = theme
-            if hasattr(self.display_manager.renderer, "theme"):
-                self.display_manager.renderer.theme = theme
-            logger.debug(f"Theme set to: {theme}")
-            return True
-        else:
-            logger.warning(f"Unknown theme: {theme}")
-            return False
+        logger.warning("set_theme is deprecated, use set_layout instead")
+        return self.set_layout(theme)
 
     def toggle_theme(self) -> str:
-        """Toggle between themes.
+        """Toggle between themes (deprecated - use cycle_layout instead).
 
         Returns:
             New theme name
         """
-        # Cycle through available themes: 4x8 -> 3x4 -> 4x8
-        if self.theme == "4x8":
-            new_theme = "3x4"
-        else:  # 3x4 or any other
-            new_theme = "4x8"
+        logger.warning("toggle_theme is deprecated, use cycle_layout instead")
+        return self.cycle_layout()
 
-        self.set_theme(new_theme)
-        return new_theme
+    def toggle_layout(self) -> str:
+        """Toggle between layouts (alias for cycle_layout for backward compatibility).
+
+        Returns:
+            New layout name
+        """
+        return self.cycle_layout()
 
     def set_layout(self, layout: str) -> bool:
         """Set the display layout type.
 
         Args:
-            layout: Layout type (4x8, 3x4)
+            layout: Layout type (dynamically discovered from registry)
 
         Returns:
             True if layout was set successfully
         """
         logger.debug(f"DIAGNOSTIC: set_layout called with layout='{layout}'")
-        valid_layouts = ["4x8", "3x4"]
-        if layout in valid_layouts:
+
+        # Validate layout using registry
+        if self.layout_registry.validate_layout(layout):
             logger.debug(f"DIAGNOSTIC: Calling display_manager.set_display_type('{layout}')")
-            # Update display manager with new layout name (no internal mapping needed)
-            success = self.display_manager.set_display_type(layout)
+            # Update display manager with new layout name (use set_layout to preserve current renderer)
+            success = self.display_manager.set_layout(layout)
             if success:
-                # Update theme to match layout
-                self.theme = layout
+                # Update layout property
+                self.layout = layout
                 logger.info(f"Layout changed to: {layout}")
                 return True
             else:
                 logger.warning(f"Failed to set layout: {layout}")
                 return False
         else:
-            logger.warning(f"Unknown layout: {layout}")
+            available_layouts = self.layout_registry.get_available_layouts()
+            logger.warning(f"Unknown layout: {layout}. Available layouts: {available_layouts}")
             return False
 
     def cycle_layout(self) -> str:
@@ -731,17 +806,30 @@ class WebServer:
         Returns:
             New layout name
         """
-        # Get current layout from display manager (now returns user-facing name)
+        # Get current layout from display manager
         current_layout = self.get_current_layout()
         logger.debug(f"cycle_layout current_layout='{current_layout}'")
 
-        # Cycle through layouts: 4x8 -> 3x4 -> 4x8
-        if current_layout == "4x8":
-            new_layout = "3x4"
-            logger.debug("Cycling 4x8 -> 3x4")
-        else:  # 3x4 or any other
-            new_layout = "4x8"
-            logger.debug(f"Cycling {current_layout} -> 4x8")
+        # Get available layouts from registry and cycle through them
+        available_layouts = self.layout_registry.get_available_layouts()
+        if not available_layouts:
+            logger.warning("No layouts available for cycling")
+            return current_layout
+
+        try:
+            current_index = available_layouts.index(current_layout)
+            # Cycle to next layout, wrapping around to 0 if at end
+            next_index = (current_index + 1) % len(available_layouts)
+            new_layout = available_layouts[next_index]
+            logger.debug(
+                f"Cycling {current_layout} -> {new_layout} (index {current_index} -> {next_index})"
+            )
+        except ValueError:
+            # Current layout not in available layouts, start with first
+            logger.debug(
+                f"Current layout '{current_layout}' not in available layouts, using first available"
+            )
+            new_layout = available_layouts[0]
 
         logger.debug(f"cycle_layout calling set_layout('{new_layout}')")
         self.set_layout(new_layout)
@@ -753,14 +841,13 @@ class WebServer:
         Returns:
             Current layout name
         """
-        # Use the display manager's proper get_display_type method for consistent mapping
-        if hasattr(self.display_manager, "get_display_type"):
-            current_layout = self.display_manager.get_display_type()
-        else:
-            # Fallback for backwards compatibility
-            current_layout = str(getattr(self.display_manager, "current_display_type", "4x8"))
+        # Use the web server's layout property which correctly tracks layout names
+        # The display manager tracks renderer type ('html') not layout name ('3x4', '4x8')
+        current_layout = self.layout
 
-        logger.debug(f"get_current_layout() returning '{current_layout}'")
+        logger.debug(
+            f"get_current_layout() returning '{current_layout}' from web server layout property"
+        )
         return str(current_layout)
 
     def refresh_data(self) -> bool:
@@ -788,7 +875,6 @@ class WebServer:
             "running": self.running,
             "host": self.host,
             "port": self.port,
-            "theme": self.theme,
             "layout": self.get_current_layout(),
             "interactive_mode": self.navigation_state is not None,
             "current_date": (
