@@ -12,26 +12,49 @@ This guide covers daily operation and all operational modes of Calendar Bot.
 - [Advanced Operations](#advanced-operations)
 - [See Also](#see-also)
 
-### Display Configuration
+### Layout Configuration
 
-To configure CalendarBot for specific display resolutions:
+CalendarBot features a dynamic layout system with automatic discovery and validation:
 
-**Supported Display Types**:
-- **4x8 (Standard):** Optimized for typical desktop LCD screens
-- **3x4 (Compact):** Designed for small embedded displays like e-ink panels
+**Built-in Layouts**:
+- **4x8 (Standard):** Optimized for typical desktop LCD screens (480x800px)
+- **3x4 (Compact):** Designed for small embedded displays and e-ink panels (300x400px)
+- **Custom Layouts:** Create your own layouts with automatic discovery
 
 **Command Line Selection**:
 ```bash
-# Console-only example
-python main.py --display-type 4x8
+# Console mode (auto-detects layout)
+calendarbot --console
 
-# Web interface example
-python main.py --web --display-type 3x4
+# Web interface with specific layout
+calendarbot --web --layout 4x8
+
+# Web interface with theme selection
+calendarbot --web --layout 3x4 --theme eink
+
+# Custom layout
+calendarbot --web --layout my-custom-layout
 ```
 
+**Dynamic Layout Switching**:
+```bash
+# Runtime layout switching via URL parameters
+# http://localhost:8080/calendar?layout=4x8&theme=dark
+# http://localhost:8080/calendar?layout=3x4&theme=eink&date=2025-01-15
+```
+
+**Layout Features**:
+- Automatic layout discovery and validation
+- Fallback chain for missing or invalid layouts
+- Multiple theme support (standard, dark, eink, high-contrast)
+- Responsive design for different screen sizes
+- Dynamic CSS/JS resource loading
+
 **Tips**:
-- Display type affects layout rendering but maintains data consistency across modes
-- Combine with `--help` for full option details (e.g., `python main.py --web --help`)
+- Layout affects visual rendering while maintaining data consistency
+- Use URL parameters for dynamic layout/theme switching
+- Create custom layouts following the [Layout Development Guide](../development/LAYOUT_DEVELOPMENT_GUIDE.md)
+- Combine with `--help` for full option details (e.g., `calendarbot --web --help`)
 
 ## Operational Modes
 

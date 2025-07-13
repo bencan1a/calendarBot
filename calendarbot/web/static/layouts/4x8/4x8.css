@@ -438,6 +438,8 @@ body {
     border-top: 1px solid;
     text-align: center;
     font-size: 0.9rem;
+    background: #ffffff;
+    border-top-color: #dee2e6;
 }
 
 /* Calendar status bar - ensure center alignment */

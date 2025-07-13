@@ -226,10 +226,6 @@ class HTMLRenderer:
         if status_info.get("is_cached"):
             status_parts.append('<span class="status-cached">📱 Cached Data</span>')
 
-        # Connection status
-        if status_info.get("connection_status"):
-            status_parts.append(f'📶 {status_info["connection_status"]}')
-
         return " | ".join(status_parts) if status_parts else ""
 
     def _get_timestamp_html(self, status_info: Optional[Dict[str, Any]]) -> str:
@@ -428,24 +424,15 @@ class HTMLRenderer:
         Returns:
             HTML navigation help content
         """
-        help_parts = [
-            '<span class="nav-key">← →</span> Navigate',
-            '<span class="nav-key">Space</span> Today',
-            '<span class="nav-key">Home/End</span> Week',
-            '<span class="nav-key">R</span> Refresh',
-        ]
-
-        # Relative date info removed for cleaner display
-        relative_info = ""
-
-        # Add timestamp to bottom navigation area
+        # Only show timestamp, remove all command help text and symbols
         timestamp_html = self._get_timestamp_html(status_info)
-        timestamp_part = f"{timestamp_html} | " if timestamp_html else ""
+
+        if not timestamp_html:
+            return ""
 
         return f"""
         <div class="navigation-help">
-            {timestamp_part}{relative_info}
-            {' | '.join(help_parts)}
+            {timestamp_html}
         </div>
         """
 

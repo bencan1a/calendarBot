@@ -634,7 +634,6 @@ class WebServer:
                     "interactive_mode": True,
                     "last_update": datetime.now().isoformat(),
                     "is_cached": False,  # TODO: Get actual cache status
-                    "connection_status": "Online",
                 }
             else:
                 # Non-interactive mode - get today's events
@@ -685,7 +684,6 @@ class WebServer:
                 status_info = {
                     "last_update": datetime.now().isoformat(),
                     "is_cached": False,
-                    "connection_status": "Online",
                     "interactive_mode": False,
                 }
 
