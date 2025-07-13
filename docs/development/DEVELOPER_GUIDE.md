@@ -218,6 +218,213 @@ class MyExtendedWebServer(WebServer):
             return {"data": "Hello from custom endpoint"}
 ```
 
+### Case Study: whats-next-view Layout Development
+
+The **whats-next-view** layout serves as a comprehensive example of creating a specialized layout that demonstrates CalendarBot's architectural patterns and extension capabilities.
+
+#### Development Overview
+
+**Purpose**: Create a countdown timer layout that displays time remaining until the next meeting, optimized for e-ink displays and accessibility.
+
+**Key Requirements**:
+- Real-time countdown functionality
+- Meeting detection algorithm
+- E-ink display optimization
+- Accessibility compliance
+- Performance efficiency
+
+#### Implementation Architecture
+
+**1. Layout Configuration Design**
+
+The layout follows CalendarBot's standardized configuration pattern:
+
+```json
+{
+  "name": "whats-next-view",
+  "display_name": "What's Next Countdown",
+  "description": "Countdown timer layout for next meeting with smart detection",
+  "capabilities": {
+    "real_time_updates": true,
+    "countdown_timer": true,
+    "meeting_detection": true,
+    "display_modes": ["countdown", "eink", "standard"]
+  },
+  "specialized_features": {
+    "countdown_precision": "seconds",
+    "meeting_detection_algorithm": "next_event_priority",
+    "auto_refresh_interval": 1000,
+    "timezone_aware": true
+  }
+}
+```
+
+**2. JavaScript Implementation Patterns**
+
+```javascript
+// whats-next-view.js - Demonstrates real-time update patterns
+class WhatsNextView {
+    constructor() {
+        this.countdownInterval = null;
+        this.nextMeeting = null;
+        this.updateFrequency = 1000; // 1 second
+    }
+
+    async initialize() {
+        await this.detectNextMeeting();
+        this.startCountdown();
+        this.setupAccessibilityFeatures();
+    }
+
+    async detectNextMeeting() {
+        // Integration with CalendarBot's event API
+        const events = await this.fetchEvents();
+        this.nextMeeting = this.findNextMeeting(events);
+    }
+
+    startCountdown() {
+        // Real-time countdown implementation
+        this.countdownInterval = setInterval(() => {
+            this.updateCountdownDisplay();
+        }, this.updateFrequency);
+    }
+}
+```
+
+**3. CSS Design Patterns**
+
+```css
+/* whats-next-view.css - E-ink optimization patterns */
+.whats-next-container {
+    /* High contrast for e-ink displays */
+    background: #ffffff;
+    color: #000000;
+    font-family: 'DejaVu Sans Mono', monospace;
+    
+    /* Remove animations for e-ink efficiency */
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+.countdown-display {
+    /* Large, readable text for accessibility */
+    font-size: 4rem;
+    font-weight: bold;
+    text-align: center;
+    
+    /* High contrast borders */
+    border: 3px solid #000000;
+    padding: 2rem;
+}
+```
+
+#### Design Patterns Demonstrated
+
+**1. Modular Resource Management**
+- Separate CSS and JavaScript files for maintainability
+- Resource loading through CalendarBot's ResourceManager
+- Fallback resource handling
+
+**2. Configuration-Driven Behavior**
+- Layout capabilities defined in configuration
+- Runtime feature detection
+- Flexible deployment options
+
+**3. Integration Points**
+- Web server layout switching
+- Display manager coordination
+- Cache system integration for event data
+
+**4. Performance Optimization**
+- Efficient DOM updates for countdown
+- Memory-conscious event handling
+- E-ink display refresh minimization
+
+#### Testing Strategy
+
+**Unit Tests**: [`tests/__tests__/whats-next-view.test.js`](tests/__tests__/whats-next-view.test.js)
+
+```javascript
+describe('WhatsNextView', () => {
+    test('detectNextMeeting filters all-day events', async () => {
+        const mockEvents = [
+            { isAllDay: true, start: '2025-01-15' },
+            { isAllDay: false, start: '2025-01-15T14:00:00Z' }
+        ];
+        
+        const view = new WhatsNextView();
+        const nextMeeting = view.findNextMeeting(mockEvents);
+        
+        expect(nextMeeting.isAllDay).toBe(false);
+    });
+
+    test('countdown updates every second', () => {
+        const view = new WhatsNextView();
+        const spy = jest.spyOn(view, 'updateCountdownDisplay');
+        
+        view.startCountdown();
+        
+        setTimeout(() => {
+            expect(spy).toHaveBeenCalled();
+        }, 1100);
+    });
+});
+```
+
+**Integration Testing**:
+- Layout registration through LayoutRegistry
+- Resource loading validation
+- API endpoint integration
+- Cross-browser compatibility
+
+#### Development Workflow Applied
+
+**1. Requirements Analysis**
+- Identified need for countdown functionality
+- Analyzed e-ink display constraints
+- Defined accessibility requirements
+
+**2. Architecture Design**
+- Leveraged existing layout system
+- Designed for extensibility
+- Planned integration points
+
+**3. Implementation**
+- Followed CalendarBot coding standards
+- Used async/await patterns
+- Implemented comprehensive error handling
+
+**4. Testing & Validation**
+- Unit tests for JavaScript logic
+- Layout validation through system
+- Performance testing on target hardware
+
+**5. Documentation**
+- Configuration examples
+- API integration guide
+- Deployment instructions
+
+#### Extension Lessons Learned
+
+**1. Layout System Flexibility**
+- Configuration-driven approach enables rapid prototyping
+- Resource management system simplifies asset handling
+- Integration points provide clean extension mechanisms
+
+**2. Performance Considerations**
+- E-ink displays require specialized optimization
+- Real-time updates need careful resource management
+- Accessibility features must be designed from the start
+
+**3. Testing Strategies**
+- JavaScript unit tests essential for client-side logic
+- Integration testing validates system-wide functionality
+- Performance testing crucial for specialized hardware
+
+This case study demonstrates how CalendarBot's architectural patterns enable developers to create sophisticated, specialized layouts while maintaining system consistency and performance standards.
+
 ### Documentation Update Examples
 
 When a new CLI command is added, follow these steps to document it:

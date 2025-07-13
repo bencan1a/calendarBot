@@ -19,6 +19,7 @@ CalendarBot features a dynamic layout system with automatic discovery and valida
 **Built-in Layouts**:
 - **4x8 (Standard):** Optimized for typical desktop LCD screens (480x800px)
 - **3x4 (Compact):** Designed for small embedded displays and e-ink panels (300x400px)
+- **whats-next-view:** Specialized countdown layout for 300x400px displays, focusing on next meeting with real-time timer
 - **Custom Layouts:** Create your own layouts with automatic discovery
 
 **Command Line Selection**:
@@ -31,6 +32,9 @@ calendarbot --web --layout 4x8
 
 # Web interface with theme selection
 calendarbot --web --layout 3x4 --theme eink
+
+# Specialized countdown layout for small displays
+calendarbot --web --layout whats-next-view --theme eink
 
 # Custom layout
 calendarbot --web --layout my-custom-layout
@@ -55,6 +59,63 @@ calendarbot --web --layout my-custom-layout
 - Use URL parameters for dynamic layout/theme switching
 - Create custom layouts following the [Layout Development Guide](../development/LAYOUT_DEVELOPMENT_GUIDE.md)
 - Combine with `--help` for full option details (e.g., `calendarbot --web --help`)
+
+### What's Next View Layout
+
+The **whats-next-view** layout is a specialized interface designed for small displays and meeting countdown scenarios:
+
+**Target Use Cases**:
+- Small 300×400px displays (3×4 inch screens)
+- E-ink displays requiring minimal updates
+- Meeting countdown displays
+- Office door displays
+- Personal meeting reminder screens
+
+**Key Features**:
+- **Real-time Countdown**: Displays countdown timer to next meeting start or current meeting end
+- **Meeting Focus**: Shows only the most relevant upcoming meeting with full details
+- **Automatic Transitions**: Seamlessly transitions from one meeting to the next
+- **Urgent Highlighting**: Visual and accessible alerts when meetings are less than 15 minutes away
+- **Accessibility Support**: Full WCAG 2.1 AA compliance with screen reader support
+
+**Keyboard Navigation**:
+- **R**: Manual refresh of meeting data
+- **T**: Toggle between themes (standard/eink)
+- **L**: Switch to different layout
+- **Space**: Quick refresh (same as R key)
+
+**Touch/Mobile Support**:
+- **Swipe Left/Right**: Trigger refresh
+- **Tap Controls**: Touch-friendly interface elements
+- **Double-tap Prevention**: Prevents accidental zoom on mobile devices
+
+**Themes Available**:
+- **Standard**: Clean interface with subtle shadows and animations
+- **Eink**: High-contrast, static design optimized for e-ink displays with no animations
+
+**Display Information**:
+- **Current/Next Meeting**: Title, time, location, and description (truncated if needed)
+- **Countdown Timer**: Large, prominent countdown showing time until meeting starts/ends
+- **Coming Up**: Preview of next 3 upcoming meetings
+- **Empty State**: Clear messaging when no meetings are scheduled
+
+**Example Usage**:
+```bash
+# Launch whats-next-view with eink theme (recommended for small displays)
+calendarbot --web --layout whats-next-view --theme eink
+
+# Standard theme with animations
+calendarbot --web --layout whats-next-view --theme standard
+
+# URL parameter switching
+# http://localhost:8080/calendar?layout=whats-next-view&theme=eink
+```
+
+**Performance Characteristics**:
+- **Update Frequency**: 1-second countdown updates, 60-second auto-refresh
+- **Bundle Size**: ~15KB CSS, ~20KB JavaScript
+- **Memory Usage**: Low resource consumption
+- **Display Compatibility**: Optimized for eink, LCD, and OLED displays
 
 ## Operational Modes
 

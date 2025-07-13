@@ -1,0 +1,139 @@
+{
+  "name": "whats-next-view",
+  "display_name": "What's Next View",
+  "description": "Streamlined countdown layout optimized for 3×4 inch displays, focusing on the next upcoming meeting with real-time countdown timer",
+  "version": "1.0.0",
+  "orientation": "portrait",
+  "dimensions": {
+    "min_width": 300,
+    "min_height": 400,
+    "optimal_width": 300,
+    "optimal_height": 400,
+    "max_width": 300,
+    "max_height": 400,
+    "fixed_dimensions": true,
+    "disable_resize": true
+  },
+  "display_types": [
+    "lcd",
+    "oled",
+    "eink"
+  ],
+  "themes": [
+    "standard",
+    "eink"
+  ],
+  "capabilities": {
+    "grid_dimensions": {
+      "columns": 1,
+      "rows": "auto"
+    },
+    "display_modes": ["portrait", "countdown"],
+    "supported_devices": ["lcd", "oled", "eink", "web"],
+    "animations": true,
+    "layout_switching": true,
+    "countdown_timer": true,
+    "meeting_detection": true,
+    "real_time_updates": true
+  },
+  "features": {
+    "responsive": true,
+    "touch_support": true,
+    "keyboard_navigation": true,
+    "auto_refresh": true,
+    "theme_switching": true,
+    "layout_switching": true,
+    "animations": true,
+    "mobile_optimized": true,
+    "countdown_display": true,
+    "meeting_transitions": true,
+    "accessibility_compliant": true,
+    "screen_reader_support": true
+  },
+  "resources": {
+    "css": [
+      {
+        "file": "whats-next-view.css",
+        "media": "screen",
+        "priority": 1
+      }
+    ],
+    "js": [
+      {
+        "file": "whats-next-view.js",
+        "type": "module",
+        "priority": 1,
+        "defer": true
+      }
+    ]
+  },
+  "compatibility": {
+    "min_screen_width": 300,
+    "min_screen_height": 400,
+    "supports_touch": true,
+    "supports_keyboard": true,
+    "accessibility_features": [
+      "keyboard_navigation",
+      "focus_management",
+      "screen_reader_support",
+      "aria_labels",
+      "live_regions",
+      "high_contrast_support"
+    ]
+  },
+  "performance": {
+    "bundle_size_css": "~15KB",
+    "bundle_size_js": "~20KB",
+    "render_complexity": "low",
+    "memory_usage": "low",
+    "update_frequency": "1s",
+    "auto_refresh_interval": "60s"
+  },
+  "layout_specific": {
+    "countdown_features": {
+      "real_time_updates": true,
+      "meeting_detection": true,
+      "automatic_transitions": true,
+      "urgent_highlighting": true,
+      "screen_reader_announcements": true
+    },
+    "meeting_display": {
+      "current_meeting_focus": true,
+      "upcoming_meetings_preview": true,
+      "time_formatting": "12h",
+      "location_display": true,
+      "description_truncation": true
+    },
+    "visual_design": {
+      "grayscale_palette": "8-shade",
+      "minimal_interface": true,
+      "large_countdown_display": true,
+      "clear_typography": true,
+      "high_contrast_support": true
+    }
+  },
+  "fallback_layouts": [
+    "3x4"
+  ],
+  "metadata": {
+    "created": "2025-01-13",
+    "author": "Calendar Bot Team",
+    "license": "MIT",
+    "tags": [
+      "portrait",
+      "countdown",
+      "meeting-focused",
+      "eink-optimized",
+      "accessible",
+      "real-time"
+    ],
+    "category": "specialized",
+    "use_cases": [
+      "meeting countdown",
+      "next meeting focus",
+      "eink displays",
+      "small screens",
+      "office displays"
+    ]
+  }
+}

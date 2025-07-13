@@ -61,6 +61,7 @@ Currently, no authentication is required for API endpoints.
 **Available Layouts:**
 - `4x8`: Standard desktop layout (480x800px)
 - `3x4`: Compact layout for small displays (300x400px)
+- `whats-next-view`: Specialized countdown layout for 300x400px displays with real-time meeting focus
 - `custom-layout`: Any custom layout discovered in the layouts directory
 
 **Response:**
@@ -107,6 +108,19 @@ Currently, no authentication is required for API endpoints.
       "version": "1.0.0",
       "capabilities": {
         "grid_dimensions": {"columns": 3, "rows": 4},
+        "themes": ["standard", "eink"]
+      }
+    },
+    {
+      "name": "whats-next-view",
+      "display_name": "What's Next View",
+      "description": "Streamlined countdown layout optimized for 3×4 inch displays, focusing on the next upcoming meeting with real-time countdown timer",
+      "version": "1.0.0",
+      "capabilities": {
+        "grid_dimensions": {"columns": 1, "rows": "auto"},
+        "countdown_timer": true,
+        "meeting_detection": true,
+        "real_time_updates": true,
         "themes": ["standard", "eink"]
       }
     }
@@ -281,11 +295,11 @@ curl -X POST http://localhost:8080/api/navigate \
   -d '{"direction": "today"}'
 ```
 
-**Switch to 3x4 theme:**
+**Switch to eink theme:**
 ```bash
 curl -X POST http://localhost:8080/api/theme \
   -H "Content-Type: application/json" \
-  -d '{"theme": "3x4"}'
+  -d '{"theme": "eink"}'
 ```
 
 **Refresh calendar data:**
@@ -332,3 +346,64 @@ const refreshData = async (force = false) => {
   });
   return response.json();
 };
+
+// Switch to whats-next-view layout (specialized countdown layout)
+const switchToWhatsNextView = async () => {
+  const response = await fetch('/api/layout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ layout: 'whats-next-view' })
+  });
+  return response.json();
+};
+```
+
+## Layout-Specific API Behavior
+
+### whats-next-view Layout Integration
+
+The `whats-next-view` layout has specialized integration with CalendarBot's API endpoints to support its real-time countdown and meeting detection features:
+
+#### Enhanced API Response Processing
+When using whats-next-view layout, the JavaScript automatically:
+- Parses meeting data from `/api/refresh` responses for countdown calculations
+- Maintains real-time state for automatic meeting transitions
+- Handles 1-second countdown updates and 60-second data refreshes
+- Provides specialized error handling for meeting detection failures
+
+#### API Usage Patterns
+```javascript
+// Example: whats-next-view automatic data processing
+async function loadMeetingData() {
+  try {
+    const response = await fetch('/api/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.html) {
+      // whats-next-view automatically parses HTML for meeting data
+      parseMeetingDataFromHTML(data.html);
+      detectCurrentMeeting(); // Identifies next/current meeting
+      updateCountdown(); // Starts real-time countdown display
+    }
+  } catch (error) {
+    showErrorState('Network error occurred');
+  }
+}
+```
+
+#### Real-Time Update Integration
+The whats-next-view layout implements automatic polling:
+- **Countdown Updates**: Every 1 second via `setInterval`
+- **Data Refresh**: Every 60 seconds via `/api/refresh`
+- **Meeting Transitions**: Automatic detection when meetings end/start
+- **Error Recovery**: Graceful fallback to cached data on API failures
+
+#### Accessibility API Integration
+The layout includes accessibility features that work with API responses:
+- **Screen Reader Announcements**: Uses ARIA live regions for countdown milestones
+- **Keyboard Navigation**: API calls triggered by keyboard shortcuts (R, T, L, Space)
+- **Focus Management**: Proper focus handling after API state changes

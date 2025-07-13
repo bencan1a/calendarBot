@@ -59,6 +59,7 @@ dependencies = [
     "pytz>=2023.3",
     "cryptography>=41.0.0",
     "APScheduler>=3.10.0",
+    "psutil>=5.8.0",
 ]
 
 [project.optional-dependencies]
@@ -100,14 +101,18 @@ calendarbot = "calendarbot.__main__:main"
 
 [tool.setuptools]
 package-dir = {"" = "."}
-packages = ["calendarbot", "config"]
+packages = {find = {}}
 
 [tool.setuptools.package-data]
 calendarbot = [
     "py.typed",
     "web/static/*.css",
     "web/static/*.js",
+    "web/static/layouts/**/*.css",
+    "web/static/layouts/**/*.js",
+    "web/static/layouts/**/*.json",
     "web/templates/*.html",
+    "theme-images/*.bmp",
 ]
 config = [
     "config.yaml.example",
