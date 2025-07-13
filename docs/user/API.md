@@ -44,53 +44,122 @@ Currently, no authentication is required for API endpoints.
 - `direction`: Navigation direction (`next`, `prev`, `today`, `date`)
 - `date`: Target date (ISO format, required for `direction=date`)
 
-### Theme API
-
-#### Switch Theme
-- **Endpoint**: `/api/theme`
-- **Methods**: `GET`, `POST`
-- **Description**: Switch between available calendar themes
-
-**POST Request Body:**
-```json
-{
-  "theme": "4x8|3x4"
-}
-```
-
-**Available Themes:**
-- `4x8`: Four-week view with 8-day width
-- `3x4`: Three-week view with 4-day width
-
-**Response:**
-```json
-{
-  "status": "success",
-  "theme": "4x8",
-  "message": "Theme switched to 4x8"
-}
-```
-
 ### Layout API
 
 #### Switch Layout
 - **Endpoint**: `/api/layout`
 - **Methods**: `GET`, `POST`
-- **Description**: Change calendar layout configuration
+- **Description**: Switch between available calendar layouts with dynamic discovery
 
 **POST Request Body:**
 ```json
 {
-  "layout": "compact|expanded|minimal"
+  "layout": "4x8|3x4|custom-layout"
 }
 ```
+
+**Available Layouts:**
+- `4x8`: Standard desktop layout (480x800px)
+- `3x4`: Compact layout for small displays (300x400px)
+- `custom-layout`: Any custom layout discovered in the layouts directory
 
 **Response:**
 ```json
 {
   "status": "success",
-  "layout": "compact",
-  "message": "Layout switched to compact"
+  "layout": "4x8",
+  "layout_info": {
+    "name": "4x8",
+    "display_name": "4×8 Landscape",
+    "version": "1.0.0",
+    "capabilities": {
+      "grid_dimensions": {"columns": 4, "rows": 8}
+    }
+  },
+  "message": "Layout switched to 4x8"
+}
+```
+
+#### Get Available Layouts
+- **Endpoint**: `/api/layouts`
+- **Methods**: `GET`
+- **Description**: Retrieve list of all discovered layouts
+
+**Response:**
+```json
+{
+  "status": "success",
+  "layouts": [
+    {
+      "name": "4x8",
+      "display_name": "4×8 Landscape",
+      "description": "Standard landscape layout",
+      "version": "1.0.0",
+      "capabilities": {
+        "grid_dimensions": {"columns": 4, "rows": 8},
+        "themes": ["standard", "dark", "eink"]
+      }
+    },
+    {
+      "name": "3x4",
+      "display_name": "3×4 Compact",
+      "description": "Compact layout for small displays",
+      "version": "1.0.0",
+      "capabilities": {
+        "grid_dimensions": {"columns": 3, "rows": 4},
+        "themes": ["standard", "eink"]
+      }
+    }
+  ]
+}
+```
+
+#### Validate Layout Resources
+- **Endpoint**: `/api/layout/{layout_name}/validate`
+- **Methods**: `GET`
+- **Description**: Validate that a layout's resources are available
+
+**Response:**
+```json
+{
+  "status": "success",
+  "layout": "4x8",
+  "validation": {
+    "layout_exists": true,
+    "css_valid": true,
+    "js_valid": true,
+    "themes_available": ["standard", "dark", "eink"]
+  }
+}
+```
+
+### Theme API
+
+#### Switch Theme
+- **Endpoint**: `/api/theme`
+- **Methods**: `GET`, `POST`
+- **Description**: Switch between available themes for the current layout
+
+**POST Request Body:**
+```json
+{
+  "theme": "standard|dark|eink|high-contrast"
+}
+```
+
+**Available Themes:**
+- `standard`: Default light theme
+- `dark`: Dark mode theme
+- `eink`: High contrast e-ink optimized theme
+- `high-contrast`: Accessibility-focused high contrast theme
+
+**Response:**
+```json
+{
+  "status": "success",
+  "theme": "dark",
+  "layout": "4x8",
+  "message": "Theme switched to dark for layout 4x8"
 }
 ```
 

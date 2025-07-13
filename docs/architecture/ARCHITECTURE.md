@@ -113,17 +113,22 @@ graph TB
 - [`html_renderer.py`](calendarbot/display/html_renderer.py): Web-compatible HTML rendering
 - [`rpi_html_renderer.py`](calendarbot/display/rpi_html_renderer.py): E-ink optimized HTML layouts
 
-#### 5. **User Interface** ([`calendarbot/ui/`](calendarbot/ui/))
+#### 5. **Layout Management** ([`calendarbot/layout/`](calendarbot/layout/))
+- [`registry.py`](calendarbot/layout/registry.py): Dynamic layout discovery and validation
+- [`resource_manager.py`](calendarbot/layout/resource_manager.py): CSS/JS resource loading and injection
+- [`exceptions.py`](calendarbot/layout/exceptions.py): Layout-specific error handling
+
+#### 6. **User Interface** ([`calendarbot/ui/`](calendarbot/ui/))
 - [`interactive.py`](calendarbot/ui/interactive.py): Interactive navigation controller
 - [`keyboard.py`](calendarbot/ui/keyboard.py): Cross-platform keyboard input handling
 - [`navigation.py`](calendarbot/ui/navigation.py): Date navigation and filtering logic
 
-#### 6. **Web Interface** ([`calendarbot/web/`](calendarbot/web/))
-- [`server.py`](calendarbot/web/server.py): Web server implementation
+#### 7. **Web Interface** ([`calendarbot/web/`](calendarbot/web/))
+- [`server.py`](calendarbot/web/server.py): Web server implementation with layout integration
 - [`navigation.py`](calendarbot/web/navigation.py): Web-based navigation handling
-- [`static/`](calendarbot/web/static/): CSS, JavaScript, and theme assets
+- [`static/layouts/`](calendarbot/web/static/layouts/): Layout configurations and resources
 
-#### 7. **Utilities** ([`calendarbot/utils/`](calendarbot/utils/))
+#### 8. **Utilities** ([`calendarbot/utils/`](calendarbot/utils/))
 - [`logging.py`](calendarbot/utils/logging.py): Enhanced logging system with interactive mode support
 - [`helpers.py`](calendarbot/utils/helpers.py): Common utility functions
 
@@ -181,11 +186,102 @@ graph TB
 - Resource monitoring and optimization
 - Signal-based shutdown handling
 
-## 4. Component Dependency Architecture
+## 4. Layout Management System
+
+### Layout Architecture Overview
+
+The layout system provides dynamic layout discovery, validation, and resource management for flexible UI rendering across different devices and display types.
+
+```mermaid
+graph TB
+    subgraph "Layout Discovery"
+        LR[LayoutRegistry]
+        LD[Layout Discovery]
+        LV[Layout Validation]
+    end
+
+    subgraph "Resource Management"
+        RM[ResourceManager]
+        CSS[CSS Loading]
+        JS[JavaScript Loading]
+        RI[Resource Injection]
+    end
+
+    subgraph "Layout Configuration"
+        LC[layout.json]
+        LF[Layout Files]
+        LT[Layout Templates]
+    end
+
+    subgraph "Integration Points"
+        WS[WebServer]
+        DM[DisplayManager]
+        RF[RendererFactory]
+    end
+
+    %% Discovery Flow
+    LR --> LD
+    LD --> LV
+    LV --> LC
+
+    %% Resource Flow
+    RM --> CSS
+    RM --> JS
+    RM --> RI
+
+    %% Integration
+    LR --> RM
+    RM --> WS
+    LR --> DM
+    LR --> RF
+
+    %% Configuration
+    LC --> LF
+    LC --> LT
+    LF --> RM
+```
+
+### Layout Component Dependencies
+
+```python
+# calendarbot/layout/registry.py
+class LayoutRegistry:
+    """Central registry for dynamic layout discovery and management."""
+    
+    # Core Functionality:
+    - discover_layouts(): Filesystem-based layout discovery
+    - validate_layout(): Configuration validation
+    - get_layout_with_fallback(): Automatic fallback chain resolution
+    - get_renderer_type(): Renderer selection integration
+    
+    # Integration Points:
+    - DisplayManager: Layout selection and renderer coordination
+    - WebServer: Dynamic layout switching
+    - ResourceManager: Layout resource loading
+```
+
+```python
+# calendarbot/layout/resource_manager.py
+class ResourceManager:
+    """Manages dynamic loading of layout resources."""
+    
+    # Resource Management:
+    - get_css_urls(): Dynamic CSS URL generation
+    - get_js_urls(): Dynamic JavaScript URL generation
+    - inject_layout_resources(): HTML template resource injection
+    - validate_layout_resources(): Resource existence validation
+    
+    # Caching Strategy:
+    - Resource URL caching for performance
+    - Content caching for offline operation
+    - Cache invalidation on layout changes
+```
+
+## 5. Component Dependency Architecture
 
 ### Manager→Handler→Protocol Relationship Mapping
 
-The system uses a three-tier architecture with clear dependency relationships:
+The system uses a three-tier architecture with clear dependency relationships, now including layout management:
 
 ```mermaid
 graph TB
@@ -194,6 +290,8 @@ graph TB
         DM[DisplayManager]
         CM[CacheManager]
         WS[WebServer]
+        LR[LayoutRegistry]
+        RM[ResourceManager]
     end
 
     subgraph "Handler Layer"
@@ -201,6 +299,7 @@ graph TB
         ICSParser[ICSParser]
         DBHandler[DatabaseHandler]
         HTTPHandler[HTTPRequestHandler]
+        RF[RendererFactory]
     end
 
     subgraph "Protocol Layer"
@@ -215,21 +314,29 @@ graph TB
         RHR[RPIHtmlRenderer]
         ICSS[ICSSource]
         DB[Database]
+        LF[Layout Files]
     end
 
     %% Manager Dependencies
     SM --> ICSFetcher
     SM --> ICSParser
     DM --> RP
+    DM --> LR
     CM --> DBHandler
     WS --> CM
     WS --> DM
+    WS --> LR
+    WS --> RM
+    LR --> RM
+    RM --> LR
 
     %% Handler Dependencies
     ICSFetcher --> IP
     ICSParser --> IP
     DBHandler --> CP
     HTTPHandler --> DM
+    RF --> RP
+    RF --> LR
 
     %% Protocol Implementations
     RP --> CR
@@ -237,6 +344,10 @@ graph TB
     RP --> RHR
     IP --> ICSS
     CP --> DB
+
+    %% Layout Dependencies
+    LR --> LF
+    RM --> LF
 
     %% Cross-Layer Dependencies
     SM --> CM
@@ -351,7 +462,123 @@ def get_calendar_html(self, date_str: str) -> str:
         loop.close()
 ```
 
-## 5. Data Flow Architecture
+### Layout Configuration Format
+
+Each layout is defined by a `layout.json` configuration file with the following structure:
+
+```json
+{
+  "name": "4x8",
+  "display_name": "4×8 Landscape",
+  "description": "Standard landscape layout optimized for 4×8 inch displays",
+  "version": "1.0.0",
+  "orientation": "landscape",
+  "dimensions": {
+    "min_width": 480,
+    "min_height": 800,
+    "optimal_width": 480,
+    "optimal_height": 800,
+    "fixed_dimensions": true
+  },
+  "capabilities": {
+    "grid_dimensions": {
+      "columns": 4,
+      "rows": 8
+    },
+    "display_modes": ["landscape", "standard"],
+    "supported_devices": ["lcd", "oled", "web"],
+    "animations": true,
+    "layout_switching": true
+  },
+  "resources": {
+    "css": [
+      {
+        "file": "4x8.css",
+        "media": "screen",
+        "priority": 1
+      }
+    ],
+    "js": [
+      {
+        "file": "4x8.js",
+        "type": "module",
+        "priority": 1,
+        "defer": true
+      }
+    ]
+  },
+  "fallback_layouts": ["3x4", "console"],
+  "compatibility": {
+    "min_screen_width": 320,
+    "min_screen_height": 240,
+    "supports_touch": true,
+    "supports_keyboard": true,
+    "accessibility_features": [
+      "keyboard_navigation",
+      "focus_management",
+      "screen_reader_support"
+    ]
+  }
+}
+```
+
+### Layout Directory Structure
+
+```
+calendarbot/web/static/layouts/
+├── 4x8/
+│   ├── layout.json          # Layout configuration
+│   ├── 4x8.css             # Layout styles
+│   ├── 4x8.js              # Layout JavaScript
+│   └── assets/             # Optional: layout-specific assets
+├── 3x4/
+│   ├── layout.json
+│   ├── 3x4.css
+│   └── 3x4.js
+└── custom-layout/
+    ├── layout.json
+    ├── custom.css
+    ├── custom.js
+    └── themes/
+        ├── dark.css
+        └── light.css
+```
+
+### Layout Integration Flow
+
+```mermaid
+sequenceDiagram
+    participant Client as Browser
+    participant WS as WebServer
+    participant LR as LayoutRegistry
+    participant RM as ResourceManager
+    participant DM as DisplayManager
+    participant Renderer as HTMLRenderer
+
+    Client->>WS: GET /calendar?layout=4x8
+    WS->>LR: get_layout_with_fallback("4x8")
+    LR->>LR: validate_layout("4x8")
+    
+    alt Layout Valid
+        LR->>WS: Return LayoutInfo
+        WS->>RM: get_css_urls("4x8")
+        WS->>RM: get_js_urls("4x8")
+        RM->>RM: Generate resource URLs
+        RM->>WS: Return resource URLs
+    else Layout Invalid
+        LR->>LR: Try fallback chain
+        LR->>WS: Return fallback LayoutInfo
+    end
+    
+    WS->>DM: render_calendar(events, layout)
+    DM->>Renderer: render_events(events, layout_info)
+    Renderer->>WS: HTML template
+    WS->>RM: inject_layout_resources(template, layout)
+    RM->>WS: Enhanced HTML with resources
+    WS->>Client: Complete HTML response
+```
+
+## 6. Data Flow Architecture
 
 ### Event Processing Pipeline
 
@@ -893,19 +1120,162 @@ class CustomRenderer(BaseRenderer):
         pass
 ```
 
-### Web Theme Development
+### Custom Layout Development
 
-```css
-/* Example: Custom web theme in web/static/ */
-.custom-theme {
-    /* E-ink optimized styles */
+```bash
+# Example: Create a new layout for e-ink displays
+mkdir calendarbot/web/static/layouts/eink-optimized
+cd calendarbot/web/static/layouts/eink-optimized
+
+# Create layout configuration
+cat > layout.json << 'EOF'
+{
+  "name": "eink-optimized",
+  "display_name": "E-ink Optimized",
+  "description": "High contrast layout optimized for e-ink displays",
+  "version": "1.0.0",
+  "capabilities": {
+    "grid_dimensions": {"columns": 4, "rows": 6},
+    "display_modes": ["eink", "high-contrast"],
+    "supported_devices": ["eink", "rpi"]
+  },
+  "resources": {
+    "css": ["eink.css"],
+    "js": []
+  },
+  "fallback_layouts": ["4x8", "console"]
+}
+EOF
+
+# Create optimized CSS
+cat > eink.css << 'EOF'
+/* E-ink optimized styles */
+body {
     background: #ffffff;
     color: #000000;
-    font-family: 'Roboto Mono', monospace;
+    font-family: 'DejaVu Sans Mono', monospace;
 }
+
+/* Remove all animations and transitions */
+* {
+    transition: none !important;
+    animation: none !important;
+}
+
+/* High contrast borders */
+.event {
+    border: 3px solid #000000;
+    border-radius: 0;
+}
+EOF
 ```
 
-## 13. Development Workflow
+### Layout Resource Management
+
+```python
+# Example: Custom resource manager for CDN integration
+class CDNResourceManager(ResourceManager):
+    """Extended resource manager with CDN support."""
+    
+    def __init__(self, layout_registry: LayoutRegistry, cdn_base: str = "") -> None:
+        super().__init__(layout_registry)
+        self.cdn_base = cdn_base
+    
+    def get_css_urls(self, layout_name: str) -> List[str]:
+        """Get CSS URLs with CDN support."""
+        urls = super().get_css_urls(layout_name)
+        
+        # Transform local URLs to CDN URLs if configured
+        if self.cdn_base:
+            cdn_urls = []
+            for url in urls:
+                if not url.startswith('http'):
+                    cdn_urls.append(f"{self.cdn_base}{url}")
+                else:
+                    cdn_urls.append(url)
+            return cdn_urls
+        
+        return urls
+```
+
+## 13. Layout System Configuration
+
+### Web Server Layout Integration
+
+The web server integrates with the layout system through several configuration points:
+
+```yaml
+# Web Interface Settings with Layout Support
+web:
+  enabled: true
+  port: 8080
+  host: "0.0.0.0"
+  default_layout: "4x8"    # Default layout name
+  layout_switching: true   # Enable runtime layout switching
+  theme_switching: true    # Enable theme switching
+  auto_refresh: 60
+  layout_discovery: true   # Enable automatic layout discovery
+  
+  # Layout-specific settings
+  layouts:
+    "4x8":
+      auto_refresh: 30
+      themes: ["standard", "dark"]
+    "3x4":
+      auto_refresh: 60
+      themes: ["standard", "eink"]
+    "custom":
+      auto_refresh: 120
+      themes: ["custom-theme"]
+```
+
+### Layout URL Parameters
+
+The web interface supports layout switching via URL parameters:
+
+- `?layout=4x8` - Switch to 4x8 layout
+- `?layout=3x4&theme=dark` - Switch to 3x4 layout with dark theme
+- `?layout=custom&date=2025-01-15` - Custom layout for specific date
+
+### Runtime Layout Discovery
+
+```python
+# Example: Runtime layout management
+class DynamicLayoutManager:
+    """Manages dynamic layout discovery and hot-reloading."""
+    
+    def __init__(self, registry: LayoutRegistry) -> None:
+        self.registry = registry
+        self.watchers: Dict[str, Any] = {}
+    
+    def watch_layouts(self) -> None:
+        """Watch layout directory for changes."""
+        from watchdog.observers import Observer
+        from watchdog.events import FileSystemEventHandler
+        
+        class LayoutHandler(FileSystemEventHandler):
+            def __init__(self, manager: DynamicLayoutManager) -> None:
+                self.manager = manager
+            
+            def on_modified(self, event) -> None:
+                if event.src_path.endswith('layout.json'):
+                    self.manager.reload_layout(event.src_path)
+        
+        observer = Observer()
+        observer.schedule(
+            LayoutHandler(self),
+            str(self.registry.layouts_dir),
+            recursive=True
+        )
+        observer.start()
+    
+    def reload_layout(self, config_path: str) -> None:
+        """Reload specific layout configuration."""
+        self.registry.discover_layouts()
+        logger.info(f"Reloaded layout configuration: {config_path}")
+```
+
+## 14. Development Workflow
 
 ### Setup and Contribution
 
