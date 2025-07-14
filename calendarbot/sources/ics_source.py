@@ -93,7 +93,7 @@ class ICSSourceHandler:
         start_time = time.time()
 
         try:
-            logger.info(f"Fetching events from ICS source: {self.config.name}")
+            logger.debug(f"Fetching events from ICS source: {self.config.name}")
 
             async with self.fetcher as fetcher:
                 # Prepare conditional headers for caching
@@ -151,7 +151,7 @@ class ICSSourceHandler:
                 response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
                 self._record_success(response_time, len(parse_result.events))
 
-                logger.info(
+                logger.debug(
                     f"Successfully fetched {len(parse_result.events)} events from {self.config.name}"
                 )
 
@@ -192,7 +192,7 @@ class ICSSourceHandler:
         health_check = SourceHealthCheck()
 
         try:
-            logger.info(f"Testing connection to {self.config.name}")
+            logger.debug(f"Testing connection to {self.config.name}")
 
             async with self.fetcher as fetcher:
                 # Test basic connectivity

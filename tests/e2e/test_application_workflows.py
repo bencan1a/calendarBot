@@ -387,7 +387,7 @@ class TestWebInterfaceWorkflows:
 
                 # Test layout toggle
                 new_layout = web_server.cycle_layout()
-                assert new_layout in ["4x8", "3x4"]
+                assert new_layout in ["4x8", "3x4", "whats-next-view"]
                 # Verify the layout was actually set in display manager
                 assert web_server.display_manager.get_current_layout() == new_layout
 

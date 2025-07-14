@@ -45,9 +45,8 @@ class TestRunDaemonMode:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", mock_settings
+            "calendarbot.config.settings.settings", mock_settings
         ):
-
             # Configure mocks
             mock_main.return_value = 0
             mock_apply_overrides.return_value = mock_settings
@@ -78,9 +77,8 @@ class TestRunDaemonMode:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", mock_settings
+            "calendarbot.config.settings.settings", mock_settings
         ):
-
             # Configure mocks - main returns failure
             mock_main.return_value = 1
             mock_apply_overrides.return_value = mock_settings
@@ -116,9 +114,8 @@ class TestRunDaemonMode:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", mock_settings
+            "calendarbot.config.settings.settings", mock_settings
         ):
-
             # Configure mocks
             mock_main.return_value = 0
             mock_apply_overrides.return_value = mock_settings
@@ -144,7 +141,7 @@ class TestRunDaemonMode:
         ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=mock_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", mock_settings
+            "calendarbot.config.settings.settings", mock_settings
         ):
             # This should raise the ImportError since it's not caught
             with pytest.raises(ImportError, match="Module not found"):
@@ -160,9 +157,8 @@ class TestRunDaemonMode:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", mock_settings
+            "calendarbot.config.settings.settings", mock_settings
         ):
-
             # Configure mocks - main raises exception
             mock_main.side_effect = RuntimeError("Main function failed")
             mock_apply_overrides.return_value = mock_settings
@@ -325,9 +321,8 @@ class TestDaemonModeIntegration:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", original_settings
+            "calendarbot.config.settings.settings", original_settings
         ):
-
             # Configure the mock chain
             mock_apply_overrides.return_value = updated_settings
             mock_rpi_overrides.return_value = updated_settings
@@ -368,9 +363,8 @@ class TestDaemonModeIntegration:
             ) as mock_rpi_overrides, patch(
                 "calendarbot.utils.logging.setup_enhanced_logging"
             ), patch(
-                "config.settings.settings", MagicMock()
+                "calendarbot.config.settings.settings", MagicMock()
             ):
-
                 mock_apply_overrides.return_value = MagicMock()
                 mock_rpi_overrides.return_value = MagicMock()
 
@@ -396,9 +390,8 @@ class TestDaemonModeEdgeCases:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", MagicMock()
+            "calendarbot.config.settings.settings", MagicMock()
         ):
-
             mock_apply_overrides.return_value = MagicMock()
             mock_rpi_overrides.return_value = MagicMock()
 

@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import yaml
 
-from config.settings import CalendarBotSettings
+from calendarbot.config.settings import CalendarBotSettings
 
 from .ics.exceptions import ICSError
 from .ics.fetcher import ICSFetcher

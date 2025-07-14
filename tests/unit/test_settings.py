@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, mock_open, patch
 import pytest
 import yaml
 
-from config.settings import (
+from calendarbot.config.settings import (
     CalendarBotSettings,
     LoggingSettings,
     _get_safe_web_host,
@@ -147,8 +147,8 @@ class TestGetSafeWebHost:
 class TestCalendarBotSettingsInitialization:
     """Test CalendarBotSettings initialization and basic functionality."""
 
-    @patch("config.settings.CalendarBotSettings._load_yaml_config")
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._load_yaml_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_settings_initialization_default(self, mock_mkdir, mock_validate, mock_load_yaml):
         """Test settings initialization with defaults."""
@@ -172,8 +172,8 @@ class TestCalendarBotSettingsInitialization:
         assert settings.display_type == "console"
         assert isinstance(settings.logging, LoggingSettings)
 
-    @patch("config.settings.CalendarBotSettings._load_yaml_config")
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._load_yaml_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_settings_initialization_custom_values(self, mock_mkdir, mock_validate, mock_load_yaml):
         """Test settings initialization with custom values."""
@@ -187,8 +187,8 @@ class TestCalendarBotSettingsInitialization:
         assert settings.cache_ttl == 7200
         assert settings.display_type == "html"
 
-    @patch("config.settings.CalendarBotSettings._load_yaml_config")
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._load_yaml_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_settings_environment_variables(self, mock_mkdir, mock_validate, mock_load_yaml):
         """Test settings loading from environment variables."""
@@ -225,8 +225,8 @@ class TestCalendarBotSettingsValidation:
             with pytest.raises(ValueError, match="ICS URL is required"):
                 settings._validate_required_config()
 
-    @patch("config.settings.CalendarBotSettings._load_yaml_config")
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._load_yaml_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_validate_required_config_success(self, mock_mkdir, mock_validate, mock_load_yaml):
         """Test validation succeeds when ICS URL is provided."""
@@ -239,8 +239,8 @@ class TestCalendarBotSettingsValidation:
 class TestCalendarBotSettingsFindConfigFile:
     """Test config file discovery logic."""
 
-    @patch("config.settings.CalendarBotSettings._load_yaml_config")
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._load_yaml_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_find_config_file_project_directory(self, mock_mkdir, mock_validate, mock_load_yaml):
         """Test finding config file in project directory."""
@@ -255,8 +255,8 @@ class TestCalendarBotSettingsFindConfigFile:
             assert config_file is not None
             assert config_file.name == "config.yaml"
 
-    @patch("config.settings.CalendarBotSettings._load_yaml_config")
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._load_yaml_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_find_config_file_user_directory(self, mock_mkdir, mock_validate, mock_load_yaml):
         """Test finding config file in user directory."""
@@ -277,8 +277,8 @@ class TestCalendarBotSettingsFindConfigFile:
             assert config_file is not None
             assert config_file.name == "config.yaml"
 
-    @patch("config.settings.CalendarBotSettings._load_yaml_config")
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._load_yaml_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_find_config_file_not_found(self, mock_mkdir, mock_validate, mock_load_yaml):
         """Test when no config file is found."""
@@ -292,7 +292,7 @@ class TestCalendarBotSettingsFindConfigFile:
 class TestCalendarBotSettingsYAMLLoading:
     """Test YAML configuration loading logic."""
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_load_yaml_config_no_file(self, mock_mkdir, mock_validate):
         """Test YAML loading when no config file exists."""
@@ -302,7 +302,7 @@ class TestCalendarBotSettingsYAMLLoading:
                 # Should not raise exception and use defaults
                 assert settings.refresh_interval == 300
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_load_yaml_config_basic_settings(self, mock_mkdir, mock_validate):
         """Test YAML loading with basic settings."""
@@ -331,7 +331,9 @@ class TestCalendarBotSettingsYAMLLoading:
 
         with patch.object(CalendarBotSettings, "_find_config_file", return_value=mock_file_path):
             with patch("builtins.open", mock_open(read_data=yaml.dump(yaml_content))):
-                with patch("config.settings.SecurityEventLogger") as mock_security_logger:
+                with patch(
+                    "calendarbot.config.settings.SecurityEventLogger"
+                ) as mock_security_logger:
                     with patch.dict(os.environ, env_vars_to_clear, clear=False):
                         mock_logger_instance = MagicMock()
                         mock_security_logger.return_value = mock_logger_instance
@@ -346,7 +348,7 @@ class TestCalendarBotSettingsYAMLLoading:
         assert settings.cache_ttl == 1800
         assert settings.auto_kill_existing is False
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_load_yaml_config_security_logging(self, mock_mkdir, mock_validate):
         """Test security logging during credential loading."""
@@ -362,9 +364,11 @@ class TestCalendarBotSettingsYAMLLoading:
 
         with patch.object(CalendarBotSettings, "_find_config_file", return_value=mock_file_path):
             with patch("builtins.open", mock_open(read_data=yaml.dump(yaml_content))):
-                with patch("config.settings.SecurityEventLogger") as mock_security_logger:
-                    with patch("config.settings.SecurityEvent") as mock_security_event:
-                        with patch("config.settings.mask_credentials") as mock_mask:
+                with patch(
+                    "calendarbot.config.settings.SecurityEventLogger"
+                ) as mock_security_logger:
+                    with patch("calendarbot.config.settings.SecurityEvent") as mock_security_event:
+                        with patch("calendarbot.config.settings.mask_credentials") as mock_mask:
                             mock_logger_instance = MagicMock()
                             mock_security_logger.return_value = mock_logger_instance
                             mock_mask.return_value = "masked_value"
@@ -376,7 +380,7 @@ class TestCalendarBotSettingsYAMLLoading:
         assert mock_security_event.call_count == 3
         assert mock_logger_instance.log_event.call_count == 3
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_load_yaml_config_custom_headers(self, mock_mkdir, mock_validate):
         """Test loading custom headers from YAML."""
@@ -402,7 +406,7 @@ class TestCalendarBotSettingsYAMLLoading:
         assert headers_dict["Authorization"] == "Bearer token123"
         assert headers_dict["User-Agent"] == "CalendarBot/1.0"
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_load_yaml_config_logging_settings(self, mock_mkdir, mock_validate):
         """Test loading comprehensive logging settings from YAML."""
@@ -437,7 +441,7 @@ class TestCalendarBotSettingsYAMLLoading:
         assert settings.logging.third_party_level == "ERROR"
         assert settings.logging.buffer_size == 200
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_load_yaml_config_rpi_and_web_settings(self, mock_mkdir, mock_validate):
         """Test loading RPI and web settings from YAML."""
@@ -479,7 +483,7 @@ class TestCalendarBotSettingsYAMLLoading:
         assert settings.web_layout == "4x8"
         assert settings.web_auto_refresh == 30
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     @patch("builtins.print")
     def test_load_yaml_config_invalid_yaml(self, mock_print, mock_mkdir, mock_validate):
@@ -496,7 +500,7 @@ class TestCalendarBotSettingsYAMLLoading:
         assert "Warning: Could not load YAML config" in mock_print.call_args[0][0]
         assert settings.refresh_interval == 300  # Default value
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     @patch("builtins.print")
     def test_load_yaml_config_file_read_error(self, mock_print, mock_mkdir, mock_validate):
@@ -523,8 +527,8 @@ class TestCalendarBotSettingsYAMLLoading:
 class TestCalendarBotSettingsProperties:
     """Test CalendarBotSettings property methods."""
 
-    @patch("config.settings.CalendarBotSettings._load_yaml_config")
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._load_yaml_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_database_file_property(self, mock_mkdir, mock_validate, mock_load_yaml):
         """Test database_file property returns correct path."""
@@ -535,8 +539,8 @@ class TestCalendarBotSettingsProperties:
         assert db_file.name == "calendar_cache.db"
         assert str(settings.data_dir) in str(db_file)
 
-    @patch("config.settings.CalendarBotSettings._load_yaml_config")
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._load_yaml_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_config_file_property(self, mock_mkdir, mock_validate, mock_load_yaml):
         """Test config_file property returns correct path."""
@@ -547,8 +551,8 @@ class TestCalendarBotSettingsProperties:
         assert config_file.name == "config.yaml"
         assert str(settings.config_dir) in str(config_file)
 
-    @patch("config.settings.CalendarBotSettings._load_yaml_config")
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._load_yaml_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_ics_cache_file_property(self, mock_mkdir, mock_validate, mock_load_yaml):
         """Test ics_cache_file property returns correct path."""
@@ -563,7 +567,7 @@ class TestCalendarBotSettingsProperties:
 class TestCalendarBotSettingsEnvironmentOverride:
     """Test environment variable precedence over YAML config."""
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_environment_overrides_yaml(self, mock_mkdir, mock_validate):
         """Test that environment variables take precedence over YAML."""
@@ -595,7 +599,7 @@ class TestCalendarBotSettingsEnvironmentOverride:
 class TestCalendarBotSettingsLegacyCompatibility:
     """Test backward compatibility with legacy logging settings."""
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_legacy_log_level_compatibility(self, mock_mkdir, mock_validate):
         """Test legacy log_level setting compatibility."""
@@ -625,7 +629,7 @@ class TestCalendarBotSettingsPydanticVersions:
     def test_pydantic_v2_available(self):
         """Test that Pydantic v2 is properly detected when available."""
         # Since we have pydantic v2 in the current environment, test that it's detected
-        from config.settings import PYDANTIC_V2, SettingsConfigDictType
+        from calendarbot.config.settings import PYDANTIC_V2, SettingsConfigDictType
 
         assert PYDANTIC_V2 is True
         assert SettingsConfigDictType is not None
@@ -633,7 +637,7 @@ class TestCalendarBotSettingsPydanticVersions:
     def test_security_imports_fallback(self):
         """Test fallback implementations when security modules unavailable."""
         # Test that fallback functions work correctly
-        from config.settings import (
+        from calendarbot.config.settings import (
             _mask_credentials_fallback,
             _SecurityEventFallback,
             _SecurityEventLoggerFallback,
@@ -670,7 +674,7 @@ class TestCalendarBotSettingsPydanticVersions:
 class TestCalendarBotSettingsYAMLEdgeCases:
     """Test edge cases in YAML configuration loading."""
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_yaml_custom_headers_conversion_failure(self, mock_mkdir, mock_validate):
         """Test handling of custom headers conversion failure."""
@@ -692,7 +696,7 @@ ics:
         # custom_headers should be None due to conversion failure in the exception handler
         assert settings.ics_custom_headers is None
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_yaml_empty_config_data(self, mock_mkdir, mock_validate):
         """Test handling of empty YAML config data."""
@@ -706,7 +710,7 @@ ics:
         # Should use default values when YAML is empty
         assert settings.refresh_interval == 300
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_yaml_null_config_data(self, mock_mkdir, mock_validate):
         """Test handling of null YAML config data."""
@@ -723,7 +727,7 @@ ics:
         # Should use default values when YAML loads as None
         assert settings.refresh_interval == 300
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_yaml_partial_ics_config(self, mock_mkdir, mock_validate):
         """Test partial ICS configuration with only some fields."""
@@ -759,7 +763,7 @@ ics:
         assert settings.ics_username == "existing_user"
         assert settings.ics_password == "existing_pass"
 
-    @patch("config.settings.CalendarBotSettings._validate_required_config")
+    @patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
     @patch("pathlib.Path.mkdir")
     def test_yaml_json_conversion_exception(self, mock_mkdir, mock_validate):
         """Test exception handling during JSON conversion of custom headers."""
@@ -817,7 +821,7 @@ ics:
         ),
     ],
 )
-@patch("config.settings.CalendarBotSettings._validate_required_config")
+@patch("calendarbot.config.settings.CalendarBotSettings._validate_required_config")
 @patch("pathlib.Path.mkdir")
 def test_parametrized_yaml_configs(mock_mkdir, mock_validate, yaml_config, expected_values):
     """Test various YAML configuration combinations."""

@@ -18,9 +18,9 @@ async def run_test_mode(args: Any) -> int:
         Exit code (0 for success, 1 for failure)
     """
     try:
+        from calendarbot.config.settings import settings
         from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
         from calendarbot.validation import ValidationRunner
-        from config.settings import settings
 
         from ..config import apply_rpi_overrides
 

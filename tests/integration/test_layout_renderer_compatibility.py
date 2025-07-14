@@ -10,13 +10,13 @@ import pytest
 import pytest_asyncio
 
 from calendarbot.cache.manager import CacheManager
+from calendarbot.config.settings import CalendarBotSettings
 from calendarbot.display.manager import DisplayManager
 from calendarbot.display.renderer_factory import RendererFactory
 from calendarbot.layout.registry import LayoutRegistry
 from calendarbot.sources.manager import SourceManager
 from calendarbot.ui.navigation import NavigationState
 from calendarbot.web.server import WebServer
-from config.settings import CalendarBotSettings
 from tests.fixtures.mock_ics_data import ICSTestData
 
 logger = logging.getLogger(__name__)

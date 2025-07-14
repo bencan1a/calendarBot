@@ -138,9 +138,9 @@ graph TB
 - [`logging_setup.py`](calendarbot/validation/logging_setup.py): Validation-specific logging
 
 #### 9. **Configuration System** ([`config/`](config/))
-- [`settings.py`](config/settings.py): Pydantic settings models with YAML integration
-- [`config.yaml.example`](config/config.yaml.example): Example configuration template
-- [`ics_config.py`](config/ics_config.py): ICS-specific configuration helpers
+- [`settings.py`](calendarbot/config/settings.py): Pydantic settings models with YAML integration
+- [`config.yaml.example`](calendarbot/config/config.yaml.example): Example configuration template
+- [`ics_config.py`](calendarbot/config/ics_config.py): ICS-specific configuration helpers
 
 ## 3. Operational Modes
 
@@ -912,7 +912,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Application Start] --> B{Check Config Files}
-    B -->|Project Dir| C[config/config.yaml]
+    B -->|Project Dir| C[calendarbot/config/config.yaml]
     B -->|User Home| D[~/.config/calendarbot/config.yaml]
     B -->|None Found| E[Environment Variables]
 

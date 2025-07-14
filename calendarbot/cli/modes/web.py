@@ -6,6 +6,7 @@ This functionality will be migrated from root main.py during Phase 2.
 """
 
 import asyncio
+import logging
 import signal
 from typing import Any, Optional
 
@@ -33,11 +34,11 @@ async def run_web_mode(args: Any) -> int:
     try:
         import webbrowser
 
+        from calendarbot.config.settings import settings
         from calendarbot.main import CalendarBot
         from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
         from calendarbot.web.navigation import WebNavigationHandler
         from calendarbot.web.server import WebServer
-        from config.settings import settings
 
         from ..config import apply_rpi_overrides
 
@@ -55,7 +56,7 @@ async def run_web_mode(args: Any) -> int:
 
         # Set up enhanced logging for web mode
         logger = setup_enhanced_logging(updated_settings, interactive_mode=False)
-        logger.info("Enhanced logging initialized for web mode")
+        # Enhanced logging initialized - removed verbose message
 
         logger.info("Starting Calendar Bot web mode initialization...")
 
@@ -85,7 +86,7 @@ async def run_web_mode(args: Any) -> int:
             updated_settings.web_host = args.host
 
         updated_settings.web_port = args.port
-        logger.info(
+        logger.debug(
             f"Updated web settings - host: {updated_settings.web_host}, port: {updated_settings.web_port}"
         )
 
@@ -105,7 +106,7 @@ async def run_web_mode(args: Any) -> int:
                 cache_manager=app.cache_manager,
                 navigation_state=navigation_handler.navigation_state,  # Navigation enabled
             )
-            logger.info("WebServer created successfully with navigation enabled")
+            logger.debug("WebServer created successfully with navigation enabled")
         except Exception as e:
             logger.error(f"Failed to create WebServer: {e}")
             logger.debug(
@@ -119,13 +120,17 @@ async def run_web_mode(args: Any) -> int:
         logger.debug("Background data fetching task started")
 
         try:
-            print(f"Starting Calendar Bot web server on http://{args.host}:{args.port}")
+            print(
+                f"Starting Calendar Bot web server on http://{updated_settings.web_host}:{updated_settings.web_port}"
+            )
             print("Press Ctrl+C to stop the server")
-            logger.info(f"Web server configured for http://{args.host}:{args.port}")
+            logger.debug(
+                f"Web server configured for http://{updated_settings.web_host}:{updated_settings.web_port}"
+            )
 
             # Optionally open browser
             if args.auto_open:
-                url = f"http://{args.host}:{args.port}"
+                url = f"http://{updated_settings.web_host}:{updated_settings.web_port}"
                 print(f"Opening browser to {url}")
                 logger.info(f"Auto-opening browser to {url}")
                 try:
@@ -136,14 +141,14 @@ async def run_web_mode(args: Any) -> int:
             # Start web server (NOT async - fixed sync/async mismatch)
             logger.debug("Starting web server...")
             web_server.start()
-            logger.info("Web server started successfully")
+            logger.debug("Web server started successfully")
 
             # Keep the server running
             print("Web server is running. Press Ctrl+C to stop.")
             logger.debug("Entering main server loop with graceful shutdown")
 
             # Wait for shutdown signal using polling to keep event loop responsive
-            logger.info("Web server started, waiting for shutdown signal...")
+            logger.debug("Web server started, waiting for shutdown signal...")
 
             # Poll the shutdown event instead of blocking on await
             while not shutdown_event.is_set():

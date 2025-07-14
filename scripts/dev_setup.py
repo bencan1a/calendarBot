@@ -22,7 +22,7 @@ class DevelopmentSetup:
     def __init__(self, project_root: Path):
         self.project_root = project_root
         self.venv_path = project_root / "venv"
-        self.config_path = project_root / "config"
+        self.config_path = project_root / "calendarbot" / "config"
 
         # Development tools configuration
         self.dev_tools = {
@@ -208,7 +208,7 @@ class DevelopmentSetup:
 
         try:
             # Create development config directory
-            dev_config_dir = self.project_root / "config" / "development"
+            dev_config_dir = self.project_root / "calendarbot" / "config" / "development"
             dev_config_dir.mkdir(parents=True, exist_ok=True)
 
             # Create development config file
@@ -341,7 +341,7 @@ sys.path.insert(0, str(project_root))
 
 def main():
     \"\"\"Run Calendar Bot in development mode.\"\"\"
-    os.environ['CALENDARBOT_CONFIG'] = str(project_root / "config" / "development" / "config.yaml")
+    os.environ['CALENDARBOT_CONFIG'] = str(project_root / "calendarbot" / "config" / "development" / "config.yaml")
 
     # Run with development configuration
     cmd = [sys.executable, "-m", "calendarbot", "--web", "--verbose"]
@@ -380,7 +380,7 @@ sys.path.insert(0, str(project_root))
 
 def main():
     \"\"\"Run Calendar Bot tests.\"\"\"
-    os.environ['CALENDARBOT_CONFIG'] = str(project_root / "config" / "development" / "test_config.yaml")
+    os.environ['CALENDARBOT_CONFIG'] = str(project_root / "calendarbot" / "config" / "development" / "test_config.yaml")
 
     # Run pytest with coverage
     cmd = [
@@ -533,7 +533,11 @@ if __name__ == "__main__":
                         "console": "integratedTerminal",
                         "env": {
                             "CALENDARBOT_CONFIG": str(
-                                self.project_root / "config" / "development" / "config.yaml"
+                                self.project_root
+                                / "calendarbot"
+                                / "config"
+                                / "development"
+                                / "config.yaml"
                             )
                         },
                     },
@@ -546,7 +550,11 @@ if __name__ == "__main__":
                         "console": "integratedTerminal",
                         "env": {
                             "CALENDARBOT_CONFIG": str(
-                                self.project_root / "config" / "development" / "config.yaml"
+                                self.project_root
+                                / "calendarbot"
+                                / "config"
+                                / "development"
+                                / "config.yaml"
                             )
                         },
                     },
@@ -559,7 +567,11 @@ if __name__ == "__main__":
                         "console": "integratedTerminal",
                         "env": {
                             "CALENDARBOT_CONFIG": str(
-                                self.project_root / "config" / "development" / "test_config.yaml"
+                                self.project_root
+                                / "calendarbot"
+                                / "config"
+                                / "development"
+                                / "test_config.yaml"
                             )
                         },
                     },
@@ -654,7 +666,7 @@ if __name__ == "__main__":
         print("=" * 60)
         print(f"📁 Project root: {self.project_root}")
         print(f"🐍 Virtual environment: {self.venv_path}")
-        print(f"⚙️  Development config: {self.project_root}/config/development/")
+        print(f"⚙️  Development config: {self.project_root}/calendarbot/config/development/")
 
         print("\n🚀 Quick Start:")
         print("   source venv/bin/activate          # Activate virtual environment")

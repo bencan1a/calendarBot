@@ -87,7 +87,7 @@ Complete verification and cleanup of the calendarBot documentation suite has bee
 ✅ ARCHITECTURE.md        # Technical architecture for ICS system
 ✅ MIGRATION.md           # Complete Graph API to ICS migration guide
 ✅ CHANGELOG.md           # Version history and breaking changes
-✅ config/config.yaml.example  # Configuration with v2.0 examples
+✅ calendarbot/config/config.yaml.example  # Configuration with v2.0 examples
 ✅ DOCUMENTATION_VERIFICATION.md  # This verification report
 ```
 

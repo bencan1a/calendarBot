@@ -214,7 +214,7 @@ class CalendarBotSettings(BaseSettings):
 
 #### YAML Configuration Extension
 ```yaml
-# Enhanced config/config.yaml.example
+# Enhanced calendarbot/config/config.yaml.example
 logging:
   # Console Output
   console_enabled: true
@@ -489,7 +489,7 @@ def setup_enhanced_logging(settings: CalendarBotSettings,
 - `main.py` - Enhanced command-line arguments
 - `calendarbot/ui/interactive.py` - Split display integration
 - `calendarbot/display/console_renderer.py` - Log area rendering
-- `config/config.yaml.example` - Extended with logging examples
+- `calendarbot/config/config.yaml.example` - Extended with logging examples
 
 ### New Directories
 - `{data_dir}/logs/` - Log file storage (auto-created)

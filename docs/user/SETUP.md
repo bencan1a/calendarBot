@@ -119,11 +119,11 @@ The wizard includes templates for popular calendar services:
 
 ## Manual Configuration
 
-If you prefer manual configuration, edit the `config/config.yaml` file directly.
+If you prefer manual configuration, edit the `calendarbot/config/config.yaml` file directly.
 
 ### Basic Configuration
 
-Create or edit `config/config.yaml`:
+Create or edit `calendarbot/config/config.yaml`:
 
 ```yaml
 # ICS Calendar Configuration
@@ -151,7 +151,7 @@ display_type: "console"
 
 Calendar Bot searches for configuration in this order:
 
-1. **Project directory**: `config/config.yaml` (relative to main.py)
+1. **Project directory**: `calendarbot/config/config.yaml` (relative to project root)
 2. **User home directory**: `~/.config/calendarbot/config.yaml`
 3. **Environment variables**: `CALENDARBOT_*` prefixed variables
 
@@ -403,10 +403,10 @@ Use the example configuration as a starting point:
 
 ```bash
 # Copy example configuration
-cp config/config.yaml.example config/config.yaml
+cp calendarbot/config/config.yaml.example calendarbot/config/config.yaml
 
 # Edit with your settings
-nano config/config.yaml
+nano calendarbot/config/config.yaml
 ```
 
 ### Validation and Testing
@@ -435,7 +435,7 @@ python main.py --test-mode --verbose
 **Solution**:
 ```bash
 # Check if config file exists
-ls -la config/config.yaml
+ls -la calendarbot/config/config.yaml
 
 # Run setup wizard
 python main.py --setup
@@ -451,7 +451,7 @@ export CALENDARBOT_ICS_URL="your-url"
 **Solution**:
 ```bash
 # Validate YAML syntax
-python -c "import yaml; yaml.safe_load(open('config/config.yaml'))"
+python -c "import yaml; yaml.safe_load(open('calendarbot/config/config.yaml'))"
 
 # Common issues:
 # - Wrong indentation (use 2 spaces)
@@ -553,7 +553,7 @@ python main.py --setup --verbose
 python main.py --backup
 
 # Remove current config
-rm config/config.yaml
+rm calendarbot/config/config.yaml
 
 # Run setup wizard again
 python main.py --setup
@@ -568,7 +568,7 @@ rm -rf ~/.local/share/calendarbot/
 rm -rf ~/.cache/calendarbot/
 
 # Remove project config
-rm -f config/config.yaml
+rm -f calendarbot/config/config.yaml
 
 # Start fresh setup
 python main.py --setup
@@ -582,7 +582,7 @@ If setup issues persist:
 2. **Test ICS URL**: `python test_ics.py --url "your-url" --verbose`
 3. **Check logs**: Enable debug logging for detailed output
 4. **Verify requirements**: Ensure all dependencies are installed
-5. **Check examples**: Review `config/config.yaml.example`
+5. **Check examples**: Review `calendarbot/config/config.yaml.example`
 6. **Create issue**: Include setup logs and exact error messages
 
 ---

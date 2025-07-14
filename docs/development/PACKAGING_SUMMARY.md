@@ -80,7 +80,7 @@ Our packaging test shows excellent results:
 1. Command-line arguments
 2. Environment variables (CALENDARBOT_*)
 3. User config file (`~/.config/calendarbot/config.yaml`)
-4. Project config file (`config/config.yaml`)
+4. Project config file (`calendarbot/config/config.yaml`)
 5. Default values
 
 ## 📦 Package Structure

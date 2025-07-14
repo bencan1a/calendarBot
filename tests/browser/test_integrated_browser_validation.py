@@ -35,11 +35,11 @@ except ImportError:
     PYPPETEER_AVAILABLE = False
 
 from calendarbot.cache.manager import CacheManager
+from calendarbot.config.settings import CalendarBotSettings
 from calendarbot.display.manager import DisplayManager
 from calendarbot.sources.manager import SourceManager
 from calendarbot.ui.navigation import NavigationState
 from calendarbot.web.server import WebServer
-from config.settings import CalendarBotSettings
 
 # Skip all tests if pyppeteer is not available
 pytestmark = pytest.mark.skipif(

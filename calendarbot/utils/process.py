@@ -29,6 +29,7 @@ def find_calendarbot_processes() -> List[ProcessInfo]:
         List of ProcessInfo objects for running calendarbot processes
     """
     processes = []
+    seen_pids = set()  # Track PIDs to avoid duplicates
 
     try:
         # Use pgrep to find processes matching calendarbot patterns
@@ -57,9 +58,10 @@ def find_calendarbot_processes() -> List[ProcessInfo]:
                                     command_parts = full_command.split()
                                     command = command_parts[0] if command_parts else ""
 
-                                    # Skip our own process
-                                    if pid != os.getpid():
+                                    # Skip our own process and avoid duplicates
+                                    if pid != os.getpid() and pid not in seen_pids:
                                         processes.append(ProcessInfo(pid, command, full_command))
+                                        seen_pids.add(pid)
                                 except ValueError:
                                     continue
 
@@ -239,7 +241,7 @@ def auto_cleanup_before_start(host: str, port: int, force: bool = True) -> bool:
     Returns:
         True if cleanup was successful and port is now available
     """
-    logger.info(f"Checking for conflicting processes before binding to {host}:{port}")
+    logger.debug(f"Checking for conflicting processes before binding to {host}:{port}")
 
     # Always check for calendarbot processes if force is True
     if force:

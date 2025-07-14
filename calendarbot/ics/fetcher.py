@@ -360,7 +360,7 @@ class ICSFetcher:
             return ICSResponse(success=False, error_message=error_msg, status_code=403)
 
         try:
-            logger.info(f"Fetching ICS from {source.url}")
+            logger.debug(f"Fetching ICS from {source.url}")
 
             # Log successful URL validation
             event = SecurityEvent(
@@ -531,7 +531,7 @@ class ICSFetcher:
         if "BEGIN:VCALENDAR" not in content:
             logger.warning("Content does not appear to be valid ICS format")
 
-        logger.info(f"Successfully fetched ICS content ({len(content)} bytes)")
+        logger.debug(f"Successfully fetched ICS content ({len(content)} bytes)")
 
         return ICSResponse(
             success=True,
@@ -553,7 +553,7 @@ class ICSFetcher:
             True if connection successful, False otherwise
         """
         try:
-            logger.info(f"Testing connection to {source.url}")
+            logger.debug(f"Testing connection to {source.url}")
 
             # Make a HEAD request first for efficiency
             await self._ensure_client()

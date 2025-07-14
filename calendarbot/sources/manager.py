@@ -251,7 +251,7 @@ class SourceManager:
         """
         try:
             logger.debug("SourceManager.fetch_and_cache_events() called")
-            logger.info("Fetching events from all sources")
+            logger.debug("Fetching events from all sources")
 
             if not self._sources:
                 logger.warning("No sources configured")
@@ -271,7 +271,7 @@ class SourceManager:
                     all_events.extend(events)
                     successful_sources += 1
 
-                    logger.info(f"Fetched {len(events)} events from source '{name}'")
+                    logger.debug(f"Fetched {len(events)} events from source '{name}'")
 
                 except Exception as e:
                     logger.error(f"Failed to fetch from source '{name}': {e}")
@@ -282,7 +282,7 @@ class SourceManager:
                 if cache_success:
                     self._last_successful_update = datetime.now()
                     self._consecutive_failures = 0
-                    logger.info(
+                    logger.debug(
                         f"Successfully cached {len(all_events)} events from {successful_sources} sources"
                     )
                     return True

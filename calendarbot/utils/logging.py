@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Deque, List, Optional, Union
 # Lazy imports moved to function level to avoid circular dependencies
 
 if TYPE_CHECKING:
-    from config.settings import CalendarBotSettings
+    from calendarbot.config.settings import CalendarBotSettings
 
     from ..display.manager import DisplayManager
 
@@ -361,9 +361,7 @@ def setup_enhanced_logging(
     logger._structured_logger = structured_logger  # type: ignore[attr-defined]
     logger._optimizer = optimizer  # type: ignore[attr-defined]
 
-    logger.info(
-        "Enhanced logging system with security, performance, structured logging, and optimization initialized"
-    )
+    # Enhanced logging system initialized - removed verbose message
     return logger
 
 

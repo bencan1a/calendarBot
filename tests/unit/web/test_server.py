@@ -583,7 +583,9 @@ class TestWebServer:
         # Mock the layout registry that gets created during initialization
         web_server.layout_registry = Mock()
         web_server.layout_registry.validate_layout = Mock()
-        web_server.layout_registry.get_available_layouts = Mock(return_value=["4x8", "3x4"])
+        web_server.layout_registry.get_available_layouts = Mock(
+            return_value=["4x8", "3x4", "whats-next-view"]
+        )
 
         # Mock the display manager methods that the server expects
         web_server.display_manager.set_layout = Mock(return_value=True)
@@ -1007,7 +1009,11 @@ class TestWebServer:
         """Test setting invalid layout."""
         # Mock layout registry to return False for invalid layout
         web_server.layout_registry.validate_layout.return_value = False
-        web_server.layout_registry.get_available_layouts.return_value = ["3x4", "4x8"]
+        web_server.layout_registry.get_available_layouts.return_value = [
+            "3x4",
+            "4x8",
+            "whats-next-view",
+        ]
 
         result = web_server.set_layout("invalid")
 
@@ -1354,9 +1360,9 @@ class TestWebServerIntegrationScenarios:
 
         # Test all major operations
         assert web_server.set_layout("3x4") is True
-        assert web_server.toggle_layout() in ["3x4", "4x8"]
+        assert web_server.toggle_layout() in ["3x4", "4x8", "whats-next-view"]
         assert web_server.set_layout("4x8") is True
-        assert web_server.cycle_layout() in ["3x4", "4x8"]
+        assert web_server.cycle_layout() in ["3x4", "4x8", "whats-next-view"]
         assert web_server.refresh_data() is True
 
         status = web_server.get_status()

@@ -226,6 +226,11 @@ class HTMLRenderer:
         if status_info.get("is_cached"):
             status_parts.append('<span class="status-cached">📱 Cached Data</span>')
 
+        # Connection status indicator
+        if status_info.get("connection_status"):
+            connection_status = status_info["connection_status"]
+            status_parts.append(f'<span class="status-connection">📶 {connection_status}</span>')
+
         return " | ".join(status_parts) if status_parts else ""
 
     def _get_timestamp_html(self, status_info: Optional[Dict[str, Any]]) -> str:
@@ -424,15 +429,30 @@ class HTMLRenderer:
         Returns:
             HTML navigation help content
         """
-        # Only show timestamp, remove all command help text and symbols
+        # Build navigation help content
         timestamp_html = self._get_timestamp_html(status_info)
 
-        if not timestamp_html:
-            return ""
+        help_parts = []
+
+        # Navigation keys
+        help_parts.append("← → Navigate")
+        help_parts.append("Space Today")
+        help_parts.append("Home/End Week")
+        help_parts.append("R Refresh")
+
+        # Relative date information (only if not "Today")
+        relative_desc = status_info.get("relative_description", "")
+        if relative_desc and relative_desc != "Today":
+            help_parts.append(f"📍 {relative_desc}")
+
+        help_content = " | ".join(help_parts)
+
+        if timestamp_html:
+            help_content = f"{help_content} | {timestamp_html}"
 
         return f"""
         <div class="navigation-help">
-            {timestamp_html}
+            {help_content}
         </div>
         """
 
@@ -460,7 +480,7 @@ class HTMLRenderer:
         # Dynamic resource loading using ResourceManager
         css_url, js_url = self._get_dynamic_resources()
 
-        logger.info(f"HTML template using layout '{self.layout}' - CSS: {css_url}, JS: {js_url}")
+        logger.debug(f"HTML template using layout '{self.layout}' - CSS: {css_url}, JS: {js_url}")
 
         # Header navigation with arrow buttons and date
         header_navigation = ""

@@ -180,7 +180,7 @@ class DatabaseManager:
 
                 await db.commit()
 
-                logger.info(f"Stored {len(events)} events in cache")
+                logger.debug(f"Stored {len(events)} events in cache")
                 return True
 
         except Exception as e:
@@ -289,7 +289,7 @@ class DatabaseManager:
                 deleted_count = cursor.rowcount
                 await db.commit()
 
-                logger.info(f"Cleaned up {deleted_count} old events (older than {days_old} days)")
+                logger.debug(f"Cleaned up {deleted_count} old events (older than {days_old} days)")
                 return deleted_count
 
         except Exception as e:
