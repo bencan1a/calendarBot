@@ -164,7 +164,7 @@ CalendarBot uses a hierarchical configuration system:
 
 ```bash
 # Project directory (development)
-./config/config.yaml
+./calendarbot/config/config.yaml
 
 # User home directory
 ~/.config/calendarbot/config.yaml

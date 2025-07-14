@@ -462,7 +462,7 @@ class WebServer:
         try:
             # Automatically clean up any conflicting processes before starting (if configured)
             if self.settings.auto_kill_existing:
-                logger.info(
+                logger.debug(
                     f"Checking for existing processes before starting web server on {self.host}:{self.port}"
                 )
                 cleanup_success = auto_cleanup_before_start(self.host, self.port, force=True)

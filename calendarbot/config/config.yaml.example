@@ -1,0 +1,212 @@
+# Example configuration file for ICS Calendar Display Bot
+# Copy this to config.yaml and modify as needed
+#
+# Configuration Version: 2.0
+# Last Updated: January 5, 2025
+# Compatible with: ICS Calendar Bot v2.0+
+# Migration: For Graph API users, see MIGRATION.md
+
+# ============================================================================
+# ICS Calendar Configuration
+# ============================================================================
+
+ics:
+  # Required: URL to your ICS calendar feed
+  # Examples:
+  # - Outlook: https://outlook.live.com/owa/calendar/.../calendar.ics
+  # - Google: https://calendar.google.com/calendar/ical/.../basic.ics
+  # - iCloud: https://p01-caldav.icloud.com/published/...
+  # - CalDAV: https://nextcloud.example.com/remote.php/dav/calendars/user/calendar/?export
+  url: "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/11111111-1111-1111-1111-111111111111/cid-2222222222222222/calendar.ics"
+
+  # Authentication type for protected ICS feeds
+  # Options: "none", "basic", "bearer"
+  auth_type: "none"
+
+  # Basic Authentication (uncomment if auth_type is "basic")
+  # username: "your-username"
+  # password: "your-password"
+
+  # Bearer Token Authentication (uncomment if auth_type is "bearer")
+  # token: "your-bearer-token"
+
+  # Additional HTTP headers (optional)
+  # custom_headers:
+  #   "X-API-Key": "your-api-key"
+  #   "User-Agent": "MyCalendarApp/1.0"
+
+  # HTTP Settings
+  user_agent: "CalendarBot/1.0"
+  verify_ssl: true
+  timeout: 30
+
+  # ICS Processing Settings
+  filter_busy_only: true      # Only show busy/tentative events
+  validate_ssl: true          # Validate SSL certificates
+  enable_caching: true        # Enable HTTP caching (ETags, Last-Modified)
+
+# ============================================================================
+# Application Settings
+# ============================================================================
+
+# Basic application configuration
+app_name: "CalendarBot"
+refresh_interval: 300       # Fetch interval in seconds (5 minutes)
+cache_ttl: 3600            # Cache time-to-live in seconds (1 hour)
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+
+# Legacy logging settings (for backward compatibility)
+# Logging levels: DEBUG, VERBOSE, INFO, WARNING, ERROR, CRITICAL
+log_level: "WARNING"
+
+# Optional: Enable file logging (set to path or null to disable)
+log_file: null
+# log_file: "calendarbot.log"
+
+# Comprehensive logging settings (recommended)
+logging:
+  # Console logging
+  console_enabled: true
+  console_level: "WARNING"    # Only show warnings and errors by default
+  console_colors: true
+
+  # File logging
+  file_enabled: true
+  file_level: "DEBUG"         # Log everything to file for debugging
+  file_directory: null        # Uses default: ~/.local/share/calendarbot/logs
+  file_prefix: "calendarbot"
+  max_log_files: 5
+  include_function_names: true
+
+  # Interactive mode
+  interactive_split_display: true
+  interactive_log_lines: 5
+
+  # Third-party libraries (suppress noisy libraries)
+  third_party_level: "WARNING"
+
+  # Advanced options
+  buffer_size: 100
+  flush_interval: 1.0
+
+# ============================================================================
+# Display Settings
+# ============================================================================
+
+display_enabled: true
+display_type: "console"    # Options: console, eink (eink for future e-ink displays)
+
+# ============================================================================
+# Network Settings
+# ============================================================================
+
+# HTTP request settings
+request_timeout: 30         # Request timeout in seconds
+max_retries: 3             # Maximum retry attempts for failed requests
+retry_backoff_factor: 1.5  # Exponential backoff multiplier
+
+# ============================================================================
+# File Paths (Advanced Configuration)
+# ============================================================================
+
+# These paths are automatically configured but can be overridden
+# config_dir: "~/.config/calendarbot"        # Configuration directory
+# data_dir: "~/.local/share/calendarbot"     # Data storage directory
+# cache_dir: "~/.cache/calendarbot"          # Temporary cache directory
+
+# ============================================================================
+# Example Configurations for Different Calendar Services
+# ============================================================================
+
+# Uncomment and modify one of these examples based on your calendar service:
+
+# --- Microsoft Outlook/Office 365 (Public Calendar) ---
+# ics:
+#   url: "https://outlook.live.com/owa/calendar/your-calendar-id/calendar.ics"
+#   auth_type: "none"
+#   verify_ssl: true
+
+# --- Google Calendar (Secret iCal URL) ---
+# ics:
+#   url: "https://calendar.google.com/calendar/ical/your-calendar-id/basic.ics"
+#   auth_type: "none"
+#   verify_ssl: true
+
+# --- Apple iCloud Calendar (Public) ---
+# ics:
+#   url: "https://p01-caldav.icloud.com/published/2/your-published-calendar-url"
+#   auth_type: "none"
+#   verify_ssl: true
+
+# --- CalDAV Server with Basic Auth ---
+# ics:
+#   url: "https://nextcloud.example.com/remote.php/dav/calendars/username/calendar/?export"
+#   auth_type: "basic"
+#   username: "your-username"
+#   password: "your-password"
+#   verify_ssl: true
+
+# --- Corporate Exchange Server with Bearer Token ---
+# ics:
+#   url: "https://company.com/exchange/calendar.ics"
+#   auth_type: "bearer"
+#   token: "your-bearer-token"
+#   verify_ssl: true
+
+# --- Self-hosted Calendar with Custom Headers ---
+# ics:
+#   url: "https://calendar.myserver.com/export.ics"
+#   auth_type: "none"
+#   custom_headers:
+#     "X-API-Key": "your-api-key"
+#     "Accept": "text/calendar"
+#   verify_ssl: true
+
+# ============================================================================
+# Development and Testing Settings
+# ============================================================================
+
+# Uncomment these for development or testing
+
+# Enable debug logging
+# log_level: "DEBUG"
+# log_file: "debug.log"
+
+# Faster refresh for testing (not recommended for production)
+# refresh_interval: 60     # 1 minute
+# cache_ttl: 300          # 5 minutes
+
+# Disable SSL verification for testing (NOT RECOMMENDED for production)
+# ics:
+#   verify_ssl: false
+
+# ============================================================================
+# Migration from Microsoft Graph API Implementation
+# ============================================================================
+
+# If you're migrating from a Microsoft Graph API setup:
+# 1. Remove these old settings (no longer needed):
+#    - client_id, tenant_id (Azure app registration)
+#    - All authentication/token settings
+# 2. Add your Outlook ICS URL to the ics.url setting above
+# 3. Set auth_type to "none" for public Outlook calendar URLs
+# 4. Test with: python test_ics.py --url "your-ics-url"
+
+# ============================================================================
+# Environment Variable Overrides
+# ============================================================================
+
+# Any setting in this file can be overridden with environment variables
+# using the CALENDARBOT_ prefix and uppercase names:
+#
+# export CALENDARBOT_ICS_URL="https://example.com/calendar.ics"
+# export CALENDARBOT_ICS_AUTH_TYPE="basic"
+# export CALENDARBOT_ICS_USERNAME="username"
+# export CALENDARBOT_ICS_PASSWORD="password"
+# export CALENDARBOT_REFRESH_INTERVAL=600
+# export CALENDARBOT_LOG_LEVEL="DEBUG"
+#
+# Environment variables take precedence over this file.

@@ -82,7 +82,6 @@ class TestCalendarBot:
         ), patch(
             "calendarbot.main.setup_logging"
         ):
-
             bot = CalendarBot()
             bot.cache_manager = mock_cache_manager
             bot.source_manager = mock_source_manager
@@ -506,7 +505,6 @@ class TestSignalHandlers:
         with patch("calendarbot.main.signal.signal") as mock_signal, patch(
             "calendarbot.main.asyncio.create_task"
         ) as mock_create_task:
-
             setup_signal_handlers(app)
 
             # Get the signal handler function
@@ -531,15 +529,13 @@ class TestConfigurationCheck:
             # Create a mock that behaves like a real Path for Path(__file__)
             mock_path_instance = Mock()
 
-            # Create mock for parent.parent / "config" / "config.yaml" chain
+            # Create mock for parent / "config" / "config.yaml" chain
             mock_parent = Mock()
-            mock_parent_parent = Mock()
             mock_path_instance.parent = mock_parent
-            mock_parent.parent = mock_parent_parent
 
             # Mock the operator chains
             mock_config_dir = Mock()
-            mock_parent_parent.__truediv__ = Mock(return_value=mock_config_dir)
+            mock_parent.__truediv__ = Mock(return_value=mock_config_dir)
             mock_config_dir.__truediv__ = Mock(return_value=mock_project_config)
 
             mock_path_class.return_value = mock_path_instance
@@ -561,15 +557,13 @@ class TestConfigurationCheck:
             # Create a mock that behaves like a real Path for Path(__file__)
             mock_path_instance = Mock()
 
-            # Create mock for parent.parent / "config" / "config.yaml" chain
+            # Create mock for parent / "config" / "config.yaml" chain
             mock_parent = Mock()
-            mock_parent_parent = Mock()
             mock_path_instance.parent = mock_parent
-            mock_parent.parent = mock_parent_parent
 
             # Mock the operator chains
             mock_config_dir = Mock()
-            mock_parent_parent.__truediv__ = Mock(return_value=mock_config_dir)
+            mock_parent.__truediv__ = Mock(return_value=mock_config_dir)
             mock_config_dir.__truediv__ = Mock(return_value=mock_project_config)
 
             # Mock Path(__file__)
@@ -596,7 +590,6 @@ class TestConfigurationCheck:
         with patch("pathlib.Path") as mock_path_class, patch(
             "calendarbot.main.settings"
         ) as mock_settings:
-
             # Setup mock Path instances
             mock_project_config = Mock()
             mock_project_config.exists.return_value = False
@@ -607,15 +600,13 @@ class TestConfigurationCheck:
             # Create a mock that behaves like a real Path for Path(__file__)
             mock_path_instance = Mock()
 
-            # Create mock for parent.parent / "config" / "config.yaml" chain
+            # Create mock for parent / "config" / "config.yaml" chain
             mock_parent = Mock()
-            mock_parent_parent = Mock()
             mock_path_instance.parent = mock_parent
-            mock_parent.parent = mock_parent_parent
 
             # Mock the operator chains
             mock_config_dir = Mock()
-            mock_parent_parent.__truediv__ = Mock(return_value=mock_config_dir)
+            mock_parent.__truediv__ = Mock(return_value=mock_config_dir)
             mock_config_dir.__truediv__ = Mock(return_value=mock_project_config)
 
             # Mock Path(__file__)
@@ -646,7 +637,6 @@ class TestConfigurationCheck:
         with patch("pathlib.Path") as mock_path_class, patch(
             "calendarbot.main.settings"
         ) as mock_settings:
-
             # Setup mock Path instances that properly support pathlib operations
             mock_project_config = Mock()
             mock_project_config.exists.return_value = False
@@ -657,15 +647,13 @@ class TestConfigurationCheck:
             # Create a mock that behaves like a real Path for Path(__file__)
             mock_path_instance = Mock()
 
-            # Create mock for parent.parent / "config" / "config.yaml" chain
+            # Create mock for parent / "config" / "config.yaml" chain
             mock_parent = Mock()
-            mock_parent_parent = Mock()
             mock_path_instance.parent = mock_parent
-            mock_parent.parent = mock_parent_parent
 
             # Mock the operator chains
             mock_config_dir = Mock()
-            mock_parent_parent.__truediv__ = Mock(return_value=mock_config_dir)
+            mock_parent.__truediv__ = Mock(return_value=mock_config_dir)
             mock_config_dir.__truediv__ = Mock(return_value=mock_project_config)
 
             # Mock Path(__file__) constructor
@@ -705,7 +693,6 @@ class TestMainEntryPoint:
         ) as mock_settings, patch("calendarbot.main.CalendarBot") as mock_bot_class, patch(
             "calendarbot.main.setup_signal_handlers"
         ):
-
             mock_settings.ics_url = "https://example.com/calendar.ics"
             mock_bot = Mock()
             mock_bot.start = AsyncMock(return_value=True)
@@ -725,7 +712,6 @@ class TestMainEntryPoint:
         with patch("calendarbot.main.check_first_run_configuration", return_value=False), patch(
             "builtins.print"
         ) as mock_print:
-
             result = await main()
 
             assert result == 1
@@ -740,7 +726,6 @@ class TestMainEntryPoint:
         with patch("calendarbot.main.check_first_run_configuration", return_value=True), patch(
             "calendarbot.main.settings"
         ) as mock_settings:
-
             mock_settings.ics_url = None
 
             result = await main()
@@ -758,7 +743,6 @@ class TestMainEntryPoint:
         ) as mock_settings, patch("calendarbot.main.CalendarBot") as mock_bot_class, patch(
             "calendarbot.main.setup_signal_handlers"
         ):
-
             mock_settings.ics_url = "https://example.com/calendar.ics"
             mock_bot = Mock()
             mock_bot.start = AsyncMock(return_value=False)
@@ -777,7 +761,6 @@ class TestMainEntryPoint:
         with patch(
             "calendarbot.main.check_first_run_configuration", side_effect=Exception("Test error")
         ):
-
             result = await main()
 
             assert result == 1

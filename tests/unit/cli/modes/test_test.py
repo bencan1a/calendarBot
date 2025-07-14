@@ -64,9 +64,8 @@ class TestRunTestMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ):
-
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
 
@@ -96,9 +95,8 @@ class TestRunTestMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ):
-
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
 
@@ -125,9 +123,8 @@ class TestRunTestMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ):
-
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
 
@@ -160,9 +157,8 @@ class TestRunTestMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ):
-
             result = await test.run_test_mode(mock_args)
 
             assert result == 0
@@ -188,9 +184,8 @@ class TestRunTestMode:
         ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ):
-
             mock_runner_class.return_value = mock_validation_runner
 
             result = await test.run_test_mode(mock_args)
@@ -221,11 +216,10 @@ class TestRunTestMode:
         ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ) as mock_print:
-
             result = await test.run_test_mode(mock_args)
 
             assert result == 1
@@ -251,11 +245,10 @@ class TestRunTestMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ) as mock_print:
-
             result = await test.run_test_mode(mock_args)
 
             assert result == 1
@@ -281,11 +274,10 @@ class TestRunTestMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ) as mock_print:
-
             result = await test.run_test_mode(mock_args)
 
             assert result == 1
@@ -315,11 +307,10 @@ class TestRunTestMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ) as mock_print:
-
             result = await test.run_test_mode(mock_args)
 
             assert result == 1
@@ -350,9 +341,8 @@ class TestRunTestMode:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ):
-
             result = await test.run_test_mode(mock_args)
 
             assert result == 0
@@ -397,9 +387,8 @@ class TestTestModeArgumentProcessing:
         ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ):
-
             mock_runner_class.return_value = mock_validation_runner
 
             result = await test.run_test_mode(minimal_args)
@@ -437,9 +426,8 @@ class TestTestModeArgumentProcessing:
         ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ):
-
             mock_runner_class.return_value = mock_validation_runner
 
             result = await test.run_test_mode(mock_args)
@@ -485,9 +473,8 @@ class TestTestModeArgumentProcessing:
         ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ):
-
             mock_runner_class.return_value = mock_validation_runner
 
             result = await test.run_test_mode(mock_args)
@@ -548,9 +535,8 @@ class TestTestModeIntegration:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ):
-
             mock_runner_class.return_value = mock_validation_runner
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
@@ -605,9 +591,8 @@ class TestTestModeIntegration:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ):
-
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
 
@@ -645,11 +630,10 @@ class TestTestModeIntegration:
             ), patch(
                 "calendarbot.utils.logging.setup_enhanced_logging"
             ), patch(
-                "config.settings.settings", test_settings
+                "calendarbot.config.settings.settings", test_settings
             ), patch(
                 "builtins.print"
             ) as mock_print:
-
                 result = await test.run_test_mode(mock_args)
 
                 assert result == 1

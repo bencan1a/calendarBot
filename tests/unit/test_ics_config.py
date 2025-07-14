@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from config.ics_config import ICSAuth, ICSConfig, ICSSourceConfig
+from calendarbot.config.ics_config import ICSAuth, ICSConfig, ICSSourceConfig
 
 
 class TestICSAuth:

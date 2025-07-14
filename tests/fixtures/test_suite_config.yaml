@@ -1,0 +1,141 @@
+# Test Suite Configuration for Sequential Execution
+# This file defines logical test batches for controlled execution
+
+# Global test execution settings
+execution:
+  mode: sequential
+  timeout_per_test: 120
+  timeout_per_batch: 600
+  max_retries: 2
+  fail_fast: false
+  verbose: true
+
+# Test batch definitions - organized by execution time and dependencies
+batches:
+  # Fast unit tests - core functionality (< 5 seconds each)
+  fast_unit:
+    description: "Fast unit tests for core components"
+    timeout: 180
+    markers: ["unit", "fast"]
+    paths:
+      - "tests/unit/test_ics_parser.py"
+      - "tests/unit/test_html_renderer.py"
+      - "tests/unit/test_keyboard.py"
+      - "tests/unit/test_interactive.py"
+      - "tests/unit/test_process.py"
+      - "tests/unit/test_validation_logging_setup.py"
+      - "tests/unit/test_validation_results.py"
+      - "tests/unit/test_validation_runner.py"
+
+  # Optimized unit tests - refactored components
+  optimized_unit:
+    description: "Optimized unit tests with improved performance"
+    timeout: 300
+    markers: ["unit", "fast"]
+    paths:
+      - "tests/unit/test_ics_parser_optimized.py"
+      - "tests/unit/test_ics_fetcher_optimized.py"
+      - "tests/unit/test_source_manager_optimized.py"
+      - "tests/unit/test_cache_manager_optimized.py"
+      - "tests/unit/test_optimization_production.py"
+      - "tests/unit/test_browser_optimized.py"
+
+  # Standard unit tests - remaining components
+  standard_unit:
+    description: "Standard unit tests for remaining components"
+    timeout: 300
+    markers: ["unit"]
+    paths:
+      - "tests/unit/test_calendar_bot.py"
+      - "tests/unit/test_calendar_bot_optimized.py"
+      - "tests/unit/test_cache_manager.py"
+      - "tests/unit/test_ics_fetcher.py"
+      - "tests/unit/test_source_manager.py"
+      - "tests/unit/test_network_utils.py"
+      - "tests/unit/test_web_server.py"
+      - "tests/unit/test_coverage_security.py"
+
+  # Integration tests - component interactions
+  integration:
+    description: "Integration tests for component interactions"
+    timeout: 600
+    markers: ["integration"]
+    paths:
+      - "tests/integration/test_web_api_integration.py"
+
+  # Browser tests - requires special handling
+  browser:
+    description: "Browser automation tests with memory management"
+    timeout: 300
+    markers: ["browser"]
+    environment:
+      - "DISPLAY=:99"
+      - "BROWSER_TIMEOUT=30"
+    paths:
+      - "tests/browser/test_integrated_browser_validation.py"
+
+  # E2E tests - full workflow validation
+  e2e:
+    description: "End-to-end workflow tests"
+    timeout: 900
+    markers: ["e2e"]
+    paths:
+      - "tests/e2e/test_application_workflows.py"
+
+  # Critical path tests - essential functionality
+  critical_path:
+    description: "Critical path tests for CI/CD pipeline"
+    timeout: 300
+    markers: ["critical_path", "smoke"]
+    # These are selected tests from multiple files
+    expressions:
+      - "test_*_critical"
+      - "test_*_smoke"
+      - "test_basic_*"
+
+# Test environment configurations
+environments:
+  development:
+    database: ":memory:"
+    log_level: "DEBUG"
+    timeout_multiplier: 1.0
+
+  ci:
+    database: ":memory:"
+    log_level: "INFO"
+    timeout_multiplier: 1.5
+
+  production:
+    database: ":memory:"
+    log_level: "ERROR"
+    timeout_multiplier: 2.0
+
+# Logging configuration for test execution
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+  capture_output: true
+  log_cli: true
+
+# Coverage configuration
+coverage:
+  enabled: true
+  branch: true
+  fail_under: 80
+  formats: ["html", "xml", "term"]
+
+# Retry configuration for flaky tests
+retry:
+  max_attempts: 2
+  delay: 1.0
+  backoff_factor: 2.0
+
+# Test selection strategies
+selection:
+  # Run only changed tests
+  changed_only: false
+  # Run tests based on code changes
+  smart_selection: false
+  # Run full regression suite
+  full_regression: true

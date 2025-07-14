@@ -31,11 +31,10 @@ class TestRunInteractiveMode:
         ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ) as mock_print:
-
             result = await interactive.run_interactive_mode(mock_args)
 
             assert result == 1
@@ -52,11 +51,10 @@ class TestRunInteractiveMode:
         ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ) as mock_print:
-
             result = await interactive.run_interactive_mode(mock_args)
 
             assert result == 1
@@ -82,11 +80,10 @@ class TestRunInteractiveMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ) as mock_print:
-
             result = await interactive.run_interactive_mode(mock_args)
 
             assert result == 0
@@ -107,11 +104,10 @@ class TestRunInteractiveMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ) as mock_print:
-
             result = await interactive.run_interactive_mode(mock_args)
 
             assert result == 1
@@ -134,11 +130,10 @@ class TestRunInteractiveMode:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ):
-
             result = await interactive.run_interactive_mode(mock_args)
 
             assert result == 1  # Fails due to initialization
@@ -166,11 +161,10 @@ class TestRunInteractiveMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ) as mock_print:
-
             result = await interactive.run_interactive_mode(mock_args)
 
             assert result == 1
@@ -286,11 +280,10 @@ class TestInteractiveModeArgumentProcessing:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ):
-
             result = await interactive.run_interactive_mode(mock_args)
 
             assert result == 1  # Fails due to initialization
@@ -311,11 +304,10 @@ class TestInteractiveModeArgumentProcessing:
         ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ):
-
             result = await interactive.run_interactive_mode(minimal_args)
 
             assert result == 1  # Should handle minimal args gracefully
@@ -346,11 +338,10 @@ class TestInteractiveModeIntegration:
             ), patch(
                 "calendarbot.utils.logging.setup_enhanced_logging"
             ), patch(
-                "config.settings.settings", test_settings
+                "calendarbot.config.settings.settings", test_settings
             ), patch(
                 "builtins.print"
             ) as mock_print:
-
                 result = await interactive.run_interactive_mode(mock_args)
 
                 assert result == 1
@@ -378,11 +369,10 @@ class TestInteractiveModeIntegration:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ):
-
             result = await interactive.run_interactive_mode(mock_args)
 
             assert result == 1

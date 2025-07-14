@@ -49,7 +49,7 @@ class ICSParser:
             Parse result with events and metadata
         """
         try:
-            logger.info("Starting ICS content parsing")
+            logger.debug("Starting ICS content parsing")
 
             # Parse the calendar
             calendar = Calendar.from_ical(ics_content)
@@ -89,7 +89,7 @@ class ICSParser:
             # Filter to only busy/tentative events (same as Graph API behavior)
             filtered_events = [e for e in events if e.is_busy_status and not e.is_cancelled]
 
-            logger.info(
+            logger.debug(
                 f"Parsed {len(filtered_events)} events from ICS content "
                 f"({event_count} total events, {len(filtered_events)} busy/tentative)"
             )

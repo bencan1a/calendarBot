@@ -74,7 +74,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "calendarbot.cli.modes.web.asyncio.create_task"
         ) as mock_create_task, patch(
@@ -114,7 +114,7 @@ class TestRunWebMode:
         ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ) as mock_print, patch(
@@ -149,7 +149,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.network.get_local_network_interface", return_value="192.168.1.100"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "calendarbot.cli.modes.web.asyncio.create_task"
         ), patch(
@@ -186,7 +186,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "calendarbot.cli.modes.web.asyncio.create_task"
         ), patch(
@@ -227,7 +227,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "calendarbot.cli.modes.web.asyncio.create_task"
         ), patch(
@@ -269,7 +269,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "builtins.print"
         ) as mock_print, patch(
@@ -305,7 +305,7 @@ class TestRunWebMode:
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "calendarbot.cli.modes.web.asyncio.create_task"
         ), patch(
@@ -349,7 +349,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "calendarbot.cli.modes.web.asyncio.create_task"
         ), patch(
@@ -395,7 +395,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "calendarbot.cli.modes.web.asyncio.create_task", return_value=mock_task
         ), patch(
@@ -534,7 +534,7 @@ class TestWebModeIntegration:
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
-            "config.settings.settings", test_settings
+            "calendarbot.config.settings.settings", test_settings
         ), patch(
             "calendarbot.cli.modes.web.asyncio.create_task"
         ) as mock_create_task, patch(

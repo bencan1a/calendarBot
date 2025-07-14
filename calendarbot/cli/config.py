@@ -18,7 +18,7 @@ def check_configuration() -> Tuple[bool, Optional[Path]]:
     """
     try:
         # Check for config file in project directory first
-        project_config = Path(__file__).parent.parent.parent / "config" / "config.yaml"
+        project_config = Path(__file__).parent.parent / "config" / "config.yaml"
         if project_config.exists():
             return True, project_config
 
@@ -30,7 +30,7 @@ def check_configuration() -> Tuple[bool, Optional[Path]]:
 
         # Check if essential settings are available via environment variables
         try:
-            from config.settings import CalendarBotSettings
+            from calendarbot.config.settings import CalendarBotSettings
 
             settings = CalendarBotSettings()
             if settings.ics_url:
@@ -57,7 +57,7 @@ def show_setup_guidance() -> None:
     print("📋 Quick Setup Options:")
     print("1. Run 'calendarbot --setup' for interactive configuration wizard")
     print("   ✨ NEW: Includes service templates, testing, and authentication setup")
-    print("2. Copy config/config.yaml.example to config/config.yaml")
+    print("2. Copy calendarbot/config/config.yaml.example to calendarbot/config/config.yaml")
     print("3. Set environment variable: CALENDARBOT_ICS_URL=your-calendar-url")
     print("\n🔧 Interactive Wizard Features:")
     print("- Templates for Outlook, Google Calendar, iCloud, and CalDAV")
@@ -65,7 +65,7 @@ def show_setup_guidance() -> None:
     print("- Authentication setup (basic auth, bearer tokens)")
     print("- Advanced settings configuration")
     print("\n📖 Documentation:")
-    print("- Configuration guide: See config/config.yaml.example")
+    print("- Configuration guide: See calendarbot/config/config.yaml.example")
     print("- Full setup instructions: See docs/INSTALL.md")
     print("- Usage examples: Run 'calendarbot --help'")
     print("\n🔧 Required Configuration:")

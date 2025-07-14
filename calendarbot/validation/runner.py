@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from config.settings import settings
+from calendarbot.config.settings import settings
 
 from .logging_setup import get_validation_logger, log_validation_result, log_validation_start
 from .results import ValidationResults, ValidationStatus

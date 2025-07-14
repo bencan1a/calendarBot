@@ -7,7 +7,7 @@ import sys
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from config.settings import settings
+from calendarbot.config.settings import settings
 
 from .cache import CacheManager
 from .display import DisplayManager
@@ -367,7 +367,7 @@ def check_first_run_configuration() -> bool:
     from pathlib import Path
 
     # Check for config file in project directory first
-    project_config = Path(__file__).parent.parent / "config" / "config.yaml"
+    project_config = Path(__file__).parent / "config" / "config.yaml"
     if project_config.exists():
         return True
 
@@ -397,7 +397,9 @@ async def main() -> int:
             print("\n🔧 Quick Setup:")
             print("   calendarbot --setup    # Interactive configuration wizard")
             print("\n📖 Manual Setup:")
-            print("   1. Copy config/config.yaml.example to config/config.yaml")
+            print(
+                "   1. Copy calendarbot/config/config.yaml.example to calendarbot/config/config.yaml"
+            )
             print("   2. Edit config.yaml with your calendar URL")
             print("   3. Or set environment variable: CALENDARBOT_ICS_URL=your-url")
             print("=" * 60)

@@ -196,7 +196,7 @@ class CacheManager:
         """
         try:
             event_count = len(api_events) if api_events else 0
-            logger.info(f"Caching {event_count} API events")
+            logger.debug(f"Caching {event_count} API events")
 
             if not api_events:
                 logger.debug("No events to cache")
@@ -224,7 +224,7 @@ class CacheManager:
             if success:
                 # Update metadata
                 await self._update_fetch_metadata(success=True, error=None)
-                logger.info(f"Successfully cached {len(cached_events)} events")
+                logger.debug(f"Successfully cached {len(cached_events)} events")
             else:
                 await self._update_fetch_metadata(success=False, error="Database storage failed")
                 logger.error("Failed to store events in database")
@@ -344,7 +344,7 @@ class CacheManager:
         """
         try:
             removed_count = await self.db.cleanup_old_events(days_old)
-            logger.info(f"Cleaned up {removed_count} old events")
+            logger.debug(f"Cleaned up {removed_count} old events")
             return removed_count
 
         except Exception as e:

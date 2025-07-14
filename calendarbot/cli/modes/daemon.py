@@ -18,9 +18,9 @@ async def run_daemon_mode(args: Any) -> int:
     Returns:
         Exit code (0 for success, 1 for failure)
     """
+    from calendarbot.config.settings import settings
     from calendarbot.main import main
     from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
-    from config.settings import settings
 
     from ..config import apply_rpi_overrides
 

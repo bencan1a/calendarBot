@@ -555,9 +555,24 @@ window.toggleTheme = toggleTheme;
 window.cycleLayout = cycleLayout;
 window.setLayout = setLayout;
 window.refresh = refresh;
+window.refreshSilent = refreshSilent;
 window.toggleAutoRefresh = toggleAutoRefresh;
 window.getCurrentTheme = getCurrentTheme;
 window.isAutoRefreshEnabled = isAutoRefreshEnabled;
+
+// UI feedback function exports
+window.showLoadingIndicator = showLoadingIndicator;
+window.hideLoadingIndicator = hideLoadingIndicator;
+window.showErrorMessage = showErrorMessage;
+window.showSuccessMessage = showSuccessMessage;
+window.showMessage = showMessage;
+
+// Content update function exports
+window.updatePageContent = updatePageContent;
+
+// Visual feedback function exports
+window.flashNavigationFeedback = flashNavigationFeedback;
+window.flashThemeChange = flashThemeChange;
 
 // Debug helper
 window.calendarBot = {

@@ -19,10 +19,10 @@ async def run_interactive_mode(args: Any) -> int:
         Exit code (0 for success, 1 for failure)
     """
     try:
+        from calendarbot.config.settings import settings
         from calendarbot.main import CalendarBot
         from calendarbot.ui import InteractiveController
         from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
-        from config.settings import settings
 
         from ..config import apply_rpi_overrides
 

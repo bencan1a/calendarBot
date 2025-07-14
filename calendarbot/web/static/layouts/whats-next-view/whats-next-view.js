@@ -897,6 +897,23 @@ window.updateCountdown = updateCountdown;
 window.detectCurrentMeeting = detectCurrentMeeting;
 window.loadMeetingData = loadMeetingData;
 
+// UI feedback function exports
+window.showLoadingIndicator = showLoadingIndicator;
+window.hideLoadingIndicator = hideLoadingIndicator;
+window.showErrorMessage = showErrorMessage;
+window.showSuccessMessage = showSuccessMessage;
+window.showMessage = showMessage;
+
+// Meeting display function exports
+window.updateMeetingDisplay = updateMeetingDisplay;
+window.formatMeetingTime = formatMeetingTime;
+window.escapeHtml = escapeHtml;
+
+// Accessibility function exports
+window.setupAccessibility = setupAccessibility;
+window.announceToScreenReader = announceToScreenReader;
+window.getMeetingAriaLabel = getMeetingAriaLabel;
+
 // Debug helper
 window.whatsNextView = {
     getCurrentMeeting: () => currentMeeting,
