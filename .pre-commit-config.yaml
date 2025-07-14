@@ -42,63 +42,60 @@ repos:
   # STAGE 2: Security & Type Checking (30-90 seconds)
   # Comprehensive security scanning and type validation
   # ============================================================================
-  # DISABLED FOR TEST SCENARIO - bandit requires pyproject.toml config
-  # - repo: https://github.com/PyCQA/bandit
-  #   rev: 1.7.8
-  #   hooks:
-  #     - id: bandit
-  #       name: "Security Vulnerability Scan"
-  #       args: ["-c", "pyproject.toml", "--severity-level", "medium"]
-  #       exclude: ^(tests/|docs/|scripts/|backup/|\.venv/|venv/)
-  #       additional_dependencies: ["bandit[toml]"]
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        name: "Security Vulnerability Scan"
+        args: ["-c", "pyproject.toml", "--severity-level", "medium"]
+        exclude: ^(tests/|docs/|scripts/|backup/|\.venv/|venv/)
+        additional_dependencies: ["bandit[toml]"]
 
-  # DISABLED FOR TEST SCENARIO - mypy requires pyproject.toml config
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.10.0
-  #   hooks:
-  #     - id: mypy
-  #       name: "Type Checking (Full Scope)"
-  #       files: ^calendarbot/.*\.py$
-  #       exclude: ^(tests/|docs/|scripts/|backup/|\.venv/|venv/)
-  #       args: [--config-file=pyproject.toml]
-  #       additional_dependencies: [
-  #         types-PyYAML,
-  #         types-requests,
-  #         types-psutil,
-  #         types-pytz,
-  #         types-python-dateutil,
-  #         types-setuptools,
-  #         pydantic>=2.0.0,
-  #         pydantic-settings>=2.0.0,
-  #         httpx>=0.25.0,
-  #         pytest>=7.4.0,
-  #         pytest-asyncio>=0.21.0,
-  #         aiosqlite>=0.19.0,
-  #         icalendar>=5.0.0,
-  #         APScheduler>=3.10.0,
-  #         cryptography>=41.0.0
-  #       ]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        name: "Type Checking (Full Scope)"
+        files: ^calendarbot/.*\.py$
+        exclude: ^(tests/|docs/|scripts/|backup/|\.venv/|venv/)
+        args: [--config-file=pyproject.toml]
+        additional_dependencies: [
+          types-PyYAML,
+          types-requests,
+          types-psutil,
+          types-pytz,
+          types-python-dateutil,
+          types-setuptools,
+          pydantic>=2.0.0,
+          pydantic-settings>=2.0.0,
+          httpx>=0.25.0,
+          pytest>=7.4.0,
+          pytest-asyncio>=0.21.0,
+          aiosqlite>=0.19.0,
+          icalendar>=5.0.0,
+          APScheduler>=3.10.0,
+          cryptography>=41.0.0
+        ]
 
   # ============================================================================
   # STAGE 3: Smart Test Execution (90-390 seconds)
-  # DISABLED FOR TEST SCENARIO - requires full project structure
   # ============================================================================
-  # - repo: local
-  #   hooks:
-  #     - id: smart-test-execution
-  #       name: "Smart Test Selection & Execution"
-  #       entry: sh -c '. venv/bin/activate && python tests/suites/suite_manager.py execute-smart'
-  #       language: system
-  #       pass_filenames: false
-  #       stages: [pre-commit]
-  #       verbose: true
+  - repo: local
+    hooks:
+      - id: smart-test-execution
+        name: "Smart Test Selection & Execution"
+        entry: sh -c '. venv/bin/activate && python tests/suites/suite_manager.py execute-smart'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        verbose: true
 
-  #     - id: config-validation
-  #       name: "Configuration Validation"
-  #       entry: sh -c '. venv/bin/activate && python -c "import yaml; import config.settings; print(\"✅ Configuration validation passed\")"'
-  #       language: system
-  #       pass_filenames: false
-  #       files: ^(config/.*\.py|.*\.yaml|.*\.yml)$
+      - id: config-validation
+        name: "Configuration Validation"
+        entry: sh -c '. venv/bin/activate && python -c "import yaml; import calendarbot.config.settings; print(\"✅ Configuration validation passed\")"'
+        language: system
+        pass_filenames: false
+        files: ^(config/.*\.py|.*\.yaml|.*\.yml)$
 
   # ============================================================================
   # STAGE 4: Integrated Format-and-Stage (Auto-Fix Mode)
