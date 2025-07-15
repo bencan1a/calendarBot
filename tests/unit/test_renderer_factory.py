@@ -110,7 +110,7 @@ class TestRendererFactory:
         """Test getting list of available renderer types."""
         types = RendererFactory.get_available_renderers()
 
-        expected_types = ["html", "rpi", "compact", "console"]
+        expected_types = ["html", "rpi", "compact", "console", "whats-next"]
         assert types == expected_types
 
     def test_detect_device_type_rpi_environment(self) -> None:

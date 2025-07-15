@@ -46,11 +46,12 @@ class ResourceManager:
             css_urls = []
             for css_file in css_files:
                 # Handle both string and object formats
-                file_name = css_file
                 if isinstance(css_file, dict):
                     file_name = css_file.get("file", "")
+                else:
+                    file_name = css_file
 
-                if not file_name:
+                if not file_name or not isinstance(file_name, str):
                     continue
 
                 if file_name.startswith("http"):
@@ -87,11 +88,12 @@ class ResourceManager:
             js_urls = []
             for js_file in js_files:
                 # Handle both string and object formats
-                file_name = js_file
                 if isinstance(js_file, dict):
                     file_name = js_file.get("file", "")
+                else:
+                    file_name = js_file
 
-                if not file_name:
+                if not file_name or not isinstance(file_name, str):
                     continue
 
                 if file_name.startswith("http"):
@@ -304,7 +306,8 @@ class ResourceManager:
         Returns:
             List of Path objects for CSS files.
         """
-        return self.layout_registry.get_layout_css_paths(layout_name)
+        css_paths: List[Path] = self.layout_registry.get_layout_css_paths(layout_name)
+        return css_paths
 
     def get_js_paths_for_layout(self, layout_name: str) -> List[Path]:
         """Get JavaScript file paths for a layout.
@@ -315,7 +318,8 @@ class ResourceManager:
         Returns:
             List of Path objects for JavaScript files.
         """
-        return self.layout_registry.get_layout_js_paths(layout_name)
+        js_paths: List[Path] = self.layout_registry.get_layout_js_paths(layout_name)
+        return js_paths
 
     def get_css_path(self, layout_name: str) -> Optional[Path]:
         """Get single CSS path for a layout.
@@ -338,14 +342,16 @@ class ResourceManager:
 
             # Handle both string and object formats
             if isinstance(first_css, dict):
-                first_css = first_css.get("file", "")
+                file_name = first_css.get("file", "")
+            else:
+                file_name = first_css
 
-            # Skip external URLs
-            if first_css.startswith("http"):
+            # Skip external URLs or invalid entries
+            if not file_name or not isinstance(file_name, str) or file_name.startswith("http"):
                 return None
 
             # Return path to first CSS file
-            return self.layout_registry.layouts_dir / layout_info.name / first_css
+            return Path(self.layout_registry.layouts_dir / layout_info.name / file_name)
 
         except Exception as e:
             logger.debug(f"Failed to get CSS path for layout '{layout_name}': {e}")
@@ -372,14 +378,16 @@ class ResourceManager:
 
             # Handle both string and object formats
             if isinstance(first_js, dict):
-                first_js = first_js.get("file", "")
+                file_name = first_js.get("file", "")
+            else:
+                file_name = first_js
 
-            # Skip external URLs
-            if first_js.startswith("http"):
+            # Skip external URLs or invalid entries
+            if not file_name or not isinstance(file_name, str) or file_name.startswith("http"):
                 return None
 
             # Return path to first JS file
-            return self.layout_registry.layouts_dir / layout_info.name / first_js
+            return Path(self.layout_registry.layouts_dir / layout_info.name / file_name)
 
         except Exception as e:
             logger.debug(f"Failed to get JS path for layout '{layout_name}': {e}")
@@ -429,8 +437,18 @@ class ResourceManager:
                 # Validate CSS files
                 css_files = layout_info.resources.get("css", [])
                 for css_file in css_files:
-                    if not css_file.startswith("http"):
-                        css_path = layout_dir / css_file
+                    # Handle both string and object formats
+                    if isinstance(css_file, dict):
+                        file_name = css_file.get("file", "")
+                    else:
+                        file_name = css_file
+
+                    if (
+                        file_name
+                        and isinstance(file_name, str)
+                        and not file_name.startswith("http")
+                    ):
+                        css_path = layout_dir / file_name
                         if not css_path.exists():
                             validation_results["css_valid"] = False
                             break
@@ -438,8 +456,18 @@ class ResourceManager:
                 # Validate JS files
                 js_files = layout_info.resources.get("js", [])
                 for js_file in js_files:
-                    if not js_file.startswith("http"):
-                        js_path = layout_dir / js_file
+                    # Handle both string and object formats
+                    if isinstance(js_file, dict):
+                        file_name = js_file.get("file", "")
+                    else:
+                        file_name = js_file
+
+                    if (
+                        file_name
+                        and isinstance(file_name, str)
+                        and not file_name.startswith("http")
+                    ):
+                        js_path = layout_dir / file_name
                         if not js_path.exists():
                             validation_results["js_valid"] = False
                             break

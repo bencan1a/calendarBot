@@ -1,17 +1,23 @@
 /**
- * @fileoverview Basic test to verify Jest setup and mocking capabilities
+ * @fileoverview Jest setup file for CalendarBot JavaScript testing
+ * Provides global mocks, utilities, and proper infrastructure for testing
  */
 
-// Mock console methods globally
-console.log = jest.fn();
-console.warn = jest.fn();
-console.error = jest.fn();
-console.info = jest.fn();
+// Mock console methods globally but allow them to be spied on in tests
+global.console = {
+  ...console,
+  log: jest.fn(console.log),
+  warn: jest.fn(console.warn),
+  error: jest.fn(console.error),
+  info: jest.fn(console.info),
+};
 
 // Mock fetch globally for all tests
 global.fetch = jest.fn();
 
-// Note: window.location.reload mocking handled individually in tests that need it
+// Skip location mocking for now - focus on source loading issue
+// TODO: Fix location mocking properly later
+console.log('Skipping location mock to debug source loading issue');
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -81,8 +87,16 @@ global.testUtils = {
     document.documentElement.className = '';
     // Clear all timers
     jest.clearAllTimers();
-    // Clear all mocks
-    jest.clearAllMocks();
+    // Clear fetch mock calls but not the mock itself
+    if (global.fetch && global.fetch.mockClear) {
+      global.fetch.mockClear();
+    }
+    // Clear location mock calls but not the mock itself
+    if (window.location.reload && window.location.reload.mockClear) {
+      window.location.reload.mockClear();
+      window.location.assign.mockClear();
+      window.location.replace.mockClear();
+    }
   },
 
   createMockElement: (tagName, attributes = {}) => {
@@ -173,6 +187,19 @@ global.testUtils = {
     
     element.dispatchEvent(touchEvent);
     return touchEvent;
+  },
+
+  // Helper to wait for DOM updates and timers
+  waitForUpdates: async () => {
+    return new Promise(resolve => {
+      setTimeout(resolve, 0);
+    });
+  },
+
+  // Helper to advance timers and wait for updates
+  advanceTimersAndWait: async (ms = 0) => {
+    jest.advanceTimersByTime(ms);
+    await testUtils.waitForUpdates();
   }
 };
 
@@ -188,6 +215,13 @@ describe('Jest Setup and Test Utilities', () => {
   it('should have fetch mock available', () => {
     expect(fetch).toBeDefined();
     expect(typeof fetch.mockClear).toBe('function');
+  });
+
+  it('should have location available (cannot be mocked in JSDOM)', () => {
+    expect(window.location).toBeDefined();
+    expect(typeof window.location.reload).toBe('function');
+    // Note: JSDOM location is immutable (configurable: false), cannot be mocked
+    expect(jest.isMockFunction(window.location.reload)).toBe(false);
   });
 
   it('should be able to create mock DOM elements', () => {

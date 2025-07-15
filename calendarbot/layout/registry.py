@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from .exceptions import LayoutNotFoundError, LayoutValidationError
 
@@ -22,12 +22,16 @@ class LayoutInfo:
     capabilities: Dict[str, Any]
     renderer_type: str
     fallback_chain: List[str]
-    resources: Dict[str, List[str]]
+    resources: Dict[str, List[Union[str, Dict[str, Any]]]]
     requirements: Dict[str, Any]
 
 
 class LayoutRegistry:
     """Central registry for dynamic layout discovery and management."""
+
+    layouts_dir: Path  # Always a Path after initialization
+    _layouts: Dict[str, LayoutInfo]
+    _fallback_layouts: List[str]
 
     def __init__(
         self, layouts_dir: Optional[Path] = None, layouts_directory: Optional[Path] = None
@@ -323,6 +327,74 @@ class LayoutRegistry:
             "resources": layout_info.resources,
             "requirements": layout_info.requirements,
         }
+
+    def get_layout_css_paths(self, layout_name: str) -> List[Path]:
+        """Get CSS file paths for a layout.
+
+        Args:
+            layout_name: Name of layout to get CSS paths for.
+
+        Returns:
+            List of Path objects for CSS files.
+
+        Raises:
+            LayoutNotFoundError: If layout doesn't exist.
+        """
+        layout_info = self.get_layout_info(layout_name)
+        if layout_info is None:
+            raise LayoutNotFoundError(f"Layout '{layout_name}' not found")
+
+        css_paths = []
+        css_files = layout_info.resources.get("css", [])
+
+        for css_file in css_files:
+            # Handle both string and object formats
+            if isinstance(css_file, dict):
+                file_name = css_file.get("file", "")
+            else:
+                file_name = css_file
+
+            if not file_name or not isinstance(file_name, str) or file_name.startswith("http"):
+                continue  # Skip external URLs or invalid entries
+
+            css_path = self.layouts_dir / layout_info.name / file_name
+            css_paths.append(css_path)
+
+        return css_paths
+
+    def get_layout_js_paths(self, layout_name: str) -> List[Path]:
+        """Get JavaScript file paths for a layout.
+
+        Args:
+            layout_name: Name of layout to get JS paths for.
+
+        Returns:
+            List of Path objects for JavaScript files.
+
+        Raises:
+            LayoutNotFoundError: If layout doesn't exist.
+        """
+        layout_info = self.get_layout_info(layout_name)
+        if layout_info is None:
+            raise LayoutNotFoundError(f"Layout '{layout_name}' not found")
+
+        js_paths = []
+        js_files = layout_info.resources.get("js", [])
+
+        for js_file in js_files:
+            # Handle both string and object formats
+            if isinstance(js_file, dict):
+                file_name = js_file.get("file", "")
+            else:
+                file_name = js_file
+
+            if not file_name or not isinstance(file_name, str) or file_name.startswith("http"):
+                continue  # Skip external URLs or invalid entries
+
+            js_path = self.layouts_dir / layout_info.name / file_name
+            js_paths.append(js_path)
+
+        return js_paths
 
     def _discover_layouts(self) -> None:
         """Internal method for layout discovery (for backward compatibility with tests)."""

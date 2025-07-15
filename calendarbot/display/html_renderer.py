@@ -30,8 +30,8 @@ class HTMLRenderer:
 
         # Initialize layout management components
         try:
-            self.layout_registry = LayoutRegistry()
-            self.resource_manager = ResourceManager(self.layout_registry)
+            self.layout_registry: Optional[LayoutRegistry] = LayoutRegistry()
+            self.resource_manager: Optional[ResourceManager] = ResourceManager(self.layout_registry)
         except Exception as e:
             logger.warning(f"Failed to initialize layout system: {e}, using fallback behavior")
             self.layout_registry = None
@@ -61,7 +61,8 @@ class HTMLRenderer:
             layout_path = Path(f"calendarbot/web/static/layouts/{self.layout}/layout.json")
             if layout_path.exists():
                 with open(layout_path, "r") as f:
-                    return json.load(f)
+                    config_data: Dict[str, Any] = json.load(f)
+                    return config_data
 
             logger.debug(f"Layout config file not found for layout: {self.layout}")
             return None
@@ -79,7 +80,8 @@ class HTMLRenderer:
         try:
             config = self._get_layout_config()
             if config and "dimensions" in config:
-                return config["dimensions"].get("fixed_dimensions", False)
+                fixed_dims = config["dimensions"].get("fixed_dimensions", False)
+                return bool(fixed_dims)
             return False
 
         except Exception as e:

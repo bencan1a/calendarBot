@@ -589,6 +589,8 @@ class TestWebServer:
 
         # Mock the display manager methods that the server expects
         web_server.display_manager.set_layout = Mock(return_value=True)
+        web_server.display_manager.get_renderer_type = Mock(return_value="html")
+        web_server.display_manager.set_display_type = Mock(return_value=True)
 
         return web_server
 

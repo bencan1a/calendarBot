@@ -4,13 +4,14 @@ import logging
 import platform
 import subprocess
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, List, Optional, Union, cast
 
 from .compact_eink_renderer import CompactEInkRenderer
 from .console_renderer import ConsoleRenderer
 from .html_renderer import HTMLRenderer
 from .renderer_protocol import RendererProtocol
 from .rpi_html_renderer import RaspberryPiHTMLRenderer
+from .whats_next_renderer import WhatsNextRenderer
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class RendererFactory:
 
     @staticmethod
     def create_renderer(
-        settings_or_renderer_type: Any,
+        settings_or_renderer_type: Optional[Any] = None,
         settings_or_unused: Optional[Any] = None,
         layout_name: Optional[str] = None,
         *,
@@ -93,31 +94,40 @@ class RendererFactory:
         if settings is not None and renderer_type is not None:
             # New keyword style: create_renderer(settings=..., renderer_type=..., layout_name=...)
             actual_settings = settings
-            actual_renderer_type = renderer_type
+            actual_renderer_type: Optional[str] = renderer_type
         elif settings_or_unused is not None:
             # Old positional style: create_renderer(renderer_type, settings)
-            actual_renderer_type = settings_or_renderer_type
+            actual_renderer_type = cast(Optional[str], settings_or_renderer_type)
             actual_settings = settings_or_unused
-        else:
-            # New style but using positional args: create_renderer(settings, renderer_type=..., layout_name=...)
+        elif settings_or_renderer_type is not None:
+            # Mixed style: create_renderer(settings, renderer_type=..., layout_name=...)
             actual_settings = settings_or_renderer_type
             actual_renderer_type = renderer_type
+        else:
+            # All keyword style but missing required arguments
+            raise ValueError(
+                "Must provide either: (renderer_type, settings) or (settings=..., renderer_type=...)"
+            )
+
+        # Validate required parameters
+        if actual_settings is None:
+            raise ValueError("Settings object is required")
+        # Determine renderer type
+        if actual_renderer_type is None:
+            device_type = RendererFactory.detect_device_type()
+            actual_renderer_type = _map_device_to_renderer(device_type)
+            logger.info(
+                f"Auto-detected renderer type: {actual_renderer_type} for device: {device_type}"
+            )
+        else:
+            logger.info(f"Using explicit renderer type: {actual_renderer_type}")
+
+        # Update settings if layout_name is provided
+        if layout_name is not None:
+            actual_settings.web_layout = layout_name
+            logger.debug(f"Updated settings with layout: {layout_name}")
+
         try:
-            # Determine renderer type
-            if actual_renderer_type is None:
-                device_type = RendererFactory.detect_device_type()
-                actual_renderer_type = _map_device_to_renderer(device_type)
-                logger.info(
-                    f"Auto-detected renderer type: {actual_renderer_type} for device: {device_type}"
-                )
-            else:
-                logger.info(f"Using explicit renderer type: {actual_renderer_type}")
-
-            # Update settings if layout_name is provided
-            if layout_name is not None:
-                actual_settings.web_layout = layout_name
-                logger.debug(f"Updated settings with layout: {layout_name}")
-
             # Create renderer instance
             renderer = _create_renderer_instance(actual_renderer_type, actual_settings)
             logger.info(f"Created {renderer.__class__.__name__} successfully")
@@ -129,13 +139,13 @@ class RendererFactory:
             return ConsoleRenderer(actual_settings)
 
     @staticmethod
-    def get_available_renderers() -> list[str]:
+    def get_available_renderers() -> List[str]:
         """Get list of available renderer types.
 
         Returns:
             List of renderer type names
         """
-        return ["html", "rpi", "compact", "console"]
+        return ["html", "rpi", "compact", "console", "whats-next"]
 
     @staticmethod
     def get_recommended_renderer(settings: Any) -> str:
@@ -247,10 +257,11 @@ def _create_renderer_instance(renderer_type: str, settings: Any) -> RendererProt
         "rpi": RaspberryPiHTMLRenderer,
         "compact": CompactEInkRenderer,
         "console": ConsoleRenderer,
+        "whats-next": WhatsNextRenderer,
     }
 
     renderer_class = renderer_classes.get(renderer_type)
     if renderer_class is None:
         raise ValueError(f"Unknown renderer type: {renderer_type}")
 
-    return renderer_class(settings)
+    return cast(RendererProtocol, renderer_class(settings))

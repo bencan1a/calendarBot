@@ -6,8 +6,29 @@
 describe('4x8 Layout Module (4x8.js)', () => {
   let setIntervalSpy;
   let clearIntervalSpy;
-  let consoleLogSpy;
   let fetchMock;
+
+  // Helper function to ensure source functions are loaded and properly spied
+  function ensureSourceFunctionsLoaded() {
+    if (typeof window.navigate !== 'function') {
+      // Clear any existing properties
+      ['navigate', 'refresh', 'toggleTheme', 'cycleLayout', 'refreshSilent', 'setLayout',
+       'toggleAutoRefresh', 'getCurrentTheme', 'isAutoRefreshEnabled', 'showLoadingIndicator',
+       'hideLoadingIndicator', 'showErrorMessage', 'showSuccessMessage', 'showMessage',
+       'updatePageContent', 'flashNavigationFeedback', 'flashThemeChange', 'calendarBot'].forEach(prop => {
+        delete window[prop];
+      });
+      
+      // Force reload the source file
+      delete require.cache[require.resolve('../../calendarbot/web/static/layouts/4x8/4x8.js')];
+      require('../../calendarbot/web/static/layouts/4x8/4x8.js');
+    }
+    
+    // Always trigger DOMContentLoaded to ensure event listeners are attached to current functions
+    // This ensures that if spies are set up after source loading, the listeners will use the spies
+    const event = new Event('DOMContentLoaded');
+    document.dispatchEvent(event);
+  }
 
   beforeEach(() => {
     // Reset DOM
@@ -31,167 +52,25 @@ describe('4x8 Layout Module (4x8.js)', () => {
       </html>
     `);
 
-    // Setup spies
-    setIntervalSpy = jest.spyOn(global, 'setInterval').mockImplementation((fn, delay) => {
-      return setTimeout(fn, 0); // Execute immediately for testing
-    });
-    clearIntervalSpy = jest.spyOn(global, 'clearInterval');
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+    // Setup spies for timers (with mock implementation to prevent actual intervals)
+    setIntervalSpy = jest.spyOn(global, 'setInterval').mockImplementation(() => 123);
+    clearIntervalSpy = jest.spyOn(global, 'clearInterval').mockImplementation();
     
-    // Mock fetch
+    // Mock fetch before loading source
     fetchMock = fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
         success: true,
-        html: '<div class="calendar-content"><div class="event">Test Event</div><div class="event-time">2:00 PM - 3:00 PM</div></div>'
+        html: '<div class="calendar-content"><div class="event">Updated Event</div><div class="event-time">2:00 PM - 3:00 PM</div></div>'
       })
     });
 
-    // Reset global state variables if they exist
-    if (typeof window !== 'undefined') {
-      // Clear any existing window properties
-      delete window.navigate;
-      delete window.refresh;
-      delete window.toggleTheme;
-      delete window.cycleLayout;
-      delete window.refreshSilent;
-      delete window.setLayout;
-      delete window.toggleAutoRefresh;
-      delete window.getCurrentTheme;
-      delete window.isAutoRefreshEnabled;
-      delete window.showLoadingIndicator;
-      delete window.hideLoadingIndicator;
-      delete window.showErrorMessage;
-      delete window.showSuccessMessage;
-      delete window.showMessage;
-      delete window.updatePageContent;
-      delete window.flashNavigationFeedback;
-      delete window.flashThemeChange;
-      delete window.calendarBot;
-    }
-
-    // Load the source file
-    require('../../calendarbot/web/static/layouts/4x8/4x8.js');
-    
-    // Trigger DOMContentLoaded to initialize the module
-    const event = new Event('DOMContentLoaded');
-    document.dispatchEvent(event);
-    
-    // Since the module functions might not be properly exported in Jest environment,
-    // create functional stubs for testing that actually call fetch and manipulate DOM
-    if (typeof window.navigate !== 'function') {
-      window.navigate = jest.fn().mockImplementation(async (action) => {
-        try {
-          return await fetch('/api/navigate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action })
-          });
-        } catch (error) {
-          // Simulate error handling like the actual module
-          return;
-        }
-      });
-      
-      window.toggleTheme = jest.fn().mockImplementation(async () => {
-        try {
-          return await fetch('/api/theme', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-          });
-        } catch (error) {
-          // Simulate error handling like the actual module
-          return;
-        }
-      });
-      
-      window.cycleLayout = jest.fn().mockImplementation(async () => {
-        try {
-          return await fetch('/api/layout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-          });
-        } catch (error) {
-          // Simulate error handling like the actual module
-          return;
-        }
-      });
-      
-      window.setLayout = jest.fn().mockImplementation(async (layout) => {
-        try {
-          return await fetch('/api/layout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ layout })
-          });
-        } catch (error) {
-          // Simulate error handling like the actual module
-          return;
-        }
-      });
-      
-      window.refresh = jest.fn().mockImplementation(async () => {
-        try {
-          return await fetch('/api/refresh', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          });
-        } catch (error) {
-          // Simulate error handling like the actual module
-          return;
-        }
-      });
-      
-      window.refreshSilent = jest.fn().mockResolvedValue();
-      window.toggleAutoRefresh = jest.fn();
-      window.getCurrentTheme = jest.fn().mockReturnValue('eink');
-      window.isAutoRefreshEnabled = jest.fn().mockReturnValue(true);
-      
-      window.showLoadingIndicator = jest.fn().mockImplementation((message = 'Loading...') => {
-        let indicator = document.getElementById('loading-indicator');
-        if (!indicator) {
-          indicator = document.createElement('div');
-          indicator.id = 'loading-indicator';
-          indicator.style.display = 'none';
-          document.body.appendChild(indicator);
-        }
-        indicator.textContent = message;
-        indicator.style.display = 'block';
-      });
-      
-      window.hideLoadingIndicator = jest.fn().mockImplementation(() => {
-        const indicator = document.getElementById('loading-indicator');
-        if (indicator) {
-          indicator.style.display = 'none';
-        }
-      });
-      
-      window.showErrorMessage = jest.fn();
-      window.showSuccessMessage = jest.fn();
-      window.showMessage = jest.fn();
-      window.updatePageContent = jest.fn();
-      window.flashNavigationFeedback = jest.fn();
-      window.flashThemeChange = jest.fn();
-      
-      window.calendarBot = {
-        navigate: window.navigate,
-        toggleTheme: window.toggleTheme,
-        cycleLayout: window.cycleLayout,
-        setLayout: window.setLayout,
-        refresh: window.refresh,
-        toggleAutoRefresh: window.toggleAutoRefresh,
-        getCurrentTheme: window.getCurrentTheme,
-        isAutoRefreshEnabled: window.isAutoRefreshEnabled,
-        currentTheme: window.getCurrentTheme
-      };
-    }
+    // Ensure source functions are always loaded
+    ensureSourceFunctionsLoaded();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
-    jest.clearAllTimers();
     testUtils.cleanupDOM();
   });
 
@@ -664,9 +543,6 @@ describe('4x8 Layout Module (4x8.js)', () => {
         })
       });
 
-      // Mock window.location.reload
-      const reloadSpy = jest.spyOn(window.location, 'reload').mockImplementation();
-
       await window.setLayout('3x4');
 
       expect(fetchMock).toHaveBeenCalledWith('/api/layout', {
@@ -674,9 +550,7 @@ describe('4x8 Layout Module (4x8.js)', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ layout: '3x4' })
       });
-      expect(reloadSpy).toHaveBeenCalled();
-      
-      reloadSpy.mockRestore();
+      expect(window.location.reload).toHaveBeenCalled();
     });
 
     it('should handle set layout errors', async () => {

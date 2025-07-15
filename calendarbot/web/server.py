@@ -782,8 +782,8 @@ class WebServer:
 
         # Validate layout using registry
         if self.layout_registry.validate_layout(layout):
-            logger.debug(f"DIAGNOSTIC: Calling display_manager.set_display_type('{layout}')")
-            # Update display manager with new layout name (use set_layout to preserve current renderer)
+            logger.debug(f"DIAGNOSTIC: Calling display_manager.set_layout with layout='{layout}'")
+            # Call display_manager.set_layout to change just the layout
             success = self.display_manager.set_layout(layout)
             if success:
                 # Update layout property

@@ -52,8 +52,15 @@ class ICSTestData:
             def is_upcoming():
                 return True
 
+            def format_time_range(format_str: str = "%I:%M %p") -> str:
+                """Format the event time range as a string."""
+                start_time = event.start.date_time
+                end_time = event.end.date_time
+                return f"{start_time.strftime(format_str)} - {end_time.strftime(format_str)}"
+
             event.is_current = is_current
             event.is_upcoming = is_upcoming
+            event.format_time_range = format_time_range
             events.append(event)
 
         return events
@@ -67,7 +74,7 @@ class ICSTestData:
         end_time = start_time + timedelta(hours=1)
 
         # Create mock event with Microsoft Graph API structure
-        return SimpleNamespace(
+        event = SimpleNamespace(
             id=f"event-{title.lower().replace(' ', '-')}",
             subject=title,
             body_preview=f"Test event: {title}",
@@ -85,6 +92,14 @@ class ICSTestData:
             series_master_id=None,
             last_modified_date_time=start_time,
         )
+
+        # Add required methods for testing
+        def format_time_range(format_str: str = "%I:%M %p") -> str:
+            """Format the event time range as a string."""
+            return f"{start_time.strftime(format_str)} - {end_time.strftime(format_str)}"
+
+        event.format_time_range = format_time_range
+        return event
 
 
 class ICSDataFactory:
