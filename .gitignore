@@ -241,3 +241,8 @@ cache/
 # Temporary files
 tmp/
 temp/
+coverage/clover.xml
+coverage/coverage-final.json
+coverage/lcov.info
+coverage/lcov-report/index.html
+coverage/lcov-report/whats-next-view.js.html
