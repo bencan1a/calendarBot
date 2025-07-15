@@ -613,16 +613,62 @@ describe('Whats-Next-View Layout Module (whats-next-view.js)', () => {
   });
 
   describe('Debug Interface', () => {
-    beforeEach(() => {
-      // Setup test data
-      window.currentMeeting = { title: 'Test Meeting' };
-      window.upcomingMeetings = [{ title: 'Meeting 1' }, { title: 'Meeting 2' }];
-      window.lastDataUpdate = new Date('2024-01-01');
+    beforeEach(async () => {
+      // Reset fetch mock for this test
+      fetchMock.mockClear();
+      
+      // Mock API response with meeting data that will populate internal state
+      // Use times far in the future to ensure they're always "upcoming"
+      const now = new Date();
+      const futureHour1 = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now
+      const futureHour2 = new Date(now.getTime() + 3 * 60 * 60 * 1000); // 3 hours from now
+      const futureHour3 = new Date(now.getTime() + 4 * 60 * 60 * 1000); // 4 hours from now
+      const futureHour4 = new Date(now.getTime() + 5 * 60 * 60 * 1000); // 5 hours from now
+      
+      const formatTime = (date) => {
+        return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+      };
+      
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          html: `
+            <div class="current-event">
+              <div class="event-title">Test Meeting</div>
+              <div class="event-time">${formatTime(futureHour1)} - ${formatTime(futureHour2)}</div>
+              <div class="event-location">Test Room</div>
+            </div>
+            <div class="upcoming-event">
+              <div class="event-title">Meeting 1</div>
+              <div class="event-time">${formatTime(futureHour2)} - ${formatTime(futureHour3)}</div>
+            </div>
+            <div class="upcoming-event">
+              <div class="event-title">Meeting 2</div>
+              <div class="event-time">${formatTime(futureHour3)} - ${formatTime(futureHour4)}</div>
+            </div>
+          `
+        })
+      });
+      
+      // Load data using the module's own API to populate internal state
+      await window.loadMeetingData();
     });
 
     it('should return current meeting from debug interface', () => {
       const result = window.whatsNextView.getCurrentMeeting();
+      const upcomingMeetings = window.whatsNextView.getUpcomingMeetings();
+      
       console.log('DEBUG: Current meeting result:', result);
+      console.log('DEBUG: Upcoming meetings:', upcomingMeetings);
+      console.log('DEBUG: Upcoming meetings length:', upcomingMeetings ? upcomingMeetings.length : 'null/undefined');
+      
+      if (upcomingMeetings && upcomingMeetings.length > 0) {
+        console.log('DEBUG: First meeting:', upcomingMeetings[0]);
+      }
+      
+      // Should now have a meeting object with the expected title
+      expect(result).not.toBeNull();
       expect(result).toEqual(expect.objectContaining({
         title: 'Test Meeting'
       }));
@@ -631,7 +677,18 @@ describe('Whats-Next-View Layout Module (whats-next-view.js)', () => {
     it('should return upcoming meetings from debug interface', () => {
       const result = window.whatsNextView.getUpcomingMeetings();
       console.log('DEBUG: Upcoming meetings:', result);
-      expect(result).toHaveLength(1); // Update to match actual data
+      
+      // Should have all parsed meetings (current + upcoming) in chronological order
+      expect(result).toHaveLength(3);
+      expect(result[0]).toEqual(expect.objectContaining({
+        title: 'Test Meeting'  // Earliest meeting (becomes currentMeeting)
+      }));
+      expect(result[1]).toEqual(expect.objectContaining({
+        title: 'Meeting 1'     // Second earliest meeting
+      }));
+      expect(result[2]).toEqual(expect.objectContaining({
+        title: 'Meeting 2'     // Latest meeting
+      }));
     });
 
     it('should return last update from debug interface', () => {

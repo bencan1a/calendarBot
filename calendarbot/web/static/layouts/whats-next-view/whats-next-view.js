@@ -356,6 +356,12 @@ function parseTimeString(timeStr, baseDate) {
         }
         
         date.setHours(hours, minutes, 0, 0);
+        
+        // Handle day boundary: if parsed time is before current time, assume it's for tomorrow
+        const now = new Date();
+        if (date < now) {
+            date.setDate(date.getDate() + 1);
+        }
     }
     
     return date;
