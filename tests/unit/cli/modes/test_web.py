@@ -35,7 +35,7 @@ class TestRunWebMode:
     @pytest.fixture
     def mock_app(self):
         """Create mock CalendarBot instance."""
-        app = AsyncMock()
+        app = MagicMock()
         app.initialize = AsyncMock(return_value=True)
         app.display_manager = MagicMock()
         app.cache_manager = MagicMock()
@@ -85,7 +85,8 @@ class TestRunWebMode:
             # Configure mocks
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
-            mock_task = AsyncMock()
+            mock_task = MagicMock()  # Use MagicMock instead of AsyncMock for task
+            mock_task.cancel = MagicMock()  # Mock cancel method to avoid coroutine warning
             mock_create_task.return_value = mock_task
 
             # Mock the shutdown event to immediately trigger
@@ -381,7 +382,7 @@ class TestRunWebMode:
     ):
         """Test web mode handles background task timeout during cleanup."""
         # Create a task that doesn't complete within timeout
-        mock_task = AsyncMock()
+        mock_task = MagicMock()
         mock_task.cancel = MagicMock()
 
         with patch("calendarbot.main.CalendarBot", return_value=mock_app), patch(
@@ -512,8 +513,8 @@ class TestWebModeIntegration:
         mock_args.auto_open = True
         mock_args.rpi = False
 
-        mock_app = AsyncMock()
-        mock_app.initialize.return_value = True
+        mock_app = MagicMock()
+        mock_app.initialize = AsyncMock(return_value=True)
         mock_app.display_manager = MagicMock()
         mock_app.cache_manager = MagicMock()
         mock_app.run_background_fetch = AsyncMock()
@@ -546,7 +547,8 @@ class TestWebModeIntegration:
         ):
             mock_logger = MagicMock()
             mock_setup_logging.return_value = mock_logger
-            mock_task = AsyncMock()
+            mock_task = MagicMock()  # Use MagicMock instead of AsyncMock for task
+            mock_task.cancel = MagicMock()  # Mock cancel method to avoid coroutine warning
             mock_create_task.return_value = mock_task
 
             # Mock the shutdown event for quick completion

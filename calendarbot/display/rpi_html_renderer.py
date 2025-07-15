@@ -597,7 +597,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             Formatted HTML authentication prompt with RPI layout
         """
         return f"""<!DOCTYPE html>
-<html lang="en" class="theme-{self.theme}">
+<html lang="en" class="layout-{self.layout}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=480, height=800, initial-scale=1.0, user-scalable=no">

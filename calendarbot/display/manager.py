@@ -35,7 +35,7 @@ class DisplayManager:
 
         # Initialize layout registry for dynamic layout discovery
         try:
-            self.layout_registry = LayoutRegistry()
+            self.layout_registry: Optional[LayoutRegistry] = LayoutRegistry()
             # Ensure layout registry is properly initialized by checking available layouts
             available_layouts = self.layout_registry.get_available_layouts()
             logger.debug(f"Layout registry initialized with {len(available_layouts)} layouts")
@@ -61,6 +61,13 @@ class DisplayManager:
         # Initialize renderer using factory with automatic device detection
         # Handle both old and new factory call patterns for compatibility
         effective_renderer_type = renderer_type or getattr(settings, "display_type", "html")
+
+        # Special handling for whats-next-view layout: use WhatsNextRenderer
+        current_layout = layout_name or getattr(settings, "web_layout", None)
+        if current_layout == "whats-next-view":
+            logger.info("Detected whats-next-view layout, using WhatsNextRenderer")
+            effective_renderer_type = "whats-next"
+
         try:
             # Try old signature first for backward compatibility with tests
             self.renderer = self.renderer_factory.create_renderer(effective_renderer_type, settings)
@@ -118,8 +125,16 @@ class DisplayManager:
             old_display_type = getattr(self.settings, "display_type", "unknown")
             old_layout_name = getattr(self.settings, "layout_name", "unknown")
 
+            # Special handling for whats-next-view layout: use WhatsNextRenderer
+            effective_renderer_type = display_type
+            if layout_name == "whats-next-view":
+                logger.info("Switching to whats-next-view layout, using WhatsNextRenderer")
+                effective_renderer_type = "whats-next"
+
             new_renderer = RendererFactory.create_renderer(
-                settings=self.settings, renderer_type=display_type, layout_name=layout_name
+                settings=self.settings,
+                renderer_type=effective_renderer_type,
+                layout_name=layout_name,
             )
 
             # Update current state
@@ -447,11 +462,11 @@ class DisplayManager:
         # Try layout_name first, then web_layout, then default
         layout_name = getattr(self.settings, "layout_name", None)
         if layout_name and isinstance(layout_name, str):
-            return layout_name
+            return str(layout_name)
 
         web_layout = getattr(self.settings, "web_layout", None)
         if web_layout and isinstance(web_layout, str):
-            return web_layout
+            return str(web_layout)
 
         return "4x8"  # Default fallback
 
