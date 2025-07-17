@@ -79,7 +79,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 return
 
             # Get calendar HTML content
-            html_content = self.web_server.get_calendar_html()
+            current_layout = self.web_server.get_current_layout()
+            days = 7 if current_layout == "whats-next-view" else 1
+            html_content = self.web_server.get_calendar_html(days)
 
             self._send_response(200, html_content, "text/html")
 
@@ -104,9 +106,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 # Backward compatibility - redirect to layout API
                 self._handle_layout_api(params)
             elif path == "/api/refresh":
-                self._handle_refresh_api()
+                self._handle_refresh_api(params)
             elif path == "/api/status":
                 self._handle_status_api()
+            elif path == "/api/debug/whats-next":
+                self._handle_debug_whats_next_api(params)
             else:
                 self._send_json_response(404, {"error": "API endpoint not found"})
 
@@ -168,7 +172,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
             if success:
                 # Get updated HTML content
-                html_content = self.web_server.get_calendar_html()
+                current_layout = self.web_server.get_current_layout()
+                days = 7 if current_layout == "whats-next-view" else 1
+                html_content = self.web_server.get_calendar_html(days)
                 self._send_json_response(200, {"success": True, "html": html_content})
             else:
                 self._send_json_response(400, {"error": "Invalid navigation action"})
@@ -213,7 +219,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             success = self.web_server.set_layout(str(layout))
             if success:
                 # Get updated HTML content with new layout
-                html_content = self.web_server.get_calendar_html()
+                days = 7 if layout == "whats-next-view" else 1
+                html_content = self.web_server.get_calendar_html(days)
                 self._send_json_response(
                     200, {"success": True, "layout": layout, "html": html_content}
                 )
@@ -223,19 +230,44 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             # Cycle through layouts
             new_layout = self.web_server.cycle_layout()
             # Get updated HTML content with new layout
-            html_content = self.web_server.get_calendar_html()
+            days = 7 if new_layout == "whats-next-view" else 1
+            html_content = self.web_server.get_calendar_html(days)
             self._send_json_response(
                 200, {"success": True, "layout": new_layout, "html": html_content}
             )
 
-    def _handle_refresh_api(self) -> None:
-        """Handle refresh API requests."""
+    def _handle_refresh_api(
+        self, params: Optional[Union[Dict[str, List[str]], Dict[str, Any]]] = None
+    ) -> None:
+        """Handle refresh API requests with optional debug time override."""
         if not self.web_server:
             self._send_json_response(500, {"error": "Web server not available"})
             return
 
+        # Extract debug_time if provided (only for whats-next-view layout)
+        debug_time = None
+        current_layout = self.web_server.get_current_layout()
+
+        if current_layout == "whats-next-view" and params:
+            if isinstance(params, dict) and "debug_time" in params:
+                debug_time_value = params["debug_time"]
+                debug_time_str = (
+                    debug_time_value[0]
+                    if isinstance(debug_time_value, list)
+                    else str(debug_time_value)
+                )
+
+                try:
+                    # Parse ISO format debug time
+                    debug_time = datetime.fromisoformat(debug_time_str.replace("Z", "+00:00"))
+                    logger.info(f"Debug mode: Using override time {debug_time.isoformat()}")
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Invalid debug_time format '{debug_time_str}': {e}")
+                    debug_time = None
+
         success = self.web_server.refresh_data()
-        html_content = self.web_server.get_calendar_html()
+        days = 7 if current_layout == "whats-next-view" else 1
+        html_content = self.web_server.get_calendar_html(days, debug_time=debug_time)
         self._send_json_response(200, {"success": success, "html": html_content})
 
     def _handle_status_api(self) -> None:
@@ -246,6 +278,99 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         status = self.web_server.get_status()
         self._send_json_response(200, status)
+
+    def _handle_debug_whats_next_api(
+        self, params: Union[Dict[str, List[str]], Dict[str, Any]]
+    ) -> None:
+        """Handle debug whats-next API requests for setting debug values."""
+        try:
+            # Validate that this is only available for whats-next-view layout
+            if not self.web_server:
+                self._send_json_response(500, {"error": "Web server not available"})
+                return
+
+            current_layout = self.web_server.get_current_layout()
+            if current_layout != "whats-next-view":
+                self._send_json_response(
+                    400,
+                    {
+                        "error": "Debug API only available for whats-next-view layout",
+                        "current_layout": current_layout,
+                    },
+                )
+                return
+
+            # Extract parameters based on request type
+            meeting_title = ""
+            time_until_meeting = 0
+
+            if isinstance(params, dict):
+                if "meetingTitle" in params:
+                    title_value = params["meetingTitle"]
+                    meeting_title = (
+                        title_value[0] if isinstance(title_value, list) else str(title_value)
+                    )
+
+                if "timeUntilMeeting" in params:
+                    time_value = params["timeUntilMeeting"]
+                    time_str = time_value[0] if isinstance(time_value, list) else str(time_value)
+                    try:
+                        time_until_meeting = int(time_str)
+                    except (ValueError, TypeError):
+                        self._send_json_response(
+                            400, {"error": "timeUntilMeeting must be a valid integer"}
+                        )
+                        return
+
+            # Validate input
+            if not meeting_title:
+                self._send_json_response(400, {"error": "meetingTitle is required"})
+                return
+
+            if time_until_meeting < 0:
+                self._send_json_response(400, {"error": "timeUntilMeeting must be non-negative"})
+                return
+
+            if time_until_meeting > 1440:  # More than 24 hours
+                self._send_json_response(
+                    400, {"error": "timeUntilMeeting must be less than 1440 minutes (24 hours)"}
+                )
+                return
+
+            # Security logging for debug API usage
+            self.security_logger.log_input_validation_failure(
+                input_type="debug_api_usage",
+                validation_error="Debug API accessed",  # Not really a failure, but we want to log it
+                details={
+                    "source_ip": self.client_address[0],
+                    "meeting_title": meeting_title,
+                    "time_until_meeting": time_until_meeting,
+                    "current_layout": current_layout,
+                    "endpoint": "/api/debug/whats-next",
+                },
+            )
+
+            logger.info(
+                f"Debug API called: meetingTitle='{meeting_title}', timeUntilMeeting={time_until_meeting}"
+            )
+
+            # Return success response with debug values
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "debug_values": {
+                        "meetingTitle": meeting_title,
+                        "timeUntilMeeting": time_until_meeting,
+                    },
+                    "message": "Debug values set successfully",
+                    "layout": current_layout,
+                },
+            )
+
+        except Exception as e:
+            logger.error(f"Error handling debug whats-next API: {e}")
+            self._send_json_response(500, {"error": str(e)})
 
     def _serve_static_file(self, path: str) -> None:
         """Serve static files (CSS, JS, etc.)."""
@@ -575,8 +700,13 @@ class WebServer:
         # Always ensure running is False
         self.running = False
 
-    def get_calendar_html(self) -> str:
-        """Get current calendar HTML content."""
+    def get_calendar_html(self, days: int = 1, debug_time: Optional[datetime] = None) -> str:
+        """Get current calendar HTML content.
+
+        Args:
+            days: Number of days to fetch events for (default: 1)
+            debug_time: Optional time override for debug mode (whats-next-view only)
+        """
         try:
             logger.debug(f"Navigation state available: {self.navigation_state is not None}")
 
@@ -585,10 +715,10 @@ class WebServer:
                 # Interactive mode - get events for selected date
                 selected_date = self.navigation_state.selected_date
                 start_datetime = datetime.combine(selected_date, datetime.min.time())
-                end_datetime = start_datetime + timedelta(days=1)
+                end_datetime = start_datetime + timedelta(days=days)
 
                 logger.debug(
-                    f"Interactive mode - getting events for {selected_date} ({start_datetime} to {end_datetime})"
+                    f"Interactive mode - getting events for {selected_date} ({start_datetime} to {end_datetime}) [days: {days}]"
                 )
 
                 # Handle async call from sync context properly
@@ -639,10 +769,10 @@ class WebServer:
                 # Non-interactive mode - get today's events
                 today = date.today()
                 start_datetime = datetime.combine(today, datetime.min.time())
-                end_datetime = start_datetime + timedelta(days=1)
+                end_datetime = start_datetime + timedelta(days=days)
 
                 logger.debug(
-                    f"Non-interactive mode - getting events for today {today} ({start_datetime} to {end_datetime})"
+                    f"Non-interactive mode - getting events for today {today} ({start_datetime} to {end_datetime}) [days: {days}]"
                 )
 
                 # Handle async call from sync context properly
@@ -694,7 +824,19 @@ class WebServer:
 
             # Generate HTML using display manager
             if hasattr(self.display_manager.renderer, "render_events"):
-                html_result = self.display_manager.renderer.render_events(events, status_info)
+                # Pass debug_time to renderer if it's a WhatsNextRenderer and debug_time is provided
+                if debug_time and hasattr(
+                    self.display_manager.renderer, "_find_next_upcoming_event"
+                ):
+                    # For WhatsNextRenderer, we need to pass debug_time
+                    logger.debug(
+                        f"Passing debug_time {debug_time.isoformat()} to WhatsNextRenderer"
+                    )
+                    html_result = self.display_manager.renderer.render_events(
+                        events, status_info, debug_time=debug_time
+                    )
+                else:
+                    html_result = self.display_manager.renderer.render_events(events, status_info)
                 logger.debug(f"Generated HTML length: {len(html_result)} characters")
                 return str(html_result)
             else:

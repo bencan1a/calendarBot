@@ -467,7 +467,7 @@ class HTMLRenderer:
         interactive_mode: bool,
         status_info: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """Build the complete HTML template.
+        """Build the complete HTML template with layout-specific customization.
 
         Args:
             display_date: Formatted date string
@@ -475,6 +475,7 @@ class HTMLRenderer:
             events_content: Main events content HTML
             nav_help: Navigation help HTML
             interactive_mode: Whether in interactive mode
+            status_info: Optional status information
 
         Returns:
             Complete HTML document
@@ -484,32 +485,48 @@ class HTMLRenderer:
 
         logger.debug(f"HTML template using layout '{self.layout}' - CSS: {css_url}, JS: {js_url}")
 
+        # Check if this is whats-next-view layout for minimal interface
+        is_minimal_layout = self.layout == "whats-next-view"
+
         # Header navigation with arrow buttons and date
         header_navigation = ""
-        if interactive_mode:
-            header_navigation = f"""
-            <div class="header-navigation">
-                <button onclick="navigate('prev')" title="Previous Day" class="nav-arrow-left">←</button>
-                <div class="header-date">{display_date}</div>
-                <button onclick="navigate('next')" title="Next Day" class="nav-arrow-right">→</button>
-            </div>
-            """
-        else:
-            header_navigation = f"""
-            <div class="header-navigation">
-                <div class="nav-arrow-left"></div>
-                <div class="header-date">{display_date}</div>
-                <div class="nav-arrow-right"></div>
-            </div>
-            """
+        if not is_minimal_layout:  # Skip header navigation for whats-next-view
+            if interactive_mode:
+                header_navigation = f"""
+                <div class="header-navigation">
+                    <button onclick="navigate('prev')" title="Previous Day" class="nav-arrow-left">←</button>
+                    <div class="header-date">{display_date}</div>
+                    <button onclick="navigate('next')" title="Next Day" class="nav-arrow-right">→</button>
+                </div>
+                """
+            else:
+                header_navigation = f"""
+                <div class="header-navigation">
+                    <div class="nav-arrow-left"></div>
+                    <div class="header-date">{display_date}</div>
+                    <div class="nav-arrow-right"></div>
+                </div>
+                """
 
         # Footer navigation help
         footer_content = ""
-        if interactive_mode and nav_help:
+        if (
+            not is_minimal_layout and interactive_mode and nav_help
+        ):  # Skip footer for whats-next-view
             footer_content = f'<footer class="footer">{nav_help}</footer>'
 
         # Generate layout-aware viewport meta tag
         viewport_content = self._generate_viewport_meta_tag()
+
+        # Build header section - only include for non-minimal layouts
+        header_section = ""
+        if not is_minimal_layout:
+            header_section = f"""
+    <header class="calendar-header">
+        {header_navigation}
+
+        <div class="status-line">{status_line}</div>
+    </header>"""
 
         return f"""<!DOCTYPE html>
 <html lang="en" class="layout-{self.layout}">
@@ -519,12 +536,7 @@ class HTMLRenderer:
     <title>📅 Calendar Bot - {display_date}</title>
     <link rel="stylesheet" href="{css_url}">
 </head>
-<body>
-    <header class="calendar-header">
-        {header_navigation}
-
-        <div class="status-line">{status_line}</div>
-    </header>
+<body>{header_section}
 
     <main class="calendar-content">
         {events_content}
@@ -570,12 +582,14 @@ class HTMLRenderer:
         """Get fallback CSS URL path for the current layout.
 
         Returns:
-            CSS URL path (e.g., 'layouts/3x4/3x4.css', 'layouts/4x8/4x8.css')
+            CSS URL path (e.g., 'layouts/3x4/3x4.css', 'layouts/4x8/4x8.css', 'layouts/whats-next-view/whats-next-view.css')
         """
         if self.layout == "3x4":
             return "layouts/3x4/3x4.css"
         elif self.layout == "4x8":
             return "layouts/4x8/4x8.css"
+        elif self.layout == "whats-next-view":
+            return "layouts/whats-next-view/whats-next-view.css"
         else:  # Default fallback
             return "layouts/4x8/4x8.css"
 
@@ -583,12 +597,14 @@ class HTMLRenderer:
         """Get fallback JavaScript URL path for the current layout.
 
         Returns:
-            JavaScript URL path (e.g., 'layouts/3x4/3x4.js', 'layouts/4x8/4x8.js')
+            JavaScript URL path (e.g., 'layouts/3x4/3x4.js', 'layouts/4x8/4x8.js', 'layouts/whats-next-view/whats-next-view.js')
         """
         if self.layout == "3x4":
             return "layouts/3x4/3x4.js"
         elif self.layout == "4x8":
             return "layouts/4x8/4x8.js"
+        elif self.layout == "whats-next-view":
+            return "layouts/whats-next-view/whats-next-view.js"
         else:  # Default fallback
             return "layouts/4x8/4x8.js"
 

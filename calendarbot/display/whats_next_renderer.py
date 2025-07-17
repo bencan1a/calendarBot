@@ -90,13 +90,41 @@ class WhatsNextRenderer(HTMLRenderer):
         try:
             from ..utils.helpers import get_timezone_aware_now
 
-            now = get_timezone_aware_now()
+            # Use debug time override if available, otherwise use real time
+            if hasattr(self, "_debug_time") and self._debug_time:
+                now = self._debug_time
+                logger.debug(
+                    f"DIAGNOSTIC WHATS_NEXT: Using DEBUG TIME override for filtering: {now}"
+                )
+            else:
+                now = get_timezone_aware_now()
+                logger.debug(f"DIAGNOSTIC WHATS_NEXT: Using REAL TIME for filtering: {now}")
+
+            logger.debug(f"DIAGNOSTIC WHATS_NEXT: Current time for filtering: {now}")
+            logger.debug(f"DIAGNOSTIC WHATS_NEXT: Total events to filter: {len(events)}")
+
+            # Log all events with their times for debugging
+            for i, event in enumerate(events):
+                logger.debug(
+                    f"DIAGNOSTIC WHATS_NEXT: Event {i}: {event.subject} | Start: {event.start_dt} | Current: {event.is_current()}"
+                )
+                logger.debug(
+                    f"DIAGNOSTIC WHATS_NEXT: Event {i} start > now? {event.start_dt > now}"
+                )
 
             # Filter to only upcoming events (not current)
             upcoming_events = [e for e in events if e.start_dt > now]
 
+            logger.debug(
+                f"DIAGNOSTIC WHATS_NEXT: Upcoming events after filtering: {len(upcoming_events)}"
+            )
+
             if not upcoming_events:
-                logger.debug("No upcoming events found")
+                logger.debug(
+                    "DIAGNOSTIC WHATS_NEXT: No upcoming events found - checking current events"
+                )
+                current_events = [e for e in events if e.is_current()]
+                logger.debug(f"DIAGNOSTIC WHATS_NEXT: Current events found: {len(current_events)}")
                 return None
 
             # Sort by start time and return the first (earliest)
@@ -104,7 +132,7 @@ class WhatsNextRenderer(HTMLRenderer):
             next_event = upcoming_events[0]
 
             logger.debug(
-                f"Found next upcoming event: {next_event.subject} at {next_event.start_dt}"
+                f"DIAGNOSTIC WHATS_NEXT: Found next upcoming event: {next_event.subject} at {next_event.start_dt}"
             )
             return next_event
 
@@ -143,18 +171,27 @@ class WhatsNextRenderer(HTMLRenderer):
             return f'<div class="error">Error rendering event: {self._escape_html(str(e))}</div>'
 
     def render_events(
-        self, events: List[CachedEvent], status_info: Optional[Dict[str, Any]] = None
+        self,
+        events: List[CachedEvent],
+        status_info: Optional[Dict[str, Any]] = None,
+        debug_time: Optional[datetime] = None,
     ) -> str:
         """Render events to formatted HTML output for What's Next view.
 
         Args:
             events: List of cached events to display
             status_info: Additional status information
+            debug_time: Optional time override for debug mode
 
         Returns:
             Formatted HTML string for What's Next display
         """
         logger.debug(f"WhatsNextRenderer.render_events called with {len(events)} events")
+        if debug_time:
+            logger.debug(f"WhatsNextRenderer: Using debug time override: {debug_time.isoformat()}")
+
+        # Store debug_time for use in _find_next_upcoming_event
+        self._debug_time = debug_time
 
         # Use the parent implementation but with our overridden _render_events_content
         try:
@@ -162,3 +199,6 @@ class WhatsNextRenderer(HTMLRenderer):
         except Exception as e:
             logger.error(f"Error in WhatsNextRenderer.render_events: {e}")
             return self._render_error_html(f"Error rendering What's Next view: {e}")
+        finally:
+            # Clean up debug_time after rendering
+            self._debug_time = None

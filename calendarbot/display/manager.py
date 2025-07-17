@@ -399,7 +399,7 @@ class DisplayManager:
         }
 
     def set_layout(self, layout_name: str) -> bool:
-        """Change the layout while keeping the same renderer.
+        """Change the layout and recreate renderer if necessary.
 
         Args:
             layout_name: New layout name to use
@@ -417,17 +417,59 @@ class DisplayManager:
                 logger.warning(f"Layout validation failed: {e}")
                 return False
 
-        # Update settings
-        self.settings.layout_name = layout_name
-        if hasattr(self.settings, "web_layout"):
-            self.settings.web_layout = layout_name
+        # Check if we need to recreate the renderer for whats-next-view layout
+        current_renderer_type = getattr(self.settings, "display_type", "html")
 
-        # Update renderer's layout attribute if it has one
-        if self.renderer and hasattr(self.renderer, "layout"):
-            self.renderer.layout = layout_name
+        try:
+            # Special handling for whats-next-view layout: use WhatsNextRenderer
+            if layout_name == "whats-next-view":
+                logger.info("Switching to whats-next-view layout, using WhatsNextRenderer")
+                effective_renderer_type = "whats-next"
 
-        logger.debug(f"Layout changed to: {layout_name}")
-        return True
+                # Create new WhatsNextRenderer using factory
+                new_renderer = self.renderer_factory.create_renderer(
+                    settings=self.settings,
+                    renderer_type=effective_renderer_type,
+                    layout_name=layout_name,
+                )
+                self.renderer = new_renderer
+                logger.info(f"Created {new_renderer.__class__.__name__} for whats-next-view layout")
+
+            else:
+                # For other layouts, check if we're switching from whats-next-view back to regular layout
+                current_layout = getattr(self.settings, "layout_name", None)
+                if current_layout == "whats-next-view" and layout_name != "whats-next-view":
+                    logger.info(
+                        f"Switching from whats-next-view to {layout_name}, recreating renderer"
+                    )
+
+                    # Recreate regular renderer (HTML renderer for most cases)
+                    new_renderer = self.renderer_factory.create_renderer(
+                        settings=self.settings,
+                        renderer_type=current_renderer_type,
+                        layout_name=layout_name,
+                    )
+                    self.renderer = new_renderer
+                    logger.info(
+                        f"Created {new_renderer.__class__.__name__} for {layout_name} layout"
+                    )
+
+                else:
+                    # For regular layout changes, just update renderer's layout attribute if it has one
+                    if self.renderer and hasattr(self.renderer, "layout"):
+                        self.renderer.layout = layout_name
+
+            # Update settings
+            self.settings.layout_name = layout_name
+            if hasattr(self.settings, "web_layout"):
+                self.settings.web_layout = layout_name
+
+            logger.debug(f"Layout changed to: {layout_name}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to change layout to {layout_name}: {e}")
+            return False
 
     def get_current_layout(self) -> Optional[str]:
         """Get the current layout name.
