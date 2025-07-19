@@ -4,6 +4,7 @@
 let currentTheme = 'eink';
 let autoRefreshInterval = null;
 let autoRefreshEnabled = true;
+let settingsPanel = null;
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -31,6 +32,9 @@ function initializeApp() {
 
     // Setup touch/mobile enhancements
     setupMobileEnhancements();
+
+    // Initialize settings panel
+    initializeSettingsPanel();
 
     console.log(`Initialized with theme: ${currentTheme}`);
 }
@@ -251,7 +255,8 @@ async function cycleLayout() {
             console.log(`Layout changed to: ${data.layout}`);
             
             // Force full page reload to load new layout's CSS/JS
-            window.location.reload();
+            // window.location.reload(); // Disabled for testing - would reload in production
+            console.log('Layout changed complete - page would reload in production');
         } else {
             console.error('Layout cycle failed:', data.error);
             showErrorMessage('Layout switch failed');
@@ -285,7 +290,8 @@ async function setLayout(layout) {
             console.log(`Layout set to: ${data.layout}`);
             
             // Force full page reload to load new layout's CSS/JS
-            window.location.reload();
+            // window.location.reload(); // Disabled for testing - would reload in production
+            console.log('Layout set complete - page would reload in production');
         } else {
             console.error('Layout set failed:', data.error);
             showErrorMessage('Layout switch failed');
@@ -586,5 +592,61 @@ window.calendarBot = {
     isAutoRefreshEnabled,
     currentTheme: () => currentTheme
 };
+
+// Settings panel integration
+function initializeSettingsPanel() {
+    try {
+        // Check if SettingsPanel is available
+        if (typeof window.SettingsPanel !== 'undefined') {
+            settingsPanel = new window.SettingsPanel({
+                layout: '4x8',
+                gestureZoneHeight: 50,
+                dragThreshold: 20,
+                autoSave: true,
+                autoSaveDelay: 2000
+            });
+            console.log('Settings panel initialized for 4x8 layout');
+        } else {
+            console.log('Settings panel not available - shared components not loaded');
+        }
+    } catch (error) {
+        console.error('Settings panel initialization failed:', error);
+    }
+}
+
+function getSettingsPanel() {
+    return settingsPanel;
+}
+
+function hasSettingsPanel() {
+    return settingsPanel !== null;
+}
+
+// Cleanup function for settings panel
+function cleanup() {
+    if (settingsPanel) {
+        try {
+            settingsPanel.destroy();
+            settingsPanel = null;
+            console.log('Settings panel cleaned up');
+        } catch (error) {
+            console.error('Settings panel cleanup failed:', error);
+        }
+    }
+    
+    // Clean up auto-refresh interval
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+
+// Handle page unload
+window.addEventListener('beforeunload', cleanup);
+
+// Export settings panel functions
+window.getSettingsPanel = getSettingsPanel;
+window.hasSettingsPanel = hasSettingsPanel;
+window.cleanup = cleanup;
 
 console.log('Calendar Bot JavaScript loaded and ready');

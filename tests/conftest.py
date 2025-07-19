@@ -404,6 +404,71 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "smoke: Basic smoke tests")
 
 
+# Settings model fixtures for API tests
+@pytest.fixture
+def sample_settings_data():
+    """Create sample SettingsData for testing."""
+    from calendarbot.settings.models import (
+        ConflictResolutionSettings,
+        DisplaySettings,
+        EventFilterSettings,
+        SettingsData,
+    )
+
+    return SettingsData(
+        event_filters=EventFilterSettings(
+            enabled_patterns=[], disabled_patterns=[], case_sensitive=False
+        ),
+        display=DisplaySettings(
+            show_location=True, show_time_remaining=True, compact_mode=False, max_title_length=50
+        ),
+        conflict_resolution=ConflictResolutionSettings(
+            strategy="priority", auto_resolve=False, preferred_calendar=None
+        ),
+    )
+
+
+@pytest.fixture
+def sample_event_filter_settings():
+    """Create sample EventFilterSettings for testing."""
+    from calendarbot.settings.models import EventFilterSettings
+
+    return EventFilterSettings(enabled_patterns=[], disabled_patterns=[], case_sensitive=False)
+
+
+@pytest.fixture
+def sample_display_settings():
+    """Create sample DisplaySettings for testing."""
+    from calendarbot.settings.models import DisplaySettings
+
+    return DisplaySettings(
+        show_location=True, show_time_remaining=True, compact_mode=False, max_title_length=50
+    )
+
+
+@pytest.fixture
+def sample_conflict_resolution_settings():
+    """Create sample ConflictResolutionSettings for testing."""
+    from calendarbot.settings.models import ConflictResolutionSettings
+
+    return ConflictResolutionSettings(
+        strategy="priority", auto_resolve=False, preferred_calendar=None
+    )
+
+
+@pytest.fixture
+def sample_filter_pattern():
+    """Create sample FilterPattern for testing."""
+    from calendarbot.settings.models import FilterPattern
+
+    return FilterPattern(
+        pattern="test_pattern",
+        is_regex=False,
+        case_sensitive=False,
+        description="Test pattern for filtering",
+    )
+
+
 # Ensure clean test isolation
 @pytest.fixture(autouse=True)
 def clean_test_environment():

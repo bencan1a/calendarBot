@@ -73,7 +73,13 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         bottom_status_bar = self._generate_bottom_status_bar(status_line)
 
         # Dynamic resource loading using inherited ResourceManager
-        css_file, js_file = self._get_dynamic_resources()
+        css_files, js_files = self._get_dynamic_resources()
+
+        # Generate link and script tags for multiple files
+        css_links = "\n    ".join(
+            [f'<link rel="stylesheet" href="/static/{css}">' for css in css_files]
+        )
+        js_scripts = "\n    ".join([f'<script src="/static/{js}"></script>' for js in js_files])
 
         return f"""<!DOCTYPE html>
 <html lang="en" class="layout-{self.layout}">
@@ -81,7 +87,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
     <meta charset="utf-8">
     <meta name="viewport" content="width=480, height=800, initial-scale=1.0, user-scalable=no">
     <title>📅 Calendar Bot - {display_date}</title>
-    <link rel="stylesheet" href="/static/{css_file}">
+    {css_links}
 </head>
 <body>
     <div class="calendar-container">
@@ -96,7 +102,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         {bottom_status_bar}
     </div>
 
-    <script src="/static/{js_file}"></script>
+    {js_scripts}
 </body>
 </html>"""
 

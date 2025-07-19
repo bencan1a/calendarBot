@@ -766,7 +766,7 @@ class TestHTMLRendererHTMLTemplate:
     @patch.object(HTMLRenderer, "_get_dynamic_resources")
     def test_build_html_template_interactive_mode(self, mock_dynamic_resources: Any) -> None:
         """Test HTML template building in interactive mode."""
-        mock_dynamic_resources.return_value = ("style.css", "app.js")
+        mock_dynamic_resources.return_value = (["style.css"], ["app.js"])
 
         result = self.renderer._build_html_template(
             display_date="Friday, December 15",
@@ -788,7 +788,7 @@ class TestHTMLRendererHTMLTemplate:
     @patch.object(HTMLRenderer, "_get_dynamic_resources")
     def test_build_html_template_static_mode(self, mock_dynamic_resources: Any) -> None:
         """Test HTML template building in static mode."""
-        mock_dynamic_resources.return_value = ("3x4.css", "3x4.js")
+        mock_dynamic_resources.return_value = (["3x4.css"], ["3x4.js"])
 
         result = self.renderer._build_html_template(
             display_date="Monday, December 18",

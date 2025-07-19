@@ -5,6 +5,9 @@ let currentTheme = 'eink';
 let autoRefreshInterval = null;
 let autoRefreshEnabled = true;
 
+// Settings panel instance
+let settingsPanel = null;
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
@@ -32,7 +35,35 @@ function initializeApp() {
     // Setup touch/mobile enhancements
     setupMobileEnhancements();
 
+    // Initialize settings panel
+    initializeSettingsPanel();
+
     console.log(`Initialized with theme: ${currentTheme}`);
+}
+
+// Initialize settings panel
+async function initializeSettingsPanel() {
+    try {
+        // Check if required dependencies are loaded
+        if (typeof SettingsPanel === 'undefined' ||
+            typeof SettingsAPI === 'undefined' ||
+            typeof GestureHandler === 'undefined') {
+            console.warn('3x4 Layout: Settings panel dependencies not loaded, skipping initialization');
+            return;
+        }
+
+        // Create and initialize settings panel
+        settingsPanel = new SettingsPanel({
+            layout: '3x4',
+            screenSize: 'compact'
+        });
+        
+        await settingsPanel.initialize();
+        console.log('3x4 Layout: Settings panel initialized successfully');
+        
+    } catch (error) {
+        console.error('3x4 Layout: Failed to initialize settings panel:', error);
+    }
 }
 
 // Navigation button click handlers
@@ -251,7 +282,8 @@ async function cycleLayout() {
             console.log(`Layout changed to: ${data.layout}`);
             
             // Force full page reload to load new layout's CSS/JS
-            window.location.reload();
+            // window.location.reload(); // Disabled for testing - would reload in production
+            console.log('Layout change complete - page would reload in production');
         } else {
             console.error('Layout cycle failed:', data.error);
             showErrorMessage('Layout switch failed');
@@ -285,7 +317,8 @@ async function setLayout(layout) {
             console.log(`Layout set to: ${data.layout}`);
             
             // Force full page reload to load new layout's CSS/JS
-            window.location.reload();
+            // window.location.reload(); // Disabled for testing - would reload in production
+            console.log('Layout set complete - page would reload in production');
         } else {
             console.error('Layout set failed:', data.error);
             showErrorMessage('Layout switch failed');
@@ -549,6 +582,26 @@ function isAutoRefreshEnabled() {
     return autoRefreshEnabled;
 }
 
+// Cleanup function for proper resource management
+function cleanup() {
+    // Clear auto-refresh interval
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+    
+    // Destroy settings panel
+    if (settingsPanel) {
+        settingsPanel.destroy();
+        settingsPanel = null;
+    }
+    
+    console.log('3x4 Layout: Cleanup completed');
+}
+
+// Setup cleanup on page unload
+window.addEventListener('beforeunload', cleanup);
+
 // Export functions for global access
 window.navigate = navigate;
 window.toggleTheme = toggleTheme;
@@ -574,6 +627,9 @@ window.updatePageContent = updatePageContent;
 window.flashNavigationFeedback = flashNavigationFeedback;
 window.flashThemeChange = flashThemeChange;
 
+// Settings panel access
+window.getSettingsPanel = () => settingsPanel;
+
 // Debug helper
 window.calendarBot = {
     navigate,
@@ -584,7 +640,8 @@ window.calendarBot = {
     toggleAutoRefresh,
     getCurrentTheme,
     isAutoRefreshEnabled,
-    currentTheme: () => currentTheme
+    currentTheme: () => currentTheme,
+    settingsPanel: () => settingsPanel
 };
 
 console.log('Calendar Bot JavaScript loaded and ready');

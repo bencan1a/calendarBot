@@ -481,9 +481,9 @@ class HTMLRenderer:
             Complete HTML document
         """
         # Dynamic resource loading using ResourceManager
-        css_url, js_url = self._get_dynamic_resources()
+        css_urls, js_urls = self._get_dynamic_resources()
 
-        logger.debug(f"HTML template using layout '{self.layout}' - CSS: {css_url}, JS: {js_url}")
+        logger.debug(f"HTML template using layout '{self.layout}' - CSS: {css_urls}, JS: {js_urls}")
 
         # Check if this is whats-next-view layout for minimal interface
         is_minimal_layout = self.layout == "whats-next-view"
@@ -518,6 +518,18 @@ class HTMLRenderer:
         # Generate layout-aware viewport meta tag
         viewport_content = self._generate_viewport_meta_tag()
 
+        # Build CSS link tags
+        css_links = []
+        for css_url in css_urls:
+            css_links.append(f'    <link rel="stylesheet" href="{css_url}">')
+        css_links_html = "\n".join(css_links)
+
+        # Build JS script tags
+        js_scripts = []
+        for js_url in js_urls:
+            js_scripts.append(f'    <script src="{js_url}"></script>')
+        js_scripts_html = "\n".join(js_scripts)
+
         # Build header section - only include for non-minimal layouts
         header_section = ""
         if not is_minimal_layout:
@@ -534,7 +546,7 @@ class HTMLRenderer:
     <meta charset="utf-8">
     <meta name="viewport" content="{viewport_content}">
     <title>📅 Calendar Bot - {display_date}</title>
-    <link rel="stylesheet" href="{css_url}">
+{css_links_html}
 </head>
 <body>{header_section}
 
@@ -544,15 +556,15 @@ class HTMLRenderer:
 
     {footer_content}
 
-    <script src="{js_url}"></script>
+{js_scripts_html}
 </body>
 </html>"""
 
-    def _get_dynamic_resources(self) -> Tuple[str, str]:
+    def _get_dynamic_resources(self) -> Tuple[List[str], List[str]]:
         """Get CSS and JS file paths using ResourceManager.
 
         Returns:
-            Tuple of (css_url, js_url) for web static serving with full paths
+            Tuple of (css_urls_list, js_urls_list) for web static serving with full paths
         """
         if self.resource_manager is not None:
             try:
@@ -560,23 +572,31 @@ class HTMLRenderer:
                 css_urls = self.resource_manager.get_css_urls(self.layout)
                 js_urls = self.resource_manager.get_js_urls(self.layout)
 
-                # Use full URLs for proper path resolution
-                css_url = css_urls[0] if css_urls else self._get_fallback_css_url()
-                js_url = js_urls[0] if js_urls else self._get_fallback_js_url()
+                # Add shared settings panel resources
+                shared_css_urls = ["/static/shared/css/settings-panel.css"]
+                shared_js_urls = [
+                    "/static/shared/js/settings-api.js",
+                    "/static/shared/js/gesture-handler.js",
+                    "/static/shared/js/settings-panel.js",
+                ]
 
-                logger.debug(f"ResourceManager provided: CSS={css_url}, JS={js_url}")
-                return css_url, js_url
+                # Combine shared resources with layout-specific resources
+                all_css_urls = shared_css_urls + css_urls
+                all_js_urls = shared_js_urls + js_urls
+
+                logger.debug(f"ResourceManager provided: CSS={all_css_urls}, JS={all_js_urls}")
+                return all_css_urls, all_js_urls
 
             except LayoutNotFoundError:
                 logger.warning(f"Layout '{self.layout}' not found in registry, using fallback")
             except Exception as e:
                 logger.warning(f"Failed to get resources from ResourceManager: {e}, using fallback")
 
-        # Fallback to full URL paths
-        css_url = self._get_fallback_css_url()
-        js_url = self._get_fallback_js_url()
-        logger.debug(f"Using fallback resources: CSS={css_url}, JS={js_url}")
-        return css_url, js_url
+        # Fallback to single URL paths
+        css_urls = [self._get_fallback_css_url()]
+        js_urls = [self._get_fallback_js_url()]
+        logger.debug(f"Using fallback resources: CSS={css_urls}, JS={js_urls}")
+        return css_urls, js_urls
 
     def _get_fallback_css_url(self) -> str:
         """Get fallback CSS URL path for the current layout.
