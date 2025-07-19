@@ -1,40 +1,78 @@
 /**
- * Jest configuration for CalendarBot JavaScript testing
- * Tests the web interface JavaScript files for calendar layouts
+ * @fileoverview Jest configuration for CalendarBot JavaScript testing
+ * Clean configuration for 80% coverage target across layout and shared modules
  */
+
 module.exports = {
   // Test environment
   testEnvironment: 'jsdom',
   
   // Test file patterns
   testMatch: [
-    '**/tests/__tests__/**/*.test.{js,jsx}',
-    '**/__tests__/**/*.{js,jsx}',
-    '**/*.test.{js,jsx}'
+    '<rootDir>/tests/**/*.test.js'
   ],
-
-  // Setup files
-  setupFilesAfterEnv: ['<rootDir>/tests/__tests__/setup.test.js'],
-
-  // Module file extensions
-  moduleFileExtensions: ['js', 'jsx', 'json'],
-
-  // Transform configuration (if needed for ES6+ features)
-  transform: {
-    '^.+\\.(js|jsx)$': 'babel-jest'
-  },
-
-  // Module name mapping for static files and styles
-  moduleNameMapper: {
-    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
-    '\\.(gif|ttf|eot|svg|png|jpg|jpeg)$': '<rootDir>/tests/__mocks__/fileMock.js'
-  },
-
+  
   // Coverage configuration
   collectCoverage: true,
-  coverageDirectory: 'coverage'
-
-  // Global setup/teardown if needed
-  // globalSetup: '<rootDir>/tests/__tests__/globalSetup.js',
-  // globalTeardown: '<rootDir>/tests/__tests__/globalTeardown.js'
+  collectCoverageFrom: [
+    'calendarbot/web/static/shared/js/**/*.js',
+    'calendarbot/web/static/layouts/**/*.js',
+    '!**/*.min.js',
+    '!**/node_modules/**',
+    '!**/vendor/**'
+  ],
+  
+  coverageDirectory: 'tests/coverage',
+  
+  coverageReporters: [
+    'text',
+    'lcov',
+    'html'
+  ],
+  
+  coverageThreshold: {
+    global: {
+      branches: 60,
+      functions: 60,
+      lines: 60,
+      statements: 60
+    }
+  },
+  
+  // Transform configuration
+  transform: {
+    '^.+\\.js$': 'babel-jest'
+  },
+  
+  // Test timeout
+  testTimeout: 10000,
+  
+  // Clear mocks between tests
+  clearMocks: true,
+  
+  // Setup files
+  setupFilesAfterEnv: [
+    '<rootDir>/tests/__tests__/jest-setup.js'
+  ],
+  
+  // Cache directory
+  cacheDirectory: './tests/.jest-cache',
+  
+  // Module file extensions
+  moduleFileExtensions: [
+    'js',
+    'json'
+  ],
+  
+  // Test paths to ignore
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/tests/coverage/',
+    '/tests/.jest-cache/'
+  ],
+  
+  // Custom test environment options
+  testEnvironmentOptions: {
+    url: 'http://192.168.1.45:8080'
+  }
 };

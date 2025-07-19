@@ -57,7 +57,7 @@ class TestDynamicResourceIntegration:
 
             # Mock _get_dynamic_resources to return the expected values
             with patch.object(
-                renderer, "_get_dynamic_resources", return_value=("4x8.css", "4x8.js")
+                renderer, "_get_dynamic_resources", return_value=(["4x8.css"], ["4x8.js"])
             ):
                 result = renderer._build_html_template(
                     display_date="Test Date",
@@ -130,10 +130,11 @@ class TestDynamicResourceIntegration:
             renderer = HTMLRenderer(settings)
 
             # Get resources using the actual method
-            css_file, js_file = renderer._get_dynamic_resources()
+            css_files, js_files = renderer._get_dynamic_resources()
 
-            assert expected_css in css_file
-            assert expected_js in js_file
+            # Check if expected file is in the returned list
+            assert any(expected_css in css_file for css_file in css_files)
+            assert any(expected_js in js_file for js_file in js_files)
 
 
 class TestLayoutRendererSeparation:

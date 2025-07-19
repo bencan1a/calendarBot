@@ -290,11 +290,7 @@ source = ["calendarbot"]
 branch = true
 parallel = true
 
-# Files to include in coverage analysis
-include = [
-    "calendarbot/*",
-    "config/*"
-]
+# Note: include is not needed when source is set - source already specifies what to include
 
 # Files to exclude from coverage analysis
 omit = [

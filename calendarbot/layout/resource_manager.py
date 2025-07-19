@@ -161,15 +161,27 @@ class ResourceManager:
             css_urls = self.get_css_urls(layout_name)
             js_urls = self.get_js_urls(layout_name)
 
+            # Add shared settings panel resources
+            shared_css_urls = [f"{self.base_url}/shared/css/settings-panel.css"]
+            shared_js_urls = [
+                f"{self.base_url}/shared/js/settings-api.js",
+                f"{self.base_url}/shared/js/gesture-handler.js",
+                f"{self.base_url}/shared/js/settings-panel.js",
+            ]
+
+            # Combine layout-specific and shared resources
+            all_css_urls = shared_css_urls + css_urls
+            all_js_urls = shared_js_urls + js_urls
+
             # Build CSS link tags
             css_links = []
-            for css_url in css_urls:
+            for css_url in all_css_urls:
                 css_links.append(f'<link rel="stylesheet" type="text/css" href="{css_url}">')
             css_html = "\n    ".join(css_links)
 
             # Build JS script tags
             js_scripts = []
-            for js_url in js_urls:
+            for js_url in all_js_urls:
                 js_scripts.append(f'<script src="{js_url}"></script>')
             js_html = "\n    ".join(js_scripts)
 

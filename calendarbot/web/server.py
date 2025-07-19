@@ -9,12 +9,14 @@ from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Union
 from urllib.parse import parse_qs, urlparse
 
 from ..layout.registry import LayoutRegistry
 from ..layout.resource_manager import ResourceManager
 from ..security.logging import SecurityEventLogger
+from ..settings.exceptions import SettingsError, SettingsPersistenceError, SettingsValidationError
+from ..settings.service import SettingsService
 from ..utils.process import auto_cleanup_before_start
 
 logger = logging.getLogger(__name__)
@@ -24,9 +26,40 @@ class WebRequestHandler(BaseHTTPRequestHandler):
     """HTTP request handler for calendar web interface."""
 
     def __init__(self, *args: Any, web_server: Optional["WebServer"] = None, **kwargs: Any) -> None:
+        """Initialize WebRequestHandler for both production and test contexts.
+
+        Args:
+            *args: Variable arguments passed by HTTP server (request, client_address, server)
+                  When called by HTTP server, contains 3 required arguments.
+                  When called directly in tests, may be empty.
+            web_server: Optional WebServer instance for accessing application services
+            **kwargs: Additional keyword arguments
+
+        Note:
+            This constructor handles both production HTTP server instantiation and
+            direct test instantiation. The parent BaseHTTPRequestHandler.__init__
+            is only called when the required HTTP server arguments are present.
+        """
         self.web_server = web_server
         self.security_logger = SecurityEventLogger()
-        super().__init__(*args, **kwargs)
+
+        # Only call parent constructor if we have the required HTTP server arguments
+        # BaseHTTPRequestHandler requires: request, client_address, server
+        if len(args) >= 3:
+            # Production context: called by HTTP server with required arguments
+            super().__init__(*args, **kwargs)
+        else:
+            # Test context: called directly without HTTP server arguments
+            # Initialize required attributes that parent constructor would set
+            self.request = None
+            self.client_address = None  # type: ignore[assignment]
+            self.server = None  # type: ignore[assignment]
+            self.rfile = None  # type: ignore[assignment]
+            self.wfile = None  # type: ignore[assignment]
+            self.headers = None  # type: ignore[assignment]
+            self.command = None  # type: ignore[assignment]
+            self.path = None  # type: ignore[assignment]
+            self.version = None
 
     def do_GET(self) -> None:
         """Handle GET requests."""
@@ -111,6 +144,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._handle_status_api()
             elif path == "/api/debug/whats-next":
                 self._handle_debug_whats_next_api(params)
+            elif path.startswith("/api/settings"):
+                self._handle_settings_api(path, params)
             else:
                 self._send_json_response(404, {"error": "API endpoint not found"})
 
@@ -372,6 +407,467 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.error(f"Error handling debug whats-next API: {e}")
             self._send_json_response(500, {"error": str(e)})
 
+    def _handle_settings_api(
+        self, path: str, params: Union[Dict[str, List[str]], Dict[str, Any]]
+    ) -> None:
+        """Handle settings API requests with comprehensive endpoint support.
+
+        Args:
+            path: API endpoint path
+            params: Request parameters (query params for GET, JSON data for POST/PUT)
+        """
+        try:
+            if not self.web_server or not self.web_server.settings_service:
+                self._send_json_response(
+                    503,
+                    {
+                        "error": "Settings service not available",
+                        "message": "Settings functionality is currently unavailable",
+                    },
+                )
+                return
+
+            settings_service = self.web_server.settings_service
+            method = self.command  # GET, POST, PUT, etc.
+
+            # Route to specific settings endpoint handlers
+            if path == "/api/settings":
+                if method == "GET":
+                    self._handle_get_settings(settings_service)
+                elif method == "PUT":
+                    self._handle_update_settings(settings_service, params)
+                else:
+                    self._send_json_response(405, {"error": "Method not allowed"})
+
+            elif path == "/api/settings/filters":
+                if method == "GET":
+                    self._handle_get_filter_settings(settings_service)
+                elif method == "PUT":
+                    self._handle_update_filter_settings(settings_service, params)
+                else:
+                    self._send_json_response(405, {"error": "Method not allowed"})
+
+            elif path == "/api/settings/display":
+                if method == "GET":
+                    self._handle_get_display_settings(settings_service)
+                elif method == "PUT":
+                    self._handle_update_display_settings(settings_service, params)
+                else:
+                    self._send_json_response(405, {"error": "Method not allowed"})
+
+            elif path == "/api/settings/conflicts":
+                if method == "GET":
+                    self._handle_get_conflict_settings(settings_service)
+                elif method == "PUT":
+                    self._handle_update_conflict_settings(settings_service, params)
+                else:
+                    self._send_json_response(405, {"error": "Method not allowed"})
+
+            elif path == "/api/settings/validate":
+                if method == "POST":
+                    self._handle_validate_settings(settings_service, params)
+                else:
+                    self._send_json_response(405, {"error": "Method not allowed"})
+
+            elif path == "/api/settings/export":
+                if method == "GET":
+                    self._handle_export_settings(settings_service)
+                else:
+                    self._send_json_response(405, {"error": "Method not allowed"})
+
+            elif path == "/api/settings/import":
+                if method == "POST":
+                    self._handle_import_settings(settings_service, params)
+                else:
+                    self._send_json_response(405, {"error": "Method not allowed"})
+
+            elif path == "/api/settings/reset":
+                if method == "POST":
+                    self._handle_reset_settings(settings_service)
+                else:
+                    self._send_json_response(405, {"error": "Method not allowed"})
+
+            elif path == "/api/settings/info":
+                if method == "GET":
+                    self._handle_get_settings_info(settings_service)
+                else:
+                    self._send_json_response(405, {"error": "Method not allowed"})
+
+            elif path == "/api/settings/filters/patterns":
+                if method == "POST":
+                    self._handle_add_filter_pattern(settings_service, params)
+                elif method == "DELETE":
+                    self._handle_remove_filter_pattern(settings_service, params)
+                else:
+                    self._send_json_response(405, {"error": "Method not allowed"})
+
+            else:
+                self._send_json_response(404, {"error": "Settings API endpoint not found"})
+
+        except Exception as e:
+            logger.error(f"Error handling settings API request: {e}")
+            self._send_json_response(500, {"error": str(e)})
+
+    def _handle_get_settings(self, settings_service: SettingsService) -> None:
+        """Handle GET /api/settings - get complete settings."""
+        try:
+            settings = settings_service.get_settings()
+            self._send_json_response(200, {"success": True, "data": settings.to_api_dict()})
+        except SettingsError as e:
+            self._send_json_response(500, {"error": "Failed to get settings", "message": str(e)})
+
+    def _handle_update_settings(
+        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+    ) -> None:
+        """Handle PUT /api/settings - update complete settings."""
+        try:
+            # params is always a dict due to Union[Dict[str, List[str]], Dict[str, Any]]
+            # Validate that params contains the expected structure for settings update
+            if not params:
+                self._send_json_response(400, {"error": "Invalid request data"})
+                return
+
+            from ..settings.models import SettingsData
+
+            settings = SettingsData(**params)
+            updated_settings = settings_service.update_settings(settings)
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "message": "Settings updated successfully",
+                    "data": updated_settings.to_api_dict(),
+                },
+            )
+        except SettingsValidationError as e:
+            self._send_json_response(
+                400,
+                {
+                    "error": "Settings validation failed",
+                    "message": str(e),
+                    "validation_errors": e.validation_errors,
+                },
+            )
+        except SettingsError as e:
+            self._send_json_response(500, {"error": "Failed to update settings", "message": str(e)})
+
+    def _handle_get_filter_settings(self, settings_service: SettingsService) -> None:
+        """Handle GET /api/settings/filters - get filter settings."""
+        try:
+            filters = settings_service.get_filter_settings()
+            self._send_json_response(200, {"success": True, "data": filters.dict()})
+        except SettingsError as e:
+            self._send_json_response(
+                500, {"error": "Failed to get filter settings", "message": str(e)}
+            )
+
+    def _handle_update_filter_settings(
+        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+    ) -> None:
+        """Handle PUT /api/settings/filters - update filter settings."""
+        try:
+            # params is always a dict due to Union[Dict[str, List[str]], Dict[str, Any]]
+            # Validate that params contains the expected structure for filter settings update
+            if not params:
+                self._send_json_response(400, {"error": "Invalid request data"})
+                return
+
+            from ..settings.models import EventFilterSettings
+
+            filter_settings = EventFilterSettings(**params)
+            updated_filters = settings_service.update_filter_settings(filter_settings)
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "message": "Filter settings updated successfully",
+                    "data": updated_filters.dict(),
+                },
+            )
+        except SettingsValidationError as e:
+            self._send_json_response(
+                400, {"error": "Filter settings validation failed", "message": str(e)}
+            )
+        except SettingsError as e:
+            self._send_json_response(
+                500, {"error": "Failed to update filter settings", "message": str(e)}
+            )
+
+    def _handle_get_display_settings(self, settings_service: SettingsService) -> None:
+        """Handle GET /api/settings/display - get display settings."""
+        try:
+            display = settings_service.get_display_settings()
+            self._send_json_response(200, {"success": True, "data": display.dict()})
+        except SettingsError as e:
+            self._send_json_response(
+                500, {"error": "Failed to get display settings", "message": str(e)}
+            )
+
+    def _handle_update_display_settings(
+        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+    ) -> None:
+        """Handle PUT /api/settings/display - update display settings."""
+        try:
+            # params is always a dict due to Union[Dict[str, List[str]], Dict[str, Any]]
+            # Validate that params contains the expected structure for display settings update
+            if not params:
+                self._send_json_response(400, {"error": "Invalid request data"})
+                return
+
+            from ..settings.models import DisplaySettings
+
+            display_settings = DisplaySettings(**params)
+            updated_display = settings_service.update_display_settings(display_settings)
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "message": "Display settings updated successfully",
+                    "data": updated_display.dict(),
+                },
+            )
+        except SettingsValidationError as e:
+            self._send_json_response(
+                400, {"error": "Display settings validation failed", "message": str(e)}
+            )
+        except SettingsError as e:
+            self._send_json_response(
+                500, {"error": "Failed to update display settings", "message": str(e)}
+            )
+
+    def _handle_get_conflict_settings(self, settings_service: SettingsService) -> None:
+        """Handle GET /api/settings/conflicts - get conflict resolution settings."""
+        try:
+            conflicts = settings_service.get_conflict_settings()
+            self._send_json_response(200, {"success": True, "data": conflicts.dict()})
+        except SettingsError as e:
+            self._send_json_response(
+                500, {"error": "Failed to get conflict settings", "message": str(e)}
+            )
+
+    def _handle_update_conflict_settings(
+        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+    ) -> None:
+        """Handle PUT /api/settings/conflicts - update conflict resolution settings."""
+        try:
+            # params is always a dict due to Union[Dict[str, List[str]], Dict[str, Any]]
+            # Validate that params contains the expected structure for conflict settings update
+            if not params:
+                self._send_json_response(400, {"error": "Invalid request data"})
+                return
+
+            from ..settings.models import ConflictResolutionSettings
+
+            conflict_settings = ConflictResolutionSettings(**params)
+            updated_conflicts = settings_service.update_conflict_settings(conflict_settings)
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "message": "Conflict settings updated successfully",
+                    "data": updated_conflicts.dict(),
+                },
+            )
+        except SettingsValidationError as e:
+            self._send_json_response(
+                400, {"error": "Conflict settings validation failed", "message": str(e)}
+            )
+        except SettingsError as e:
+            self._send_json_response(
+                500, {"error": "Failed to update conflict settings", "message": str(e)}
+            )
+
+    def _handle_validate_settings(
+        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+    ) -> None:
+        """Handle POST /api/settings/validate - validate settings data."""
+        try:
+            # params is always a dict due to Union[Dict[str, List[str]], Dict[str, Any]]
+            # Validate that params contains the expected structure for settings validation
+            if not params:
+                self._send_json_response(400, {"error": "Invalid request data"})
+                return
+
+            from ..settings.models import SettingsData
+
+            settings = SettingsData(**params)
+            validation_errors = settings_service.validate_settings(settings)
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "valid": len(validation_errors) == 0,
+                    "validation_errors": validation_errors,
+                },
+            )
+        except Exception as e:
+            self._send_json_response(
+                400, {"error": "Settings validation failed", "message": str(e)}
+            )
+
+    def _handle_export_settings(self, settings_service: SettingsService) -> None:
+        """Handle GET /api/settings/export - export settings."""
+        try:
+            settings = settings_service.get_settings()
+
+            # Return settings as downloadable JSON
+            json_content = json.dumps(settings.to_api_dict(), indent=2)
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header(
+                "Content-Disposition", "attachment; filename=calendarbot_settings.json"
+            )
+            self.send_header("Content-Length", str(len(json_content.encode("utf-8"))))
+            self.end_headers()
+            self.wfile.write(json_content.encode("utf-8"))
+
+        except SettingsError as e:
+            self._send_json_response(500, {"error": "Failed to export settings", "message": str(e)})
+
+    def _handle_import_settings(
+        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+    ) -> None:
+        """Handle POST /api/settings/import - import settings."""
+        try:
+            # params is always a dict due to Union[Dict[str, List[str]], Dict[str, Any]]
+            # Validate that params contains the expected structure for settings import
+            if not params:
+                self._send_json_response(400, {"error": "Invalid request data"})
+                return
+
+            from ..settings.models import SettingsData
+
+            settings = SettingsData(**params)
+            imported_settings = settings_service.update_settings(settings)
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "message": "Settings imported successfully",
+                    "data": imported_settings.to_api_dict(),
+                },
+            )
+        except SettingsValidationError as e:
+            self._send_json_response(
+                400, {"error": "Settings import validation failed", "message": str(e)}
+            )
+        except SettingsError as e:
+            self._send_json_response(500, {"error": "Failed to import settings", "message": str(e)})
+
+    def _handle_reset_settings(self, settings_service: SettingsService) -> None:
+        """Handle POST /api/settings/reset - reset settings to defaults."""
+        try:
+            reset_settings = settings_service.reset_to_defaults()
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "message": "Settings reset to defaults successfully",
+                    "data": reset_settings.to_api_dict(),
+                },
+            )
+        except SettingsError as e:
+            self._send_json_response(500, {"error": "Failed to reset settings", "message": str(e)})
+
+    def _handle_get_settings_info(self, settings_service: SettingsService) -> None:
+        """Handle GET /api/settings/info - get settings information and statistics."""
+        try:
+            info = settings_service.get_settings_info()
+
+            self._send_json_response(200, {"success": True, "data": info})
+        except SettingsError as e:
+            self._send_json_response(
+                500, {"error": "Failed to get settings info", "message": str(e)}
+            )
+
+    def _handle_add_filter_pattern(
+        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+    ) -> None:
+        """Handle POST /api/settings/filters/patterns - add a new filter pattern."""
+        try:
+            # params is always a dict due to Union[Dict[str, List[str]], Dict[str, Any]]
+            # Validate that params contains the expected structure for adding filter pattern
+            if not params:
+                self._send_json_response(400, {"error": "Invalid request data"})
+                return
+
+            pattern = params.get("pattern", "")
+            is_regex = params.get("is_regex", False)
+            case_sensitive = params.get("case_sensitive", False)
+            description = params.get("description")
+
+            if not pattern:
+                self._send_json_response(400, {"error": "Pattern is required"})
+                return
+
+            # Ensure proper types for add_filter_pattern call
+            pattern_str = str(pattern) if pattern else ""
+            is_regex_bool = bool(is_regex)
+            case_sensitive_bool = bool(case_sensitive)
+            description_str = str(description) if description else None
+
+            filter_pattern = settings_service.add_filter_pattern(
+                pattern_str, is_regex_bool, case_sensitive_bool, description_str
+            )
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "message": "Filter pattern added successfully",
+                    "data": filter_pattern.dict(),
+                },
+            )
+        except SettingsValidationError as e:
+            self._send_json_response(
+                400, {"error": "Filter pattern validation failed", "message": str(e)}
+            )
+        except SettingsError as e:
+            self._send_json_response(
+                500, {"error": "Failed to add filter pattern", "message": str(e)}
+            )
+
+    def _handle_remove_filter_pattern(
+        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+    ) -> None:
+        """Handle DELETE /api/settings/filters/patterns - remove a filter pattern."""
+        try:
+            # For DELETE requests, params might be in query string format
+            if isinstance(params, dict) and "pattern" in params:
+                pattern_value = params["pattern"]
+                pattern = (
+                    pattern_value[0] if isinstance(pattern_value, list) else str(pattern_value)
+                )
+
+                is_regex_value = params.get("is_regex", ["false"])
+                is_regex = (
+                    is_regex_value[0] if isinstance(is_regex_value, list) else str(is_regex_value)
+                ).lower() == "true"
+            else:
+                self._send_json_response(400, {"error": "Pattern parameter is required"})
+                return
+
+            success = settings_service.remove_filter_pattern(pattern, is_regex)
+
+            if success:
+                self._send_json_response(
+                    200, {"success": True, "message": "Filter pattern removed successfully"}
+                )
+            else:
+                self._send_json_response(404, {"error": "Filter pattern not found"})
+        except SettingsError as e:
+            self._send_json_response(
+                500, {"error": "Failed to remove filter pattern", "message": str(e)}
+            )
+
     def _serve_static_file(self, path: str) -> None:
         """Serve static files (CSS, JS, etc.)."""
         try:
@@ -562,6 +1058,14 @@ class WebServer:
         # Initialize layout management system
         self.layout_registry = layout_registry or LayoutRegistry()
         self.resource_manager = resource_manager or ResourceManager(self.layout_registry)
+
+        # Initialize settings service
+        try:
+            self.settings_service: Optional[SettingsService] = SettingsService(settings)
+            logger.debug("Settings service initialized successfully")
+        except Exception as e:
+            logger.warning(f"Failed to initialize settings service: {e}")
+            self.settings_service = None
 
         # Server configuration
         self.host = settings.web_host
