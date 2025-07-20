@@ -33,7 +33,7 @@ async def main_entry() -> int:
 
     # Handle setup wizard
     if hasattr(args, "setup") and args.setup:
-        return run_setup_wizard()
+        return await run_setup_wizard()
 
     # Handle backup operations
     if hasattr(args, "backup") and args.backup:

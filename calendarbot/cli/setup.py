@@ -8,7 +8,7 @@ import asyncio
 from typing import Optional
 
 
-def run_setup_wizard() -> int:
+async def run_setup_wizard() -> int:
     """Run the configuration setup wizard.
 
     Returns:
@@ -38,7 +38,7 @@ def run_setup_wizard() -> int:
         else:
             # Run full async wizard
             print("Running full interactive wizard...")
-            success = asyncio.run(run_async_wizard())
+            success = await run_async_wizard()
             return 0 if success else 1
 
     except KeyboardInterrupt:
