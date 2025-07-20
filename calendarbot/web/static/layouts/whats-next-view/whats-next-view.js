@@ -2301,7 +2301,7 @@ window.whatsNextView = {
 /**
  * Initialize settings panel for whats-next-view layout
  */
-function initializeSettingsPanel() {
+async function initializeSettingsPanel() {
     try {
         // Check if SettingsPanel is available
         if (typeof window.SettingsPanel !== 'undefined') {
@@ -2312,6 +2312,10 @@ function initializeSettingsPanel() {
                 autoSave: true,
                 autoSaveDelay: 2000
             });
+            
+            // CRITICAL FIX: Call initialize() to create DOM elements and gesture handler
+            await settingsPanel.initialize();
+            
             console.log('Settings panel initialized for whats-next-view layout');
         } else {
             console.log('Settings panel not available - shared components not loaded');
