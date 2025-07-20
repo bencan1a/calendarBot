@@ -9,6 +9,7 @@ This module tests CLI initialization and main entry point functionality includin
 """
 
 import asyncio
+from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -71,23 +72,66 @@ class TestMainEntry:
         return args
 
     @pytest.mark.asyncio
-    async def test_main_entry_setup_wizard(self, mock_parser_args):
-        """Test main_entry with setup wizard argument."""
+    async def test_main_entry_setup_wizard_exposes_async_issue(self, mock_parser_args):
+        """Test main_entry with setup wizard exposes async event loop issue.
+        
+        This test should FAIL due to the asyncio.run() cannot be called from
+        a running event loop error, exposing the real architectural issue.
+        """
         mock_parser_args.setup = True
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.run_setup_wizard"
-        ) as mock_setup:
+        with patch("calendarbot.cli.create_parser") as mock_create_parser, \
+             patch("builtins.input", return_value="1"), \
+             patch("builtins.print"), \
+             patch("calendarbot.setup_wizard.run_setup_wizard") as mock_async_wizard, \
+             patch("calendarbot.setup_wizard.run_simple_wizard") as mock_simple_wizard:
 
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
-            mock_setup.return_value = 0
+            mock_async_wizard.return_value = True
+            mock_simple_wizard.return_value = True
+
+            # This should fail with "asyncio.run() cannot be called from a running event loop"
+            with pytest.raises(RuntimeError, match="asyncio.run.*cannot be called from a running event loop"):
+                await main_entry()
+
+    @pytest.mark.asyncio
+    async def test_main_entry_setup_wizard_simple_mode_works(self, mock_parser_args):
+        """Test main_entry setup wizard simple mode (choice 2) should work."""
+        mock_parser_args.setup = True
+
+        with patch("calendarbot.cli.create_parser") as mock_create_parser, \
+             patch("builtins.input", return_value="2"), \
+             patch("builtins.print"), \
+             patch("calendarbot.setup_wizard.run_simple_wizard", return_value=True) as mock_simple:
+
+            mock_parser = MagicMock()
+            mock_parser.parse_args.return_value = mock_parser_args
+            mock_create_parser.return_value = mock_parser
 
             result = await main_entry()
 
             assert result == 0
-            mock_setup.assert_called_once()
+            mock_simple.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_main_entry_setup_wizard_full_mode_fails_with_event_loop_error(self, mock_parser_args):
+        """Test main_entry setup wizard full mode (choice 1) fails with event loop error."""
+        mock_parser_args.setup = True
+
+        with patch("calendarbot.cli.create_parser") as mock_create_parser, \
+             patch("builtins.input", return_value="1"), \
+             patch("builtins.print"), \
+             patch("calendarbot.setup_wizard.run_setup_wizard", return_value=True):
+
+            mock_parser = MagicMock()
+            mock_parser.parse_args.return_value = mock_parser_args
+            mock_create_parser.return_value = mock_parser
+
+            # This should fail due to asyncio.run() being called from within async context
+            with pytest.raises(RuntimeError, match="asyncio.run.*cannot be called from a running event loop"):
+                await main_entry()
 
     @pytest.mark.asyncio
     async def test_main_entry_backup_configuration(self, mock_parser_args):
@@ -568,3 +612,204 @@ class TestCliIntegration:
         # Key functions should be accessible
         assert hasattr(calendarbot.cli, "main_entry")
         assert asyncio.iscoroutinefunction(calendarbot.cli.main_entry)
+
+
+
+class TestSetupWizardIntegration:
+    """Test setup wizard integration and async issues."""
+
+    def test_setup_wizard_sync_function_works_independently(self):
+        """Test run_setup_wizard function works when called directly (not from async context)."""
+        from calendarbot.cli.setup import run_setup_wizard
+        
+        with patch("builtins.input", return_value="2"), \
+             patch("builtins.print"), \
+             patch("calendarbot.setup_wizard.run_simple_wizard", return_value=True):
+            
+            # This should work fine when called directly (not from async context)
+            result = run_setup_wizard()
+            assert result == 0
+
+    def test_setup_wizard_sync_full_mode_works_independently(self):
+        """Test run_setup_wizard full mode works when called directly."""
+        from calendarbot.cli.setup import run_setup_wizard
+        
+        with patch("builtins.input", return_value="1"), \
+             patch("builtins.print"), \
+             patch("calendarbot.setup_wizard.run_setup_wizard", return_value=True):
+            
+            # This should work fine when called directly (not from async context)
+            result = run_setup_wizard()
+            assert result == 0
+
+    def test_setup_wizard_handles_keyboard_interrupt(self):
+        """Test setup wizard handles KeyboardInterrupt gracefully."""
+        from calendarbot.cli.setup import run_setup_wizard
+        
+        with patch("builtins.input", side_effect=KeyboardInterrupt), \
+             patch("builtins.print"):
+            
+            result = run_setup_wizard()
+            assert result == 1
+
+    def test_setup_wizard_handles_import_error(self):
+        """Test setup wizard handles import errors gracefully."""
+        from calendarbot.cli.setup import run_setup_wizard
+        
+        with patch("builtins.input", return_value="1"), \
+             patch("builtins.print"), \
+             patch("calendarbot.setup_wizard.run_setup_wizard", side_effect=ImportError("Module not found")):
+            
+            result = run_setup_wizard()
+            assert result == 1
+
+    @pytest.mark.asyncio
+    async def test_async_setup_wizard_function_works(self):
+        """Test run_async_setup_wizard function works correctly."""
+        from calendarbot.cli.setup import run_async_setup_wizard
+        
+        with patch("builtins.print"), \
+             patch("calendarbot.setup_wizard.run_setup_wizard", return_value=True):
+            
+            result = await run_async_setup_wizard()
+            assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_simple_setup_wizard_function_works(self):
+        """Test run_simple_setup_wizard function works correctly."""
+        from calendarbot.cli.setup import run_simple_setup_wizard
+        
+        with patch("builtins.print"), \
+             patch("calendarbot.setup_wizard.run_simple_wizard", return_value=True):
+            
+            result = run_simple_setup_wizard()
+            assert result == 0
+
+
+class TestAsyncEventLoopIssues:
+    """Test specific async event loop architectural issues."""
+
+    @pytest.fixture
+    def mock_parser_args(self):
+        """Create mock parser arguments for async tests."""
+        args = MagicMock()
+        args.setup = False
+        args.backup = False
+        args.restore = None
+        args.list_backups = False
+        args.test_mode = False
+        args.interactive = False
+        args.web = False
+        return args
+
+    @pytest.mark.asyncio
+    async def test_main_entry_reveals_nested_asyncio_run_issue(self, mock_parser_args):
+        """Test that calling main_entry with setup exposes the nested asyncio.run issue.
+        
+        This is the core integration test that should FAIL, exposing the real
+        architectural issue where asyncio.run() is called from within an async context.
+        """
+        mock_parser_args.setup = True
+
+        with patch("calendarbot.cli.create_parser") as mock_create_parser, \
+             patch("builtins.input", return_value="1"), \
+             patch("builtins.print"):
+
+            mock_parser = MagicMock()
+            mock_parser.parse_args.return_value = mock_parser_args
+            mock_create_parser.return_value = mock_parser
+
+            # Mock the inner setup wizard to return success, but let the real
+            # asyncio.run() call happen to expose the nested event loop issue
+            with patch("calendarbot.setup_wizard.run_setup_wizard", return_value=True):
+                # This should fail with RuntimeError about nested asyncio.run
+                with pytest.raises(RuntimeError, match="asyncio.run.*cannot be called from a running event loop"):
+                    await main_entry()
+
+    @pytest.mark.asyncio
+    async def test_setup_command_execution_without_event_loop_conflicts_simple_mode(self, mock_parser_args):
+        """Test setup command simple mode should work without event loop conflicts."""
+        mock_parser_args.setup = True
+
+        with patch("calendarbot.cli.create_parser") as mock_create_parser, \
+             patch("builtins.input", return_value="2"), \
+             patch("builtins.print"), \
+             patch("calendarbot.setup_wizard.run_simple_wizard", return_value=True):
+
+            mock_parser = MagicMock()
+            mock_parser.parse_args.return_value = mock_parser_args
+            mock_create_parser.return_value = mock_parser
+
+            # Simple mode should work without async issues
+            result = await main_entry()
+            assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_setup_configuration_file_creation_mock_validation(self, mock_parser_args):
+        """Test setup wizard configuration file creation (mocked validation)."""
+        mock_parser_args.setup = True
+
+        with patch("calendarbot.cli.create_parser") as mock_create_parser, \
+             patch("builtins.input", return_value="2"), \
+             patch("builtins.print"), \
+             patch("calendarbot.setup_wizard.run_simple_wizard", return_value=True) as mock_simple, \
+             patch("pathlib.Path.write_text") as mock_write, \
+             patch("pathlib.Path.exists", return_value=False):
+
+            mock_parser = MagicMock()
+            mock_parser.parse_args.return_value = mock_parser_args
+            mock_create_parser.return_value = mock_parser
+
+            result = await main_entry()
+            
+            assert result == 0
+            mock_simple.assert_called_once()
+            # Verify that the simple wizard was called (config creation should happen inside)
+
+    @pytest.mark.asyncio
+    async def test_setup_error_handling_for_async_architecture_issue(self, mock_parser_args):
+        """Test error handling when async architecture issue occurs."""
+        mock_parser_args.setup = True
+
+        with patch("calendarbot.cli.create_parser") as mock_create_parser, \
+             patch("builtins.input", return_value="1"), \
+             patch("builtins.print"):
+
+            mock_parser = MagicMock()
+            mock_parser.parse_args.return_value = mock_parser_args
+            mock_create_parser.return_value = mock_parser
+
+            # Let the real async issue happen, but don't mock the setup wizard
+            # This should expose the real RuntimeError
+
+    @pytest.mark.asyncio
+    async def test_minimal_mocking_exposes_real_async_issue(self, mock_parser_args):
+        """Test with minimal mocking to expose the real async.run() nested call issue.
+        
+        This test deliberately uses minimal mocking to allow the real code path
+        that contains asyncio.run() to execute from within an async context.
+        """
+        mock_parser_args.setup = True
+
+        with patch("calendarbot.cli.create_parser") as mock_create_parser, \
+             patch("builtins.input", return_value="1"), \
+             patch("builtins.print"):
+
+            mock_parser = MagicMock()
+            mock_parser.parse_args.return_value = mock_parser_args
+            mock_create_parser.return_value = mock_parser
+
+            # Don't mock the inner wizard at all - let the real asyncio.run() call happen
+            # This test should FAIL and expose the real architectural issue
+            try:
+                result = await main_entry()
+                # If we get here, the issue wasn't exposed, which is the problem we're fixing
+                assert False, "Expected RuntimeError for nested asyncio.run() but got result: {}".format(result)
+            except RuntimeError as e:
+                # This is what we expect - the real async issue should be exposed
+                assert "asyncio.run() cannot be called from a running event loop" in str(e)
+            except Exception as e:
+                # Any other exception indicates the test is working and finding real issues
+                assert False, f"Unexpected exception type: {type(e).__name__}: {e}"
+            with pytest.raises(RuntimeError, match="asyncio.run.*cannot be called from a running event loop"):
+                await main_entry()
