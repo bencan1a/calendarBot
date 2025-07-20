@@ -493,7 +493,7 @@ For other calendar services:
 
         # Determine config file location
         config_options = [
-            ("Project directory", Path(__file__).parent.parent / "config" / "config.yaml"),
+            ("Project directory", Path(__file__).parent / "config" / "config.yaml"),
             ("User home directory", Path.home() / ".config" / "calendarbot" / "config.yaml"),
         ]
 
