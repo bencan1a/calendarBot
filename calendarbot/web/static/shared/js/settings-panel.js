@@ -363,8 +363,16 @@ class SettingsPanel {
             const result = await this.api.getSettings();
             
             if (result.success) {
-                this.currentSettings = result.data;
-                this.localSettings = JSON.parse(JSON.stringify(result.data)); // Deep copy
+                // Handle potential double-wrapped API response
+                let settingsData = result.data;
+                
+                // Check if the data is double-wrapped (API returns {success: true, data: {success: true, data: {...}}})
+                if (settingsData && settingsData.success && settingsData.data) {
+                    settingsData = settingsData.data;
+                }
+                
+                this.currentSettings = settingsData;
+                this.localSettings = JSON.parse(JSON.stringify(settingsData)); // Deep copy
                 this.populateForm(this.localSettings);
                 this.hideStatus();
                 console.log('SettingsPanel: Settings loaded successfully');
@@ -428,10 +436,26 @@ class SettingsPanel {
     collectFormData() {
         if (!this.localSettings) {
             this.localSettings = {
-                event_filters: { title_patterns: [] },
+                event_filters: {
+                    title_patterns: [],
+                    hide_all_day_events: false
+                },
                 display: {},
                 metadata: {}
             };
+        }
+
+        // Ensure event_filters structure exists
+        if (!this.localSettings.event_filters) {
+            this.localSettings.event_filters = {
+                title_patterns: [],
+                hide_all_day_events: false
+            };
+        }
+
+        // Ensure display structure exists before using it
+        if (!this.localSettings.display) {
+            this.localSettings.display = {};
         }
 
         // All-day events
@@ -637,6 +661,31 @@ class SettingsPanel {
      */
     addTitlePattern(pattern, isRegex = false) {
         if (!pattern.trim()) return;
+
+        // Ensure localSettings is initialized
+        if (!this.localSettings) {
+            this.localSettings = {
+                event_filters: {
+                    title_patterns: [],
+                    hide_all_day_events: false
+                },
+                display: {},
+                metadata: {}
+            };
+        }
+
+        // Ensure event_filters structure exists
+        if (!this.localSettings.event_filters) {
+            this.localSettings.event_filters = {
+                title_patterns: [],
+                hide_all_day_events: false
+            };
+        }
+
+        // Ensure title_patterns array exists
+        if (!this.localSettings.event_filters.title_patterns) {
+            this.localSettings.event_filters.title_patterns = [];
+        }
 
         // Validate regex if needed
         if (isRegex && !this.api.isValidRegex(pattern)) {

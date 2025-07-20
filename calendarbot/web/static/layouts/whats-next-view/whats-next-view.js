@@ -1459,11 +1459,27 @@ function getCurrentTime() {
                     let hours = parseInt(timeParts[0]);
                     const minutes = parseInt(timeParts[1]);
                     
-                    // Convert to 24-hour format
-                    if (ampm === 'PM' && hours !== 12) {
-                        hours += 12;
-                    } else if (ampm === 'AM' && hours === 12) {
-                        hours = 0;
+                    // FIX: Detect 24-hour format and handle mixed format inputs
+                    const is24HourFormat = hours > 12 || hours === 0;
+                    
+                    if (is24HourFormat) {
+                        // Already in 24-hour format - don't apply AM/PM conversion
+                        console.log(`DEBUG TIME FIX: Detected 24-hour format (${hours}:${minutes}), ignoring AM/PM indicator "${ampm}"`);
+                        if (ampm !== 'AM' && ampm !== 'PM') {
+                            // If no AM/PM specified with 24-hour format, that's normal
+                        } else {
+                            // Log warning about mixed format
+                            console.warn(`DEBUG TIME FIX: Mixed format detected - 24-hour time "${timeStr}" with AM/PM indicator "${ampm}". Using time as-is.`);
+                        }
+                        // Use hours as-is for 24-hour format
+                    } else {
+                        // 12-hour format - apply AM/PM conversion
+                        console.log(`DEBUG TIME FIX: Detected 12-hour format (${hours}:${minutes} ${ampm}), applying AM/PM conversion`);
+                        if (ampm === 'PM' && hours !== 12) {
+                            hours += 12;
+                        } else if (ampm === 'AM' && hours === 12) {
+                            hours = 0;
+                        }
                     }
                     
                     // Create date object with explicit local time (avoiding UTC conversion)

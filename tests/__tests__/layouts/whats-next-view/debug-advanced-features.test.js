@@ -579,7 +579,10 @@ describe('Whats-Next-View Debug & Advanced Features - Phase 3', () => {
 
       testCases.forEach(({ date, time, ampm, expectedHour, expectedMinute }) => {
         // Setup: Configure debug time
-        window.toggleDebugMode(); // Toggle to set debug mode
+        // FIX: Ensure debug mode is enabled (don't toggle, set explicitly)
+        if (!window.getDebugState().enabled) {
+          window.toggleDebugMode(); // Enable debug mode only if not already enabled
+        }
         window.setDebugValues({
           customTimeEnabled: true,
           customDate: date,
@@ -609,7 +612,10 @@ describe('Whats-Next-View Debug & Advanced Features - Phase 3', () => {
       const realTime = new Date();
 
       // Setup: Invalid debug configuration
-      window.toggleDebugMode(); // Toggle to set debug mode
+      // FIX: Ensure debug mode is enabled (don't toggle, set explicitly)
+      if (!window.getDebugState().enabled) {
+        window.toggleDebugMode(); // Enable debug mode only if not already enabled
+      }
       window.setDebugValues({
         customTimeEnabled: true,
         customDate: 'invalid-date',
@@ -634,7 +640,10 @@ describe('Whats-Next-View Debug & Advanced Features - Phase 3', () => {
 
       edgeCases.forEach(({ time, ampm, expectedHour }, index) => {
         // Setup: Configure edge case time
-        window.toggleDebugMode(); // Toggle to set debug mode
+        // FIX: Ensure debug mode is enabled (don't toggle, set explicitly)
+        if (!window.getDebugState().enabled) {
+          window.toggleDebugMode(); // Enable debug mode only if not already enabled
+        }
         window.setDebugValues({
           customTimeEnabled: true,
           customDate: '2024-01-01',
@@ -664,7 +673,10 @@ describe('Whats-Next-View Debug & Advanced Features - Phase 3', () => {
       });
 
       // Setup: Configure debug time
-      window.toggleDebugMode(); // Toggle to set debug mode
+      // FIX: Ensure debug mode is enabled (don't toggle, set explicitly)
+      if (!window.getDebugState().enabled) {
+        window.toggleDebugMode(); // Enable debug mode only if not already enabled
+      }
       window.setDebugValues({
         customTimeEnabled: true,
         customDate: '2024-06-15',

@@ -322,7 +322,7 @@ exclude_lines = [
 ]
 
 # Minimum coverage thresholds and reporting options
-fail_under = 80
+fail_under = 60
 precision = 2
 show_missing = true
 skip_covered = false

@@ -104,6 +104,29 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.error(f"Error handling POST request: {e}")
             self._send_500(str(e))
 
+    def do_PUT(self) -> None:
+        """Handle PUT requests."""
+        try:
+            parsed_url = urlparse(self.path)
+            path = parsed_url.path
+
+            if path.startswith("/api/"):
+                content_length = int(self.headers.get("Content-Length", 0))
+                put_data = self.rfile.read(content_length)
+
+                try:
+                    data = json.loads(put_data.decode("utf-8")) if put_data else {}
+                except json.JSONDecodeError:
+                    data = {}
+
+                self._handle_api_request(path, data)
+            else:
+                self._send_404()
+
+        except Exception as e:
+            logger.error(f"Error handling PUT request: {e}")
+            self._send_500(str(e))
+
     def _serve_calendar_page(self, query_params: Dict[str, List[str]]) -> None:
         """Serve the main calendar page."""
         try:
@@ -521,9 +544,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
     ) -> None:
         """Handle PUT /api/settings - update complete settings."""
         try:
-            # params is always a dict due to Union[Dict[str, List[str]], Dict[str, Any]]
-            # Validate that params contains the expected structure for settings update
-            if not params:
+            # Validate that params is a dictionary and not empty
+            if not params or not isinstance(params, dict):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
@@ -686,9 +708,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
     ) -> None:
         """Handle POST /api/settings/validate - validate settings data."""
         try:
-            # params is always a dict due to Union[Dict[str, List[str]], Dict[str, Any]]
-            # Validate that params contains the expected structure for settings validation
-            if not params:
+            # Validate that params is a dictionary and not empty
+            if not params or not isinstance(params, dict):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
@@ -735,9 +756,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
     ) -> None:
         """Handle POST /api/settings/import - import settings."""
         try:
-            # params is always a dict due to Union[Dict[str, List[str]], Dict[str, Any]]
-            # Validate that params contains the expected structure for settings import
-            if not params:
+            # Validate that params is a dictionary and not empty
+            if not params or not isinstance(params, dict):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
@@ -793,9 +813,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
     ) -> None:
         """Handle POST /api/settings/filters/patterns - add a new filter pattern."""
         try:
-            # params is always a dict due to Union[Dict[str, List[str]], Dict[str, Any]]
-            # Validate that params contains the expected structure for adding filter pattern
-            if not params:
+            # Validate that params is a dictionary and not empty
+            if not params or not isinstance(params, dict):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 

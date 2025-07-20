@@ -1,0 +1,17 @@
+{
+    "include": [
+        "calendarbot"
+    ],
+    "exclude": [
+
+        "**/__pycache__",
+        "**/.pytest_cache",
+        "**/node_modules",
+        "**/.venv",
+        "**/venv"
+    ],
+    "reportMissingImports": true,
+    "reportMissingTypeStubs": false,
+    "pythonVersion": "3.8",
+    "pythonPlatform": "Linux"
+}
