@@ -549,7 +549,7 @@ class SettingsPanel {
     }
 
     /**
-     * Close settings panel with animation
+     * Close settings panel with animation and proper focus management
      */
     close() {
         if (!this.isOpen || this.isTransitioning) {
@@ -560,7 +560,33 @@ class SettingsPanel {
         
         const panel = document.getElementById('settings-panel');
         if (panel) {
-            panel.classList.remove('open');
+            // ACCESSIBILITY FIX: Manage focus before setting aria-hidden
+            // Check if any element inside the panel currently has focus
+            const focusedElement = document.activeElement;
+            const panelContainsFocus = panel.contains(focusedElement);
+            
+            if (panelContainsFocus) {
+                // Blur the focused element first to prevent accessibility violation
+                if (focusedElement && typeof focusedElement.blur === 'function') {
+                    focusedElement.blur();
+                }
+                
+                // Move focus to a safe element outside the panel
+                // Try to focus on the document body as a fallback
+                if (document.body && typeof document.body.focus === 'function') {
+                    document.body.focus();
+                } else {
+                    // Alternative: focus on the main content area if available
+                    const mainContent = document.querySelector('main, .calendar-content, body');
+                    if (mainContent && typeof mainContent.focus === 'function') {
+                        mainContent.focus();
+                    }
+                }
+            }
+            
+            // PANEL HIDING FIX: Remove all visibility-related classes and reset transform
+            panel.classList.remove('open', 'revealing');
+            panel.style.transform = '';
             panel.setAttribute('aria-hidden', 'true');
         }
 
@@ -578,7 +604,7 @@ class SettingsPanel {
         this.isOpen = false;
         this.isTransitioning = false;
         
-        console.log('SettingsPanel: Panel closed');
+        console.log('SettingsPanel: Panel closed with proper focus and visibility management');
     }
 
     /**
