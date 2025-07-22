@@ -99,7 +99,7 @@ class TestSettingsPersistenceLoadSettings:
         # Should be default values
         assert settings.event_filters.hide_all_day_events is False
         assert len(settings.event_filters.title_patterns) == 0
-        assert settings.display.default_layout == "4x8"
+        assert settings.display.default_layout == "whats-next-view"
 
     def test_load_settings_when_file_corrupted_then_falls_back_to_backup(
         self, temp_config_dir: Path, sample_json_settings_data: str

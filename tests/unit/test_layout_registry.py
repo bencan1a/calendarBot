@@ -234,7 +234,7 @@ class TestLayoutRegistryValidation:
 
             # Should return fallback default even with empty registry
             default = registry.get_default_layout()
-            assert default == "4x8"  # Emergency fallback
+            assert default == "whats-next-view"  # Emergency fallback
 
 
 class TestLayoutRegistryAdvanced:

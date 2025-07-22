@@ -375,7 +375,7 @@ class TestDisplaySettings:
         """Test DisplaySettings default values are set correctly."""
         settings = DisplaySettings()
 
-        assert settings.default_layout == "4x8"
+        assert settings.default_layout == "whats-next-view"
         assert settings.font_sizes == {}
         assert settings.display_density == "normal"
         assert settings.color_theme == "default"

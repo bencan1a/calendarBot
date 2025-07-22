@@ -736,17 +736,31 @@ class TestDisplayManagerGetRendererInfo:
         settings = Mock()
         settings.display_type = "console"
         settings.display_enabled = True
+        settings.web_layout = None  # Will get default layout (whats-next-view)
 
-        with patch("calendarbot.display.manager.ConsoleRenderer") as mock_console:
-            mock_renderer = Mock()
-            mock_renderer.__class__.__name__ = "ConsoleRenderer"
-            mock_console.return_value = mock_renderer
+        with patch("calendarbot.display.manager.LayoutRegistry") as mock_registry_class:
+            mock_registry = Mock()
+            mock_registry.get_available_layouts.return_value = ["whats-next-view", "4x8", "3x4"]
+            mock_registry.validate_layout.return_value = True
+            mock_registry.get_default_layout.return_value = "whats-next-view"
+            mock_registry_class.return_value = mock_registry
 
-            manager = DisplayManager(settings)
-            info = manager.get_renderer_info()
+            with patch("calendarbot.display.manager.RendererFactory") as mock_factory_class:
+                mock_factory = Mock()
+                mock_renderer = Mock()
+                mock_renderer.__class__.__name__ = "WhatsNextRenderer"
+                mock_factory.create_renderer.return_value = mock_renderer
+                mock_factory_class.return_value = mock_factory
 
-            expected = {"type": "console", "enabled": True, "renderer_class": "ConsoleRenderer"}
-            assert info == expected
+                manager = DisplayManager(settings)
+                info = manager.get_renderer_info()
+
+                expected = {
+                    "type": "console",
+                    "enabled": True,
+                    "renderer_class": "WhatsNextRenderer",
+                }
+                assert info == expected
 
     def test_get_renderer_info_no_renderer(self) -> None:
         """Test getting renderer info when no renderer is available."""
@@ -773,6 +787,7 @@ class TestDisplayManagerIntegration:
         settings = Mock()
         settings.display_type = "console"
         settings.display_enabled = True
+        settings.web_layout = None  # Will get default layout (whats-next-view)
 
         events: List[CachedEvent] = [
             CachedEvent(
@@ -787,36 +802,45 @@ class TestDisplayManagerIntegration:
             )
         ]
 
-        with patch("calendarbot.display.manager.ConsoleRenderer") as mock_console:
-            mock_renderer = Mock()
-            mock_renderer.render_events.return_value = "Formatted events"
-            mock_renderer.render_error.return_value = "Error content"
-            mock_renderer.display_with_clear = Mock()
-            mock_renderer.clear_screen.return_value = True  # Ensure clear_screen returns True
-            mock_console.return_value = mock_renderer
+        with patch("calendarbot.display.manager.LayoutRegistry") as mock_registry_class:
+            mock_registry = Mock()
+            mock_registry.get_available_layouts.return_value = ["whats-next-view", "4x8", "3x4"]
+            mock_registry.validate_layout.return_value = True
+            mock_registry.get_default_layout.return_value = "whats-next-view"
+            mock_registry_class.return_value = mock_registry
 
-            manager = DisplayManager(settings)
+            with patch("calendarbot.display.manager.RendererFactory") as mock_factory_class:
+                mock_factory = Mock()
+                mock_renderer = Mock()
+                mock_renderer.render_events.return_value = "Formatted events"
+                mock_renderer.render_error.return_value = "Error content"
+                mock_renderer.display_with_clear = Mock()
+                mock_renderer.clear_screen.return_value = True
+                mock_factory.create_renderer.return_value = mock_renderer
+                mock_factory_class.return_value = mock_factory
 
-            with patch("calendarbot.display.manager.datetime") as mock_datetime:
-                mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
+                manager = DisplayManager(settings)
 
-                # Test successful display
-                result = await manager.display_events(events)
-                assert result is True
+                with patch("calendarbot.display.manager.datetime") as mock_datetime:
+                    mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
 
-                # Test error display
-                result = await manager.display_error("Connection failed", events)
-                assert result is True
+                    # Test successful display
+                    result = await manager.display_events(events)
+                    assert result is True
 
-                # Test status display
-                result = await manager.display_status({"events": len(events)})
-                assert result is True
+                    # Test error display
+                    result = await manager.display_error("Connection failed", events)
+                    assert result is True
 
-                # Test clear display
-                result = manager.clear_display()
-                assert result is True
+                    # Test status display
+                    result = await manager.display_status({"events": len(events)})
+                    assert result is True
 
-                # Test renderer info
-                info = manager.get_renderer_info()
-                assert info["type"] == "console"
-                assert info["enabled"] is True
+                    # Test clear display
+                    result = manager.clear_display()
+                    assert result is True
+
+                    # Test renderer info
+                    info = manager.get_renderer_info()
+                    assert info["type"] == "console"
+                    assert info["enabled"] is True

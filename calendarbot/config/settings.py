@@ -273,9 +273,11 @@ class CalendarBotSettings(BaseSettings):
     web_host: str = Field(
         default_factory=lambda: _get_safe_web_host(), description="Host address for web server"
     )
-    web_layout: str = Field(default="4x8", description="Web layout: 4x8, 3x4")
+    web_layout: str = Field(
+        default="whats-next-view", description="Web layout: 4x8, 3x4, whats-next-view"
+    )
     layout_name: str = Field(
-        default="4x8", description="Current layout name (alias for web_layout)"
+        default="whats-next-view", description="Current layout name (alias for web_layout)"
     )
     web_auto_refresh: int = Field(default=60, description="Auto-refresh interval in seconds")
 
@@ -305,6 +307,19 @@ class CalendarBotSettings(BaseSettings):
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # Set dynamic defaults from LayoutRegistry if not overridden
+        if not kwargs.get("web_layout") and not kwargs.get("layout_name"):
+            try:
+                from calendarbot.layout.registry import LayoutRegistry
+
+                layout_registry = LayoutRegistry()
+                default_layout = layout_registry.get_default_layout()
+                self.web_layout = default_layout
+                self.layout_name = default_layout
+            except ImportError:
+                # Fallback if LayoutRegistry not available during initialization
+                pass
 
         # Load YAML configuration
         self._load_yaml_config()

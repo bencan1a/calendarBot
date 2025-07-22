@@ -23,5 +23,5 @@ web:
   auto_refresh: 60
   enabled: false
   host: 0.0.0.0
-  layout: 4x8
+  layout: whats-next-view
   port: 8080

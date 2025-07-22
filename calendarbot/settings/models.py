@@ -346,7 +346,7 @@ class DisplaySettings(BaseModel):
         ... )
     """
 
-    default_layout: str = Field(default="4x8", description="Default layout name")
+    default_layout: str = Field(default="whats-next-view", description="Default layout name")
     font_sizes: Dict[str, str] = Field(default_factory=dict, description="Font size overrides")
     display_density: str = Field(default="normal", description="compact|normal|spacious")
     color_theme: str = Field(default="default", description="Color theme preference")

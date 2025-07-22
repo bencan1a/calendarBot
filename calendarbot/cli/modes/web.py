@@ -35,6 +35,7 @@ async def run_web_mode(args: Any) -> int:
         import webbrowser
 
         from calendarbot.config.settings import settings
+        from calendarbot.layout.registry import LayoutRegistry
         from calendarbot.main import CalendarBot
         from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
         from calendarbot.web.navigation import WebNavigationHandler
@@ -59,7 +60,9 @@ async def run_web_mode(args: Any) -> int:
             else:
                 # Use HTML renderer for proper layout structure in web mode
                 updated_settings.display_type = "html"
-                updated_settings.web_layout = "4x8"  # Default to 4x8 layout for web mode
+                # Use centralized default layout from LayoutRegistry
+                layout_registry = LayoutRegistry()
+                updated_settings.web_layout = layout_registry.get_default_layout()
 
         # Set up enhanced logging for web mode
         logger = setup_enhanced_logging(updated_settings, interactive_mode=False)
