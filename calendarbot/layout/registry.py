@@ -294,14 +294,16 @@ class LayoutRegistry:
             Default layout name.
         """
         if self._layouts:
-            # Return first available layout, preferring 4x8
-            if "4x8" in self._layouts:
+            # Return first available layout, preferring whats-next-view
+            if "whats-next-view" in self._layouts:
+                return "whats-next-view"
+            elif "4x8" in self._layouts:
                 return "4x8"
             elif "3x4" in self._layouts:
                 return "3x4"
             else:
                 return list(self._layouts.keys())[0]
-        return "4x8"  # Emergency fallback
+        return "whats-next-view"  # Emergency fallback
 
     def get_layout_metadata(self, layout_name: str) -> Optional[Dict[str, Any]]:
         """Get metadata for a specific layout.

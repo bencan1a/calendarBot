@@ -15,15 +15,15 @@ class GestureHandler {
         this.startY = 0;
         this.currentY = 0;
         this.dragIndicator = null;
-        
+
         // Touch/mouse state tracking
         this.touchStartTime = 0;
         this.lastTouchEnd = 0;
-        
+
         // Gesture state
         this.gestureActive = false;
         this.panelTransitioning = false;
-        
+
         console.log('GestureHandler: Initialized with gesture zone height:', this.gestureZoneHeight);
     }
 
@@ -39,7 +39,7 @@ class GestureHandler {
     }
 
     /**
-     * Create invisible gesture zone at top of screen
+     * Create invisible gesture zone at top of content area
      */
     createGestureZone() {
         // Remove existing gesture zone if it exists
@@ -51,11 +51,32 @@ class GestureHandler {
         const gestureZone = document.createElement('div');
         gestureZone.id = 'settings-gesture-zone';
         gestureZone.className = 'settings-gesture-zone';
+
+        // CRITICAL FIX: Position relative to content area, not viewport
+        const contentContainer = document.querySelector('.calendar-content');
+        let topPosition = '0px';
+        let leftPosition = '0px';
+        let zoneWidth = '100%';
+
+        if (contentContainer) {
+            const rect = contentContainer.getBoundingClientRect();
+            topPosition = `${rect.top}px`;
+            leftPosition = `${rect.left}px`;
+            zoneWidth = `${rect.width}px`;
+            console.log('GestureHandler: Positioning gesture zone over content area:', {
+                top: topPosition,
+                left: leftPosition,
+                width: zoneWidth
+            });
+        } else {
+            console.warn('GestureHandler: Content container not found, using viewport positioning');
+        }
+
         gestureZone.style.cssText = `
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
+            top: ${topPosition};
+            left: ${leftPosition};
+            width: ${zoneWidth};
             height: ${this.gestureZoneHeight}px;
             z-index: 100;
             background: transparent;
@@ -65,7 +86,7 @@ class GestureHandler {
         `;
 
         document.body.appendChild(gestureZone);
-        console.log('GestureHandler: Gesture zone created');
+        console.log('GestureHandler: Content-aware gesture zone created');
     }
 
     /**
@@ -79,10 +100,28 @@ class GestureHandler {
         this.dragIndicator = document.createElement('div');
         this.dragIndicator.id = 'settings-drag-indicator';
         this.dragIndicator.className = 'settings-drag-indicator';
+
+        // CRITICAL FIX: Position relative to content area, not viewport
+        const contentContainer = document.querySelector('.calendar-content');
+        let topPosition = `${this.gestureZoneHeight}px`;
+        let leftPosition = '50%';
+
+        if (contentContainer) {
+            const rect = contentContainer.getBoundingClientRect();
+            topPosition = `${rect.top + this.gestureZoneHeight}px`;
+            leftPosition = `${rect.left + (rect.width / 2)}px`;
+            console.log('GestureHandler: Positioning drag indicator relative to content area:', {
+                top: topPosition,
+                left: leftPosition
+            });
+        } else {
+            console.warn('GestureHandler: Content container not found for drag indicator, using viewport positioning');
+        }
+
         this.dragIndicator.style.cssText = `
             position: fixed;
-            top: ${this.gestureZoneHeight}px;
-            left: 50%;
+            top: ${topPosition};
+            left: ${leftPosition};
             transform: translateX(-50%);
             width: 60px;
             height: 4px;
@@ -111,7 +150,7 @@ class GestureHandler {
         this.dragIndicator.appendChild(arrow);
 
         document.body.appendChild(this.dragIndicator);
-        console.log('GestureHandler: Drag indicator created');
+        console.log('GestureHandler: Content-aware drag indicator created');
     }
 
     /**
@@ -153,16 +192,32 @@ class GestureHandler {
     onPointerStart(event) {
         // Prevent default behavior
         event.preventDefault();
-        
+
         // Don't start new gesture if panel is transitioning
         if (this.panelTransitioning) {
             return;
         }
 
-        // Check if click/touch is in gesture zone
+        // CRITICAL FIX: Check if click/touch is within the content-relative gesture zone
         const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-        if (clientY > this.gestureZoneHeight) {
-            return;
+
+        // Get current gesture zone position for accurate coordinate checking
+        const gestureZone = document.getElementById('settings-gesture-zone');
+        if (gestureZone) {
+            const zoneRect = gestureZone.getBoundingClientRect();
+            const withinGestureZone = clientY >= zoneRect.top && clientY <= zoneRect.bottom;
+
+            console.log('GestureHandler: Touch at Y:', clientY, 'Zone:', zoneRect.top, '-', zoneRect.bottom, 'Within zone:', withinGestureZone);
+
+            if (!withinGestureZone) {
+                return;
+            }
+        } else {
+            // Fallback to old logic if gesture zone not found
+            console.warn('GestureHandler: Gesture zone not found, using fallback coordinate check');
+            if (clientY > this.gestureZoneHeight) {
+                return;
+            }
         }
 
         // If panel is already open, don't start gesture
@@ -233,10 +288,10 @@ class GestureHandler {
             isDragging: this.isDragging
         });
 
-        // Hide drag indicator
-        this.hideDragIndicator();
-
         if (this.isDragging) {
+            // Hide drag indicator when dragging completes
+            this.hideDragIndicator();
+
             // Complete or cancel panel reveal based on drag distance
             if (dragDistance >= this.dragThreshold * 2) {
                 this.completePanelReveal();
@@ -244,9 +299,15 @@ class GestureHandler {
                 this.cancelPanelReveal();
             }
         } else {
-            // Short tap in gesture zone - show brief hint
+            // CRITICAL FIX: For short taps, keep drag indicator visible and show hint
+            // Don't hide indicator until user clicks outside or starts dragging
             if (touchDuration < 300 && dragDistance < 10) {
                 this.showGestureHint();
+                // Drag indicator stays visible - will be hidden by document click or next gesture
+                console.log('GestureHandler: Short tap detected, keeping drag indicator visible');
+            } else {
+                // Hide indicator for longer touches that didn't become drags
+                this.hideDragIndicator();
             }
         }
 
@@ -355,10 +416,28 @@ class GestureHandler {
         const hint = document.createElement('div');
         hint.className = 'gesture-hint';
         hint.textContent = 'Drag down to open settings';
+
+        // CRITICAL FIX: Position relative to content area, not viewport
+        const contentContainer = document.querySelector('.calendar-content');
+        let topPosition = `${this.gestureZoneHeight + 10}px`;
+        let leftPosition = '50%';
+
+        if (contentContainer) {
+            const rect = contentContainer.getBoundingClientRect();
+            topPosition = `${rect.top + this.gestureZoneHeight + 10}px`;
+            leftPosition = `${rect.left + (rect.width / 2)}px`;
+            console.log('GestureHandler: Positioning hint relative to content area:', {
+                top: topPosition,
+                left: leftPosition
+            });
+        } else {
+            console.warn('GestureHandler: Content container not found for hint, using viewport positioning');
+        }
+
         hint.style.cssText = `
             position: fixed;
-            top: ${this.gestureZoneHeight + 10}px;
-            left: 50%;
+            top: ${topPosition};
+            left: ${leftPosition};
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.8);
             color: white;
@@ -400,7 +479,7 @@ class GestureHandler {
      */
     updateGestureZoneHeight(height) {
         this.gestureZoneHeight = height;
-        
+
         const gestureZone = document.getElementById('settings-gesture-zone');
         if (gestureZone) {
             gestureZone.style.height = `${height}px`;
@@ -432,7 +511,7 @@ class GestureHandler {
         this.isListening = false;
         this.resetGestureState();
         this.hideDragIndicator();
-        
+
         const gestureZone = document.getElementById('settings-gesture-zone');
         if (gestureZone) {
             gestureZone.style.pointerEvents = 'none';

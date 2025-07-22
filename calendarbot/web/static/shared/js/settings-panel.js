@@ -52,6 +52,9 @@ class SettingsPanel {
             // Create panel DOM structure
             this.createPanelHTML();
             
+            // CRITICAL: Apply content-based sizing after panel is created
+            this.updateContentContainerDimensions();
+            
             // Initialize gesture handler
             this.gestureHandler = new GestureHandler(this);
             this.gestureHandler.initialize();
@@ -86,6 +89,8 @@ class SettingsPanel {
         if (existingPanel) {
             existingPanel.remove();
         }
+
+        console.log('SettingsPanel: Creating panel HTML, isOpen should be false:', this.isOpen);
 
         const panelHTML = `
             <div id="settings-panel" class="settings-panel" role="dialog" aria-labelledby="settings-title" aria-hidden="true">
@@ -322,6 +327,9 @@ class SettingsPanel {
                 this.screenSize = newScreenSize;
                 this.updateResponsiveLayout();
             }
+            
+            // Update content container dimensions on resize/orientation change
+            this.updateContentContainerDimensions();
         };
 
         this.addEventListenerWithCleanup(window, 'resize', resizeHandler);
@@ -547,6 +555,9 @@ class SettingsPanel {
                 throw new Error('Settings panel element not found');
             }
 
+            // Update content dimensions before showing panel
+            this.updateContentContainerDimensions();
+
             // Load fresh settings
             await this.loadSettings();
 
@@ -577,6 +588,7 @@ class SettingsPanel {
      */
     close() {
         if (!this.isOpen || this.isTransitioning) {
+            console.log('SettingsPanel: Close called but panel not open or transitioning');
             return;
         }
 
@@ -584,34 +596,58 @@ class SettingsPanel {
         
         const panel = document.getElementById('settings-panel');
         if (panel) {
-            // ACCESSIBILITY FIX: Manage focus before setting aria-hidden
-            // Check if any element inside the panel currently has focus
+            console.log('SettingsPanel: Starting close sequence');
+            
+            // ACCESSIBILITY FIX: Enhanced focus management before setting aria-hidden
             const focusedElement = document.activeElement;
             const panelContainsFocus = panel.contains(focusedElement);
             
-            if (panelContainsFocus) {
-                // Blur the focused element first to prevent accessibility violation
-                if (focusedElement && typeof focusedElement.blur === 'function') {
-                    focusedElement.blur();
-                }
+            console.log('SettingsPanel: Focus management - focused element:', focusedElement?.tagName, focusedElement?.id);
+            console.log('SettingsPanel: Panel contains focus:', panelContainsFocus);
+            
+            // Always handle focus management properly to prevent accessibility violations
+            if (panelContainsFocus && focusedElement) {
+                console.log('SettingsPanel: Removing focus from panel element:', focusedElement.id || focusedElement.tagName);
                 
-                // Move focus to a safe element outside the panel
-                // Try to focus on the document body as a fallback
-                if (document.body && typeof document.body.focus === 'function') {
-                    document.body.focus();
-                } else {
-                    // Alternative: focus on the main content area if available
-                    const mainContent = document.querySelector('main, .calendar-content, body');
-                    if (mainContent && typeof mainContent.focus === 'function') {
-                        mainContent.focus();
+                // Force blur and clear any active state
+                focusedElement.blur();
+                
+                // Ensure focus moves to a safe, focusable element outside the panel
+                // Use document.body as the safest fallback
+                document.body.focus();
+                
+                // Double-check that focus has actually moved
+                const newFocused = document.activeElement;
+                console.log('SettingsPanel: Focus moved to:', newFocused?.tagName, newFocused?.id);
+                
+                // Use a longer timeout to ensure focus change is fully processed
+                setTimeout(() => {
+                    // Verify focus is no longer inside panel before setting aria-hidden
+                    const currentFocus = document.activeElement;
+                    const stillInPanel = panel.contains(currentFocus);
+                    
+                    if (!stillInPanel) {
+                        panel.setAttribute('aria-hidden', 'true');
+                        console.log('SettingsPanel: aria-hidden set after successful focus management');
+                    } else {
+                        console.warn('SettingsPanel: Focus still inside panel, deferring aria-hidden');
+                        // Force focus out one more time
+                        document.body.focus();
+                        setTimeout(() => {
+                            panel.setAttribute('aria-hidden', 'true');
+                            console.log('SettingsPanel: aria-hidden set after forced focus removal');
+                        }, 50);
                     }
-                }
+                }, 10);
+            } else {
+                // No focus inside panel, safe to set aria-hidden immediately
+                panel.setAttribute('aria-hidden', 'true');
+                console.log('SettingsPanel: aria-hidden set (no focus inside panel)');
             }
             
             // PANEL HIDING FIX: Remove all visibility-related classes and reset transform
             panel.classList.remove('open', 'revealing');
             panel.style.transform = '';
-            panel.setAttribute('aria-hidden', 'true');
         }
 
         // Clear any pending auto-save
@@ -925,22 +961,133 @@ class SettingsPanel {
     }
 
     /**
-     * Detect current layout
+     * Detect current layout from DOM or URL
      */
     detectLayout() {
         // Look for layout indicators in DOM or URL
+        const html = document.documentElement;
         const body = document.body;
-        if (body.classList.contains('layout-3x4')) return '3x4';
-        if (body.classList.contains('layout-4x8')) return '4x8';
-        if (body.classList.contains('layout-whats-next-view')) return 'whats-next-view';
+        let layout = 'unknown';
         
-        // Check URL path
-        const path = window.location.pathname;
-        if (path.includes('3x4')) return '3x4';
-        if (path.includes('4x8')) return '4x8';
-        if (path.includes('whats-next-view')) return 'whats-next-view';
+        // Check HTML element class first (more reliable)
+        if (html && html.classList.contains('layout-whats-next-view')) layout = 'whats-next-view';
+        else if (html && html.classList.contains('layout-3x4')) layout = '3x4';
+        else if (html && html.classList.contains('layout-4x8')) layout = '4x8';
+        // Fallback to body classes
+        else if (body && body.classList.contains('layout-whats-next-view')) layout = 'whats-next-view';
+        else if (body && body.classList.contains('layout-3x4')) layout = '3x4';
+        else if (body && body.classList.contains('layout-4x8')) layout = '4x8';
+        else {
+            // Check URL path as final fallback
+            const path = window.location.pathname;
+            if (path.includes('whats-next-view')) layout = 'whats-next-view';
+            else if (path.includes('3x4')) layout = '3x4';
+            else if (path.includes('4x8')) layout = '4x8';
+        }
         
-        return 'unknown';
+        console.log('SettingsPanel: Layout detected:', layout, 'from HTML class:', html?.className);
+        return layout;
+    }
+
+    /**
+     * Update content container dimensions and set dynamic CSS properties
+     */
+    updateContentContainerDimensions() {
+        try {
+            console.log('SettingsPanel: Checking for content container... DOM ready:', document.readyState);
+            const contentContainer = document.querySelector('.calendar-content');
+            const settingsPanel = document.getElementById('settings-panel');
+            
+            console.log('SettingsPanel: Content container found:', !!contentContainer);
+            console.log('SettingsPanel: Settings panel found:', !!settingsPanel);
+            
+            if (contentContainer && settingsPanel) {
+                const rect = contentContainer.getBoundingClientRect();
+                const computedStyle = window.getComputedStyle(contentContainer);
+                
+                // Get the actual content dimensions including padding
+                const width = rect.width;
+                const height = rect.height;
+                
+                // Store dimensions for later use
+                this.contentContainerDimensions = {
+                    width: Math.round(width),
+                    height: Math.round(height),
+                    left: Math.round(rect.left),
+                    top: Math.round(rect.top)
+                };
+                
+                // Apply content-aware CSS custom properties
+                this.applyContentBasedSizing(this.contentContainerDimensions);
+                
+                console.log('SettingsPanel: Content container dimensions detected and applied:', this.contentContainerDimensions);
+            } else if (!contentContainer) {
+                console.log('SettingsPanel: No .calendar-content container found, using viewport-based sizing');
+                this.contentContainerDimensions = null;
+                this.clearContentBasedSizing();
+            } else if (!settingsPanel) {
+                console.log('SettingsPanel: Settings panel not found, deferring content-based sizing');
+                this.contentContainerDimensions = null;
+            }
+        } catch (error) {
+            console.warn('SettingsPanel: Failed to detect content container dimensions:', error);
+            this.contentContainerDimensions = null;
+        }
+    }
+
+    /**
+     * Apply content-based sizing CSS custom properties
+     */
+    applyContentBasedSizing(dimensions) {
+        if (!dimensions) return;
+        
+        const root = document.documentElement;
+        const panel = document.getElementById('settings-panel');
+        
+        // Calculate panel height (capped at 400px as per CSS)
+        const panelHeight = Math.min(dimensions.height, 400);
+        
+        // Calculate transform value to completely hide panel above viewport
+        // For complete hiding: effective top + panel height ≤ 0
+        // effective top = CSS top + translateY
+        // So: dimensions.top + translateY + panelHeight ≤ 0
+        // translateY ≤ -dimensions.top - panelHeight
+        const hideTransform = -(dimensions.top + panelHeight);
+        
+        // Set content-aware dimensions that override viewport-based ones
+        root.style.setProperty('--settings-panel-content-width', `${dimensions.width}px`);
+        root.style.setProperty('--settings-panel-content-height', `${panelHeight}px`);
+        root.style.setProperty('--settings-panel-content-left', `${dimensions.left}px`);
+        root.style.setProperty('--settings-panel-content-top', `${dimensions.top}px`);
+        root.style.setProperty('--settings-panel-hide-transform', `${hideTransform}px`);
+        
+        // Flag that content-based sizing is active
+        root.style.setProperty('--settings-panel-content-mode', '1');
+        
+        // CRITICAL FIX: Set data attribute to ensure CSS selectors work reliably
+        if (panel) {
+            panel.setAttribute('data-content-aware', 'true');
+            console.log('SettingsPanel: Set data-content-aware attribute for reliable CSS matching');
+        }
+        
+        console.log('SettingsPanel: Applied content-based sizing properties:', dimensions);
+        console.log('SettingsPanel: Hide transform calculated:', `${hideTransform}px`);
+        console.log('SettingsPanel: Panel should be hidden initially, isOpen=', this.isOpen);
+    }
+
+    /**
+     * Clear content-based sizing and restore viewport-based fallback
+     */
+    clearContentBasedSizing() {
+        const root = document.documentElement;
+        
+        root.style.removeProperty('--settings-panel-content-width');
+        root.style.removeProperty('--settings-panel-content-height');
+        root.style.removeProperty('--settings-panel-content-left');
+        root.style.removeProperty('--settings-panel-content-top');
+        root.style.removeProperty('--settings-panel-content-mode');
+        
+        console.log('SettingsPanel: Cleared content-based sizing, using viewport fallback');
     }
 
     /**
@@ -1042,6 +1189,9 @@ class SettingsPanel {
         if (this.autoSaveTimeout) {
             clearTimeout(this.autoSaveTimeout);
         }
+
+        // Clear content-based sizing properties
+        this.clearContentBasedSizing();
 
         // Remove event listeners
         this.boundEventListeners.forEach(({ element, event, handler }) => {

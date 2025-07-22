@@ -20,6 +20,13 @@
     --settings-panel-height-sm: 400px;
     --settings-panel-height-lg: 800px;
     
+    /* Content-Based Sizing (set dynamically by JavaScript) */
+    --settings-panel-content-width: unset;
+    --settings-panel-content-height: unset;
+    --settings-panel-content-left: unset;
+    --settings-panel-content-top: unset;
+    --settings-panel-content-mode: 0;
+    
     /* Gesture Interface */
     --gesture-zone-height: 50px;
     --drag-threshold: 20px;
@@ -84,6 +91,39 @@
     /* Scrollbar styling */
     scrollbar-width: thin;
     scrollbar-color: var(--border-medium, #bdbdbd) transparent;
+}
+
+/* Content-Aware Sizing - Applied when JavaScript sets content-based properties */
+:root[style*="--settings-panel-content-mode: 1"] .settings-panel {
+    /* Match content container width, use reasonable height for settings */
+    width: var(--settings-panel-content-width);
+    height: min(var(--settings-panel-content-height), 400px);
+    
+    /* Position at content container top edge */
+    left: var(--settings-panel-content-left);
+    top: var(--settings-panel-content-top);
+    
+    /* Hide panel completely above viewport using calculated transform */
+    transform: translateY(var(--settings-panel-hide-transform, -100%));
+}
+
+/* When panel is open in content-aware mode */
+:root[style*="--settings-panel-content-mode: 1"] .settings-panel.open {
+    transform: translateY(0);
+}
+
+/* Revealing state for content-aware mode during gestures */
+:root[style*="--settings-panel-content-mode: 1"] .settings-panel.revealing {
+    transition: none;
+}
+
+/* Fallback for browsers without CSS custom property support in selectors */
+.settings-panel[data-content-aware="true"] {
+    /* Use JavaScript-set positioning when content container is available */
+    width: var(--settings-panel-content-width, var(--settings-panel-width-sm));
+    height: var(--settings-panel-content-height, var(--settings-panel-height-sm));
+    left: var(--settings-panel-content-left, 0px);
+    top: var(--settings-panel-content-top, 0px);
 }
 
 .settings-panel::-webkit-scrollbar {
@@ -598,13 +638,14 @@
    RESPONSIVE BREAKPOINTS
    =========================================== */
 
-/* 300×400px Compact Display (Default) */
+/* 300×400px Compact Display (Default) - Only applies when content-aware mode is not active */
 @media (max-width: 320px) and (max-height: 420px) {
-    .settings-panel {
+    .settings-panel:not([data-content-aware="true"]) {
         width: var(--settings-panel-width-sm);
         height: var(--settings-panel-height-sm);
     }
     
+    /* Content layout adjustments apply to all panels */
     .settings-content {
         padding: var(--space-sm);
     }
@@ -632,13 +673,14 @@
     }
 }
 
-/* 480×800px E-ink Display */
+/* 480×800px E-ink Display - Only applies when content-aware mode is not active */
 @media (min-width: 460px) and (min-height: 780px) {
-    .settings-panel {
+    .settings-panel:not([data-content-aware="true"]) {
         width: var(--settings-panel-width-lg);
         height: var(--settings-panel-height-lg);
     }
     
+    /* Content layout adjustments apply to all panels */
     .settings-content {
         padding: var(--space-lg);
     }
@@ -668,9 +710,10 @@
     }
 }
 
-/* Web Browser Display */
+/* Web Browser Display - Fallback when content-aware mode is not active */
 @media (min-width: 768px) {
-    .settings-panel {
+    /* Only apply viewport-based positioning when not in content-aware mode */
+    :root:not([style*="--settings-panel-content-mode: 1"]) .settings-panel:not([data-content-aware="true"]) {
         width: 600px;
         height: 80vh;
         max-height: 900px;
@@ -678,10 +721,11 @@
         transform: translateX(-50%) translateY(-100%);
     }
     
-    .settings-panel.open {
+    :root:not([style*="--settings-panel-content-mode: 1"]) .settings-panel.open:not([data-content-aware="true"]) {
         transform: translateX(-50%) translateY(0);
     }
     
+    /* Content layout adjustments apply to all panels */
     .settings-content {
         padding: var(--space-xl);
     }
@@ -696,6 +740,23 @@
         grid-template-columns: repeat(3, 1fr);
         gap: var(--space-md);
     }
+}
+
+/* Content-aware mode overrides for all screen sizes */
+:root[style*="--settings-panel-content-mode: 1"] .settings-panel,
+.settings-panel[data-content-aware="true"] {
+    /* Content-aware sizing takes precedence over all responsive breakpoints */
+    width: var(--settings-panel-content-width, var(--settings-panel-width-sm)) !important;
+    height: var(--settings-panel-content-height, var(--settings-panel-height-sm)) !important;
+    left: var(--settings-panel-content-left, 0px) !important;
+    top: var(--settings-panel-content-top, 0px) !important;
+    /* CRITICAL FIX: Use calculated hide transform instead of -100% to ensure complete hiding */
+    transform: translateY(var(--settings-panel-hide-transform, -100%)) !important;
+}
+
+:root[style*="--settings-panel-content-mode: 1"] .settings-panel.open,
+.settings-panel[data-content-aware="true"].open {
+    transform: translateY(0) !important;
 }
 
 /* ===========================================

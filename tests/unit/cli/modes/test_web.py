@@ -579,7 +579,7 @@ class TestWebModeIntegration:
 
                 # Verify settings were updated for web mode
                 assert test_settings.display_type == "html"
-                assert test_settings.web_layout == "4x8"
+                assert test_settings.web_layout == "whats-next-view"
                 assert test_settings.web_host == "127.0.0.1"
                 assert test_settings.web_port == 9090
 

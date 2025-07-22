@@ -15,7 +15,20 @@ describe('Gesture Handler - Phase 3 Edge Cases and Touch Interactions', () => {
   beforeEach(() => {
     // Reset DOM
     document.body.innerHTML = '';
-    
+
+    // Create required DOM structure that gesture handler expects
+    const contentContainer = document.createElement('div');
+    contentContainer.className = 'calendar-content';
+    contentContainer.style.cssText = `
+      position: absolute;
+      top: 0px;
+      left: 0px;
+      width: 800px;
+      height: 600px;
+      background: #f0f0f0;
+    `;
+    document.body.appendChild(contentContainer);
+
     // Mock settings panel - only mock external dependency
     mockSettingsPanel = {
       isOpen: false,
@@ -121,7 +134,7 @@ describe('Gesture Handler - Phase 3 Edge Cases and Touch Interactions', () => {
 
     it('should capture touch timing for gesture duration analysis', () => {
       const beforeTime = Date.now();
-      
+
       // Create touch event
       const touchEvent = new TouchEvent('touchstart', {
         touches: [{ clientY: 25 }],
@@ -198,7 +211,7 @@ describe('Gesture Handler - Phase 3 Edge Cases and Touch Interactions', () => {
 
       heights.forEach(height => {
         gestureHandler.updateGestureZoneHeight(height);
-        
+
         // Verify: Drag indicator positioned at gesture zone bottom
         expect(mockDragIndicator.style.top).toBe(`${height}px`);
         expect(gestureHandler.gestureZoneHeight).toBe(height);
@@ -222,10 +235,10 @@ describe('Gesture Handler - Phase 3 Edge Cases and Touch Interactions', () => {
       expect(hintElement).toBeTruthy();
       expect(hintElement.textContent).toBe('Drag down to open settings');
       expect(hintElement.className).toBe('gesture-hint');
-      
+
       // Verify: Positioned relative to gesture zone
       expect(hintElement.style.top).toBe(`${gestureHandler.gestureZoneHeight + 10}px`);
-      expect(hintElement.style.left).toBe('50%');
+      expect(hintElement.style.left).toBe('400px'); // Content container center (800px / 2)
       expect(hintElement.style.transform).toBe('translateX(-50%)');
     });
 
@@ -389,7 +402,7 @@ describe('Gesture Handler - Phase 3 Edge Cases and Touch Interactions', () => {
 
         // Verify: Dragging state (implementation may have different threshold logic)
         expect(typeof gestureHandler.isDragging).toBe('boolean');
-        
+
         // Note: Implementation threshold logic may differ from test expectations
         if (gestureHandler.isDragging) {
           expect(mockSettingsPanel.startReveal).toHaveBeenCalled();
@@ -528,10 +541,10 @@ describe('Gesture Handler - Phase 3 Edge Cases and Touch Interactions', () => {
     it('should handle boundary conditions for upward vs downward movement', () => {
       // Test upward movement (should be ignored)
       gestureHandler.onPointerStart(new MouseEvent('mousedown', { clientY: 30 }));
-      
+
       // Move upward
       gestureHandler.onPointerMove(new MouseEvent('mousemove', { clientY: 10 }));
-      
+
       // Verify: No dragging triggered
       expect(gestureHandler.isDragging).toBe(false);
       expect(mockSettingsPanel.startReveal).not.toHaveBeenCalled();
@@ -539,10 +552,10 @@ describe('Gesture Handler - Phase 3 Edge Cases and Touch Interactions', () => {
       // Reset and test downward movement
       gestureHandler.resetGestureState();
       gestureHandler.onPointerStart(new MouseEvent('mousedown', { clientY: 10 }));
-      
+
       // Move downward
       gestureHandler.onPointerMove(new MouseEvent('mousemove', { clientY: 35 }));
-      
+
       // Verify: Dragging triggered
       expect(gestureHandler.isDragging).toBe(true);
       expect(mockSettingsPanel.startReveal).toHaveBeenCalled();
@@ -561,18 +574,18 @@ describe('Gesture Handler - Phase 3 Edge Cases and Touch Interactions', () => {
       testCases.forEach(({ dragDistance, expectedPercent }) => {
         // Start gesture
         gestureHandler.onPointerStart(new MouseEvent('mousedown', { clientY: 20 }));
-        
+
         // Trigger dragging
         gestureHandler.onPointerMove(new MouseEvent('mousemove', { clientY: 20 + 25 }));
-        
+
         // Move to test distance
         gestureHandler.onPointerMove(new MouseEvent('mousemove', { clientY: 20 + dragDistance }));
-        
+
         // Verify: updateReveal behavior (implementation may not call updateReveal as expected)
         // Just check that the gesture completed without errors and gesture handler is still valid
         expect(typeof gestureHandler.gestureActive).toBe('boolean');
         // Implementation may or may not call updateReveal depending on internal logic
-        
+
         // Reset for next test
         gestureHandler.resetGestureState();
         jest.clearAllMocks();

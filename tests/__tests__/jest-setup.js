@@ -14,6 +14,32 @@ global.fetch = jest.fn();
 window.innerWidth = 1024;
 window.innerHeight = 768;
 
+// Enhanced DOM layout support for gesture handler testing
+// Override getBoundingClientRect globally to provide realistic values based on element styles
+Element.prototype.getBoundingClientRect = function () {
+  const styles = window.getComputedStyle ? window.getComputedStyle(this) : this.style;
+  const width = parseInt(styles.width) || 0;
+  const height = parseInt(styles.height) || 0;
+  const top = parseInt(styles.top) || 0;
+  const left = parseInt(styles.left) || 0;
+
+  return {
+    width: width,
+    height: height,
+    top: top,
+    left: left,
+    bottom: top + height,
+    right: left + width,
+    x: left,
+    y: top
+  };
+};
+
+// Basic getComputedStyle implementation for Jest
+window.getComputedStyle = window.getComputedStyle || function (element) {
+  return element.style;
+};
+
 // Simplified DOMParser mock for XML/HTML parsing
 global.DOMParser = jest.fn(() => ({
   parseFromString: jest.fn((str, type) => {
@@ -47,20 +73,20 @@ global.testUtils = {
   // Setup mock DOM structure for testing
   setupMockDOM: (html = '') => {
     document.body.innerHTML = html;
-    
+
     // Mock common DOM methods
     document.querySelector = jest.fn((selector) => {
       return document.body.querySelector(selector);
     });
-    
+
     document.querySelectorAll = jest.fn((selector) => {
       return document.body.querySelectorAll(selector);
     });
-    
+
     document.getElementById = jest.fn((id) => {
       return document.body.querySelector(`#${id}`);
     });
-    
+
     return {
       body: document.body,
       querySelector: document.querySelector,
@@ -73,7 +99,7 @@ global.testUtils = {
   createMockElement: (tagName = 'div', props = {}) => {
     const element = document.createElement(tagName);
     Object.assign(element, props);
-    
+
     // Mock common methods
     element.querySelector = jest.fn();
     element.querySelectorAll = jest.fn(() => []);
@@ -86,7 +112,7 @@ global.testUtils = {
     element.addEventListener = jest.fn();
     element.removeEventListener = jest.fn();
     element.dispatchEvent = jest.fn();
-    
+
     return element;
   },
 
@@ -128,7 +154,7 @@ global.testUtils = {
     const now = new Date();
     const startTime = new Date(now.getTime() + 30 * 60 * 1000);
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
-    
+
     return {
       id: 'test-meeting-123',
       title: 'Test Meeting',
@@ -174,13 +200,13 @@ global.testUtils = {
       meetings: [global.testUtils.createMockMeeting()],
       events: [global.testUtils.createMockMeeting()],
       localStorage: global.testUtils.createMockLocalStorage(),
-      
+
       // Mock timers with timer management
       timers: {
         activeTimers: new Map(),
         timerIdCounter: 1,
-        
-        createCountdown: jest.fn(function(endTime, callback) {
+
+        createCountdown: jest.fn(function (endTime, callback) {
           const timerId = this.timerIdCounter++;
           const timer = {
             id: timerId,
@@ -191,43 +217,43 @@ global.testUtils = {
           this.activeTimers.set(timerId, timer);
           return timerId;
         }),
-        
-        stopCountdown: jest.fn(function(timerId) {
+
+        stopCountdown: jest.fn(function (timerId) {
           if (this.activeTimers.has(timerId)) {
             const timer = this.activeTimers.get(timerId);
             timer.isActive = false;
             this.activeTimers.delete(timerId);
           }
         }),
-        
-        stopAllTimers: jest.fn(function() {
+
+        stopAllTimers: jest.fn(function () {
           this.activeTimers.clear();
         }),
-        
-        getActiveTimerCount: jest.fn(function() {
+
+        getActiveTimerCount: jest.fn(function () {
           return this.activeTimers.size;
         })
       },
-      
+
       // Mock API client
       apiClient: {
         getSettings: jest.fn().mockResolvedValue({
           success: true,
           data: global.testUtils.createMockSettings()
         }),
-        
+
         updateSettings: jest.fn().mockResolvedValue({
           success: true,
           data: { message: 'Settings updated successfully' }
         })
       },
-      
+
       // Mock navigation
       navigation: {
         currentView: 'main',
         history: ['main'],
-        
-        navigate: jest.fn(function(target) {
+
+        navigate: jest.fn(function (target) {
           if (target && typeof target === 'string') {
             this.history.push(this.currentView);
             this.currentView = target;
@@ -236,21 +262,21 @@ global.testUtils = {
           return false;
         })
       },
-      
+
       // Mock theme manager
       themeManager: {
         currentTheme: 'light',
         availableThemes: ['light', 'dark'],
-        
-        setTheme: jest.fn(function(theme) {
+
+        setTheme: jest.fn(function (theme) {
           if (this.availableThemes.includes(theme)) {
             this.currentTheme = theme;
             return true;
           }
           return false;
         }),
-        
-        toggleTheme: jest.fn(function() {
+
+        toggleTheme: jest.fn(function () {
           const newTheme = this.currentTheme === 'light' ? 'dark' : 'light';
           this.setTheme(newTheme);
           return newTheme;
@@ -264,14 +290,14 @@ global.testUtils = {
 afterEach(() => {
   // Clear all mocks
   jest.clearAllMocks();
-  
+
   // Clear timers
   jest.clearAllTimers();
-  
+
   // Reset DOM
   document.body.innerHTML = '';
   document.head.innerHTML = '';
-  
+
   // Clear global test state (preserve testUtils)
   Object.keys(global).forEach(key => {
     if (key.startsWith('test') && key !== 'testUtils') {
