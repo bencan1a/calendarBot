@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 
 from calendarbot.cli.config import (
-    apply_rpi_overrides,
+    apply_cli_overrides,
     backup_configuration,
     check_configuration,
     list_backups,
@@ -379,140 +379,6 @@ class TestListBackups:
             assert "Failed to list backups: Test error" in captured.out
 
 
-class TestApplyRpiOverrides:
-    """Test the apply_rpi_overrides function."""
-
-    def test_apply_rpi_overrides_enabled(self):
-        """Test RPI overrides when RPI mode is enabled with layout-renderer separation."""
-        # Create mock settings and args
-        mock_settings = MagicMock()
-        mock_settings.rpi_auto_layout = True
-        mock_settings.layout_name = "4x8"  # Original layout (renamed from web_layout)
-        mock_settings.display_type = "html"  # Original renderer
-
-        mock_args = MagicMock()
-        mock_args.rpi = True
-        mock_args.rpi_width = None
-        mock_args.rpi_height = None
-        mock_args.rpi_refresh_mode = None
-        mock_args.layout = None  # Explicitly set to None to trigger auto-layout
-
-        with patch("calendarbot.cli.config.logging.getLogger") as mock_logger:
-            result = apply_rpi_overrides(mock_settings, mock_args)
-
-            assert result.rpi_enabled is True
-            # RPI should change the renderer type to compact (not rpi)
-            assert result.display_type == "compact"
-            # Auto layout should change layout to 3x4 for RPI
-            assert result.layout_name == "3x4"
-
-    def test_apply_rpi_overrides_disabled(self):
-        """Test RPI overrides when RPI mode is disabled."""
-        mock_settings = MagicMock()
-        mock_settings.layout_name = "4x8"
-
-        mock_args = MagicMock()
-        mock_args.rpi = False
-        mock_args.compact = False  # Explicitly set to avoid auto-creation
-
-        with patch("calendarbot.cli.config.logging.getLogger") as mock_logger:
-            result = apply_rpi_overrides(mock_settings, mock_args)
-
-            # Settings should remain unchanged - check that result is same object
-            assert result is mock_settings
-            # Verify the function doesn't log any mode activation messages
-            mock_logger.return_value.info.assert_not_called()
-
-    def test_apply_rpi_overrides_with_dimensions(self):
-        """Test RPI overrides with custom dimensions."""
-        mock_settings = MagicMock()
-        mock_settings.rpi_auto_layout = True
-
-        mock_args = MagicMock()
-        mock_args.rpi = True
-        mock_args.rpi_width = 1024
-        mock_args.rpi_height = 768
-        mock_args.rpi_refresh_mode = "full"
-
-        with patch("calendarbot.cli.config.logging.getLogger"):
-            result = apply_rpi_overrides(mock_settings, mock_args)
-
-            assert result.rpi_display_width == 1024
-            assert result.rpi_display_height == 768
-            assert result.rpi_refresh_mode == "full"
-
-    def test_apply_rpi_overrides_auto_theme_disabled(self):
-        """Test RPI overrides when auto theme is disabled."""
-        mock_settings = MagicMock()
-        mock_settings.rpi_auto_layout = False
-        mock_settings.layout_name = "custom"
-
-        mock_args = MagicMock()
-        mock_args.rpi = True
-
-        with patch("calendarbot.cli.config.logging.getLogger"):
-            result = apply_rpi_overrides(mock_settings, mock_args)
-
-            # Layout should not be changed
-            assert result.layout_name == "custom"
-
-    @pytest.mark.parametrize(
-        "rpi_enabled,expected_display_type",
-        [
-            (True, "compact"),
-            (False, None),  # Should not set display_type
-        ],
-    )
-    def test_apply_rpi_overrides_display_type(self, rpi_enabled, expected_display_type):
-        """Test display type setting based on RPI mode."""
-        mock_settings = MagicMock()
-        mock_args = MagicMock()
-        mock_args.rpi = rpi_enabled
-
-        with patch("calendarbot.cli.config.logging.getLogger"):
-            result = apply_rpi_overrides(mock_settings, mock_args)
-
-            if expected_display_type:
-                assert result.display_type == expected_display_type
-            else:
-                # Should not have set display_type
-                assert not hasattr(result, "display_type") or result.display_type != "rpi"
-
-    def test_apply_rpi_overrides_logging_calls(self):
-        """Test that proper logging calls are made."""
-        mock_settings = MagicMock()
-        mock_settings.rpi_auto_layout = True
-        mock_settings.web_layout = "4x8"
-
-        mock_args = MagicMock()
-        mock_args.rpi = True
-
-        with patch("calendarbot.cli.config.logging.getLogger") as mock_get_logger:
-            mock_logger = MagicMock()
-            mock_get_logger.return_value = mock_logger
-
-            apply_rpi_overrides(mock_settings, mock_args)
-
-            # Verify logger was obtained with correct name
-            mock_get_logger.assert_called_with("calendarbot.cli.config")
-
-            # Verify appropriate log calls were made
-            assert mock_logger.debug.called or mock_logger.info.called
-
-    def test_apply_rpi_overrides_no_rpi_attribute(self):
-        """Test RPI overrides when args has no rpi attribute."""
-        mock_settings = MagicMock()
-        mock_args = MagicMock()
-        # Remove rpi attribute
-        del mock_args.rpi
-
-        with patch("calendarbot.cli.config.logging.getLogger"):
-            result = apply_rpi_overrides(mock_settings, mock_args)
-
-            # Should handle missing attribute gracefully
-            assert result == mock_settings
-
-
 class TestModuleLevel:
     """Test module-level functionality."""
 
@@ -526,7 +392,7 @@ class TestModuleLevel:
             "backup_configuration",
             "restore_configuration",
             "list_backups",
-            "apply_rpi_overrides",
+            "apply_cli_overrides",
         ]
 
         for export in expected_exports:

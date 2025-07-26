@@ -168,7 +168,10 @@ Examples:
     test_group = parser.add_argument_group("test", "Test and validation mode options")
 
     test_group.add_argument(
-        "--test-mode", "-t", action="store_true", help="Run Calendar Bot in test/validation mode"
+        "--test-mode",
+        "-t",
+        action="store_true",
+        help="Run comprehensive validation and testing of Calendar Bot components",
     )
 
     test_group.add_argument(
@@ -243,14 +246,6 @@ Examples:
         help="Renderer type: html (web browser), rpi (Raspberry Pi e-ink), compact (compact e-ink)",
     )
 
-    # Backward compatibility for display-type
-    display_group.add_argument(
-        "--display-type",
-        action=LayoutAction,
-        default=None,
-        help="Deprecated: use --layout instead. Display type/layout to use",
-    )
-
     # Raspberry Pi e-ink display arguments
     rpi_group = parser.add_argument_group("rpi", "Raspberry Pi e-ink display options")
 
@@ -258,7 +253,7 @@ Examples:
         "--rpi",
         "--rpi-mode",
         action="store_true",
-        help="Enable Raspberry Pi e-ink display mode (480x800px optimized) - sets renderer to 'rpi'",
+        help="Enable Raspberry Pi e-ink display configuration (480x800px optimized layout, compact renderer)",
     )
 
     rpi_group.add_argument(

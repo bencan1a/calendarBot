@@ -41,13 +41,13 @@ async def run_web_mode(args: Any) -> int:
         from calendarbot.web.navigation import WebNavigationHandler
         from calendarbot.web.server import WebServer
 
-        from ..config import apply_rpi_overrides
+        from ..config import apply_cli_overrides
 
         # Apply command-line logging overrides with priority system
         updated_settings = apply_command_line_overrides(settings, args)
 
-        # Apply RPI-specific overrides
-        updated_settings = apply_rpi_overrides(updated_settings, args)
+        # Apply CLI-specific overrides
+        updated_settings = apply_cli_overrides(updated_settings, args)
 
         # Apply web mode overrides - ensure HTML renderer and appropriate layout for web mode
         if not hasattr(args, "rpi") or not args.rpi:
@@ -219,63 +219,6 @@ async def run_web_mode(args: Any) -> int:
         return 1
 
 
-def setup_web_server(
-    settings: Any, display_manager: Any, cache_manager: Any, navigation_state: Any
-) -> Optional[Any]:
-    """Setup web server with navigation state.
-
-    This function will be migrated from root main.py in Phase 2 to handle
-    web server creation and configuration.
-
-    Args:
-        settings: Application settings object
-        display_manager: Display manager instance
-        cache_manager: Cache manager instance
-        navigation_state: Navigation state handler
-
-    Returns:
-        Configured web server instance
-    """
-    # Placeholder implementation - will be migrated in Phase 2
-    print("Web server setup placeholder - will be migrated from root main.py")
-    return None
-
-
-def apply_web_mode_overrides(settings: Any, args: Any) -> Any:
-    """Apply web mode specific setting overrides.
-
-    This function will be migrated from root main.py in Phase 2 to handle
-    web mode specific configuration like layout and display type.
-
-    Args:
-        settings: Application settings object
-        args: Parsed command line arguments
-
-    Returns:
-        Updated settings object
-    """
-    # Placeholder implementation - will be migrated in Phase 2
-    print("Web mode overrides placeholder - will be migrated from root main.py")
-    return settings
-
-
-def setup_web_navigation() -> Optional[Any]:
-    """Setup web navigation handler.
-
-    This function will be migrated from root main.py in Phase 2 to handle
-    web navigation state management.
-
-    Returns:
-        Web navigation handler instance
-    """
-    # Placeholder implementation - will be migrated in Phase 2
-    print("Web navigation setup placeholder - will be migrated from root main.py")
-    return None
-
-
 __all__ = [
     "run_web_mode",
-    "setup_web_server",
-    "apply_web_mode_overrides",
-    "setup_web_navigation",
 ]

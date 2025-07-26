@@ -22,13 +22,13 @@ async def run_test_mode(args: Any) -> int:
         from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
         from calendarbot.validation import ValidationRunner
 
-        from ..config import apply_rpi_overrides
+        from ..config import apply_cli_overrides
 
         # Apply command-line logging overrides
         updated_settings = apply_command_line_overrides(settings, args)
 
-        # Apply RPI-specific overrides
-        updated_settings = apply_rpi_overrides(updated_settings, args)
+        # Apply CLI-specific overrides
+        updated_settings = apply_cli_overrides(updated_settings, args)
 
         # Set up enhanced logging for test mode
         logger = setup_enhanced_logging(updated_settings, interactive_mode=False)

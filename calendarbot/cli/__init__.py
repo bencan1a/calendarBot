@@ -8,7 +8,7 @@ import anti-pattern and establish proper internal package structure.
 """
 
 from .config import (
-    apply_rpi_overrides,
+    apply_cli_overrides,
     backup_configuration,
     check_configuration,
     list_backups,

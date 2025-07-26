@@ -134,14 +134,11 @@ class TestCreateParser:
         assert args.auto_open is True
 
     def test_parser_display_arguments(self):
-        """Test that parser includes display and layout arguments."""
+        """Test that parser includes layout arguments."""
         parser = create_parser()
 
-        args = parser.parse_args(["--display-type", "4x8"])
-        assert args.display_type == "4x8"
-
         args = parser.parse_args(["--layout", "3x4"])
-        assert args.display_type == "3x4"  # --layout is alias for --display-type
+        assert args.display_type == "3x4"  # --layout sets display_type
 
     def test_parser_rpi_arguments(self):
         """Test that parser includes Raspberry Pi arguments."""
