@@ -3,11 +3,11 @@
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 from dateutil import tz
 from dateutil.rrule import rrule, rrulestr
-from icalendar import Calendar
+from icalendar import Calendar, Component
 from icalendar import Event as ICalEvent
 
 from ..security.logging import SecurityEventLogger
@@ -55,11 +55,13 @@ class ICSParser:
             calendar = Calendar.from_ical(ics_content)
 
             # Extract calendar metadata
-            calendar_name = self._get_calendar_property(calendar, "X-WR-CALNAME")
-            calendar_description = self._get_calendar_property(calendar, "X-WR-CALDESC")
-            timezone_str = self._get_calendar_property(calendar, "X-WR-TIMEZONE")
-            prodid = self._get_calendar_property(calendar, "PRODID")
-            version = self._get_calendar_property(calendar, "VERSION")
+            calendar_name = self._get_calendar_property(cast(Calendar, calendar), "X-WR-CALNAME")
+            calendar_description = self._get_calendar_property(
+                cast(Calendar, calendar), "X-WR-CALDESC"
+            )
+            timezone_str = self._get_calendar_property(cast(Calendar, calendar), "X-WR-TIMEZONE")
+            prodid = self._get_calendar_property(cast(Calendar, calendar), "PRODID")
+            version = self._get_calendar_property(cast(Calendar, calendar), "VERSION")
 
             # Parse events
             events = []
@@ -73,7 +75,9 @@ class ICSParser:
 
                 if component.name == "VEVENT":
                     try:
-                        event = self._parse_event_component(component, timezone_str)
+                        event = self._parse_event_component(
+                            cast(ICalEvent, component), timezone_str
+                        )
                         if event:
                             events.append(event)
                             event_count += 1

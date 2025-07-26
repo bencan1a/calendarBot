@@ -208,7 +208,13 @@ class SplitDisplayHandler(logging.Handler):
             if self.display_manager.renderer is not None and hasattr(
                 self.display_manager.renderer, "update_log_area"
             ):
-                self.display_manager.renderer.update_log_area(list(self.log_buffer))
+                from typing import cast
+
+                from ..display.renderer_protocol import ConsoleRendererProtocol
+
+                cast(ConsoleRendererProtocol, self.display_manager.renderer).update_log_area(
+                    list(self.log_buffer)
+                )
         except Exception:
             # Don't let logging errors break the application
             pass

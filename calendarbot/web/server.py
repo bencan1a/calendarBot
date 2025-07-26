@@ -549,9 +549,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
+            from typing import cast
+
             from ..settings.models import SettingsData
 
-            settings = SettingsData(**params)
+            # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
+            json_params = cast(Dict[str, Any], params)
+            settings = SettingsData(**json_params)
             updated_settings = settings_service.update_settings(settings)
 
             self._send_json_response(
@@ -595,9 +599,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
+            from typing import cast
+
             from ..settings.models import EventFilterSettings
 
-            filter_settings = EventFilterSettings(**params)
+            # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
+            json_params = cast(Dict[str, Any], params)
+            filter_settings = EventFilterSettings(**json_params)
             updated_filters = settings_service.update_filter_settings(filter_settings)
 
             self._send_json_response(
@@ -638,9 +646,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
+            from typing import cast
+
             from ..settings.models import DisplaySettings
 
-            display_settings = DisplaySettings(**params)
+            # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
+            json_params = cast(Dict[str, Any], params)
+            display_settings = DisplaySettings(**json_params)
             updated_display = settings_service.update_display_settings(display_settings)
 
             self._send_json_response(
@@ -681,9 +693,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
+            from typing import cast
+
             from ..settings.models import ConflictResolutionSettings
 
-            conflict_settings = ConflictResolutionSettings(**params)
+            # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
+            json_params = cast(Dict[str, Any], params)
+            conflict_settings = ConflictResolutionSettings(**json_params)
             updated_conflicts = settings_service.update_conflict_settings(conflict_settings)
 
             self._send_json_response(
@@ -713,9 +729,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
+            from typing import cast
+
             from ..settings.models import SettingsData
 
-            settings = SettingsData(**params)
+            # For POST requests, params comes from JSON data, so it should be Dict[str, Any]
+            json_params = cast(Dict[str, Any], params)
+            settings = SettingsData(**json_params)
             validation_errors = settings_service.validate_settings(settings)
 
             self._send_json_response(
@@ -761,9 +781,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
+            from typing import cast
+
             from ..settings.models import SettingsData
 
-            settings = SettingsData(**params)
+            # For POST requests, params comes from JSON data, so it should be Dict[str, Any]
+            json_params = cast(Dict[str, Any], params)
+            settings = SettingsData(**json_params)
             imported_settings = settings_service.update_settings(settings)
 
             self._send_json_response(

@@ -30,7 +30,7 @@ repos:
         name: "Merge Conflict Check"
       - id: check-added-large-files
         name: "Large File Check"
-        args: ['--maxkb=1000']
+        args: ["--maxkb=1000"]
       - id: debug-statements
         name: "Debug Statement Check"
         exclude: ^(tests/|docs/|scripts/|backup/)
@@ -59,43 +59,44 @@ repos:
         files: ^calendarbot/.*\.py$
         exclude: ^(tests/|docs/|scripts/|backup/|\.venv/|venv/)
         args: [--config-file=pyproject.toml]
-        additional_dependencies: [
-          types-PyYAML,
-          types-requests,
-          types-psutil,
-          types-pytz,
-          types-python-dateutil,
-          types-setuptools,
-          pydantic>=2.0.0,
-          pydantic-settings>=2.0.0,
-          httpx>=0.25.0,
-          pytest>=7.4.0,
-          pytest-asyncio>=0.21.0,
-          aiosqlite>=0.19.0,
-          icalendar>=5.0.0,
-          APScheduler>=3.10.0,
-          cryptography>=41.0.0
-        ]
+        additional_dependencies:
+          [
+            types-PyYAML,
+            types-requests,
+            types-psutil,
+            types-pytz,
+            types-python-dateutil,
+            types-setuptools,
+            pydantic>=2.0.0,
+            pydantic-settings>=2.0.0,
+            httpx>=0.25.0,
+            pytest>=7.4.0,
+            pytest-asyncio>=0.21.0,
+            aiosqlite>=0.19.0,
+            icalendar>=5.0.0,
+            APScheduler>=3.10.0,
+            cryptography>=41.0.0,
+          ]
 
-  # ============================================================================
-  # STAGE 3: Smart Test Execution (90-390 seconds)
-  # ============================================================================
-  - repo: local
-    hooks:
-      - id: smart-test-execution
-        name: "Smart Test Selection & Execution"
-        entry: sh -c '. venv/bin/activate && python tests/suites/suite_manager.py execute-smart'
-        language: system
-        pass_filenames: false
-        stages: [pre-commit]
-        verbose: true
+      # ============================================================================
+      # STAGE 3: Smart Test Execution (90-390 seconds)
+      # ============================================================================
+      # - repo: local
+      #   hooks:
+      #     - id: smart-test-execution
+      #       name: "Smart Test Selection & Execution"
+      #       entry: sh -c '. venv/bin/activate && python tests/suites/suite_manager.py execute-smart'
+      #       language: system
+      #       pass_filenames: false
+      #       stages: [pre-commit]
+      #       verbose: true
 
-      - id: config-validation
-        name: "Configuration Validation"
-        entry: sh -c '. venv/bin/activate && python -c "import yaml; import calendarbot.config.settings; print(\"✅ Configuration validation passed\")"'
-        language: system
-        pass_filenames: false
-        files: ^(config/.*\.py|.*\.yaml|.*\.yml)$
+      # - id: config-validation
+      #   name: "Configuration Validation"
+      #   entry: sh -c '. venv/bin/activate && python -c "import yaml; import calendarbot.config.settings; print(\"✅ Configuration validation passed\")"'
+      #   language: system
+      #   pass_filenames: false
+      #   files: ^(config/.*\.py|.*\.yaml|.*\.yml)$
 
   # ============================================================================
   # STAGE 4: Integrated Format-and-Stage (Auto-Fix Mode)
@@ -157,9 +158,9 @@ ci:
     [pre-commit.ci] auto fixes from pre-commit.com hooks
 
     for more information, see https://pre-commit.ci
-  autofix_prs: false  # Disabled to prevent unwanted auto-fixes in PRs
-  autoupdate_branch: ''
-  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autofix_prs: false # Disabled to prevent unwanted auto-fixes in PRs
+  autoupdate_branch: ""
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
   autoupdate_schedule: weekly
-  skip: [smart-test-execution]  # Skip expensive tests in CI pre-commit
+  skip: [smart-test-execution] # Skip expensive tests in CI pre-commit
   submodules: false

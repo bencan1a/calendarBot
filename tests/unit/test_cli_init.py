@@ -424,7 +424,7 @@ class TestCliImports:
     def test_cli_module_imports(self):
         """Test that CLI module imports work correctly."""
         from calendarbot.cli import (
-            apply_rpi_overrides,
+            apply_cli_overrides,
             backup_configuration,
             check_configuration,
             create_parser,
@@ -448,7 +448,7 @@ class TestCliImports:
             parse_components,
             check_configuration,
             show_setup_guidance,
-            apply_rpi_overrides,
+            apply_cli_overrides,
             run_setup_wizard,
             backup_configuration,
             restore_configuration,
@@ -472,7 +472,7 @@ class TestCliImports:
             "parse_components",
             "check_configuration",
             "show_setup_guidance",
-            "apply_rpi_overrides",
+            "apply_cli_overrides",
             "run_setup_wizard",
             "backup_configuration",
             "restore_configuration",

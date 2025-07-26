@@ -2,8 +2,10 @@
 
 import asyncio
 import logging
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import date
+from datetime import datetime as dt
+from datetime import timedelta
+from typing import Any, Dict, List, Optional, cast
 
 from ..cache import CacheManager
 from ..cache.models import CachedEvent
@@ -33,7 +35,7 @@ class InteractiveController:
 
         # State
         self._running = False
-        self._last_data_update: Optional[datetime] = None
+        self._last_data_update: Optional[dt] = None
         self._background_update_task: Optional[asyncio.Task[Any]] = None
 
         # Setup keyboard handlers
@@ -166,7 +168,7 @@ class InteractiveController:
         try:
             # Get events for selected date
             selected_date = self.navigation.selected_date
-            start_datetime = datetime.combine(selected_date, datetime.min.time())
+            start_datetime = dt.combine(selected_date, dt.min.time())
             end_datetime = start_datetime + timedelta(days=1)
 
             logger.debug(
@@ -241,10 +243,10 @@ class InteractiveController:
                 cache_status = await self.cache_manager.get_cache_status()
 
                 # Normalize cache status timestamp for comparison
-                last_update_normalized: Optional[datetime] = None
+                last_update_normalized: Optional[dt] = None
                 if cache_status.last_update:
                     # Convert string timestamp to datetime for comparison
-                    last_update_normalized = datetime.fromisoformat(
+                    last_update_normalized = dt.fromisoformat(
                         cache_status.last_update.replace("Z", "+00:00")
                     )
 
@@ -278,7 +280,7 @@ class InteractiveController:
             List of events for the date
         """
         try:
-            start_datetime = datetime.combine(target_date, datetime.min.time())
+            start_datetime = dt.combine(target_date, dt.min.time())
             end_datetime = start_datetime + timedelta(days=1)
 
             events = await self.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
@@ -303,8 +305,8 @@ class InteractiveController:
             end_of_week = start_of_week + timedelta(days=6)
 
             # Get all events for the week
-            start_datetime = datetime.combine(start_of_week, datetime.min.time())
-            end_datetime = datetime.combine(end_of_week, datetime.max.time())
+            start_datetime = dt.combine(start_of_week, dt.min.time())
+            end_datetime = dt.combine(end_of_week, dt.max.time())
 
             all_events = await self.cache_manager.get_events_by_date_range(
                 start_datetime, end_datetime
@@ -382,7 +384,7 @@ class InteractiveController:
             ):
                 # Enable split display with default settings
                 if self.display_manager.renderer is not None:
-                    self.display_manager.renderer.enable_split_display(max_log_lines=5)
+                    cast(Any, self.display_manager.renderer).enable_split_display(max_log_lines=5)
                 logger.debug("Split display logging enabled for interactive mode")
             else:
                 logger.debug("Split display logging not available for current renderer")
@@ -397,7 +399,7 @@ class InteractiveController:
                 self.display_manager.renderer, "disable_split_display"
             ):
                 if self.display_manager.renderer is not None:
-                    self.display_manager.renderer.disable_split_display()
+                    cast(Any, self.display_manager.renderer).disable_split_display()
                 logger.debug("Split display logging disabled")
         except Exception as e:
             logger.warning(f"Failed to disable split display logging: {e}")

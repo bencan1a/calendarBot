@@ -1,6 +1,6 @@
 """Comprehensive unit tests for meeting context analysis features."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 from unittest.mock import Mock, patch
 
@@ -17,11 +17,12 @@ from calendarbot.ics.models import Attendee, CalendarEvent, DateTimeInfo, EventS
 @pytest.fixture
 def sample_meeting() -> CalendarEvent:
     """Create a sample calendar event for testing."""
+    base_time = datetime.now(timezone.utc)
     return CalendarEvent(
         id="test-meeting-1",
         subject="Team Standup",
-        start=DateTimeInfo(date_time=datetime.now() + timedelta(minutes=30), time_zone="UTC"),
-        end=DateTimeInfo(date_time=datetime.now() + timedelta(minutes=60), time_zone="UTC"),
+        start=DateTimeInfo(date_time=base_time + timedelta(minutes=30), time_zone="UTC"),
+        end=DateTimeInfo(date_time=base_time + timedelta(minutes=60), time_zone="UTC"),
         show_as=EventStatus.BUSY,
         is_cancelled=False,
         attendees=[
@@ -34,7 +35,7 @@ def sample_meeting() -> CalendarEvent:
 @pytest.fixture
 def sample_events_list() -> List[CalendarEvent]:
     """Create a list of sample calendar events for testing."""
-    base_time = datetime.now()
+    base_time = datetime.now(timezone.utc)
 
     return [
         CalendarEvent(
@@ -114,7 +115,7 @@ class TestMeetingContextAnalyzer:
     ) -> None:
         """Test successful analysis of upcoming meetings."""
         analyzer = MeetingContextAnalyzer()
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
 
         insights = analyzer.analyze_upcoming_meetings(sample_events_list, current_time)
 
@@ -145,9 +146,9 @@ class TestMeetingContextAnalyzer:
         """Test error handling during meeting analysis."""
         analyzer = MeetingContextAnalyzer()
 
-        # Mock datetime to cause an exception
-        with patch("calendarbot.features.meeting_context.datetime") as mock_datetime:
-            mock_datetime.now.side_effect = Exception("Time error")
+        # Mock get_timezone_aware_now to cause an exception
+        with patch("calendarbot.features.meeting_context.get_timezone_aware_now") as mock_get_now:
+            mock_get_now.side_effect = Exception("Time error")
 
             with pytest.raises(Exception):
                 analyzer.analyze_upcoming_meetings(sample_events_list)
@@ -157,7 +158,7 @@ class TestMeetingContextAnalyzer:
     ) -> None:
         """Test filtering of upcoming meetings."""
         analyzer = MeetingContextAnalyzer()
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
 
         upcoming = analyzer._filter_upcoming_meetings(sample_events_list, current_time)
 
@@ -172,7 +173,7 @@ class TestMeetingContextAnalyzer:
     ) -> None:
         """Test generation of meeting insight for valid meeting."""
         analyzer = MeetingContextAnalyzer()
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
 
         insight = analyzer._generate_meeting_insight(sample_meeting, current_time)
 
@@ -186,7 +187,7 @@ class TestMeetingContextAnalyzer:
     def test_generate_meeting_insight_when_meeting_too_far_then_returns_none(self) -> None:
         """Test that meetings too far in future return None."""
         analyzer = MeetingContextAnalyzer()
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
 
         # Create meeting 6 hours in future (beyond 4 hour limit)
         far_meeting = CalendarEvent(
@@ -203,12 +204,13 @@ class TestMeetingContextAnalyzer:
     def test_classify_meeting_type_when_one_on_one_then_returns_correct_type(self) -> None:
         """Test classification of one-on-one meetings."""
         analyzer = MeetingContextAnalyzer()
+        base_time = datetime.now(timezone.utc)
 
         meeting = CalendarEvent(
             id="1on1",
             subject="1:1 sync with Bob",
-            start=DateTimeInfo(date_time=datetime.now(), time_zone="UTC"),
-            end=DateTimeInfo(date_time=datetime.now() + timedelta(hours=1), time_zone="UTC"),
+            start=DateTimeInfo(date_time=base_time, time_zone="UTC"),
+            end=DateTimeInfo(date_time=base_time + timedelta(hours=1), time_zone="UTC"),
             show_as=EventStatus.BUSY,
         )
 
@@ -218,12 +220,13 @@ class TestMeetingContextAnalyzer:
     def test_classify_meeting_type_when_standup_then_returns_correct_type(self) -> None:
         """Test classification of standup meetings."""
         analyzer = MeetingContextAnalyzer()
+        base_time = datetime.now(timezone.utc)
 
         meeting = CalendarEvent(
             id="standup",
             subject="Daily Standup",
-            start=DateTimeInfo(date_time=datetime.now(), time_zone="UTC"),
-            end=DateTimeInfo(date_time=datetime.now() + timedelta(hours=1), time_zone="UTC"),
+            start=DateTimeInfo(date_time=base_time, time_zone="UTC"),
+            end=DateTimeInfo(date_time=base_time + timedelta(hours=1), time_zone="UTC"),
             show_as=EventStatus.BUSY,
         )
 
@@ -233,12 +236,13 @@ class TestMeetingContextAnalyzer:
     def test_classify_meeting_type_when_interview_then_returns_correct_type(self) -> None:
         """Test classification of interview meetings."""
         analyzer = MeetingContextAnalyzer()
+        base_time = datetime.now(timezone.utc)
 
         meeting = CalendarEvent(
             id="interview",
             subject="Interview - Software Engineer",
-            start=DateTimeInfo(date_time=datetime.now(), time_zone="UTC"),
-            end=DateTimeInfo(date_time=datetime.now() + timedelta(hours=1), time_zone="UTC"),
+            start=DateTimeInfo(date_time=base_time, time_zone="UTC"),
+            end=DateTimeInfo(date_time=base_time + timedelta(hours=1), time_zone="UTC"),
             show_as=EventStatus.BUSY,
         )
 
@@ -248,12 +252,13 @@ class TestMeetingContextAnalyzer:
     def test_classify_meeting_type_when_large_group_then_returns_correct_type(self) -> None:
         """Test classification of large group meetings."""
         analyzer = MeetingContextAnalyzer()
+        base_time = datetime.now(timezone.utc)
 
         meeting = CalendarEvent(
             id="large",
             subject="All Hands Meeting",
-            start=DateTimeInfo(date_time=datetime.now(), time_zone="UTC"),
-            end=DateTimeInfo(date_time=datetime.now() + timedelta(hours=1), time_zone="UTC"),
+            start=DateTimeInfo(date_time=base_time, time_zone="UTC"),
+            end=DateTimeInfo(date_time=base_time + timedelta(hours=1), time_zone="UTC"),
             show_as=EventStatus.BUSY,
             attendees=[
                 Attendee(name=f"Person {i}", email=f"person{i}@example.com") for i in range(7)
@@ -268,12 +273,13 @@ class TestMeetingContextAnalyzer:
     ) -> None:
         """Test preparation recommendations for interview meetings."""
         analyzer = MeetingContextAnalyzer()
+        base_time = datetime.now(timezone.utc)
 
         meeting = CalendarEvent(
             id="interview",
             subject="Interview - Senior Developer",
-            start=DateTimeInfo(date_time=datetime.now(), time_zone="UTC"),
-            end=DateTimeInfo(date_time=datetime.now() + timedelta(hours=1), time_zone="UTC"),
+            start=DateTimeInfo(date_time=base_time, time_zone="UTC"),
+            end=DateTimeInfo(date_time=base_time + timedelta(hours=1), time_zone="UTC"),
             show_as=EventStatus.BUSY,
             is_online_meeting=True,
         )
@@ -405,7 +411,7 @@ class TestCalculatePreparationTimeNeeded:
 async def test_meeting_context_integration_when_full_workflow_then_completes_successfully() -> None:
     """Integration test for complete meeting context analysis workflow."""
     # Create realistic test data
-    current_time = datetime.now()
+    current_time = datetime.now(timezone.utc)
     events = [
         CalendarEvent(
             id="urgent-1on1",

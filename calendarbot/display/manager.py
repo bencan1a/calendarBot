@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union, cast
 
 from ..cache.models import CachedEvent
 from ..layout.exceptions import LayoutNotFoundError
@@ -10,7 +10,8 @@ from ..layout.registry import LayoutRegistry
 from ..utils.helpers import secure_clear_screen
 from .console_renderer import ConsoleRenderer
 from .renderer_factory import RendererFactory
-from .renderer_protocol import RendererProtocol
+from .renderer_interface import RendererInterface
+from .renderer_protocol import ConsoleRendererProtocol, RendererProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,9 @@ class DisplayManager:
             layout_name: Optional layout name override
         """
         self.settings = settings
-        self.renderer: Optional[RendererProtocol] = None
+        self.renderer: Optional[
+            Union[RendererProtocol, ConsoleRendererProtocol, RendererInterface]
+        ] = None
         self._current_layout_name: Optional[str] = layout_name
         self._current_renderer_type: Optional[str] = renderer_type
 
@@ -62,11 +65,19 @@ class DisplayManager:
         # Handle both old and new factory call patterns for compatibility
         effective_renderer_type = renderer_type or getattr(settings, "display_type", "html")
 
-        # Special handling for whats-next-view layout: use WhatsNextRenderer
+        # Special handling for whats-next-view layout: use WhatsNextRenderer or EInkWhatsNextRenderer
         current_layout = layout_name or getattr(settings, "web_layout", None)
         if current_layout == "whats-next-view":
-            logger.info("Detected whats-next-view layout, using WhatsNextRenderer")
-            effective_renderer_type = "whats-next"
+            # Auto-detect if e-Paper renderer should be used
+            available_renderers = self.renderer_factory.get_available_renderers()
+            if "eink-whats-next" in available_renderers and self._should_use_epaper_renderer():
+                logger.info(
+                    "Detected whats-next-view layout with e-Paper support, using EInkWhatsNextRenderer"
+                )
+                effective_renderer_type = "eink-whats-next"
+            else:
+                logger.info("Detected whats-next-view layout, using WhatsNextRenderer")
+                effective_renderer_type = "whats-next"
 
         try:
             # Try old signature first for backward compatibility with tests
@@ -89,6 +100,21 @@ class DisplayManager:
             f"Layout: {getattr(settings, 'layout_name', 'default')}, "
             f"Renderer: {self._current_renderer_type or 'auto-detected'}"
         )
+
+    def _should_use_epaper_renderer(self) -> bool:
+        """Determine if e-Paper renderer should be used based on device detection.
+
+        Returns:
+            True if e-Paper renderer should be used, False otherwise
+        """
+        try:
+            # Use the same device detection logic as RendererFactory
+            device_type = self.renderer_factory.detect_device_type()
+            # Use e-Paper for compact devices or if explicitly configured
+            return device_type == "compact" or getattr(self.settings, "force_epaper", False)
+        except Exception as e:
+            logger.debug(f"E-Paper device detection failed: {e}")
+            return False
 
     def set_display_type(self, display_type: str, layout_name: Optional[str] = None) -> bool:
         """Change the display type at runtime with layout/renderer separation.
@@ -229,11 +255,28 @@ class DisplayManager:
                 logger.error("No renderer available")
                 return False
 
-            content = self.renderer.render_events(events, display_status)
+            # Render events - handle both RendererProtocol and RendererInterface
+            if hasattr(self.renderer, "render_events"):
+                # RendererProtocol interface
+                content = cast(RendererProtocol, self.renderer).render_events(
+                    events, display_status
+                )
+            elif hasattr(self.renderer, "render"):
+                # RendererInterface - need to create view model
+                from .whats_next_logic import WhatsNextLogic
+
+                logic = WhatsNextLogic(self.settings)
+                view_model = logic.create_view_model(events, display_status)
+                # Assert type to satisfy static type checker without redundant cast
+                assert isinstance(self.renderer, RendererInterface)
+                content = self.renderer.render(view_model)
+            else:
+                logger.error("Renderer does not support any known rendering interface")
+                return False
 
             # Display content
             if clear_screen and hasattr(self.renderer, "display_with_clear"):
-                self.renderer.display_with_clear(content)
+                cast(ConsoleRendererProtocol, self.renderer).display_with_clear(content)
             else:
                 print(content)
 
@@ -271,9 +314,13 @@ class DisplayManager:
 
             content = self.renderer.render_error(error_message, cached_events)
 
-            # Display content
-            if clear_screen and hasattr(self.renderer, "display_with_clear"):
-                self.renderer.display_with_clear(content)
+            # Display content - handle both new RendererInterface and legacy methods
+            if clear_screen and hasattr(self.renderer, "update_display"):
+                # New RendererInterface method for e-Paper displays
+                cast(RendererInterface, self.renderer).update_display(content)
+            elif clear_screen and hasattr(self.renderer, "display_with_clear"):
+                # Legacy renderer method
+                cast(ConsoleRendererProtocol, self.renderer).display_with_clear(content)
             else:
                 print(content)
 
@@ -310,7 +357,7 @@ class DisplayManager:
 
             # Display content
             if clear_screen and hasattr(self.renderer, "display_with_clear"):
-                self.renderer.display_with_clear(content)
+                cast(ConsoleRendererProtocol, self.renderer).display_with_clear(content)
             else:
                 print(content)
 
@@ -358,7 +405,7 @@ class DisplayManager:
                 and self.renderer is not None
                 and hasattr(self.renderer, "display_with_clear")
             ):
-                self.renderer.display_with_clear(content)
+                cast(ConsoleRendererProtocol, self.renderer).display_with_clear(content)
             else:
                 print(content)
 
@@ -377,7 +424,7 @@ class DisplayManager:
         """
         try:
             if self.renderer is not None and hasattr(self.renderer, "clear_screen"):
-                self.renderer.clear_screen()
+                cast(ConsoleRendererProtocol, self.renderer).clear_screen()
                 return True
             else:
                 return secure_clear_screen()
@@ -457,7 +504,7 @@ class DisplayManager:
                 else:
                     # For regular layout changes, just update renderer's layout attribute if it has one
                     if self.renderer and hasattr(self.renderer, "layout"):
-                        self.renderer.layout = layout_name
+                        cast(Any, self.renderer).layout = layout_name
 
             # Update settings
             self.settings.layout_name = layout_name

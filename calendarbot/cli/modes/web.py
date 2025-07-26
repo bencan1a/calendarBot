@@ -219,6 +219,54 @@ async def run_web_mode(args: Any) -> int:
         return 1
 
 
+def setup_web_server(
+    settings: Any, display_manager: Any, cache_manager: Any, navigation_state: Any
+) -> Any:
+    """Set up web server configuration.
+
+    Args:
+        settings: Application settings
+        display_manager: Display manager instance
+        cache_manager: Cache manager instance
+        navigation_state: Navigation state handler
+
+    Returns:
+        Configured web server instance
+    """
+    # Placeholder function for web server setup
+    print("Web server setup placeholder - will be migrated from root main.py")
+    return None
+
+
+def apply_web_mode_overrides(settings: Any, args: Any) -> Any:
+    """Apply web mode specific overrides to settings.
+
+    Args:
+        settings: Application settings
+        args: Command line arguments
+
+    Returns:
+        Updated settings with web mode overrides
+    """
+    # Placeholder function for web mode overrides
+    print("Web mode overrides placeholder - will be migrated from root main.py")
+    return settings
+
+
+def setup_web_navigation() -> Any:
+    """Set up web navigation components.
+
+    Returns:
+        Web navigation handler instance
+    """
+    # Placeholder function for web navigation setup
+    print("Web navigation setup placeholder - will be migrated from root main.py")
+    return None
+
+
 __all__ = [
     "run_web_mode",
+    "setup_web_server",
+    "apply_web_mode_overrides",
+    "setup_web_navigation",
 ]

@@ -15,6 +15,19 @@ from .whats_next_renderer import WhatsNextRenderer
 
 logger = logging.getLogger(__name__)
 
+# Import e-Paper renderer with graceful fallback
+try:
+    from typing import Type
+
+    from calendarbot_epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer
+
+    EPAPER_AVAILABLE = True
+    EInkWhatsNextRenderer_TYPE: Optional[Type[EInkWhatsNextRenderer]] = EInkWhatsNextRenderer
+except ImportError:
+    logger.info("calendarbot_epaper package not available - e-Paper rendering disabled")
+    EInkWhatsNextRenderer_TYPE = None
+    EPAPER_AVAILABLE = False
+
 
 class RendererFactory:
     """Factory for automatic renderer selection based on device capabilities and settings."""
@@ -145,7 +158,10 @@ class RendererFactory:
         Returns:
             List of renderer type names
         """
-        return ["html", "rpi", "compact", "console", "whats-next"]
+        renderers = ["html", "rpi", "compact", "console", "whats-next"]
+        if EPAPER_AVAILABLE:
+            renderers.append("eink-whats-next")
+        return renderers
 
     @staticmethod
     def get_recommended_renderer(settings: Any) -> str:
@@ -260,8 +276,15 @@ def _create_renderer_instance(renderer_type: str, settings: Any) -> RendererProt
         "whats-next": WhatsNextRenderer,
     }
 
+    # Add e-Paper renderer if available
+    if EPAPER_AVAILABLE and EInkWhatsNextRenderer_TYPE is not None:
+        renderer_classes["eink-whats-next"] = EInkWhatsNextRenderer_TYPE
+
     renderer_class = renderer_classes.get(renderer_type)
     if renderer_class is None:
-        raise ValueError(f"Unknown renderer type: {renderer_type}")
+        available_types = list(renderer_classes.keys())
+        raise ValueError(
+            f"Unknown renderer type: {renderer_type}. Available types: {available_types}"
+        )
 
     return cast(RendererProtocol, renderer_class(settings))

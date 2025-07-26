@@ -41,7 +41,7 @@ class TestRunDaemonMode:
         with patch("calendarbot.main.main", new_callable=AsyncMock) as mock_main, patch(
             "calendarbot.utils.logging.apply_command_line_overrides"
         ) as mock_apply_overrides, patch(
-            "calendarbot.cli.config.apply_rpi_overrides"
+            "calendarbot.cli.config.apply_cli_overrides"
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
@@ -73,7 +73,7 @@ class TestRunDaemonMode:
         with patch("calendarbot.main.main", new_callable=AsyncMock) as mock_main, patch(
             "calendarbot.utils.logging.apply_command_line_overrides"
         ) as mock_apply_overrides, patch(
-            "calendarbot.cli.config.apply_rpi_overrides"
+            "calendarbot.cli.config.apply_cli_overrides"
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
@@ -110,7 +110,7 @@ class TestRunDaemonMode:
         with patch("calendarbot.main.main", new_callable=AsyncMock) as mock_main, patch(
             "calendarbot.utils.logging.apply_command_line_overrides"
         ) as mock_apply_overrides, patch(
-            "calendarbot.cli.config.apply_rpi_overrides"
+            "calendarbot.cli.config.apply_cli_overrides"
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
@@ -138,7 +138,7 @@ class TestRunDaemonMode:
         """Test daemon mode when imports fail."""
         with patch("calendarbot.main.main", side_effect=ImportError("Module not found")), patch(
             "calendarbot.utils.logging.apply_command_line_overrides", return_value=mock_settings
-        ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=mock_settings), patch(
+        ), patch("calendarbot.cli.config.apply_cli_overrides", return_value=mock_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
             "calendarbot.config.settings.settings", mock_settings
@@ -153,7 +153,7 @@ class TestRunDaemonMode:
         with patch("calendarbot.main.main", new_callable=AsyncMock) as mock_main, patch(
             "calendarbot.utils.logging.apply_command_line_overrides"
         ) as mock_apply_overrides, patch(
-            "calendarbot.cli.config.apply_rpi_overrides"
+            "calendarbot.cli.config.apply_cli_overrides"
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
@@ -317,7 +317,7 @@ class TestDaemonModeIntegration:
         with patch("calendarbot.main.main", new_callable=AsyncMock) as mock_main, patch(
             "calendarbot.utils.logging.apply_command_line_overrides"
         ) as mock_apply_overrides, patch(
-            "calendarbot.cli.config.apply_rpi_overrides"
+            "calendarbot.cli.config.apply_cli_overrides"
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
@@ -359,7 +359,7 @@ class TestDaemonModeIntegration:
             with patch("calendarbot.main.main", new_callable=AsyncMock, return_value=0), patch(
                 "calendarbot.utils.logging.apply_command_line_overrides"
             ) as mock_apply_overrides, patch(
-                "calendarbot.cli.config.apply_rpi_overrides"
+                "calendarbot.cli.config.apply_cli_overrides"
             ) as mock_rpi_overrides, patch(
                 "calendarbot.utils.logging.setup_enhanced_logging"
             ), patch(
@@ -386,7 +386,7 @@ class TestDaemonModeEdgeCases:
         with patch("calendarbot.main.main", new_callable=AsyncMock, return_value=0), patch(
             "calendarbot.utils.logging.apply_command_line_overrides"
         ) as mock_apply_overrides, patch(
-            "calendarbot.cli.config.apply_rpi_overrides"
+            "calendarbot.cli.config.apply_cli_overrides"
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(

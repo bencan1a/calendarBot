@@ -30,6 +30,14 @@ try:
     PYPPETEER_AVAILABLE = True
 except ImportError:
     PYPPETEER_AVAILABLE = False
+
+    # Create stub classes for type checking when pyppeteer is not available
+    class Browser:
+        pass
+
+    class Page:
+        pass
+
     Browser = None
     Page = None
 
