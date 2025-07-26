@@ -192,13 +192,33 @@ def ensure_timezone_aware(dt: datetime, default_tz: Optional[str] = None) -> dat
     return dt
 
 
-def get_timezone_aware_now() -> datetime:
+def get_timezone_aware_now(user_timezone: Optional[str] = None) -> datetime:
     """Get current datetime with timezone awareness.
 
+    Args:
+        user_timezone: Optional user timezone string (e.g., 'America/Los_Angeles')
+                      If None, defaults to 'America/Los_Angeles' (PST/PDT)
+
     Returns:
-        Current datetime with system timezone
+        Current datetime with specified or default timezone
     """
-    return datetime.now().astimezone()
+    try:
+
+        if not user_timezone:
+            user_timezone = "America/Los_Angeles"
+
+        import pytz
+
+        tz = pytz.timezone(user_timezone)
+        utc_now = datetime.now(pytz.utc)
+        local_now = utc_now.astimezone(tz)
+
+        return local_now
+
+    except Exception as e:
+        # Fallback to system timezone if user timezone is invalid
+        logger.warning(f"Invalid timezone '{user_timezone}', falling back to system timezone: {e}")
+        return datetime.now().astimezone()
 
 
 def truncate_string(text: str, max_length: int, suffix: str = "...") -> str:
