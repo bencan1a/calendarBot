@@ -406,6 +406,21 @@ class HTMLRenderer:
         # Time until start
         time_until_html = ""
         time_until = event.time_until_start()
+
+        # Add timezone-aware time gap data as data attributes for frontend
+        time_gap_minutes = time_until if time_until is not None else 0
+        current_time_iso = ""
+        event_time_iso = event.start_dt.isoformat() if event.start_dt else ""
+
+        try:
+            from ..utils.helpers import get_timezone_aware_now
+
+            current_time_iso = get_timezone_aware_now().isoformat()
+
+        except Exception as e:
+
+            pass
+
         if time_until is not None and time_until <= 60:  # Show if within 1 hour
             if time_until <= 5:
                 time_until_html = (
@@ -414,13 +429,18 @@ class HTMLRenderer:
             else:
                 time_until_html = f'<div class="time-until">⏰ In {time_until} minutes</div>'
 
-        return f"""
-        <div class="upcoming-event">
+        html_output = f"""
+        <div class="upcoming-event"
+             data-time-gap-minutes="{time_gap_minutes}"
+             data-current-time="{current_time_iso}"
+             data-event-time="{event_time_iso}">
             <h4 class="event-title">{self._escape_html(event.subject)}</h4>
             <div class="event-details">{event.format_time_range()}{location_html}</div>
             {time_until_html}
         </div>
         """
+
+        return html_output
 
     def _render_navigation_help(self, status_info: Dict[str, Any]) -> str:
         """Render navigation help for interactive mode.

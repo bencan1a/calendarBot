@@ -337,12 +337,14 @@ class DisplaySettings(BaseModel):
         display_density: Information density level
         color_theme: Color theme preference
         animation_enabled: Whether to enable UI animations
+        timezone: User's preferred timezone for time calculations
 
     Example:
         >>> display = DisplaySettings(
         ...     default_layout="whats-next-view",
         ...     display_density="compact",
-        ...     font_sizes={"headers": "large", "body": "medium"}
+        ...     font_sizes={"headers": "large", "body": "medium"},
+        ...     timezone="America/Los_Angeles"
         ... )
     """
 
@@ -351,6 +353,7 @@ class DisplaySettings(BaseModel):
     display_density: str = Field(default="normal", description="compact|normal|spacious")
     color_theme: str = Field(default="default", description="Color theme preference")
     animation_enabled: bool = Field(default=True, description="Enable animations")
+    timezone: str = Field(default="UTC", description="User's preferred timezone")
 
     @validator("default_layout")
     def validate_default_layout(cls, v: str) -> str:
@@ -425,6 +428,67 @@ class DisplaySettings(BaseModel):
                 )
 
         return v
+
+    @validator("timezone")
+    def validate_timezone(cls, v: str) -> str:
+        """Validate timezone string.
+
+        Args:
+            v: Timezone string to validate
+
+        Returns:
+            The validated timezone string
+
+        Raises:
+            SettingsValidationError: If timezone is invalid
+        """
+        if not v.strip():
+            raise SettingsValidationError(
+                "Timezone cannot be empty", field_name="timezone", field_value=v
+            )
+
+        try:
+            import pytz
+
+            # Validate timezone exists
+            pytz.timezone(v)
+            return v.strip()
+        except ImportError:
+            # If pytz is not available, accept common timezone formats
+            logger.warning("pytz not available for timezone validation")
+            common_timezones = {
+                "UTC",
+                "GMT",
+                "EST",
+                "CST",
+                "MST",
+                "PST",
+                "America/New_York",
+                "America/Chicago",
+                "America/Denver",
+                "America/Los_Angeles",
+                "Europe/London",
+                "Europe/Paris",
+                "Asia/Tokyo",
+                "Australia/Sydney",
+            }
+            if v not in common_timezones:
+                logger.warning(f"Could not validate timezone {v} - pytz not available")
+            return v.strip()
+        except Exception as e:
+            # Handle pytz.exceptions.UnknownTimeZoneError and other pytz errors
+            if "UnknownTimeZoneError" in str(type(e)) or "timezone" in str(e).lower():
+                raise SettingsValidationError(
+                    f"Invalid timezone: {v}",
+                    field_name="timezone",
+                    field_value=v,
+                    validation_errors=[
+                        "Must be a valid timezone (e.g., 'America/Los_Angeles', 'Europe/London', 'UTC')"
+                    ],
+                )
+            else:
+                logger.warning(f"Timezone validation error: {e}")
+                return v.strip()
 
 
 class SettingsMetadata(BaseModel):

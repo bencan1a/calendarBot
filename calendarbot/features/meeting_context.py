@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ..ics.models import CalendarEvent, EventStatus
 from ..utils.logging import get_logger
+from ..utils.helpers import get_timezone_aware_now
 
 logger = get_logger(__name__)
 
@@ -46,7 +47,10 @@ class MeetingContextAnalyzer:
             raise ValueError("Events list cannot be empty")
 
         if current_time is None:
-            current_time = datetime.now()
+            current_time = get_timezone_aware_now()
+            logger.debug(
+                f"Using timezone-aware current time: {current_time} (tz: {current_time.tzinfo})"
+            )
 
         try:
             upcoming_meetings = self._filter_upcoming_meetings(events, current_time)
@@ -241,7 +245,10 @@ async def get_meeting_context_for_timeframe(
         raise ValueError("Events list cannot be empty")
 
     try:
-        current_time = datetime.now()
+        current_time = get_timezone_aware_now()
+        logger.debug(
+            f"Using timezone-aware current time for context analysis: {current_time} (tz: {current_time.tzinfo})"
+        )
         analyzer = MeetingContextAnalyzer()
 
         # Filter events within timeframe

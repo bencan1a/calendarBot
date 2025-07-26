@@ -1281,11 +1281,13 @@ class WebServer:
                 logger.debug(f"Retrieved {len(events)} events for selected date")
 
                 # Build status info for interactive mode
+                from ..utils.helpers import get_timezone_aware_now
+
                 status_info = {
                     "selected_date": self.navigation_state.get_display_date(),
                     "is_today": self.navigation_state.is_today(),
                     "interactive_mode": True,
-                    "last_update": datetime.now().isoformat(),
+                    "last_update": get_timezone_aware_now().isoformat(),
                     "is_cached": False,  # TODO: Get actual cache status
                 }
             else:
@@ -1334,8 +1336,10 @@ class WebServer:
                 logger.debug(f"Retrieved {len(events)} events for today")
 
                 # Static web display mode - no navigation buttons
+                from ..utils.helpers import get_timezone_aware_now
+
                 status_info = {
-                    "last_update": datetime.now().isoformat(),
+                    "last_update": get_timezone_aware_now().isoformat(),
                     "is_cached": False,
                     "interactive_mode": False,
                 }
