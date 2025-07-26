@@ -279,26 +279,11 @@ def apply_cli_overrides(settings: Any, args: Any) -> Any:
     return settings
 
 
-def apply_rpi_overrides(settings: Any, args: Any) -> Any:
-    """Apply RPI-specific command-line overrides to settings (deprecated).
-
-    Args:
-        settings: Current settings object
-        args: Parsed command line arguments
-
-    Returns:
-        Updated settings object
-    """
-    logger = logging.getLogger("calendarbot.cli.config")
-    logger.warning("apply_rpi_overrides is deprecated, use apply_cli_overrides instead")
-    return apply_cli_overrides(settings, args)
-
-
 __all__ = [
     "check_configuration",
     "show_setup_guidance",
     "backup_configuration",
     "restore_configuration",
     "list_backups",
-    "apply_rpi_overrides",
+    "apply_cli_overrides",
 ]
