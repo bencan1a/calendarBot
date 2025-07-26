@@ -70,7 +70,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.apply_command_line_overrides", return_value=test_settings
         ), patch(
-            "calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings
+            "calendarbot.cli.config.apply_cli_overrides", return_value=test_settings
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
@@ -112,7 +112,7 @@ class TestRunWebMode:
 
         with patch("calendarbot.main.CalendarBot", return_value=mock_app), patch(
             "calendarbot.utils.logging.apply_command_line_overrides", return_value=test_settings
-        ), patch("calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings), patch(
+        ), patch("calendarbot.cli.config.apply_cli_overrides", return_value=test_settings), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
             "calendarbot.config.settings.settings", test_settings
@@ -144,7 +144,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.apply_command_line_overrides", return_value=test_settings
         ), patch(
-            "calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings
+            "calendarbot.cli.config.apply_cli_overrides", return_value=test_settings
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
@@ -183,7 +183,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.apply_command_line_overrides", return_value=test_settings
         ), patch(
-            "calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings
+            "calendarbot.cli.config.apply_cli_overrides", return_value=test_settings
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
@@ -224,7 +224,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.apply_command_line_overrides", return_value=test_settings
         ), patch(
-            "calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings
+            "calendarbot.cli.config.apply_cli_overrides", return_value=test_settings
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
@@ -266,7 +266,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.apply_command_line_overrides", return_value=test_settings
         ), patch(
-            "calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings
+            "calendarbot.cli.config.apply_cli_overrides", return_value=test_settings
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
@@ -302,7 +302,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.apply_command_line_overrides", return_value=test_settings
         ), patch(
-            "calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings
+            "calendarbot.cli.config.apply_cli_overrides", return_value=test_settings
         ) as mock_rpi_overrides, patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ), patch(
@@ -346,7 +346,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.apply_command_line_overrides", return_value=test_settings
         ), patch(
-            "calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings
+            "calendarbot.cli.config.apply_cli_overrides", return_value=test_settings
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
@@ -392,7 +392,7 @@ class TestRunWebMode:
         ), patch(
             "calendarbot.utils.logging.apply_command_line_overrides", return_value=test_settings
         ), patch(
-            "calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings
+            "calendarbot.cli.config.apply_cli_overrides", return_value=test_settings
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(
@@ -531,7 +531,7 @@ class TestWebModeIntegration:
         ), patch(
             "calendarbot.utils.logging.apply_command_line_overrides", return_value=test_settings
         ), patch(
-            "calendarbot.cli.config.apply_rpi_overrides", return_value=test_settings
+            "calendarbot.cli.config.apply_cli_overrides", return_value=test_settings
         ), patch(
             "calendarbot.utils.logging.setup_enhanced_logging"
         ) as mock_setup_logging, patch(

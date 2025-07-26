@@ -6,7 +6,35 @@ during Phase 2 of the architectural refactoring.
 """
 
 import asyncio
-from typing import Any
+from typing import Any, Optional
+
+
+def setup_interactive_logging(settings: Any, display_manager: Optional[Any] = None) -> None:
+    """Set up interactive logging configuration.
+
+    This is a placeholder function that will be migrated from root main.py
+    during Phase 2 of the architectural refactoring.
+
+    Args:
+        settings: Settings configuration object
+        display_manager: Optional display manager for split display logging
+    """
+    print("Interactive logging setup placeholder - will be migrated from root main.py")
+
+
+def create_interactive_controller(
+    cache_manager: Optional[Any], display_manager: Optional[Any]
+) -> None:
+    """Create interactive controller for navigation.
+
+    This is a placeholder function that will be migrated from root main.py
+    during Phase 2 of the architectural refactoring.
+
+    Args:
+        cache_manager: Cache manager instance for data access
+        display_manager: Display manager instance for rendering
+    """
+    print("Interactive controller creation placeholder - will be migrated from root main.py")
 
 
 async def run_interactive_mode(args: Any) -> int:
@@ -82,4 +110,6 @@ async def run_interactive_mode(args: Any) -> int:
 
 __all__ = [
     "run_interactive_mode",
+    "setup_interactive_logging",
+    "create_interactive_controller",
 ]

@@ -84,7 +84,7 @@ __all__ = [
     "parse_components",
     "check_configuration",
     "show_setup_guidance",
-    "apply_rpi_overrides",
+    "apply_cli_overrides",
     "run_setup_wizard",
     "backup_configuration",
     "restore_configuration",

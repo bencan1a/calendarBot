@@ -1,11 +1,13 @@
 """Tests for WhatsNextRenderer."""
 
 from datetime import datetime, timedelta
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from calendarbot.cache.models import CachedEvent
+from calendarbot.display.whats_next_logic import WhatsNextLogic
 from calendarbot.display.whats_next_renderer import WhatsNextRenderer
 
 
@@ -33,7 +35,7 @@ class TestWhatsNextRenderer:
         return datetime(2025, 7, 14, 12, 0, 0)
 
     def create_mock_event(
-        self, subject: str, start_hours_offset: int, end_hours_offset: int = None
+        self, subject: str, start_hours_offset: int, end_hours_offset: Optional[int] = None
     ) -> CachedEvent:
         """Create a mock CachedEvent for testing.
 
@@ -45,7 +47,9 @@ class TestWhatsNextRenderer:
         Returns:
             Mock CachedEvent instance
         """
-        base_time = datetime(2025, 7, 14, 12, 0, 0)  # noon
+        from datetime import timezone
+
+        base_time = datetime(2025, 7, 14, 12, 0, 0, tzinfo=timezone.utc)  # noon UTC
         start_dt = base_time + timedelta(hours=start_hours_offset)
         end_dt = base_time + timedelta(hours=end_hours_offset or (start_hours_offset + 1))
 
@@ -78,12 +82,15 @@ class TestWhatsNextRenderer:
             assert renderer is not None
             assert isinstance(renderer, WhatsNextRenderer)
 
-    @patch("calendarbot.utils.helpers.get_timezone_aware_now")
     def test_find_next_upcoming_event_when_upcoming_events_exist_then_returns_earliest(
-        self, mock_get_now, renderer
+        self, renderer
     ):
         """Test finding next upcoming event with multiple upcoming events."""
-        mock_get_now.return_value = datetime(2025, 7, 14, 12, 0, 0)
+        from datetime import timezone
+
+        # Use built-in debug time mechanism instead of mocking
+        debug_time = datetime(2025, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
+        renderer.logic.set_debug_time(debug_time)
 
         # Create events: past, current, future1, future2
         events = [
@@ -93,17 +100,18 @@ class TestWhatsNextRenderer:
             self.create_mock_event("Future Event 1", 2, 3),  # 2pm-3pm (next)
         ]
 
-        result = renderer._find_next_upcoming_event(events)
+        result = renderer.logic.find_next_upcoming_event(events)
 
         assert result is not None
         assert result.subject == "Future Event 1"
 
-    @patch("calendarbot.utils.helpers.get_timezone_aware_now")
-    def test_find_next_upcoming_event_when_no_upcoming_events_then_returns_none(
-        self, mock_get_now, renderer
-    ):
+    def test_find_next_upcoming_event_when_no_upcoming_events_then_returns_none(self, renderer):
         """Test finding next upcoming event when no upcoming events exist."""
-        mock_get_now.return_value = datetime(2025, 7, 14, 12, 0, 0)
+        from datetime import timezone
+
+        # Use built-in debug time mechanism instead of mocking
+        debug_time = datetime(2025, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
+        renderer.logic.set_debug_time(debug_time)
 
         # Create only past and current events
         events = [
@@ -111,31 +119,26 @@ class TestWhatsNextRenderer:
             self.create_mock_event("Current Event", -1, 1),  # 11am-1pm
         ]
 
-        result = renderer._find_next_upcoming_event(events)
+        result = renderer.logic.find_next_upcoming_event(events)
 
         assert result is None
 
-    @patch("calendarbot.utils.helpers.get_timezone_aware_now")
-    def test_find_next_upcoming_event_when_empty_list_then_returns_none(
-        self, mock_get_now, renderer
-    ):
+    def test_find_next_upcoming_event_when_empty_list_then_returns_none(self, renderer):
         """Test finding next upcoming event with empty event list."""
-        mock_get_now.return_value = datetime(2025, 7, 14, 12, 0, 0)
+        from datetime import timezone
 
-        result = renderer._find_next_upcoming_event([])
+        # Use built-in debug time mechanism instead of mocking
+        debug_time = datetime(2025, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
+        renderer.logic.set_debug_time(debug_time)
+
+        result = renderer.logic.find_next_upcoming_event([])
 
         assert result is None
 
-    @patch("calendarbot.utils.helpers.get_timezone_aware_now")
-    def test_find_next_upcoming_event_when_error_occurs_then_returns_none(
-        self, mock_get_now, renderer
-    ):
+    def test_find_next_upcoming_event_when_error_occurs_then_returns_none(self, renderer):
         """Test error handling in find_next_upcoming_event."""
-        mock_get_now.side_effect = Exception("Time error")
-
-        events = [self.create_mock_event("Test Event", 1, 2)]
-
-        result = renderer._find_next_upcoming_event(events)
+        # Pass None to trigger an error path
+        result = renderer.logic.find_next_upcoming_event(None)
 
         assert result is None
 
@@ -173,7 +176,7 @@ class TestWhatsNextRenderer:
         assert result is not None
         assert "error" in result.lower()
 
-    @patch.object(WhatsNextRenderer, "_find_next_upcoming_event")
+    @patch.object(WhatsNextLogic, "find_next_upcoming_event")
     def test_render_events_content_when_next_event_exists_then_renders_single_event(
         self, mock_find_next, renderer
     ):
@@ -194,13 +197,14 @@ class TestWhatsNextRenderer:
         assert "Next Meeting" in result
         mock_find_next.assert_called_once_with(events)
 
-    @patch.object(WhatsNextRenderer, "_find_next_upcoming_event")
+    @patch.object(WhatsNextLogic, "find_next_upcoming_event")
     def test_render_events_content_when_no_next_event_but_current_exists_then_renders_current(
         self, mock_find_next, renderer
     ):
         """Test rendering events content when no next event but current event exists."""
         current_event = self.create_mock_event("Current Meeting", -1, 1)
-        current_event.is_current.return_value = True
+        # Mock method properly
+        current_event.is_current = MagicMock(return_value=True)
 
         mock_find_next.return_value = None
         events = [current_event]
@@ -211,7 +215,7 @@ class TestWhatsNextRenderer:
         assert isinstance(result, str)
         assert "Current Meeting" in result
 
-    @patch.object(WhatsNextRenderer, "_find_next_upcoming_event")
+    @patch.object(WhatsNextLogic, "find_next_upcoming_event")
     def test_render_events_content_when_no_events_then_renders_no_events_message(
         self, mock_find_next, renderer
     ):
@@ -224,7 +228,7 @@ class TestWhatsNextRenderer:
         assert isinstance(result, str)
         assert "No meetings scheduled" in result
 
-    @patch.object(WhatsNextRenderer, "_find_next_upcoming_event")
+    @patch.object(WhatsNextLogic, "find_next_upcoming_event")
     def test_render_events_content_when_no_upcoming_or_current_then_renders_no_upcoming_message(
         self, mock_find_next, renderer
     ):
@@ -233,7 +237,7 @@ class TestWhatsNextRenderer:
 
         # Only past events
         events = [self.create_mock_event("Past Event", -2, -1)]
-        events[0].is_current.return_value = False
+        events[0].is_current = MagicMock(return_value=False)
 
         result = renderer._render_events_content(events, interactive_mode=False)
 
@@ -282,7 +286,7 @@ class TestWhatsNextRenderer:
 
         # Mock an error in the filtering process
         with patch.object(
-            renderer, "_find_next_upcoming_event", side_effect=Exception("Filter error")
+            renderer.logic, "find_next_upcoming_event", side_effect=Exception("Filter error")
         ):
             # This should fall back to parent implementation (HTMLRenderer._render_events_content)
             result = renderer._render_events_content(events, interactive_mode=False)

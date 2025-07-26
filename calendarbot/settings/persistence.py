@@ -545,6 +545,9 @@ class SettingsPersistence:
         Raises:
             SettingsSchemaError: If migration fails
         """
+        # Initialize these variables so they are always defined, even if an exception occurs
+        current_version = "0.0.0"
+        expected_version = "1.0.0"
         try:
             # Get current version from metadata
             metadata = data.get("metadata", {})

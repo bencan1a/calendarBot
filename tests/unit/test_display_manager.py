@@ -384,11 +384,20 @@ class TestDisplayManagerDisplayError:
         settings = Mock()
         settings.display_enabled = display_enabled
         settings.display_type = "console"
+        settings.web_layout = "4x8"
 
-        with patch("calendarbot.display.manager.ConsoleRenderer"):
-            manager = DisplayManager(settings)
-            manager.renderer = Mock()
-            return manager, settings
+        layout_registry = Mock()
+        renderer_factory = Mock()
+        mock_renderer = Mock()
+        renderer_factory.create_renderer.return_value = mock_renderer
+
+        with patch("calendarbot.display.manager.LayoutRegistry", return_value=layout_registry):
+            with patch(
+                "calendarbot.display.manager.RendererFactory", return_value=renderer_factory
+            ):
+                manager = DisplayManager(settings)
+                manager.renderer = mock_renderer
+                return manager, settings
 
     @pytest.mark.asyncio
     async def test_display_error_success(self) -> None:
@@ -398,14 +407,14 @@ class TestDisplayManagerDisplayError:
         cached_events: List[Any] = []
 
         manager.renderer.render_error.return_value = "error content"
-        manager.renderer.display_with_clear = Mock()
+        manager.renderer.update_display = Mock()
 
         with patch("builtins.print") as mock_print:
             result = await manager.display_error(error_message, cached_events, clear_screen=True)
 
             assert result is True
             manager.renderer.render_error.assert_called_once_with(error_message, cached_events)
-            manager.renderer.display_with_clear.assert_called_once_with("error content")
+            manager.renderer.update_display.assert_called_once_with("error content")
             mock_print.assert_not_called()
 
     @pytest.mark.asyncio
@@ -462,11 +471,20 @@ class TestDisplayManagerDisplayAuthenticationPrompt:
         settings = Mock()
         settings.display_enabled = display_enabled
         settings.display_type = "console"
+        settings.web_layout = "4x8"
 
-        with patch("calendarbot.display.manager.ConsoleRenderer"):
-            manager = DisplayManager(settings)
-            manager.renderer = Mock()
-            return manager, settings
+        layout_registry = Mock()
+        renderer_factory = Mock()
+        mock_renderer = Mock()
+        renderer_factory.create_renderer.return_value = mock_renderer
+
+        with patch("calendarbot.display.manager.LayoutRegistry", return_value=layout_registry):
+            with patch(
+                "calendarbot.display.manager.RendererFactory", return_value=renderer_factory
+            ):
+                manager = DisplayManager(settings)
+                manager.renderer = mock_renderer
+                return manager, settings
 
     @pytest.mark.asyncio
     async def test_display_authentication_prompt_success(self) -> None:

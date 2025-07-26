@@ -7,19 +7,20 @@ This module tests the timezone synchronization fix including:
 - Meeting context with proper timezone handling
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import patch, MagicMock
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
+from unittest.mock import MagicMock, patch
 
-from calendarbot.settings.models import DisplaySettings, SettingsData
-from calendarbot.settings.exceptions import SettingsValidationError
-from calendarbot.utils.helpers import get_timezone_aware_now
+import pytest
+
 from calendarbot.features.meeting_context import (
     MeetingContextAnalyzer,
     get_meeting_context_for_timeframe,
 )
 from calendarbot.ics.models import CalendarEvent, DateTimeInfo, EventStatus
+from calendarbot.settings.exceptions import SettingsValidationError
+from calendarbot.settings.models import DisplaySettings, SettingsData
+from calendarbot.utils.helpers import get_timezone_aware_now
 
 
 class TestTimezoneSettings:
@@ -52,12 +53,12 @@ class TestTimezoneSettings:
         with pytest.raises(SettingsValidationError):
             DisplaySettings(timezone="   ")
 
-    @patch("calendarbot.settings.models.pytz")
+    @patch("pytz.timezone")
     def test_display_settings_when_invalid_timezone_then_raises_error(
-        self, mock_pytz: MagicMock
+        self, mock_timezone: MagicMock
     ) -> None:
         """Test that invalid timezone raises validation error."""
-        mock_pytz.timezone.side_effect = Exception("UnknownTimeZoneError")
+        mock_timezone.side_effect = Exception("UnknownTimeZoneError")
 
         with pytest.raises(SettingsValidationError) as exc_info:
             DisplaySettings(timezone="Invalid/Timezone")
@@ -65,11 +66,18 @@ class TestTimezoneSettings:
         assert "Invalid timezone" in str(exc_info.value)
         assert exc_info.value.field_name == "timezone"
 
-    @patch("calendarbot.settings.models.pytz", side_effect=ImportError)
+    @patch("builtins.__import__")
     def test_display_settings_when_pytz_unavailable_then_accepts_common_timezones(
-        self, mock_pytz: MagicMock
+        self, mock_import: MagicMock
     ) -> None:
         """Test that common timezones are accepted when pytz is unavailable."""
+
+        def side_effect(name, *args, **kwargs):
+            if name == "pytz":
+                raise ImportError("No module named 'pytz'")
+            return __import__(name, *args, **kwargs)
+
+        mock_import.side_effect = side_effect
         settings = DisplaySettings(timezone="America/Los_Angeles")
         assert settings.timezone == "America/Los_Angeles"
 
@@ -92,27 +100,32 @@ class TestTimezoneAwareHelpers:
         assert result.tzinfo is not None
         assert isinstance(result.tzinfo.utcoffset(result), timedelta)
 
-    @patch("calendarbot.utils.helpers.pytz")
+    @patch("pytz.timezone")
+    @patch("pytz.utc")
     def test_get_timezone_aware_now_when_user_timezone_then_uses_specified_timezone(
-        self, mock_pytz: MagicMock
+        self, mock_utc: MagicMock, mock_timezone: MagicMock
     ) -> None:
         """Test that get_timezone_aware_now uses specified timezone."""
         mock_tz = MagicMock()
-        mock_pytz.timezone.return_value = mock_tz
+        mock_timezone.return_value = mock_tz
         expected_time = datetime.now(timezone.utc)
-        mock_tz.localize = MagicMock(return_value=expected_time)
 
-        with patch("calendarbot.utils.helpers.datetime") as mock_datetime:
-            mock_datetime.now.return_value = expected_time
+        # Mock the utc_now creation
+        mock_utc.return_value = timezone.utc
+        mock_utc_time = MagicMock()
+        mock_utc_time.astimezone.return_value = expected_time
+
+        with patch("datetime.datetime") as mock_datetime:
+            mock_datetime.now.return_value = mock_utc_time
             result = get_timezone_aware_now("America/Los_Angeles")
 
-        mock_pytz.timezone.assert_called_once_with("America/Los_Angeles")
+        mock_timezone.assert_called_once_with("America/Los_Angeles")
         assert isinstance(result, datetime)
 
     def test_get_timezone_aware_now_when_invalid_timezone_then_falls_back_to_system(self) -> None:
         """Test that invalid timezone falls back to system timezone."""
-        with patch("calendarbot.utils.helpers.pytz") as mock_pytz:
-            mock_pytz.timezone.side_effect = Exception("Invalid timezone")
+        with patch("pytz.timezone") as mock_timezone:
+            mock_timezone.side_effect = Exception("Invalid timezone")
 
             result = get_timezone_aware_now("Invalid/Timezone")
 
@@ -121,7 +134,14 @@ class TestTimezoneAwareHelpers:
 
     def test_get_timezone_aware_now_when_pytz_unavailable_then_falls_back_to_system(self) -> None:
         """Test that pytz unavailable falls back to system timezone."""
-        with patch("calendarbot.utils.helpers.pytz", side_effect=ImportError):
+        with patch("builtins.__import__") as mock_import:
+
+            def side_effect(name, *args, **kwargs):
+                if name == "pytz":
+                    raise ImportError("No module named 'pytz'")
+                return __import__(name, *args, **kwargs)
+
+            mock_import.side_effect = side_effect
             result = get_timezone_aware_now("America/Los_Angeles")
 
             assert isinstance(result, datetime)
@@ -230,27 +250,33 @@ class TestTimezoneCalculationFix:
 
         assert abs(minutes_diff - 120) < 1  # Should be 120 minutes ± 1 minute for timing variations
 
-    @patch("calendarbot.utils.helpers.pytz")
+    @patch("pytz.timezone")
+    @patch("pytz.utc")
     def test_timezone_calculation_when_different_timezones_then_handles_correctly(
-        self, mock_pytz: MagicMock
+        self, mock_utc: MagicMock, mock_timezone: MagicMock
     ) -> None:
         """Test calculations across different timezones."""
         # Mock PST timezone (UTC-8)
         mock_pst = MagicMock()
-        mock_pytz.timezone.return_value = mock_pst
+        mock_timezone.return_value = mock_pst
 
         utc_time = datetime(2023, 7, 19, 10, 0, 0, tzinfo=timezone.utc)
         pst_time = datetime(2023, 7, 19, 2, 0, 0)  # 2 AM PST = 10 AM UTC
 
-        mock_pst.localize.return_value = pst_time.replace(tzinfo=timezone(timedelta(hours=-8)))
+        # Mock the timezone conversion chain
+        mock_utc.return_value = timezone.utc
+        mock_utc_time = MagicMock()
+        mock_utc_time.astimezone.return_value = pst_time.replace(
+            tzinfo=timezone(timedelta(hours=-8))
+        )
 
-        with patch("calendarbot.utils.helpers.datetime") as mock_datetime:
-            mock_datetime.now.return_value = pst_time
+        with patch("datetime.datetime") as mock_datetime:
+            mock_datetime.now.return_value = mock_utc_time
             result = get_timezone_aware_now("America/Los_Angeles")
 
         # Verify timezone handling
         assert result.tzinfo is not None
-        mock_pytz.timezone.assert_called_once_with("America/Los_Angeles")
+        mock_timezone.assert_called_once_with("America/Los_Angeles")
 
 
 class TestTimezoneIntegration:

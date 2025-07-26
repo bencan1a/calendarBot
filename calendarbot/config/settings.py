@@ -2,21 +2,30 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Pattern, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Pattern, Type, Union
 
 import yaml
 from pydantic import BaseModel, Field
 
-try:
+if TYPE_CHECKING:
     from pydantic_settings import BaseSettings, SettingsConfigDict
 
     PYDANTIC_V2 = True
     SettingsConfigDictType = SettingsConfigDict
-except ImportError:
-    from pydantic import BaseSettings  # type: ignore
+else:
+    try:
+        from pydantic_settings import BaseSettings, SettingsConfigDict
 
-    PYDANTIC_V2 = False
-    SettingsConfigDictType = None  # type: ignore
+        PYDANTIC_V2 = True
+        SettingsConfigDictType = SettingsConfigDict
+    except ImportError:
+        from pydantic import BaseSettings  # type: ignore
+
+        PYDANTIC_V2 = False
+        SettingsConfigDictType = None  # type: ignore
+
+# Type alias for proper typing
+SettingsBase = BaseSettings
 
 
 def _get_safe_web_host() -> str:
@@ -76,6 +85,8 @@ try:
         SecuritySeverity,
         mask_credentials,
     )
+
+    SECURITY_LOGGING_AVAILABLE = True
 except ImportError:
     # Use fallback implementations
     mask_credentials = _mask_credentials_fallback
@@ -83,6 +94,7 @@ except ImportError:
     SecurityEvent = _SecurityEventFallback  # type: ignore
     SecurityEventType = _SecurityEventTypeFallback()  # type: ignore
     SecuritySeverity = _SecuritySeverityFallback()  # type: ignore
+    SECURITY_LOGGING_AVAILABLE = False
 
 
 class LoggingSettings(BaseModel):
@@ -235,7 +247,33 @@ class CalendarBotSettings(BaseSettings):
     # Display Settings
     display_enabled: bool = Field(default=True, description="Enable display output")
     display_type: str = Field(
-        default="console", description="Renderer type: console, html, rpi, compact"
+        default="console", description="Renderer type: console, html, rpi, compact, eink-whats-next"
+    )
+
+    # E-Paper Configuration
+    force_epaper: bool = Field(
+        default=False, description="Force use of e-Paper renderer regardless of device detection"
+    )
+    epaper_display_model: Optional[str] = Field(
+        default=None, description="E-Paper display model (e.g., 'waveshare_4_2', 'waveshare_7_5')"
+    )
+    epaper_rotation: int = Field(
+        default=0, description="E-Paper display rotation in degrees (0, 90, 180, 270)"
+    )
+    epaper_partial_refresh: bool = Field(
+        default=True, description="Enable partial refresh for e-Paper displays"
+    )
+    epaper_refresh_interval: int = Field(
+        default=300, description="Full refresh interval for e-Paper displays in seconds"
+    )
+    epaper_contrast_level: int = Field(
+        default=100, description="Contrast level for e-Paper displays (0-100)"
+    )
+    epaper_dither_mode: str = Field(
+        default="floyd_steinberg", description="Dithering mode: none, floyd_steinberg, ordered"
+    )
+    epaper_error_fallback: bool = Field(
+        default=True, description="Fallback to console renderer on e-Paper errors"
     )
 
     # Raspberry Pi E-ink Display Settings
@@ -376,53 +414,77 @@ class CalendarBotSettings(BaseSettings):
                     username = ics_config["username"]
                     self.ics_username = username
                     # Log credential loading with masking
-                    security_logger = SecurityEventLogger()
-                    event = SecurityEvent(
-                        event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
-                        severity=SecuritySeverity.LOW,
-                        action="credential_load",
-                        result="success",
-                        details={
-                            "credential_type": "username",
-                            "description": f"ICS username loaded from config: {mask_credentials(username)}",
-                            "source_ip": "internal",
-                        },
-                    )
-                    security_logger.log_event(event)
+                    if SECURITY_LOGGING_AVAILABLE:
+                        from calendarbot.security.logging import (
+                            SecurityEvent,
+                            SecurityEventLogger,
+                            SecurityEventType,
+                            SecuritySeverity,
+                        )
+
+                        security_logger = SecurityEventLogger()
+                        event = SecurityEvent(
+                            event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
+                            severity=SecuritySeverity.LOW,
+                            action="credential_load",
+                            result="success",
+                            details={
+                                "credential_type": "username",
+                                "description": f"ICS username loaded from config: {mask_credentials(username)}",
+                                "source_ip": "internal",
+                            },
+                        )
+                        security_logger.log_event(event)
                 if "password" in ics_config and not self.ics_password:
                     password = ics_config["password"]
                     self.ics_password = password
                     # Log credential loading with masking
-                    security_logger = SecurityEventLogger()
-                    event = SecurityEvent(
-                        event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
-                        severity=SecuritySeverity.LOW,
-                        action="credential_load",
-                        result="success",
-                        details={
-                            "credential_type": "password",
-                            "description": f"ICS password loaded from config: {mask_credentials(password)}",
-                            "source_ip": "internal",
-                        },
-                    )
-                    security_logger.log_event(event)
+                    if SECURITY_LOGGING_AVAILABLE:
+                        from calendarbot.security.logging import (
+                            SecurityEvent,
+                            SecurityEventLogger,
+                            SecurityEventType,
+                            SecuritySeverity,
+                        )
+
+                        security_logger = SecurityEventLogger()
+                        event = SecurityEvent(
+                            event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
+                            severity=SecuritySeverity.LOW,
+                            action="credential_load",
+                            result="success",
+                            details={
+                                "credential_type": "password",
+                                "description": f"ICS password loaded from config: {mask_credentials(password)}",
+                                "source_ip": "internal",
+                            },
+                        )
+                        security_logger.log_event(event)
                 if "token" in ics_config and not self.ics_bearer_token:
                     token = ics_config["token"]
                     self.ics_bearer_token = token
                     # Log credential loading with masking
-                    security_logger = SecurityEventLogger()
-                    event = SecurityEvent(
-                        event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
-                        severity=SecuritySeverity.LOW,
-                        action="credential_load",
-                        result="success",
-                        details={
-                            "credential_type": "bearer_token",
-                            "description": f"ICS bearer token loaded from config: {mask_credentials(token)}",
-                            "source_ip": "internal",
-                        },
-                    )
-                    security_logger.log_event(event)
+                    if SECURITY_LOGGING_AVAILABLE:
+                        from calendarbot.security.logging import (
+                            SecurityEvent,
+                            SecurityEventLogger,
+                            SecurityEventType,
+                            SecuritySeverity,
+                        )
+
+                        security_logger = SecurityEventLogger()
+                        event = SecurityEvent(
+                            event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
+                            severity=SecuritySeverity.LOW,
+                            action="credential_load",
+                            result="success",
+                            details={
+                                "credential_type": "bearer_token",
+                                "description": f"ICS bearer token loaded from config: {mask_credentials(token)}",
+                                "source_ip": "internal",
+                            },
+                        )
+                        security_logger.log_event(event)
                 if "custom_headers" in ics_config and not self.ics_custom_headers:
                     import json
 
@@ -537,6 +599,27 @@ class CalendarBotSettings(BaseSettings):
                     self.web_layout = web_config["theme"]
                 if "auto_refresh" in web_config:
                     self.web_auto_refresh = web_config["auto_refresh"]
+
+            # E-Paper settings
+            if "epaper" in config_data:
+                epaper_config = config_data["epaper"]
+                if "force_epaper" in epaper_config:
+                    self.force_epaper = epaper_config["force_epaper"]
+                if "display_model" in epaper_config:
+                    self.epaper_display_model = epaper_config["display_model"]
+                if "rotation" in epaper_config:
+                    self.epaper_rotation = epaper_config["rotation"]
+                if "partial_refresh" in epaper_config:
+                    self.epaper_partial_refresh = epaper_config["partial_refresh"]
+                if "refresh_interval" in epaper_config:
+                    self.epaper_refresh_interval = epaper_config["refresh_interval"]
+                if "contrast_level" in epaper_config:
+                    self.epaper_contrast_level = epaper_config["contrast_level"]
+                if "dither_mode" in epaper_config:
+                    self.epaper_dither_mode = epaper_config["dither_mode"]
+                if "error_fallback" in epaper_config:
+                    self.epaper_error_fallback = epaper_config["error_fallback"]
+
             if "request_timeout" in config_data:
                 self.request_timeout = config_data["request_timeout"]
             if "max_retries" in config_data:
