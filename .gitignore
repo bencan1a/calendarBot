@@ -250,3 +250,4 @@ coverage/lcov-report/index.html
 coverage/lcov-report/whats-next-view.js.html
 tests/.jest-cache/
 bin/
+epaper_output/

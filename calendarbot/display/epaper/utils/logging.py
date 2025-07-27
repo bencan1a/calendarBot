@@ -105,19 +105,23 @@ def configure_package_logging(
     """
     # Configure root logger for the package
     root_logger = setup_logger(
-        "calendarbot_epaper", level=level, log_format=log_format, log_file=log_file, console=console
+        "calendarbot.display.epaper",
+        level=level,
+        log_format=log_format,
+        log_file=log_file,
+        console=console,
     )
 
     # Configure loggers for each module
     loggers = {
         "root": root_logger,
-        "display": setup_logger("calendarbot_epaper.display", level, log_format),
-        "drivers": setup_logger("calendarbot_epaper.drivers", level, log_format),
+        "display": setup_logger("calendarbot.display.epaper.display", level, log_format),
+        "drivers": setup_logger("calendarbot.display.epaper.drivers", level, log_format),
         "drivers.waveshare": setup_logger(
-            "calendarbot_epaper.drivers.waveshare", level, log_format
+            "calendarbot.display.epaper.drivers.waveshare", level, log_format
         ),
-        "rendering": setup_logger("calendarbot_epaper.rendering", level, log_format),
-        "utils": setup_logger("calendarbot_epaper.utils", level, log_format),
+        "rendering": setup_logger("calendarbot.display.epaper.rendering", level, log_format),
+        "utils": setup_logger("calendarbot.display.epaper.utils", level, log_format),
     }
 
     return loggers

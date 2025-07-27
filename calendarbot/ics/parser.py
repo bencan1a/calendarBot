@@ -7,8 +7,9 @@ from typing import Any, Dict, List, Optional, Union, cast
 
 from dateutil import tz
 from dateutil.rrule import rrule, rrulestr
-from icalendar import Calendar, Component
+from icalendar import Calendar
 from icalendar import Event as ICalEvent
+from icalendar.cal import Component
 
 from ..security.logging import SecurityEventLogger
 from .exceptions import ICSContentError, ICSParseError

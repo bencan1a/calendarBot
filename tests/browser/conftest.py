@@ -6,6 +6,7 @@ This configuration prevents hanging tests and ensures proper cleanup.
 import asyncio
 import os
 import signal
+from pathlib import Path
 from typing import AsyncGenerator, Optional
 
 import psutil
@@ -89,10 +90,28 @@ async def force_cleanup_chrome():
         pass  # Ignore cleanup errors
 
 
+def get_chrome_executable():
+    """Get Chrome executable path, checking common locations."""
+    # Check common locations for Chrome/Chromium
+    common_paths = [
+        "/usr/bin/chromium-browser",
+        "/usr/bin/chromium",
+        "/usr/bin/google-chrome",
+        "/usr/bin/chrome",
+    ]
+
+    for path in common_paths:
+        if Path(path).exists():
+            return path
+
+    # Return None to let pyppeteer handle default discovery
+    return None
+
+
 @pytest_asyncio.fixture(scope="function")
 async def browser() -> AsyncGenerator[Optional[Browser], None]:
     """
-    Create a Puppeteer browser instance with improved timeout handling.
+    Optimized browser test fixtures with improved reliability and timeout handling.
 
     Features:
     - Aggressive timeout management to prevent hanging
@@ -109,31 +128,35 @@ async def browser() -> AsyncGenerator[Optional[Browser], None]:
 
     try:
         # Launch browser with timeout protection
-        launch_task = asyncio.create_task(
-            launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-extensions",
-                    "--disable-gpu",
-                    "--disable-web-security",
-                    "--no-first-run",
-                    "--disable-background-timer-throttling",
-                    "--disable-renderer-backgrounding",
-                    "--disable-backgrounding-occluded-windows",
-                    "--test-type",  # Mark as test process for cleanup
-                    "--memory-pressure-off",
-                    "--single-process",  # Simplified process model
-                ],
-                options={
-                    "ignoreHTTPSErrors": True,
-                    "defaultViewport": {"width": 1280, "height": 720},
-                    "timeout": 30000,  # 30 second launch timeout
-                },
-            )
-        )
+        chrome_path = get_chrome_executable()
+        launch_options = {
+            "headless": True,
+            "args": [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-extensions",
+                "--disable-gpu",
+                "--disable-web-security",
+                "--no-first-run",
+                "--disable-background-timer-throttling",
+                "--disable-renderer-backgrounding",
+                "--disable-backgrounding-occluded-windows",
+                "--test-type",  # Mark as test process for cleanup
+                "--memory-pressure-off",
+                "--single-process",  # Simplified process model
+            ],
+            "options": {
+                "ignoreHTTPSErrors": True,
+                "defaultViewport": {"width": 1280, "height": 720},
+                "timeout": 30000,  # 30 second launch timeout
+            },
+        }
+
+        if chrome_path:
+            launch_options["executablePath"] = chrome_path
+
+        launch_task = asyncio.create_task(launch(**launch_options))
 
         # Wait for launch with timeout
         try:

@@ -71,8 +71,8 @@ else:
         CachedEvent = Dict[str, Any]
 
 # Import e-Paper components
-from ..display.abstraction import DisplayAbstractionLayer
-from ..display.capabilities import DisplayCapabilities
+from ..abstraction import DisplayAbstractionLayer
+from ..capabilities import DisplayCapabilities
 from ..drivers.mock_eink_driver import EInkDriver
 from ..utils.colors import EPaperColors, convert_to_pil_color, get_rendering_colors
 from ..utils.image_processor import ImageProcessor

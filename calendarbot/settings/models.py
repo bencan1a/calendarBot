@@ -325,6 +325,244 @@ class ConflictResolutionSettings(BaseModel):
         return v
 
 
+class EpaperSettings(BaseModel):
+    """E-Paper display configuration settings.
+
+    Comprehensive configuration for e-Paper display functionality including
+    hardware detection, display properties, rendering options, and fallback settings.
+
+    Attributes:
+        enabled: Whether e-Paper functionality is enabled
+        display_model: Specific e-Paper display model identifier
+        width: Display width in pixels
+        height: Display height in pixels
+        rotation: Display rotation in degrees (0, 90, 180, 270)
+        supports_partial_refresh: Whether partial refresh is supported
+        supports_grayscale: Whether grayscale rendering is supported
+        supports_red: Whether red color channel is supported
+        refresh_interval: Full refresh interval in seconds
+        partial_refresh_enabled: Whether to use partial refresh when available
+        contrast_level: Display contrast level (0-100)
+        dither_mode: Dithering algorithm for color reduction
+        png_fallback_enabled: Whether to save PNG fallback images
+        png_output_path: Path for PNG fallback output
+        hardware_detection_enabled: Whether to auto-detect hardware
+        error_fallback_mode: Fallback mode on hardware errors
+        color_palette: Color palette configuration
+        update_strategy: Display update strategy
+
+    Example:
+        >>> epaper = EpaperSettings(
+        ...     enabled=True,
+        ...     display_model="waveshare_4_2",
+        ...     width=400,
+        ...     height=300,
+        ...     rotation=0,
+        ...     refresh_interval=300
+        ... )
+    """
+
+    # Core Configuration
+    enabled: bool = Field(default=True, description="Enable e-Paper functionality")
+    display_model: Optional[str] = Field(
+        default=None, description="E-Paper display model (e.g., 'waveshare_4_2', 'waveshare_7_5')"
+    )
+
+    # Display Properties
+    width: int = Field(default=400, ge=100, le=2000, description="Display width in pixels")
+    height: int = Field(default=300, ge=100, le=2000, description="Display height in pixels")
+    rotation: int = Field(default=0, description="Display rotation in degrees")
+
+    # Display Capabilities
+    supports_partial_refresh: bool = Field(default=True, description="Supports partial refresh")
+    supports_grayscale: bool = Field(default=True, description="Supports grayscale rendering")
+    supports_red: bool = Field(default=False, description="Supports red color channel")
+
+    # Refresh Settings
+    refresh_interval: int = Field(
+        default=300, ge=30, le=3600, description="Full refresh interval in seconds"
+    )
+    partial_refresh_enabled: bool = Field(default=True, description="Enable partial refresh")
+
+    # Rendering Options
+    contrast_level: int = Field(
+        default=100, ge=0, le=100, description="Display contrast level (0-100)"
+    )
+    dither_mode: str = Field(
+        default="floyd_steinberg", description="Dithering mode: none, floyd_steinberg, ordered"
+    )
+
+    # Fallback Configuration
+    png_fallback_enabled: bool = Field(default=True, description="Enable PNG fallback output")
+    png_output_path: Optional[str] = Field(
+        default=None, description="Custom path for PNG fallback files"
+    )
+
+    # Hardware Detection
+    hardware_detection_enabled: bool = Field(
+        default=True, description="Enable hardware auto-detection"
+    )
+    error_fallback_mode: str = Field(
+        default="png", description="Fallback mode on errors: png, console, disable"
+    )
+
+    # Advanced Settings
+    color_palette: Dict[str, str] = Field(
+        default_factory=lambda: {
+            "background": "#FFFFFF",
+            "foreground": "#000000",
+            "accent": "#FF0000",
+        },
+        description="Color palette configuration",
+    )
+    update_strategy: str = Field(
+        default="adaptive", description="Update strategy: full, partial, adaptive"
+    )
+
+    @validator("rotation")
+    def validate_rotation(cls, v: int) -> int:
+        """Validate display rotation value.
+
+        Args:
+            v: Rotation value in degrees
+
+        Returns:
+            The validated rotation value
+
+        Raises:
+            SettingsValidationError: If rotation is invalid
+        """
+        valid_rotations = {0, 90, 180, 270}
+        if v not in valid_rotations:
+            raise SettingsValidationError(
+                f"Invalid rotation: {v}",
+                field_name="rotation",
+                field_value=v,
+                validation_errors=[f"Must be one of: {', '.join(map(str, valid_rotations))}"],
+            )
+        return v
+
+    @validator("dither_mode")
+    def validate_dither_mode(cls, v: str) -> str:
+        """Validate dithering mode.
+
+        Args:
+            v: Dithering mode string
+
+        Returns:
+            The validated dithering mode
+
+        Raises:
+            SettingsValidationError: If dither mode is invalid
+        """
+        valid_modes = {"none", "floyd_steinberg", "ordered"}
+        if v not in valid_modes:
+            raise SettingsValidationError(
+                f"Invalid dither mode: {v}",
+                field_name="dither_mode",
+                field_value=v,
+                validation_errors=[f"Must be one of: {', '.join(valid_modes)}"],
+            )
+        return v
+
+    @validator("error_fallback_mode")
+    def validate_error_fallback_mode(cls, v: str) -> str:
+        """Validate error fallback mode.
+
+        Args:
+            v: Error fallback mode string
+
+        Returns:
+            The validated fallback mode
+
+        Raises:
+            SettingsValidationError: If fallback mode is invalid
+        """
+        valid_modes = {"png", "console", "disable"}
+        if v not in valid_modes:
+            raise SettingsValidationError(
+                f"Invalid error fallback mode: {v}",
+                field_name="error_fallback_mode",
+                field_value=v,
+                validation_errors=[f"Must be one of: {', '.join(valid_modes)}"],
+            )
+        return v
+
+    @validator("update_strategy")
+    def validate_update_strategy(cls, v: str) -> str:
+        """Validate display update strategy.
+
+        Args:
+            v: Update strategy string
+
+        Returns:
+            The validated update strategy
+
+        Raises:
+            SettingsValidationError: If update strategy is invalid
+        """
+        valid_strategies = {"full", "partial", "adaptive"}
+        if v not in valid_strategies:
+            raise SettingsValidationError(
+                f"Invalid update strategy: {v}",
+                field_name="update_strategy",
+                field_value=v,
+                validation_errors=[f"Must be one of: {', '.join(valid_strategies)}"],
+            )
+        return v
+
+    @validator("color_palette")
+    def validate_color_palette(cls, v: Dict[str, str]) -> Dict[str, str]:
+        """Validate color palette configuration.
+
+        Args:
+            v: Color palette dictionary
+
+        Returns:
+            The validated color palette
+
+        Raises:
+            SettingsValidationError: If color palette is invalid
+        """
+        required_colors = {"background", "foreground"}
+        for color_name in required_colors:
+            if color_name not in v:
+                raise SettingsValidationError(
+                    f"Missing required color in palette: {color_name}",
+                    field_name="color_palette",
+                    field_value=v,
+                )
+
+        # Validate hex color format for each color
+        import re
+
+        hex_pattern = re.compile(r"^#[0-9A-Fa-f]{6}$")
+        for color_name, color_value in v.items():
+            if not hex_pattern.match(color_value):
+                raise SettingsValidationError(
+                    f"Invalid hex color format for {color_name}: {color_value}",
+                    field_name=f"color_palette.{color_name}",
+                    field_value=color_value,
+                    validation_errors=["Color must be in format #RRGGBB"],
+                )
+
+        return v
+
+    @root_validator(pre=True)
+    def set_png_output_default(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        """Set default PNG output path if not specified.
+
+        Args:
+            values: Input values dictionary
+
+        Returns:
+            Values with default PNG output path set
+        """
+        if values.get("png_fallback_enabled", True) and not values.get("png_output_path"):
+            values["png_output_path"] = "epaper_output.png"
+        return values
+
+
 class DisplaySettings(BaseModel):
     """Display and layout preferences for CalendarBot interface.
 
@@ -552,12 +790,14 @@ class SettingsData(BaseModel):
         event_filters: Event filtering configuration
         conflict_resolution: Meeting conflict resolution settings
         display: Display and layout preferences
+        epaper: E-Paper display configuration (core feature)
         metadata: Settings metadata and versioning
 
     Example:
         >>> settings = SettingsData(
         ...     event_filters=EventFilterSettings(hide_all_day_events=True),
-        ...     display=DisplaySettings(default_layout="whats-next-view")
+        ...     display=DisplaySettings(default_layout="whats-next-view"),
+        ...     epaper=EpaperSettings(enabled=True, display_model="waveshare_4_2")
         ... )
     """
 
@@ -570,6 +810,9 @@ class SettingsData(BaseModel):
     )
     display: DisplaySettings = Field(
         default_factory=DisplaySettings, description="Display and layout preferences"
+    )
+    epaper: EpaperSettings = Field(
+        default_factory=EpaperSettings, description="E-Paper display configuration (core feature)"
     )
     metadata: SettingsMetadata = Field(
         default_factory=SettingsMetadata, description="Settings metadata and versioning"
@@ -625,6 +868,7 @@ class SettingsData(BaseModel):
             "event_filters": event_filters_dict,
             "conflict_resolution": self.conflict_resolution.dict(),
             "display": self.display.dict(),
+            "epaper": self.epaper.dict(),
             "metadata": {
                 **self.metadata.dict(),
                 "last_modified": self.metadata.last_modified.isoformat(),

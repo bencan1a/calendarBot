@@ -15,6 +15,7 @@ from .config import (
     restore_configuration,
     show_setup_guidance,
 )
+from .modes.epaper import run_epaper_mode
 from .modes.interactive import run_interactive_mode
 from .modes.test import run_test_mode
 from .modes.web import run_web_mode
@@ -51,10 +52,13 @@ async def main_entry() -> int:
             getattr(args, "test_mode", False),
             getattr(args, "interactive", False),
             getattr(args, "web", False),
+            getattr(args, "epaper", False),
         ]
     )
     if mode_count > 1:
-        parser.error("Only one mode can be specified: --test-mode, --interactive, or --web")
+        parser.error(
+            "Only one mode can be specified: --test-mode, --interactive, --web, or --epaper"
+        )
 
     # Handle test mode - can run even without configuration
     if hasattr(args, "test_mode") and args.test_mode:
@@ -72,6 +76,8 @@ async def main_entry() -> int:
     # Run in specified mode
     if hasattr(args, "interactive") and args.interactive:
         return await run_interactive_mode(args)
+    elif hasattr(args, "epaper") and args.epaper:
+        return await run_epaper_mode(args)
     else:
         # Default to web mode when no other mode is specified
         return await run_web_mode(args)
@@ -92,4 +98,5 @@ __all__ = [
     "run_interactive_mode",
     "run_web_mode",
     "run_test_mode",
+    "run_epaper_mode",
 ]

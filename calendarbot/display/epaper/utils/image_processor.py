@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from PIL import Image
 
-from ..display.capabilities import DisplayCapabilities
+from ..capabilities import DisplayCapabilities
 from .image_processing import convert_image_to_epaper_format, resize_image_for_epaper
 
 logger = logging.getLogger(__name__)

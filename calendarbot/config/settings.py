@@ -2,10 +2,10 @@
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Pattern, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Pattern, Type, Union, cast
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 if TYPE_CHECKING:
     from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -190,8 +190,64 @@ class LoggingSettings(BaseModel):
     flush_interval: float = Field(default=1.0, description="Log flush interval in seconds")
 
 
+class EpaperConfiguration(BaseModel):
+    """Core e-Paper display configuration within CalendarBot settings."""
+
+    # Core Settings
+    enabled: bool = Field(default=True, description="Enable e-Paper functionality")
+    force_epaper: bool = Field(
+        default=False, description="Force use of e-Paper renderer regardless of device detection"
+    )
+    display_model: Optional[str] = Field(
+        default=None, description="E-Paper display model (e.g., 'waveshare_4_2', 'waveshare_7_5')"
+    )
+
+    # Display Properties
+    width: int = Field(default=400, description="Display width in pixels")
+    height: int = Field(default=300, description="Display height in pixels")
+    rotation: int = Field(default=0, description="Display rotation in degrees (0, 90, 180, 270)")
+
+    # Refresh Settings
+    partial_refresh: bool = Field(
+        default=True, description="Enable partial refresh for e-Paper displays"
+    )
+    refresh_interval: int = Field(
+        default=300, description="Full refresh interval for e-Paper displays in seconds"
+    )
+
+    # Rendering Options
+    contrast_level: int = Field(
+        default=100, description="Contrast level for e-Paper displays (0-100)"
+    )
+    dither_mode: str = Field(
+        default="floyd_steinberg", description="Dithering mode: none, floyd_steinberg, ordered"
+    )
+
+    # Fallback and Error Handling
+    error_fallback: bool = Field(
+        default=True, description="Fallback to console renderer on e-Paper errors"
+    )
+    png_fallback_enabled: bool = Field(default=True, description="Enable PNG fallback output")
+    png_output_path: str = Field(
+        default="epaper_output.png", description="PNG fallback output path"
+    )
+
+    # Hardware Detection
+    hardware_detection_enabled: bool = Field(
+        default=True, description="Enable hardware auto-detection"
+    )
+
+    # Advanced Settings
+    update_strategy: str = Field(
+        default="adaptive", description="Update strategy: full, partial, adaptive"
+    )
+
+
 class CalendarBotSettings(BaseSettings):
     """Application settings with environment variable support."""
+
+    # Private attributes
+    _explicit_args: set = PrivateAttr(default_factory=set)
 
     # ICS Calendar Configuration
     ics_url: Optional[str] = Field(default=None, description="ICS calendar URL")
@@ -250,30 +306,35 @@ class CalendarBotSettings(BaseSettings):
         default="console", description="Renderer type: console, html, rpi, compact, eink-whats-next"
     )
 
-    # E-Paper Configuration
-    force_epaper: bool = Field(
-        default=False, description="Force use of e-Paper renderer regardless of device detection"
+    # Core E-Paper Configuration
+    epaper: EpaperConfiguration = Field(
+        default_factory=EpaperConfiguration, description="Core e-Paper display configuration"
+    )
+
+    # Legacy E-Paper fields (maintained for backward compatibility)
+    force_epaper: Optional[bool] = Field(
+        default=None, description="Legacy: Use epaper.force_epaper instead"
     )
     epaper_display_model: Optional[str] = Field(
-        default=None, description="E-Paper display model (e.g., 'waveshare_4_2', 'waveshare_7_5')"
+        default=None, description="Legacy: Use epaper.display_model instead"
     )
-    epaper_rotation: int = Field(
-        default=0, description="E-Paper display rotation in degrees (0, 90, 180, 270)"
+    epaper_rotation: Optional[int] = Field(
+        default=None, description="Legacy: Use epaper.rotation instead"
     )
-    epaper_partial_refresh: bool = Field(
-        default=True, description="Enable partial refresh for e-Paper displays"
+    epaper_partial_refresh: Optional[bool] = Field(
+        default=None, description="Legacy: Use epaper.partial_refresh instead"
     )
-    epaper_refresh_interval: int = Field(
-        default=300, description="Full refresh interval for e-Paper displays in seconds"
+    epaper_refresh_interval: Optional[int] = Field(
+        default=None, description="Legacy: Use epaper.refresh_interval instead"
     )
-    epaper_contrast_level: int = Field(
-        default=100, description="Contrast level for e-Paper displays (0-100)"
+    epaper_contrast_level: Optional[int] = Field(
+        default=None, description="Legacy: Use epaper.contrast_level instead"
     )
-    epaper_dither_mode: str = Field(
-        default="floyd_steinberg", description="Dithering mode: none, floyd_steinberg, ordered"
+    epaper_dither_mode: Optional[str] = Field(
+        default=None, description="Legacy: Use epaper.dither_mode instead"
     )
-    epaper_error_fallback: bool = Field(
-        default=True, description="Fallback to console renderer on e-Paper errors"
+    epaper_error_fallback: Optional[bool] = Field(
+        default=None, description="Legacy: Use epaper.error_fallback instead"
     )
 
     # Raspberry Pi E-ink Display Settings
@@ -340,33 +401,45 @@ class CalendarBotSettings(BaseSettings):
             case_sensitive = False
 
     def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        # Ensure directories exist
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        # Check if we should ignore empty environment variables for testing
+        env_ignore_empty = kwargs.pop("_env_ignore_empty", False)
 
-        # Set dynamic defaults from LayoutRegistry if not overridden
-        if not kwargs.get("web_layout") and not kwargs.get("layout_name"):
-            try:
-                from calendarbot.layout.registry import LayoutRegistry
+        # Handle empty environment variables before Pydantic sees them
+        original_env = None
+        if env_ignore_empty:
+            # Save original environment and create a clean copy
+            original_env = {}
+            for key, value in os.environ.items():
+                if key.startswith("CALENDARBOT_") and not value.strip():
+                    # Save the original value and remove from environment
+                    original_env[key] = value
+                    del os.environ[key]
 
-                layout_registry = LayoutRegistry()
-                default_layout = layout_registry.get_default_layout()
-                self.web_layout = default_layout
-                self.layout_name = default_layout
-            except ImportError:
-                # Fallback if LayoutRegistry not available during initialization
-                pass
+        try:
+            # Track which environment variables are set before calling parent
+            env_vars_set = set()
+            for key in os.environ:
+                if key.startswith("CALENDARBOT_"):
+                    env_vars_set.add(key.replace("CALENDARBOT_", "").lower())
 
-        # Load YAML configuration
-        self._load_yaml_config()
+            # Call parent constructor first to initialize Pydantic machinery
+            super().__init__(**kwargs)
 
-        # Sync layout_name with web_layout
-        self.layout_name = self.web_layout
+            # Track which arguments were explicitly provided
+            self._explicit_args = set(kwargs.keys())
+            self._env_vars_set = env_vars_set
 
-        # Validate required configuration
-        self._validate_required_config()
+            # Load YAML configuration after basic initialization
+            self._load_yaml_config()
+
+            # Validate configuration
+            self._validate_required_config()
+
+        finally:
+            # Restore original environment variables if we modified them
+            if original_env:
+                for key, value in original_env.items():
+                    os.environ[key] = value
 
     def _validate_required_config(self) -> None:
         """Validate that required configuration is present."""
@@ -404,13 +477,26 @@ class CalendarBotSettings(BaseSettings):
                 return
 
             # Map YAML structure to settings fields
+            # Only set values that weren't explicitly provided via env vars or constructor args
             if "ics" in config_data:
                 ics_config = config_data["ics"]
-                if "url" in ics_config and not self.ics_url:
+                if (
+                    "url" in ics_config
+                    and not self.ics_url
+                    and "ics_url" not in self._explicit_args
+                ):
                     self.ics_url = ics_config["url"]
-                if "auth_type" in ics_config and not self.ics_auth_type:
+                if (
+                    "auth_type" in ics_config
+                    and not self.ics_auth_type
+                    and "ics_auth_type" not in self._explicit_args
+                ):
                     self.ics_auth_type = ics_config["auth_type"]
-                if "username" in ics_config and not self.ics_username:
+                if (
+                    "username" in ics_config
+                    and not self.ics_username
+                    and "ics_username" not in self._explicit_args
+                ):
                     username = ics_config["username"]
                     self.ics_username = username
                     # Log credential loading with masking
@@ -435,7 +521,11 @@ class CalendarBotSettings(BaseSettings):
                             },
                         )
                         security_logger.log_event(event)
-                if "password" in ics_config and not self.ics_password:
+                if (
+                    "password" in ics_config
+                    and not self.ics_password
+                    and "ics_password" not in self._explicit_args
+                ):
                     password = ics_config["password"]
                     self.ics_password = password
                     # Log credential loading with masking
@@ -502,11 +592,24 @@ class CalendarBotSettings(BaseSettings):
                     self.ics_validate_ssl = ics_config["verify_ssl"]
 
             # Map other top-level settings
-            if "refresh_interval" in config_data:
+            # Only set values that weren't explicitly provided via env vars or constructor args
+            if (
+                "refresh_interval" in config_data
+                and "refresh_interval" not in self._explicit_args
+                and "refresh_interval" not in self._env_vars_set
+            ):
                 self.refresh_interval = config_data["refresh_interval"]
-            if "cache_ttl" in config_data:
+            if (
+                "cache_ttl" in config_data
+                and "cache_ttl" not in self._explicit_args
+                and "cache_ttl" not in self._env_vars_set
+            ):
                 self.cache_ttl = config_data["cache_ttl"]
-            if "auto_kill_existing" in config_data:
+            if (
+                "auto_kill_existing" in config_data
+                and "auto_kill_existing" not in self._explicit_args
+                and "auto_kill_existing" not in self._env_vars_set
+            ):
                 self.auto_kill_existing = config_data["auto_kill_existing"]
 
             # Legacy logging settings (backward compatibility)
@@ -561,9 +664,17 @@ class CalendarBotSettings(BaseSettings):
                 if "flush_interval" in logging_config:
                     self.logging.flush_interval = logging_config["flush_interval"]
 
-            if "display_enabled" in config_data:
+            if (
+                "display_enabled" in config_data
+                and "display_enabled" not in self._explicit_args
+                and "display_enabled" not in self._env_vars_set
+            ):
                 self.display_enabled = config_data["display_enabled"]
-            if "display_type" in config_data:
+            if (
+                "display_type" in config_data
+                and "display_type" not in self._explicit_args
+                and "display_type" not in self._env_vars_set
+            ):
                 self.display_type = config_data["display_type"]
 
             # RPI Display settings
@@ -586,23 +697,71 @@ class CalendarBotSettings(BaseSettings):
             # Web settings
             if "web" in config_data:
                 web_config = config_data["web"]
-                if "enabled" in web_config:
+                if "enabled" in web_config and "web_enabled" not in self._explicit_args:
                     self.web_enabled = web_config["enabled"]
-                if "port" in web_config:
+                if "port" in web_config and "web_port" not in self._explicit_args:
                     self.web_port = web_config["port"]
-                if "host" in web_config:
+                if "host" in web_config and "web_host" not in self._explicit_args:
                     self.web_host = web_config["host"]
-                if "layout" in web_config:
+                if "layout" in web_config and "web_layout" not in self._explicit_args:
                     self.web_layout = web_config["layout"]
-                elif "theme" in web_config:
+                elif "theme" in web_config and "web_layout" not in self._explicit_args:
                     # Backward compatibility: map old "theme" to new "layout"
                     self.web_layout = web_config["theme"]
-                if "auto_refresh" in web_config:
+                if "auto_refresh" in web_config and "web_auto_refresh" not in self._explicit_args:
                     self.web_auto_refresh = web_config["auto_refresh"]
 
-            # E-Paper settings
+            # E-Paper settings (new structured configuration)
             if "epaper" in config_data:
                 epaper_config = config_data["epaper"]
+
+                # Core settings
+                if "enabled" in epaper_config:
+                    self.epaper.enabled = epaper_config["enabled"]
+                if "force_epaper" in epaper_config:
+                    self.epaper.force_epaper = epaper_config["force_epaper"]
+                if "display_model" in epaper_config:
+                    self.epaper.display_model = epaper_config["display_model"]
+
+                # Display properties
+                if "width" in epaper_config:
+                    self.epaper.width = epaper_config["width"]
+                if "height" in epaper_config:
+                    self.epaper.height = epaper_config["height"]
+                if "rotation" in epaper_config:
+                    self.epaper.rotation = epaper_config["rotation"]
+
+                # Refresh settings
+                if "partial_refresh" in epaper_config:
+                    self.epaper.partial_refresh = epaper_config["partial_refresh"]
+                if "refresh_interval" in epaper_config:
+                    self.epaper.refresh_interval = epaper_config["refresh_interval"]
+
+                # Rendering options
+                if "contrast_level" in epaper_config:
+                    self.epaper.contrast_level = epaper_config["contrast_level"]
+                if "dither_mode" in epaper_config:
+                    self.epaper.dither_mode = epaper_config["dither_mode"]
+
+                # Fallback settings
+                if "error_fallback" in epaper_config:
+                    self.epaper.error_fallback = epaper_config["error_fallback"]
+                if "png_fallback_enabled" in epaper_config:
+                    self.epaper.png_fallback_enabled = epaper_config["png_fallback_enabled"]
+                if "png_output_path" in epaper_config:
+                    self.epaper.png_output_path = epaper_config["png_output_path"]
+
+                # Hardware detection
+                if "hardware_detection_enabled" in epaper_config:
+                    self.epaper.hardware_detection_enabled = epaper_config[
+                        "hardware_detection_enabled"
+                    ]
+
+                # Advanced settings
+                if "update_strategy" in epaper_config:
+                    self.epaper.update_strategy = epaper_config["update_strategy"]
+
+                # Backward compatibility: also set legacy fields if present
                 if "force_epaper" in epaper_config:
                     self.force_epaper = epaper_config["force_epaper"]
                 if "display_model" in epaper_config:
@@ -631,6 +790,26 @@ class CalendarBotSettings(BaseSettings):
             # Don't fail if YAML loading fails, just continue with defaults/env vars
             print(f"Warning: Could not load YAML config from {config_file}: {e}")
 
+    def _migrate_legacy_epaper_fields(self) -> None:
+        """Migrate legacy epaper fields to new structured configuration for backward compatibility."""
+        # Map legacy fields to new epaper configuration structure
+        if self.force_epaper is not None:
+            self.epaper.force_epaper = self.force_epaper
+        if self.epaper_display_model is not None:
+            self.epaper.display_model = self.epaper_display_model
+        if self.epaper_rotation is not None:
+            self.epaper.rotation = self.epaper_rotation
+        if self.epaper_partial_refresh is not None:
+            self.epaper.partial_refresh = self.epaper_partial_refresh
+        if self.epaper_refresh_interval is not None:
+            self.epaper.refresh_interval = self.epaper_refresh_interval
+        if self.epaper_contrast_level is not None:
+            self.epaper.contrast_level = self.epaper_contrast_level
+        if self.epaper_dither_mode is not None:
+            self.epaper.dither_mode = self.epaper_dither_mode
+        if self.epaper_error_fallback is not None:
+            self.epaper.error_fallback = self.epaper_error_fallback
+
     @property
     def database_file(self) -> Path:
         """Path to SQLite database file."""
@@ -647,5 +826,53 @@ class CalendarBotSettings(BaseSettings):
         return self.cache_dir / "ics_cache.json"
 
 
-# Global settings instance
-settings = CalendarBotSettings()
+# Global settings management
+_settings_instance: Optional[CalendarBotSettings] = None
+
+
+def get_settings() -> CalendarBotSettings:
+    """Get the global settings instance, creating it lazily if needed.
+
+    Returns:
+        CalendarBotSettings: The global settings instance
+
+    Raises:
+        ValueError: If settings cannot be initialized due to missing configuration
+    """
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = CalendarBotSettings()
+    return _settings_instance
+
+
+def reset_settings() -> None:
+    """Reset the global settings instance (primarily for testing)."""
+    global _settings_instance
+    _settings_instance = None
+
+
+# Backward compatibility: Provide settings attribute that initializes lazily
+class _SettingsProxy:
+    """
+    Proxy object that provides lazy access to settings for backward compatibility.
+
+    This proxy delegates all attribute access to the global settings instance,
+    allowing for lazy initialization while maintaining full API compatibility.
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(get_settings(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        setattr(get_settings(), name, value)
+
+    def __repr__(self) -> str:
+        return repr(get_settings())
+
+    def __str__(self) -> str:
+        return str(get_settings())
+
+
+# Global settings instance (backward compatible)
+# Type cast to CalendarBotSettings for type checking compatibility
+settings = cast(CalendarBotSettings, _SettingsProxy())

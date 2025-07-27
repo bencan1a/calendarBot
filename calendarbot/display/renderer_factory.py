@@ -19,12 +19,12 @@ logger = logging.getLogger(__name__)
 try:
     from typing import Type
 
-    from calendarbot_epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer
+    from .epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer
 
     EPAPER_AVAILABLE = True
     EInkWhatsNextRenderer_TYPE: Optional[Type[EInkWhatsNextRenderer]] = EInkWhatsNextRenderer
 except ImportError:
-    logger.info("calendarbot_epaper package not available - e-Paper rendering disabled")
+    logger.info("calendarbot.display.epaper package not available - e-Paper rendering disabled")
     EInkWhatsNextRenderer_TYPE = None
     EPAPER_AVAILABLE = False
 

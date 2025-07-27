@@ -3,16 +3,13 @@
     "python.defaultInterpreterPath": "./venv/bin/python",
     "python.terminal.activateEnvironment": true,
     "python.terminal.activateEnvInCurrentTerminal": true,
-    "python.analysis.extraPaths": [
-        "./calendarbot",
-        "./config"
-    ],
     "python.envFile": "${workspaceFolder}/.env",
     "python.testing.pytestArgs": [
         "tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "python.testing.autoTestDiscoverOnSaveEnabled": false,
     "mypy-type-checker.cwd": "${workspaceFolder}",
     "mypy-type-checker.args": [
         "exclude = [     \"venv/\",     \".venv/\",     \"build/\",     \"dist/\",     \"tests/\",     \"backup/\",     \"scripts/\" ]"

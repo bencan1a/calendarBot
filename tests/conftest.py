@@ -8,6 +8,7 @@ from typing import Any, List
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest_asyncio
 
 
 # Fast, lightweight test settings fixture
@@ -113,23 +114,23 @@ def mock_cache_manager():
 
 
 # Real cache manager fixture for integration tests
-@pytest.fixture
-def cache_manager(test_settings, event_loop):
+@pytest_asyncio.fixture
+async def cache_manager(test_settings):
     """Create real CacheManager instance for testing."""
     from calendarbot.cache.manager import CacheManager
 
     cache_mgr = CacheManager(test_settings)
 
-    # Initialize synchronously using event loop
-    event_loop.run_until_complete(cache_mgr.initialize())
+    # Initialize asynchronously
+    await cache_mgr.initialize()
 
     yield cache_mgr
 
     # Cleanup
     try:
-        event_loop.run_until_complete(cache_mgr.clear_cache())
+        await cache_mgr.clear_cache()
         if hasattr(cache_mgr, "db") and cache_mgr.db:
-            event_loop.run_until_complete(cache_mgr.db.close())
+            await cache_mgr.db.close()
     except Exception:
         pass  # Ignore cleanup errors
 
@@ -142,17 +143,17 @@ def sample_calendar_events(sample_events):
 
 
 # Test database with populated data
-@pytest.fixture
-def populated_test_database(test_settings, sample_events, event_loop):
+@pytest_asyncio.fixture
+async def populated_test_database(test_settings, sample_events):
     """Create test database with sample data."""
     from calendarbot.cache.manager import CacheManager
 
     # Create cache manager with test database
     cache_mgr = CacheManager(test_settings)
-    event_loop.run_until_complete(cache_mgr.initialize())
+    await cache_mgr.initialize()
 
     # Populate with sample data
-    event_loop.run_until_complete(cache_mgr.cache_events(sample_events))
+    await cache_mgr.cache_events(sample_events)
 
     # Create mock database object for compatibility
     class MockTestDatabase:
@@ -167,25 +168,25 @@ def populated_test_database(test_settings, sample_events, event_loop):
 
     # Cleanup
     try:
-        event_loop.run_until_complete(cache_mgr.clear_cache())
-        event_loop.run_until_complete(cache_mgr.db.close())
+        await cache_mgr.clear_cache()
+        await cache_mgr.db.close()
     except Exception:
         pass
 
 
 # Stale cache database for freshness testing
-@pytest.fixture
-def stale_cache_database(test_settings, sample_events, event_loop):
+@pytest_asyncio.fixture
+async def stale_cache_database(test_settings, sample_events):
     """Create test database with stale data."""
     from calendarbot.cache.manager import CacheManager
 
     # Create cache manager with test database
     cache_mgr = CacheManager(test_settings)
-    event_loop.run_until_complete(cache_mgr.initialize())
+    await cache_mgr.initialize()
 
     # Populate with sample data and record metadata
-    event_loop.run_until_complete(cache_mgr.cache_events(sample_events))
-    event_loop.run_until_complete(cache_mgr._update_fetch_metadata(success=True))
+    await cache_mgr.cache_events(sample_events)
+    await cache_mgr._update_fetch_metadata(success=True)
 
     # Manually update database to make cache stale
     old_timestamp = datetime.now() - timedelta(hours=25)  # Older than cache_ttl (24 hours)
@@ -196,7 +197,7 @@ def stale_cache_database(test_settings, sample_events, event_loop):
         # Use the correct API method and metadata field for cache freshness
         await cache_mgr.db.update_cache_metadata(last_successful_fetch=stale_timestamp_str)
 
-    event_loop.run_until_complete(make_stale())
+    await make_stale()
 
     # Create mock database object for compatibility
     class MockStaleDatabase:
@@ -211,22 +212,22 @@ def stale_cache_database(test_settings, sample_events, event_loop):
 
     # Cleanup
     try:
-        event_loop.run_until_complete(cache_mgr.clear_cache())
-        event_loop.run_until_complete(cache_mgr.db.close())
+        await cache_mgr.clear_cache()
+        await cache_mgr.db.close()
     except Exception:
         pass
 
 
 # Performance test database
-@pytest.fixture
-def performance_test_database(test_settings, event_loop):
+@pytest_asyncio.fixture
+async def performance_test_database(test_settings):
     """Create test database optimized for performance testing."""
     from calendarbot.cache.manager import CacheManager
     from calendarbot.ics.models import CalendarEvent, DateTimeInfo, EventStatus
 
     # Create cache manager
     cache_mgr = CacheManager(test_settings)
-    event_loop.run_until_complete(cache_mgr.initialize())
+    await cache_mgr.initialize()
 
     # Create large dataset for performance testing
     now = datetime.now()
@@ -252,7 +253,7 @@ def performance_test_database(test_settings, event_loop):
         large_events.append(event)
 
     # Populate database
-    event_loop.run_until_complete(cache_mgr.cache_events(large_events))
+    await cache_mgr.cache_events(large_events)
 
     # Create mock database object
     class MockPerformanceDatabase:
@@ -267,8 +268,8 @@ def performance_test_database(test_settings, event_loop):
 
     # Cleanup
     try:
-        event_loop.run_until_complete(cache_mgr.clear_cache())
-        event_loop.run_until_complete(cache_mgr.db.close())
+        await cache_mgr.clear_cache()
+        await cache_mgr.db.close()
     except Exception:
         pass
 
@@ -299,8 +300,8 @@ def mock_source_manager():
 
 
 # Real source manager fixture for integration tests
-@pytest.fixture
-def source_manager(test_settings, event_loop):
+@pytest_asyncio.fixture
+async def source_manager(test_settings):
     """Create real SourceManager instance for testing."""
     from calendarbot.sources.manager import SourceManager
 
@@ -311,7 +312,7 @@ def source_manager(test_settings, event_loop):
 
     # Cleanup
     try:
-        event_loop.run_until_complete(source_mgr.cleanup())
+        await source_mgr.cleanup()
     except Exception:
         pass  # Ignore cleanup errors
 

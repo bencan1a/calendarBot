@@ -2,8 +2,8 @@
 
 from typing import Protocol
 
-from calendarbot_epaper.display.abstraction import DisplayAbstractionLayer
-from calendarbot_epaper.display.region import Region
+from ..abstraction import DisplayAbstractionLayer
+from ..region import Region
 
 
 class EInkDisplayDriver(DisplayAbstractionLayer, Protocol):

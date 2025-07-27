@@ -37,6 +37,7 @@ class TestMainEntry:
         args.test_mode = False
         args.interactive = False
         args.web = False
+        args.epaper = False  # Add missing epaper mode argument
 
         # Test mode arguments
         args.date = None
@@ -520,6 +521,7 @@ class TestCliIntegration:
             args.test_mode = False
             args.interactive = False
             args.web = False
+            args.epaper = False
 
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = args
