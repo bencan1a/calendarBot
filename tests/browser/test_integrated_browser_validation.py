@@ -5,6 +5,7 @@ Converts the working simple_browser_validation.py approach to pytest format.
 """
 
 import asyncio
+import os
 import sys
 import tempfile
 import time
@@ -45,6 +46,24 @@ from calendarbot.web.server import WebServer
 pytestmark = pytest.mark.skipif(
     not PYPPETEER_AVAILABLE, reason="pyppeteer not available for browser tests"
 )
+
+
+def get_chrome_executable():
+    """Get Chrome executable path, checking common locations."""
+    # Check common locations for Chrome/Chromium
+    common_paths = [
+        "/usr/bin/chromium-browser",
+        "/usr/bin/chromium",
+        "/usr/bin/google-chrome",
+        "/usr/bin/chrome",
+    ]
+
+    for path in common_paths:
+        if Path(path).exists():
+            return path
+
+    # Return None to let pyppeteer handle default discovery
+    return None
 
 
 @pytest.fixture
@@ -177,18 +196,30 @@ async def _test_browser_core_functionality(settings):
         web_server.start()
         await asyncio.sleep(1)  # Give server time to start
 
-        # Launch browser
-        browser = await launch(
-            headless=True,
-            args=[
+        # Launch browser with system Chromium
+        chrome_path = get_chrome_executable()
+        launch_options = {
+            "headless": True,
+            "args": [
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-extensions",
                 "--disable-gpu",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
             ],
-            options={"ignoreHTTPSErrors": True, "defaultViewport": {"width": 1280, "height": 720}},
-        )
+            "options": {
+                "ignoreHTTPSErrors": True,
+                "defaultViewport": {"width": 1280, "height": 720},
+            },
+        }
+
+        if chrome_path:
+            launch_options["executablePath"] = chrome_path
+
+        browser = await launch(**launch_options)
 
         try:
             # Create page and navigate
@@ -265,11 +296,29 @@ async def _test_navigation_functionality(settings):
         web_server.start()
         await asyncio.sleep(1)
 
-        browser = await launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-            options={"ignoreHTTPSErrors": True, "defaultViewport": {"width": 1280, "height": 720}},
-        )
+        chrome_path = get_chrome_executable()
+        launch_options = {
+            "headless": True,
+            "args": [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-extensions",
+                "--disable-gpu",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+            ],
+            "options": {
+                "ignoreHTTPSErrors": True,
+                "defaultViewport": {"width": 1280, "height": 720},
+            },
+        }
+
+        if chrome_path:
+            launch_options["executablePath"] = chrome_path
+
+        browser = await launch(**launch_options)
 
         try:
             page = await browser.newPage()
@@ -319,11 +368,29 @@ async def _test_calendar_information_display(settings):
         web_server.start()
         await asyncio.sleep(1)
 
-        browser = await launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-            options={"ignoreHTTPSErrors": True, "defaultViewport": {"width": 1280, "height": 720}},
-        )
+        chrome_path = get_chrome_executable()
+        launch_options = {
+            "headless": True,
+            "args": [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-extensions",
+                "--disable-gpu",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+            ],
+            "options": {
+                "ignoreHTTPSErrors": True,
+                "defaultViewport": {"width": 1280, "height": 720},
+            },
+        }
+
+        if chrome_path:
+            launch_options["executablePath"] = chrome_path
+
+        browser = await launch(**launch_options)
 
         try:
             page = await browser.newPage()

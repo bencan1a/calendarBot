@@ -7,10 +7,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import RPi.GPIO as GPIO  # type: ignore[import]
 import spidev  # type: ignore[import]
 
-from calendarbot_epaper.display.capabilities import DisplayCapabilities
-from calendarbot_epaper.display.region import Region
-from calendarbot_epaper.drivers.eink_driver import EInkDisplayDriver
-from calendarbot_epaper.drivers.waveshare.utils import (
+from ...capabilities import DisplayCapabilities
+from ...region import Region
+from ..eink_driver import EInkDisplayDriver
+from .utils import (
     delay_ms,
     extract_region_buffer,
     split_color_buffer,

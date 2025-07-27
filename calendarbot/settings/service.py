@@ -15,6 +15,7 @@ from .exceptions import SettingsError, SettingsPersistenceError, SettingsValidat
 from .models import (
     ConflictResolutionSettings,
     DisplaySettings,
+    EpaperSettings,
     EventFilterSettings,
     FilterPattern,
     SettingsData,
@@ -257,6 +258,35 @@ class SettingsService:
         except Exception as e:
             raise SettingsError("Failed to update conflict settings", details={"error": str(e)})
 
+    def get_epaper_settings(self) -> EpaperSettings:
+        """Get current e-Paper display settings.
+
+        Returns:
+            EpaperSettings object
+        """
+        return self.get_settings().epaper
+
+    def update_epaper_settings(self, epaper_settings: EpaperSettings) -> EpaperSettings:
+        """Update only the e-Paper display settings.
+
+        Args:
+            epaper_settings: Updated EpaperSettings object
+
+        Returns:
+            The updated EpaperSettings object
+
+        Raises:
+            SettingsError: If update fails
+        """
+        try:
+            current = self.get_settings()
+            current.epaper = epaper_settings
+            updated = self.update_settings(current)
+            return updated.epaper
+
+        except Exception as e:
+            raise SettingsError("Failed to update epaper settings", details={"error": str(e)})
+
     def add_filter_pattern(
         self,
         pattern: str,
@@ -497,6 +527,9 @@ class SettingsService:
                     "display_density": settings.display.display_density,
                     "hide_all_day_events": settings.event_filters.hide_all_day_events,
                     "conflict_display_mode": settings.conflict_resolution.conflict_display_mode,
+                    "epaper_enabled": settings.epaper.enabled,
+                    "epaper_display_model": settings.epaper.display_model,
+                    "epaper_dimensions": f"{settings.epaper.width}x{settings.epaper.height}",
                     "schema_version": settings.metadata.version,
                     "last_modified": settings.metadata.last_modified.isoformat(),
                 },

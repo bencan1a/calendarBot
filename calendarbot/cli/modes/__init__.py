@@ -26,6 +26,13 @@ MODE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "requires_display": False,
         "async_mode": True,
     },
+    "epaper": {
+        "name": "E-Paper Mode",
+        "description": "E-paper display mode with hardware detection and PNG fallback",
+        "handler": None,  # Will be set during Phase 2 migration
+        "requires_display": True,
+        "async_mode": True,
+    },
     "daemon": {
         "name": "Daemon Mode",
         "description": "Background daemon mode for continuous operation",

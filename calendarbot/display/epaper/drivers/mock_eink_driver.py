@@ -3,8 +3,8 @@
 import logging
 from typing import Any, Optional
 
-from ..display.abstraction import DisplayAbstractionLayer
-from ..display.capabilities import DisplayCapabilities
+from ..abstraction import DisplayAbstractionLayer
+from ..capabilities import DisplayCapabilities
 
 logger = logging.getLogger(__name__)
 

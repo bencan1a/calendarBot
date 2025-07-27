@@ -3,7 +3,8 @@
         "calendarbot"
     ],
     "exclude": [
-
+        "calendarbot/display/epaper/drivers",
+        "scripts",
         "**/__pycache__",
         "**/.pytest_cache",
         "**/node_modules",

@@ -133,6 +133,7 @@ Examples:
   %(prog)s --interactive             # Run interactive console mode with arrow key controls
   %(prog)s --web                     # Run web server mode on localhost:8080 (explicit)
   %(prog)s --web --port 3000 --auto-open  # Run web server on port 3000 and open browser
+  %(prog)s --epaper                  # Run in e-paper display mode with hardware auto-detection
   %(prog)s --rpi --web               # Run in RPI e-ink mode with web interface
         """,
     )
@@ -226,6 +227,14 @@ Examples:
 
     parser.add_argument(
         "--auto-open", action="store_true", help="Automatically open browser when starting web mode"
+    )
+
+    # E-Paper mode arguments
+    parser.add_argument(
+        "--epaper",
+        "-e",
+        action="store_true",
+        help="Run in e-paper display mode with hardware detection and PNG fallback",
     )
 
     # Display and layout arguments

@@ -115,23 +115,27 @@ class TestWebAPIBackendIntegration:
         """Test layout API integration with display manager."""
         web_server, cache_manager, source_manager, display_manager, navigation_state = web_api_setup
 
-        # Mock renderer with layout support
-        display_manager.renderer = MagicMock()
-        display_manager.renderer.layout = "4x8"
+        # Mock the layout registry to return predictable layouts for testing
+        with patch.object(
+            web_server.layout_registry, "get_available_layouts", return_value=["3x4", "4x8"]
+        ):
+            # Mock renderer with layout support
+            display_manager.renderer = MagicMock()
+            display_manager.renderer.layout = "4x8"
 
-        initial_layout = web_server.layout
+            initial_layout = web_server.layout
 
-        # Test layout setting
-        success = web_server.set_layout("3x4")
-        assert success is True
-        assert web_server.layout == "3x4"
-        assert display_manager.renderer.layout == "3x4"
+            # Test layout setting
+            success = web_server.set_layout("3x4")
+            assert success is True
+            assert web_server.layout == "3x4"
+            assert display_manager.renderer.layout == "3x4"
 
-        # Test layout toggle
-        new_layout = web_server.toggle_layout()
-        assert new_layout == "4x8"
-        assert web_server.layout == "4x8"
-        assert display_manager.renderer.layout == "4x8"
+            # Test layout toggle
+            new_layout = web_server.toggle_layout()
+            assert new_layout == "4x8"
+            assert web_server.layout == "4x8"
+            assert display_manager.renderer.layout == "4x8"
 
     @pytest.mark.asyncio
     async def test_calendar_html_with_real_data(self, web_api_setup):
@@ -537,25 +541,29 @@ class TestWebAPIStateManagement:
         """Test layout state consistency across operations."""
         web_server, navigation_state, cache_manager = state_management_setup
 
-        # Mock renderer
-        web_server.display_manager.renderer = MagicMock()
-        web_server.display_manager.renderer.layout = "4x8"
+        # Mock the layout registry to return predictable layouts for testing
+        with patch.object(
+            web_server.layout_registry, "get_available_layouts", return_value=["3x4", "4x8"]
+        ):
+            # Mock renderer
+            web_server.display_manager.renderer = MagicMock()
+            web_server.display_manager.renderer.layout = "4x8"
 
-        # Change layout and verify persistence
-        web_server.set_layout("3x4")
-        assert web_server.layout == "3x4"
+            # Change layout and verify persistence
+            web_server.set_layout("3x4")
+            assert web_server.layout == "3x4"
 
-        # Perform other operations
-        web_server.refresh_data()
-        assert web_server.layout == "3x4"
+            # Perform other operations
+            web_server.refresh_data()
+            assert web_server.layout == "3x4"
 
-        web_server.handle_navigation("next")
-        assert web_server.layout == "3x4"
+            web_server.handle_navigation("next")
+            assert web_server.layout == "3x4"
 
-        # Toggle layout
-        new_layout = web_server.toggle_layout()
-        assert new_layout == "4x8"
-        assert web_server.layout == "4x8"
+            # Toggle layout
+            new_layout = web_server.toggle_layout()
+            assert new_layout == "4x8"
+            assert web_server.layout == "4x8"
 
     def test_state_isolation_between_operations(self, state_management_setup):
         """Test that operations don't interfere with each other's state."""

@@ -276,6 +276,61 @@ def apply_cli_overrides(settings: Any, args: Any) -> Any:
                 f"Applied compact layout override: {current_layout} -> {settings.web_layout}"
             )
 
+    # Handle epaper mode
+    if hasattr(args, "epaper") and args.epaper:
+        logger.info("E-Paper mode enabled")
+
+        # Enable epaper mode
+        settings.epaper.enabled = True
+        settings.display_type = "eink-whats-next"
+        logger.debug(f"Set display_type={settings.display_type} for epaper mode")
+
+        # Apply epaper-specific settings from CLI arguments
+        if hasattr(args, "epaper_model") and args.epaper_model:
+            settings.epaper.display_model = args.epaper_model
+        if hasattr(args, "epaper_width") and args.epaper_width:
+            settings.epaper.width = args.epaper_width
+        if hasattr(args, "epaper_height") and args.epaper_height:
+            settings.epaper.height = args.epaper_height
+        if hasattr(args, "epaper_rotation") and args.epaper_rotation:
+            settings.epaper.rotation = args.epaper_rotation
+        if hasattr(args, "epaper_refresh_interval") and args.epaper_refresh_interval:
+            settings.epaper.refresh_interval = args.epaper_refresh_interval
+        if hasattr(args, "epaper_partial_refresh") and args.epaper_partial_refresh is not None:
+            settings.epaper.partial_refresh = args.epaper_partial_refresh
+        if hasattr(args, "epaper_contrast") and args.epaper_contrast:
+            settings.epaper.contrast_level = args.epaper_contrast
+        if hasattr(args, "epaper_dither") and args.epaper_dither:
+            settings.epaper.dither_mode = args.epaper_dither
+        if hasattr(args, "epaper_png_fallback") and args.epaper_png_fallback is not None:
+            settings.epaper.png_fallback_enabled = args.epaper_png_fallback
+        if hasattr(args, "epaper_png_output") and args.epaper_png_output:
+            settings.epaper.png_output_path = args.epaper_png_output
+        if hasattr(args, "epaper_force") and args.epaper_force:
+            settings.epaper.force_epaper = args.epaper_force
+
+        # Also set legacy fields for backward compatibility
+        if hasattr(args, "epaper_force") and args.epaper_force:
+            settings.force_epaper = args.epaper_force
+        if hasattr(args, "epaper_model") and args.epaper_model:
+            settings.epaper_display_model = args.epaper_model
+        if hasattr(args, "epaper_rotation") and args.epaper_rotation:
+            settings.epaper_rotation = args.epaper_rotation
+        if hasattr(args, "epaper_refresh_interval") and args.epaper_refresh_interval:
+            settings.epaper_refresh_interval = args.epaper_refresh_interval
+        if hasattr(args, "epaper_partial_refresh") and args.epaper_partial_refresh is not None:
+            settings.epaper_partial_refresh = args.epaper_partial_refresh
+        if hasattr(args, "epaper_contrast") and args.epaper_contrast:
+            settings.epaper_contrast_level = args.epaper_contrast
+        if hasattr(args, "epaper_dither") and args.epaper_dither:
+            settings.epaper_dither_mode = args.epaper_dither
+
+        logger.info(
+            f"E-Paper configuration applied: model={settings.epaper.display_model}, "
+            f"dimensions={settings.epaper.width}x{settings.epaper.height}, "
+            f"rotation={settings.epaper.rotation}°"
+        )
+
     return settings
 
 
