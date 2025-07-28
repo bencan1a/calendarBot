@@ -71,8 +71,7 @@ dev = [
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
     "pytest-timeout>=2.1.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
+    "ruff>=0.1.0",
     "mypy>=1.0.0",
     "bandit>=1.7.0",
     "pre-commit>=3.0.0",
@@ -110,39 +109,107 @@ calendarbot = [
     "py.typed",
     "web/static/*.css",
     "web/static/*.js",
+    "web/static/shared/**/*.css",
+    "web/static/shared/**/*.js",
     "web/static/layouts/**/*.css",
     "web/static/layouts/**/*.js",
     "web/static/layouts/**/*.json",
     "web/templates/*.html",
     "theme-images/*.bmp",
-]
-config = [
-    "config.yaml.example",
+    "config/config.yaml.example",
 ]
 
 [tool.setuptools.dynamic]
 version = {attr = "calendarbot.__version__"}
 
 # Development tool configurations
-[tool.black]
+[tool.ruff]
+# Ruff configuration for linting and formatting
 line-length = 100
-target-version = ['py38']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-)/
-'''
+target-version = "py39"
+
+# Exclude directories
+exclude = [
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "venv",
+    "env",
+    "tests/fixtures",
+    "calendarbot/display/epaper/drivers",
+]
+
+# Linting configuration
+[tool.ruff.lint]
+# Enable specific rule sets
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "I",    # isort
+    "N",    # pep8-naming
+    "C4",   # flake8-comprehensions
+    "ICN",  # flake8-import-conventions
+    "PIE",  # flake8-pie
+    "T20",  # flake8-print
+    "PT",   # flake8-pytest-style
+    "RET",  # flake8-return
+    "SLF",  # flake8-self
+    "ARG",  # flake8-unused-arguments
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate
+    "PL",   # Pylint
+    "TRY",  # tryceratops
+    "PERF", # Perflint
+    "RUF",  # Ruff-specific rules
+]
+
+# Ignore specific rules
+ignore = [
+    "E501",    # Line too long (handled by formatter)
+    "PLR0913", # Too many arguments to function call
+    "PLR2004", # Magic value used in comparison
+    "TRY003",  # Avoid specifying long messages outside the exception class
+    "ARG002",  # Unused method argument (common in overrides)
+    "PT012",   # pytest.raises() block should contain a single simple statement
+    "B008",    # Do not perform function calls in argument defaults (common in FastAPI)
+]
+
+# Per-file ignores
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG001", "S101", "PLR2004", "SLF001"]
+"scripts/*" = ["T20", "PLR0913"]
+"conftest.py" = ["ARG001"]
+
+# Import sorting configuration (replaces isort)
+[tool.ruff.lint.isort]
+combine-as-imports = true
+split-on-trailing-comma = true
+known-first-party = ["calendarbot"]
+
+# Pylint configuration
+[tool.ruff.lint.pylint]
+max-args = 8
+max-branches = 15
+max-returns = 8
+max-statements = 60
+
+# Formatter configuration (replaces black)
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
 [tool.bandit]
 # Bandit security analysis configuration
@@ -155,15 +222,6 @@ skips = [
 ]
 severity = "medium"  # Flag medium and high severity issues
 confidence = "medium"  # Flag medium and high confidence issues
-
-[tool.isort]
-profile = "black"
-line_length = 100
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
 
 [tool.mypy]
 python_version = "3.9"
