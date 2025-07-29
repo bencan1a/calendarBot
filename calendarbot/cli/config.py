@@ -331,6 +331,23 @@ def apply_cli_overrides(settings: Any, args: Any) -> Any:
             f"rotation={settings.epaper.rotation}°"
         )
 
+    # Handle runtime tracking arguments (simplified CLI interface)
+    if hasattr(args, "track_runtime") and args.track_runtime:
+        logger.info("Runtime tracking enabled")
+
+        # Set runtime tracking configuration (simplified: just enable tracking with defaults)
+        settings.runtime_tracking.enabled = True
+        # Note: save_samples defaults to True in RuntimeTrackingSettings
+        # Note: sampling_interval defaults to 1.0 in RuntimeTrackingSettings
+        # Note: session_name defaults to None in RuntimeTrackingSettings
+
+        logger.info(
+            f"Runtime tracking configuration: "
+            f"sampling_interval={settings.runtime_tracking.sampling_interval}s, "
+            f"save_samples={settings.runtime_tracking.save_samples}, "
+            f"session_name={settings.runtime_tracking.session_name or 'auto-generated'}"
+        )
+
     return settings
 
 
