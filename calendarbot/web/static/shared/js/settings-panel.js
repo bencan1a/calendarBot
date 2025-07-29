@@ -10,31 +10,31 @@ class SettingsPanel {
         this.isOpen = false;
         this.isInitialized = false;
         this.isTransitioning = false;
-        
+
         // Component instances
         this.api = new SettingsAPI();
         this.gestureHandler = null;
-        
+
         // Settings data
         this.currentSettings = null;
         this.localSettings = null;
         this.hasUnsavedChanges = false;
-        
+
         // Auto-save configuration
         this.autoSaveDelay = 2000; // 2 seconds
         this.autoSaveTimeout = null;
         this.lastSaveTime = null;
-        
+
         // Form validation
         this.validationErrors = {};
-        
+
         // UI state
         this.currentLayout = this.detectLayout();
         this.screenSize = this.detectScreenSize();
-        
+
         // Event listeners cleanup
         this.boundEventListeners = [];
-        
+
         console.log('SettingsPanel: Initialized with layout:', this.currentLayout, 'screen size:', this.screenSize);
     }
 
@@ -51,29 +51,29 @@ class SettingsPanel {
         try {
             // Create panel DOM structure
             this.createPanelHTML();
-            
+
             // CRITICAL: Apply content-based sizing after panel is created
             this.updateContentContainerDimensions();
-            
+
             // Initialize gesture handler
             this.gestureHandler = new GestureHandler(this);
             this.gestureHandler.initialize();
-            
+
             // Load initial settings
             await this.loadSettings();
-            
+
             // Setup form event listeners
             this.setupFormEventListeners();
-            
+
             // Setup responsive handlers
             this.setupResponsiveHandlers();
-            
+
             // Setup keyboard shortcuts
             this.setupKeyboardShortcuts();
-            
+
             this.isInitialized = true;
             console.log('SettingsPanel: Initialization complete');
-            
+
         } catch (error) {
             console.error('SettingsPanel: Initialization failed:', error);
             this.showError('Failed to initialize settings panel: ' + error.message);
@@ -93,7 +93,7 @@ class SettingsPanel {
         console.log('SettingsPanel: Creating panel HTML, isOpen should be false:', this.isOpen);
 
         const panelHTML = `
-            <div id="settings-panel" class="settings-panel" role="dialog" aria-labelledby="settings-title" aria-hidden="true">
+            <div id="settings-panel" class="settings-panel" role="dialog" aria-labelledby="settings-title" aria-hidden="true" style="display: none !important; visibility: hidden !important; opacity: 0 !important;">
                 <div class="settings-header">
                     <h2 id="settings-title" class="settings-title">Settings</h2>
                     <button class="settings-close" aria-label="Close settings" type="button">×</button>
@@ -327,7 +327,7 @@ class SettingsPanel {
                 this.screenSize = newScreenSize;
                 this.updateResponsiveLayout();
             }
-            
+
             // Update content container dimensions on resize/orientation change
             this.updateContentContainerDimensions();
         };
@@ -367,18 +367,18 @@ class SettingsPanel {
     async loadSettings() {
         try {
             this.showStatus('Loading settings...', 'info');
-            
+
             const result = await this.api.getSettings();
-            
+
             if (result.success) {
                 // Handle potential double-wrapped API response
                 let settingsData = result.data;
-                
+
                 // Check if the data is double-wrapped (API returns {success: true, data: {success: true, data: {...}}})
                 if (settingsData && settingsData.success && settingsData.data) {
                     settingsData = settingsData.data;
                 }
-                
+
                 this.currentSettings = settingsData;
                 this.localSettings = JSON.parse(JSON.stringify(settingsData)); // Deep copy
                 this.populateForm(this.localSettings);
@@ -387,7 +387,7 @@ class SettingsPanel {
             } else {
                 throw new Error(result.error || 'Failed to load settings');
             }
-            
+
         } catch (error) {
             console.error('SettingsPanel: Failed to load settings:', error);
             this.showError('Failed to load settings: ' + error.message);
@@ -514,24 +514,24 @@ class SettingsPanel {
             this.collectFormData();
 
             const result = await this.api.updateSettings(this.localSettings);
-            
+
             if (result.success) {
                 this.currentSettings = JSON.parse(JSON.stringify(this.localSettings));
                 this.hasUnsavedChanges = false;
                 this.lastSaveTime = new Date();
-                
+
                 if (!silent) {
                     this.showStatus('Settings saved successfully', 'success');
                     setTimeout(() => this.hideStatus(), 2000);
                 }
-                
+
                 this.updateSaveStatus('saved');
                 console.log('SettingsPanel: Settings saved successfully');
-                
+
             } else {
                 throw new Error(result.error || 'Failed to save settings');
             }
-            
+
         } catch (error) {
             console.error('SettingsPanel: Failed to save settings:', error);
             this.showError('Failed to save settings: ' + error.message);
@@ -549,7 +549,7 @@ class SettingsPanel {
 
         try {
             this.isTransitioning = true;
-            
+
             const panel = document.getElementById('settings-panel');
             if (!panel) {
                 throw new Error('Settings panel element not found');
@@ -564,7 +564,7 @@ class SettingsPanel {
             // Show panel
             panel.classList.add('open');
             panel.setAttribute('aria-hidden', 'false');
-            
+
             // Focus management
             const firstFocusable = panel.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
             if (firstFocusable) {
@@ -573,9 +573,9 @@ class SettingsPanel {
 
             this.isOpen = true;
             this.isTransitioning = false;
-            
+
             console.log('SettingsPanel: Panel opened');
-            
+
         } catch (error) {
             console.error('SettingsPanel: Failed to open panel:', error);
             this.isTransitioning = false;
@@ -593,39 +593,39 @@ class SettingsPanel {
         }
 
         this.isTransitioning = true;
-        
+
         const panel = document.getElementById('settings-panel');
         if (panel) {
             console.log('SettingsPanel: Starting close sequence');
-            
+
             // ACCESSIBILITY FIX: Enhanced focus management before setting aria-hidden
             const focusedElement = document.activeElement;
             const panelContainsFocus = panel.contains(focusedElement);
-            
+
             console.log('SettingsPanel: Focus management - focused element:', focusedElement?.tagName, focusedElement?.id);
             console.log('SettingsPanel: Panel contains focus:', panelContainsFocus);
-            
+
             // Always handle focus management properly to prevent accessibility violations
             if (panelContainsFocus && focusedElement) {
                 console.log('SettingsPanel: Removing focus from panel element:', focusedElement.id || focusedElement.tagName);
-                
+
                 // Force blur and clear any active state
                 focusedElement.blur();
-                
+
                 // Ensure focus moves to a safe, focusable element outside the panel
                 // Use document.body as the safest fallback
                 document.body.focus();
-                
+
                 // Double-check that focus has actually moved
                 const newFocused = document.activeElement;
                 console.log('SettingsPanel: Focus moved to:', newFocused?.tagName, newFocused?.id);
-                
+
                 // Use a longer timeout to ensure focus change is fully processed
                 setTimeout(() => {
                     // Verify focus is no longer inside panel before setting aria-hidden
                     const currentFocus = document.activeElement;
                     const stillInPanel = panel.contains(currentFocus);
-                    
+
                     if (!stillInPanel) {
                         panel.setAttribute('aria-hidden', 'true');
                         console.log('SettingsPanel: aria-hidden set after successful focus management');
@@ -644,10 +644,13 @@ class SettingsPanel {
                 panel.setAttribute('aria-hidden', 'true');
                 console.log('SettingsPanel: aria-hidden set (no focus inside panel)');
             }
-            
-            // PANEL HIDING FIX: Remove all visibility-related classes and reset transform
+
+            // CRITICAL FIX: Remove all visibility-related classes
+            // Do NOT reset transform to empty string as this interferes with hiding
             panel.classList.remove('open', 'revealing');
-            panel.style.transform = '';
+
+            // CRITICAL FIX: Allow CSS to handle the hiding via transform: translateY(-100%)
+            // The transform will be managed by CSS when .open and .revealing classes are removed
         }
 
         // Clear any pending auto-save
@@ -663,7 +666,7 @@ class SettingsPanel {
 
         this.isOpen = false;
         this.isTransitioning = false;
-        
+
         console.log('SettingsPanel: Panel closed with proper focus and visibility management');
     }
 
@@ -673,13 +676,16 @@ class SettingsPanel {
     startReveal() {
         const panel = document.getElementById('settings-panel');
         if (panel) {
+            console.log('SettingsPanel: Starting reveal - panel will become visible');
             panel.classList.add('revealing');
+            // Panel is now visible due to CSS .revealing { display: flex; }
         }
     }
 
     updateReveal(percent) {
         const panel = document.getElementById('settings-panel');
         if (panel) {
+            // During drag, interpolate between hidden (-100%) and visible (0%)
             panel.style.transform = `translateY(${-100 + (percent * 100)}%)`;
         }
     }
@@ -687,7 +693,10 @@ class SettingsPanel {
     cancelReveal() {
         const panel = document.getElementById('settings-panel');
         if (panel) {
+            console.log('SettingsPanel: Canceling reveal - panel will be hidden');
             panel.classList.remove('revealing');
+            // Panel becomes hidden again due to CSS default { display: none; }
+            // Reset transform to let CSS handle positioning
             panel.style.transform = '';
         }
     }
@@ -758,7 +767,7 @@ class SettingsPanel {
     addPatternFromInput() {
         const patternInput = document.getElementById('pattern-input');
         const regexToggle = document.getElementById('pattern-regex');
-        
+
         if (!patternInput) return;
 
         const pattern = patternInput.value.trim();
@@ -779,7 +788,7 @@ class SettingsPanel {
         const patternInput = document.getElementById('pattern-input');
         const regexToggle = document.getElementById('pattern-regex');
         const validationEl = document.getElementById('pattern-validation');
-        
+
         if (!patternInput || !validationEl) return;
 
         const pattern = patternInput.value.trim();
@@ -848,7 +857,7 @@ class SettingsPanel {
      */
     togglePattern(index) {
         if (this.localSettings.event_filters.title_patterns[index]) {
-            this.localSettings.event_filters.title_patterns[index].is_active = 
+            this.localSettings.event_filters.title_patterns[index].is_active =
                 !this.localSettings.event_filters.title_patterns[index].is_active;
             this.renderPatternList(this.localSettings.event_filters.title_patterns);
             this.onSettingChange();
@@ -876,9 +885,9 @@ class SettingsPanel {
 
         try {
             this.showStatus('Resetting settings...', 'info');
-            
+
             const result = await this.api.resetToDefaults();
-            
+
             if (result.success) {
                 this.currentSettings = result.data;
                 this.localSettings = JSON.parse(JSON.stringify(result.data));
@@ -888,7 +897,7 @@ class SettingsPanel {
             } else {
                 throw new Error(result.error || 'Failed to reset settings');
             }
-            
+
         } catch (error) {
             console.error('SettingsPanel: Failed to reset settings:', error);
             this.showError('Failed to reset settings: ' + error.message);
@@ -901,22 +910,22 @@ class SettingsPanel {
     async exportSettings() {
         try {
             const result = await this.api.exportSettings();
-            
+
             if (result.success) {
                 const dataStr = JSON.stringify(result.data, null, 2);
                 const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                
+
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(dataBlob);
                 link.download = `calendarbot-settings-${new Date().toISOString().split('T')[0]}.json`;
                 link.click();
-                
+
                 this.showStatus('Settings exported successfully', 'success');
                 setTimeout(() => this.hideStatus(), 2000);
             } else {
                 throw new Error(result.error || 'Failed to export settings');
             }
-            
+
         } catch (error) {
             console.error('SettingsPanel: Failed to export settings:', error);
             this.showError('Failed to export settings: ' + error.message);
@@ -930,7 +939,7 @@ class SettingsPanel {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.json';
-        
+
         input.onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -938,9 +947,9 @@ class SettingsPanel {
             try {
                 const text = await file.text();
                 const data = JSON.parse(text);
-                
+
                 const result = await this.api.importSettings(data);
-                
+
                 if (result.success) {
                     this.currentSettings = result.data;
                     this.localSettings = JSON.parse(JSON.stringify(result.data));
@@ -950,13 +959,13 @@ class SettingsPanel {
                 } else {
                     throw new Error(result.error || 'Failed to import settings');
                 }
-                
+
             } catch (error) {
                 console.error('SettingsPanel: Failed to import settings:', error);
                 this.showError('Failed to import settings: ' + error.message);
             }
         };
-        
+
         input.click();
     }
 
@@ -968,7 +977,7 @@ class SettingsPanel {
         const html = document.documentElement;
         const body = document.body;
         let layout = 'unknown';
-        
+
         // Check HTML element class first (more reliable)
         if (html && html.classList.contains('layout-whats-next-view')) layout = 'whats-next-view';
         else if (html && html.classList.contains('layout-3x4')) layout = '3x4';
@@ -984,7 +993,7 @@ class SettingsPanel {
             else if (path.includes('3x4')) layout = '3x4';
             else if (path.includes('4x8')) layout = '4x8';
         }
-        
+
         console.log('SettingsPanel: Layout detected:', layout, 'from HTML class:', html?.className);
         return layout;
     }
@@ -997,18 +1006,18 @@ class SettingsPanel {
             console.log('SettingsPanel: Checking for content container... DOM ready:', document.readyState);
             const contentContainer = document.querySelector('.calendar-content');
             const settingsPanel = document.getElementById('settings-panel');
-            
+
             console.log('SettingsPanel: Content container found:', !!contentContainer);
             console.log('SettingsPanel: Settings panel found:', !!settingsPanel);
-            
+
             if (contentContainer && settingsPanel) {
                 const rect = contentContainer.getBoundingClientRect();
                 const computedStyle = window.getComputedStyle(contentContainer);
-                
+
                 // Get the actual content dimensions including padding
                 const width = rect.width;
                 const height = rect.height;
-                
+
                 // Store dimensions for later use
                 this.contentContainerDimensions = {
                     width: Math.round(width),
@@ -1016,10 +1025,10 @@ class SettingsPanel {
                     left: Math.round(rect.left),
                     top: Math.round(rect.top)
                 };
-                
+
                 // Apply content-aware CSS custom properties
                 this.applyContentBasedSizing(this.contentContainerDimensions);
-                
+
                 console.log('SettingsPanel: Content container dimensions detected and applied:', this.contentContainerDimensions);
             } else if (!contentContainer) {
                 console.log('SettingsPanel: No .calendar-content container found, using viewport-based sizing');
@@ -1040,36 +1049,36 @@ class SettingsPanel {
      */
     applyContentBasedSizing(dimensions) {
         if (!dimensions) return;
-        
+
         const root = document.documentElement;
         const panel = document.getElementById('settings-panel');
-        
+
         // Calculate panel height (capped at 400px as per CSS)
         const panelHeight = Math.min(dimensions.height, 400);
-        
+
         // Calculate transform value to completely hide panel above viewport
         // For complete hiding: effective top + panel height ≤ 0
         // effective top = CSS top + translateY
         // So: dimensions.top + translateY + panelHeight ≤ 0
         // translateY ≤ -dimensions.top - panelHeight
         const hideTransform = -(dimensions.top + panelHeight);
-        
+
         // Set content-aware dimensions that override viewport-based ones
         root.style.setProperty('--settings-panel-content-width', `${dimensions.width}px`);
         root.style.setProperty('--settings-panel-content-height', `${panelHeight}px`);
         root.style.setProperty('--settings-panel-content-left', `${dimensions.left}px`);
         root.style.setProperty('--settings-panel-content-top', `${dimensions.top}px`);
         root.style.setProperty('--settings-panel-hide-transform', `${hideTransform}px`);
-        
+
         // Flag that content-based sizing is active
         root.style.setProperty('--settings-panel-content-mode', '1');
-        
+
         // CRITICAL FIX: Set data attribute to ensure CSS selectors work reliably
         if (panel) {
             panel.setAttribute('data-content-aware', 'true');
             console.log('SettingsPanel: Set data-content-aware attribute for reliable CSS matching');
         }
-        
+
         console.log('SettingsPanel: Applied content-based sizing properties:', dimensions);
         console.log('SettingsPanel: Hide transform calculated:', `${hideTransform}px`);
         console.log('SettingsPanel: Panel should be hidden initially, isOpen=', this.isOpen);
@@ -1080,13 +1089,13 @@ class SettingsPanel {
      */
     clearContentBasedSizing() {
         const root = document.documentElement;
-        
+
         root.style.removeProperty('--settings-panel-content-width');
         root.style.removeProperty('--settings-panel-content-height');
         root.style.removeProperty('--settings-panel-content-left');
         root.style.removeProperty('--settings-panel-content-top');
         root.style.removeProperty('--settings-panel-content-mode');
-        
+
         console.log('SettingsPanel: Cleared content-based sizing, using viewport fallback');
     }
 
@@ -1096,7 +1105,7 @@ class SettingsPanel {
     detectScreenSize() {
         const width = window.innerWidth;
         const height = window.innerHeight;
-        
+
         if (width <= 320 && height <= 420) return 'compact';
         if (width <= 480 && height <= 800) return 'medium';
         if (width >= 768) return 'large';
@@ -1112,7 +1121,7 @@ class SettingsPanel {
             const zoneHeight = this.screenSize === 'compact' ? 40 : 50;
             this.gestureHandler.updateGestureZoneHeight(zoneHeight);
         }
-        
+
         console.log('SettingsPanel: Updated responsive layout for screen size:', this.screenSize);
     }
 
