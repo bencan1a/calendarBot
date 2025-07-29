@@ -95,9 +95,20 @@ async def run_web_mode(args: Any) -> int:
 
         # Use auto-detected host if not specified
         if args.host is None:
-            from calendarbot.utils.network import get_local_network_interface
+            from calendarbot.utils.network import get_local_network_interface, validate_host_binding
 
-            updated_settings.web_host = get_local_network_interface()
+            # Bind to all interfaces (0.0.0.0) by default for maximum accessibility
+            # This allows both localhost and network access to work
+            detected_host = get_local_network_interface()
+            updated_settings.web_host = "0.0.0.0"
+
+            # Validate the binding choice and show appropriate warnings
+            validate_host_binding(updated_settings.web_host, warn_on_all_interfaces=False)
+
+            # Log the detected interface for user information
+            logger.info(
+                f"Binding to all interfaces (0.0.0.0) - accessible via localhost and {detected_host}"
+            )
         else:
             updated_settings.web_host = args.host
 
