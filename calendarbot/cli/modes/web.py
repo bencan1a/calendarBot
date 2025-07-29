@@ -10,6 +10,12 @@ import logging
 import signal
 from typing import Any, Optional
 
+from ..runtime_integration import (
+    create_runtime_tracker,
+    start_runtime_tracking,
+    stop_runtime_tracking,
+)
+
 
 async def run_web_mode(args: Any) -> int:
     """Run Calendar Bot in web server mode.
@@ -102,6 +108,17 @@ async def run_web_mode(args: Any) -> int:
 
         # Settings validation completed
 
+        # Create runtime tracker if enabled
+        runtime_tracker = create_runtime_tracker(updated_settings)
+
+        # Start runtime tracking for web mode
+        session_name = (
+            getattr(updated_settings.runtime_tracking, "session_name", None)
+            if hasattr(updated_settings, "runtime_tracking")
+            else None
+        )
+        start_runtime_tracking(runtime_tracker, "web_mode", session_name)
+
         # Create web navigation handler
         logger.debug("Creating web navigation handler...")
         navigation_handler = WebNavigationHandler()
@@ -168,6 +185,9 @@ async def run_web_mode(args: Any) -> int:
 
         finally:
             logger.debug("Entering cleanup phase...")
+
+            # Stop runtime tracking
+            stop_runtime_tracking(runtime_tracker, "web_mode")
 
             # Stop web server
             try:

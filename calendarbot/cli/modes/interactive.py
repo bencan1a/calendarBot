@@ -8,6 +8,12 @@ during Phase 2 of the architectural refactoring.
 import asyncio
 from typing import Any, Optional
 
+from ..runtime_integration import (
+    create_runtime_tracker,
+    start_runtime_tracking,
+    stop_runtime_tracking,
+)
+
 
 def setup_interactive_logging(settings: Any, display_manager: Optional[Any] = None) -> None:
     """Set up interactive logging configuration.
@@ -60,6 +66,17 @@ async def run_interactive_mode(args: Any) -> int:
         # Apply CLI-specific overrides
         updated_settings = apply_cli_overrides(updated_settings, args)
 
+        # Create runtime tracker if enabled
+        runtime_tracker = create_runtime_tracker(updated_settings)
+
+        # Start runtime tracking for interactive mode
+        session_name = (
+            getattr(updated_settings.runtime_tracking, "session_name", None)
+            if hasattr(updated_settings, "runtime_tracking")
+            else None
+        )
+        start_runtime_tracking(runtime_tracker, "interactive_mode", session_name)
+
         # Create Calendar Bot instance
         app = CalendarBot()
 
@@ -88,6 +105,9 @@ async def run_interactive_mode(args: Any) -> int:
             await interactive.start()
 
         finally:
+            # Stop runtime tracking
+            stop_runtime_tracking(runtime_tracker, "interactive_mode")
+
             # Stop background fetching
             fetch_task.cancel()
             try:

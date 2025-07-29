@@ -23,6 +23,11 @@ async def run_test_mode(args: Any) -> int:
         from calendarbot.validation import ValidationRunner
 
         from ..config import apply_cli_overrides
+        from ..runtime_integration import (
+            create_runtime_tracker,
+            start_runtime_tracking,
+            stop_runtime_tracking,
+        )
 
         # Apply command-line logging overrides
         updated_settings = apply_command_line_overrides(settings, args)
@@ -34,32 +39,48 @@ async def run_test_mode(args: Any) -> int:
         logger = setup_enhanced_logging(updated_settings, interactive_mode=False)
         logger.info("Enhanced logging initialized for test mode")
 
-        # Create validation runner
-        validation_runner = ValidationRunner(
-            test_date=getattr(args, "date", None),
-            end_date=getattr(args, "end_date", None),
-            components=getattr(args, "components", ["sources", "cache", "display"]),
-            use_cache=not getattr(args, "no_cache", False),
-            output_format=getattr(args, "output_format", "console"),
-        )
+        # Initialize runtime tracking if enabled
+        runtime_tracker = create_runtime_tracker(updated_settings)
+        session_name = "test_mode"
+        if hasattr(updated_settings, "runtime_tracking") and updated_settings.runtime_tracking:
+            session_name = getattr(updated_settings.runtime_tracking, "session_name", "test_mode")
 
-        # Run validation
-        logger.info("Starting Calendar Bot validation...")
-        results = await validation_runner.run_validation()
+        # Start runtime tracking if enabled
+        if runtime_tracker:
+            start_runtime_tracking(runtime_tracker, "test_mode", session_name)
 
-        # Print results
-        validation_runner.print_results(verbose=getattr(args, "verbose", False))
+        try:
+            # Create validation runner
+            validation_runner = ValidationRunner(
+                test_date=getattr(args, "date", None),
+                end_date=getattr(args, "end_date", None),
+                components=getattr(args, "components", ["sources", "cache", "display"]),
+                use_cache=not getattr(args, "no_cache", False),
+                output_format=getattr(args, "output_format", "console"),
+            )
 
-        # Return appropriate exit code
-        if results.has_failures():
-            logger.error("Validation completed with failures")
-            return 1
-        elif results.has_warnings():
-            logger.warning("Validation completed with warnings")
-            return 0  # Warnings don't cause failure
-        else:
-            logger.info("Validation completed successfully")
-            return 0
+            # Run validation
+            logger.info("Starting Calendar Bot validation...")
+            results = await validation_runner.run_validation()
+
+            # Print results
+            validation_runner.print_results(verbose=getattr(args, "verbose", False))
+
+            # Return appropriate exit code
+            if results.has_failures():
+                logger.error("Validation completed with failures")
+                return 1
+            elif results.has_warnings():
+                logger.warning("Validation completed with warnings")
+                return 0  # Warnings don't cause failure
+            else:
+                logger.info("Validation completed successfully")
+                return 0
+
+        finally:
+            # Stop runtime tracking if it was started
+            if runtime_tracker:
+                stop_runtime_tracking(runtime_tracker, "test_mode")
 
     except KeyboardInterrupt:
         print("\nTest mode interrupted")

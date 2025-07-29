@@ -190,6 +190,31 @@ class LoggingSettings(BaseModel):
     flush_interval: float = Field(default=1.0, description="Log flush interval in seconds")
 
 
+class RuntimeTrackingSettings(BaseModel):
+    """Runtime resource tracking configuration settings."""
+
+    # Core Settings
+    enabled: bool = Field(default=False, description="Enable runtime resource tracking")
+    sampling_interval: float = Field(
+        default=1.0, description="Resource sampling interval in seconds"
+    )
+    save_samples: bool = Field(
+        default=True, description="Save resource samples to performance tracking system"
+    )
+    session_name: Optional[str] = Field(default=None, description="Session name for tracking data")
+
+    # Advanced Settings
+    memory_threshold_mb: int = Field(
+        default=100, description="Memory usage threshold for logging warnings (MB)"
+    )
+    cpu_threshold_percent: float = Field(
+        default=80.0, description="CPU usage threshold for logging warnings (%)"
+    )
+    max_samples: int = Field(
+        default=10000, description="Maximum number of samples to collect per session"
+    )
+
+
 class EpaperConfiguration(BaseModel):
     """Core e-Paper display configuration within CalendarBot settings."""
 
@@ -290,6 +315,11 @@ class CalendarBotSettings(BaseSettings):
     # Logging Configuration
     logging: LoggingSettings = Field(
         default_factory=LoggingSettings, description="Comprehensive logging settings"
+    )
+
+    # Runtime Tracking Configuration
+    runtime_tracking: RuntimeTrackingSettings = Field(
+        default_factory=RuntimeTrackingSettings, description="Runtime resource tracking settings"
     )
 
     # Legacy logging fields (maintained for backward compatibility)

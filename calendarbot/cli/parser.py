@@ -199,6 +199,17 @@ Examples:
         help="Output format for test results",
     )
 
+    # Performance tracking arguments
+    performance_group = parser.add_argument_group(
+        "performance", "Runtime resource consumption tracking options"
+    )
+
+    performance_group.add_argument(
+        "--track-runtime",
+        action="store_true",
+        help="Enable runtime resource tracking with automatic storage (CPU and memory usage, 1.0s sampling)",
+    )
+
     # Interactive mode arguments
     parser.add_argument(
         "--interactive",
