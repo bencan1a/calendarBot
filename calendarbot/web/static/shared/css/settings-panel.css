@@ -19,32 +19,32 @@
     --settings-panel-width-lg: 480px;
     --settings-panel-height-sm: 400px;
     --settings-panel-height-lg: 800px;
-    
+
     /* Content-Based Sizing (set dynamically by JavaScript) */
     --settings-panel-content-width: unset;
     --settings-panel-content-height: unset;
     --settings-panel-content-left: unset;
     --settings-panel-content-top: unset;
     --settings-panel-content-mode: 0;
-    
+
     /* Gesture Interface */
     --gesture-zone-height: 50px;
     --drag-threshold: 20px;
-    
+
     /* Animation */
     --animation-duration: 300ms;
     --animation-easing: ease-out;
-    
+
     /* Touch Targets */
     --touch-target-min: 44px;
-    
+
     /* Spacing Scale */
     --space-xs: 4px;
     --space-sm: 8px;
     --space-md: 16px;
     --space-lg: 24px;
     --space-xl: 32px;
-    
+
     /* Typography Scale */
     --text-xs: 12px;
     --text-sm: 14px;
@@ -52,14 +52,14 @@
     --text-lg: 18px;
     --text-xl: 20px;
     --text-2xl: 24px;
-    
+
     /* Colors - using CalendarBot's existing color system */
     --settings-bg: var(--background-primary, #ffffff);
     --settings-border: var(--border-strong, #424242);
     --settings-overlay: rgba(0, 0, 0, 0.1);
     --settings-text: var(--text-primary, #212121);
     --settings-text-secondary: var(--text-secondary, #757575);
-    
+
     /* Status Colors */
     --settings-success: #28a745;
     --settings-warning: #ffc107;
@@ -87,7 +87,14 @@
     overflow-y: auto;
     overflow-x: hidden;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    
+
+    /* CRITICAL FIX: Hide panel completely by default - double protection against flicker */
+    display: none;
+    visibility: hidden;
+
+    /* Ensure proper flex layout for internal components */
+    flex-direction: column;
+
     /* Scrollbar styling */
     scrollbar-width: thin;
     scrollbar-color: var(--border-medium, #bdbdbd) transparent;
@@ -98,22 +105,28 @@
     /* Match content container width, use reasonable height for settings */
     width: var(--settings-panel-content-width);
     height: min(var(--settings-panel-content-height), 400px);
-    
+
     /* Position at content container top edge */
     left: var(--settings-panel-content-left);
     top: var(--settings-panel-content-top);
-    
+
     /* Hide panel completely above viewport using calculated transform */
     transform: translateY(var(--settings-panel-hide-transform, -100%));
 }
 
 /* When panel is open in content-aware mode */
 :root[style*="--settings-panel-content-mode: 1"] .settings-panel.open {
+    display: flex;
+    visibility: visible;
+    /* CRITICAL FIX: Show panel in content-aware mode */
     transform: translateY(0);
 }
 
 /* Revealing state for content-aware mode during gestures */
 :root[style*="--settings-panel-content-mode: 1"] .settings-panel.revealing {
+    display: flex;
+    visibility: visible;
+    /* CRITICAL FIX: Show panel during reveal in content-aware mode */
     transition: none;
 }
 
@@ -145,10 +158,16 @@
 
 /* Panel States */
 .settings-panel.open {
+    display: flex;
+    visibility: visible;
+    /* CRITICAL FIX: Show panel when open */
     transform: translateY(0);
 }
 
 .settings-panel.revealing {
+    display: flex;
+    visibility: visible;
+    /* CRITICAL FIX: Show panel during reveal */
     transition: none;
 }
 
@@ -301,15 +320,15 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.settings-toggle input:checked + .settings-toggle-switch {
+.settings-toggle input:checked+.settings-toggle-switch {
     background: var(--settings-success);
 }
 
-.settings-toggle input:checked + .settings-toggle-switch::after {
+.settings-toggle input:checked+.settings-toggle-switch::after {
     transform: translateX(24px);
 }
 
-.settings-toggle input:focus + .settings-toggle-switch {
+.settings-toggle input:focus+.settings-toggle-switch {
     outline: 2px solid var(--settings-info);
     outline-offset: 2px;
 }
@@ -630,8 +649,13 @@
 }
 
 @keyframes settings-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* ===========================================
@@ -644,29 +668,29 @@
         width: var(--settings-panel-width-sm);
         height: var(--settings-panel-height-sm);
     }
-    
+
     /* Content layout adjustments apply to all panels */
     .settings-content {
         padding: var(--space-sm);
     }
-    
+
     .settings-section {
         margin-bottom: var(--space-md);
     }
-    
+
     .settings-field {
         margin-bottom: var(--space-sm);
     }
-    
+
     .settings-radio-group {
         flex-direction: column;
         gap: var(--space-sm);
     }
-    
+
     .quick-add-patterns {
         gap: var(--space-xs);
     }
-    
+
     .quick-add-button {
         font-size: var(--text-xs);
         padding: var(--space-xs);
@@ -679,32 +703,32 @@
         width: var(--settings-panel-width-lg);
         height: var(--settings-panel-height-lg);
     }
-    
+
     /* Content layout adjustments apply to all panels */
     .settings-content {
         padding: var(--space-lg);
     }
-    
+
     .settings-section {
         margin-bottom: var(--space-xl);
     }
-    
+
     .settings-section-title {
         font-size: var(--text-xl);
         margin-bottom: var(--space-lg);
     }
-    
+
     .settings-field {
         margin-bottom: var(--space-lg);
     }
-    
+
     /* Two-column layout for larger screens */
     .settings-radio-group {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: var(--space-md);
     }
-    
+
     .filter-pattern-item {
         padding: var(--space-md);
     }
@@ -712,6 +736,7 @@
 
 /* Web Browser Display - Fallback when content-aware mode is not active */
 @media (min-width: 768px) {
+
     /* Only apply viewport-based positioning when not in content-aware mode */
     :root:not([style*="--settings-panel-content-mode: 1"]) .settings-panel:not([data-content-aware="true"]) {
         width: 600px;
@@ -720,20 +745,20 @@
         left: 50%;
         transform: translateX(-50%) translateY(-100%);
     }
-    
+
     :root:not([style*="--settings-panel-content-mode: 1"]) .settings-panel.open:not([data-content-aware="true"]) {
         transform: translateX(-50%) translateY(0);
     }
-    
+
     /* Content layout adjustments apply to all panels */
     .settings-content {
         padding: var(--space-xl);
     }
-    
+
     .settings-section {
         margin-bottom: var(--space-xl);
     }
-    
+
     /* Three-column layout for wide screens */
     .settings-radio-group {
         display: grid;
@@ -786,7 +811,7 @@
     border: 2px solid #000000;
 }
 
-.theme-eink .settings-toggle input:checked + .settings-toggle-switch {
+.theme-eink .settings-toggle input:checked+.settings-toggle-switch {
     background: #000000;
 }
 
@@ -795,7 +820,7 @@
     box-shadow: none;
 }
 
-.theme-eink .settings-toggle input:checked + .settings-toggle-switch::after {
+.theme-eink .settings-toggle input:checked+.settings-toggle-switch::after {
     background: #ffffff;
 }
 
@@ -848,7 +873,7 @@
     .settings-panel {
         border-width: 3px;
     }
-    
+
     .settings-input,
     .settings-select,
     .settings-button {
@@ -858,6 +883,7 @@
 
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
+
     .settings-panel,
     .settings-panel *,
     .settings-toggle-switch,
@@ -895,18 +921,50 @@
     text-align: right;
 }
 
-.settings-mt-sm { margin-top: var(--space-sm); }
-.settings-mt-md { margin-top: var(--space-md); }
-.settings-mt-lg { margin-top: var(--space-lg); }
+.settings-mt-sm {
+    margin-top: var(--space-sm);
+}
 
-.settings-mb-sm { margin-bottom: var(--space-sm); }
-.settings-mb-md { margin-bottom: var(--space-md); }
-.settings-mb-lg { margin-bottom: var(--space-lg); }
+.settings-mt-md {
+    margin-top: var(--space-md);
+}
 
-.settings-pt-sm { padding-top: var(--space-sm); }
-.settings-pt-md { padding-top: var(--space-md); }
-.settings-pt-lg { padding-top: var(--space-lg); }
+.settings-mt-lg {
+    margin-top: var(--space-lg);
+}
 
-.settings-pb-sm { padding-bottom: var(--space-sm); }
-.settings-pb-md { padding-bottom: var(--space-md); }
-.settings-pb-lg { padding-bottom: var(--space-lg); }
+.settings-mb-sm {
+    margin-bottom: var(--space-sm);
+}
+
+.settings-mb-md {
+    margin-bottom: var(--space-md);
+}
+
+.settings-mb-lg {
+    margin-bottom: var(--space-lg);
+}
+
+.settings-pt-sm {
+    padding-top: var(--space-sm);
+}
+
+.settings-pt-md {
+    padding-top: var(--space-md);
+}
+
+.settings-pt-lg {
+    padding-top: var(--space-lg);
+}
+
+.settings-pb-sm {
+    padding-bottom: var(--space-sm);
+}
+
+.settings-pb-md {
+    padding-bottom: var(--space-md);
+}
+
+.settings-pb-lg {
+    padding-bottom: var(--space-lg);
+}
