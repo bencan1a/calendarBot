@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..cache.models import CachedEvent
 from ..utils.helpers import get_timezone_aware_now
-from .whats_next_data_model import EventData, StatusInfo, WeatherData, WhatsNextViewModel
+from .whats_next_data_model import EventData, StatusInfo, WhatsNextViewModel
 
 logger = logging.getLogger(__name__)
 

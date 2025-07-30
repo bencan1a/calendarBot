@@ -70,33 +70,32 @@ async def main_entry() -> int:
     # If not configured and not running setup or test, show guidance
     if not is_configured:
         show_setup_guidance()
-        print(f"\n💡 Tip: Run 'calendarbot --setup' to get started quickly!\n")
+        print("\n💡 Tip: Run 'calendarbot --setup' to get started quickly!\n")
         return 1
 
     # Run in specified mode
     if hasattr(args, "interactive") and args.interactive:
         return await run_interactive_mode(args)
-    elif hasattr(args, "epaper") and args.epaper:
+    if hasattr(args, "epaper") and args.epaper:
         return await run_epaper_mode(args)
-    else:
-        # Default to web mode when no other mode is specified
-        return await run_web_mode(args)
+    # Default to web mode when no other mode is specified
+    return await run_web_mode(args)
 
 
 __all__ = [
-    "main_entry",
-    "create_parser",
-    "parse_date",
-    "parse_components",
-    "check_configuration",
-    "show_setup_guidance",
     "apply_cli_overrides",
-    "run_setup_wizard",
     "backup_configuration",
-    "restore_configuration",
+    "check_configuration",
+    "create_parser",
     "list_backups",
-    "run_interactive_mode",
-    "run_web_mode",
-    "run_test_mode",
+    "main_entry",
+    "parse_components",
+    "parse_date",
+    "restore_configuration",
     "run_epaper_mode",
+    "run_interactive_mode",
+    "run_setup_wizard",
+    "run_test_mode",
+    "run_web_mode",
+    "show_setup_guidance",
 ]

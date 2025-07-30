@@ -3,8 +3,7 @@
 import asyncio
 import ipaddress
 import logging
-from datetime import datetime
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -15,7 +14,7 @@ from ..security.logging import (
     SecurityEventType,
     SecuritySeverity,
 )
-from .exceptions import ICSAuthError, ICSFetchError, ICSNetworkError, ICSTimeoutError
+from .exceptions import ICSAuthError, ICSFetchError, ICSNetworkError
 from .models import ICSResponse, ICSSource
 
 logger = logging.getLogger(__name__)
@@ -411,16 +410,15 @@ class ICSFetcher:
             if e.response.status_code == 401:
                 error_msg = "Authentication failed - check credentials"
                 raise ICSAuthError(error_msg, e.response.status_code)
-            elif e.response.status_code == 403:
+            if e.response.status_code == 403:
                 error_msg = "Access forbidden - insufficient permissions"
                 raise ICSAuthError(error_msg, e.response.status_code)
-            else:
-                return ICSResponse(
-                    success=False,
-                    status_code=e.response.status_code,
-                    error_message=f"HTTP {e.response.status_code}: {e.response.reason_phrase}",
-                    headers=dict(e.response.headers),
-                )
+            return ICSResponse(
+                success=False,
+                status_code=e.response.status_code,
+                error_message=f"HTTP {e.response.status_code}: {e.response.reason_phrase}",
+                headers=dict(e.response.headers),
+            )
 
         except httpx.NetworkError as e:
             logger.error(f"Network error fetching ICS from {source.url}: {e}")
@@ -569,13 +567,12 @@ class ICSFetcher:
             if response.status_code == 200:
                 logger.info(f"Connection test successful for {source.url}")
                 return True
-            elif response.status_code == 405:  # Method not allowed, try GET
+            if response.status_code == 405:  # Method not allowed, try GET
                 logger.debug("HEAD not supported, testing with GET")
                 ics_response = await self.fetch_ics(source)
                 return ics_response.success
-            else:
-                logger.warning(f"Connection test failed: HTTP {response.status_code}")
-                return False
+            logger.warning(f"Connection test failed: HTTP {response.status_code}")
+            return False
 
         except Exception as e:
             logger.error(f"Connection test failed for {source.url}: {e}")

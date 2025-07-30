@@ -3,8 +3,9 @@
 import asyncio
 import logging
 import sys
+from collections.abc import Awaitable
 from enum import Enum
-from typing import Any, Awaitable, Callable, Coroutine, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -141,64 +142,62 @@ class KeyboardHandler:
             key_lower = key_data.lower().strip()
             if key_lower in ["left", "l", "←"]:
                 return KeyCode.LEFT_ARROW
-            elif key_lower in ["right", "r", "→"]:
+            if key_lower in ["right", "r", "→"]:
                 return KeyCode.RIGHT_ARROW
-            elif key_lower in ["up", "u", "↑"]:
+            if key_lower in ["up", "u", "↑"]:
                 return KeyCode.UP_ARROW
-            elif key_lower in ["down", "d", "↓"]:
+            if key_lower in ["down", "d", "↓"]:
                 return KeyCode.DOWN_ARROW
-            elif key_lower in ["space", "s", " "]:
+            if key_lower in ["space", "s", " "]:
                 return KeyCode.SPACE
-            elif key_lower in ["esc", "escape", "e", "exit", "q"]:
+            if key_lower in ["esc", "escape", "e", "exit", "q"]:
                 return KeyCode.ESCAPE
-            elif key_lower in ["home", "h"]:
+            if key_lower in ["home", "h"]:
                 return KeyCode.HOME
-            elif key_lower in ["end"]:
+            if key_lower in ["end"]:
                 return KeyCode.END
-            elif key_lower in ["enter", "\n", "\r"]:
+            if key_lower in ["enter", "\n", "\r"]:
                 return KeyCode.ENTER
-            else:
-                return KeyCode.UNKNOWN
+            return KeyCode.UNKNOWN
 
         # Handle single character keys in raw mode
         if len(key_data) == 1:
             char = key_data.lower()
             if char == " ":
                 return KeyCode.SPACE
-            elif char == "\x1b":  # ESC
+            if char == "\x1b":  # ESC
                 return KeyCode.ESCAPE
-            elif char == "\r" or char == "\n":
+            if char == "\r" or char == "\n":
                 return KeyCode.ENTER
-            else:
-                return KeyCode.UNKNOWN
+            return KeyCode.UNKNOWN
 
         # Handle escape sequences (arrow keys, etc.)
         if key_data.startswith("\x1b["):
             sequence = key_data[2:]
             if sequence == "A":
                 return KeyCode.UP_ARROW
-            elif sequence == "B":
+            if sequence == "B":
                 return KeyCode.DOWN_ARROW
-            elif sequence == "C":
+            if sequence == "C":
                 return KeyCode.RIGHT_ARROW
-            elif sequence == "D":
+            if sequence == "D":
                 return KeyCode.LEFT_ARROW
-            elif sequence == "H" or sequence == "1~":
+            if sequence == "H" or sequence == "1~":
                 return KeyCode.HOME
-            elif sequence == "F" or sequence == "4~":
+            if sequence == "F" or sequence == "4~":
                 return KeyCode.END
 
         # Windows-specific sequences
         if sys.platform == "win32":
             if key_data == b"\xe0":  # Special key prefix on Windows
                 return KeyCode.UNKNOWN  # Need next byte
-            elif key_data == b"H":  # Up arrow
+            if key_data == b"H":  # Up arrow
                 return KeyCode.UP_ARROW
-            elif key_data == b"P":  # Down arrow
+            if key_data == b"P":  # Down arrow
                 return KeyCode.DOWN_ARROW
-            elif key_data == b"M":  # Right arrow
+            if key_data == b"M":  # Right arrow
                 return KeyCode.RIGHT_ARROW
-            elif key_data == b"K":  # Left arrow
+            if key_data == b"K":  # Left arrow
                 return KeyCode.LEFT_ARROW
 
         return KeyCode.UNKNOWN
@@ -281,13 +280,12 @@ class KeyboardHandler:
                     else:
                         await asyncio.sleep(0.05)
                         continue
+                # Unix-like systems with improved escape sequence handling
+                elif self._kbhit():
+                    key_data = await self._read_key_sequence()
                 else:
-                    # Unix-like systems with improved escape sequence handling
-                    if self._kbhit():
-                        key_data = await self._read_key_sequence()
-                    else:
-                        await asyncio.sleep(0.05)
-                        continue
+                    await asyncio.sleep(0.05)
+                    continue
 
                 # Parse and handle the key
                 if key_data:
@@ -316,7 +314,7 @@ class KeyboardHandler:
                     if next_char:  # Got a character
                         sequence += next_char
                         logger.debug(
-                            f"Read escape char: {repr(next_char)}, sequence: {repr(sequence)}"
+                            f"Read escape char: {next_char!r}, sequence: {sequence!r}"
                         )
 
                         # Most escape sequences end with a letter or ~
@@ -326,10 +324,9 @@ class KeyboardHandler:
                         # No more characters (timeout), sequence is complete
                         break
 
-                logger.debug(f"Final escape sequence: {repr(sequence)}")
+                logger.debug(f"Final escape sequence: {sequence!r}")
                 return str(sequence)
-            else:
-                return str(key_data)
+            return str(key_data)
 
         except Exception as e:
             logger.debug(f"Error reading key sequence: {e}")
@@ -344,7 +341,7 @@ class KeyboardHandler:
         try:
             # Log what we received and what it parses to
             key_code = self._parse_key_sequence(key_data)
-            logger.debug(f"Received key_data={repr(key_data)}, parsed as={key_code}")
+            logger.debug(f"Received key_data={key_data!r}, parsed as={key_code}")
 
             # Call raw key handler if registered
             if self._raw_key_callback:
@@ -360,7 +357,7 @@ class KeyboardHandler:
 
                 logger.debug(f"Handled key: {key_code}")
             elif key_code == KeyCode.UNKNOWN:
-                logger.debug(f"Unknown key sequence: {repr(key_data)}")
+                logger.debug(f"Unknown key sequence: {key_data!r}")
 
         except Exception as e:
             logger.error(f"Error handling key input: {e}")

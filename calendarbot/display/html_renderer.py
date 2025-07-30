@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -60,7 +60,7 @@ class HTMLRenderer:
             # Fallback to direct file reading
             layout_path = Path(f"calendarbot/web/static/layouts/{self.layout}/layout.json")
             if layout_path.exists():
-                with open(layout_path, "r") as f:
+                with open(layout_path) as f:
                     config_data: Dict[str, Any] = json.load(f)
                     return config_data
 
@@ -130,10 +130,9 @@ class HTMLRenderer:
                         f"Generated fixed dimension viewport for {self.layout} ({width}x{height}): {viewport_content}"
                     )
                     return viewport_content
-                else:
-                    logger.warning(
-                        f"Fixed dimensions layout {self.layout} missing width/height, using fallback"
-                    )
+                logger.warning(
+                    f"Fixed dimensions layout {self.layout} missing width/height, using fallback"
+                )
 
             # Standard responsive viewport for non-fixed layouts
             standard_viewport = "width=device-width, initial-scale=1"
@@ -417,7 +416,7 @@ class HTMLRenderer:
 
             current_time_iso = get_timezone_aware_now().isoformat()
 
-        except Exception as e:
+        except Exception:
 
             pass
 
@@ -626,12 +625,12 @@ class HTMLRenderer:
         """
         if self.layout == "3x4":
             return "layouts/3x4/3x4.css"
-        elif self.layout == "4x8":
+        if self.layout == "4x8":
             return "layouts/4x8/4x8.css"
-        elif self.layout == "whats-next-view":
+        if self.layout == "whats-next-view":
             return "layouts/whats-next-view/whats-next-view.css"
-        else:  # Default fallback
-            return "layouts/4x8/4x8.css"
+        # Default fallback
+        return "layouts/4x8/4x8.css"
 
     def _get_fallback_js_url(self) -> str:
         """Get fallback JavaScript URL path for the current layout.
@@ -641,12 +640,12 @@ class HTMLRenderer:
         """
         if self.layout == "3x4":
             return "layouts/3x4/3x4.js"
-        elif self.layout == "4x8":
+        if self.layout == "4x8":
             return "layouts/4x8/4x8.js"
-        elif self.layout == "whats-next-view":
+        if self.layout == "whats-next-view":
             return "layouts/whats-next-view/whats-next-view.js"
-        else:  # Default fallback
-            return "layouts/4x8/4x8.js"
+        # Default fallback
+        return "layouts/4x8/4x8.js"
 
     def _get_fallback_css_file(self) -> str:
         """Get fallback CSS file name for the current layout.
@@ -658,10 +657,10 @@ class HTMLRenderer:
         """
         if self.layout == "3x4":
             return "3x4.css"
-        elif self.layout == "4x8":
+        if self.layout == "4x8":
             return "4x8.css"
-        else:  # Default fallback
-            return "4x8.css"
+        # Default fallback
+        return "4x8.css"
 
     def _get_fallback_js_file(self) -> str:
         """Get fallback JavaScript file name for the current layout.
@@ -673,10 +672,10 @@ class HTMLRenderer:
         """
         if self.layout == "3x4":
             return "3x4.js"
-        elif self.layout == "4x8":
+        if self.layout == "4x8":
             return "4x8.js"
-        else:  # Default fallback
-            return "4x8.js"
+        # Default fallback
+        return "4x8.js"
 
     def _get_theme_css_file(self) -> str:
         """Get the CSS file name for the current theme.

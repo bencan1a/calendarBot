@@ -39,7 +39,7 @@ def find_calendarbot_processes() -> List[ProcessInfo]:
             try:
                 # Get PIDs and command lines for matching processes
                 result = subprocess.run(  # nosec B607
-                    ["pgrep", "-af", pattern], capture_output=True, text=True, timeout=5
+                    ["pgrep", "-af", pattern], check=False, capture_output=True, text=True, timeout=5
                 )
 
                 if result.returncode == 0:
@@ -190,7 +190,7 @@ def find_process_using_port(port: int) -> Optional[ProcessInfo]:
     try:
         # Use netstat to find process using the port
         result = subprocess.run(  # nosec B607
-            ["netstat", "-tlnp"], capture_output=True, text=True, timeout=5
+            ["netstat", "-tlnp"], check=False, capture_output=True, text=True, timeout=5
         )
 
         if result.returncode == 0:
@@ -212,7 +212,7 @@ def find_process_using_port(port: int) -> Optional[ProcessInfo]:
         # netstat might not be available, try lsof
         try:
             result = subprocess.run(  # nosec B607
-                ["lsof", "-ti", f":{port}"], capture_output=True, text=True, timeout=5
+                ["lsof", "-ti", f":{port}"], check=False, capture_output=True, text=True, timeout=5
             )
 
             if result.returncode == 0 and result.stdout.strip():

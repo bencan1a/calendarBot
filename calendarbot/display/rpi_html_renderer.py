@@ -1,7 +1,7 @@
 """Raspberry Pi e-ink HTML renderer for 800x480px displays."""
 
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from ..cache.models import CachedEvent
@@ -61,7 +61,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         logger.debug(f"RPI HTML Template - interactive_mode: {interactive_mode}")
         logger.debug(f"RPI HTML Template - display_date: {display_date}")
         logger.debug(
-            f"RPI HTML Template - viewport will be: width=480, height=800 (portrait layout)"
+            "RPI HTML Template - viewport will be: width=480, height=800 (portrait layout)"
         )
 
         # Generate header navigation with arrow buttons and date
@@ -446,10 +446,9 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         if time_until is not None and time_until <= 60:  # Show if within 1 hour
             if time_until <= 5:
                 return f'<div class="time-until urgent">🔔 Starting in {time_until} minutes!</div>'
-            elif time_until <= 30:
+            if time_until <= 30:
                 return f'<div class="time-until soon">⏰ In {time_until} minutes</div>'
-            else:
-                return f'<div class="time-until">⏰ In {time_until} minutes</div>'
+            return f'<div class="time-until">⏰ In {time_until} minutes</div>'
         return ""
 
     def _format_later_event_rpi(self, event: CachedEvent) -> str:

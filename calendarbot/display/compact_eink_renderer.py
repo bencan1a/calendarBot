@@ -1,7 +1,7 @@
 """Compact e-ink HTML renderer for 300x400px displays."""
 
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from ..cache.models import CachedEvent
@@ -66,7 +66,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         logger.debug(f"Compact HTML Template - interactive_mode: {interactive_mode}")
         logger.debug(f"Compact HTML Template - display_date: {display_date}")
         logger.debug(
-            f"Compact HTML Template - viewport will be: width=300, height=400 (compact portrait)"
+            "Compact HTML Template - viewport will be: width=300, height=400 (compact portrait)"
         )
 
         # Generate compact header navigation
@@ -487,10 +487,9 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         if time_until is not None and time_until <= 60:  # Show if within 1 hour
             if time_until <= 5:
                 return f'<div class="time-until urgent">🔔 {time_until}min!</div>'
-            elif time_until <= 30:
+            if time_until <= 30:
                 return f'<div class="time-until soon">⏰ {time_until}min</div>'
-            else:
-                return f'<div class="time-until">⏰ {time_until}min</div>'
+            return f'<div class="time-until">⏰ {time_until}min</div>'
         return ""
 
     def _truncate_text(self, text: str, max_length: int) -> str:

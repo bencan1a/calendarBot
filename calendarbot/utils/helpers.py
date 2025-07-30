@@ -5,8 +5,9 @@ import functools
 import logging
 import os
 import subprocess
-from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable, Optional, Tuple, Type, TypeVar, Union
+from collections.abc import Awaitable
+from datetime import datetime
+from typing import Any, Callable, Optional, Tuple, Type, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -122,20 +123,17 @@ def format_duration(seconds: int) -> str:
     """
     if seconds < 60:
         return f"{seconds}s"
-    elif seconds < 3600:
+    if seconds < 3600:
         minutes = seconds // 60
         remaining_seconds = seconds % 60
         if remaining_seconds == 0:
             return f"{minutes}m"
-        else:
-            return f"{minutes}m {remaining_seconds}s"
-    else:
-        hours = seconds // 3600
-        remaining_minutes = (seconds % 3600) // 60
-        if remaining_minutes == 0:
-            return f"{hours}h"
-        else:
-            return f"{hours}h {remaining_minutes}m"
+        return f"{minutes}m {remaining_seconds}s"
+    hours = seconds // 3600
+    remaining_minutes = (seconds % 3600) // 60
+    if remaining_minutes == 0:
+        return f"{hours}h"
+    return f"{hours}h {remaining_minutes}m"
 
 
 def format_time_ago(dt: datetime) -> str:
@@ -157,15 +155,14 @@ def format_time_ago(dt: datetime) -> str:
 
     if delta.total_seconds() < 60:
         return "just now"
-    elif delta.total_seconds() < 3600:
+    if delta.total_seconds() < 3600:
         minutes = int(delta.total_seconds() // 60)
         return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-    elif delta.total_seconds() < 86400:
+    if delta.total_seconds() < 86400:
         hours = int(delta.total_seconds() // 3600)
         return f"{hours} hour{'s' if hours != 1 else ''} ago"
-    else:
-        days = delta.days
-        return f"{days} day{'s' if days != 1 else ''} ago"
+    days = delta.days
+    return f"{days} day{'s' if days != 1 else ''} ago"
 
 
 def ensure_timezone_aware(dt: datetime, default_tz: Optional[str] = None) -> datetime:
@@ -185,9 +182,8 @@ def ensure_timezone_aware(dt: datetime, default_tz: Optional[str] = None) -> dat
 
             tz = pytz.timezone(default_tz)
             return tz.localize(dt)
-        else:
-            # Assume local timezone
-            return dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
+        # Assume local timezone
+        return dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
 
     return dt
 
@@ -384,14 +380,13 @@ class CircuitBreaker:
                 and (datetime.now().timestamp() - self.last_failure_time) < self.recovery_timeout
             ):
                 raise Exception("Circuit breaker is OPEN")
-            else:
-                self.state = "HALF_OPEN"
+            self.state = "HALF_OPEN"
 
         try:
             result = await func(*args, **kwargs)
             self.on_success()
             return result
-        except self.expected_exception as e:
+        except self.expected_exception:
             self.on_failure()
             raise
 

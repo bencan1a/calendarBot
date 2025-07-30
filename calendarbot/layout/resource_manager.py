@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from .exceptions import LayoutNotFoundError, ResourceLoadingError
 from .registry import LayoutRegistry
@@ -247,7 +247,7 @@ class ResourceManager:
             css_content_parts = []
             for css_path in css_paths:
                 try:
-                    with open(css_path, "r", encoding="utf-8") as f:
+                    with open(css_path, encoding="utf-8") as f:
                         content = f.read()
                         css_content_parts.append(content)
                 except Exception as e:
@@ -291,7 +291,7 @@ class ResourceManager:
             js_content_parts = []
             for js_path in js_paths:
                 try:
-                    with open(js_path, "r", encoding="utf-8") as f:
+                    with open(js_path, encoding="utf-8") as f:
                         content = f.read()
                         js_content_parts.append(content)
                 except Exception as e:

@@ -4,8 +4,7 @@ import logging
 from typing import Optional, Tuple, Union
 
 from PIL import Image, ImageDraw, ImageFont
-from PIL.ImageFont import FreeTypeFont
-from PIL.ImageFont import ImageFont as BuiltinFont
+from PIL.ImageFont import FreeTypeFont, ImageFont as BuiltinFont
 
 logger = logging.getLogger(__name__)
 
@@ -108,9 +107,8 @@ def resize_image_for_epaper(
         new_image.paste(resized_image, (paste_x, paste_y))
 
         return new_image
-    else:
-        # Resize image to target size without maintaining aspect ratio
-        return image.resize((width, height), Image.Resampling.LANCZOS)
+    # Resize image to target size without maintaining aspect ratio
+    return image.resize((width, height), Image.Resampling.LANCZOS)
 
 
 def render_text_to_image(

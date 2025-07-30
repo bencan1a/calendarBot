@@ -3,18 +3,14 @@
 import inspect
 import json
 import logging
-import sys
 import threading
 import uuid
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
-
-from ..utils.logging import get_logger
 
 
 class LogLevel(Enum):
@@ -226,10 +222,10 @@ class StructuredFormatter(logging.Formatter):
         # Format according to specified type
         if self.format_type == "json":
             return json.dumps(log_entry, separators=(",", ":"), default=str)
-        elif self.format_type == "key_value":
+        if self.format_type == "key_value":
             return self._format_key_value(log_entry)
-        else:  # human-readable
-            return self._format_human_readable(log_entry)
+        # human-readable
+        return self._format_human_readable(log_entry)
 
     def _format_key_value(self, log_entry: Dict[str, Any]) -> str:
         """Format as key=value pairs."""
@@ -637,4 +633,3 @@ def init_structured_logging(settings: Any) -> StructuredLogger:
 
 
 # Make os available for process ID
-import os

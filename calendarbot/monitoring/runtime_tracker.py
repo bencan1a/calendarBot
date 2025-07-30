@@ -7,14 +7,14 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import psutil
 
-from .performance import PerformanceLogger, PerformanceMetric, MetricType, get_performance_logger
 from ..benchmarking.models import BenchmarkResult, BenchmarkRun, BenchmarkStatus
 from ..benchmarking.storage import BenchmarkResultStorage
 from ..utils.logging import get_logger
+from .performance import MetricType, PerformanceLogger, PerformanceMetric, get_performance_logger
 
 
 @dataclass
@@ -475,7 +475,7 @@ class RuntimeResourceTracker:
             # Create a benchmark run for this runtime tracking session
             run = BenchmarkRun(
                 name=f"Runtime Tracking: {stats.metadata.get('session_name', 'Application')}",
-                description=f"Runtime resource consumption tracking session",
+                description="Runtime resource consumption tracking session",
                 environment=stats.environment,
                 app_version=stats.app_version,
                 total_benchmarks=2,  # CPU and Memory tracking

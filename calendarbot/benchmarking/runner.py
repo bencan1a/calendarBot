@@ -6,13 +6,12 @@ import statistics
 import time
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from ..monitoring.performance import (
+    MetricType,
     PerformanceLogger,
     PerformanceMetric,
-    MetricType,
     get_performance_logger,
 )
 from ..utils.logging import get_logger

@@ -10,10 +10,10 @@ from .image_processor import ImageProcessor
 
 __all__ = [
     "EPaperColors",
-    "convert_to_pil_color",
-    "get_rendering_colors",
     "ImageProcessor",
     "convert_image_to_epaper_format",
-    "resize_image_for_epaper",
+    "convert_to_pil_color",
     "create_test_pattern",
+    "get_rendering_colors",
+    "resize_image_for_epaper",
 ]

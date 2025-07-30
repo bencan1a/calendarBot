@@ -3,4 +3,4 @@
 from .navigation import WebNavigationHandler
 from .server import WebServer
 
-__all__ = ["WebServer", "WebNavigationHandler"]
+__all__ = ["WebNavigationHandler", "WebServer"]

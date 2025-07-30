@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -228,12 +228,11 @@ class SourceInfo(BaseModel):
         """Get a summary status string."""
         if not self.config.enabled:
             return "Disabled"
-        elif self.health.is_healthy:
+        if self.health.is_healthy:
             return f"Healthy ({self.metrics.last_event_count} events)"
-        elif self.health.has_errors:
+        if self.health.has_errors:
             return f"Error: {self.health.error_message}"
-        else:
-            return "Unknown"
+        return "Unknown"
 
     def get_status_dict(self) -> Dict[str, Any]:
         """Get status information as dictionary."""

@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from ..cache.models import CachedEvent
 from .html_renderer import HTMLRenderer
@@ -264,7 +264,6 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         logger.debug(f"WhatsNextRenderer.handle_interaction called with {interaction.event_type}")
         # Web renderer doesn't need to handle interactions directly
         # as they are handled by JavaScript in the browser
-        pass
 
     def update_display(self, content: str) -> bool:
         """Update the display with rendered content.
@@ -311,9 +310,8 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
                     # Show current event as the "what's next"
                     logger.debug("No upcoming events found, showing current event")
                     return self._render_single_event_content(current_events[0], is_current=True)
-                else:
-                    # No current or upcoming events
-                    return """
+                # No current or upcoming events
+                return """
                     <div class="no-events">
                         <div class="no-events-icon">📅</div>
                         <h2>No upcoming meetings!</h2>

@@ -108,7 +108,7 @@ class LayoutRegistry:
             LayoutValidationError: If configuration is invalid.
         """
         try:
-            with open(config_file, "r", encoding="utf-8") as f:
+            with open(config_file, encoding="utf-8") as f:
                 config_data = json.load(f)
 
             # Validate required fields (renderer_mapping is now optional in new architecture)
@@ -297,12 +297,11 @@ class LayoutRegistry:
             # Return first available layout, preferring whats-next-view
             if "whats-next-view" in self._layouts:
                 return "whats-next-view"
-            elif "4x8" in self._layouts:
+            if "4x8" in self._layouts:
                 return "4x8"
-            elif "3x4" in self._layouts:
+            if "3x4" in self._layouts:
                 return "3x4"
-            else:
-                return list(self._layouts.keys())[0]
+            return list(self._layouts.keys())[0]
         return "whats-next-view"  # Emergency fallback
 
     def get_layout_metadata(self, layout_name: str) -> Optional[Dict[str, Any]]:

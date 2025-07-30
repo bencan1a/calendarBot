@@ -1,15 +1,13 @@
 """Validation runner for coordinating component testing in test mode."""
 
-import asyncio
 import time
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, List, Optional
 
 from calendarbot.config.settings import settings
 
 from .logging_setup import get_validation_logger, log_validation_result, log_validation_start
-from .results import ValidationResults, ValidationStatus
+from .results import ValidationResults
 
 
 class ValidationRunner:
@@ -87,7 +85,7 @@ class ValidationRunner:
 
         except Exception as e:
             self.logger.error(f"Validation runner error: {e}")
-            self.results.add_failure("system", "validation_runner", f"Runner error: {str(e)}")
+            self.results.add_failure("system", "validation_runner", f"Runner error: {e!s}")
             self.results.finalize()
             return self.results
         finally:
@@ -129,7 +127,7 @@ class ValidationRunner:
 
         except Exception as e:
             self.results.add_failure(
-                "system", "component_initialization", f"Failed to initialize components: {str(e)}"
+                "system", "component_initialization", f"Failed to initialize components: {e!s}"
             )
             log_validation_result(self.logger, "component_initialization", False, str(e))
             raise
@@ -160,7 +158,7 @@ class ValidationRunner:
         except Exception as e:
             self.logger.error(f"Source validation error: {e}")
             self.results.add_failure(
-                "sources", "source_validation", f"Source validation failed: {str(e)}"
+                "sources", "source_validation", f"Source validation failed: {e!s}"
             )
 
     async def _test_source_manager_init(self) -> None:
@@ -209,7 +207,7 @@ class ValidationRunner:
             self.results.add_failure(
                 "sources",
                 test_name,
-                f"Source manager init error: {str(e)}",
+                f"Source manager init error: {e!s}",
                 duration_ms=duration_ms,
             )
             log_validation_result(self.logger, test_name, False, str(e), duration_ms)
@@ -284,7 +282,7 @@ class ValidationRunner:
             self.results.add_failure(
                 "sources",
                 test_name,
-                f"Source health check error: {str(e)}",
+                f"Source health check error: {e!s}",
                 duration_ms=duration_ms,
             )
             log_validation_result(self.logger, test_name, False, str(e), duration_ms)
@@ -327,7 +325,7 @@ class ValidationRunner:
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
             self.results.add_failure(
-                "sources", test_name, f"ICS fetch error: {str(e)}", duration_ms=duration_ms
+                "sources", test_name, f"ICS fetch error: {e!s}", duration_ms=duration_ms
             )
             log_validation_result(self.logger, test_name, False, str(e), duration_ms)
 
@@ -348,7 +346,7 @@ class ValidationRunner:
         except Exception as e:
             self.logger.error(f"Cache validation error: {e}")
             self.results.add_failure(
-                "cache", "cache_validation", f"Cache validation failed: {str(e)}"
+                "cache", "cache_validation", f"Cache validation failed: {e!s}"
             )
 
     async def _test_cache_init(self) -> None:
@@ -398,7 +396,7 @@ class ValidationRunner:
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
             self.results.add_failure(
-                "cache", test_name, f"Cache init error: {str(e)}", duration_ms=duration_ms
+                "cache", test_name, f"Cache init error: {e!s}", duration_ms=duration_ms
             )
             log_validation_result(self.logger, test_name, False, str(e), duration_ms)
 
@@ -444,7 +442,7 @@ class ValidationRunner:
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
             self.results.add_failure(
-                "cache", test_name, f"Cache operations error: {str(e)}", duration_ms=duration_ms
+                "cache", test_name, f"Cache operations error: {e!s}", duration_ms=duration_ms
             )
             log_validation_result(self.logger, test_name, False, str(e), duration_ms)
 
@@ -494,7 +492,7 @@ class ValidationRunner:
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
             self.results.add_failure(
-                "cache", test_name, f"Cache status error: {str(e)}", duration_ms=duration_ms
+                "cache", test_name, f"Cache status error: {e!s}", duration_ms=duration_ms
             )
             log_validation_result(self.logger, test_name, False, str(e), duration_ms)
 
@@ -512,7 +510,7 @@ class ValidationRunner:
         except Exception as e:
             self.logger.error(f"Display validation error: {e}")
             self.results.add_failure(
-                "display", "display_validation", f"Display validation failed: {str(e)}"
+                "display", "display_validation", f"Display validation failed: {e!s}"
             )
 
     async def _test_display_init(self) -> None:
@@ -555,7 +553,7 @@ class ValidationRunner:
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
             self.results.add_failure(
-                "display", test_name, f"Display init error: {str(e)}", duration_ms=duration_ms
+                "display", test_name, f"Display init error: {e!s}", duration_ms=duration_ms
             )
             log_validation_result(self.logger, test_name, False, str(e), duration_ms)
 
@@ -614,7 +612,7 @@ class ValidationRunner:
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
             self.results.add_failure(
-                "display", test_name, f"Display rendering error: {str(e)}", duration_ms=duration_ms
+                "display", test_name, f"Display rendering error: {e!s}", duration_ms=duration_ms
             )
             log_validation_result(self.logger, test_name, False, str(e), duration_ms)
 

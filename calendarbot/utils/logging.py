@@ -7,7 +7,7 @@ import sys
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Deque, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Deque, Optional, Union
 
 # Lazy imports moved to function level to avoid circular dependencies
 
@@ -228,10 +228,10 @@ def setup_enhanced_logging(
     """Set up enhanced logging system with all features including security, performance, structured logging, and production optimization."""
 
     # Lazy imports to avoid circular dependencies
-    from ..monitoring import PerformanceLogger, init_performance_logging
+    from ..monitoring import init_performance_logging
     from ..optimization import LoggingOptimizer, ProductionLogFilter
-    from ..security import SecurityEventLogger, init_security_logging
-    from ..structured import StructuredLogger, init_structured_logging
+    from ..security import init_security_logging
+    from ..structured import init_structured_logging
 
     # Create main logger
     logger = logging.getLogger("calendarbot")

@@ -9,4 +9,4 @@ from .logging_setup import setup_validation_logging
 from .results import ValidationResults
 from .runner import ValidationRunner
 
-__all__ = ["ValidationResults", "setup_validation_logging", "ValidationRunner"]
+__all__ = ["ValidationResults", "ValidationRunner", "setup_validation_logging"]

@@ -2,14 +2,14 @@
 
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from ..ics import AuthType, ICSAuth, ICSFetcher, ICSParser, ICSSource
-from ..ics.exceptions import ICSAuthError, ICSError, ICSFetchError, ICSNetworkError, ICSParseError
+from ..ics.exceptions import ICSAuthError, ICSError, ICSNetworkError, ICSParseError
 from ..ics.models import CalendarEvent
 from .exceptions import SourceConnectionError, SourceDataError, SourceError
-from .models import SourceConfig, SourceHealthCheck, SourceMetrics, SourceStatus
+from .models import SourceConfig, SourceHealthCheck, SourceMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +124,7 @@ class ICSSourceHandler:
 
                 # Handle 304 Not Modified
                 if response.is_not_modified:
-                    logger.debug(f"Got 304 Not Modified, returning empty list")
+                    logger.debug("Got 304 Not Modified, returning empty list")
                     # Return empty list - caller should use cached events
                     return []
 
@@ -178,7 +178,7 @@ class ICSSourceHandler:
             raise SourceError(error_msg, self.config.name)
 
         except Exception as e:
-            error_msg = f"Unexpected error: {str(e)}"
+            error_msg = f"Unexpected error: {e!s}"
             self._record_failure(error_msg)
             raise SourceError(error_msg, self.config.name)
 
@@ -211,7 +211,7 @@ class ICSSourceHandler:
                 logger.info(f"Connection test successful for {self.config.name}")
 
         except Exception as e:
-            error_msg = f"Connection test failed: {str(e)}"
+            error_msg = f"Connection test failed: {e!s}"
             health_check.update_error(error_msg)
             logger.error(f"Connection test failed for {self.config.name}: {e}")
 

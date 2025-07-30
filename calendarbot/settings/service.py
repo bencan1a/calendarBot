@@ -8,7 +8,7 @@ and coordination between the models and persistence layers.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..config.settings import CalendarBotSettings
 from .exceptions import SettingsError, SettingsPersistenceError, SettingsValidationError
@@ -19,7 +19,6 @@ from .models import (
     EventFilterSettings,
     FilterPattern,
     SettingsData,
-    SettingsMetadata,
 )
 from .persistence import SettingsPersistence
 
@@ -437,7 +436,7 @@ class SettingsService:
             # Additional validation rules can be added here
 
         except Exception as e:
-            errors.append(f"Validation error: {str(e)}")
+            errors.append(f"Validation error: {e!s}")
 
         return errors
 

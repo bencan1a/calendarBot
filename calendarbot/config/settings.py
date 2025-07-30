@@ -2,7 +2,8 @@
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Pattern, Type, Union, cast
+from re import Pattern
+from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
 import yaml
 from pydantic import BaseModel, Field, PrivateAttr
@@ -500,7 +501,7 @@ class CalendarBotSettings(BaseSettings):
             return
 
         try:
-            with open(config_file, "r") as f:
+            with open(config_file) as f:
                 config_data = yaml.safe_load(f)
 
             if not config_data:

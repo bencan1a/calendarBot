@@ -8,13 +8,11 @@ Color Consistency:
 """
 
 import logging
-import math
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from PIL import Image, ImageDraw, ImageFont
-from PIL.ImageFont import FreeTypeFont
-from PIL.ImageFont import ImageFont as BuiltinFont
+from PIL.ImageFont import FreeTypeFont, ImageFont as BuiltinFont
 
 if TYPE_CHECKING:
     # Only import for type checking
@@ -72,9 +70,8 @@ else:
 
 # Import e-Paper components
 from ..abstraction import DisplayAbstractionLayer
-from ..capabilities import DisplayCapabilities
 from ..drivers.mock_eink_driver import EInkDriver
-from ..utils.colors import EPaperColors, convert_to_pil_color, get_rendering_colors
+from ..utils.colors import convert_to_pil_color, get_rendering_colors
 from ..utils.image_processor import ImageProcessor
 
 logger = logging.getLogger(__name__)
@@ -363,8 +360,7 @@ class EInkWhatsNextRenderer(RendererInterface):
 
         if remaining_minutes == 0:
             return f"{hours} HOURS"
-        else:
-            return f"{hours} HOURS {remaining_minutes} MINUTES"
+        return f"{hours} HOURS {remaining_minutes} MINUTES"
 
     def _can_do_partial_update(self, view_model: WhatsNextViewModel) -> bool:
         """Check if partial update is possible.
@@ -688,12 +684,11 @@ class EInkWhatsNextRenderer(RendererInterface):
                 status_text = "⏳ Meeting within the hour"
             else:
                 status_text = "📆 Next meeting scheduled"
+        # Fallback to data status
+        elif hasattr(view_model, "status_info") and view_model.status_info.is_cached:
+            status_text = "📱 Cached data"
         else:
-            # Fallback to data status
-            if hasattr(view_model, "status_info") and view_model.status_info.is_cached:
-                status_text = "📱 Cached data"
-            else:
-                status_text = "🔄 Live data"
+            status_text = "🔄 Live data"
 
         # Enhanced text positioning with better vertical centering
         text_y = y + (height - 12) // 2  # Better centering for improved height
@@ -879,7 +874,7 @@ class EInkWhatsNextRenderer(RendererInterface):
         Returns:
             PIL Image with authentication prompt optimized for e-Paper
         """
-        logger.debug(f"EInkWhatsNextRenderer.render_authentication_prompt called")
+        logger.debug("EInkWhatsNextRenderer.render_authentication_prompt called")
 
         try:
             width, height = self.capabilities.width, self.capabilities.height

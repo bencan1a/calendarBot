@@ -7,10 +7,10 @@ backup and restore functionality, and integration with the setup wizard.
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
 
-def check_configuration() -> Tuple[bool, Optional[Path]]:
+def check_configuration() -> "tuple[bool, Optional[Path]]":
     """Check if Calendar Bot is configured and return config file path.
 
     Returns:
@@ -331,31 +331,14 @@ def apply_cli_overrides(settings: Any, args: Any) -> Any:
             f"rotation={settings.epaper.rotation}°"
         )
 
-    # Handle runtime tracking arguments (simplified CLI interface)
-    if hasattr(args, "track_runtime") and args.track_runtime:
-        logger.info("Runtime tracking enabled")
-
-        # Set runtime tracking configuration (simplified: just enable tracking with defaults)
-        settings.runtime_tracking.enabled = True
-        # Note: save_samples defaults to True in RuntimeTrackingSettings
-        # Note: sampling_interval defaults to 1.0 in RuntimeTrackingSettings
-        # Note: session_name defaults to None in RuntimeTrackingSettings
-
-        logger.info(
-            f"Runtime tracking configuration: "
-            f"sampling_interval={settings.runtime_tracking.sampling_interval}s, "
-            f"save_samples={settings.runtime_tracking.save_samples}, "
-            f"session_name={settings.runtime_tracking.session_name or 'auto-generated'}"
-        )
-
     return settings
 
 
 __all__ = [
-    "check_configuration",
-    "show_setup_guidance",
-    "backup_configuration",
-    "restore_configuration",
-    "list_backups",
     "apply_cli_overrides",
+    "backup_configuration",
+    "check_configuration",
+    "list_backups",
+    "restore_configuration",
+    "show_setup_guidance",
 ]

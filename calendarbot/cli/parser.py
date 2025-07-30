@@ -67,10 +67,9 @@ class LayoutAction(argparse.Action):
                         f"Invalid layout '{layout_name}'. "
                         f"Available layouts: {', '.join(available_layouts)}"
                     )
-                else:
-                    raise argparse.ArgumentTypeError(
-                        f"Invalid layout '{layout_name}'. No layouts available."
-                    )
+                raise argparse.ArgumentTypeError(
+                    f"Invalid layout '{layout_name}'. No layouts available."
+                )
 
             # Set the validated layout name
             setattr(namespace, self.dest, layout_name)
@@ -158,7 +157,7 @@ Examples:
     )
 
     parser.add_argument(
-        "--version", action="version", version=f"%(prog)s 1.0.0", help="Show version information"
+        "--version", action="version", version="%(prog)s 1.0.0", help="Show version information"
     )
 
     parser.add_argument(
@@ -451,8 +450,8 @@ def parse_components(components_str: str) -> List[str]:
 
 
 __all__ = [
-    "create_parser",
-    "parse_date",
-    "parse_components",
     "LayoutAction",
+    "create_parser",
+    "parse_components",
+    "parse_date",
 ]

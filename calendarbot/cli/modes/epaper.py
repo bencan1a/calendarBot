@@ -9,7 +9,7 @@ import asyncio
 import logging
 import signal
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Union
 
 logger = logging.getLogger(__name__)
 
@@ -231,8 +231,7 @@ def detect_epaper_hardware() -> bool:
                     "E-paper hardware detection: SUCCESS - Physical Waveshare display detected"
                 )
                 return True
-            else:
-                logger.info("E-paper hardware detection: Physical driver failed to initialize")
+            logger.info("E-paper hardware detection: Physical driver failed to initialize")
         except ImportError:
             logger.debug("Waveshare drivers not available or hardware not connected")
         except Exception as e:
@@ -306,8 +305,8 @@ def apply_epaper_mode_overrides(settings: Any, args: Any) -> Any:
 
 
 __all__ = [
-    "run_epaper_mode",
-    "detect_epaper_hardware",
-    "save_png_emulation",
     "apply_epaper_mode_overrides",
+    "detect_epaper_hardware",
+    "run_epaper_mode",
+    "save_png_emulation",
 ]

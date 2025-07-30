@@ -22,10 +22,10 @@ from .utils.colors import EPaperColors, get_rendering_colors
 __all__ = [
     "DisplayAbstractionLayer",
     "DisplayCapabilities",
-    "Region",
-    "EInkWhatsNextRenderer",
     "EInkDriver",
+    "EInkWhatsNextRenderer",
     "EPaperColors",
+    "Region",
     "get_rendering_colors",
 ]
 

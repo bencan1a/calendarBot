@@ -4,4 +4,4 @@ from .interactive import InteractiveController
 from .keyboard import KeyboardHandler
 from .navigation import NavigationState
 
-__all__ = ["NavigationState", "KeyboardHandler", "InteractiveController"]
+__all__ = ["InteractiveController", "KeyboardHandler", "NavigationState"]

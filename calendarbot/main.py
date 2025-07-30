@@ -1,10 +1,9 @@
 """Main application entry point for the Calendar Bot."""
 
 import asyncio
-import logging
 import signal
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from calendarbot.config.settings import settings
@@ -90,9 +89,8 @@ class CalendarBot:
                 self.consecutive_failures = 0
                 logger.info("Successfully fetched and cached events from all sources")
                 return True
-            else:
-                logger.error("Failed to fetch and cache events")
-                return False
+            logger.error("Failed to fetch and cache events")
+            return False
 
         except Exception as e:
             logger.error(f"Failed to fetch and cache events: {e}")

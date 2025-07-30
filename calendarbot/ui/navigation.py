@@ -1,7 +1,7 @@
 """Navigation state management for interactive date browsing."""
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
@@ -67,14 +67,14 @@ class NavigationState:
 
         if days_diff == 0:
             return "Today"
-        elif days_diff == 1:
+        if days_diff == 1:
             return "Tomorrow"
-        elif days_diff == -1:
+        if days_diff == -1:
             return "Yesterday"
-        elif days_diff > 1:
+        if days_diff > 1:
             return ""  # Remove "In X days" text
-        else:  # days_diff < -1
-            return f"{abs(days_diff)} days ago"
+        # days_diff < -1
+        return f"{abs(days_diff)} days ago"
 
     def navigate_forward(self, days: int = 1) -> date:
         """Navigate forward by specified number of days.
@@ -174,8 +174,7 @@ class NavigationState:
 
         if self.is_today():
             return f"TODAY - {base_format}"
-        else:
-            return base_format
+        return base_format
 
     def add_change_callback(self, callback: Callable[[date], None]) -> None:
         """Add a callback to be called when the selected date changes.

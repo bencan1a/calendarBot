@@ -4,7 +4,7 @@ import logging
 import platform
 import subprocess
 from pathlib import Path
-from typing import Any, List, Optional, Union, cast
+from typing import Any, List, Optional, cast
 
 from .compact_eink_renderer import CompactEInkRenderer
 from .console_renderer import ConsoleRenderer
@@ -54,9 +54,8 @@ class RendererFactory:
                 if _has_compact_display():
                     logger.info("Detected Raspberry Pi with compact e-ink display")
                     return "compact"
-                else:
-                    logger.info("Detected standard Raspberry Pi")
-                    return "rpi"
+                logger.info("Detected standard Raspberry Pi")
+                return "rpi"
 
             # Check for Linux ARM devices (other SBCs)
             if system == "linux" and "arm" in machine:
@@ -228,7 +227,7 @@ def _has_compact_display() -> bool:
 
         # Check for SPI devices (common for e-ink displays)
         try:
-            result = subprocess.run(["ls", "/dev/spi*"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(["ls", "/dev/spi*"], check=False, capture_output=True, text=True, timeout=5)
             if result.returncode == 0 and result.stdout.strip():
                 logger.debug("Found SPI devices, possible e-ink display")
                 return True

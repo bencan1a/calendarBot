@@ -33,7 +33,6 @@ class RendererInterface(ABC):
         Returns:
             Rendered output in format appropriate for the renderer
         """
-        pass
 
     @abstractmethod
     def handle_interaction(self, interaction: InteractionEvent) -> None:
@@ -42,7 +41,6 @@ class RendererInterface(ABC):
         Args:
             interaction: Interaction event to handle
         """
-        pass
 
     @abstractmethod
     def render_error(
@@ -57,7 +55,6 @@ class RendererInterface(ABC):
         Returns:
             Rendered error output
         """
-        pass
 
     @abstractmethod
     def render_authentication_prompt(self, verification_uri: str, user_code: str) -> Any:
@@ -70,7 +67,6 @@ class RendererInterface(ABC):
         Returns:
             Rendered authentication prompt
         """
-        pass
 
     @abstractmethod
     def update_display(self, content: Any) -> bool:
@@ -82,4 +78,3 @@ class RendererInterface(ABC):
         Returns:
             True if update was successful, False otherwise
         """
-        pass

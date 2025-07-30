@@ -1,6 +1,5 @@
 """ICS-specific configuration models."""
 
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
