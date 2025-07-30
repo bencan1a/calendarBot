@@ -1,13 +1,11 @@
 """Source manager coordinating calendar data fetching and caching."""
 
-import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from ..cache import CacheManager
 from ..ics.models import CalendarEvent
-from .exceptions import SourceConfigError, SourceConnectionError, SourceError
 from .ics_source import ICSSourceHandler
 from .models import SourceConfig, SourceInfo, SourceStatus, SourceType
 
@@ -156,9 +154,8 @@ class SourceManager:
                 del self._source_configs[name]
                 logger.info(f"Source '{name}' removed successfully")
                 return True
-            else:
-                logger.warning(f"Source '{name}' not found")
-                return False
+            logger.warning(f"Source '{name}' not found")
+            return False
 
         except Exception as e:
             logger.error(f"Failed to remove source {name}: {e}")
@@ -286,20 +283,18 @@ class SourceManager:
                         f"Successfully cached {len(all_events)} events from {successful_sources} sources"
                     )
                     return True
-                else:
-                    logger.error("Failed to cache events")
-                    self._consecutive_failures += 1
-                    return False
-            elif all_events:
+                logger.error("Failed to cache events")
+                self._consecutive_failures += 1
+                return False
+            if all_events:
                 # No cache manager, but we got events
                 self._last_successful_update = datetime.now()
                 self._consecutive_failures = 0
                 logger.info(f"Successfully fetched {len(all_events)} events (no caching)")
                 return True
-            else:
-                logger.warning("No events fetched from any source")
-                self._consecutive_failures += 1
-                return False
+            logger.warning("No events fetched from any source")
+            self._consecutive_failures += 1
+            return False
 
         except Exception as e:
             logger.error(f"Failed to fetch and cache events: {e}")
@@ -532,12 +527,11 @@ class SourceManager:
         if healthy_count == 0:
             status_message = f"All {total_sources} sources are unhealthy"
             return HealthCheckResult(False, status_message)
-        elif healthy_count == total_sources:
+        if healthy_count == total_sources:
             status_message = f"All {total_sources} sources are healthy"
             return HealthCheckResult(True, status_message)
-        else:
-            status_message = f"{healthy_count}/{total_sources} sources healthy"
-            return HealthCheckResult(True, status_message)
+        status_message = f"{healthy_count}/{total_sources} sources healthy"
+        return HealthCheckResult(True, status_message)
 
     def get_summary_status(self) -> Dict[str, Any]:
         """Get summary status of source manager.

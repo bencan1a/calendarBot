@@ -8,7 +8,8 @@ module structure within the calendarbot package.
 """
 
 import asyncio
-from typing import Any, Awaitable, Callable, Dict
+from collections.abc import Awaitable
+from typing import Any, Callable, Dict
 
 # Mode registry for available execution modes
 MODE_REGISTRY: Dict[str, Dict[str, Any]] = {
@@ -116,9 +117,8 @@ async def execute_mode(mode_name: str, args: Any) -> int:
         if MODE_REGISTRY[mode_name]["async_mode"]:
             result = await handler(args)
             return int(result) if result is not None else 0
-        else:
-            result = handler(args)
-            return int(result) if result is not None else 0
+        result = handler(args)
+        return int(result) if result is not None else 0
 
     except KeyError as e:
         print(f"Error: {e}")
@@ -134,8 +134,8 @@ async def execute_mode(mode_name: str, args: Any) -> int:
 
 __all__ = [
     "MODE_REGISTRY",
-    "get_available_modes",
-    "register_mode",
-    "get_mode_handler",
     "execute_mode",
+    "get_available_modes",
+    "get_mode_handler",
+    "register_mode",
 ]

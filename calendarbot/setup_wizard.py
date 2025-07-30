@@ -1,11 +1,10 @@
 """Interactive configuration wizard for Calendar Bot setup."""
 
-import asyncio
 import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 
@@ -160,9 +159,8 @@ For other calendar services:
                 try:
                     if validate_func(response):
                         return response
-                    else:
-                        print("❌ Invalid input. Please try again.")
-                        continue
+                    print("❌ Invalid input. Please try again.")
+                    continue
                 except Exception as e:
                     print(f"❌ Validation error: {e}")
                     continue
@@ -188,8 +186,7 @@ For other calendar services:
 
                 if 1 <= choice_num <= len(choices):
                     return choices[choice_num - 1]
-                else:
-                    print(f"❌ Please enter a number between 1 and {len(choices)}")
+                print(f"❌ Please enter a number between 1 and {len(choices)}")
             except ValueError:
                 print("❌ Please enter a valid number")
 
@@ -411,12 +408,10 @@ For other calendar services:
                             print("  ⚠️  Warning: Content may not be valid ICS format")
 
                         return True
-                    else:
-                        print(f"  ❌ Failed to fetch ICS data: {response.error_message}")
-                        return False
-                else:
-                    print("  ❌ Connection test failed")
+                    print(f"  ❌ Failed to fetch ICS data: {response.error_message}")
                     return False
+                print("  ❌ Connection test failed")
+                return False
 
         except ICSError as e:
             print(f"  ❌ ICS Error: {e.message}")
@@ -718,7 +713,7 @@ rpi:
         with open(config_file, "w") as f:
             f.write(config_content)
 
-        print(f"\n✅ Configuration created successfully!")
+        print("\n✅ Configuration created successfully!")
         print(f"📁 Config file: {config_file}")
         print("\n🎉 You're all set! Try running:")
         print("   calendarbot --test-mode    # Test your configuration")

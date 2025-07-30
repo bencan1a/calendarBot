@@ -4,18 +4,17 @@ import asyncio
 import json
 import logging
 import mimetypes
-import os
 from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
 from ..layout.registry import LayoutRegistry
 from ..layout.resource_manager import ResourceManager
 from ..security.logging import SecurityEventLogger
-from ..settings.exceptions import SettingsError, SettingsPersistenceError, SettingsValidationError
+from ..settings.exceptions import SettingsError, SettingsValidationError
 from ..settings.service import SettingsService
 from ..utils.process import auto_cleanup_before_start
 
@@ -940,7 +939,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     # Security check - ensure file is within layouts directory
                     if str(layout_path.resolve()).startswith(str(layouts_dir.resolve())):
                         full_path = layout_path
-                        logger.debug(f"STATIC_FILE_REQUEST: Found in layout directory")
+                        logger.debug("STATIC_FILE_REQUEST: Found in layout directory")
 
             # If not found in layouts, try the legacy static directory (web/static)
             if not full_path:
@@ -952,7 +951,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     # Security check - ensure file is within static directory
                     if str(legacy_path.resolve()).startswith(str(static_dir.resolve())):
                         full_path = legacy_path
-                        logger.debug(f"STATIC_FILE_REQUEST: Found in legacy static directory")
+                        logger.debug("STATIC_FILE_REQUEST: Found in legacy static directory")
 
             # If not found in legacy, try the layout directories with filename matching
             if not full_path:
@@ -974,7 +973,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                         if str(layout_path.resolve()).startswith(str(layouts_dir.resolve())):
                             full_path = layout_path
                             logger.debug(
-                                f"STATIC_FILE_REQUEST: Found via filename matching in layout directory"
+                                "STATIC_FILE_REQUEST: Found via filename matching in layout directory"
                             )
 
             logger.debug(f"STATIC_FILE_REQUEST: Final path resolved: {full_path}")
@@ -1275,7 +1274,6 @@ class WebServer:
                     # If we're in an event loop, we can't use asyncio.run()
                     # Create a task and run it synchronously (this is for web server context)
                     import concurrent.futures
-                    import threading
 
                     # Run the async function in a separate thread to avoid event loop conflicts
                     def run_async_in_thread() -> Any:
@@ -1331,7 +1329,6 @@ class WebServer:
                     # If we're in an event loop, we can't use asyncio.run()
                     # Run the async function in a separate thread to avoid event loop conflicts
                     import concurrent.futures
-                    import threading
 
                     def run_async_in_thread() -> Any:
                         import asyncio
@@ -1390,9 +1387,8 @@ class WebServer:
                     html_result = self.display_manager.renderer.render_events(events, status_info)
                 logger.debug(f"Generated HTML length: {len(html_result)} characters")
                 return str(html_result)
-            else:
-                logger.error("HTML renderer does not have render_events method")
-                return "<html><body><h1>Error: HTML renderer not available</h1></body></html>"
+            logger.error("HTML renderer does not have render_events method")
+            return "<html><body><h1>Error: HTML renderer not available</h1></body></html>"
 
         except Exception as e:
             logger.error(f"Error getting calendar HTML: {e}")
@@ -1483,13 +1479,11 @@ class WebServer:
                 self.layout = layout
                 logger.info(f"Layout changed to: {layout}")
                 return True
-            else:
-                logger.warning(f"Failed to set layout: {layout}")
-                return False
-        else:
-            available_layouts = self.layout_registry.get_available_layouts()
-            logger.warning(f"Unknown layout: {layout}. Available layouts: {available_layouts}")
+            logger.warning(f"Failed to set layout: {layout}")
             return False
+        available_layouts = self.layout_registry.get_available_layouts()
+        logger.warning(f"Unknown layout: {layout}. Available layouts: {available_layouts}")
+        return False
 
     def cycle_layout(self) -> str:
         """Cycle through available layouts.

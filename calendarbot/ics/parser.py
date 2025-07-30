@@ -3,16 +3,12 @@
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, List, Optional, cast
 
 from dateutil import tz
-from dateutil.rrule import rrule, rrulestr
-from icalendar import Calendar
-from icalendar import Event as ICalEvent
-from icalendar.cal import Component
+from icalendar import Calendar, Event as ICalEvent
 
 from ..security.logging import SecurityEventLogger
-from .exceptions import ICSContentError, ICSParseError
 from .models import (
     Attendee,
     AttendeeType,
@@ -284,9 +280,8 @@ class ICSParser:
                 else:
                     dt = dt.replace(tzinfo=timezone.utc)
             return dt
-        else:
-            # Date object - convert to datetime at midnight
-            return datetime.combine(dt, datetime.min.time()).replace(tzinfo=timezone.utc)
+        # Date object - convert to datetime at midnight
+        return datetime.combine(dt, datetime.min.time()).replace(tzinfo=timezone.utc)
 
     def _parse_datetime_optional(self, dt_prop: Any) -> Optional[datetime]:
         """Parse optional datetime property.
@@ -338,8 +333,8 @@ class ICSParser:
         # Map transparency
         if transparency == "TRANSPARENT":
             return EventStatus.FREE
-        else:  # OPAQUE or default
-            return EventStatus.BUSY
+        # OPAQUE or default
+        return EventStatus.BUSY
 
     def _parse_attendee(self, attendee_prop: Any) -> Optional[Attendee]:
         """Parse attendee from iCalendar property.

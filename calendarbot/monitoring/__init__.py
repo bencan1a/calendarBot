@@ -14,16 +14,16 @@ from .performance import (
 )
 
 __all__ = [
-    "PerformanceLogger",
-    "PerformanceMetric",
     "MetricType",
+    "PerformanceLogger",
     "PerformanceLoggerMixin",
-    "performance_timer",
-    "performance_monitor",
-    "memory_monitor",
+    "PerformanceMetric",
     "cache_monitor",
     "get_performance_logger",
     "init_performance_logging",
+    "memory_monitor",
+    "performance_monitor",
+    "performance_timer",
 ]
 
 

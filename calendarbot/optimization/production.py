@@ -1,17 +1,15 @@
 """Production logging optimization and intelligent volume reduction system."""
 
 import ast
-import json
 import logging
-import os
 import re
 import uuid
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, DefaultDict, Dict, List, Optional, Union
 
 from ..utils.logging import get_logger
 
@@ -227,7 +225,7 @@ class LogVolumeAnalyzer:
         }
 
         try:
-            with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+            with open(log_file, encoding="utf-8", errors="ignore") as f:
                 for line in f:
                     lines_count: int = stats["lines"]
                     stats["lines"] = lines_count + 1
@@ -259,7 +257,7 @@ class LogVolumeAnalyzer:
 
         for log_file in log_files:
             try:
-                with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+                with open(log_file, encoding="utf-8", errors="ignore") as f:
                     for line in f:
                         # Extract message content
                         message_match = re.search(
@@ -424,7 +422,7 @@ class DebugStatementAnalyzer:
         }
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
                 lines = content.splitlines()
 

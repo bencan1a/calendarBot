@@ -8,7 +8,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Pattern
+from re import Pattern
+from typing import Any, Dict, List, Optional
 
 # Lazy import moved to function level to avoid circular dependency
 
@@ -137,12 +138,11 @@ class CredentialMaskingPatterns:
         """Calculate appropriate mask length based on original credential length."""
         if original_length <= 8:
             return 3
-        elif original_length <= 16:
+        if original_length <= 16:
             return 6
-        elif original_length <= 32:
+        if original_length <= 32:
             return 8
-        else:
-            return 12
+        return 12
 
     @classmethod
     def create_mask(cls, credential: str, show_prefix: int = 2, show_suffix: int = 2) -> str:

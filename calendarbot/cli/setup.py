@@ -4,8 +4,6 @@ This module provides the setup wizard interface and integration
 for first-time configuration of Calendar Bot.
 """
 
-import asyncio
-from typing import Optional
 
 
 async def run_setup_wizard() -> int:
@@ -16,8 +14,7 @@ async def run_setup_wizard() -> int:
     """
     try:
         # Import the comprehensive setup wizard
-        from calendarbot.setup_wizard import run_setup_wizard as run_async_wizard
-        from calendarbot.setup_wizard import run_simple_wizard
+        from calendarbot.setup_wizard import run_setup_wizard as run_async_wizard, run_simple_wizard
 
         # Check if user wants full wizard or simple wizard
         print("\n" + "=" * 60)
@@ -35,11 +32,10 @@ async def run_setup_wizard() -> int:
             print("Running quick setup...")
             success = run_simple_wizard()
             return 0 if success else 1
-        else:
-            # Run full async wizard
-            print("Running full interactive wizard...")
-            success = await run_async_wizard()
-            return 0 if success else 1
+        # Run full async wizard
+        print("Running full interactive wizard...")
+        success = await run_async_wizard()
+        return 0 if success else 1
 
     except KeyboardInterrupt:
         print("\n\nSetup cancelled by user.")
@@ -102,7 +98,7 @@ def run_simple_setup_wizard() -> int:
 
 
 __all__ = [
-    "run_setup_wizard",
     "run_async_setup_wizard",
+    "run_setup_wizard",
     "run_simple_setup_wizard",
 ]

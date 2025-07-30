@@ -15,28 +15,23 @@ class SourceError(Exception):
 class SourceConnectionError(SourceError):
     """Exception raised when source connection fails."""
 
-    pass
 
 
 class SourceConfigError(SourceError):
     """Exception raised when source configuration is invalid."""
 
-    pass
 
 
 class SourceAuthError(SourceError):
     """Exception raised when source authentication fails."""
 
-    pass
 
 
 class SourceDataError(SourceError):
     """Exception raised when source data is invalid or corrupted."""
 
-    pass
 
 
 class SourceTimeoutError(SourceError):
     """Exception raised when source operation times out."""
 
-    pass

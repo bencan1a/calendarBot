@@ -2,8 +2,8 @@
 
 import logging
 import os
-from datetime import date, datetime
-from typing import Any, Dict, List, Optional, Union
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from ..cache.models import CachedEvent
 from ..utils.helpers import secure_clear_screen

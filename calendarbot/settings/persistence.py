@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .exceptions import SettingsPersistenceError, SettingsSchemaError
-from .models import SettingsData, SettingsMetadata
+from .models import SettingsData
 
 logger = logging.getLogger(__name__)
 
@@ -437,7 +437,7 @@ class SettingsPersistence:
             SettingsSchemaError: If schema migration is required
         """
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Validate and potentially migrate schema

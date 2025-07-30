@@ -154,16 +154,15 @@ def convert_to_pil_color(hex_color: str, mode: str = "L") -> Union[str, int, Tup
             luminance = 0.299 * r + 0.587 * g + 0.114 * b
             return 0 if luminance < 128 else 1
 
-        elif mode == "L":  # Grayscale (8-bit)
+        if mode == "L":  # Grayscale (8-bit)
             # Convert to grayscale using luminance formula
             luminance = int(0.299 * r + 0.587 * g + 0.114 * b)
             return luminance
 
-        elif mode == "RGB":  # RGB color
+        if mode == "RGB":  # RGB color
             return (r, g, b)
 
-        else:
-            raise ValueError(f"Unsupported PIL image mode: {mode}")
+        raise ValueError(f"Unsupported PIL image mode: {mode}")
 
     except ValueError as e:
         raise ValueError(f"Invalid hex color: {hex_color}") from e

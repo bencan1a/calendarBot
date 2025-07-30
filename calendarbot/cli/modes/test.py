@@ -4,7 +4,6 @@ This module provides the test mode functionality for validating
 Calendar Bot components and configuration.
 """
 
-import asyncio
 from typing import Any
 
 
@@ -70,12 +69,11 @@ async def run_test_mode(args: Any) -> int:
             if results.has_failures():
                 logger.error("Validation completed with failures")
                 return 1
-            elif results.has_warnings():
+            if results.has_warnings():
                 logger.warning("Validation completed with warnings")
                 return 0  # Warnings don't cause failure
-            else:
-                logger.info("Validation completed successfully")
-                return 0
+            logger.info("Validation completed successfully")
+            return 0
 
         finally:
             # Stop runtime tracking if it was started

@@ -9,7 +9,7 @@ All models use Pydantic for automatic validation, serialization, and type checki
 import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator, root_validator, validator
 
@@ -724,9 +724,8 @@ class DisplaySettings(BaseModel):
                         "Must be a valid timezone (e.g., 'America/Los_Angeles', 'Europe/London', 'UTC')"
                     ],
                 )
-            else:
-                logger.warning(f"Timezone validation error: {e}")
-                return v.strip()
+            logger.warning(f"Timezone validation error: {e}")
+            return v.strip()
 
 
 class SettingsMetadata(BaseModel):

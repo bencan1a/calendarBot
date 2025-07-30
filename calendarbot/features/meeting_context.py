@@ -1,12 +1,11 @@
 """Meeting context preparation and analysis features."""
 
-import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 
-from ..ics.models import CalendarEvent, EventStatus
-from ..utils.logging import get_logger
+from ..ics.models import CalendarEvent
 from ..utils.helpers import get_timezone_aware_now
+from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -153,18 +152,17 @@ class MeetingContextAnalyzer:
         # Check for common meeting patterns
         if any(word in subject_lower for word in ["1:1", "one-on-one", "sync"]):
             return "one_on_one"
-        elif any(word in subject_lower for word in ["standup", "daily", "scrum"]):
+        if any(word in subject_lower for word in ["standup", "daily", "scrum"]):
             return "standup"
-        elif any(word in subject_lower for word in ["review", "retrospective", "demo"]):
+        if any(word in subject_lower for word in ["review", "retrospective", "demo"]):
             return "review"
-        elif any(word in subject_lower for word in ["interview", "candidate"]):
+        if any(word in subject_lower for word in ["interview", "candidate"]):
             return "interview"
-        elif meeting.attendees and len(meeting.attendees) > 5:
+        if meeting.attendees and len(meeting.attendees) > 5:
             return "large_group"
-        elif meeting.is_online_meeting:
+        if meeting.is_online_meeting:
             return "virtual"
-        else:
-            return "standard"
+        return "standard"
 
     def _generate_preparation_recommendations(self, meeting: CalendarEvent) -> List[str]:
         """

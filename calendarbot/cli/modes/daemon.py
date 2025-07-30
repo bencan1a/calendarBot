@@ -5,7 +5,6 @@ enabling background operation and continuous calendar processing.
 This functionality will be migrated from root main.py during Phase 2.
 """
 
-import asyncio
 from typing import Any, Optional, Tuple
 
 

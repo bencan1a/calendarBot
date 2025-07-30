@@ -6,13 +6,16 @@ best practices with proper internal imports.
 """
 
 import asyncio
+import logging
 import sys
+
+logger = logging.getLogger(__name__)
 
 try:
     from calendarbot.cli import main_entry
-except ImportError as e:
-    print(f"Error importing main entry point: {e}")
-    print("Make sure you're running from the Calendar Bot project directory.")
+except ImportError:
+    logger.exception("Error importing main entry point")
+    logger.info("Make sure you're running from the Calendar Bot project directory.")
     sys.exit(1)
 
 
@@ -26,7 +29,7 @@ def main() -> None:
         exit_code = asyncio.run(main_entry())
         sys.exit(exit_code)
     except KeyboardInterrupt:
-        print("\nOperation cancelled by user")
+        print("Operation cancelled by user")
         sys.exit(130)
     except Exception as e:
         print(f"Error: {e}")

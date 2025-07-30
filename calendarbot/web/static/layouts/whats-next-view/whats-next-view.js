@@ -10,6 +10,27 @@ let upcomingMeetings = [];
 let lastDataUpdate = null;
 let settingsPanel = null;
 
+// Performance optimization state for countdown system
+let lastCountdownValues = {
+    displayText: null,
+    unitsText: null,
+    labelText: null,
+    cssClass: null,
+    urgent: null
+};
+
+// Performance optimization state for incremental DOM updates
+let lastDOMState = {
+    meetingTitle: null,
+    meetingTime: null,
+    meetingLocation: null,
+    meetingDescription: null,
+    contextMessage: null,
+    statusText: null,
+    lastUpdateText: null,
+    layoutState: null // 'meeting', 'empty', 'error'
+};
+
 // Timezone-aware time calculation state
 let backendBaselineTime = null; // Backend timezone-aware time at page load
 let frontendBaselineTime = null; // Frontend Date.now() at page load
@@ -130,9 +151,12 @@ function setupKeyboardNavigation() {
 
 /**
  * Auto-refresh functionality (following 3x4 pattern)
+ * Optimized for reduced server load - 5 minute intervals instead of 1 minute
  */
 function setupAutoRefresh() {
-    const refreshInterval = 60000; // 60 seconds
+    // Performance optimization: Reduced from 60s to 300s (5 minutes)
+    // This reduces server requests by 80% while maintaining reasonable data freshness
+    const refreshInterval = getAutoRefreshInterval();
 
     if (autoRefreshEnabled) {
         autoRefreshInterval = setInterval(function () {
@@ -141,6 +165,33 @@ function setupAutoRefresh() {
 
         console.log(`Whats-Next-View: Auto-refresh enabled: ${refreshInterval / 1000}s interval`);
     }
+}
+
+/**
+ * Get auto-refresh interval with configuration support
+ * @returns {number} Refresh interval in milliseconds
+ */
+function getAutoRefreshInterval() {
+    // Check for user configuration from settings system
+    if (typeof window.settingsData !== 'undefined' &&
+        window.settingsData.display &&
+        window.settingsData.display.auto_refresh_interval) {
+        const interval = parseInt(window.settingsData.display.auto_refresh_interval);
+        if (interval && interval > 0) {
+            console.log(`Whats-Next-View: Using configured auto-refresh interval: ${interval}ms`);
+            return interval;
+        }
+    }
+
+    // Fallback: Check for legacy configuration
+    if (typeof window.whatsNextViewSettings !== 'undefined' &&
+        window.whatsNextViewSettings.autoRefreshInterval) {
+        return window.whatsNextViewSettings.autoRefreshInterval;
+    }
+
+    // Default to 5 minutes (300 seconds) for performance optimization
+    console.log('Whats-Next-View: Using default auto-refresh interval: 300000ms (5 minutes)');
+    return 300000; // 5 minutes
 }
 
 /**
@@ -280,15 +331,17 @@ async function loadMeetingData() {
 
 /**
  * Parse meeting data from HTML response
+ * Performance optimized: Reduced DOM queries and improved parsing efficiency
  * @param {string} html - HTML content from server
+ * @returns {Array} Array of parsed meeting objects
  */
 function parseMeetingDataFromHTML(html) {
     try {
-
-
-        // FIX: JSDOM DOMParser issue - use createElement workaround for HTML fragments
+        // Performance optimization: Use more efficient document creation
         let doc;
-        if (html.trim().startsWith('<html') || html.trim().startsWith('<!DOCTYPE')) {
+        const trimmedHtml = html.trim();
+
+        if (trimmedHtml.startsWith('<html') || trimmedHtml.startsWith('<!DOCTYPE')) {
             // Full HTML document
             const parser = new DOMParser();
             doc = parser.parseFromString(html, 'text/html');
@@ -298,117 +351,78 @@ function parseMeetingDataFromHTML(html) {
             doc.body.innerHTML = html;
         }
 
-
-
         initializeTimezoneBaseline(doc);
 
-        // FIX: Initialize upcomingMeetings array at start
+        // Initialize upcomingMeetings array
         upcomingMeetings = [];
 
-        // Extract current and upcoming events from the HTML
-        // This integrates with CalendarBot's existing event structure
-        const currentEvents = doc.querySelectorAll('.current-event');
-        const upcomingEvents = doc.querySelectorAll('.upcoming-event');
+        // Performance optimization: Single query to get all potential event elements
+        const eventSelectors = [
+            '.current-event',
+            '.upcoming-event',
+            'section.current-events .event-item',
+            'section.upcoming-events .event-item'
+        ];
 
-        // TEST FIX: JSDOM parsing issue - try body-specific selectors
-        if (currentEvents.length === 0 && upcomingEvents.length === 0 && doc.body) {
+        const allEventElements = [];
 
-            const bodyCurrentEvents = doc.body.querySelectorAll('.current-event');
-            const bodyUpcomingEvents = doc.body.querySelectorAll('.upcoming-event');
-
-
-            // Use body selectors if they work
-            if (bodyCurrentEvents.length > 0 || bodyUpcomingEvents.length > 0) {
-
-                bodyCurrentEvents.forEach(event => {
-                    const meeting = extractMeetingFromElement(event);
-                    if (meeting) {
-                        upcomingMeetings.push(meeting);
-                    }
-                });
-
-                bodyUpcomingEvents.forEach(event => {
-                    const meeting = extractMeetingFromElement(event);
-                    if (meeting) {
-                        upcomingMeetings.push(meeting);
-                    }
-                });
-            }
-        } else {
-            // Original logic if document-level selectors work
-            // Process current events
-            currentEvents.forEach(event => {
-                const meeting = extractMeetingFromElement(event);
-                if (meeting) {
-                    upcomingMeetings.push(meeting);
-                }
-            });
-
-            // Process upcoming events
-            upcomingEvents.forEach(event => {
-                const meeting = extractMeetingFromElement(event);
-                if (meeting) {
-                    upcomingMeetings.push(meeting);
-                }
-            });
+        // Batch all queries into a single efficient operation
+        for (const selector of eventSelectors) {
+            const elements = doc.querySelectorAll(selector);
+            allEventElements.push(...elements);
         }
 
-        // DIAGNOSTIC: Check what CSS classes actually exist in the HTML
-        const allElements = doc.querySelectorAll('*');
-        const classNames = new Set();
-        allElements.forEach(el => {
-            if (el.className && typeof el.className === 'string') {
-                el.className.split(' ').forEach(cls => cls.trim() && classNames.add(cls));
+        // Fallback for body-specific selectors if no events found
+        if (allEventElements.length === 0 && doc.body) {
+            const bodySelectors = [
+                '.current-event',
+                '.upcoming-event',
+                '.event-item'
+            ];
+
+            for (const selector of bodySelectors) {
+                const elements = doc.body.querySelectorAll(selector);
+                allEventElements.push(...elements);
             }
+        }
+
+        // Performance optimization: Process all events in a single loop
+        const meetings = [];
+        for (const eventElement of allEventElements) {
+            const meeting = extractMeetingFromElementOptimized(eventElement);
+            if (meeting) {
+                meetings.push(meeting);
+            }
+        }
+
+        // Remove duplicates based on title and start time
+        const uniqueMeetings = [];
+        const seenMeetings = new Set();
+
+        for (const meeting of meetings) {
+            const key = `${meeting.title}-${meeting.start_time}`;
+            if (!seenMeetings.has(key)) {
+                seenMeetings.add(key);
+                uniqueMeetings.push(meeting);
+            }
+        }
+
+        // Sort by start time (optimized comparison)
+        uniqueMeetings.sort((a, b) => {
+            const timeA = new Date(a.start_time).getTime();
+            const timeB = new Date(b.start_time).getTime();
+            return timeA - timeB;
         });
 
-
-        // DIAGNOSTIC: Look for any event-related content
-        const eventTitles = doc.querySelectorAll('.event-title');
-        const eventTimes = doc.querySelectorAll('.event-time');
-        const eventLocations = doc.querySelectorAll('.event-location');
-
-        // WHATS-NEXT-VIEW FIX: Also look for WhatsNextRenderer's section-based structure
-        const currentSections = doc.querySelectorAll('section.current-events');
-        const upcomingSections = doc.querySelectorAll('section.upcoming-events');
-
-
-        // Process events within current sections
-        currentSections.forEach(section => {
-            // Look for event elements within the section
-            const sectionEvents = section.querySelectorAll('.current-event, .event-item');
-            sectionEvents.forEach(event => {
-                const meeting = extractMeetingFromElement(event);
-                if (meeting) {
-                    upcomingMeetings.push(meeting);
-                }
-            });
-        });
-
-        // Process events within upcoming sections
-        upcomingSections.forEach(section => {
-            // Look for event elements within the section
-            const sectionEvents = section.querySelectorAll('.upcoming-event, .event-item');
-            sectionEvents.forEach(event => {
-                const meeting = extractMeetingFromElement(event);
-                if (meeting) {
-                    upcomingMeetings.push(meeting);
-                }
-            });
-        });
-
-        // Sort by start time
-        upcomingMeetings.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+        upcomingMeetings = uniqueMeetings;
 
         console.log(`Whats-Next-View: Parsed ${upcomingMeetings.length} meetings`);
-        console.log('TEST FIX: parseMeetingDataFromHTML returning upcomingMeetings array:', upcomingMeetings.length);
 
-        // FIX: Return the upcomingMeetings array for tests
         return upcomingMeetings;
 
     } catch (error) {
         console.error('Whats-Next-View: Failed to parse meeting data', error);
-        return []; // Return empty array on error for tests
+        return [];
     }
 }
 
@@ -485,6 +499,95 @@ function extractMeetingFromElement(element) {
 
     } catch (error) {
         console.error('Whats-Next-View: Failed to extract meeting from element', error);
+        return null;
+    }
+}
+
+/**
+ * Performance optimized version of extractMeetingFromElement
+ * Reduces DOM queries and improves extraction efficiency
+ * @param {Element} element - Event element from parsed HTML
+ * @returns {Object|null} Meeting object or null if extraction fails
+ */
+function extractMeetingFromElementOptimized(element) {
+    try {
+        // Single traversal to collect all needed elements
+        const selectors = {
+            title: ['.event-title', '.event-summary', 'h3', 'h4'],
+            time: ['.event-time', '.event-datetime', '.time', '.event-details'],
+            location: ['.event-location', '.location'],
+            description: ['.event-description', '.description']
+        };
+
+        const elements = {};
+
+        // Efficient single-pass collection
+        for (const [key, selectorList] of Object.entries(selectors)) {
+            for (const selector of selectorList) {
+                const found = element.querySelector(selector);
+                if (found) {
+                    elements[key] = found;
+                    break; // Stop at first match for efficiency
+                }
+            }
+        }
+
+        // Fast validation check
+        if (!elements.title || !elements.time) {
+            return null;
+        }
+
+        // Extract text content efficiently
+        const title = elements.title.textContent.trim();
+        const timeText = elements.time.textContent.trim();
+        const location = elements.location?.textContent?.trim() || '';
+
+        // Optimized time extraction with data attributes priority
+        let adjustedStartTime;
+        let adjustedEndTime;
+
+        // Check data attributes first (fastest path)
+        const eventTimeAttr = element.getAttribute('data-event-time');
+
+        if (eventTimeAttr) {
+            // Use timezone-aware ISO datetime from backend
+            const eventDateTime = new Date(eventTimeAttr);
+            if (isNaN(eventDateTime.getTime())) {
+                return null;
+            }
+
+            // Calculate end time (assume 1 hour duration if not specified)
+            const endDateTime = new Date(eventDateTime.getTime() + (60 * 60 * 1000));
+
+            adjustedStartTime = eventDateTime;
+            adjustedEndTime = endDateTime;
+        } else {
+            // Fallback to text parsing
+            const timeMatch = timeText.match(/(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s*-\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+            if (!timeMatch) {
+                return null;
+            }
+
+            const baseDate = getCurrentTime();
+            const startTime = parseTimeString(timeMatch[1], baseDate);
+            const endTime = parseTimeString(timeMatch[2], baseDate);
+
+            adjustedStartTime = startTime;
+            adjustedEndTime = endTime;
+        }
+
+        // Return structured object with performance-optimized ID generation
+        return {
+            id: `meeting-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            title,
+            start_time: adjustedStartTime.toISOString(),
+            end_time: adjustedEndTime.toISOString(),
+            location,
+            description: ''
+        };
+
+    } catch (error) {
+        console.error('Whats-Next-View: Failed to extract meeting from element (optimized)', error);
         return null;
     }
 }
@@ -587,6 +690,23 @@ function calculateTimeGap(currentTime, nextMeetingTime) {
 }
 
 /**
+ * Performance optimized version of calculateTimeGap with input validation
+ * @param {Date} currentTime - Current time
+ * @param {Date} nextMeetingTime - Next meeting start time
+ * @returns {number} Time gap in milliseconds
+ */
+function calculateTimeGapOptimized(currentTime, nextMeetingTime) {
+    // Fast path for null/undefined inputs
+    if (!currentTime || !nextMeetingTime) {
+        return 0;
+    }
+
+    // Direct millisecond calculation without repeated getTime() calls
+    const gap = nextMeetingTime.getTime() - currentTime.getTime();
+    return gap > 0 ? gap : 0; // Optimized Math.max replacement
+}
+
+/**
  * Format time gap for human-readable display
  * @param {number} timeGapMs - Time gap in milliseconds
  * @returns {string} Formatted time string ("23 minutes", "1 hour 15 minutes")
@@ -606,6 +726,39 @@ function formatTimeGap(timeGapMs) {
         return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
     } else {
         return `${hours} ${hours === 1 ? 'hour' : 'hours'} ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+    }
+}
+
+/**
+ * Performance optimized version of formatTimeGap with structured return
+ * @param {number} timeGapMs - Time gap in milliseconds
+ * @returns {Object} Object with number and units properties for efficient DOM updates
+ */
+function formatTimeGapOptimized(timeGapMs) {
+    if (timeGapMs <= 0) {
+        return { number: '0', units: 'minutes' };
+    }
+
+    // Use integer division for better performance
+    const totalMinutes = Math.floor(timeGapMs / 60000); // Direct division by 60000ms
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours === 0) {
+        return {
+            number: minutes.toString(),
+            units: minutes === 1 ? 'minute' : 'minutes'
+        };
+    } else if (minutes === 0) {
+        return {
+            number: hours.toString(),
+            units: hours === 1 ? 'hour' : 'hours'
+        };
+    } else {
+        return {
+            number: hours.toString(),
+            units: `${hours === 1 ? 'hour' : 'hours'} ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
+        };
     }
 }
 
@@ -654,6 +807,7 @@ function checkBoundaryAlert(timeGapMs) {
 
 /**
  * Update the countdown display with P0 time gap and boundary alerts
+ * Performance optimized: Only updates DOM when values actually change
  */
 function updateCountdown() {
     const countdownElement = document.querySelector('.countdown-time');
@@ -668,8 +822,6 @@ function updateCountdown() {
     const now = getCurrentTime();
     const meetingStart = new Date(currentMeeting.start_time);
     const meetingEnd = new Date(currentMeeting.end_time);
-
-    // DIAGNOSTIC: Log countdown calculation values
 
     let timeRemaining;
     let labelText;
@@ -694,37 +846,19 @@ function updateCountdown() {
         return;
     }
 
-    // P0 Feature: Calculate time gap using new functions
-    const timeGap = calculateTimeGap(now, meetingStart);
+    // Performance optimization: Calculate time gap efficiently
+    const timeGap = calculateTimeGapOptimized(now, meetingStart);
     const boundaryAlert = checkBoundaryAlert(timeGap);
 
-    // P0 Feature: Apply boundary alert styling
-    if (countdownContainer) {
-        // Remove existing time gap classes
-        countdownContainer.classList.remove('time-gap-critical', 'time-gap-tight', 'time-gap-comfortable');
-
-        // Add appropriate boundary alert class
-        if (boundaryAlert.cssClass) {
-            countdownContainer.classList.add(boundaryAlert.cssClass);
-        }
-
-        // Add/remove urgent class
-        if (boundaryAlert.urgent) {
-            countdownContainer.classList.add('urgent');
-        } else {
-            countdownContainer.classList.remove('urgent');
-        }
-    }
-
-    // P0 Feature: Display formatted time gap for upcoming meetings
+    // Performance optimization: Generate display values
     let displayText;
     let unitsText;
 
     if (now < meetingStart) {
-        // Upcoming meeting - use P0 formatTimeGap function
-        const formattedGap = formatTimeGap(timeGap);
-        displayText = formattedGap.split(' ')[0]; // Get the number part
-        unitsText = formattedGap.substring(formattedGap.indexOf(' ') + 1); // Get the units part
+        // Upcoming meeting - use optimized formatTimeGap function
+        const formattedGap = formatTimeGapOptimized(timeGap);
+        displayText = formattedGap.number;
+        unitsText = formattedGap.units;
 
         // Special handling for critical alerts
         if (boundaryAlert.type === 'critical') {
@@ -747,19 +881,71 @@ function updateCountdown() {
         }
     }
 
-    // Update DOM
-    countdownElement.textContent = displayText;
-    if (countdownLabel) countdownLabel.textContent = labelText;
-    if (countdownUnits) countdownUnits.textContent = unitsText;
+    // Performance optimization: Check if values have changed before updating DOM
+    const currentCssClass = boundaryAlert.cssClass || '';
+    const hasChanges = (
+        lastCountdownValues.displayText !== displayText ||
+        lastCountdownValues.unitsText !== unitsText ||
+        lastCountdownValues.labelText !== labelText ||
+        lastCountdownValues.cssClass !== currentCssClass ||
+        lastCountdownValues.urgent !== boundaryAlert.urgent
+    );
 
-    // Add urgent class if less than 15 minutes (legacy support)
-    if (timeRemaining < 15 * 60 * 1000) {
-        countdownElement.classList.add('urgent');
-    } else {
-        countdownElement.classList.remove('urgent');
+    if (!hasChanges) {
+        // No visual changes needed, skip DOM updates
+        return;
     }
 
-    // P0 Feature: Enhanced boundary alert announcements
+    // Update DOM only when values have changed
+    if (lastCountdownValues.displayText !== displayText) {
+        countdownElement.textContent = displayText;
+        lastCountdownValues.displayText = displayText;
+    }
+
+    if (lastCountdownValues.labelText !== labelText && countdownLabel) {
+        countdownLabel.textContent = labelText;
+        lastCountdownValues.labelText = labelText;
+    }
+
+    if (lastCountdownValues.unitsText !== unitsText && countdownUnits) {
+        countdownUnits.textContent = unitsText;
+        lastCountdownValues.unitsText = unitsText;
+    }
+
+    // Update CSS classes only when they change
+    if (countdownContainer && lastCountdownValues.cssClass !== currentCssClass) {
+        // Remove existing time gap classes
+        countdownContainer.classList.remove('time-gap-critical', 'time-gap-tight', 'time-gap-comfortable');
+
+        // Add new boundary alert class
+        if (boundaryAlert.cssClass) {
+            countdownContainer.classList.add(boundaryAlert.cssClass);
+        }
+        lastCountdownValues.cssClass = currentCssClass;
+    }
+
+    // Update urgent class only when it changes
+    if (lastCountdownValues.urgent !== boundaryAlert.urgent) {
+        if (countdownContainer) {
+            if (boundaryAlert.urgent) {
+                countdownContainer.classList.add('urgent');
+            } else {
+                countdownContainer.classList.remove('urgent');
+            }
+        }
+
+        // Legacy urgent support for countdown element
+        const isLegacyUrgent = timeRemaining < 15 * 60 * 1000;
+        if (isLegacyUrgent) {
+            countdownElement.classList.add('urgent');
+        } else {
+            countdownElement.classList.remove('urgent');
+        }
+
+        lastCountdownValues.urgent = boundaryAlert.urgent;
+    }
+
+    // P0 Feature: Enhanced boundary alert announcements (unchanged)
     const totalMinutes = Math.floor(timeGap / (1000 * 60));
     if (totalMinutes === 10 || totalMinutes === 5 || totalMinutes === 2 || totalMinutes === 1) {
         const announcement = boundaryAlert.type === 'critical'
@@ -773,15 +959,16 @@ function updateCountdown() {
  * Update meeting display in the UI with P1 4-zone layout structure
  */
 function updateMeetingDisplay() {
+    // Use optimized incremental updates for better performance
+    updateMeetingDisplayOptimized();
+}
 
-
+/**
+ * Performance optimized version of updateMeetingDisplay with incremental DOM updates
+ * Only updates elements that have actually changed to reduce DOM manipulation overhead
+ */
+function updateMeetingDisplayOptimized() {
     const content = document.querySelector('.calendar-content');
-    console.log({
-        contentExists: !!content,
-        contentHTML: content ? content.innerHTML.substring(0, 100) + '...' : 'CONTAINER NOT FOUND',
-        documentReady: document.readyState,
-        bodyExists: !!document.body
-    });
 
     if (!content) {
         console.error('DEBUG MODE: CRITICAL ERROR - .calendar-content container not found in updateMeetingDisplay()');
@@ -791,7 +978,7 @@ function updateMeetingDisplay() {
     }
 
     if (!currentMeeting) {
-        showEmptyState();
+        updateEmptyStateOptimized();
         return;
     }
 
@@ -803,7 +990,53 @@ function updateMeetingDisplay() {
     const isCurrentMeeting = now >= meetingStart && now <= meetingEnd;
     const statusText = isCurrentMeeting ? 'In Progress' : 'Upcoming';
 
-    // P1 Feature: Organize content into 3-zone layout structure
+    // Generate new values for change detection
+    const newMeetingTitle = escapeHtml(currentMeeting.title);
+    const newMeetingTime = formatMeetingTime(currentMeeting.start_time, currentMeeting.end_time);
+    const newMeetingLocation = currentMeeting.location ? escapeHtml(currentMeeting.location) : '';
+    const newMeetingDescription = currentMeeting.description ? escapeHtml(currentMeeting.description) : '';
+    const newContextMessage = getContextMessage(isCurrentMeeting);
+    const newLayoutState = 'meeting';
+
+    // Performance optimization: Check if we need to create the layout structure
+    const needsFullRebuild = (
+        lastDOMState.layoutState !== newLayoutState ||
+        !content.querySelector('.layout-zone-1') ||
+        !content.querySelector('.layout-zone-2') ||
+        !content.querySelector('.layout-zone-4')
+    );
+
+    if (needsFullRebuild) {
+        // Create full layout structure only when needed
+        createMeetingLayoutStructure(content);
+    }
+
+    // Performance optimization: Update only changed elements
+    updateMeetingTitleOptimized(newMeetingTitle);
+    updateMeetingTimeOptimized(newMeetingTime);
+    updateMeetingLocationOptimized(newMeetingLocation);
+    updateMeetingDescriptionOptimized(newMeetingDescription);
+    updateContextMessageOptimized(newContextMessage);
+
+    // Update DOM state tracking
+    lastDOMState.meetingTitle = newMeetingTitle;
+    lastDOMState.meetingTime = newMeetingTime;
+    lastDOMState.meetingLocation = newMeetingLocation;
+    lastDOMState.meetingDescription = newMeetingDescription;
+    lastDOMState.contextMessage = newContextMessage;
+    lastDOMState.layoutState = newLayoutState;
+
+    // Re-setup accessibility only when layout was rebuilt
+    if (needsFullRebuild) {
+        setupAccessibility();
+    }
+}
+
+/**
+ * Create the meeting layout structure in the content container
+ * @param {Element} content - The calendar content container
+ */
+function createMeetingLayoutStructure(content) {
     const html = `
         <!-- Zone 1 (100px): Time gap display -->
         <div class="layout-zone-1">
@@ -817,23 +1050,107 @@ function updateMeetingDisplay() {
         <!-- Zone 2 (140px): Next meeting information -->
         <div class="layout-zone-2">
             <div class="meeting-card current">
-                <div class="meeting-title text-primary">${escapeHtml(currentMeeting.title)}</div>
-                <div class="meeting-time text-secondary">${formatMeetingTime(currentMeeting.start_time, currentMeeting.end_time)}</div>
-                ${currentMeeting.location ? `<div class="meeting-location text-supporting">${escapeHtml(currentMeeting.location)}</div>` : ''}
-                ${currentMeeting.description ? `<div class="meeting-description text-small">${escapeHtml(currentMeeting.description)}</div>` : ''}
+                <div class="meeting-title text-primary"></div>
+                <div class="meeting-time text-secondary"></div>
+                <div class="meeting-location text-supporting" style="display: none;"></div>
+                <div class="meeting-description text-small" style="display: none;"></div>
             </div>
         </div>
         
         <!-- Zone 4 (60px): Additional context -->
         <div class="layout-zone-4">
             <div class="context-info text-center">
-                <div class="context-message text-caption">${getContextMessage(isCurrentMeeting)}</div>
+                <div class="context-message text-caption"></div>
             </div>
         </div>
     `;
 
     content.innerHTML = html;
-    setupAccessibility(); // Re-setup accessibility after DOM update
+}
+
+/**
+ * Update meeting title element only if it has changed
+ * @param {string} newTitle - New meeting title
+ */
+function updateMeetingTitleOptimized(newTitle) {
+    if (lastDOMState.meetingTitle === newTitle) {
+        return; // No change needed
+    }
+
+    const titleElement = document.querySelector('.meeting-title');
+    if (titleElement) {
+        titleElement.textContent = newTitle;
+    }
+}
+
+/**
+ * Update meeting time element only if it has changed
+ * @param {string} newTime - New meeting time
+ */
+function updateMeetingTimeOptimized(newTime) {
+    if (lastDOMState.meetingTime === newTime) {
+        return; // No change needed
+    }
+
+    const timeElement = document.querySelector('.meeting-time');
+    if (timeElement) {
+        timeElement.textContent = newTime;
+    }
+}
+
+/**
+ * Update meeting location element only if it has changed
+ * @param {string} newLocation - New meeting location
+ */
+function updateMeetingLocationOptimized(newLocation) {
+    if (lastDOMState.meetingLocation === newLocation) {
+        return; // No change needed
+    }
+
+    const locationElement = document.querySelector('.meeting-location');
+    if (locationElement) {
+        if (newLocation) {
+            locationElement.textContent = newLocation;
+            locationElement.style.display = 'block';
+        } else {
+            locationElement.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Update meeting description element only if it has changed
+ * @param {string} newDescription - New meeting description
+ */
+function updateMeetingDescriptionOptimized(newDescription) {
+    if (lastDOMState.meetingDescription === newDescription) {
+        return; // No change needed
+    }
+
+    const descriptionElement = document.querySelector('.meeting-description');
+    if (descriptionElement) {
+        if (newDescription) {
+            descriptionElement.textContent = newDescription;
+            descriptionElement.style.display = 'block';
+        } else {
+            descriptionElement.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Update context message element only if it has changed
+ * @param {string} newMessage - New context message
+ */
+function updateContextMessageOptimized(newMessage) {
+    if (lastDOMState.contextMessage === newMessage) {
+        return; // No change needed
+    }
+
+    const messageElement = document.querySelector('.context-message');
+    if (messageElement) {
+        messageElement.textContent = newMessage;
+    }
 }
 
 /**
@@ -958,36 +1275,85 @@ function formatMeetingTime(startTime, endTime) {
  * Show empty state when no meetings using 3-zone layout
  */
 function showEmptyState() {
+    // Use optimized version for better performance
+    updateEmptyStateOptimized();
+}
+
+/**
+ * Performance optimized version of showEmptyState with incremental updates
+ * Only updates elements that have changed to reduce DOM manipulation
+ */
+function updateEmptyStateOptimized() {
     const content = document.querySelector('.calendar-content');
     if (!content) return;
 
-    content.innerHTML = `
-        <!-- Zone 1 (100px): Empty time display -->
-        <div class="layout-zone-1">
-            <div class="countdown-container">
-                <div class="countdown-label text-small">Next Meeting</div>
-                <div class="countdown-time text-primary">--</div>
-                <div class="countdown-units text-caption">None</div>
+    const newLastUpdate = formatLastUpdate();
+    const newLayoutState = 'empty';
+
+    // Check if we need to rebuild the empty state structure
+    const needsFullRebuild = (
+        lastDOMState.layoutState !== newLayoutState ||
+        !content.querySelector('.empty-state')
+    );
+
+    if (needsFullRebuild) {
+        // Create full empty state structure
+        content.innerHTML = `
+            <!-- Zone 1 (100px): Empty time display -->
+            <div class="layout-zone-1">
+                <div class="countdown-container">
+                    <div class="countdown-label text-small">Next Meeting</div>
+                    <div class="countdown-time text-primary">--</div>
+                    <div class="countdown-units text-caption">None</div>
+                </div>
             </div>
-        </div>
-        
-        <!-- Zone 2 (140px): Empty message -->
-        <div class="layout-zone-2">
-            <div class="empty-state">
-                <div class="empty-state-icon">📅</div>
-                <div class="empty-state-title text-secondary">No Upcoming Meetings</div>
-                <div class="empty-state-message text-supporting">You're all caught up!</div>
-                <div class="last-update text-caption">Updated: ${formatLastUpdate()}</div>
+            
+            <!-- Zone 2 (140px): Empty message -->
+            <div class="layout-zone-2">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📅</div>
+                    <div class="empty-state-title text-secondary">No Upcoming Meetings</div>
+                    <div class="empty-state-message text-supporting">You're all caught up!</div>
+                    <div class="last-update text-caption">Updated: ${newLastUpdate}</div>
+                </div>
             </div>
-        </div>
-        
-        <!-- Zone 4 (60px): Context -->
-        <div class="layout-zone-4">
-            <div class="context-info text-center">
-                <div class="context-message text-caption">No meetings scheduled</div>
+            
+            <!-- Zone 4 (60px): Context -->
+            <div class="layout-zone-4">
+                <div class="context-info text-center">
+                    <div class="context-message text-caption">No meetings scheduled</div>
+                </div>
             </div>
-        </div>
-    `;
+        `;
+
+        // Update all state tracking since we rebuilt everything
+        lastDOMState.lastUpdateText = newLastUpdate;
+        lastDOMState.layoutState = newLayoutState;
+        lastDOMState.meetingTitle = null;
+        lastDOMState.meetingTime = null;
+        lastDOMState.meetingLocation = null;
+        lastDOMState.meetingDescription = null;
+        lastDOMState.contextMessage = 'No meetings scheduled';
+    } else {
+        // Only update last update text if it changed
+        updateLastUpdateOptimized(newLastUpdate);
+    }
+}
+
+/**
+ * Update last update text element only if it has changed
+ * @param {string} newUpdateText - New last update text
+ */
+function updateLastUpdateOptimized(newUpdateText) {
+    if (lastDOMState.lastUpdateText === newUpdateText) {
+        return; // No change needed
+    }
+
+    const lastUpdateElement = document.querySelector('.last-update');
+    if (lastUpdateElement) {
+        lastUpdateElement.textContent = `Updated: ${newUpdateText}`;
+        lastDOMState.lastUpdateText = newUpdateText;
+    }
 }
 
 /**
@@ -1427,6 +1793,21 @@ window.escapeHtml = escapeHtml;
 window.parseTimeString = parseTimeString;
 window.formatTimeGap = formatTimeGap;
 window.calculateTimeGap = calculateTimeGap;
+
+// Performance optimization function exports
+window.calculateTimeGapOptimized = calculateTimeGapOptimized;
+window.formatTimeGapOptimized = formatTimeGapOptimized;
+window.extractMeetingFromElementOptimized = extractMeetingFromElementOptimized;
+window.updateMeetingDisplayOptimized = updateMeetingDisplayOptimized;
+window.updateEmptyStateOptimized = updateEmptyStateOptimized;
+
+// Incremental DOM update function exports for testing
+window.updateMeetingTitleOptimized = updateMeetingTitleOptimized;
+window.updateMeetingTimeOptimized = updateMeetingTimeOptimized;
+window.updateMeetingLocationOptimized = updateMeetingLocationOptimized;
+window.updateMeetingDescriptionOptimized = updateMeetingDescriptionOptimized;
+window.updateContextMessageOptimized = updateContextMessageOptimized;
+window.updateLastUpdateOptimized = updateLastUpdateOptimized;
 
 // P1 Phase 2 function exports
 window.formatLastUpdate = formatLastUpdate;
@@ -2329,30 +2710,72 @@ window.whatsNextView = {
 // ===========================================
 
 /**
- * Initialize settings panel for whats-next-view layout
+ * Initialize settings panel for whats-next-view layout with retry mechanism
+ * Fixes timing race condition where settings-panel.js hasn't finished loading
  */
 async function initializeSettingsPanel() {
-    try {
-        // Check if SettingsPanel is available
-        if (typeof window.SettingsPanel !== 'undefined') {
-            settingsPanel = new window.SettingsPanel({
-                layout: 'whats-next-view',
-                gestureZoneHeight: 50,
-                dragThreshold: 20,
-                autoSave: true,
-                autoSaveDelay: 2000
-            });
+    const maxRetries = 10;
+    const retryDelay = 100; // 100ms between retries
+    let retryCount = 0;
 
-            // CRITICAL FIX: Call initialize() to create DOM elements and gesture handler
-            await settingsPanel.initialize();
+    console.log('Settings panel initialization started - checking for window.SettingsPanel...');
 
-            console.log('Settings panel initialized for whats-next-view layout');
-        } else {
-            console.log('Settings panel not available - shared components not loaded');
+    const attemptInitialization = async () => {
+        try {
+            // Check if SettingsPanel is available
+            if (typeof window.SettingsPanel !== 'undefined') {
+                console.log(`Settings panel found after ${retryCount} retries (${retryCount * retryDelay}ms)`);
+
+                settingsPanel = new window.SettingsPanel({
+                    layout: 'whats-next-view',
+                    gestureZoneHeight: 50,
+                    dragThreshold: 20,
+                    autoSave: true,
+                    autoSaveDelay: 2000
+                });
+
+                // CRITICAL FIX: Call initialize() to create DOM elements and gesture handler
+                await settingsPanel.initialize();
+
+                console.log('Settings panel initialized successfully for whats-next-view layout');
+                return true;
+            } else {
+                retryCount++;
+                if (retryCount <= maxRetries) {
+                    console.log(`Settings panel not ready - retry ${retryCount}/${maxRetries} (waiting ${retryDelay}ms)`);
+                    // Use setTimeout to retry after delay
+                    return new Promise((resolve) => {
+                        setTimeout(async () => {
+                            const result = await attemptInitialization();
+                            resolve(result);
+                        }, retryDelay);
+                    });
+                } else {
+                    console.warn(`Settings panel initialization failed - window.SettingsPanel not available after ${maxRetries} retries (${maxRetries * retryDelay}ms total)`);
+                    console.warn('Settings functionality will not be available in this session');
+                    return false;
+                }
+            }
+        } catch (error) {
+            console.error(`Settings panel initialization attempt ${retryCount} failed:`, error);
+            retryCount++;
+            if (retryCount <= maxRetries) {
+                console.log(`Retrying due to error - attempt ${retryCount}/${maxRetries}`);
+                // Retry on error as well
+                return new Promise((resolve) => {
+                    setTimeout(async () => {
+                        const result = await attemptInitialization();
+                        resolve(result);
+                    }, retryDelay);
+                });
+            } else {
+                console.error('Settings panel initialization failed permanently due to errors');
+                return false;
+            }
         }
-    } catch (error) {
-        console.error('Settings panel initialization failed:', error);
-    }
+    };
+
+    await attemptInitialization();
 }
 
 /**

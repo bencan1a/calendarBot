@@ -3,4 +3,4 @@
 from .console_renderer import ConsoleRenderer
 from .manager import DisplayManager
 
-__all__ = ["DisplayManager", "ConsoleRenderer"]
+__all__ = ["ConsoleRenderer", "DisplayManager"]

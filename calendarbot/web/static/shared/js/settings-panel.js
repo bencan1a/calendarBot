@@ -188,6 +188,21 @@ class SettingsPanel {
                                 Controls how much detail is shown and spacing between elements
                             </div>
                         </div>
+                        
+                        <!-- Auto-refresh Interval (WhatsNextView only) -->
+                        <div class="settings-field" id="auto-refresh-field" style="display: none;">
+                            <label class="settings-label" for="auto-refresh-interval">Auto-refresh Frequency</label>
+                            <select id="auto-refresh-interval" class="settings-select">
+                                <option value="60000">Every 1 minute</option>
+                                <option value="180000">Every 3 minutes</option>
+                                <option value="300000">Every 5 minutes (Recommended)</option>
+                                <option value="600000">Every 10 minutes</option>
+                                <option value="1800000">Every 30 minutes</option>
+                            </select>
+                            <div class="settings-description">
+                                How often to automatically refresh calendar data. Longer intervals reduce server load and improve performance.
+                            </div>
+                        </div>
                     </section>
                     
                     <!-- Actions -->
@@ -282,6 +297,12 @@ class SettingsPanel {
         const densitySelect = panel.querySelector('#display-density');
         if (densitySelect) {
             this.addEventListenerWithCleanup(densitySelect, 'change', () => this.onSettingChange());
+        }
+
+        // Auto-refresh interval select
+        const autoRefreshSelect = panel.querySelector('#auto-refresh-interval');
+        if (autoRefreshSelect) {
+            this.addEventListenerWithCleanup(autoRefreshSelect, 'change', () => this.onSettingChange());
         }
 
         // Action buttons
@@ -425,6 +446,15 @@ class SettingsPanel {
             densitySelect.value = settings.display.display_density;
         }
 
+        // Auto-refresh interval (WhatsNextView only)
+        const autoRefreshSelect = document.getElementById('auto-refresh-interval');
+        if (autoRefreshSelect && settings.display && settings.display.auto_refresh_interval) {
+            autoRefreshSelect.value = settings.display.auto_refresh_interval.toString();
+        }
+
+        // Show/hide auto-refresh field based on current layout
+        this.updateLayoutSpecificFields();
+
         console.log('SettingsPanel: Form populated with settings');
     }
 
@@ -482,6 +512,12 @@ class SettingsPanel {
         const densitySelect = document.getElementById('display-density');
         if (densitySelect) {
             this.localSettings.display.display_density = densitySelect.value;
+        }
+
+        // Auto-refresh interval (WhatsNextView only)
+        const autoRefreshSelect = document.getElementById('auto-refresh-interval');
+        if (autoRefreshSelect) {
+            this.localSettings.display.auto_refresh_interval = parseInt(autoRefreshSelect.value);
         }
 
         // Title patterns are managed separately in renderPatternList()
@@ -565,6 +601,11 @@ class SettingsPanel {
             panel.classList.add('open');
             panel.setAttribute('aria-hidden', 'false');
 
+            // CRITICAL FIX: Remove inline !important styles that prevent CSS .open rules from working
+            panel.style.display = '';
+            panel.style.visibility = '';
+            panel.style.opacity = '';
+
             // Focus management
             const firstFocusable = panel.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
             if (firstFocusable) {
@@ -574,7 +615,7 @@ class SettingsPanel {
             this.isOpen = true;
             this.isTransitioning = false;
 
-            console.log('SettingsPanel: Panel opened');
+            console.log('SettingsPanel: Panel opened successfully');
 
         } catch (error) {
             console.error('SettingsPanel: Failed to open panel:', error);
@@ -667,7 +708,7 @@ class SettingsPanel {
         this.isOpen = false;
         this.isTransitioning = false;
 
-        console.log('SettingsPanel: Panel closed with proper focus and visibility management');
+        console.log('SettingsPanel: Panel closed successfully');
     }
 
     /**
@@ -676,7 +717,6 @@ class SettingsPanel {
     startReveal() {
         const panel = document.getElementById('settings-panel');
         if (panel) {
-            console.log('SettingsPanel: Starting reveal - panel will become visible');
             panel.classList.add('revealing');
             // Panel is now visible due to CSS .revealing { display: flex; }
         }
@@ -693,7 +733,6 @@ class SettingsPanel {
     cancelReveal() {
         const panel = document.getElementById('settings-panel');
         if (panel) {
-            console.log('SettingsPanel: Canceling reveal - panel will be hidden');
             panel.classList.remove('revealing');
             // Panel becomes hidden again due to CSS default { display: none; }
             // Reset transform to let CSS handle positioning
@@ -1003,12 +1042,8 @@ class SettingsPanel {
      */
     updateContentContainerDimensions() {
         try {
-            console.log('SettingsPanel: Checking for content container... DOM ready:', document.readyState);
             const contentContainer = document.querySelector('.calendar-content');
             const settingsPanel = document.getElementById('settings-panel');
-
-            console.log('SettingsPanel: Content container found:', !!contentContainer);
-            console.log('SettingsPanel: Settings panel found:', !!settingsPanel);
 
             if (contentContainer && settingsPanel) {
                 const rect = contentContainer.getBoundingClientRect();
@@ -1029,13 +1064,10 @@ class SettingsPanel {
                 // Apply content-aware CSS custom properties
                 this.applyContentBasedSizing(this.contentContainerDimensions);
 
-                console.log('SettingsPanel: Content container dimensions detected and applied:', this.contentContainerDimensions);
             } else if (!contentContainer) {
-                console.log('SettingsPanel: No .calendar-content container found, using viewport-based sizing');
                 this.contentContainerDimensions = null;
                 this.clearContentBasedSizing();
             } else if (!settingsPanel) {
-                console.log('SettingsPanel: Settings panel not found, deferring content-based sizing');
                 this.contentContainerDimensions = null;
             }
         } catch (error) {
@@ -1061,7 +1093,20 @@ class SettingsPanel {
         // effective top = CSS top + translateY
         // So: dimensions.top + translateY + panelHeight ≤ 0
         // translateY ≤ -dimensions.top - panelHeight
-        const hideTransform = -(dimensions.top + panelHeight);
+
+        // Calculate transform to hide panel - handle constrained layouts
+        let hideTransform;
+        const bodyHeight = document.body.offsetHeight;
+        const bodyWidth = document.body.offsetWidth;
+        const isConstrainedLayout = bodyHeight <= 500 || bodyWidth <= 400;
+
+        if (isConstrainedLayout) {
+            // For constrained layouts: hide just above the content container
+            hideTransform = -panelHeight;
+        } else {
+            // For normal layouts: hide above viewport as before
+            hideTransform = -(dimensions.top + panelHeight);
+        }
 
         // Set content-aware dimensions that override viewport-based ones
         root.style.setProperty('--settings-panel-content-width', `${dimensions.width}px`);
@@ -1076,12 +1121,9 @@ class SettingsPanel {
         // CRITICAL FIX: Set data attribute to ensure CSS selectors work reliably
         if (panel) {
             panel.setAttribute('data-content-aware', 'true');
-            console.log('SettingsPanel: Set data-content-aware attribute for reliable CSS matching');
         }
 
-        console.log('SettingsPanel: Applied content-based sizing properties:', dimensions);
-        console.log('SettingsPanel: Hide transform calculated:', `${hideTransform}px`);
-        console.log('SettingsPanel: Panel should be hidden initially, isOpen=', this.isOpen);
+        console.log('SettingsPanel: Applied content-based sizing for', isConstrainedLayout ? 'constrained' : 'normal', 'layout');
     }
 
     /**
@@ -1095,8 +1137,6 @@ class SettingsPanel {
         root.style.removeProperty('--settings-panel-content-left');
         root.style.removeProperty('--settings-panel-content-top');
         root.style.removeProperty('--settings-panel-content-mode');
-
-        console.log('SettingsPanel: Cleared content-based sizing, using viewport fallback');
     }
 
     /**
@@ -1123,6 +1163,21 @@ class SettingsPanel {
         }
 
         console.log('SettingsPanel: Updated responsive layout for screen size:', this.screenSize);
+    }
+
+    /**
+     * Update layout-specific fields visibility
+     */
+    updateLayoutSpecificFields() {
+        const autoRefreshField = document.getElementById('auto-refresh-field');
+        if (autoRefreshField) {
+            // Show auto-refresh setting only for WhatsNextView
+            if (this.currentLayout === 'whats-next-view') {
+                autoRefreshField.style.display = 'block';
+            } else {
+                autoRefreshField.style.display = 'none';
+            }
+        }
     }
 
     /**

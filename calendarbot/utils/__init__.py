@@ -9,11 +9,11 @@ from .process import (
 )
 
 __all__ = [
-    "setup_logging",
-    "retry_with_backoff",
-    "format_duration",
-    "safe_async_call",
     "auto_cleanup_before_start",
-    "kill_calendarbot_processes",
     "find_calendarbot_processes",
+    "format_duration",
+    "kill_calendarbot_processes",
+    "retry_with_backoff",
+    "safe_async_call",
+    "setup_logging",
 ]

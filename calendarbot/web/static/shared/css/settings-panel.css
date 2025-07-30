@@ -118,6 +118,7 @@
 :root[style*="--settings-panel-content-mode: 1"] .settings-panel.open {
     display: flex;
     visibility: visible;
+    opacity: 1;
     /* CRITICAL FIX: Show panel in content-aware mode */
     transform: translateY(0);
 }
@@ -126,6 +127,7 @@
 :root[style*="--settings-panel-content-mode: 1"] .settings-panel.revealing {
     display: flex;
     visibility: visible;
+    opacity: 1;
     /* CRITICAL FIX: Show panel during reveal in content-aware mode */
     transition: none;
 }
@@ -167,6 +169,7 @@
 .settings-panel.revealing {
     display: flex;
     visibility: visible;
+    opacity: 1;
     /* CRITICAL FIX: Show panel during reveal */
     transition: none;
 }
@@ -781,6 +784,7 @@
 
 :root[style*="--settings-panel-content-mode: 1"] .settings-panel.open,
 .settings-panel[data-content-aware="true"].open {
+    opacity: 1 !important;
     transform: translateY(0) !important;
 }
 

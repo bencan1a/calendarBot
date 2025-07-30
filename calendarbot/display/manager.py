@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union, cast
 
 from ..cache.models import CachedEvent
-from ..layout.exceptions import LayoutNotFoundError
 from ..layout.registry import LayoutRegistry
 from ..utils.helpers import secure_clear_screen
 from .console_renderer import ConsoleRenderer
@@ -426,8 +425,7 @@ class DisplayManager:
             if self.renderer is not None and hasattr(self.renderer, "clear_screen"):
                 cast(ConsoleRendererProtocol, self.renderer).clear_screen()
                 return True
-            else:
-                return secure_clear_screen()
+            return secure_clear_screen()
 
         except Exception as e:
             logger.error(f"Failed to clear display: {e}")
@@ -501,10 +499,9 @@ class DisplayManager:
                         f"Created {new_renderer.__class__.__name__} for {layout_name} layout"
                     )
 
-                else:
-                    # For regular layout changes, just update renderer's layout attribute if it has one
-                    if self.renderer and hasattr(self.renderer, "layout"):
-                        cast(Any, self.renderer).layout = layout_name
+                # For regular layout changes, just update renderer's layout attribute if it has one
+                elif self.renderer and hasattr(self.renderer, "layout"):
+                    cast(Any, self.renderer).layout = layout_name
 
             # Update settings
             self.settings.layout_name = layout_name

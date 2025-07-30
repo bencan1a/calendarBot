@@ -2,7 +2,6 @@
 
 import logging
 import socket
-from typing import Optional
 
 
 def get_local_network_interface() -> str:
@@ -29,9 +28,8 @@ def get_local_network_interface() -> str:
             if _is_private_ip(local_ip):
                 logger.info(f"Auto-detected local network interface: {local_ip}")
                 return local_ip
-            else:
-                logger.warning(f"Detected public IP {local_ip}, falling back to localhost")
-                return "127.0.0.1"
+            logger.warning(f"Detected public IP {local_ip}, falling back to localhost")
+            return "127.0.0.1"
 
     except Exception as e:
         logger.warning(f"Failed to auto-detect network interface: {e}")
@@ -75,13 +73,11 @@ def _is_private_ip(ip: str) -> bool:
         # 172.16.0.0/12 (172.16.0.0 - 172.31.255.255)
         # 192.168.0.0/16 (192.168.0.0 - 192.168.255.255)
 
-        if octets[0] == 10:
+        if octets[0] == 10 or (octets[0] == 172 and 16 <= octets[1] <= 31):
             return True
-        elif octets[0] == 172 and 16 <= octets[1] <= 31:
+        if octets[0] == 192 and octets[1] == 168:
             return True
-        elif octets[0] == 192 and octets[1] == 168:
-            return True
-        elif octets[0] == 127:
+        if octets[0] == 127:
             return True  # Localhost range (127.0.0.0/8)
 
         return False

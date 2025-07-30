@@ -649,4 +649,3 @@ class BenchmarkResultStorage:
         """Close the storage connection."""
         # SQLite connections are automatically closed when connection objects are garbage collected
         # This method is provided for interface consistency
-        pass

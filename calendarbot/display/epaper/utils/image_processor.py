@@ -1,7 +1,6 @@
 """Image processor class for e-Paper display image handling."""
 
 import logging
-from typing import Any, Optional
 
 from PIL import Image
 
