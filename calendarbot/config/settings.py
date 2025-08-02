@@ -351,31 +351,6 @@ class CalendarBotSettings(BaseSettings):
         default_factory=EpaperConfiguration, description="Core e-Paper display configuration"
     )
 
-    # Legacy E-Paper fields (maintained for backward compatibility)
-    force_epaper: Optional[bool] = Field(
-        default=None, description="Legacy: Use epaper.force_epaper instead"
-    )
-    epaper_display_model: Optional[str] = Field(
-        default=None, description="Legacy: Use epaper.display_model instead"
-    )
-    epaper_rotation: Optional[int] = Field(
-        default=None, description="Legacy: Use epaper.rotation instead"
-    )
-    epaper_partial_refresh: Optional[bool] = Field(
-        default=None, description="Legacy: Use epaper.partial_refresh instead"
-    )
-    epaper_refresh_interval: Optional[int] = Field(
-        default=None, description="Legacy: Use epaper.refresh_interval instead"
-    )
-    epaper_contrast_level: Optional[int] = Field(
-        default=None, description="Legacy: Use epaper.contrast_level instead"
-    )
-    epaper_dither_mode: Optional[str] = Field(
-        default=None, description="Legacy: Use epaper.dither_mode instead"
-    )
-    epaper_error_fallback: Optional[bool] = Field(
-        default=None, description="Legacy: Use epaper.error_fallback instead"
-    )
 
     # Raspberry Pi E-ink Display Settings
     rpi_enabled: bool = Field(default=False, description="Enable Raspberry Pi e-ink mode")
@@ -508,11 +483,6 @@ class CalendarBotSettings(BaseSettings):
         project_config = project_root / "config" / "config.yaml"
         if project_config.exists():
             return project_config
-
-        # Check legacy location (relative to this file)
-        legacy_config = Path(__file__).parent / "config.yaml"
-        if legacy_config.exists():
-            return legacy_config
 
         # Fall back to user home directory
         user_config = self.config_dir / "config.yaml"
@@ -717,21 +687,6 @@ class CalendarBotSettings(BaseSettings):
             if setting in epaper_config:
                 setattr(self.epaper, setting, epaper_config[setting])
 
-        # Backward compatibility: set legacy fields
-        legacy_mappings = {
-            "force_epaper": "force_epaper",
-            "display_model": "epaper_display_model",
-            "rotation": "epaper_rotation",
-            "partial_refresh": "epaper_partial_refresh",
-            "refresh_interval": "epaper_refresh_interval",
-            "contrast_level": "epaper_contrast_level",
-            "dither_mode": "epaper_dither_mode",
-            "error_fallback": "epaper_error_fallback"
-        }
-
-        for config_key, legacy_field in legacy_mappings.items():
-            if config_key in epaper_config:
-                setattr(self, legacy_field, epaper_config[config_key])
 
     def _load_network_settings(self, config_data: dict) -> None:
         """Load network and retry settings from YAML data."""
@@ -769,25 +724,6 @@ class CalendarBotSettings(BaseSettings):
             # Don't fail if YAML loading fails, just continue with defaults/env vars
             logging.warning(f"Could not load YAML config from {config_file}: {e}")
 
-    def _migrate_legacy_epaper_fields(self) -> None:
-        """Migrate legacy epaper fields to new structured configuration for backward compatibility."""
-        # Map legacy fields to new epaper configuration structure
-        if self.force_epaper is not None:
-            self.epaper.force_epaper = self.force_epaper
-        if self.epaper_display_model is not None:
-            self.epaper.display_model = self.epaper_display_model
-        if self.epaper_rotation is not None:
-            self.epaper.rotation = self.epaper_rotation
-        if self.epaper_partial_refresh is not None:
-            self.epaper.partial_refresh = self.epaper_partial_refresh
-        if self.epaper_refresh_interval is not None:
-            self.epaper.refresh_interval = self.epaper_refresh_interval
-        if self.epaper_contrast_level is not None:
-            self.epaper.contrast_level = self.epaper_contrast_level
-        if self.epaper_dither_mode is not None:
-            self.epaper.dither_mode = self.epaper_dither_mode
-        if self.epaper_error_fallback is not None:
-            self.epaper.error_fallback = self.epaper_error_fallback
 
     @property
     def database_file(self) -> Path:

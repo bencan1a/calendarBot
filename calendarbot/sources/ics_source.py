@@ -124,6 +124,9 @@ class ICSSourceHandler:
                 # Handle 304 Not Modified
                 if response.is_not_modified:
                     logger.debug("Got 304 Not Modified, returning empty list")
+                    # Record success with 0 events
+                    response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+                    self._record_success(response_time, 0)
                     # Return empty list - caller should use cached events
                     return []
 

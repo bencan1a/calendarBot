@@ -45,10 +45,10 @@ def view_runtime_tracking_data(hours: int = 24) -> None:
     cursor = conn.execute(
         """
         SELECT benchmark_name, category, timestamp, metadata, mean_value
-        FROM benchmark_results 
-        WHERE metadata LIKE '%resource_stats%' 
+        FROM benchmark_results
+        WHERE metadata LIKE '%resource_stats%'
         AND timestamp > ?
-        ORDER BY timestamp DESC 
+        ORDER BY timestamp DESC
         LIMIT 50
     """,
         [cutoff],
@@ -66,7 +66,7 @@ def view_runtime_tracking_data(hours: int = 24) -> None:
     print(f"📊 Found {len(entries)} runtime tracking entries:")
     print()
 
-    for name, category, timestamp, metadata_json, mean_value in entries:
+    for name, category, timestamp, metadata_json, _mean_value in entries:
         try:
             # Parse timestamp for readable format
             dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
@@ -171,8 +171,8 @@ def list_all_categories() -> None:
     # Get all categories with counts
     cursor = conn.execute("""
         SELECT category, COUNT(*) as count
-        FROM benchmark_results 
-        GROUP BY category 
+        FROM benchmark_results
+        GROUP BY category
         ORDER BY count DESC
     """)
 
@@ -194,9 +194,9 @@ def list_all_categories() -> None:
 
     cursor = conn.execute("""
         SELECT category, COUNT(*) as count
-        FROM benchmark_results 
+        FROM benchmark_results
         WHERE metadata LIKE '%resource_stats%'
-        GROUP BY category 
+        GROUP BY category
         ORDER BY count DESC
     """)
 

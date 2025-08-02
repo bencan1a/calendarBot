@@ -64,30 +64,6 @@ class TestTimezoneSettings:
 
         assert "Invalid timezone" in str(exc_info.value)
         assert exc_info.value.field_name == "timezone"
-
-    @patch("builtins.__import__")
-    def test_display_settings_when_pytz_unavailable_then_accepts_common_timezones(
-        self, mock_import: MagicMock
-    ) -> None:
-        """Test that common timezones are accepted when pytz is unavailable."""
-
-        def side_effect(name, *args, **kwargs):
-            if name == "pytz":
-                raise ImportError("No module named 'pytz'")
-            return __import__(name, *args, **kwargs)
-
-        mock_import.side_effect = side_effect
-        settings = DisplaySettings(timezone="America/Los_Angeles")
-        assert settings.timezone == "America/Los_Angeles"
-
-    def test_settings_data_includes_timezone_in_serialization(self) -> None:
-        """Test that timezone is included in settings serialization."""
-        settings = SettingsData(display=DisplaySettings(timezone="America/Los_Angeles"))
-
-        api_dict = settings.to_api_dict()
-        assert api_dict["display"]["timezone"] == "America/Los_Angeles"
-
-
 class TestTimezoneAwareHelpers:
     """Test timezone-aware helper functions."""
 

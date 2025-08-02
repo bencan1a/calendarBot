@@ -9,6 +9,7 @@ import asyncio
 import json
 from datetime import date
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import Mock, mock_open, patch
 
 import pytest
@@ -536,6 +537,7 @@ class TestWebServer:
         settings.web_port = 8080
         settings.web_layout = "4x8"
         settings.auto_kill_existing = True
+        settings.config_dir = Path("/tmp/test_config")
         return settings
 
     @pytest.fixture
@@ -1186,6 +1188,7 @@ class TestWebServerErrorHandling:
         settings.web_port = 8080
         settings.web_layout = "4x8"
         settings.auto_kill_existing = True
+        settings.config_dir = Path("/tmp/test_config")
         return settings
 
     @pytest.fixture
@@ -1226,6 +1229,7 @@ class TestWebServerErrorHandling:
     def test_missing_settings_attributes(self):
         """Test WebServer initialization with missing settings attributes."""
         incomplete_settings = Mock()
+        incomplete_settings.config_dir = Path("/tmp/test_config")
         # Missing required attributes
         del incomplete_settings.web_host
 
@@ -1276,6 +1280,7 @@ class TestWebServerIntegrationScenarios:
         settings.web_port = 8080
         settings.web_layout = "4x8"
         settings.auto_kill_existing = True
+        settings.config_dir = Path("/tmp/test_config")
         return settings
 
     @pytest.fixture

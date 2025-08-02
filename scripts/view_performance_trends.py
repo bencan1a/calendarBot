@@ -60,7 +60,7 @@ def view_performance_trends(days: int = 7, category: str = "performance_monitori
         benchmark_results.sort(key=lambda x: x.timestamp, reverse=True)
 
         # Show recent results
-        for i, result in enumerate(benchmark_results[:5]):
+        for _i, result in enumerate(benchmark_results[:5]):
             timestamp = result.timestamp.strftime("%m-%d %H:%M")
 
             # Extract metrics
@@ -122,7 +122,7 @@ def get_performance_summary() -> None:
     # Calculate summary stats
     total_runs = len(results)
     successful_runs = sum(1 for r in results if r.status == BenchmarkStatus.COMPLETED)
-    unique_benchmarks = len(set(r.benchmark_name for r in results))
+    unique_benchmarks = len({r.benchmark_name for r in results})
 
     # Date range
     timestamps = [r.timestamp for r in results]
