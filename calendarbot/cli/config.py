@@ -30,7 +30,7 @@ def check_configuration() -> "tuple[bool, Optional[Path]]":
 
         # Check if essential settings are available via environment variables
         try:
-            from calendarbot.config.settings import CalendarBotSettings
+            from calendarbot.config.settings import CalendarBotSettings  # noqa: PLC0415
 
             settings = CalendarBotSettings()
             if settings.ics_url:
@@ -81,7 +81,7 @@ def backup_configuration() -> int:
         Exit code (0 for success, 1 for failure)
     """
     try:
-        import shutil
+        import shutil  # noqa: PLC0415
 
         # Find current config file
         is_configured, config_path = check_configuration()
@@ -119,7 +119,7 @@ def restore_configuration(backup_file: str) -> int:
         Exit code (0 for success, 1 for failure)
     """
     try:
-        import shutil
+        import shutil  # noqa: PLC0415
 
         backup_path = Path(backup_file)
         if not backup_path.exists():
@@ -196,6 +196,97 @@ def list_backups() -> int:
         return 1
 
 
+def _apply_renderer_and_layout(settings: Any, args: Any, logger: logging.Logger) -> None:
+    if getattr(args, "renderer", None):
+        settings.display_type = args.renderer
+        logger.debug(f"Set display_type={settings.display_type} from --renderer")
+    if getattr(args, "layout", None):
+        settings.web_layout = args.layout
+        logger.debug(f"Set web_layout={settings.web_layout} from --layout")
+    if getattr(args, "display_type", None):
+        settings.web_layout = args.display_type
+        logger.debug(
+            f"Set web_layout={settings.web_layout} from --display-type (backward compatibility)"
+        )
+
+def _apply_rpi_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
+    if getattr(args, "rpi", False):
+        logger.info(f"RPI mode enabled, auto_layout={getattr(settings, 'rpi_auto_layout', True)}")
+        settings.rpi_enabled = True
+        settings.display_type = "compact"
+        logger.debug(f"Set display_type={settings.display_type} for RPI mode")
+        if getattr(args, "rpi_width", None):
+            settings.rpi_display_width = args.rpi_width
+        if getattr(args, "rpi_height", None):
+            settings.rpi_display_height = args.rpi_height
+        if getattr(args, "rpi_refresh_mode", None):
+            settings.rpi_refresh_mode = args.rpi_refresh_mode
+        if getattr(settings, "rpi_auto_layout", True) and not getattr(args, "layout", None):
+            current_layout = getattr(settings, "web_layout", "NOT_SET")
+            settings.web_layout = "3x4"
+            if hasattr(settings, "layout_name"):
+                settings.layout_name = "3x4"
+            logger.info(f"Applied RPI layout override: {current_layout} -> {settings.web_layout}")
+
+def _apply_compact_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
+    if getattr(args, "compact", False):
+        logger.info("Compact mode enabled")
+        settings.display_type = "compact"
+        logger.debug(f"Set display_type={settings.display_type} for compact mode")
+        if getattr(args, "compact_width", None):
+            settings.compact_display_width = args.compact_width
+        if getattr(args, "compact_height", None):
+            settings.compact_display_height = args.compact_height
+        if not getattr(args, "layout", None):
+            current_layout = getattr(settings, "web_layout", "NOT_SET")
+            settings.web_layout = "3x4"
+            logger.info(
+                f"Applied compact layout override: {current_layout} -> {settings.web_layout}"
+            )
+
+def _apply_epaper_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
+    if getattr(args, "epaper", False):
+        logger.info("E-Paper mode enabled")
+        settings.epaper.enabled = True
+        settings.display_type = "eink-whats-next"
+        logger.debug(f"Set display_type={settings.display_type} for epaper mode")
+        epaper_fields = [
+            ("epaper_model", "display_model"),
+            ("epaper_width", "width"),
+            ("epaper_height", "height"),
+            ("epaper_rotation", "rotation"),
+            ("epaper_refresh_interval", "refresh_interval"),
+            ("epaper_partial_refresh", "partial_refresh"),
+            ("epaper_contrast", "contrast_level"),
+            ("epaper_dither", "dither_mode"),
+            ("epaper_png_fallback", "png_fallback_enabled"),
+            ("epaper_png_output", "png_output_path"),
+            ("epaper_force", "force_epaper"),
+        ]
+        for arg_name, attr_name in epaper_fields:
+            value = getattr(args, arg_name, None)
+            if value is not None:
+                setattr(settings.epaper, attr_name, value)
+        # Also set legacy fields for backward compatibility
+        legacy_map = {
+            "epaper_force": "force_epaper",
+            "epaper_model": "epaper_display_model",
+            "epaper_rotation": "epaper_rotation",
+            "epaper_refresh_interval": "epaper_refresh_interval",
+            "epaper_partial_refresh": "epaper_partial_refresh",
+            "epaper_contrast": "epaper_contrast_level",
+            "epaper_dither": "epaper_dither_mode",
+        }
+        for arg_name, legacy_attr in legacy_map.items():
+            value = getattr(args, arg_name, None)
+            if value is not None:
+                setattr(settings, legacy_attr, value)
+        logger.info(
+            f"E-Paper configuration applied: model={getattr(settings.epaper, 'display_model', None)}, "
+            f"dimensions={getattr(settings.epaper, 'width', None)}x{getattr(settings.epaper, 'height', None)}, "
+            f"rotation={getattr(settings.epaper, 'rotation', None)}°"
+        )
+
 def apply_cli_overrides(settings: Any, args: Any) -> Any:
     """Apply command-line overrides to settings with proper layout/renderer separation.
 
@@ -207,130 +298,10 @@ def apply_cli_overrides(settings: Any, args: Any) -> Any:
         Updated settings object
     """
     logger = logging.getLogger("calendarbot.cli.config")
-
-    # Handle explicit renderer argument
-    if hasattr(args, "renderer") and args.renderer:
-        settings.display_type = args.renderer
-        logger.debug(f"Set display_type={settings.display_type} from --renderer")
-
-    # Handle explicit layout argument
-    if hasattr(args, "layout") and args.layout:
-        settings.web_layout = args.layout
-        logger.debug(f"Set web_layout={settings.web_layout} from --layout")
-
-    # Handle backward compatibility display-type argument
-    if hasattr(args, "display_type") and args.display_type:
-        # For backward compatibility, treat display_type as layout
-        settings.web_layout = args.display_type
-        logger.debug(
-            f"Set web_layout={settings.web_layout} from --display-type (backward compatibility)"
-        )
-
-    # Handle RPI mode
-    if hasattr(args, "rpi") and args.rpi:
-        logger.info(f"RPI mode enabled, auto_layout={getattr(settings, 'rpi_auto_layout', True)}")
-
-        # Enable RPI mode
-        settings.rpi_enabled = True
-        settings.display_type = "compact"
-        logger.debug(f"Set display_type={settings.display_type} for RPI mode")
-
-        # Apply RPI-specific settings
-        if hasattr(args, "rpi_width") and args.rpi_width:
-            settings.rpi_display_width = args.rpi_width
-        if hasattr(args, "rpi_height") and args.rpi_height:
-            settings.rpi_display_height = args.rpi_height
-        if hasattr(args, "rpi_refresh_mode") and args.rpi_refresh_mode:
-            settings.rpi_refresh_mode = args.rpi_refresh_mode
-
-        # Auto-optimize layout for RPI (unless explicitly set)
-        if getattr(settings, "rpi_auto_layout", True) and not (
-            hasattr(args, "layout") and args.layout
-        ):
-            current_layout = getattr(settings, "web_layout", "NOT_SET")
-            settings.web_layout = "3x4"
-            # Also update layout_name for consistency
-            if hasattr(settings, "layout_name"):
-                settings.layout_name = "3x4"
-            logger.info(f"Applied RPI layout override: {current_layout} -> {settings.web_layout}")
-
-    # Handle compact mode
-    if hasattr(args, "compact") and args.compact:
-        logger.info("Compact mode enabled")
-
-        # Enable compact mode
-        settings.display_type = "compact"
-        logger.debug(f"Set display_type={settings.display_type} for compact mode")
-
-        # Apply compact-specific settings
-        if hasattr(args, "compact_width") and args.compact_width:
-            settings.compact_display_width = args.compact_width
-        if hasattr(args, "compact_height") and args.compact_height:
-            settings.compact_display_height = args.compact_height
-
-        # Auto-optimize layout for compact display (unless explicitly set)
-        if not (hasattr(args, "layout") and args.layout):
-            current_layout = getattr(settings, "web_layout", "NOT_SET")
-            settings.web_layout = "3x4"
-            logger.info(
-                f"Applied compact layout override: {current_layout} -> {settings.web_layout}"
-            )
-
-    # Handle epaper mode
-    if hasattr(args, "epaper") and args.epaper:
-        logger.info("E-Paper mode enabled")
-
-        # Enable epaper mode
-        settings.epaper.enabled = True
-        settings.display_type = "eink-whats-next"
-        logger.debug(f"Set display_type={settings.display_type} for epaper mode")
-
-        # Apply epaper-specific settings from CLI arguments
-        if hasattr(args, "epaper_model") and args.epaper_model:
-            settings.epaper.display_model = args.epaper_model
-        if hasattr(args, "epaper_width") and args.epaper_width:
-            settings.epaper.width = args.epaper_width
-        if hasattr(args, "epaper_height") and args.epaper_height:
-            settings.epaper.height = args.epaper_height
-        if hasattr(args, "epaper_rotation") and args.epaper_rotation:
-            settings.epaper.rotation = args.epaper_rotation
-        if hasattr(args, "epaper_refresh_interval") and args.epaper_refresh_interval:
-            settings.epaper.refresh_interval = args.epaper_refresh_interval
-        if hasattr(args, "epaper_partial_refresh") and args.epaper_partial_refresh is not None:
-            settings.epaper.partial_refresh = args.epaper_partial_refresh
-        if hasattr(args, "epaper_contrast") and args.epaper_contrast:
-            settings.epaper.contrast_level = args.epaper_contrast
-        if hasattr(args, "epaper_dither") and args.epaper_dither:
-            settings.epaper.dither_mode = args.epaper_dither
-        if hasattr(args, "epaper_png_fallback") and args.epaper_png_fallback is not None:
-            settings.epaper.png_fallback_enabled = args.epaper_png_fallback
-        if hasattr(args, "epaper_png_output") and args.epaper_png_output:
-            settings.epaper.png_output_path = args.epaper_png_output
-        if hasattr(args, "epaper_force") and args.epaper_force:
-            settings.epaper.force_epaper = args.epaper_force
-
-        # Also set legacy fields for backward compatibility
-        if hasattr(args, "epaper_force") and args.epaper_force:
-            settings.force_epaper = args.epaper_force
-        if hasattr(args, "epaper_model") and args.epaper_model:
-            settings.epaper_display_model = args.epaper_model
-        if hasattr(args, "epaper_rotation") and args.epaper_rotation:
-            settings.epaper_rotation = args.epaper_rotation
-        if hasattr(args, "epaper_refresh_interval") and args.epaper_refresh_interval:
-            settings.epaper_refresh_interval = args.epaper_refresh_interval
-        if hasattr(args, "epaper_partial_refresh") and args.epaper_partial_refresh is not None:
-            settings.epaper_partial_refresh = args.epaper_partial_refresh
-        if hasattr(args, "epaper_contrast") and args.epaper_contrast:
-            settings.epaper_contrast_level = args.epaper_contrast
-        if hasattr(args, "epaper_dither") and args.epaper_dither:
-            settings.epaper_dither_mode = args.epaper_dither
-
-        logger.info(
-            f"E-Paper configuration applied: model={settings.epaper.display_model}, "
-            f"dimensions={settings.epaper.width}x{settings.epaper.height}, "
-            f"rotation={settings.epaper.rotation}°"
-        )
-
+    _apply_renderer_and_layout(settings, args, logger)
+    _apply_rpi_mode(settings, args, logger)
+    _apply_compact_mode(settings, args, logger)
+    _apply_epaper_mode(settings, args, logger)
     return settings
 
 

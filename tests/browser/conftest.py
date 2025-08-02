@@ -6,8 +6,9 @@ This configuration prevents hanging tests and ensures proper cleanup.
 import asyncio
 import os
 import signal
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import AsyncGenerator, Optional
+from typing import Optional
 
 import psutil
 import pytest

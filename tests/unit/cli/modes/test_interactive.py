@@ -175,69 +175,6 @@ class TestRunInteractiveMode:
             mock_print.assert_called_with("Interactive mode error: Controller creation failed")
 
 
-class TestSetupInteractiveLogging:
-    """Test the setup_interactive_logging function."""
-
-    def test_setup_interactive_logging_with_display_manager(self):
-        """Test setup_interactive_logging with display manager."""
-        mock_settings = MagicMock()
-        mock_display_manager = MagicMock()
-
-        with patch("builtins.print") as mock_print:
-            result = interactive.setup_interactive_logging(mock_settings, mock_display_manager)
-
-            assert result is None
-            mock_print.assert_called_once_with(
-                "Interactive logging setup placeholder - will be migrated from root main.py"
-            )
-
-    def test_setup_interactive_logging_without_display_manager(self):
-        """Test setup_interactive_logging without display manager."""
-        mock_settings = MagicMock()
-
-        with patch("builtins.print") as mock_print:
-            result = interactive.setup_interactive_logging(mock_settings)
-
-            assert result is None
-            mock_print.assert_called_once_with(
-                "Interactive logging setup placeholder - will be migrated from root main.py"
-            )
-
-    def test_setup_interactive_logging_with_none_arguments(self):
-        """Test setup_interactive_logging with None arguments."""
-        with patch("builtins.print") as mock_print:
-            result = interactive.setup_interactive_logging(None, None)
-
-            assert result is None
-            mock_print.assert_called_once()
-
-
-class TestCreateInteractiveController:
-    """Test the create_interactive_controller function."""
-
-    def test_create_interactive_controller_with_managers(self):
-        """Test create_interactive_controller with cache and display managers."""
-        mock_cache_manager = MagicMock()
-        mock_display_manager = MagicMock()
-
-        with patch("builtins.print") as mock_print:
-            result = interactive.create_interactive_controller(
-                mock_cache_manager, mock_display_manager
-            )
-
-            assert result is None
-            mock_print.assert_called_once_with(
-                "Interactive controller creation placeholder - will be migrated from root main.py"
-            )
-
-    def test_create_interactive_controller_with_none_arguments(self):
-        """Test create_interactive_controller with None arguments."""
-        with patch("builtins.print") as mock_print:
-            result = interactive.create_interactive_controller(None, None)
-
-            assert result is None
-            mock_print.assert_called_once()
-
 
 class TestInteractiveModeModuleExports:
     """Test interactive module's __all__ exports."""
@@ -245,9 +182,7 @@ class TestInteractiveModeModuleExports:
     def test_module_exports(self):
         """Test that all expected functions are exported."""
         expected_exports = [
-            "run_interactive_mode",
-            "setup_interactive_logging",
-            "create_interactive_controller",
+            "run_interactive_mode"
         ]
 
         assert hasattr(interactive, "__all__")

@@ -5,7 +5,6 @@ for first-time configuration of Calendar Bot.
 """
 
 
-
 async def run_setup_wizard() -> int:
     """Run the configuration setup wizard.
 
@@ -14,7 +13,10 @@ async def run_setup_wizard() -> int:
     """
     try:
         # Import the comprehensive setup wizard
-        from calendarbot.setup_wizard import run_setup_wizard as run_async_wizard, run_simple_wizard
+        from calendarbot.setup_wizard import (  # noqa: PLC0415
+            run_setup_wizard as run_async_wizard,
+            run_simple_wizard,
+        )
 
         # Check if user wants full wizard or simple wizard
         print("\n" + "=" * 60)
@@ -56,7 +58,7 @@ async def run_async_setup_wizard() -> int:
     """
     try:
         # Import async wizard from existing module
-        from calendarbot.setup_wizard import run_setup_wizard as run_async_wizard
+        from calendarbot.setup_wizard import run_setup_wizard as run_async_wizard  # noqa: PLC0415
 
         # Placeholder for async wizard execution
         print("Async setup wizard placeholder - will be integrated in Phase 2")
@@ -82,7 +84,7 @@ def run_simple_setup_wizard() -> int:
     """
     try:
         # Import simple wizard from existing module
-        from calendarbot.setup_wizard import run_simple_wizard
+        from calendarbot.setup_wizard import run_simple_wizard  # noqa: PLC0415
 
         # Placeholder for simple wizard execution
         print("Simple setup wizard placeholder - will be integrated in Phase 2")

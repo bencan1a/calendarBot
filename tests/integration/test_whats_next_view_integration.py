@@ -6,18 +6,16 @@ with all CalendarBot components including layout discovery, web server,
 API endpoints, DisplayManager, and real data workflows.
 """
 
-import json
 import logging
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from typing import Any
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from calendarbot.layout.exceptions import LayoutNotFoundError, LayoutValidationError
-from calendarbot.layout.registry import LayoutInfo, LayoutRegistry
+from calendarbot.layout.registry import LayoutRegistry
 from calendarbot.web.server import WebServer
 
 logger = logging.getLogger(__name__)
@@ -467,7 +465,7 @@ class TestWhatsNextViewErrorHandling:
 
 
 # Integration test runner function
-def run_whats_next_view_integration_tests() -> Dict[str, Any]:
+def run_whats_next_view_integration_tests() -> dict[str, Any]:
     """
     Run all whats-next-view integration tests and return results.
 

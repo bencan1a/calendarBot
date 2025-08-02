@@ -1,0 +1,10 @@
+/* Good CSS file for testing */
+.good-style {
+    color: blue;
+    background: #e8f4fd;
+}
+
+.success-test {
+    border: 1px solid blue;
+    padding: 3px;
+}

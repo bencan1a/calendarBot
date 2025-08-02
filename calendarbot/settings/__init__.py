@@ -30,20 +30,17 @@ from .persistence import SettingsPersistence
 from .service import SettingsService
 
 __all__ = [
-    # Data Models
-    "FilterPattern",
-    "EventFilterSettings",
     "ConflictResolutionSettings",
     "DisplaySettings",
-    "SettingsMetadata",
+    "EventFilterSettings",
+    "FilterPattern",
     "SettingsData",
-    # Core Services
-    "SettingsService",
-    "SettingsPersistence",
-    # Exceptions
     "SettingsError",
-    "SettingsValidationError",
+    "SettingsMetadata",
+    "SettingsPersistence",
     "SettingsPersistenceError",
+    "SettingsService",
+    "SettingsValidationError",
 ]
 
 __version__ = "1.0.0"

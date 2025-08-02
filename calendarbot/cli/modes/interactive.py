@@ -6,41 +6,14 @@ during Phase 2 of the architectural refactoring.
 """
 
 import asyncio
-from typing import Any, Optional
+import contextlib
+from typing import Any
 
 from ..runtime_integration import (
     create_runtime_tracker,
     start_runtime_tracking,
     stop_runtime_tracking,
 )
-
-
-def setup_interactive_logging(settings: Any, display_manager: Optional[Any] = None) -> None:
-    """Set up interactive logging configuration.
-
-    This is a placeholder function that will be migrated from root main.py
-    during Phase 2 of the architectural refactoring.
-
-    Args:
-        settings: Settings configuration object
-        display_manager: Optional display manager for split display logging
-    """
-    print("Interactive logging setup placeholder - will be migrated from root main.py")
-
-
-def create_interactive_controller(
-    cache_manager: Optional[Any], display_manager: Optional[Any]
-) -> None:
-    """Create interactive controller for navigation.
-
-    This is a placeholder function that will be migrated from root main.py
-    during Phase 2 of the architectural refactoring.
-
-    Args:
-        cache_manager: Cache manager instance for data access
-        display_manager: Display manager instance for rendering
-    """
-    print("Interactive controller creation placeholder - will be migrated from root main.py")
 
 
 async def run_interactive_mode(args: Any) -> int:
@@ -53,12 +26,15 @@ async def run_interactive_mode(args: Any) -> int:
         Exit code (0 for success, 1 for failure)
     """
     try:
-        from calendarbot.config.settings import settings
-        from calendarbot.main import CalendarBot
-        from calendarbot.ui import InteractiveController
-        from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
+        from calendarbot.config.settings import settings  # noqa: PLC0415
+        from calendarbot.main import CalendarBot  # noqa: PLC0415
+        from calendarbot.ui import InteractiveController  # noqa: PLC0415
+        from calendarbot.utils.logging import (  # noqa: PLC0415
+            apply_command_line_overrides,
+            setup_enhanced_logging,
+        )
 
-        from ..config import apply_cli_overrides
+        from ..config import apply_cli_overrides  # noqa: PLC0415
 
         # Apply command-line logging overrides with priority system
         updated_settings = apply_command_line_overrides(settings, args)
@@ -110,10 +86,8 @@ async def run_interactive_mode(args: Any) -> int:
 
             # Stop background fetching
             fetch_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await fetch_task
-            except asyncio.CancelledError:
-                pass
 
             # Cleanup
             await app.cleanup()
@@ -128,8 +102,4 @@ async def run_interactive_mode(args: Any) -> int:
         return 1
 
 
-__all__ = [
-    "run_interactive_mode",
-    "setup_interactive_logging",
-    "create_interactive_controller",
-]
+__all__ = ["run_interactive_mode"]

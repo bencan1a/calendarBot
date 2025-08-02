@@ -7,16 +7,9 @@ navigation, layout switching, and async event handling.
 
 import asyncio
 import json
-import mimetypes
-import tempfile
-import threading
-import time
-from datetime import date, datetime, timedelta
-from http.server import HTTPServer
+from datetime import date
 from io import BytesIO
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, call, mock_open, patch
-from urllib.parse import parse_qs, urlparse
+from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
@@ -60,7 +53,8 @@ class TestWebRequestHandler:
                 handler.security_logger = mock_security_logger.return_value
                 handler.client_address = mock_client_address
                 handler.path = "/"
-                handler.headers = {}
+                from email.message import Message
+                handler.headers = Message()
                 handler.rfile = BytesIO()
                 handler.wfile = Mock()
 
@@ -427,20 +421,27 @@ class TestWebRequestHandler:
             )
             mock_full_path.exists.return_value = True
             mock_full_path.is_file.return_value = True
+            
+            # Fix: Configure mock_full_path.open to return a proper context manager
+            mock_file = Mock()
+            mock_file.__enter__ = Mock(return_value=mock_file)
+            mock_file.__exit__ = Mock(return_value=None)
+            mock_file.read = Mock(return_value=test_content)
+            mock_full_path.open = Mock(return_value=mock_file)
+            
             mock_static_dir.__truediv__ = Mock(return_value=mock_full_path)
 
             # Return the mock file path when Path(__file__) is called
             mock_path_class.return_value = mock_file_path
 
-            with patch("builtins.open", mock_open(read_data=test_content)):
-                with patch("mimetypes.guess_type", return_value=("text/css", None)):
-                    request_handler._serve_static_file("/static/test.css")
+            with patch("mimetypes.guess_type", return_value=("text/css", None)):
+                request_handler._serve_static_file("/static/test.css")
 
-                    # Check that the correct HTTP response was sent
-                    request_handler.send_response.assert_called_once_with(200)
-                    request_handler.send_header.assert_any_call("Content-Type", "text/css")
-                    request_handler.send_header.assert_any_call("Cache-Control", "no-cache")
-                    request_handler.wfile.write.assert_called_once_with(test_content)
+                # Check that the correct HTTP response was sent
+                request_handler.send_response.assert_called_once_with(200)
+                request_handler.send_header.assert_any_call("Content-Type", "text/css")
+                request_handler.send_header.assert_any_call("Cache-Control", "no-cache")
+                request_handler.wfile.write.assert_called_once_with(test_content)
 
     def test_serve_static_file_not_found(self, request_handler):
         """Test static file serving for non-existent file - expects error handling."""
@@ -515,7 +516,7 @@ class TestWebRequestHandler:
         request_handler.send_response.assert_called_once_with(500)
         request_handler.send_header.assert_any_call("Content-Type", "text/plain")
         written_data = request_handler.wfile.write.call_args[0][0]
-        assert b"500 Internal Server Error: Database connection failed" == written_data
+        assert written_data == b"500 Internal Server Error: Database connection failed"
 
     def test_log_message(self, request_handler):
         """Test HTTP message logging."""

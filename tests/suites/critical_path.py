@@ -10,12 +10,10 @@ Target: <5 minutes execution time on standard CI hardware
 Focus: Core functionality, security essentials, basic integration
 """
 
-import os
 import sys
-import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Add project root to path for imports
 project_root = Path(__file__).parent.parent.parent
@@ -27,8 +25,8 @@ class TestCategory:
     """Configuration for a test category."""
 
     name: str
-    paths: List[str]
-    markers: List[str]
+    paths: list[str]
+    markers: list[str]
     max_duration: float  # seconds
     parallel: bool = True
     priority: int = 1  # 1=highest, 5=lowest
@@ -50,12 +48,12 @@ class CriticalPathSuite:
         TestCategory(
             name="core_unit_tests",
             paths=[
-                "tests/unit/test_ics_fetcher.py::TestICSFetcher::test_basic_fetch",
-                "tests/unit/test_ics_fetcher.py::TestICSFetcher::test_ssrf_protection",
-                "tests/unit/test_cache_manager.py::TestCacheManager::test_cache_events_success",
-                "tests/unit/test_cache_manager.py::TestCacheManager::test_retrieve_cached_events",
-                "tests/unit/test_source_manager.py::TestSourceManager::test_initialize_success",
-                "tests/unit/test_web_server.py::TestWebServer::test_server_start_stop",
+                "tests/unit/ics/test_ics_fetcher.py::TestICSFetcher::test_basic_fetch",
+                "tests/unit/ics/test_ics_fetcher.py::TestICSFetcher::test_ssrf_protection",
+                "tests/unit/cache/test_cache_manager.py::TestCacheManager::test_cache_events_success",
+                "tests/unit/cache/test_cache_manager.py::TestCacheManager::test_retrieve_cached_events",
+                "tests/unit/sources/test_source_manager.py::TestSourceManager::test_initialize_success",
+                "tests/unit/web/test_web_server.py::TestWebServer::test_server_start_stop",
                 "tests/unit/test_calendar_bot.py::TestCalendarBot::test_initialize_success",
             ],
             markers=["unit", "critical_path"],
@@ -65,8 +63,8 @@ class CriticalPathSuite:
         TestCategory(
             name="security_essentials",
             paths=[
-                "tests/unit/test_ics_fetcher.py::TestSSRFProtection",
-                "tests/unit/test_web_server.py::TestSecurityValidation",
+                "tests/unit/ics/test_ics_fetcher.py::TestSSRFProtection",
+                "tests/unit/web/test_web_server.py::TestSecurityValidation",
             ],
             markers=["security", "critical_path"],
             max_duration=30,  # 30 seconds
@@ -75,10 +73,10 @@ class CriticalPathSuite:
         TestCategory(
             name="api_endpoints",
             paths=[
-                "tests/unit/test_web_server.py::TestAPIEndpoints::test_status_endpoint",
-                "tests/unit/test_web_server.py::TestAPIEndpoints::test_navigate_endpoint",
-                "tests/unit/test_web_server.py::TestAPIEndpoints::test_layout_endpoint",
-                "tests/unit/test_web_server.py::TestAPIEndpoints::test_refresh_endpoint",
+                "tests/unit/web/test_web_server.py::TestAPIEndpoints::test_status_endpoint",
+                "tests/unit/web/test_web_server.py::TestAPIEndpoints::test_navigate_endpoint",
+                "tests/unit/web/test_web_server.py::TestAPIEndpoints::test_layout_endpoint",
+                "tests/unit/web/test_web_server.py::TestAPIEndpoints::test_refresh_endpoint",
             ],
             markers=["unit", "critical_path"],
             max_duration=45,  # 45 seconds
@@ -131,7 +129,7 @@ class CriticalPathSuite:
     EXCLUDED_PATTERNS = ["**/*_large_dataset*", "**/*_stress_test*", "**/*_load_test*"]
 
     @classmethod
-    def get_pytest_args(cls, parallel: bool = True, verbose: bool = True) -> List[str]:
+    def get_pytest_args(cls, parallel: bool = True, verbose: bool = True) -> list[str]:
         """
         Generate pytest arguments for critical path execution.
 
@@ -192,7 +190,7 @@ class CriticalPathSuite:
         return f"({include_expr}) and not ({exclude_expr})"
 
     @classmethod
-    def get_execution_plan(cls) -> Dict[str, Any]:
+    def get_execution_plan(cls) -> dict[str, Any]:
         """
         Get detailed execution plan for the critical path suite.
 
@@ -228,7 +226,7 @@ class CriticalPathSuite:
         }
 
     @classmethod
-    def validate_execution_time(cls, actual_duration: float) -> Dict[str, Any]:
+    def validate_execution_time(cls, actual_duration: float) -> dict[str, Any]:
         """
         Validate that execution time meets critical path requirements.
 
@@ -261,12 +259,11 @@ class CriticalPathSuite:
 
         if overage_percent < 20:
             return f"Slightly over target by {overage:.1f}s. Consider removing slowest tests."
-        elif overage_percent < 50:
+        if overage_percent < 50:
             return f"Significantly over target by {overage:.1f}s. Review test selection and optimize slow tests."
-        else:
-            return (
-                f"Critically over target by {overage:.1f}s. Major test suite restructuring needed."
-            )
+        return (
+            f"Critically over target by {overage:.1f}s. Major test suite restructuring needed."
+        )
 
 
 def main():

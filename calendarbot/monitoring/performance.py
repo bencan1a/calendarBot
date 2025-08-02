@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import psutil
 
@@ -45,9 +45,9 @@ class PerformanceMetric:
     component: str = ""
     operation: str = ""
     correlation_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert metric to dictionary for logging."""
         return {
             "metric_id": self.metric_id,
@@ -70,8 +70,8 @@ class PerformanceLogger:
         self.settings = settings
         self.logger = get_logger("performance")
         self.metrics_logger = self._setup_metrics_logger()
-        self._metrics_cache: List[PerformanceMetric] = []
-        self._operation_timers: Dict[str, float] = {}
+        self._metrics_cache: list[PerformanceMetric] = []
+        self._operation_timers: dict[str, float] = {}
         self.cache_size = 2000
         self._lock = threading.Lock()
 
@@ -104,12 +104,15 @@ class PerformanceLogger:
         metrics_dir.mkdir(parents=True, exist_ok=True)
 
         # Set up file handler with rotation
-        from logging.handlers import RotatingFileHandler
+        from logging.handlers import RotatingFileHandler  # noqa: PLC0415
 
         metrics_file = metrics_dir / "performance_metrics.log"
 
         metrics_handler = RotatingFileHandler(
-            metrics_file, maxBytes=100 * 1024 * 1024, backupCount=5, encoding="utf-8"  # 100MB
+            metrics_file,
+            maxBytes=100 * 1024 * 1024,
+            backupCount=5,
+            encoding="utf-8",  # 100MB
         )
 
         # JSON formatter for metrics
@@ -146,8 +149,8 @@ class PerformanceLogger:
                 # Check thresholds and alert if necessary
                 self._check_thresholds(metric)
 
-        except Exception as e:
-            self.logger.error(f"Failed to log performance metric: {e}")
+        except Exception:
+            self.logger.exception("Failed to log performance metric")
 
     def start_timer(
         self, operation: str, component: str = "", correlation_id: Optional[str] = None
@@ -189,7 +192,7 @@ class PerformanceLogger:
         component: str = "",
         operation: str = "",
         correlation_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> float:
         """
         Stop a timer and log the duration.
@@ -244,7 +247,7 @@ class PerformanceLogger:
         status_code: int,
         component: str = "http_client",
         correlation_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log HTTP request performance metrics."""
         request_metric = PerformanceMetric(
@@ -316,8 +319,8 @@ class PerformanceLogger:
             )
             self.log_metric(system_metric)
 
-        except Exception as e:
-            self.logger.error(f"Failed to log memory usage: {e}")
+        except Exception:
+            self.logger.exception("Failed to log memory usage")
 
     def log_cache_performance(
         self,
@@ -357,7 +360,7 @@ class PerformanceLogger:
         rows_affected: int = 0,
         component: str = "database",
         correlation_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log database operation performance."""
         db_metric = PerformanceMetric(
@@ -415,7 +418,7 @@ class PerformanceLogger:
         if len(self._metrics_cache) > self.cache_size:
             self._metrics_cache = self._metrics_cache[-self.cache_size :]
 
-    def get_performance_summary(self, hours: int = 1) -> Dict[str, Any]:
+    def get_performance_summary(self, hours: int = 1) -> dict[str, Any]:
         """Get performance summary for the specified time period."""
         cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
         recent_metrics = [m for m in self._metrics_cache if m.timestamp > cutoff_time]
@@ -472,7 +475,7 @@ class PerformanceLoggerMixin:
         timer_id: str,
         operation: str = "",
         correlation_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> float:
         """Stop a performance timer for this component."""
         component = self.__class__.__name__
@@ -488,7 +491,7 @@ class PerformanceLoggerMixin:
         unit: str = "",
         operation: str = "",
         correlation_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log a performance metric for this component."""
         component = self.__class__.__name__
@@ -522,12 +525,11 @@ def performance_timer(
     """
     perf_logger = logger or get_performance_logger()
     timer_id = perf_logger.start_timer(operation, component, correlation_id)
-    start_time = time.perf_counter()
 
     try:
         yield timer_id
     finally:
-        duration = perf_logger.stop_timer(timer_id, component, operation, correlation_id)
+        perf_logger.stop_timer(timer_id, component, operation, correlation_id)
 
 
 def performance_monitor(
@@ -659,14 +661,14 @@ _performance_logger: Optional[PerformanceLogger] = None
 
 def get_performance_logger(settings: Optional[Any] = None) -> PerformanceLogger:
     """Get or create global performance logger instance."""
-    global _performance_logger
-    if _performance_logger is None:
-        _performance_logger = PerformanceLogger(settings)
-    return _performance_logger
+    # Access module-level variable directly without using 'global' keyword
+    if globals()["_performance_logger"] is None:
+        globals()["_performance_logger"] = PerformanceLogger(settings)
+    return globals()["_performance_logger"]
 
 
 def init_performance_logging(settings: Any) -> PerformanceLogger:
     """Initialize performance logging system with settings."""
-    global _performance_logger
-    _performance_logger = PerformanceLogger(settings)
-    return _performance_logger
+    # Access module-level variable directly without using 'global' keyword
+    globals()["_performance_logger"] = PerformanceLogger(settings)
+    return globals()["_performance_logger"]

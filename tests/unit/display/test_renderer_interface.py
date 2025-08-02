@@ -1,8 +1,7 @@
 """Tests for RendererInterface and related components."""
 
 from datetime import datetime
-from typing import Any, Dict, Optional
-from unittest.mock import MagicMock
+from typing import Any, Optional
 
 import pytest
 
@@ -13,7 +12,7 @@ from calendarbot.display.whats_next_data_model import EventData, StatusInfo, Wha
 class MockInteractionEvent:
     """Mock implementation of InteractionEvent protocol for testing."""
 
-    def __init__(self, event_type: str, data: Optional[Dict[str, Any]] = None):
+    def __init__(self, event_type: str, data: Optional[dict[str, Any]] = None):
         self.event_type = event_type
         self.data = data or {}
 
@@ -237,7 +236,7 @@ class TestRendererInterfaceIntegration:
                 self.rendered_events = []
                 self.rendered_status = None
 
-            def render(self, view_model: WhatsNextViewModel) -> Dict[str, Any]:
+            def render(self, view_model: WhatsNextViewModel) -> dict[str, Any]:
                 self.rendered_events = view_model.next_events + view_model.current_events
                 self.rendered_status = view_model.status_info
 

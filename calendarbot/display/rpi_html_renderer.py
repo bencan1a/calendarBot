@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ..cache.models import CachedEvent
 from .html_renderer import HTMLRenderer
@@ -43,7 +43,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         events_content: str,
         nav_help: str,
         interactive_mode: bool,
-        status_info: Optional[Dict[str, Any]] = None,
+        status_info: Optional[dict[str, Any]] = None,
     ) -> str:
         """Build the complete HTML template optimized for RPI e-ink display.
 
@@ -174,7 +174,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
 
         return f'<div class="status-line">{status_line}</div>'
 
-    def _render_events_content(self, events: List[CachedEvent], interactive_mode: bool) -> str:
+    def _render_events_content(self, events: list[CachedEvent], interactive_mode: bool) -> str:
         """Render events content optimized for RPI e-ink display with Phase 3 information architecture.
 
         Args:
@@ -223,7 +223,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         </div>
         """
 
-    def _render_current_events_section_rpi(self, current_events: List[CachedEvent]) -> str:
+    def _render_current_events_section_rpi(self, current_events: list[CachedEvent]) -> str:
         """Render current events section with Phase 3 information architecture.
 
         Args:
@@ -244,7 +244,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         section_parts.append("</section>")
         return "\n".join(section_parts)
 
-    def _render_next_up_events_section_rpi(self, next_up_events: List[CachedEvent]) -> str:
+    def _render_next_up_events_section_rpi(self, next_up_events: list[CachedEvent]) -> str:
         """Render Next Up events section with Phase 3 information architecture.
 
         Args:
@@ -259,13 +259,12 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         ]
 
         # Show next 3 events for RPI layout with Phase 3 structure
-        for event in next_up_events:
-            section_parts.append(self._format_upcoming_event_rpi(event))
+        section_parts.extend([self._format_upcoming_event_rpi(event) for event in next_up_events])
 
         section_parts.append("</section>")
         return "\n".join(section_parts)
 
-    def _render_later_today_section_rpi(self, later_events: List[CachedEvent]) -> str:
+    def _render_later_today_section_rpi(self, later_events: list[CachedEvent]) -> str:
         """Render Later Today section with Phase 3 compact list format.
 
         Args:
@@ -281,8 +280,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         ]
 
         # Show up to 5 later events in compact format with Phase 3 structure
-        for event in later_events[:5]:
-            section_parts.append(self._format_later_event_rpi(event))
+        section_parts.extend([self._format_later_event_rpi(event) for event in later_events[:5]])
 
         section_parts.extend(["</ul>", "</section>"])
         return "\n".join(section_parts)
@@ -422,7 +420,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             HTML for time remaining with Phase 3 enhanced styling
         """
         try:
-            from ..utils.helpers import get_timezone_aware_now
+            from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
 
             now = get_timezone_aware_now()
             time_left = (event.end_dt - now).total_seconds() / 60
@@ -513,7 +511,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         """
 
     def _render_error_html(
-        self, error_message: str, cached_events: Optional[List[CachedEvent]] = None
+        self, error_message: str, cached_events: Optional[list[CachedEvent]] = None
     ) -> str:
         """Render error HTML content for RPI display.
 
@@ -545,7 +543,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
             <section class="cached-data">
                 <h2>📱 Showing Cached Data</h2>
                 <ul class="cached-events-list">
-                    {''.join(cached_items)}
+                    {"".join(cached_items)}
                 </ul>
             </section>
             """
@@ -565,7 +563,7 @@ class RaspberryPiHTMLRenderer(HTMLRenderer):
         <header class="calendar-header">
             <div class="nav-controls"></div>
             <div class="header-main">
-                <h1 class="calendar-title">📅 Calendar - {datetime.now().strftime('%A, %B %d')}</h1>
+                <h1 class="calendar-title">📅 Calendar - {datetime.now().strftime("%A, %B %d")}</h1>
             </div>
             <div class="layout-controls"></div>
         </header>

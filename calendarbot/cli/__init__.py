@@ -32,54 +32,55 @@ async def main_entry() -> int:
     parser = create_parser()
     args = parser.parse_args()
 
+    result = None
+
     # Handle setup wizard
     if hasattr(args, "setup") and args.setup:
-        return await run_setup_wizard()
-
+        result = await run_setup_wizard()
     # Handle backup operations
-    if hasattr(args, "backup") and args.backup:
-        return backup_configuration()
-
-    if hasattr(args, "restore") and args.restore:
-        return restore_configuration(args.restore)
-
-    if hasattr(args, "list_backups") and args.list_backups:
-        return list_backups()
-
-    # Validate mutually exclusive modes BEFORE executing any mode
-    mode_count = sum(
-        [
-            getattr(args, "test_mode", False),
-            getattr(args, "interactive", False),
-            getattr(args, "web", False),
-            getattr(args, "epaper", False),
-        ]
-    )
-    if mode_count > 1:
-        parser.error(
-            "Only one mode can be specified: --test-mode, --interactive, --web, or --epaper"
+    elif hasattr(args, "backup") and args.backup:
+        result = backup_configuration()
+    elif hasattr(args, "restore") and args.restore:
+        result = restore_configuration(args.restore)
+    elif hasattr(args, "list_backups") and args.list_backups:
+        result = list_backups()
+    else:
+        # Validate mutually exclusive modes BEFORE executing any mode
+        mode_count = sum(
+            [
+                getattr(args, "test_mode", False),
+                getattr(args, "interactive", False),
+                getattr(args, "web", False),
+                getattr(args, "epaper", False),
+            ]
         )
+        if mode_count > 1:
+            parser.error(
+                "Only one mode can be specified: --test-mode, --interactive, --web, or --epaper"
+            )
 
-    # Handle test mode - can run even without configuration
-    if hasattr(args, "test_mode") and args.test_mode:
-        return await run_test_mode(args)
+        # Handle test mode - can run even without configuration
+        if hasattr(args, "test_mode") and args.test_mode:
+            result = await run_test_mode(args)
+        else:
+            # Check if configuration exists
+            is_configured, config_path = check_configuration()
 
-    # Check if configuration exists
-    is_configured, config_path = check_configuration()
+            # If not configured and not running setup or test, show guidance
+            if not is_configured:
+                show_setup_guidance()
+                print("\n💡 Tip: Run 'calendarbot --setup' to get started quickly!\n")
+                result = 1
+            # Run in specified mode
+            if hasattr(args, "interactive") and args.interactive:
+                result = await run_interactive_mode(args)
+            elif hasattr(args, "epaper") and args.epaper:
+                result = await run_epaper_mode(args)
+            else:
+                # Default to web mode when no other mode is specified
+                result = await run_web_mode(args)
 
-    # If not configured and not running setup or test, show guidance
-    if not is_configured:
-        show_setup_guidance()
-        print("\n💡 Tip: Run 'calendarbot --setup' to get started quickly!\n")
-        return 1
-
-    # Run in specified mode
-    if hasattr(args, "interactive") and args.interactive:
-        return await run_interactive_mode(args)
-    if hasattr(args, "epaper") and args.epaper:
-        return await run_epaper_mode(args)
-    # Default to web mode when no other mode is specified
-    return await run_web_mode(args)
+    return result
 
 
 __all__ = [

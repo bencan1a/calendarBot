@@ -9,7 +9,7 @@ Color Consistency:
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from PIL import Image, ImageDraw, ImageFont
 from PIL.ImageFont import FreeTypeFont, ImageFont as BuiltinFont
@@ -63,10 +63,10 @@ else:
                 return {}
 
         # Type aliases for fallback
-        InteractionEvent = Dict[str, Any]
-        WhatsNextViewModel = Dict[str, Any]
-        EventData = Dict[str, Any]
-        CachedEvent = Dict[str, Any]
+        InteractionEvent = dict[str, Any]
+        WhatsNextViewModel = dict[str, Any]
+        EventData = dict[str, Any]
+        CachedEvent = dict[str, Any]
 
 # Import e-Paper components
 from ..abstraction import DisplayAbstractionLayer
@@ -145,7 +145,7 @@ class EInkWhatsNextRenderer(RendererInterface):
             return image
 
         except Exception as e:
-            logger.error(f"Error rendering e-Paper view: {e}")
+            logger.exception("Error rendering e-Paper view")
             return self._render_error_image(f"Rendering error: {e}")
 
     def handle_interaction(self, interaction: InteractionEvent) -> None:
@@ -198,12 +198,12 @@ class EInkWhatsNextRenderer(RendererInterface):
 
             return success
 
-        except Exception as e:
-            logger.error(f"Error updating e-Paper display: {e}")
+        except Exception:
+            logger.exception("Error updating e-Paper display")
             return False
 
     def render_from_events(
-        self, events: List[CachedEvent], status_info: Optional[Dict[str, Any]] = None
+        self, events: list[CachedEvent], status_info: Optional[dict[str, Any]] = None
     ) -> Image.Image:
         """Convenience method to render from cached events.
 
@@ -220,13 +220,13 @@ class EInkWhatsNextRenderer(RendererInterface):
         # Render using the view model
         return self.render(view_model)
 
-    def _load_fonts(self) -> Dict[str, Union[FreeTypeFont, BuiltinFont]]:
+    def _load_fonts(self) -> dict[str, Union[FreeTypeFont, BuiltinFont]]:
         """Load fonts optimized for e-Paper display.
 
         Returns:
             Dictionary of font configurations
         """
-        fonts: Dict[str, Union[FreeTypeFont, BuiltinFont]] = {}
+        fonts: dict[str, Union[FreeTypeFont, BuiltinFont]] = {}
 
         try:
             # Try to load system fonts, fall back to defaults
@@ -259,7 +259,7 @@ class EInkWhatsNextRenderer(RendererInterface):
     def _draw_rounded_rectangle(
         self,
         draw: ImageDraw.ImageDraw,
-        bbox: Tuple[int, int, int, int],
+        bbox: tuple[int, int, int, int],
         radius: int,
         fill_color: Any,
         outline_color: Optional[Any] = None,
@@ -302,7 +302,7 @@ class EInkWhatsNextRenderer(RendererInterface):
     def _draw_rounded_rectangle_outline(
         self,
         draw: ImageDraw.ImageDraw,
-        bbox: Tuple[int, int, int, int],
+        bbox: tuple[int, int, int, int],
         radius: int,
         outline_color: Any,
         width: int = 1,
@@ -606,7 +606,6 @@ class EInkWhatsNextRenderer(RendererInterface):
         content_padding = 20  # Increased from 16px to 20px for better internal spacing
         content_x = card_x + content_padding
         content_y = card_y + content_padding
-        content_width = card_width - 2 * content_padding
 
         # Event title - improved positioning and spacing
         title_color = convert_to_pil_color(self._colors["text_primary"], mode)
@@ -753,7 +752,7 @@ class EInkWhatsNextRenderer(RendererInterface):
         return image
 
     def render_error(
-        self, error_message: str, cached_events: Optional[List[CachedEvent]] = None
+        self, error_message: str, cached_events: Optional[list[CachedEvent]] = None
     ) -> Image.Image:
         """Render an error message with optional cached events for e-Paper display.
 
@@ -861,7 +860,7 @@ class EInkWhatsNextRenderer(RendererInterface):
             return image
 
         except Exception as e:
-            logger.error(f"Error rendering error image: {e}")
+            logger.exception("Error rendering error image")
             return self._render_error_image(f"Critical error: {e}")
 
     def render_authentication_prompt(self, verification_uri: str, user_code: str) -> Image.Image:
@@ -962,5 +961,5 @@ class EInkWhatsNextRenderer(RendererInterface):
             return image
 
         except Exception as e:
-            logger.error(f"Error rendering authentication prompt: {e}")
+            logger.exception("Error rendering authentication prompt")
             return self._render_error_image(f"Authentication prompt error: {e}")

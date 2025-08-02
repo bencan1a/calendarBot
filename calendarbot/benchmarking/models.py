@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 class BenchmarkStatus(Enum):
@@ -30,11 +30,11 @@ class BenchmarkMetadata:
     max_iterations: int = 10
     warmup_iterations: int = 1
     timeout_seconds: Optional[float] = None
-    tags: List[str] = field(default_factory=list)
-    prerequisites: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    prerequisites: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert metadata to dictionary for storage."""
         return {
             "benchmark_id": self.benchmark_id,
@@ -79,13 +79,13 @@ class BenchmarkResult:
     correlation_id: Optional[str] = None
 
     # Additional data
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     error_message: Optional[str] = None
 
     # Performance overhead tracking
     overhead_percentage: Optional[float] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert result to dictionary for storage."""
         return {
             "result_id": self.result_id,
@@ -139,13 +139,13 @@ class BenchmarkSuite:
     version: str = "1.0.0"
 
     # Suite configuration
-    benchmark_ids: List[str] = field(default_factory=list)
+    benchmark_ids: list[str] = field(default_factory=list)
     parallel_execution: bool = False
     stop_on_failure: bool = False
     max_execution_time_seconds: Optional[float] = None
 
     # Suite metadata
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str = ""
 
@@ -154,7 +154,7 @@ class BenchmarkSuite:
     last_run_timestamp: Optional[datetime] = None
     last_run_status: BenchmarkStatus = BenchmarkStatus.PENDING
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert suite to dictionary for storage."""
         return {
             "suite_id": self.suite_id,
@@ -201,7 +201,7 @@ class BenchmarkRun:
 
     # Run configuration
     suite_id: Optional[str] = None
-    benchmark_ids: List[str] = field(default_factory=list)
+    benchmark_ids: list[str] = field(default_factory=list)
     environment: str = "development"
     app_version: str = ""
 
@@ -222,10 +222,10 @@ class BenchmarkRun:
     total_overhead_percentage: Optional[float] = None
 
     # Additional context
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     error_message: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert run to dictionary for storage."""
         return {
             "run_id": self.run_id,
@@ -278,7 +278,7 @@ class BenchmarkRun:
         self.status = BenchmarkStatus.COMPLETED if success else BenchmarkStatus.FAILED
         self.completed_at = datetime.now(timezone.utc)
 
-    def update_statistics(self, results: List[BenchmarkResult]) -> None:
+    def update_statistics(self, results: list[BenchmarkResult]) -> None:
         """Update run statistics based on benchmark results."""
         self.total_benchmarks = len(results)
         self.completed_benchmarks = sum(1 for r in results if r.status == BenchmarkStatus.COMPLETED)

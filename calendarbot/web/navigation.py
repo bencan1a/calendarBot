@@ -2,7 +2,7 @@
 
 import logging
 from datetime import date
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from ..ui.navigation import NavigationState
 
@@ -21,7 +21,7 @@ class WebNavigationHandler:
         self.navigation_state = navigation_state or NavigationState()
 
         # Track navigation state for web interface
-        self._navigation_callbacks: List[Callable[[date, Dict[str, Any]], None]] = []
+        self._navigation_callbacks: list[Callable[[date, dict[str, Any]], None]] = []
 
         # Setup navigation state callbacks
         self.navigation_state.add_change_callback(self._on_navigation_changed)
@@ -59,8 +59,8 @@ class WebNavigationHandler:
 
             return True
 
-        except Exception as e:
-            logger.error(f"Error handling navigation action '{action}': {e}")
+        except Exception:
+            logger.exception(f"Error handling navigation action '{action}'")
             return False
 
     def jump_to_date(self, target_date: date) -> bool:
@@ -80,11 +80,11 @@ class WebNavigationHandler:
             logger.debug(f"Web navigation: jump to date - {old_date} → {new_date}")
             return True
 
-        except Exception as e:
-            logger.error(f"Error jumping to date {target_date}: {e}")
+        except Exception:
+            logger.exception(f"Error jumping to date {target_date}")
             return False
 
-    def get_navigation_info(self) -> Dict[str, Any]:
+    def get_navigation_info(self) -> dict[str, Any]:
         """Get current navigation information for web display.
 
         Returns:
@@ -103,7 +103,7 @@ class WebNavigationHandler:
                 "navigation_help": self._get_web_navigation_help(),
             }
         except Exception as e:
-            logger.error(f"Error getting navigation info: {e}")
+            logger.exception("Error getting navigation info")
             return {
                 "selected_date": "Error",
                 "selected_date_iso": date.today().isoformat(),
@@ -119,7 +119,7 @@ class WebNavigationHandler:
         """
         return "← → Navigate | Space: Today | Home/End: Week | R: Refresh | T: Theme"
 
-    def add_navigation_callback(self, callback: Callable[[date, Dict[str, Any]], None]) -> None:
+    def add_navigation_callback(self, callback: Callable[[date, dict[str, Any]], None]) -> None:
         """Add callback for navigation changes.
 
         Args:
@@ -128,7 +128,7 @@ class WebNavigationHandler:
         self._navigation_callbacks.append(callback)
         logger.debug("Added web navigation callback")
 
-    def remove_navigation_callback(self, callback: Callable[[date, Dict[str, Any]], None]) -> None:
+    def remove_navigation_callback(self, callback: Callable[[date, dict[str, Any]], None]) -> None:
         """Remove navigation callback.
 
         Args:
@@ -147,11 +147,17 @@ class WebNavigationHandler:
         logger.debug(f"Web navigation state changed to: {new_date}")
 
         # Notify web-specific callbacks
+        nav_info = self.get_navigation_info()
         for callback in self._navigation_callbacks:
-            try:
-                callback(new_date, self.get_navigation_info())
-            except Exception as e:
-                logger.error(f"Error in web navigation callback: {e}")
+            self._safe_callback_execution(callback, new_date, nav_info)
+
+    def _safe_callback_execution(self, callback: Callable[[date, dict[str, Any]], None],
+                                new_date: date, nav_info: dict[str, Any]) -> None:
+        """Safely execute callback without try-except in loop."""
+        try:
+            callback(new_date, nav_info)
+        except Exception:
+            logger.exception("Error in web navigation callback")
 
     @property
     def selected_date(self) -> date:

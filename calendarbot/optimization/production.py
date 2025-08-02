@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, DefaultDict, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from ..utils.logging import get_logger
 
@@ -65,20 +65,19 @@ class OptimizationRule:
             return False
 
         # Check message pattern
-        if self.message_pattern and not re.search(self.message_pattern, record.getMessage()):
-            return False
-
-        return True
+        return not (
+            self.message_pattern and not re.search(self.message_pattern, record.getMessage())
+        )
 
 
 class ProductionLogFilter(logging.Filter):
     """Advanced filter for production log optimization."""
 
-    def __init__(self, rules: List[OptimizationRule], settings: Optional[Any] = None):
+    def __init__(self, rules: list[OptimizationRule], settings: Optional[Any] = None):
         super().__init__()
         self.rules = sorted(rules, key=lambda r: r.priority, reverse=True)
         self.settings = settings
-        self.message_counts: Dict[str, int] = defaultdict(int)
+        self.message_counts: dict[str, int] = defaultdict(int)
         self.last_reset = datetime.now(timezone.utc)
         self.reset_interval = timedelta(minutes=5)
 
@@ -132,7 +131,7 @@ class ProductionLogFilter(logging.Filter):
 
         return True
 
-    def get_filter_stats(self) -> Dict[str, Any]:
+    def get_filter_stats(self) -> dict[str, Any]:
         """Get filtering statistics."""
         return {
             "total_processed": self.total_count,
@@ -149,9 +148,9 @@ class LogVolumeAnalyzer:
     def __init__(self, settings: Optional[Any] = None):
         self.settings = settings
         self.logger = get_logger("log_volume_analyzer")
-        self.analysis_cache: Dict[str, Any] = {}
+        self.analysis_cache: dict[str, Any] = {}
 
-    def analyze_log_files(self, log_dir: Union[str, Path], hours: int = 24) -> Dict[str, Any]:
+    def analyze_log_files(self, log_dir: Union[str, Path], hours: int = 24) -> dict[str, Any]:
         """
         Analyze log files for volume patterns and optimization opportunities.
 
@@ -168,7 +167,7 @@ class LogVolumeAnalyzer:
         if not log_dir.exists():
             return {"error": f"Log directory {log_dir} does not exist"}
 
-        analysis: Dict[str, Any] = {
+        analysis: dict[str, Any] = {
             "analysis_time": datetime.now(timezone.utc).isoformat(),
             "log_directory": str(log_dir),
             "time_range_hours": hours,
@@ -186,26 +185,33 @@ class LogVolumeAnalyzer:
         log_files = list(log_dir.glob("*.log"))
         analysis["total_files"] = len(log_files)
 
+        # Collect errors to handle after processing
+        failed_files = []
+
         for log_file in log_files:
-            try:
-                file_stats = self._analyze_file(log_file, cutoff_time)
-                analysis["total_lines"] += file_stats["lines"]
-                analysis["total_size_mb"] += file_stats["size_mb"]
+            file_stats = self._analyze_file(log_file, cutoff_time)
+            if file_stats is None:
+                failed_files.append(log_file)
+                continue
 
-                # Aggregate by level and logger
-                by_level_stats: DefaultDict[str, int] = file_stats["by_level"]
-                by_logger_stats: DefaultDict[str, int] = file_stats["by_logger"]
-                analysis_by_level: DefaultDict[str, int] = analysis["by_level"]
-                analysis_by_logger: DefaultDict[str, int] = analysis["by_logger"]
+            analysis["total_lines"] += file_stats["lines"]
+            analysis["total_size_mb"] += file_stats["size_mb"]
 
-                for level, count in by_level_stats.items():
-                    analysis_by_level[level] += count
+            # Aggregate by level and logger
+            by_level_stats: defaultdict[str, int] = file_stats["by_level"]
+            by_logger_stats: defaultdict[str, int] = file_stats["by_logger"]
+            analysis_by_level: defaultdict[str, int] = analysis["by_level"]
+            analysis_by_logger: defaultdict[str, int] = analysis["by_logger"]
 
-                for logger, count in by_logger_stats.items():
-                    analysis_by_logger[logger] += count
+            for level, count in by_level_stats.items():
+                analysis_by_level[level] += count
 
-            except Exception as e:
-                self.logger.warning(f"Failed to analyze {log_file}: {e}")
+            for logger, count in by_logger_stats.items():
+                analysis_by_logger[logger] += count
+
+        # Log failed files after processing
+        for failed_file in failed_files:
+            self.logger.warning(f"Failed to analyze {failed_file}")
 
         # Find frequent messages for rate limiting opportunities
         analysis["frequent_messages"] = self._find_frequent_messages(log_files, cutoff_time)
@@ -215,17 +221,17 @@ class LogVolumeAnalyzer:
 
         return analysis
 
-    def _analyze_file(self, log_file: Path, cutoff_time: datetime) -> Dict[str, Any]:
+    def _analyze_file(self, log_file: Path, cutoff_time: datetime) -> dict[str, Any] | None:
         """Analyze a single log file."""
-        stats: Dict[str, Any] = {
-            "lines": 0,
-            "size_mb": log_file.stat().st_size / 1024 / 1024,
-            "by_level": defaultdict(int),
-            "by_logger": defaultdict(int),
-        }
-
         try:
-            with open(log_file, encoding="utf-8", errors="ignore") as f:
+            stats: dict[str, Any] = {
+                "lines": 0,
+                "size_mb": log_file.stat().st_size / 1024 / 1024,
+                "by_level": defaultdict(int),
+                "by_logger": defaultdict(int),
+            }
+
+            with log_file.open(encoding="utf-8", errors="ignore") as f:
                 for line in f:
                     lines_count: int = stats["lines"]
                     stats["lines"] = lines_count + 1
@@ -233,7 +239,7 @@ class LogVolumeAnalyzer:
                     # Parse log line for level and logger
                     level_match = re.search(r" - (DEBUG|INFO|WARNING|ERROR|CRITICAL) - ", line)
                     if level_match:
-                        by_level_dict: DefaultDict[str, int] = stats["by_level"]
+                        by_level_dict: defaultdict[str, int] = stats["by_level"]
                         by_level_dict[level_match.group(1)] += 1
 
                     # Extract logger name
@@ -241,43 +247,36 @@ class LogVolumeAnalyzer:
                         r"(\w+(?:\.\w+)*) - (DEBUG|INFO|WARNING|ERROR|CRITICAL)", line
                     )
                     if logger_match:
-                        by_logger_dict: DefaultDict[str, int] = stats["by_logger"]
+                        by_logger_dict: defaultdict[str, int] = stats["by_logger"]
                         by_logger_dict[logger_match.group(1)] += 1
 
+            return stats
         except Exception as e:
             self.logger.warning(f"Error reading {log_file}: {e}")
-
-        return stats
+            return None
 
     def _find_frequent_messages(
-        self, log_files: List[Path], cutoff_time: datetime, limit: int = 10
-    ) -> List[Dict[str, Any]]:
+        self, log_files: list[Path], cutoff_time: datetime, limit: int = 10
+    ) -> list[dict[str, Any]]:
         """Find frequently occurring log messages."""
-        message_patterns: Dict[str, int] = defaultdict(int)
+        message_patterns: dict[str, int] = defaultdict(int)
+
+        # Collect errors for batch logging
+        failed_files = []
 
         for log_file in log_files:
-            try:
-                with open(log_file, encoding="utf-8", errors="ignore") as f:
-                    for line in f:
-                        # Extract message content
-                        message_match = re.search(
-                            r" - (DEBUG|INFO|WARNING|ERROR|CRITICAL) - (.+)$", line
-                        )
-                        if message_match:
-                            message = message_match.group(2).strip()
+            file_patterns = self._extract_message_patterns(log_file)
+            if file_patterns is None:
+                failed_files.append(log_file)
+                continue
 
-                            # Normalize message (replace numbers/IDs with placeholders)
-                            normalized = re.sub(r"\b\d+\b", "<NUM>", message)
-                            normalized = re.sub(
-                                r"\b[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\b",
-                                "<UUID>",
-                                normalized,
-                            )
+            # Merge patterns from this file
+            for pattern, count in file_patterns.items():
+                message_patterns[pattern] += count
 
-                            message_patterns[normalized] += 1
-
-            except Exception as e:
-                self.logger.warning(f"Error analyzing messages in {log_file}: {e}")
+        # Log all failures after processing
+        for failed_file in failed_files:
+            self.logger.warning(f"Error analyzing messages in {failed_file}")
 
         # Return top frequent messages
         frequent = sorted(message_patterns.items(), key=lambda x: x[1], reverse=True)[:limit]
@@ -291,13 +290,39 @@ class LogVolumeAnalyzer:
             for pattern, count in frequent
         ]
 
-    def _generate_recommendations(self, analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _extract_message_patterns(self, log_file: Path) -> dict[str, int] | None:
+        """Extract message patterns from a single log file."""
+        try:
+            patterns: dict[str, int] = defaultdict(int)
+            with log_file.open(encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    # Extract message content
+                    message_match = re.search(
+                        r" - (DEBUG|INFO|WARNING|ERROR|CRITICAL) - (.+)$", line
+                    )
+                    if message_match:
+                        message = message_match.group(2).strip()
+
+                        # Normalize message (replace numbers/IDs with placeholders)
+                        normalized = re.sub(r"\b\d+\b", "<NUM>", message)
+                        normalized = re.sub(
+                            r"\b[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\b",
+                            "<UUID>",
+                            normalized,
+                        )
+                        patterns[normalized] += 1
+            return dict(patterns)
+        except Exception as e:
+            self.logger.warning(f"Error extracting patterns from {log_file}: {e}")
+            return None
+
+    def _generate_recommendations(self, analysis: dict[str, Any]) -> list[dict[str, Any]]:
         """Generate optimization recommendations based on analysis."""
         recommendations = []
 
         # High-volume logger optimization
         total_lines = analysis["total_lines"]
-        by_logger: DefaultDict[str, int] = analysis["by_logger"]
+        by_logger: defaultdict[str, int] = analysis["by_logger"]
         for logger, count in by_logger.items():
             if count > total_lines * 0.1:  # Logger produces >10% of logs
                 recommendations.append(
@@ -313,7 +338,7 @@ class LogVolumeAnalyzer:
                 )
 
         # Debug level optimization
-        by_level: DefaultDict[str, int] = analysis["by_level"]
+        by_level: defaultdict[str, int] = analysis["by_level"]
         debug_count = by_level.get("DEBUG", 0)
         if debug_count > total_lines * 0.2:  # >20% debug logs
             recommendations.append(
@@ -328,19 +353,20 @@ class LogVolumeAnalyzer:
             )
 
         # Frequent message rate limiting
-        frequent_messages: List[Dict[str, Any]] = analysis["frequent_messages"]
-        for msg_info in frequent_messages[:3]:  # Top 3 frequent messages
-            if msg_info["count"] > 100:
-                recommendations.append(
-                    {
-                        "type": "frequency_limiting",
-                        "priority": "medium",
-                        "message_pattern": msg_info["pattern"],
-                        "current_count": msg_info["count"],
-                        "suggestion": f'Rate limit message: {msg_info["pattern"][:100]}...',
-                        "estimated_reduction": msg_info["estimated_reduction"],
-                    }
-                )
+        frequent_messages: list[dict[str, Any]] = analysis["frequent_messages"]
+        high_volume_messages = [
+            {
+                "type": "frequency_limiting",
+                "priority": "medium",
+                "message_pattern": msg_info["pattern"],
+                "current_count": msg_info["count"],
+                "suggestion": f"Rate limit message: {msg_info['pattern'][:100]}...",
+                "estimated_reduction": msg_info["estimated_reduction"],
+            }
+            for msg_info in frequent_messages[:3]  # Top 3 frequent messages
+            if msg_info["count"] > 100
+        ]
+        recommendations.extend(high_volume_messages)
 
         # Overall volume warning
         if analysis["total_size_mb"] > 1000:  # >1GB logs
@@ -363,7 +389,7 @@ class DebugStatementAnalyzer:
     def __init__(self) -> None:
         self.logger = get_logger("debug_analyzer")
 
-    def analyze_codebase(self, root_dir: Union[str, Path]) -> Dict[str, Any]:
+    def analyze_codebase(self, root_dir: Union[str, Path]) -> dict[str, Any]:
         """
         Analyze codebase for debug statements and optimization opportunities.
 
@@ -375,7 +401,7 @@ class DebugStatementAnalyzer:
         """
         root_dir = Path(root_dir)
 
-        analysis: Dict[str, Any] = {
+        analysis: dict[str, Any] = {
             "analysis_time": datetime.now(timezone.utc).isoformat(),
             "root_directory": str(root_dir),
             "total_files": 0,
@@ -391,38 +417,44 @@ class DebugStatementAnalyzer:
         analysis["python_files"] = len(python_files)
         analysis["total_files"] = len(list(root_dir.rglob("*")))
 
+        # Collect errors for batch processing
+        failed_files = []
+
         for py_file in python_files:
-            try:
-                file_analysis = self._analyze_python_file(py_file)
+            file_analysis = self._analyze_python_file(py_file)
+            if file_analysis is None:
+                failed_files.append(py_file)
+                continue
 
-                # Extend analysis lists with file results
-                print_statements: List[Dict[str, Any]] = analysis["print_statements"]
-                debug_logs: List[Dict[str, Any]] = analysis["debug_logs"]
-                todo_comments: List[Dict[str, Any]] = analysis["todo_comments"]
+            # Extend analysis lists with file results
+            print_statements: list[dict[str, Any]] = analysis["print_statements"]
+            debug_logs: list[dict[str, Any]] = analysis["debug_logs"]
+            todo_comments: list[dict[str, Any]] = analysis["todo_comments"]
 
-                print_statements.extend(file_analysis["print_statements"])
-                debug_logs.extend(file_analysis["debug_logs"])
-                todo_comments.extend(file_analysis["todo_comments"])
+            print_statements.extend(file_analysis["print_statements"])
+            debug_logs.extend(file_analysis["debug_logs"])
+            todo_comments.extend(file_analysis["todo_comments"])
 
-            except Exception as e:
-                self.logger.warning(f"Failed to analyze {py_file}: {e}")
+        # Log all failures after processing
+        for failed_file in failed_files:
+            self.logger.warning(f"Failed to analyze {failed_file}")
 
         # Generate optimization suggestions
         analysis["optimization_suggestions"] = self._generate_code_suggestions(analysis)
 
         return analysis
 
-    def _analyze_python_file(self, file_path: Path) -> Dict[str, Any]:
+    def _analyze_python_file(self, file_path: Path) -> dict[str, Any] | None:
         """Analyze a single Python file for debug statements."""
-        file_analysis: Dict[str, Any] = {
-            "file": str(file_path),
-            "print_statements": [],
-            "debug_logs": [],
-            "todo_comments": [],
-        }
-
         try:
-            with open(file_path, encoding="utf-8", errors="ignore") as f:
+            file_analysis: dict[str, Any] = {
+                "file": str(file_path),
+                "print_statements": [],
+                "debug_logs": [],
+                "todo_comments": [],
+            }
+
+            with file_path.open(encoding="utf-8", errors="ignore") as f:
                 content = f.read()
                 lines = content.splitlines()
 
@@ -431,7 +463,7 @@ class DebugStatementAnalyzer:
                 tree = ast.parse(content)
                 print_finder = PrintStatementFinder(file_path)
                 print_finder.visit(tree)
-                print_statements_list: List[Dict[str, Any]] = file_analysis["print_statements"]
+                print_statements_list: list[dict[str, Any]] = file_analysis["print_statements"]
                 print_statements_list.clear()
                 print_statements_list.extend(print_finder.print_statements)
             except SyntaxError:
@@ -442,7 +474,7 @@ class DebugStatementAnalyzer:
             for line_num, line in enumerate(lines, 1):
                 # Debug log statements
                 if re.search(r"\.debug\s*\(|logging\.debug\s*\(|logger\.debug\s*\(", line):
-                    debug_logs_list: List[Dict[str, Any]] = file_analysis["debug_logs"]
+                    debug_logs_list: list[dict[str, Any]] = file_analysis["debug_logs"]
                     debug_logs_list.append(
                         {
                             "file": str(file_path),
@@ -455,7 +487,7 @@ class DebugStatementAnalyzer:
                 # TODO/FIXME comments
                 todo_match = re.search(r"#\s*(TODO|FIXME|HACK|XXX)(.*)$", line, re.IGNORECASE)
                 if todo_match:
-                    todo_comments_list: List[Dict[str, Any]] = file_analysis["todo_comments"]
+                    todo_comments_list: list[dict[str, Any]] = file_analysis["todo_comments"]
                     todo_comments_list.append(
                         {
                             "file": str(file_path),
@@ -466,18 +498,18 @@ class DebugStatementAnalyzer:
                         }
                     )
 
+            return file_analysis
         except Exception as e:
             self.logger.warning(f"Error analyzing {file_path}: {e}")
-
-        return file_analysis
+            return None
 
     def _find_prints_regex(
-        self, lines: List[str], file_path: Path, file_analysis: Dict[str, Any]
+        self, lines: list[str], file_path: Path, file_analysis: dict[str, Any]
     ) -> None:
         """Fallback regex-based print statement detection."""
         for line_num, line in enumerate(lines, 1):
             if re.search(r"\bprint\s*\(", line):
-                print_statements_list: List[Dict[str, Any]] = file_analysis["print_statements"]
+                print_statements_list: list[dict[str, Any]] = file_analysis["print_statements"]
                 print_statements_list.append(
                     {
                         "file": str(file_path),
@@ -487,12 +519,12 @@ class DebugStatementAnalyzer:
                     }
                 )
 
-    def _generate_code_suggestions(self, analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _generate_code_suggestions(self, analysis: dict[str, Any]) -> list[dict[str, Any]]:
         """Generate code optimization suggestions."""
         suggestions = []
 
         # Print statement suggestions
-        print_statements: List[Dict[str, Any]] = analysis["print_statements"]
+        print_statements: list[dict[str, Any]] = analysis["print_statements"]
         core_prints = [
             p
             for p in print_statements
@@ -506,12 +538,12 @@ class DebugStatementAnalyzer:
                     "priority": "medium",
                     "count": len(core_prints),
                     "suggestion": f"Replace {len(core_prints)} print() statements with proper logging",
-                    "files_affected": len(set(p["file"] for p in core_prints)),
+                    "files_affected": len({p["file"] for p in core_prints}),
                 }
             )
 
         # Debug log suggestions
-        debug_logs: List[Dict[str, Any]] = analysis["debug_logs"]
+        debug_logs: list[dict[str, Any]] = analysis["debug_logs"]
         if debug_logs:
             suggestions.append(
                 {
@@ -519,12 +551,12 @@ class DebugStatementAnalyzer:
                     "priority": "low",
                     "count": len(debug_logs),
                     "suggestion": f"Review {len(debug_logs)} debug log statements for production relevance",
-                    "files_affected": len(set(d["file"] for d in debug_logs)),
+                    "files_affected": len({d["file"] for d in debug_logs}),
                 }
             )
 
         # TODO comment suggestions
-        todo_comments: List[Dict[str, Any]] = analysis["todo_comments"]
+        todo_comments: list[dict[str, Any]] = analysis["todo_comments"]
         if todo_comments:
             suggestions.append(
                 {
@@ -532,7 +564,7 @@ class DebugStatementAnalyzer:
                     "priority": "low",
                     "count": len(todo_comments),
                     "suggestion": f"Address {len(todo_comments)} TODO/FIXME comments",
-                    "files_affected": len(set(t["file"] for t in todo_comments)),
+                    "files_affected": len({t["file"] for t in todo_comments}),
                 }
             )
 
@@ -544,7 +576,7 @@ class PrintStatementFinder(ast.NodeVisitor):
 
     def __init__(self, file_path: Path):
         self.file_path = file_path
-        self.print_statements: List[Dict[str, Any]] = []
+        self.print_statements: list[dict[str, Any]] = []
 
     def visit_Call(self, node: ast.Call) -> None:
         """Visit function calls to find print statements."""
@@ -570,7 +602,7 @@ class LoggingOptimizer:
     def __init__(self, settings: Optional[Any] = None):
         self.settings = settings
         self.logger = get_logger("logging_optimizer")
-        self.rules: List[OptimizationRule] = []
+        self.rules: list[OptimizationRule] = []
         self.volume_analyzer = LogVolumeAnalyzer(settings)
         self.debug_analyzer = DebugStatementAnalyzer()
 
@@ -628,7 +660,7 @@ class LoggingOptimizer:
         self.rules.append(rule)
         self.rules.sort(key=lambda r: r.priority, reverse=True)
 
-    def optimize_logging_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def optimize_logging_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """
         Optimize logging configuration for production use.
 
@@ -655,8 +687,12 @@ class LoggingOptimizer:
 
                     # Apply optimization rules
                     for rule in self.rules:
-                        if rule.logger_pattern and re.search(rule.logger_pattern, logger_name):
-                            if rule.target_level and current_level == "DEBUG":
+                        if (
+                            rule.logger_pattern
+                            and re.search(rule.logger_pattern, logger_name)
+                            and rule.target_level
+                            and current_level == "DEBUG"
+                        ):
                                 logger_config["level"] = logging.getLevelName(rule.target_level)
                                 self.logger.info(
                                     f"Optimized {logger_name} level: {current_level} -> {logger_config['level']}"
@@ -664,7 +700,7 @@ class LoggingOptimizer:
 
         # Add production filter to handlers
         if "handlers" in optimized_config:
-            for handler_name, handler_config in optimized_config["handlers"].items():
+            for handler_config in optimized_config["handlers"].values():
                 if "filters" not in handler_config:
                     handler_config["filters"] = []
 
@@ -685,7 +721,7 @@ class LoggingOptimizer:
 
     def analyze_and_optimize(
         self, log_dir: Union[str, Path], code_dir: Union[str, Path]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Perform comprehensive analysis and optimization.
 
@@ -696,7 +732,7 @@ class LoggingOptimizer:
         Returns:
             Comprehensive analysis and optimization results
         """
-        results: Dict[str, Any] = {
+        results: dict[str, Any] = {
             "optimization_time": datetime.now(timezone.utc).isoformat(),
             "log_analysis": {},
             "code_analysis": {},
@@ -713,9 +749,9 @@ class LoggingOptimizer:
         results["code_analysis"] = self.debug_analyzer.analyze_codebase(code_dir)
 
         # Generate comprehensive recommendations
-        all_recommendations: List[Dict[str, Any]] = []
-        log_analysis: Dict[str, Any] = results["log_analysis"]
-        code_analysis: Dict[str, Any] = results["code_analysis"]
+        all_recommendations: list[dict[str, Any]] = []
+        log_analysis: dict[str, Any] = results["log_analysis"]
+        code_analysis: dict[str, Any] = results["code_analysis"]
 
         log_opportunities = log_analysis.get("optimization_opportunities", [])
         code_suggestions = code_analysis.get("optimization_suggestions", [])
@@ -752,7 +788,7 @@ class LoggingOptimizer:
         return results
 
 
-def create_production_filter(rules: List[Dict[str, Any]]) -> ProductionLogFilter:
+def create_production_filter(rules: list[dict[str, Any]]) -> ProductionLogFilter:
     """Create a production log filter from rule configurations."""
     optimization_rules = []
 
@@ -770,8 +806,8 @@ def create_production_filter(rules: List[Dict[str, Any]]) -> ProductionLogFilter
 
 
 def optimize_logging_config(
-    config: Dict[str, Any], settings: Optional[Any] = None
-) -> Dict[str, Any]:
+    config: dict[str, Any], settings: Optional[Any] = None
+) -> dict[str, Any]:
     """Convenience function to optimize logging configuration."""
     optimizer = LoggingOptimizer(settings)
     return optimizer.optimize_logging_config(config)
@@ -779,7 +815,7 @@ def optimize_logging_config(
 
 def analyze_log_volume(
     log_dir: Union[str, Path], hours: int = 24, settings: Optional[Any] = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Convenience function to analyze log volume."""
     analyzer = LogVolumeAnalyzer(settings)
     return analyzer.analyze_log_files(log_dir, hours)

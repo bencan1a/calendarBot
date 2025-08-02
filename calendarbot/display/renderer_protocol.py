@@ -1,6 +1,6 @@
 """Renderer protocol interface for type consistency."""
 
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Optional, Protocol
 
 from ..cache.models import CachedEvent
 
@@ -9,7 +9,7 @@ class RendererProtocol(Protocol):
     """Protocol defining the interface that all renderers must implement."""
 
     def render_events(
-        self, events: List[CachedEvent], status_info: Optional[Dict[str, Any]] = None
+        self, events: list[CachedEvent], status_info: Optional[dict[str, Any]] = None
     ) -> str:
         """Render events to formatted output.
 
@@ -23,7 +23,7 @@ class RendererProtocol(Protocol):
         ...
 
     def render_error(
-        self, error_message: str, cached_events: Optional[List[CachedEvent]] = None
+        self, error_message: str, cached_events: Optional[list[CachedEvent]] = None
     ) -> str:
         """Render an error message with optional cached events.
 
@@ -76,7 +76,7 @@ class ConsoleRendererProtocol(RendererProtocol, Protocol):
         """Disable split display mode."""
         ...
 
-    def update_log_area(self, log_lines: List[str]) -> None:
+    def update_log_area(self, log_lines: list[str]) -> None:
         """Update the reserved log area with new log lines.
 
         Args:

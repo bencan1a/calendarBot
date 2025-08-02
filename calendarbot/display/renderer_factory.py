@@ -4,7 +4,7 @@ import logging
 import platform
 import subprocess
 from pathlib import Path
-from typing import Any, List, Optional, cast
+from typing import Any, Optional, cast
 
 from .compact_eink_renderer import CompactEInkRenderer
 from .console_renderer import ConsoleRenderer
@@ -17,12 +17,10 @@ logger = logging.getLogger(__name__)
 
 # Import e-Paper renderer with graceful fallback
 try:
-    from typing import Type
-
     from .epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer
 
     EPAPER_AVAILABLE = True
-    EInkWhatsNextRenderer_TYPE: Optional[Type[EInkWhatsNextRenderer]] = EInkWhatsNextRenderer
+    EInkWhatsNextRenderer_TYPE: Optional[type[EInkWhatsNextRenderer]] = EInkWhatsNextRenderer
 except ImportError:
     logger.info("calendarbot.display.epaper package not available - e-Paper rendering disabled")
     EInkWhatsNextRenderer_TYPE = None
@@ -70,8 +68,8 @@ class RendererFactory:
             logger.warning(f"Unknown device type: {system} {machine}")
             return "unknown"
 
-        except Exception as e:
-            logger.error(f"Device detection failed: {e}")
+        except Exception:
+            logger.exception("Device detection failed")
             return "unknown"
 
     @staticmethod
@@ -145,13 +143,13 @@ class RendererFactory:
             logger.info(f"Created {renderer.__class__.__name__} successfully")
             return renderer
 
-        except Exception as e:
-            logger.error(f"Renderer creation failed: {e}")
+        except Exception:
+            logger.exception("Renderer creation failed")
             logger.warning("Falling back to ConsoleRenderer")
             return ConsoleRenderer(actual_settings)
 
     @staticmethod
-    def get_available_renderers() -> List[str]:
+    def get_available_renderers() -> list[str]:
         """Get list of available renderer types.
 
         Returns:
@@ -163,11 +161,8 @@ class RendererFactory:
         return renderers
 
     @staticmethod
-    def get_recommended_renderer(settings: Any) -> str:
+    def get_recommended_renderer() -> str:
         """Get recommended renderer type for current device.
-
-        Args:
-            settings: Application settings (for context)
 
         Returns:
             Recommended renderer type string
@@ -227,7 +222,9 @@ def _has_compact_display() -> bool:
 
         # Check for SPI devices (common for e-ink displays)
         try:
-            result = subprocess.run(["ls", "/dev/spi*"], check=False, capture_output=True, text=True, timeout=5)
+            result = subprocess.run(
+                ["ls", "/dev/spi*"], check=False, capture_output=True, text=True, timeout=5
+            )
             if result.returncode == 0 and result.stdout.strip():
                 logger.debug("Found SPI devices, possible e-ink display")
                 return True

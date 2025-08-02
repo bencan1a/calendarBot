@@ -7,12 +7,10 @@ This is part of the architectural refactoring to establish proper CLI
 module structure within the calendarbot package.
 """
 
-import asyncio
-from collections.abc import Awaitable
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 # Mode registry for available execution modes
-MODE_REGISTRY: Dict[str, Dict[str, Any]] = {
+MODE_REGISTRY: dict[str, dict[str, Any]] = {
     "interactive": {
         "name": "Interactive Mode",
         "description": "Interactive console navigation with arrow key controls",
@@ -44,7 +42,7 @@ MODE_REGISTRY: Dict[str, Dict[str, Any]] = {
 }
 
 
-def get_available_modes() -> Dict[str, Dict[str, Any]]:
+def get_available_modes() -> dict[str, dict[str, Any]]:
     """Get all available execution modes.
 
     Returns:

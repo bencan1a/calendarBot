@@ -5,7 +5,7 @@ import os
 import signal
 import subprocess  # nosec B404
 import time
-from typing import List, Optional, Tuple
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class ProcessInfo:
         return f"PID {self.pid}: {self.command}"
 
 
-def find_calendarbot_processes() -> List[ProcessInfo]:
+def find_calendarbot_processes() -> list[ProcessInfo]:
     """Find all running calendarbot processes.
 
     Returns:
@@ -38,8 +38,13 @@ def find_calendarbot_processes() -> List[ProcessInfo]:
         for pattern in patterns:
             try:
                 # Get PIDs and command lines for matching processes
-                result = subprocess.run(  # nosec B607
-                    ["pgrep", "-af", pattern], check=False, capture_output=True, text=True, timeout=5
+                # The 'pattern' variable is a fixed string from a hardcoded list, not user input.
+                result = subprocess.run(
+                    ["pgrep", "-af", pattern],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
 
                 if result.returncode == 0:
@@ -69,15 +74,15 @@ def find_calendarbot_processes() -> List[ProcessInfo]:
                 # Pattern didn't match any processes, continue
                 continue
 
-    except Exception as e:
-        logger.error(f"Error finding calendarbot processes: {e}")
+    except Exception:
+        logger.exception("Error finding calendarbot processes")
 
     return processes
 
 
 def kill_calendarbot_processes(
     exclude_self: bool = True, timeout: float = 5.0
-) -> Tuple[int, List[str]]:
+) -> tuple[int, list[str]]:
     """Kill all running calendarbot processes.
 
     Args:
@@ -117,7 +122,7 @@ def kill_calendarbot_processes(
             errors.append(error_msg)
         except Exception as e:
             error_msg = f"Error killing process {process.pid}: {e}"
-            logger.error(error_msg)
+            logger.exception(error_msg)
             errors.append(error_msg)
 
     # Wait for processes to terminate gracefully
@@ -139,7 +144,7 @@ def kill_calendarbot_processes(
             killed_count += 1
         except Exception as e:
             error_msg = f"Error force-killing process {process.pid}: {e}"
-            logger.error(error_msg)
+            logger.exception(error_msg)
             errors.append(error_msg)
 
     # Final verification
@@ -166,7 +171,7 @@ def check_port_availability(host: str, port: int) -> bool:
     Returns:
         True if port is available, False if occupied
     """
-    import socket
+    import socket  # noqa: PLC0415
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -282,8 +287,8 @@ def auto_cleanup_before_start(host: str, port: int, force: bool = True) -> bool:
                     os.kill(port_process.pid, signal.SIGKILL)
                     time.sleep(1.0)
 
-            except Exception as e:
-                logger.error(f"Failed to kill process using port {port}: {e}")
+            except Exception:
+                logger.exception(f"Failed to kill process using port {port}")
                 return False
 
     # Final check

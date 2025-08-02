@@ -3,10 +3,10 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ..cache.models import CachedEvent
-from ..utils.helpers import secure_clear_screen
+from ..utils.helpers import get_timezone_aware_now, secure_clear_screen
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class ConsoleRenderer:
         """
         self.settings = settings
         self.width = 60  # Console display width
-        self.log_area_lines: List[str] = []  # Reserved log area for split display
+        self.log_area_lines: list[str] = []  # Reserved log area for split display
         self.log_area_enabled = False  # Enable split display mode
         self.layout: Optional[str] = getattr(
             settings, "layout_name", "default"
@@ -30,8 +30,8 @@ class ConsoleRenderer:
 
         logger.debug("Console renderer initialized")
 
-    def render_events(
-        self, events: List[CachedEvent], status_info: Optional[Dict[str, Any]] = None
+    def render_events(  # noqa: PLR0912, PLR0915
+        self, events: list[CachedEvent], status_info: Optional[dict[str, Any]] = None
     ) -> str:
         """Render events to formatted console output.
 
@@ -69,8 +69,8 @@ class ConsoleRenderer:
                         else:
                             update_time = status_info["last_update"]
                         status_parts.append(f"Updated: {update_time.strftime('%H:%M')}")
-                    except:
-                        pass
+                    except (ValueError, TypeError, AttributeError) as e:
+                        logger.debug(f"Failed to format update time: {e}")
 
                 if status_info.get("is_cached"):
                     status_parts.append("📱 Cached Data")
@@ -137,10 +137,10 @@ class ConsoleRenderer:
             return "\n".join(lines)
 
         except Exception as e:
-            logger.error(f"Failed to render events: {e}")
+            logger.exception("Failed to render events")
             return f"Error rendering calendar: {e}"
 
-    def _format_current_event(self, event: CachedEvent) -> List[str]:
+    def _format_current_event(self, event: CachedEvent) -> list[str]:
         """Format a current event for display.
 
         Args:
@@ -167,8 +167,6 @@ class ConsoleRenderer:
             lines.append(f"  📍 {location}")
 
         # Time remaining
-        from ..utils.helpers import get_timezone_aware_now
-
         now = get_timezone_aware_now()
         time_left = (event.end_dt - now).total_seconds() / 60
         if time_left > 0:
@@ -176,7 +174,7 @@ class ConsoleRenderer:
 
         return lines
 
-    def _format_upcoming_event(self, event: CachedEvent) -> List[str]:
+    def _format_upcoming_event(self, event: CachedEvent) -> list[str]:
         """Format an upcoming event for display.
 
         Args:
@@ -211,7 +209,7 @@ class ConsoleRenderer:
 
         return lines
 
-    def _render_navigation_help(self, status_info: Dict[str, Any]) -> str:
+    def _render_navigation_help(self, status_info: dict[str, Any]) -> str:
         """Render navigation help text for interactive mode.
 
         Args:
@@ -235,11 +233,9 @@ class ConsoleRenderer:
             if "End:" in custom_help:
                 help_parts.append("End: Week End")
 
-        help_text = " | ".join(help_parts)
-
         # Relative date info removed for cleaner display
 
-        return help_text
+        return " | ".join(help_parts)
 
     def _truncate_text(self, text: str, max_length: int) -> str:
         """Truncate text to fit within specified length.
@@ -257,7 +253,7 @@ class ConsoleRenderer:
         return text[: max_length - 3] + "..."
 
     def render_error(
-        self, error_message: str, cached_events: Optional[List[CachedEvent]] = None
+        self, error_message: str, cached_events: Optional[list[CachedEvent]] = None
     ) -> str:
         """Render an error message with optional cached events.
 
@@ -305,7 +301,7 @@ class ConsoleRenderer:
             return "\n".join(lines)
 
         except Exception as e:
-            logger.error(f"Failed to render error: {e}")
+            logger.exception("Failed to render error")
             return f"Critical error: {e}"
 
     def render_authentication_prompt(self, verification_uri: str, user_code: str) -> str:
@@ -375,7 +371,7 @@ class ConsoleRenderer:
         self.log_area_lines = []
         logger.debug("Split display mode disabled")
 
-    def update_log_area(self, log_lines: List[str]) -> None:
+    def update_log_area(self, log_lines: list[str]) -> None:
         """Update the reserved log area with new log lines.
 
         Args:
@@ -435,7 +431,7 @@ class ConsoleRenderer:
             for log_line in self.log_area_lines:
                 print(f"📝 {log_line}")
 
-    def get_log_area_status(self) -> Dict[str, Any]:
+    def get_log_area_status(self) -> dict[str, Any]:
         """Get current log area status information.
 
         Returns:

@@ -8,8 +8,7 @@ This module tests the main entry point functionality including:
 """
 
 import asyncio
-import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

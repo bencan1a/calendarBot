@@ -6,12 +6,13 @@ atomic file operations, backup/restore, schema migration, and comprehensive
 error handling. It integrates with CalendarBot's existing configuration system.
 """
 
+import contextlib
 import json
 import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from .exceptions import SettingsPersistenceError, SettingsSchemaError
 from .models import SettingsData
@@ -68,7 +69,7 @@ class SettingsPersistence:
                 operation="initialize",
                 file_path=str(config_dir),
                 original_error=e,
-            )
+            ) from e
 
         # Try to create backup directory, but don't fail if permissions are denied
         try:
@@ -184,7 +185,7 @@ class SettingsPersistence:
                 operation="save",
                 file_path=str(self.settings_file),
                 original_error=e,
-            )
+            ) from e
 
     def create_backup(self, backup_name: Optional[str] = None) -> Path:
         """Create a manual backup of current settings.
@@ -205,13 +206,17 @@ class SettingsPersistence:
                 file_path=str(self.backup_dir),
             )
 
-        try:
+        def _validate_settings_file_exists() -> None:
+            """Validate that settings file exists for backup."""
             if not self.settings_file.exists():
                 raise SettingsPersistenceError(
                     "Cannot create backup: no settings file exists",
                     operation="backup",
                     file_path=str(self.settings_file),
                 )
+
+        try:
+            _validate_settings_file_exists()
 
             backup_file = self._create_backup(backup_name)
             logger.info(f"Manual backup created: {backup_file}")
@@ -223,7 +228,7 @@ class SettingsPersistence:
                 operation="backup",
                 file_path=str(self.settings_file),
                 original_error=e,
-            )
+            ) from e
 
     def restore_from_backup(self, backup_file: Optional[Path] = None) -> SettingsData:
         """Restore settings from a backup file.
@@ -237,7 +242,8 @@ class SettingsPersistence:
         Raises:
             SettingsPersistenceError: If restore operation fails
         """
-        try:
+        def _validate_backup_file(backup_file: Optional[Path]) -> Path:
+            """Validate backup file availability and existence."""
             if backup_file is None:
                 backup_file = self._get_most_recent_backup()
                 if backup_file is None:
@@ -251,15 +257,24 @@ class SettingsPersistence:
                     operation="restore",
                     file_path=str(backup_file),
                 )
+            return backup_file
 
-            # Load settings from backup
-            settings_data = self._load_from_file(backup_file)
+        def _validate_backup_data(backup_file: Path, settings_data: Optional[SettingsData]) -> SettingsData:
+            """Validate that backup data was loaded successfully."""
             if settings_data is None:
                 raise SettingsPersistenceError(
                     f"Failed to load data from backup file: {backup_file}",
                     operation="restore",
                     file_path=str(backup_file),
                 )
+            return settings_data
+
+        try:
+            backup_file = _validate_backup_file(backup_file)
+
+            # Load settings from backup
+            settings_data = self._load_from_file(backup_file)
+            settings_data = _validate_backup_data(backup_file, settings_data)
 
             # Save restored settings as current
             self.save_settings(settings_data)
@@ -273,7 +288,7 @@ class SettingsPersistence:
                 operation="restore",
                 file_path=str(backup_file) if backup_file else "unknown",
                 original_error=e,
-            )
+            ) from e
 
     def export_settings(self, export_file: Path) -> bool:
         """Export current settings to a specified file.
@@ -305,7 +320,7 @@ class SettingsPersistence:
                 operation="export",
                 file_path=str(export_file),
                 original_error=e,
-            )
+            ) from e
 
     def import_settings(self, import_file: Path) -> SettingsData:
         """Import settings from a specified file.
@@ -320,7 +335,8 @@ class SettingsPersistence:
             SettingsPersistenceError: If import operation fails
             SettingsSchemaError: If imported settings have incompatible schema
         """
-        try:
+        def _validate_import_file(import_file: Path) -> None:
+            """Validate that import file exists."""
             if not import_file.exists():
                 raise SettingsPersistenceError(
                     f"Import file does not exist: {import_file}",
@@ -328,14 +344,22 @@ class SettingsPersistence:
                     file_path=str(import_file),
                 )
 
-            # Load settings from import file
-            settings_data = self._load_from_file(import_file)
+        def _validate_import_data(import_file: Path, settings_data: Optional[SettingsData]) -> SettingsData:
+            """Validate that import data was loaded successfully."""
             if settings_data is None:
                 raise SettingsPersistenceError(
                     f"Failed to load data from import file: {import_file}",
                     operation="import",
                     file_path=str(import_file),
                 )
+            return settings_data
+
+        try:
+            _validate_import_file(import_file)
+
+            # Load settings from import file
+            settings_data = self._load_from_file(import_file)
+            settings_data = _validate_import_data(import_file, settings_data)
 
             # Create backup before importing
             if self.settings_file.exists():
@@ -353,16 +377,16 @@ class SettingsPersistence:
                 operation="import",
                 file_path=str(import_file),
                 original_error=e,
-            )
+            ) from e
 
-    def list_backups(self) -> List[Tuple[Path, datetime]]:
+    def list_backups(self) -> list[tuple[Path, datetime]]:
         """List available backup files with their creation timestamps.
 
         Returns:
             List of tuples containing (backup_file_path, creation_time),
             empty list if backups are disabled
         """
-        backups: List[Tuple[Path, datetime]] = []
+        backups: list[tuple[Path, datetime]] = []
 
         if not self.backup_enabled:
             logger.debug("Backup listing skipped (backup disabled due to permissions)")
@@ -372,26 +396,32 @@ class SettingsPersistence:
             if not self.backup_dir.exists():
                 return backups
 
-            for backup_file in self.backup_dir.glob("settings_backup_*.json"):
+            def _parse_backup_timestamp(backup_file: Path) -> Optional[tuple[Path, datetime]]:
+                """Parse timestamp from backup filename."""
                 try:
                     # Extract timestamp from filename
                     timestamp_str = backup_file.stem.replace("settings_backup_", "")
                     timestamp = datetime.fromisoformat(timestamp_str.replace("_", ":"))
-                    backups.append((backup_file, timestamp))
+                    return (backup_file, timestamp)
                 except (ValueError, IndexError):
                     # Skip files with invalid timestamp format
                     logger.warning(f"Skipping backup file with invalid timestamp: {backup_file}")
-                    continue
+                    return None
+
+            for backup_file in self.backup_dir.glob("settings_backup_*.json"):
+                result = _parse_backup_timestamp(backup_file)
+                if result:
+                    backups.append(result)
 
             # Sort by timestamp (newest first)
             backups.sort(key=lambda x: x[1], reverse=True)
 
-        except Exception as e:
-            logger.error(f"Error listing backups: {e}")
+        except Exception:
+            logger.exception("Error listing backups")
 
         return backups
 
-    def get_settings_info(self) -> Dict[str, Any]:
+    def get_settings_info(self) -> dict[str, Any]:
         """Get information about current settings file and backups.
 
         Returns:
@@ -419,8 +449,8 @@ class SettingsPersistence:
             else:
                 info["backup_count"] = "N/A (backups disabled)"
 
-        except Exception as e:
-            logger.error(f"Error getting settings info: {e}")
+        except Exception:
+            logger.exception("Error getting settings info")
 
         return info
 
@@ -437,7 +467,7 @@ class SettingsPersistence:
             SettingsSchemaError: If schema migration is required
         """
         try:
-            with open(file_path, encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 data = json.load(f)
 
             # Validate and potentially migrate schema
@@ -446,11 +476,11 @@ class SettingsPersistence:
             # Create SettingsData object from loaded data
             return SettingsData(**data)
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in settings file {file_path}: {e}")
+        except json.JSONDecodeError:
+            logger.exception(f"Invalid JSON in settings file {file_path}")
             return None
-        except Exception as e:
-            logger.error(f"Error loading settings from {file_path}: {e}")
+        except Exception:
+            logger.exception(f"Error loading settings from {file_path}")
             return None
 
     def _atomic_write(self, file_path: Path, settings: SettingsData) -> None:
@@ -467,21 +497,19 @@ class SettingsPersistence:
 
         try:
             # Write to temporary file first
-            with open(temp_file, "w", encoding="utf-8") as f:
+            with temp_file.open("w", encoding="utf-8") as f:
                 json.dump(settings.dict(), f, indent=2, default=str, ensure_ascii=False)
                 f.flush()  # Ensure data is written to disk
 
             # Atomic move to final location
             temp_file.replace(file_path)
 
-        except Exception as e:
+        except Exception:
             # Clean up temporary file if it exists
             if temp_file.exists():
-                try:
+                with contextlib.suppress(Exception):
                     temp_file.unlink()
-                except Exception:
-                    pass  # Ignore cleanup errors
-            raise e
+            raise
 
     def _create_backup(self, backup_name: Optional[str] = None) -> Path:
         """Create a backup of the current settings file.
@@ -521,19 +549,23 @@ class SettingsPersistence:
         try:
             backups = self.list_backups()
 
+            def _remove_backup_file(backup_file: Path) -> None:
+                """Remove a single backup file with error handling."""
+                try:
+                    backup_file.unlink()
+                    logger.debug(f"Removed old backup: {backup_file}")
+                except Exception as e:
+                    logger.warning(f"Failed to remove old backup {backup_file}: {e}")
+
             # Remove excess backups
             if len(backups) > self.max_backups:
                 for backup_file, _ in backups[self.max_backups :]:
-                    try:
-                        backup_file.unlink()
-                        logger.debug(f"Removed old backup: {backup_file}")
-                    except Exception as e:
-                        logger.warning(f"Failed to remove old backup {backup_file}: {e}")
+                    _remove_backup_file(backup_file)
 
-        except Exception as e:
-            logger.error(f"Error cleaning up old backups: {e}")
+        except Exception:
+            logger.exception("Error cleaning up old backups")
 
-    def _migrate_schema(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _migrate_schema(self, data: dict[str, Any]) -> dict[str, Any]:
         """Migrate settings data to current schema version.
 
         Args:
@@ -577,9 +609,9 @@ class SettingsPersistence:
                 current_version=current_version,
                 expected_version=expected_version,
                 details={"migration_error": str(e)},
-            )
+            ) from e
 
-    def _migrate_from_v0_to_v1(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _migrate_from_v0_to_v1(self, data: dict[str, Any]) -> dict[str, Any]:
         """Migrate settings from version 0.0.0 to 1.0.0.
 
         Args:

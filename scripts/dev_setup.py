@@ -9,7 +9,7 @@ import subprocess
 import sys
 import venv
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -41,7 +41,7 @@ class DevelopmentSetup:
 
     def run_command(
         self,
-        command: List[str],
+        command: list[str],
         check: bool = True,
         capture_output: bool = False,
         cwd: Optional[Path] = None,
@@ -75,7 +75,7 @@ class DevelopmentSetup:
         if self.venv_path.exists():
             if force:
                 logger.info("Removing existing virtual environment")
-                import shutil
+                import shutil  # noqa: PLC0415
 
                 shutil.rmtree(self.venv_path)
             else:
@@ -102,15 +102,15 @@ class DevelopmentSetup:
         """Get pip executable path."""
         if os.name == "nt":  # Windows
             return self.venv_path / "Scripts" / "pip.exe"
-        else:  # Unix/Linux/macOS
-            return self.venv_path / "bin" / "pip"
+        # Unix/Linux/macOS
+        return self.venv_path / "bin" / "pip"
 
     def get_python_path(self) -> Path:
         """Get Python executable path."""
         if os.name == "nt":  # Windows
             return self.venv_path / "Scripts" / "python.exe"
-        else:  # Unix/Linux/macOS
-            return self.venv_path / "bin" / "python"
+        # Unix/Linux/macOS
+        return self.venv_path / "bin" / "python"
 
     def install_dependencies(self) -> bool:
         """Install project and development dependencies."""
@@ -187,7 +187,7 @@ class DevelopmentSetup:
         additional_dependencies: [types-PyYAML, types-python-dateutil]
 """
 
-            with open(precommit_config, "w") as f:
+            with precommit_config.open("w") as f:
                 f.write(config_content)
 
         try:
@@ -260,7 +260,7 @@ development:
   test_data_enabled: true
 """
 
-                with open(dev_config_file, "w") as f:
+                with dev_config_file.open("w") as f:
                     f.write(dev_config_content)
 
                 logger.info(f"Development config created: {dev_config_file}")
@@ -306,7 +306,7 @@ testing:
   skip_network: false
 """
 
-                with open(test_config_file, "w") as f:
+                with test_config_file.open("w") as f:
                     f.write(test_config_content)
 
                 logger.info(f"Test config created: {test_config_file}")
@@ -360,7 +360,7 @@ if __name__ == "__main__":
     main()
 """
 
-            with open(dev_run_script, "w") as f:
+            with dev_run_script.open("w") as f:
                 f.write(dev_run_content)
             dev_run_script.chmod(0o755)
 
@@ -405,7 +405,7 @@ if __name__ == "__main__":
     main()
 """
 
-            with open(test_run_script, "w") as f:
+            with test_run_script.open("w") as f:
                 f.write(test_run_content)
             test_run_script.chmod(0o755)
 
@@ -477,7 +477,7 @@ if __name__ == "__main__":
     sys.exit(main())
 """
 
-            with open(lint_script, "w") as f:
+            with lint_script.open("w") as f:
                 f.write(lint_content)
             lint_script.chmod(0o755)
 
@@ -516,7 +516,7 @@ if __name__ == "__main__":
                 },
             }
 
-            with open(settings_file, "w") as f:
+            with settings_file.open("w") as f:
                 json.dump(settings_content, f, indent=4)
 
             # Launch configuration
@@ -578,7 +578,7 @@ if __name__ == "__main__":
                 ],
             }
 
-            with open(launch_file, "w") as f:
+            with launch_file.open("w") as f:
                 json.dump(launch_content, f, indent=4)
 
             # Tasks
@@ -622,7 +622,7 @@ if __name__ == "__main__":
                 ],
             }
 
-            with open(tasks_file, "w") as f:
+            with tasks_file.open("w") as f:
                 json.dump(tasks_content, f, indent=4)
 
             logger.info("VS Code configuration created successfully")

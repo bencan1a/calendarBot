@@ -6,28 +6,32 @@ Calendar Bot components and configuration.
 
 from typing import Any
 
+from calendarbot.config.settings import settings
+from calendarbot.utils.logging import (
+    apply_command_line_overrides,
+    setup_enhanced_logging,
+)
+from calendarbot.validation import ValidationRunner
+
+from ..config import apply_cli_overrides
+from ..runtime_integration import (
+    create_runtime_tracker,
+    start_runtime_tracking,
+    stop_runtime_tracking,
+)
+
 
 async def run_test_mode(args: Any) -> int:
-    """Run Calendar Bot in test/validation mode.
+    """
+    Run Calendar Bot in test mode.
 
     Args:
-        args: Parsed command line arguments
+        args: Parsed command-line arguments.
 
     Returns:
-        Exit code (0 for success, 1 for failure)
+        int: Exit code (0 for success, 1 for failure).
     """
     try:
-        from calendarbot.config.settings import settings
-        from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
-        from calendarbot.validation import ValidationRunner
-
-        from ..config import apply_cli_overrides
-        from ..runtime_integration import (
-            create_runtime_tracker,
-            start_runtime_tracking,
-            stop_runtime_tracking,
-        )
-
         # Apply command-line logging overrides
         updated_settings = apply_command_line_overrides(settings, args)
 

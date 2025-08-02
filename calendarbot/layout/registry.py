@@ -4,11 +4,16 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, NoReturn, Optional, Union
 
 from .exceptions import LayoutNotFoundError, LayoutValidationError
 
 logger = logging.getLogger(__name__)
+
+
+def _raise_missing_field_error(field: str) -> NoReturn:
+    """Raise LayoutValidationError for missing required field."""
+    raise LayoutValidationError(f"Missing required field: {field}")
 
 
 @dataclass
@@ -19,19 +24,19 @@ class LayoutInfo:
     display_name: str
     version: str
     description: str
-    capabilities: Dict[str, Any]
+    capabilities: dict[str, Any]
     renderer_type: str
-    fallback_chain: List[str]
-    resources: Dict[str, List[Union[str, Dict[str, Any]]]]
-    requirements: Dict[str, Any]
+    fallback_chain: list[str]
+    resources: dict[str, list[Union[str, dict[str, Any]]]]
+    requirements: dict[str, Any]
 
 
 class LayoutRegistry:
     """Central registry for dynamic layout discovery and management."""
 
     layouts_dir: Path  # Always a Path after initialization
-    _layouts: Dict[str, LayoutInfo]
-    _fallback_layouts: List[str]
+    _layouts: dict[str, LayoutInfo]
+    _fallback_layouts: list[str]
 
     def __init__(
         self, layouts_dir: Optional[Path] = None, layouts_directory: Optional[Path] = None
@@ -53,7 +58,7 @@ class LayoutRegistry:
 
         self.layouts_dir = layouts_dir
         logger.debug(f"LayoutRegistry initialized with layouts_dir: {self.layouts_dir}")
-        self._layouts: Dict[str, LayoutInfo] = {}
+        self._layouts: dict[str, LayoutInfo] = {}
         self._fallback_layouts = ["4x8", "3x4", "console"]  # Emergency fallback
 
         # Discover layouts on initialization
@@ -87,11 +92,11 @@ class LayoutRegistry:
                     layout_info = self._load_layout_config(config_file)
                     self._layouts[layout_info.name] = layout_info
                     logger.debug(f"Loaded layout: {layout_info.name}")
-                except Exception as e:
-                    logger.error(f"Failed to load layout from {config_file}: {e}")
+                except Exception:
+                    logger.exception(f"Failed to load layout from {config_file}")
 
-        except Exception as e:
-            logger.error(f"Error discovering layouts: {e}")
+        except Exception:
+            logger.exception("Error discovering layouts")
             # Use emergency fallback
             self._create_emergency_layouts()
 
@@ -108,14 +113,14 @@ class LayoutRegistry:
             LayoutValidationError: If configuration is invalid.
         """
         try:
-            with open(config_file, encoding="utf-8") as f:
+            with config_file.open(encoding="utf-8") as f:
                 config_data = json.load(f)
 
             # Validate required fields (renderer_mapping is now optional in new architecture)
             required_fields = ["name", "display_name", "version", "capabilities"]
             for field in required_fields:
                 if field not in config_data:
-                    raise LayoutValidationError(f"Missing required field: {field}")
+                    _raise_missing_field_error(field)
 
             # Extract renderer type from mapping
             renderer_mapping = config_data.get("renderer_mapping", {})
@@ -134,9 +139,9 @@ class LayoutRegistry:
             )
 
         except json.JSONDecodeError as e:
-            raise LayoutValidationError(f"Invalid JSON in {config_file}: {e}")
+            raise LayoutValidationError(f"Invalid JSON in {config_file}: {e}") from e
         except Exception as e:
-            raise LayoutValidationError(f"Error loading {config_file}: {e}")
+            raise LayoutValidationError(f"Error loading {config_file}: {e}") from e
 
     def _create_emergency_layouts(self) -> None:
         """Create emergency fallback layouts when filesystem discovery fails."""
@@ -181,7 +186,7 @@ class LayoutRegistry:
             requirements={},
         )
 
-    def get_available_layouts(self) -> List[str]:
+    def get_available_layouts(self) -> list[str]:
         """Get list of all available layout names.
 
         Returns:
@@ -228,7 +233,7 @@ class LayoutRegistry:
             raise LayoutNotFoundError(f"Layout '{layout_name}' not found")
         return layout_info.renderer_type
 
-    def get_fallback_chain(self, layout_name: str) -> List[str]:
+    def get_fallback_chain(self, layout_name: str) -> list[str]:
         """Get the fallback chain for a layout.
 
         Args:
@@ -301,10 +306,10 @@ class LayoutRegistry:
                 return "4x8"
             if "3x4" in self._layouts:
                 return "3x4"
-            return list(self._layouts.keys())[0]
+            return next(iter(self._layouts.keys()))
         return "whats-next-view"  # Emergency fallback
 
-    def get_layout_metadata(self, layout_name: str) -> Optional[Dict[str, Any]]:
+    def get_layout_metadata(self, layout_name: str) -> Optional[dict[str, Any]]:
         """Get metadata for a specific layout.
 
         Args:
@@ -329,7 +334,7 @@ class LayoutRegistry:
             "requirements": layout_info.requirements,
         }
 
-    def get_layout_css_paths(self, layout_name: str) -> List[Path]:
+    def get_layout_css_paths(self, layout_name: str) -> list[Path]:
         """Get CSS file paths for a layout.
 
         Args:
@@ -350,10 +355,7 @@ class LayoutRegistry:
 
         for css_file in css_files:
             # Handle both string and object formats
-            if isinstance(css_file, dict):
-                file_name = css_file.get("file", "")
-            else:
-                file_name = css_file
+            file_name = css_file.get("file", "") if isinstance(css_file, dict) else css_file
 
             if not file_name or not isinstance(file_name, str) or file_name.startswith("http"):
                 continue  # Skip external URLs or invalid entries
@@ -363,7 +365,7 @@ class LayoutRegistry:
 
         return css_paths
 
-    def get_layout_js_paths(self, layout_name: str) -> List[Path]:
+    def get_layout_js_paths(self, layout_name: str) -> list[Path]:
         """Get JavaScript file paths for a layout.
 
         Args:
@@ -384,10 +386,7 @@ class LayoutRegistry:
 
         for js_file in js_files:
             # Handle both string and object formats
-            if isinstance(js_file, dict):
-                file_name = js_file.get("file", "")
-            else:
-                file_name = js_file
+            file_name = js_file.get("file", "") if isinstance(js_file, dict) else js_file
 
             if not file_name or not isinstance(file_name, str) or file_name.startswith("http"):
                 continue  # Skip external URLs or invalid entries

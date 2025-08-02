@@ -3,7 +3,7 @@
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, NoReturn, Optional
 
 from ..ics import AuthType, ICSAuth, ICSFetcher, ICSParser, ICSSource
 from ..ics.exceptions import ICSAuthError, ICSError, ICSNetworkError, ICSParseError
@@ -75,7 +75,7 @@ class ICSSourceHandler:
             validate_ssl=self.config.validate_ssl,
         )
 
-    async def fetch_events(self, use_cache: bool = True) -> List[CalendarEvent]:
+    async def fetch_events(self, use_cache: bool = True) -> list[CalendarEvent]:
         """Fetch calendar events from ICS source.
 
         Args:
@@ -119,8 +119,7 @@ class ICSSourceHandler:
 
                 if not response.success:
                     error_msg = response.error_message or "Unknown fetch error"
-                    self._record_failure(error_msg)
-                    raise SourceConnectionError(error_msg, self.config.name)
+                    self._raise_connection_error(error_msg)
 
                 # Handle 304 Not Modified
                 if response.is_not_modified:
@@ -137,15 +136,13 @@ class ICSSourceHandler:
                 # Parse ICS content
                 if response.content is None:
                     error_msg = "Empty ICS content received"
-                    self._record_failure(error_msg)
-                    raise SourceDataError(error_msg, self.config.name)
+                    self._raise_data_error(error_msg)
 
                 parse_result = self.parser.parse_ics_content(response.content)
 
                 if not parse_result.success:
                     error_msg = parse_result.error_message or "Failed to parse ICS content"
-                    self._record_failure(error_msg)
-                    raise SourceDataError(error_msg, self.config.name)
+                    self._raise_data_error(error_msg)
 
                 # Record success
                 response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
@@ -159,28 +156,23 @@ class ICSSourceHandler:
 
         except ICSAuthError as e:
             error_msg = f"Authentication failed: {e.message}"
-            self._record_failure(error_msg)
-            raise SourceConnectionError(error_msg, self.config.name)
+            self._raise_connection_error(error_msg, e)
 
         except ICSNetworkError as e:
             error_msg = f"Network error: {e.message}"
-            self._record_failure(error_msg)
-            raise SourceConnectionError(error_msg, self.config.name)
+            self._raise_connection_error(error_msg, e)
 
         except ICSParseError as e:
             error_msg = f"Parse error: {e.message}"
-            self._record_failure(error_msg)
-            raise SourceDataError(error_msg, self.config.name)
+            self._raise_data_error(error_msg, e)
 
         except ICSError as e:
             error_msg = f"ICS error: {e.message}"
-            self._record_failure(error_msg)
-            raise SourceError(error_msg, self.config.name)
+            self._raise_source_error(error_msg, e)
 
         except Exception as e:
             error_msg = f"Unexpected error: {e!s}"
-            self._record_failure(error_msg)
-            raise SourceError(error_msg, self.config.name)
+            self._raise_source_error(error_msg, e)
 
     async def test_connection(self) -> SourceHealthCheck:
         """Test connection to ICS source.
@@ -213,11 +205,11 @@ class ICSSourceHandler:
         except Exception as e:
             error_msg = f"Connection test failed: {e!s}"
             health_check.update_error(error_msg)
-            logger.error(f"Connection test failed for {self.config.name}: {e}")
+            logger.exception(f"Connection test failed for {self.config.name}")
 
         return health_check
 
-    async def get_todays_events(self, timezone: str = "UTC") -> List[CalendarEvent]:
+    async def get_todays_events(self, timezone: str = "UTC") -> list[CalendarEvent]:
         """Fetch today's calendar events.
 
         Args:
@@ -229,7 +221,7 @@ class ICSSourceHandler:
         all_events = await self.fetch_events()
 
         # Filter to today's events
-        from ..utils.helpers import get_timezone_aware_now
+        from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
 
         today = get_timezone_aware_now().date()
         todays_events = []
@@ -243,7 +235,7 @@ class ICSSourceHandler:
 
     async def get_events_for_date_range(
         self, start_date: datetime, end_date: datetime
-    ) -> List[CalendarEvent]:
+    ) -> list[CalendarEvent]:
         """Fetch events for a specific date range.
 
         Args:
@@ -287,7 +279,58 @@ class ICSSourceHandler:
         self.metrics.record_failure(error_message)
         self.health.update_error(error_message)
 
-    def get_status(self) -> Dict[str, Any]:
+    def _raise_connection_error(
+        self, error_message: str, from_exception: Optional[Exception] = None
+    ) -> NoReturn:
+        """Record failure and raise SourceConnectionError.
+
+        Args:
+            error_message: Error message
+            from_exception: Optional exception to chain
+
+        Raises:
+            SourceConnectionError: Always raised after recording failure
+        """
+        self._record_failure(error_message)
+        if from_exception:
+            raise SourceConnectionError(error_message, self.config.name) from from_exception
+        raise SourceConnectionError(error_message, self.config.name)
+
+    def _raise_data_error(
+        self, error_message: str, from_exception: Optional[Exception] = None
+    ) -> NoReturn:
+        """Record failure and raise SourceDataError.
+
+        Args:
+            error_message: Error message
+            from_exception: Optional exception to chain
+
+        Raises:
+            SourceDataError: Always raised after recording failure
+        """
+        self._record_failure(error_message)
+        if from_exception:
+            raise SourceDataError(error_message, self.config.name) from from_exception
+        raise SourceDataError(error_message, self.config.name)
+
+    def _raise_source_error(
+        self, error_message: str, from_exception: Optional[Exception] = None
+    ) -> NoReturn:
+        """Record failure and raise SourceError.
+
+        Args:
+            error_message: Error message
+            from_exception: Optional exception to chain
+
+        Raises:
+            SourceError: Always raised after recording failure
+        """
+        self._record_failure(error_message)
+        if from_exception:
+            raise SourceError(error_message, self.config.name) from from_exception
+        raise SourceError(error_message, self.config.name)
+
+    def get_status(self) -> dict[str, Any]:
         """Get current source status.
 
         Returns:

@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ..cache.models import CachedEvent
 from .rpi_html_renderer import RaspberryPiHTMLRenderer
@@ -36,8 +36,8 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
             logger.debug(
                 "DIAGNOSTIC: CompactEInkRenderer initialized successfully for 300x400px display"
             )
-        except Exception as e:
-            logger.error(f"DIAGNOSTIC: CompactEInkRenderer.__init__ failed: {e}")
+        except Exception:
+            logger.exception("DIAGNOSTIC: CompactEInkRenderer.__init__ failed")
             raise
 
     def _build_html_template(
@@ -47,7 +47,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         events_content: str,
         nav_help: str,
         interactive_mode: bool,
-        status_info: Optional[Dict[str, Any]] = None,
+        status_info: Optional[dict[str, Any]] = None,
     ) -> str:
         """Build the complete HTML template optimized for compact e-ink display.
 
@@ -173,7 +173,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         truncated_status = self._truncate_text(status_line, 35)
         return f'<div class="status-line">{truncated_status}</div>'
 
-    def _render_events_content(self, events: List[CachedEvent], interactive_mode: bool) -> str:
+    def _render_events_content(self, events: list[CachedEvent], interactive_mode: bool) -> str:
         """Render events content optimized for compact e-ink display with strict space constraints.
 
         Args:
@@ -222,7 +222,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         </div>
         """
 
-    def _render_current_events_section_compact(self, current_events: List[CachedEvent]) -> str:
+    def _render_current_events_section_compact(self, current_events: list[CachedEvent]) -> str:
         """Render current events section with compact structure.
 
         Args:
@@ -243,7 +243,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         section_parts.append("</section>")
         return "\n".join(section_parts)
 
-    def _render_next_up_events_section_compact(self, next_up_events: List[CachedEvent]) -> str:
+    def _render_next_up_events_section_compact(self, next_up_events: list[CachedEvent]) -> str:
         """Render Next Up events section with compact structure.
 
         Args:
@@ -264,7 +264,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         section_parts.append("</section>")
         return "\n".join(section_parts)
 
-    def _render_later_today_section_compact(self, later_events: List[CachedEvent]) -> str:
+    def _render_later_today_section_compact(self, later_events: list[CachedEvent]) -> str:
         """Render Later Today section with compact list format.
 
         Args:
@@ -280,8 +280,9 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         ]
 
         # Show up to 3 later events in compact format
-        for event in later_events[:3]:
-            section_parts.append(self._format_later_event_compact(event))
+        section_parts.extend(
+            [self._format_later_event_compact(event) for event in later_events[:3]]
+        )
 
         section_parts.extend(["</ul>", "</section>"])
         return "\n".join(section_parts)
@@ -448,7 +449,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         """
         logger.debug("DIAGNOSTIC: _format_time_remaining_compact called")
         try:
-            from ..utils.helpers import get_timezone_aware_now
+            from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
 
             logger.debug("DIAGNOSTIC: get_timezone_aware_now imported successfully")
 
@@ -466,12 +467,12 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
                 )
                 logger.debug(f"DIAGNOSTIC: time remaining HTML generated: {result}")
                 return result
-        except Exception as e:
-            logger.error(f"DIAGNOSTIC: _format_time_remaining_compact failed: {e}")
-            logger.error(f"DIAGNOSTIC: Exception type: {type(e)}")
-            import traceback
+        except Exception:
+            logger.exception("DIAGNOSTIC: _format_time_remaining_compact failed")
+            logger.exception("DIAGNOSTIC: Exception type")
+            import traceback  # noqa: PLC0415
 
-            logger.error(f"DIAGNOSTIC: Traceback: {traceback.format_exc()}")
+            logger.exception(f"DIAGNOSTIC: Traceback: {traceback.format_exc()}")
         return ""
 
     def _format_time_until_compact(self, event: CachedEvent) -> str:
@@ -507,7 +508,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         return text[: max_length - 3] + "..."
 
     def _render_error_html(
-        self, error_message: str, cached_events: Optional[List[CachedEvent]] = None
+        self, error_message: str, cached_events: Optional[list[CachedEvent]] = None
     ) -> str:
         """Render error HTML content for compact display.
 
@@ -539,7 +540,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
             <section class="cached-data">
                 <h2>📱 Cached Data</h2>
                 <ul class="cached-events-list">
-                    {''.join(cached_items)}
+                    {"".join(cached_items)}
                 </ul>
             </section>
             """
@@ -568,7 +569,7 @@ class CompactEInkRenderer(RaspberryPiHTMLRenderer):
         <header class="calendar-header">
             <div class="nav-controls"></div>
             <div class="header-main">
-                <h1 class="calendar-title">📅 {datetime.now().strftime('%m/%d')}</h1>
+                <h1 class="calendar-title">📅 {datetime.now().strftime("%m/%d")}</h1>
             </div>
             <div class="theme-controls"></div>
         </header>

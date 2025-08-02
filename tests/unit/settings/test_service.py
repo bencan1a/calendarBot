@@ -2,8 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -18,7 +17,6 @@ from calendarbot.settings.models import (
     EventFilterSettings,
     FilterPattern,
     SettingsData,
-    SettingsMetadata,
 )
 from calendarbot.settings.persistence import SettingsPersistence
 from calendarbot.settings.service import SettingsService

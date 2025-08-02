@@ -1,11 +1,8 @@
 """Integration tests for web API endpoints with backend components."""
 
-import asyncio
-import json
 import threading
-import time
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -15,7 +12,7 @@ from calendarbot.display.manager import DisplayManager
 from calendarbot.sources.manager import SourceManager
 from calendarbot.ui.navigation import NavigationState
 from calendarbot.web.server import WebServer
-from tests.fixtures.mock_ics_data import ICSDataFactory, ICSTestData
+from tests.fixtures.mock_ics_data import ICSTestData
 
 
 @pytest.mark.integration
@@ -220,7 +217,6 @@ class TestWebServerLifecycleIntegration:
             return web_server.get_status()
 
         # Simulate concurrent API calls
-        import threading
 
         threads = []
         results = []

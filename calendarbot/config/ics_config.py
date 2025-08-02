@@ -1,6 +1,6 @@
 """ICS-specific configuration models."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
@@ -60,7 +60,7 @@ class ICSSourceConfig(BaseModel):
 
     # Advanced settings
     validate_ssl: bool = Field(default=True, description="Validate SSL certificates")
-    custom_headers: Dict[str, str] = Field(default_factory=dict, description="Custom HTTP headers")
+    custom_headers: dict[str, str] = Field(default_factory=dict, description="Custom HTTP headers")
 
     @field_validator("url")
     @classmethod

@@ -3,15 +3,14 @@
 
 import argparse
 import sys
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
 
 # Add the project root to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from calendarbot.benchmarking.storage import BenchmarkResultStorage
-import sqlite3
 import json
+import sqlite3
 
 
 def format_memory(mb: float) -> str:

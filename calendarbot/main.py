@@ -4,7 +4,7 @@ import asyncio
 import signal
 import sys
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from calendarbot.config.settings import settings
 
@@ -64,8 +64,8 @@ class CalendarBot:
             logger.info("Calendar Bot initialization completed successfully")
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to initialize Calendar Bot: {e}")
+        except Exception:
+            logger.exception("Failed to initialize Calendar Bot")
             return False
 
     async def fetch_and_cache_events(self) -> bool:
@@ -92,8 +92,8 @@ class CalendarBot:
             logger.error("Failed to fetch and cache events")
             return False
 
-        except Exception as e:
-            logger.error(f"Failed to fetch and cache events: {e}")
+        except Exception:
+            logger.exception("Failed to fetch and cache events")
             self.consecutive_failures += 1
             return False
 
@@ -135,8 +135,8 @@ class CalendarBot:
 
             return success
 
-        except Exception as e:
-            logger.error(f"Failed to update display: {e}")
+        except Exception:
+            logger.exception("Failed to update display")
             return False
 
     async def handle_error_display(self, error_message: str) -> None:
@@ -147,7 +147,7 @@ class CalendarBot:
         """
         try:
             # Try to get cached events to show alongside error
-            cached_events: List[Any] = (
+            cached_events: list[Any] = (
                 await safe_async_call(
                     self.cache_manager.get_todays_cached_events, default=[], log_errors=False
                 )
@@ -156,8 +156,8 @@ class CalendarBot:
 
             await self.display_manager.display_error(error_message, cached_events)
 
-        except Exception as e:
-            logger.error(f"Failed to display error: {e}")
+        except Exception:
+            logger.exception("Failed to display error")
 
     async def refresh_cycle(self) -> None:
         """Perform one refresh cycle - fetch data and update display."""
@@ -188,7 +188,7 @@ class CalendarBot:
             await self.update_display(force_cached=not is_cache_fresh)
 
         except Exception as e:
-            logger.error(f"Error during refresh cycle: {e}")
+            logger.exception("Error during refresh cycle")
             await self.handle_error_display(f"System Error: {str(e)[:50]}...")
 
     async def run_background_fetch(self) -> None:
@@ -216,8 +216,8 @@ class CalendarBot:
                     if self.running:
                         await self.fetch_and_cache_events()
 
-        except Exception as e:
-            logger.error(f"Background fetch error: {e}")
+        except Exception:
+            logger.exception("Background fetch error")
 
         logger.info("Background data fetching stopped")
 
@@ -244,8 +244,8 @@ class CalendarBot:
                     if self.running:
                         await self.refresh_cycle()
 
-        except Exception as e:
-            logger.error(f"Scheduler error: {e}")
+        except Exception:
+            logger.exception("Scheduler error")
 
         logger.info("Refresh scheduler stopped")
 
@@ -284,8 +284,8 @@ class CalendarBot:
         except KeyboardInterrupt:
             logger.info("Received keyboard interrupt")
             return True
-        except Exception as e:
-            logger.error(f"Error running Calendar Bot: {e}")
+        except Exception:
+            logger.exception("Error running Calendar Bot")
             return False
         finally:
             await self.cleanup()
@@ -311,10 +311,10 @@ class CalendarBot:
 
             logger.info("Cleanup completed")
 
-        except Exception as e:
-            logger.error(f"Error during cleanup: {e}")
+        except Exception:
+            logger.exception("Error during cleanup")
 
-    async def status(self) -> Dict[str, Any]:
+    async def status(self) -> dict[str, Any]:
         """Get current application status.
 
         Returns:
@@ -323,8 +323,11 @@ class CalendarBot:
         try:
             source_info = await self.source_manager.get_source_info()
             cache_summary = await self.cache_manager.get_cache_summary()
-
-            status = {
+        except Exception as e:
+            logger.exception("Failed to get status")
+            return {"error": str(e)}
+        else:
+            return {
                 "running": self.running,
                 "last_successful_update": (
                     self.last_successful_update.isoformat() if self.last_successful_update else None
@@ -342,19 +345,17 @@ class CalendarBot:
                 },
             }
 
-            return status
-
-        except Exception as e:
-            logger.error(f"Failed to get status: {e}")
-            return {"error": str(e)}
-
 
 def setup_signal_handlers(app: CalendarBot) -> None:
     """Set up signal handlers for graceful shutdown."""
 
-    def signal_handler(signum: int, frame: Any) -> None:
+    background_tasks = set()
+
+    def signal_handler(signum: int, _frame: Any) -> None:
         logger.info(f"Received signal {signum}")
-        asyncio.create_task(app.stop())
+        task = asyncio.create_task(app.stop())
+        background_tasks.add(task)
+        task.add_done_callback(background_tasks.discard)
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -362,7 +363,7 @@ def setup_signal_handlers(app: CalendarBot) -> None:
 
 def check_first_run_configuration() -> bool:
     """Check if this is a first run and provide setup guidance."""
-    from pathlib import Path
+    from pathlib import Path  # noqa: PLC0415
 
     # Check for config file in project directory first
     project_config = Path(__file__).parent / "config" / "config.yaml"
@@ -376,10 +377,7 @@ def check_first_run_configuration() -> bool:
         return True
 
     # Check if essential settings are available via environment variables
-    if settings.ics_url:
-        return True
-
-    return False
+    return bool(settings.ics_url)
 
 
 async def main() -> int:
@@ -422,8 +420,8 @@ async def main() -> int:
 
         return 0 if success else 1
 
-    except Exception as e:
-        logger.error(f"Fatal error: {e}")
+    except Exception:
+        logger.exception("Fatal error")
         return 1
 
 

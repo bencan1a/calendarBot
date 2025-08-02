@@ -1,15 +1,14 @@
 """Cache manager coordinating between API and local storage."""
 
 import logging
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, Optional
 
 from ..ics.models import CalendarEvent
 
 # Import new logging infrastructure
 from ..monitoring import cache_monitor, memory_monitor, performance_monitor
-from ..security import SecurityEventLogger
-from ..structured import operation_context, with_correlation_id
+from ..structured import with_correlation_id
 from .database import DatabaseManager
 from .models import CachedEvent, CacheMetadata
 
@@ -44,8 +43,8 @@ class CacheManager:
                 logger.info("Cache manager initialization completed")
             return success
 
-        except Exception as e:
-            logger.error(f"Failed to initialize cache manager: {e}")
+        except Exception:
+            logger.exception("Failed to initialize cache manager")
             return False
 
     def _convert_api_event_to_cached(self, api_event: CalendarEvent) -> CachedEvent:
@@ -108,7 +107,7 @@ class CacheManager:
 
     @performance_monitor("cache_events")
     @with_correlation_id()
-    async def cache_events(self, api_events: List[CalendarEvent]) -> bool:
+    async def cache_events(self, api_events: list[CalendarEvent]) -> bool:
         """Cache events from API response with comprehensive data validation and error handling.
 
         Processes and stores calendar events from various sources (Microsoft Graph API, ICS feeds)
@@ -232,7 +231,7 @@ class CacheManager:
             return success
 
         except Exception as e:
-            logger.error(f"Failed to cache events: {e}")
+            logger.exception("Failed to cache events")
             await self._update_fetch_metadata(success=False, error=str(e))
             return False
 
@@ -240,7 +239,7 @@ class CacheManager:
     @with_correlation_id()
     async def get_cached_events(
         self, start_date: datetime, end_date: datetime
-    ) -> List[CachedEvent]:
+    ) -> list[CachedEvent]:
         """Get cached events for date range.
 
         Args:
@@ -256,13 +255,13 @@ class CacheManager:
             logger.debug(f"Retrieved {len(events)} cached events")
             return events
 
-        except Exception as e:
-            logger.error(f"Failed to get cached events: {e}")
+        except Exception:
+            logger.exception("Failed to get cached events")
             return []
 
     async def get_events_by_date_range(
         self, start_date: datetime, end_date: datetime
-    ) -> List[CachedEvent]:
+    ) -> list[CachedEvent]:
         """Get cached events for date range (alias for get_cached_events).
 
         Args:
@@ -272,12 +271,12 @@ class CacheManager:
         Returns:
             List of cached events
         """
-        cached_events: List[CachedEvent] = await self.get_cached_events(start_date, end_date)
+        cached_events: list[CachedEvent] = await self.get_cached_events(start_date, end_date)
         return cached_events
 
     @performance_monitor("get_todays_cached_events")
     @with_correlation_id()
-    async def get_todays_cached_events(self) -> List[CachedEvent]:
+    async def get_todays_cached_events(self) -> list[CachedEvent]:
         """Get today's cached events.
 
         Returns:
@@ -289,8 +288,8 @@ class CacheManager:
             logger.debug(f"Retrieved {len(events)} today's cached events")
             return events
 
-        except Exception as e:
-            logger.error(f"Failed to get today's cached events: {e}")
+        except Exception:
+            logger.exception("Failed to get today's cached events")
             return []
 
     async def is_cache_fresh(self) -> bool:
@@ -310,8 +309,8 @@ class CacheManager:
             logger.debug(f"Cache freshness check: {'fresh' if is_fresh else 'stale'}")
             return is_fresh
 
-        except Exception as e:
-            logger.error(f"Failed to check cache freshness: {e}")
+        except Exception:
+            logger.exception("Failed to check cache freshness")
             return False
 
     async def get_cache_status(self) -> CacheMetadata:
@@ -329,8 +328,8 @@ class CacheManager:
 
             return metadata
 
-        except Exception as e:
-            logger.error(f"Failed to get cache status: {e}")
+        except Exception:
+            logger.exception("Failed to get cache status")
             return CacheMetadata()
 
     async def cleanup_old_events(self, days_old: int = 7) -> int:
@@ -347,8 +346,8 @@ class CacheManager:
             logger.debug(f"Cleaned up {removed_count} old events")
             return removed_count
 
-        except Exception as e:
-            logger.error(f"Failed to cleanup old events: {e}")
+        except Exception:
+            logger.exception("Failed to cleanup old events")
             return 0
 
     async def clear_cache(self) -> bool:
@@ -373,8 +372,8 @@ class CacheManager:
             logger.info("Cache cleared successfully")
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to clear cache: {e}")
+        except Exception:
+            logger.exception("Failed to clear cache")
             return False
 
     async def _update_fetch_metadata(self, success: bool, error: Optional[str] = None) -> None:
@@ -406,10 +405,10 @@ class CacheManager:
                     last_error_time=now_str,
                 )
 
-        except Exception as e:
-            logger.error(f"Failed to update fetch metadata: {e}")
+        except Exception:
+            logger.exception("Failed to update fetch metadata")
 
-    async def get_cache_summary(self) -> Dict[str, Any]:
+    async def get_cache_summary(self) -> dict[str, Any]:
         """Get a summary of cache status for display/logging.
 
         Returns:
@@ -434,8 +433,8 @@ class CacheManager:
 
             return summary
 
-        except Exception as e:
-            logger.error(f"Failed to get cache summary: {e}")
+        except Exception:
+            logger.exception("Failed to get cache summary")
             return {}
 
     async def cleanup(self) -> bool:
@@ -452,6 +451,6 @@ class CacheManager:
             logger.debug(f"Cache cleanup completed, removed {removed_count} old events")
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to cleanup cache: {e}")
+        except Exception:
+            logger.exception("Failed to cleanup cache")
             return False

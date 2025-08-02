@@ -5,7 +5,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from ..utils.logging import get_logger
 from .models import (
@@ -55,8 +55,8 @@ class BenchmarkResultStorage:
                 self._create_tables(conn)
                 self._create_indexes(conn)
                 self.logger.info(f"Initialized benchmark database at {self.database_path}")
-        except Exception as e:
-            self.logger.error(f"Failed to initialize benchmark database: {e}")
+        except Exception:
+            self.logger.exception("Failed to initialize benchmark database")
             raise
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -204,10 +204,9 @@ class BenchmarkResultStorage:
             True if successful, False otherwise.
         """
         try:
-            with self._lock:
-                with self._get_connection() as conn:
-                    conn.execute(
-                        """
+            with self._lock, self._get_connection() as conn:
+                conn.execute(
+                    """
                         INSERT OR REPLACE INTO benchmark_runs (
                             run_id, name, description, suite_id, environment, app_version,
                             status, started_at, completed_at, total_benchmarks,
@@ -216,31 +215,31 @@ class BenchmarkResultStorage:
                             metadata, error_message
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                        (
-                            run.run_id,
-                            run.name,
-                            run.description,
-                            run.suite_id,
-                            run.environment,
-                            run.app_version,
-                            run.status.value,
-                            run.started_at.isoformat() if run.started_at else None,
-                            run.completed_at.isoformat() if run.completed_at else None,
-                            run.total_benchmarks,
-                            run.completed_benchmarks,
-                            run.failed_benchmarks,
-                            run.skipped_benchmarks,
-                            run.total_execution_time,
-                            run.average_execution_time,
-                            run.total_overhead_percentage,
-                            json.dumps(run.metadata),
-                            run.error_message,
-                        ),
-                    )
-                    conn.commit()
+                    (
+                        run.run_id,
+                        run.name,
+                        run.description,
+                        run.suite_id,
+                        run.environment,
+                        run.app_version,
+                        run.status.value,
+                        run.started_at.isoformat() if run.started_at else None,
+                        run.completed_at.isoformat() if run.completed_at else None,
+                        run.total_benchmarks,
+                        run.completed_benchmarks,
+                        run.failed_benchmarks,
+                        run.skipped_benchmarks,
+                        run.total_execution_time,
+                        run.average_execution_time,
+                        run.total_overhead_percentage,
+                        json.dumps(run.metadata),
+                        run.error_message,
+                    ),
+                )
+                conn.commit()
             return True
-        except Exception as e:
-            self.logger.error(f"Failed to store benchmark run {run.run_id}: {e}")
+        except Exception:
+            self.logger.exception(f"Failed to store benchmark run {run.run_id}")
             return False
 
     def store_benchmark_result(self, result: BenchmarkResult) -> bool:
@@ -254,10 +253,9 @@ class BenchmarkResultStorage:
             True if successful, False otherwise.
         """
         try:
-            with self._lock:
-                with self._get_connection() as conn:
-                    conn.execute(
-                        """
+            with self._lock, self._get_connection() as conn:
+                conn.execute(
+                    """
                         INSERT OR REPLACE INTO benchmark_results (
                             result_id, run_id, benchmark_id, benchmark_name, category, status,
                             execution_time, iterations, min_value, max_value, mean_value,
@@ -265,33 +263,33 @@ class BenchmarkResultStorage:
                             correlation_id, metadata, error_message, overhead_percentage
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                        (
-                            result.result_id,
-                            result.run_id,
-                            result.benchmark_id,
-                            result.benchmark_name,
-                            result.category,
-                            result.status.value,
-                            result.execution_time,
-                            result.iterations,
-                            result.min_value,
-                            result.max_value,
-                            result.mean_value,
-                            result.median_value,
-                            result.std_deviation,
-                            result.timestamp.isoformat(),
-                            result.app_version,
-                            result.environment,
-                            result.correlation_id,
-                            json.dumps(result.metadata),
-                            result.error_message,
-                            result.overhead_percentage,
-                        ),
-                    )
-                    conn.commit()
+                    (
+                        result.result_id,
+                        result.run_id,
+                        result.benchmark_id,
+                        result.benchmark_name,
+                        result.category,
+                        result.status.value,
+                        result.execution_time,
+                        result.iterations,
+                        result.min_value,
+                        result.max_value,
+                        result.mean_value,
+                        result.median_value,
+                        result.std_deviation,
+                        result.timestamp.isoformat(),
+                        result.app_version,
+                        result.environment,
+                        result.correlation_id,
+                        json.dumps(result.metadata),
+                        result.error_message,
+                        result.overhead_percentage,
+                    ),
+                )
+                conn.commit()
             return True
-        except Exception as e:
-            self.logger.error(f"Failed to store benchmark result {result.result_id}: {e}")
+        except Exception:
+            self.logger.exception(f"Failed to store benchmark result {result.result_id}")
             return False
 
     def store_benchmark_metadata(self, metadata: BenchmarkMetadata) -> bool:
@@ -305,36 +303,35 @@ class BenchmarkResultStorage:
             True if successful, False otherwise.
         """
         try:
-            with self._lock:
-                with self._get_connection() as conn:
-                    conn.execute(
-                        """
+            with self._lock, self._get_connection() as conn:
+                conn.execute(
+                    """
                         INSERT OR REPLACE INTO benchmark_metadata (
                             benchmark_id, name, description, category, expected_duration_seconds,
                             min_iterations, max_iterations, warmup_iterations, timeout_seconds,
                             tags, prerequisites, created_at, updated_at
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                        (
-                            metadata.benchmark_id,
-                            metadata.name,
-                            metadata.description,
-                            metadata.category,
-                            metadata.expected_duration_seconds,
-                            metadata.min_iterations,
-                            metadata.max_iterations,
-                            metadata.warmup_iterations,
-                            metadata.timeout_seconds,
-                            json.dumps(metadata.tags),
-                            json.dumps(metadata.prerequisites),
-                            metadata.created_at.isoformat(),
-                            datetime.now(timezone.utc).isoformat(),
-                        ),
-                    )
-                    conn.commit()
+                    (
+                        metadata.benchmark_id,
+                        metadata.name,
+                        metadata.description,
+                        metadata.category,
+                        metadata.expected_duration_seconds,
+                        metadata.min_iterations,
+                        metadata.max_iterations,
+                        metadata.warmup_iterations,
+                        metadata.timeout_seconds,
+                        json.dumps(metadata.tags),
+                        json.dumps(metadata.prerequisites),
+                        metadata.created_at.isoformat(),
+                        datetime.now(timezone.utc).isoformat(),
+                    ),
+                )
+                conn.commit()
             return True
-        except Exception as e:
-            self.logger.error(f"Failed to store benchmark metadata {metadata.benchmark_id}: {e}")
+        except Exception:
+            self.logger.exception(f"Failed to store benchmark metadata {metadata.benchmark_id}")
             return False
 
     def store_benchmark_suite(self, suite: BenchmarkSuite) -> bool:
@@ -348,39 +345,36 @@ class BenchmarkResultStorage:
             True if successful, False otherwise.
         """
         try:
-            with self._lock:
-                with self._get_connection() as conn:
-                    conn.execute(
-                        """
+            with self._lock, self._get_connection() as conn:
+                conn.execute(
+                    """
                         INSERT OR REPLACE INTO benchmark_suites (
                             suite_id, name, description, version, benchmark_ids,
                             parallel_execution, stop_on_failure, max_execution_time_seconds,
                             tags, created_at, created_by, last_run_id, last_run_timestamp, last_run_status
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                        (
-                            suite.suite_id,
-                            suite.name,
-                            suite.description,
-                            suite.version,
-                            json.dumps(suite.benchmark_ids),
-                            int(suite.parallel_execution),
-                            int(suite.stop_on_failure),
-                            suite.max_execution_time_seconds,
-                            json.dumps(suite.tags),
-                            suite.created_at.isoformat(),
-                            suite.created_by,
-                            suite.last_run_id,
-                            suite.last_run_timestamp.isoformat()
-                            if suite.last_run_timestamp
-                            else None,
-                            suite.last_run_status.value,
-                        ),
-                    )
-                    conn.commit()
+                    (
+                        suite.suite_id,
+                        suite.name,
+                        suite.description,
+                        suite.version,
+                        json.dumps(suite.benchmark_ids),
+                        int(suite.parallel_execution),
+                        int(suite.stop_on_failure),
+                        suite.max_execution_time_seconds,
+                        json.dumps(suite.tags),
+                        suite.created_at.isoformat(),
+                        suite.created_by,
+                        suite.last_run_id,
+                        suite.last_run_timestamp.isoformat() if suite.last_run_timestamp else None,
+                        suite.last_run_status.value,
+                    ),
+                )
+                conn.commit()
             return True
-        except Exception as e:
-            self.logger.error(f"Failed to store benchmark suite {suite.suite_id}: {e}")
+        except Exception:
+            self.logger.exception(f"Failed to store benchmark suite {suite.suite_id}")
             return False
 
     def get_benchmark_results(
@@ -391,7 +385,7 @@ class BenchmarkResultStorage:
         status: Optional[BenchmarkStatus] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[BenchmarkResult]:
+    ) -> list[BenchmarkResult]:
         """
         Retrieve benchmark results with optional filtering.
 
@@ -423,11 +417,14 @@ class BenchmarkResultStorage:
                 conditions.append("status = ?")
                 params.append(status.value)
 
-            where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
-
-            query = f"""
+            query = """
                 SELECT * FROM benchmark_results
-                {where_clause}
+            """
+
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+
+            query += """
                 ORDER BY timestamp DESC
                 LIMIT ? OFFSET ?
             """
@@ -465,8 +462,8 @@ class BenchmarkResultStorage:
 
             return results
 
-        except Exception as e:
-            self.logger.error(f"Failed to retrieve benchmark results: {e}")
+        except Exception:
+            self.logger.exception("Failed to retrieve benchmark results")
             return []
 
     def get_benchmark_runs(
@@ -475,7 +472,7 @@ class BenchmarkResultStorage:
         environment: Optional[str] = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[BenchmarkRun]:
+    ) -> list[BenchmarkRun]:
         """
         Retrieve benchmark runs with optional filtering.
 
@@ -499,11 +496,14 @@ class BenchmarkResultStorage:
                 conditions.append("environment = ?")
                 params.append(environment)
 
-            where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
-
-            query = f"""
+            query = """
                 SELECT * FROM benchmark_runs
-                {where_clause}
+            """
+
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+
+            query += """
                 ORDER BY created_at DESC
                 LIMIT ? OFFSET ?
             """
@@ -543,11 +543,11 @@ class BenchmarkResultStorage:
 
             return runs
 
-        except Exception as e:
-            self.logger.error(f"Failed to retrieve benchmark runs: {e}")
+        except Exception:
+            self.logger.exception("Failed to retrieve benchmark runs")
             return []
 
-    def get_performance_trends(self, benchmark_id: str, days: int = 30) -> List[Dict[str, Any]]:
+    def get_performance_trends(self, benchmark_id: str, days: int = 30) -> list[dict[str, Any]]:
         """
         Get performance trends for a benchmark over time.
 
@@ -565,14 +565,14 @@ class BenchmarkResultStorage:
             cutoff_date = cutoff_date.replace(day=cutoff_date.day - days)
 
             query = """
-                SELECT 
+                SELECT
                     DATE(timestamp) as date,
                     AVG(mean_value) as avg_performance,
                     MIN(min_value) as min_performance,
                     MAX(max_value) as max_performance,
                     COUNT(*) as run_count
                 FROM benchmark_results
-                WHERE benchmark_id = ? 
+                WHERE benchmark_id = ?
                 AND status = 'completed'
                 AND timestamp >= ?
                 GROUP BY DATE(timestamp)
@@ -583,23 +583,22 @@ class BenchmarkResultStorage:
                 cursor = conn.execute(query, [benchmark_id, cutoff_date.isoformat()])
                 rows = cursor.fetchall()
 
-            trends = []
-            for row in rows:
-                trends.append(
-                    {
-                        "date": row["date"],
-                        "avg_performance": row["avg_performance"],
-                        "min_performance": row["min_performance"],
-                        "max_performance": row["max_performance"],
-                        "run_count": row["run_count"],
-                    }
-                )
+            trends = [
+                {
+                    "date": row["date"],
+                    "avg_performance": row["avg_performance"],
+                    "min_performance": row["min_performance"],
+                    "max_performance": row["max_performance"],
+                    "run_count": row["run_count"],
+                }
+                for row in rows
+            ]
 
-            return trends
-
-        except Exception as e:
-            self.logger.error(f"Failed to get performance trends for {benchmark_id}: {e}")
+        except Exception:
+            self.logger.exception(f"Failed to get performance trends for {benchmark_id}")
             return []
+        else:
+            return trends
 
     def cleanup_old_results(self, days_to_keep: int = 90) -> int:
         """
@@ -615,34 +614,33 @@ class BenchmarkResultStorage:
             cutoff_date = datetime.now(timezone.utc)
             cutoff_date = cutoff_date.replace(day=cutoff_date.day - days_to_keep)
 
-            with self._lock:
-                with self._get_connection() as conn:
-                    # Delete old results
-                    cursor = conn.execute(
-                        "DELETE FROM benchmark_results WHERE timestamp < ?",
-                        [cutoff_date.isoformat()],
-                    )
-                    deleted_results = cursor.rowcount
+            with self._lock, self._get_connection() as conn:
+                # Delete old results
+                cursor = conn.execute(
+                    "DELETE FROM benchmark_results WHERE timestamp < ?",
+                    [cutoff_date.isoformat()],
+                )
+                deleted_results = cursor.rowcount
 
-                    # Delete old runs that have no results
-                    cursor = conn.execute(
-                        """
-                        DELETE FROM benchmark_runs 
+                # Delete old runs that have no results
+                cursor = conn.execute(
+                    """
+                        DELETE FROM benchmark_runs
                         WHERE run_id NOT IN (SELECT DISTINCT run_id FROM benchmark_results)
                         AND created_at < ?
                     """,
-                        [cutoff_date.isoformat()],
-                    )
-                    deleted_runs = cursor.rowcount
+                    [cutoff_date.isoformat()],
+                )
+                deleted_runs = cursor.rowcount
 
-                    conn.commit()
+                conn.commit()
 
             total_deleted = deleted_results + deleted_runs
             self.logger.info(f"Cleaned up {total_deleted} old benchmark records")
             return total_deleted
 
-        except Exception as e:
-            self.logger.error(f"Failed to cleanup old results: {e}")
+        except Exception:
+            self.logger.exception("Failed to cleanup old results")
             return 0
 
     def close(self) -> None:

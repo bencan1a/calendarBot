@@ -10,12 +10,10 @@ Target: Complete coverage validation (20-30 minutes execution time)
 Focus: All test types, comprehensive validation, edge cases
 """
 
-import os
 import sys
-import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Add project root to path for imports
 project_root = Path(__file__).parent.parent.parent
@@ -27,12 +25,12 @@ class TestSuite:
     """Configuration for a test suite category."""
 
     name: str
-    paths: List[str]
-    markers: List[str]
+    paths: list[str]
+    markers: list[str]
     estimated_duration: float  # seconds
     parallel: bool = True
     priority: int = 1  # 1=highest, 5=lowest
-    requires_setup: List[str] = None  # Special setup requirements
+    requires_setup: list[str] = None  # Special setup requirements
 
 
 class FullRegressionSuite:
@@ -70,8 +68,8 @@ class FullRegressionSuite:
         TestSuite(
             name="security_comprehensive",
             paths=[
-                "tests/unit/test_ics_fetcher.py",
-                "tests/unit/test_web_server.py",
+                "tests/unit/ics/test_ics_fetcher.py",
+                "tests/unit/web/test_web_server.py",
                 "tests/integration/test_web_api_integration.py",
             ],
             markers=["security"],
@@ -148,7 +146,7 @@ class FullRegressionSuite:
         parallel: bool = True,
         verbose: bool = True,
         coverage_detailed: bool = True,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Generate pytest arguments for full regression execution.
 
@@ -231,7 +229,7 @@ class FullRegressionSuite:
         return args
 
     @classmethod
-    def get_execution_phases(cls) -> List[Dict[str, Any]]:
+    def get_execution_phases(cls) -> list[dict[str, Any]]:
         """
         Get execution phases for staged test running.
 
@@ -280,7 +278,7 @@ class FullRegressionSuite:
         return phases
 
     @classmethod
-    def get_execution_plan(cls, include_optional: bool = True) -> Dict[str, Any]:
+    def get_execution_plan(cls, include_optional: bool = True) -> dict[str, Any]:
         """
         Get detailed execution plan for the full regression suite.
 
@@ -321,7 +319,7 @@ class FullRegressionSuite:
         }
 
     @classmethod
-    def validate_execution_time(cls, actual_duration: float) -> Dict[str, Any]:
+    def validate_execution_time(cls, actual_duration: float) -> dict[str, Any]:
         """
         Validate that execution time meets regression suite expectations.
 
@@ -359,22 +357,20 @@ class FullRegressionSuite:
         """Get performance improvement recommendation."""
         if actual_duration < cls.MIN_EXECUTION_TIME:
             return "Consider adding more comprehensive test coverage or verify all test suites executed."
-        elif actual_duration <= cls.MAX_EXECUTION_TIME:
+        if actual_duration <= cls.MAX_EXECUTION_TIME:
             return "Regression suite execution time is optimal."
-        else:
-            overage_percent = (
-                (actual_duration - cls.MAX_EXECUTION_TIME) / cls.MAX_EXECUTION_TIME
-            ) * 100
+        overage_percent = (
+            (actual_duration - cls.MAX_EXECUTION_TIME) / cls.MAX_EXECUTION_TIME
+        ) * 100
 
-            if overage_percent < 25:
-                return "Slightly over target. Consider optimizing slowest tests or increasing parallelization."
-            elif overage_percent < 50:
-                return "Significantly over target. Review test efficiency and consider phase-based execution."
-            else:
-                return "Critically over target. Major optimization needed - consider splitting into multiple suites."
+        if overage_percent < 25:
+            return "Slightly over target. Consider optimizing slowest tests or increasing parallelization."
+        if overage_percent < 50:
+            return "Significantly over target. Review test efficiency and consider phase-based execution."
+        return "Critically over target. Major optimization needed - consider splitting into multiple suites."
 
     @classmethod
-    def get_coverage_validation_args(cls) -> List[str]:
+    def get_coverage_validation_args(cls) -> list[str]:
         """Get arguments specifically for coverage validation."""
         return [
             "python",

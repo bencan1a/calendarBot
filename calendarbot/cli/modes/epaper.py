@@ -8,10 +8,223 @@ E-paper is a CORE feature with automatic hardware detection and PNG emulation.
 import asyncio
 import logging
 import signal
+import traceback
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, NoReturn, Optional, Union
+
+from calendarbot.config.settings import settings
+from calendarbot.display.epaper.drivers.waveshare import EPD4in2bV2
+from calendarbot.display.epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer
+from calendarbot.main import CalendarBot
+from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
+
+from ..config import apply_cli_overrides
 
 logger = logging.getLogger(__name__)
+
+
+class EpaperModeContext:
+    """Context object to hold e-paper mode state and components."""
+
+    def __init__(self) -> None:
+        self.app: Optional[CalendarBot] = None
+        self.epaper_renderer: Optional[EInkWhatsNextRenderer] = None
+        self.hardware_available: bool = False
+        self.fetch_task: Optional[asyncio.Task] = None
+        self.shutdown_event: asyncio.Event = asyncio.Event()
+
+
+async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, Any]:
+    """Initialize e-paper mode components and settings.
+
+    Args:
+        args: Parsed command line arguments
+
+    Returns:
+        Tuple of (context object, updated settings)
+
+    Raises:
+        Exception: If initialization fails
+    """
+    logger.info("Starting Calendar Bot e-paper mode initialization...")
+
+    # Apply command-line logging overrides with priority system
+    updated_settings = apply_command_line_overrides(settings, args)
+
+    # Apply CLI-specific overrides
+    updated_settings = apply_cli_overrides(updated_settings, args)
+
+    # Apply e-paper mode overrides
+    updated_settings = apply_epaper_mode_overrides(updated_settings, args)
+
+    # Set up enhanced logging for e-paper mode
+    setup_enhanced_logging(updated_settings, interactive_mode=False)
+    logger.info("Enhanced logging initialized for e-paper mode")
+
+    logger.info("Initializing Calendar Bot components...")
+
+    # Create context and Calendar Bot instance
+    context = EpaperModeContext()
+    context.app = CalendarBot()
+    logger.debug("Created CalendarBot instance")
+
+    # Initialize components
+    if not await context.app.initialize():
+        logger.error("Failed to initialize Calendar Bot")
+        print("Failed to initialize Calendar Bot")
+        raise RuntimeError("Failed to initialize Calendar Bot")
+
+    logger.info("Calendar Bot components initialized successfully")
+
+    # Initialize e-paper renderer with hardware detection
+    logger.info("Initializing e-paper renderer with hardware detection...")
+    context.epaper_renderer = EInkWhatsNextRenderer(updated_settings)
+
+    # Detect hardware and set up display mode
+    context.hardware_available = detect_epaper_hardware()
+    if context.hardware_available:
+        logger.info("E-paper hardware detected - using physical display")
+        print("E-paper hardware detected - rendering to physical display")
+    else:
+        logger.info("No e-paper hardware detected - using PNG emulation mode")
+        print("No e-paper hardware detected - using PNG emulation (output saved to files)")
+
+    return context, updated_settings
+
+
+async def _handle_render_error(
+    context: EpaperModeContext, error: Exception, events: list[Any], render_count: int
+) -> None:
+    """Handle rendering errors by displaying error on e-paper display.
+
+    Args:
+        context: E-paper mode context
+        error: The exception that occurred
+        events: Current events list for context
+        render_count: Current render cycle number
+    """
+    logger.exception("Error in e-paper render cycle")
+
+    if not context.epaper_renderer:
+        logger.error("E-paper renderer not initialized, cannot display error")
+        return
+
+    try:
+        error_image = context.epaper_renderer.render_error(str(error), events)
+        if context.hardware_available:
+            context.epaper_renderer.update_display(error_image)
+        else:
+            error_path = save_png_emulation(error_image, f"error_{render_count + 1}")
+            print(f"Error display saved to: {error_path}")
+    except Exception:
+        logger.exception("Failed to render error display")
+
+
+async def _run_epaper_main_loop(context: EpaperModeContext) -> None:
+    """Run the main e-paper rendering loop.
+
+    Args:
+        context: E-paper mode context with initialized components
+    """
+    if not context.app or not context.epaper_renderer:
+        raise RuntimeError("E-paper components not properly initialized")
+
+    print("Starting Calendar Bot e-paper mode")
+    print("Press Ctrl+C to stop")
+    logger.debug("E-paper mode ready, entering main loop")
+
+    # Main rendering loop
+    render_count = 0
+    while not context.shutdown_event.is_set():
+        events = []  # Initialize events for error handling scope
+        try:
+            logger.debug(f"Starting render cycle {render_count + 1}")
+
+            # Get fresh calendar data using correct cache manager method
+            events = await context.app.cache_manager.get_todays_cached_events()
+            logger.debug(f"Retrieved {len(events)} events for rendering")
+
+            # Create status info using correct cache manager methods
+            cache_status = await context.app.cache_manager.get_cache_status()
+            status_info = {
+                "is_cached": True,  # Using cached data from app
+                "last_update": (
+                    getattr(cache_status, "last_update", None) if cache_status else None
+                ),
+            }
+
+            # Render to e-paper format
+            rendered_image = context.epaper_renderer.render_from_events(events, status_info)
+            logger.debug("Successfully rendered calendar to e-paper format")
+
+            # Update display (hardware or PNG file)
+            if context.hardware_available:
+                success = context.epaper_renderer.update_display(rendered_image)
+                if success:
+                    logger.info(f"Successfully updated e-paper display (cycle {render_count + 1})")
+                else:
+                    logger.warning(f"Failed to update e-paper display (cycle {render_count + 1})")
+            else:
+                # Save as PNG for emulation mode
+                output_path = save_png_emulation(rendered_image, render_count + 1)
+                logger.info(f"Saved PNG emulation to: {output_path}")
+                print(f"Calendar rendered to: {output_path}")
+
+            render_count += 1
+
+            # Wait before next update (e-paper displays don't need frequent updates)
+            logger.debug("Waiting for next render cycle...")
+            for _ in range(300):  # 5 minutes in 1-second intervals for responsive shutdown
+                if context.shutdown_event.is_set():
+                    break
+                await asyncio.sleep(1)
+
+        except Exception as e:
+            await _handle_render_error(context, e, events, render_count)
+            # Wait before retry
+            await asyncio.sleep(30)
+
+
+async def _cleanup_epaper_resources(context: EpaperModeContext) -> None:
+    """Clean up e-paper mode resources gracefully.
+
+    Args:
+        context: E-paper mode context with resources to clean up
+    """
+    logger.debug("Entering cleanup phase...")
+
+    # Stop background fetching
+    if context.fetch_task:
+        logger.debug("Cancelling background fetch task...")
+        context.fetch_task.cancel()
+
+        logger.debug("Waiting for background fetch task to complete...")
+        try:
+            await asyncio.wait_for(context.fetch_task, timeout=10.0)
+            logger.debug("Background fetch task completed normally")
+        except asyncio.CancelledError:
+            logger.debug("Background fetch task cancelled successfully")
+        except asyncio.TimeoutError:
+            logger.warning("Background fetch task did not cancel within 10 seconds")
+        except Exception:
+            logger.exception("Unexpected error during background fetch task cancellation")
+
+    # Cleanup app
+    if context.app:
+        try:
+            logger.debug("Running application cleanup...")
+            await asyncio.wait_for(context.app.cleanup(), timeout=10.0)
+            logger.info("Application cleanup completed")
+        except asyncio.TimeoutError:
+            logger.warning("Application cleanup timed out after 10 seconds")
+        except Exception:
+            logger.exception("Error during application cleanup")
+
+
+def _raise_app_not_initialized() -> NoReturn:
+    """Raise RuntimeError for uninitialized app."""
+    raise RuntimeError("CalendarBot app is not initialized")
 
 
 async def run_epaper_mode(args: Any) -> int:
@@ -26,176 +239,41 @@ async def run_epaper_mode(args: Any) -> int:
     Returns:
         Exit code (0 for success, 1 for failure)
     """
-    shutdown_event = asyncio.Event()
 
     def signal_handler(signum: int, frame: Any) -> None:
         """Handle shutdown signals gracefully."""
         print(f"\nReceived signal {signum}, initiating graceful shutdown...")
-        shutdown_event.set()
+        if "context" in locals():
+            context.shutdown_event.set()
 
     # Register signal handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     try:
-        from calendarbot.config.settings import settings
-        from calendarbot.display.epaper.integration.eink_whats_next_renderer import (
-            EInkWhatsNextRenderer,
-        )
-        from calendarbot.main import CalendarBot
-        from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
-
-        from ..config import apply_cli_overrides
-
-        logger.info("Starting Calendar Bot e-paper mode initialization...")
-
-        # Apply command-line logging overrides with priority system
-        updated_settings = apply_command_line_overrides(settings, args)
-
-        # Apply CLI-specific overrides
-        updated_settings = apply_cli_overrides(updated_settings, args)
-
-        # Apply e-paper mode overrides
-        updated_settings = apply_epaper_mode_overrides(updated_settings, args)
-
-        # Set up enhanced logging for e-paper mode
-        setup_enhanced_logging(updated_settings, interactive_mode=False)
-        logger.info("Enhanced logging initialized for e-paper mode")
-
-        logger.info("Initializing Calendar Bot components...")
-
-        # Create Calendar Bot instance
-        app = CalendarBot()
-        logger.debug("Created CalendarBot instance")
-
         # Initialize components
-        if not await app.initialize():
-            logger.error("Failed to initialize Calendar Bot")
-            print("Failed to initialize Calendar Bot")
-            return 1
-        logger.info("Calendar Bot components initialized successfully")
-
-        # Initialize e-paper renderer with hardware detection
-        logger.info("Initializing e-paper renderer with hardware detection...")
-        epaper_renderer = EInkWhatsNextRenderer(updated_settings)
-
-        # Detect hardware and set up display mode
-        hardware_available = detect_epaper_hardware()
-        if hardware_available:
-            logger.info("E-paper hardware detected - using physical display")
-            print("E-paper hardware detected - rendering to physical display")
-        else:
-            logger.info("No e-paper hardware detected - using PNG emulation mode")
-            print("No e-paper hardware detected - using PNG emulation (output saved to files)")
+        context, updated_settings = await _initialize_epaper_components(args)
 
         # Start background data fetching
+        if not context.app:
+            _raise_app_not_initialized()
+
         logger.debug("Starting background data fetching task...")
-        fetch_task = asyncio.create_task(app.run_background_fetch())
-        logger.debug("Background data fetching task started")
+        if context.app is not None:
+            context.fetch_task = asyncio.create_task(context.app.run_background_fetch())
+            logger.debug("Background data fetching task started")
+        else:
+            logger.error("CalendarBot app is not initialized; cannot start background fetch task.")
+            _raise_app_not_initialized()
 
         try:
-            print("Starting Calendar Bot e-paper mode")
-            print("Press Ctrl+C to stop")
-            logger.debug("E-paper mode ready, entering main loop")
-
-            # Main rendering loop
-            render_count = 0
-            while not shutdown_event.is_set():
-                events = []  # Initialize events for error handling scope
-                try:
-                    logger.debug(f"Starting render cycle {render_count + 1}")
-
-                    # Get fresh calendar data using correct cache manager method
-                    events = await app.cache_manager.get_todays_cached_events()
-                    logger.debug(f"Retrieved {len(events)} events for rendering")
-
-                    # Create status info using correct cache manager methods
-                    cache_status = await app.cache_manager.get_cache_status()
-                    status_info = {
-                        "is_cached": True,  # Using cached data from app
-                        "last_update": (
-                            getattr(cache_status, "last_update", None) if cache_status else None
-                        ),
-                    }
-
-                    # Render to e-paper format
-                    rendered_image = epaper_renderer.render_from_events(events, status_info)
-                    logger.debug("Successfully rendered calendar to e-paper format")
-
-                    # Update display (hardware or PNG file)
-                    if hardware_available:
-                        success = epaper_renderer.update_display(rendered_image)
-                        if success:
-                            logger.info(
-                                f"Successfully updated e-paper display (cycle {render_count + 1})"
-                            )
-                        else:
-                            logger.warning(
-                                f"Failed to update e-paper display (cycle {render_count + 1})"
-                            )
-                    else:
-                        # Save as PNG for emulation mode
-                        output_path = save_png_emulation(rendered_image, render_count + 1)
-                        logger.info(f"Saved PNG emulation to: {output_path}")
-                        print(f"Calendar rendered to: {output_path}")
-
-                    render_count += 1
-
-                    # Wait before next update (e-paper displays don't need frequent updates)
-                    logger.debug("Waiting for next render cycle...")
-                    for _ in range(300):  # 5 minutes in 1-second intervals for responsive shutdown
-                        if shutdown_event.is_set():
-                            break
-                        await asyncio.sleep(1)
-
-                except Exception as e:
-                    logger.error(f"Error in e-paper render cycle: {e}")
-                    # Try to render error to display
-                    try:
-                        cached_events = events if "events" in locals() and events else []
-                        error_image = epaper_renderer.render_error(str(e), cached_events)
-                        if hardware_available:
-                            epaper_renderer.update_display(error_image)
-                        else:
-                            error_path = save_png_emulation(
-                                error_image, f"error_{render_count + 1}"
-                            )
-                            print(f"Error display saved to: {error_path}")
-                    except Exception as render_error:
-                        logger.error(f"Failed to render error display: {render_error}")
-
-                    # Wait before retry
-                    await asyncio.sleep(30)
-
+            # Run main loop
+            await _run_epaper_main_loop(context)
             logger.info("Shutdown signal received, beginning graceful shutdown...")
 
         finally:
-            logger.debug("Entering cleanup phase...")
-
-            # Stop background fetching
-            logger.debug("Cancelling background fetch task...")
-            fetch_task.cancel()
-
-            logger.debug("Waiting for background fetch task to complete...")
-            try:
-                await asyncio.wait_for(fetch_task, timeout=10.0)
-                logger.debug("Background fetch task completed normally")
-            except asyncio.CancelledError:
-                logger.debug("Background fetch task cancelled successfully")
-            except asyncio.TimeoutError:
-                logger.warning("Background fetch task did not cancel within 10 seconds")
-            except Exception as e:
-                logger.error(f"Unexpected error during background fetch task cancellation: {e}")
-
-            # Cleanup
-            try:
-                logger.debug("Running application cleanup...")
-                await asyncio.wait_for(app.cleanup(), timeout=10.0)
-                logger.info("Application cleanup completed")
-            except asyncio.TimeoutError:
-                logger.warning("Application cleanup timed out after 10 seconds")
-            except Exception as e:
-                logger.error(f"Error during application cleanup: {e}")
+            # Always cleanup resources
+            await _cleanup_epaper_resources(context)
 
         logger.info("E-paper mode completed successfully")
         return 0
@@ -203,8 +281,7 @@ async def run_epaper_mode(args: Any) -> int:
     except Exception as e:
         # Use print instead of logger since logger might not be initialized yet
         print(f"E-paper mode error: {e}")
-        import traceback
-
+        # Print traceback for debugging
         traceback.print_exc()
         return 1
 
@@ -222,8 +299,6 @@ def detect_epaper_hardware() -> bool:
     try:
         # First try to detect real hardware drivers (Waveshare, etc.)
         try:
-            from calendarbot.display.epaper.drivers.waveshare import EPD4in2bV2
-
             # Try to initialize real hardware
             test_driver = EPD4in2bV2()
             if test_driver.initialize():
@@ -263,8 +338,6 @@ def save_png_emulation(image: Any, cycle_number: Union[int, str]) -> Path:
     output_dir.mkdir(exist_ok=True)
 
     # Generate filename with timestamp and cycle number
-    from datetime import datetime
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if isinstance(cycle_number, str):
         filename = f"calendar_epaper_{timestamp}_{cycle_number}.png"
@@ -280,7 +353,7 @@ def save_png_emulation(image: Any, cycle_number: Union[int, str]) -> Path:
     return output_path
 
 
-def apply_epaper_mode_overrides(settings: Any, args: Any) -> Any:
+def apply_epaper_mode_overrides(settings: Any, _args: Any) -> Any:
     """Apply e-paper mode specific setting overrides.
 
     Args:

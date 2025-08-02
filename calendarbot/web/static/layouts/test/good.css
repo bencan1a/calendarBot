@@ -1,0 +1,1699 @@
+/* CalendarBot Whats-Next-View Layout CSS - 300x400 Fixed Viewport */
+
+/* ==========================================
+   VIEWPORT SETUP (Based on 3x4 Layout Lines 4-100)
+   ========================================== */
+
+/* Full viewport with centering for fixed calendar rectangle */
+html, body {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: black;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+/* Create a single calendar container that wraps all content */
+body::before {
+    content: '';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    height: 400px;
+    background-color: white;
+    z-index: -1;
+}
+
+/* Reset body to be the container */
+body {
+    width: 300px !important;
+    height: 400px !important;
+    max-width: 300px !important;
+    max-height: 400px !important;
+    min-width: 300px !important;
+    min-height: 400px !important;
+    background-color: white;
+    overflow: hidden;
+    position: relative;
+    box-sizing: border-box;
+    display: block;
+}
+
+/* Base styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.4;
+    transition: all 0.3s ease;
+}
+
+/* ==========================================
+   8-SHADE GRAYSCALE PALETTE
+   ========================================== */
+
+:root {
+    /* Enhanced 8-shade grayscale palette with optimal contrast ratios */
+    --gray-1: #ffffff;  /* Lightest - 21:1 contrast with gray-8 */
+    --gray-2: #f5f5f5;  /* Very light - 18.5:1 contrast with gray-8 */
+    --gray-3: #e0e0e0;  /* Light - 12.6:1 contrast with gray-8 */
+    --gray-4: #bdbdbd;  /* Medium light - 7.0:1 contrast with gray-8 */
+    --gray-5: #757575;  /* Medium - 4.5:1 contrast with gray-1 (WCAG AA compliant) */
+    --gray-6: #424242;  /* Medium dark - 9.7:1 contrast with gray-1 */
+    --gray-7: #212121;  /* Dark - 16.0:1 contrast with gray-1 */
+    --gray-8: #000000;  /* Darkest - 21:1 contrast with gray-1 */
+    
+    /* Enhanced semantic color assignments for UX compliance */
+    --background-primary: var(--gray-1);
+    --background-secondary: var(--gray-2);
+    --background-tertiary: var(--gray-3);
+    --text-critical: var(--gray-8);        /* 21:1 contrast - for critical info */
+    --text-primary: var(--gray-8);         /* 21:1 contrast - for primary content */
+    --text-secondary: var(--gray-6);       /* 9.7:1 contrast - for secondary content */
+    --text-supporting: var(--gray-5);      /* 4.5:1 contrast - WCAG AA compliant */
+    --text-muted: var(--gray-5);          /* 4.5:1 contrast - improved from gray-4 */
+    --text-caption: var(--gray-5);        /* 4.5:1 contrast - readable captions */
+    --border-light: var(--gray-3);
+    --border-medium: var(--gray-4);
+    --border-strong: var(--gray-6);
+    --border-critical: var(--gray-8);      /* Maximum contrast borders */
+    --surface-raised: var(--gray-1);
+    --surface-sunken: var(--gray-2);
+    --surface-recessed: var(--gray-3);     /* Additional surface level */
+}
+
+/* ==========================================
+   HEADER SECTION
+   ========================================== */
+
+.whats-next-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    border-bottom: 2px solid var(--border-medium);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    width: 300px !important;
+    max-width: 300px !important;
+    margin: 0 auto;
+    box-sizing: border-box;
+    background-color: var(--background-primary);
+}
+
+.header-title {
+    flex: 1;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.header-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.refresh-btn,
+.nav-btn {
+    padding: 0.4rem;
+    border: 1px solid var(--border-medium);
+    background: var(--background-primary);
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    color: var(--text-primary);
+    min-width: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.refresh-btn:hover,
+.nav-btn:hover {
+    background-color: var(--background-secondary);
+    border-color: var(--border-strong);
+}
+
+.refresh-btn:active,
+.nav-btn:active {
+    transform: scale(0.95);
+}
+
+/* ==========================================
+   MAIN CONTENT AREA
+   ========================================== */
+
+.calendar-content {
+    padding: 0; /* Remove padding to use zone-specific padding */
+    width: 300px !important;
+    max-width: 300px !important;
+    height: 400px !important;  /* Use full height for 300x400px target */
+    max-height: 400px !important;
+    margin: 0 auto;
+    overflow-y: auto;
+    box-sizing: border-box;
+    background-color: var(--background-primary);
+    display: flex;
+    flex-direction: column;
+}
+
+/* ==========================================
+   P1 4-ZONE LAYOUT STRUCTURE (Phase 2)
+   ========================================== */
+
+/* Zone 1: Time gap display (190px - sized to center Starts In box with equal spacing above and below) */
+.layout-zone-1 {
+    height: 190px;
+    min-height: 190px;
+    max-height: 190px;
+    padding: 0.75rem;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border-light);
+}
+
+/* Zone 2: Next meeting information (150px - adjusted to maintain total height while balancing spacing) */
+.layout-zone-2 {
+    height: 150px;
+    min-height: 150px;
+    max-height: 150px;
+    padding: 1rem;
+    box-sizing: border-box;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border-light);
+}
+
+/* Zone 4: Additional context (50px - doubled from 25px for better usability) */
+.layout-zone-4 {
+    height: 50px;
+    min-height: 50px;
+    max-height: 50px;
+    padding: 0.5rem;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1; /* Take remaining space */
+    font-size: 14px;
+    line-height: 1.3;
+}
+
+/* Zone-specific styling for enhanced visual hierarchy */
+.layout-zone-1 {
+    background-color: var(--background-primary);
+}
+
+.layout-zone-2 {
+    background-color: var(--background-primary);
+}
+
+.layout-zone-4 {
+    background-color: var(--background-secondary);
+}
+
+/* E-ink theme zone adjustments */
+.theme-eink .layout-zone-1,
+.theme-eink .layout-zone-2,
+.theme-eink .layout-zone-4 {
+    background-color: var(--gray-1);
+    border-bottom-color: var(--gray-6);
+}
+
+.theme-eink .layout-zone-4 {
+    background-color: var(--gray-2);
+}
+
+/* ==========================================
+   MEETING CARD
+   ========================================== */
+
+.meeting-card {
+    background-color: var(--surface-raised);
+    border: 2px solid var(--border-medium);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.meeting-card.current {
+    border-color: var(--border-strong);
+    background-color: var(--background-primary);
+}
+
+.meeting-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    line-height: 1.3;
+    /* Text truncation for single line display */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.meeting-time {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.meeting-location {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.meeting-description {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    max-height: 3rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ==========================================
+   COUNTDOWN DISPLAY
+   ========================================== */
+
+.countdown-container {
+    text-align: center;
+    padding: 1.5rem 1rem;
+    background-color: var(--gray-3);
+    border: 1px solid var(--border-medium);
+    border-radius: 6px;
+    margin-bottom: 1rem;
+}
+
+.countdown-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.countdown-time {
+    font-size: 52px;
+    font-weight: 900;
+    color: var(--text-primary);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+.countdown-time.urgent {
+    color: var(--gray-7);
+    animation: pulse 2s infinite;
+}
+
+.countdown-units {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ==========================================
+   P0 TIME GAP DISPLAY CLASSES
+   ========================================== */
+
+/* Critical time gap - Less than 2 minutes */
+.countdown-container.time-gap-critical {
+    background-color: var(--gray-8);
+    color: var(--gray-1);
+    border: 3px solid var(--gray-7);
+    box-shadow: 0 0 8px rgba(0,0,0,0.3);
+}
+
+.countdown-container.time-gap-critical .countdown-time {
+    font-size: 52px;
+    font-weight: 900;
+    color: var(--gray-1);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    animation: urgentPulse 1s infinite;
+}
+
+.countdown-container.time-gap-critical .countdown-label {
+    color: var(--gray-1);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.countdown-container.time-gap-critical .countdown-units {
+    color: var(--gray-2);
+    font-weight: 600;
+}
+
+/* Tight time gap - 2-10 minutes */
+.countdown-container.time-gap-tight {
+    background-color: var(--gray-7);
+    color: var(--gray-1);
+    border: 2px solid var(--gray-6);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.countdown-container.time-gap-tight .countdown-time {
+    font-size: 52px;
+    font-weight: 800;
+    color: var(--gray-1);
+    animation: moderatePulse 2s infinite;
+}
+
+.countdown-container.time-gap-tight .countdown-label {
+    color: var(--gray-1);
+    font-weight: 600;
+}
+
+.countdown-container.time-gap-tight .countdown-units {
+    color: var(--gray-2);
+    font-weight: 500;
+}
+
+/* Comfortable time gap - 10-30 minutes */
+.countdown-container.time-gap-comfortable {
+    background-color: var(--gray-3);
+    color: var(--gray-8);
+    border: 2px solid var(--gray-4);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.countdown-container.time-gap-comfortable .countdown-time {
+    font-size: 52px;
+    font-weight: 700;
+    color: var(--gray-8);
+}
+
+.countdown-container.time-gap-comfortable .countdown-label {
+    color: var(--gray-6);
+    font-weight: 500;
+}
+
+.countdown-container.time-gap-comfortable .countdown-units {
+    color: var(--gray-5);
+}
+
+/* Enhanced 48px prominence for all time gap displays */
+.countdown-container.time-gap-critical .countdown-time,
+.countdown-container.time-gap-tight .countdown-time,
+.countdown-container.time-gap-comfortable .countdown-time {
+    min-height: 48px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+/* P0 Boundary Alert Animations */
+@keyframes urgentPulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.02);
+    }
+}
+
+@keyframes moderatePulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+/* ==========================================
+   NEXT MEETINGS LIST
+   ========================================== */
+
+.next-meetings {
+    margin-top: 1rem;
+}
+
+.next-meetings-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.25px;
+}
+
+.next-meeting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-light);
+    gap: 0.5rem;
+}
+
+.next-meeting-item:last-child {
+    border-bottom: none;
+}
+
+.next-meeting-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.next-meeting-title {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.next-meeting-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-align: right;
+    min-width: 4rem;
+}
+
+/* ==========================================
+   EMPTY STATES
+   ========================================== */
+
+.empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--text-muted);
+}
+
+.empty-state-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-muted);
+}
+
+.empty-state-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.empty-state-message {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* ==========================================
+   ERROR STATES
+   ========================================== */
+
+.error-state {
+    text-align: center;
+    padding: 1.5rem 1rem;
+    border: 2px solid var(--border-medium);
+    border-radius: 6px;
+    background-color: var(--surface-sunken);
+}
+
+.error-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.error-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.error-message {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* ==========================================
+   LOADING STATES
+   ========================================== */
+
+.loading-spinner {
+    display: inline-block;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid var(--border-light);
+    border-radius: 50%;
+    border-top-color: var(--text-primary);
+    animation: spin 1s ease-in-out infinite;
+    margin: 0 auto;
+}
+
+.loading-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--text-muted);
+}
+
+/* ==========================================
+   ANIMATIONS
+   ========================================== */
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Smooth transitions for data updates */
+.meeting-card,
+.countdown-time,
+.next-meeting-item {
+    transition: all 0.3s ease;
+}
+
+/* ==========================================
+   ACCESSIBILITY FEATURES
+   ========================================== */
+
+/* Focus management */
+.refresh-btn:focus,
+.nav-btn:focus,
+.meeting-card:focus {
+    outline: 2px solid var(--gray-6);
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    :root {
+        --border-light: var(--gray-6);
+        --border-medium: var(--gray-7);
+        --border-strong: var(--gray-8);
+    }
+    
+    .meeting-card {
+        border-width: 3px;
+    }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .meeting-card,
+    .countdown-time,
+    .next-meeting-item,
+    .refresh-btn,
+    .nav-btn {
+        transition: none;
+    }
+    
+    .countdown-time.urgent {
+        animation: none;
+    }
+    
+    .loading-spinner {
+        animation: none;
+    }
+}
+
+/* Screen reader only content */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ==========================================
+   EINK THEME
+   ========================================== */
+
+.theme-eink {
+    background: var(--gray-1);
+    color: var(--gray-8);
+}
+
+.theme-eink body {
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+    font-size: 15px;
+    line-height: 1.3;
+    background: var(--gray-1);
+    color: var(--gray-8);
+}
+
+.theme-eink .whats-next-header {
+    background: var(--gray-1);
+    border-bottom-color: var(--gray-8);
+}
+
+.theme-eink .refresh-btn,
+.theme-eink .nav-btn {
+    border-color: var(--gray-8);
+    color: var(--gray-8);
+    background: var(--gray-1);
+}
+
+.theme-eink .refresh-btn:hover,
+.theme-eink .nav-btn:hover {
+    background: var(--gray-2);
+}
+
+.theme-eink .meeting-card {
+    border-color: var(--gray-8);
+    background: var(--gray-1);
+    box-shadow: none;
+}
+
+.theme-eink .meeting-card.current {
+    border-color: var(--gray-8);
+    background: var(--gray-2);
+}
+
+.theme-eink .countdown-container {
+    background: var(--gray-2);
+    border-color: var(--gray-8);
+}
+
+.theme-eink .next-meeting-item {
+    border-bottom-color: var(--gray-4);
+}
+
+.theme-eink .error-state {
+    border-color: var(--gray-8);
+    background: var(--gray-2);
+}
+
+.theme-eink .loading-spinner {
+    border-color: var(--gray-4);
+    border-top-color: var(--gray-8);
+}
+
+/* P0 E-ink theme support for time gap classes */
+.theme-eink .countdown-container.time-gap-critical {
+    background-color: var(--gray-8);
+    color: var(--gray-1);
+    border: 4px solid var(--gray-8);
+    box-shadow: none;
+}
+
+.theme-eink .countdown-container.time-gap-critical .countdown-time {
+    color: var(--gray-1);
+    font-weight: 900;
+    text-shadow: none;
+}
+
+.theme-eink .countdown-container.time-gap-critical .countdown-label,
+.theme-eink .countdown-container.time-gap-critical .countdown-units {
+    color: var(--gray-1);
+    font-weight: 700;
+}
+
+.theme-eink .countdown-container.time-gap-tight {
+    background-color: var(--gray-7);
+    color: var(--gray-1);
+    border: 3px solid var(--gray-8);
+    box-shadow: none;
+}
+
+.theme-eink .countdown-container.time-gap-tight .countdown-time {
+    color: var(--gray-1);
+    font-weight: 800;
+}
+
+.theme-eink .countdown-container.time-gap-tight .countdown-label,
+.theme-eink .countdown-container.time-gap-tight .countdown-units {
+    color: var(--gray-1);
+    font-weight: 600;
+}
+
+.theme-eink .countdown-container.time-gap-comfortable {
+    background-color: var(--gray-3);
+    color: var(--gray-8);
+    border: 2px solid var(--gray-8);
+    box-shadow: none;
+}
+
+.theme-eink .countdown-container.time-gap-comfortable .countdown-time {
+    color: var(--gray-8);
+    font-weight: 700;
+}
+
+.theme-eink .countdown-container.time-gap-comfortable .countdown-label,
+.theme-eink .countdown-container.time-gap-comfortable .countdown-units {
+    color: var(--gray-8);
+    font-weight: 600;
+}
+
+/* ==========================================
+   P1 ENHANCED E-INK OPTIMIZATIONS (Phase 2)
+   ========================================== */
+
+/* Enhanced contrast ratios and spacing for 300x400px e-ink displays */
+.theme-eink {
+    /* Enhanced contrast variables for e-ink */
+    --eink-black: #000000;
+    --eink-dark-gray: #333333;
+    --eink-medium-gray: #666666;
+    --eink-light-gray: #cccccc;
+    --eink-white: #ffffff;
+}
+
+/* Enhanced typography contrast for e-ink */
+.theme-eink .text-primary {
+    color: var(--eink-black) !important;
+    font-weight: 900 !important; /* Maximum weight for contrast */
+    letter-spacing: 0.5px; /* Improve character separation */
+}
+
+.theme-eink .text-secondary {
+    color: var(--eink-black) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.3px;
+}
+
+.theme-eink .text-supporting {
+    color: var(--eink-dark-gray) !important;
+    font-weight: 600 !important;
+}
+
+.theme-eink .text-small {
+    color: var(--eink-dark-gray) !important;
+    font-weight: 500 !important;
+}
+
+.theme-eink .text-caption {
+    color: var(--eink-medium-gray) !important;
+    font-weight: 400 !important; /* Avoid light weights on e-ink */
+}
+
+/* Enhanced spacing for rapid scanning on e-ink */
+.theme-eink .layout-zone-1,
+.theme-eink .layout-zone-2,
+.theme-eink .layout-zone-4 {
+    padding: 1rem; /* Increased padding for better visual separation */
+    border-bottom: 2px solid var(--eink-black); /* Stronger borders */
+}
+
+.theme-eink .layout-zone-1 {
+    border-bottom: 3px solid var(--eink-black); /* Strongest separation for zone 1 */
+}
+
+/* Enhanced meeting card contrast for e-ink */
+.theme-eink .meeting-card {
+    border: 3px solid var(--eink-black) !important;
+    background: var(--eink-white) !important;
+    padding: 1.25rem; /* Increased padding */
+    margin-bottom: 1rem;
+}
+
+.theme-eink .meeting-title {
+    margin-bottom: 0.75rem; /* Increased spacing */
+    line-height: 1.4; /* Better line spacing */
+}
+
+.theme-eink .meeting-time {
+    margin-bottom: 0.75rem;
+    font-weight: 600 !important; /* Stronger weight */
+}
+
+.theme-eink .meeting-location,
+.theme-eink .meeting-description {
+    margin-bottom: 0.5rem;
+    line-height: 1.5; /* Enhanced readability */
+}
+
+/* Enhanced countdown display for e-ink */
+.theme-eink .countdown-container {
+    border: 3px solid var(--eink-black) !important;
+    background: var(--eink-white) !important;
+    padding: 1.5rem; /* Increased padding */
+}
+
+.theme-eink .countdown-time {
+    font-weight: 900 !important;
+    color: var(--eink-black) !important;
+    letter-spacing: -0.5px; /* Tighter spacing for large numbers */
+    text-shadow: none !important;
+}
+
+.theme-eink .countdown-label,
+.theme-eink .countdown-units {
+    font-weight: 600 !important;
+    color: var(--eink-black) !important;
+    letter-spacing: 0.5px;
+}
+
+/* Enhanced status and context areas for e-ink */
+.theme-eink .status-info,
+.theme-eink .context-info {
+    padding: 0.75rem;
+    line-height: 1.5;
+}
+
+.theme-eink .status-label,
+.theme-eink .status-value {
+    margin-bottom: 0.5rem;
+}
+
+/* Enhanced empty state for e-ink */
+.theme-eink .empty-state {
+    padding: 1.5rem;
+}
+
+.theme-eink .empty-state-title {
+    margin-bottom: 1rem;
+    font-weight: 700 !important;
+    color: var(--eink-black) !important;
+}
+
+.theme-eink .empty-state-message {
+    line-height: 1.6;
+    font-weight: 500 !important;
+    color: var(--eink-dark-gray) !important;
+}
+
+/* Remove any remaining color dependencies for e-ink */
+.theme-eink .whats-next-header {
+    background: var(--eink-white) !important;
+    border-bottom: 3px solid var(--eink-black) !important;
+    box-shadow: none !important;
+}
+
+.theme-eink .refresh-btn,
+.theme-eink .nav-btn {
+    border: 2px solid var(--eink-black) !important;
+    background: var(--eink-white) !important;
+    color: var(--eink-black) !important;
+    font-weight: 600 !important;
+}
+
+.theme-eink .refresh-btn:hover,
+.theme-eink .nav-btn:hover {
+    background: var(--eink-light-gray) !important;
+    border-color: var(--eink-black) !important;
+}
+
+/* E-ink specific: no animations, sharp edges, enhanced spacing */
+.theme-eink * {
+    transition: none !important;
+    animation: none !important;
+}
+
+.theme-eink .refresh-btn,
+.theme-eink .nav-btn,
+.theme-eink .meeting-card,
+.theme-eink .countdown-container,
+.theme-eink .error-state {
+    border-radius: 0 !important; /* Sharp edges for e-ink clarity */
+}
+
+/* Enhanced visual grouping for rapid scanning */
+.theme-eink .layout-zone-2 .meeting-card {
+    box-shadow: 2px 2px 0px var(--eink-dark-gray); /* Subtle shadow for depth */
+}
+
+.theme-eink .layout-zone-1 .countdown-container {
+    box-shadow: 2px 2px 0px var(--eink-dark-gray);
+}
+
+/* Optimized line heights and spacing for 300x400px constraint */
+.theme-eink {
+    line-height: 1.4 !important;
+}
+
+.theme-eink .text-primary {
+    line-height: 1.2 !important; /* Tighter for large text */
+}
+
+.theme-eink .text-secondary {
+    line-height: 1.3 !important;
+}
+
+.theme-eink .text-supporting,
+.theme-eink .text-small,
+.theme-eink .text-caption {
+    line-height: 1.5 !important; /* Better readability for smaller text */
+}
+
+/* ==========================================
+   STANDARD THEME
+   ========================================== */
+
+.theme-standard {
+    background: var(--gray-1);
+    color: var(--gray-8);
+}
+
+.theme-standard body {
+    background: var(--gray-1);
+    color: var(--gray-8);
+}
+
+.theme-standard .whats-next-header {
+    background: var(--gray-1);
+    border-bottom-color: var(--gray-4);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.theme-standard .refresh-btn,
+.theme-standard .nav-btn {
+    border-color: var(--gray-4);
+    color: var(--gray-6);
+    background: var(--gray-1);
+}
+
+.theme-standard .refresh-btn:hover,
+.theme-standard .nav-btn:hover {
+    background: var(--gray-2);
+    border-color: var(--gray-5);
+}
+
+.theme-standard .meeting-card {
+    border-color: var(--gray-3);
+    background: var(--gray-1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.theme-standard .meeting-card.current {
+    border-color: var(--gray-6);
+    background: var(--gray-1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.theme-standard .countdown-container {
+    background: var(--gray-2);
+    border-color: var(--gray-3);
+}
+
+.theme-standard .countdown-time.urgent {
+    color: var(--gray-7);
+}
+
+.theme-standard .next-meeting-item {
+    border-bottom-color: var(--gray-3);
+}
+
+.theme-standard .error-state {
+    border-color: var(--gray-5);
+    background: var(--gray-2);
+}
+
+.theme-standard .loading-spinner {
+    border-color: var(--gray-3);
+    border-top-color: var(--gray-6);
+}
+
+/* ==========================================
+   RESPONSIVE CONSIDERATIONS
+   ========================================== */
+
+/* Mobile device adjustments (for context outside 300x400) */
+@media (max-width: 480px) {
+    .whats-next-header {
+        padding: 0.5rem;
+    }
+    
+    .whats-next-content {
+        padding: 0.75rem;
+    }
+    
+    .countdown-time {
+        font-size: 2rem;
+    }
+}
+
+/* ==========================================
+   P1 TYPOGRAPHY SCALE (Phase 2)
+   ========================================== */
+
+/* UX Spec Typography Hierarchy: 48px, 32px, 24px, 18px, 14px */
+.text-critical {
+    font-size: 48px;
+    font-weight: 900; /* black */
+    line-height: 1.0;
+    color: var(--text-critical);
+}
+
+.text-primary {
+    font-size: 32px;
+    font-weight: 700; /* bold */
+    line-height: 1.2;
+    color: var(--text-primary);
+}
+
+.text-secondary {
+    font-size: 24px;
+    font-weight: 600; /* semi-bold */
+    line-height: 1.3;
+    color: var(--text-secondary);
+}
+
+.text-supporting {
+    font-size: 18px;
+    font-weight: 400; /* regular */
+    line-height: 1.4;
+    color: var(--text-supporting);
+}
+
+.text-caption {
+    font-size: 14px;
+    font-weight: 400; /* regular */
+    line-height: 1.4;
+    color: var(--text-caption);
+}
+
+/* Legacy text-small mapped to supporting for backwards compatibility */
+.text-small {
+    font-size: 18px;
+    font-weight: 400; /* regular */
+    line-height: 1.4;
+    color: var(--text-supporting);
+}
+
+/* E-ink specific typography adjustments */
+.theme-eink .text-primary {
+    font-weight: 900; /* Extra bold for e-ink contrast */
+}
+
+.theme-eink .text-secondary {
+    font-weight: 700; /* Bold for e-ink contrast */
+}
+
+.theme-eink .text-supporting {
+    font-weight: 500; /* Medium for e-ink contrast */
+}
+
+.theme-eink .text-caption {
+    font-weight: 400; /* Regular instead of light for e-ink readability */
+}
+
+/* ==========================================
+   UTILITY CLASSES
+   ========================================== */
+
+.hidden {
+    display: none !important;
+}
+
+.visible {
+    display: block !important;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.text-right {
+    text-align: right;
+}
+
+/* Font weight utilities */
+.font-normal {
+    font-weight: 400;
+}
+
+.font-medium {
+    font-weight: 500;
+}
+
+.font-semibold {
+    font-weight: 600;
+}
+
+.font-bold {
+    font-weight: 700;
+}
+
+/* ==========================================
+   PRINT STYLES
+   ========================================== */
+
+@media print {
+    body {
+        background: white;
+        color: black;
+        font-size: 12pt;
+    }
+    
+    .whats-next-header {
+        border-bottom: 2px solid black;
+    }
+    
+    .meeting-card {
+        break-inside: avoid;
+        border: 1px solid black;
+        box-shadow: none;
+        margin-bottom: 0.5rem;
+    }
+    
+    .countdown-container {
+        border: 1px solid black;
+        background: white;
+    }
+    
+    .refresh-btn,
+    .nav-btn {
+        display: none;
+    }
+    
+    .loading-spinner {
+        display: none;
+    }
+}
+
+/* ==========================================
+   DEBUG MODE STYLING
+   ========================================== */
+
+/* Debug panel positioned to the RIGHT of the 300x400px main frame */
+.debug-panel {
+    position: fixed;
+    top: 50%;
+    left: calc(50% + 160px); /* Position to the right of the main view */
+    transform: translateY(-50%); /* Center vertically only */
+    width: 320px;
+    min-height: 400px; /* Match main view height for better visual balance */
+    background-color: #f8f9fa;
+    border: 3px solid #007bff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 2000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.debug-panel.hidden {
+    display: none;
+}
+
+/* Debug panel header */
+.debug-panel-header {
+    background-color: #007bff;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 5px 5px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+}
+
+.debug-panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.debug-close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+}
+
+.debug-close-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Debug panel content */
+.debug-panel-content {
+    padding: 16px;
+}
+
+.debug-controls {
+    margin-bottom: 16px;
+}
+
+.debug-field {
+    margin-bottom: 12px;
+}
+
+.debug-field label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 500;
+    color: #333;
+}
+
+.debug-field input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease;
+}
+
+.debug-field input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.debug-field input:invalid {
+    border-color: #dc3545;
+}
+
+/* Date/Time picker specific styling */
+.debug-field input[type="date"] {
+    cursor: pointer;
+}
+
+.debug-field input[type="number"] {
+    width: 60px;
+    text-align: center;
+}
+
+.debug-field select {
+    width: auto;
+    padding: 8px 12px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: white;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.debug-field select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Time picker container */
+.time-picker-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.time-picker-container label {
+    margin: 0;
+    font-size: 12px;
+    color: #666;
+}
+
+/* Checkbox styling */
+.debug-field input[type="checkbox"] {
+    width: auto;
+    margin-right: 8px;
+    transform: scale(1.2);
+    cursor: pointer;
+}
+
+.checkbox-field {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.checkbox-field label {
+    margin: 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Time override section */
+.time-override-section {
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 16px;
+    background-color: #f8f9fa;
+}
+
+.time-override-section.disabled {
+    opacity: 0.6;
+    /* Fixed: Remove blanket pointer-events: none to allow checkbox interaction */
+}
+
+/* Fixed: Selectively disable only the inputs that should be disabled, not the checkbox */
+.time-override-section.disabled .debug-field input:not([type="checkbox"]) {
+    pointer-events: none;
+    opacity: 0.4;
+}
+
+.time-override-section.disabled .debug-field select {
+    pointer-events: none;
+    opacity: 0.4;
+}
+
+/* Ensure checkbox always remains interactive */
+.time-override-section.disabled .checkbox-field input[type="checkbox"] {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    cursor: pointer;
+}
+
+.time-override-section.disabled .checkbox-field label {
+    pointer-events: auto !important;
+    cursor: pointer;
+}
+
+.time-override-section h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Time preview display */
+.time-preview {
+    background-color: #e7f3ff;
+    border: 1px solid #b3d9ff;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-top: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #0066cc;
+    text-align: center;
+}
+
+.time-preview.disabled {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    color: #6c757d;
+}
+
+/* Debug action buttons */
+.debug-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.debug-apply-btn,
+.debug-clear-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.debug-apply-btn {
+    background-color: #28a745;
+    color: white;
+}
+
+.debug-apply-btn:hover {
+    background-color: #218838;
+    transform: translateY(-1px);
+}
+
+.debug-apply-btn:active {
+    transform: translateY(0);
+}
+
+.debug-clear-btn {
+    background-color: #6c757d;
+    color: white;
+}
+
+.debug-clear-btn:hover {
+    background-color: #5a6268;
+    transform: translateY(-1px);
+}
+
+.debug-clear-btn:active {
+    transform: translateY(0);
+}
+
+/* Debug status indicator */
+.debug-status {
+    border-top: 1px solid #ddd;
+    padding-top: 12px;
+    margin-top: 12px;
+}
+
+.debug-status-indicator {
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+}
+
+.debug-active {
+    color: #007bff;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* Visual indicator when debug mode is active - REMOVED per user request */
+/* body.debug-mode-active::before {
+    content: 'DEBUG MODE ACTIVE';
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: #007bff;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 1500;
+    letter-spacing: 0.5px;
+} */
+
+/* Debug panel responsive adjustments for smaller screens */
+@media (max-width: 480px) {
+    .debug-panel {
+        width: 90vw;
+        max-width: 320px;
+        left: 50%;
+        transform: translate(-50%, -50%); /* Center on smaller screens */
+    }
+    
+    .debug-actions {
+        flex-direction: column;
+    }
+    
+    .debug-apply-btn,
+    .debug-clear-btn {
+        flex: none;
+    }
+}
+
+/* Theme-specific debug panel styling */
+.theme-eink .debug-panel {
+    background-color: #ffffff;
+    border-color: #000000;
+    box-shadow: 4px 4px 0px #333333;
+}
+
+.theme-eink .debug-panel-header {
+    background-color: #000000;
+    color: #ffffff;
+}
+
+.theme-eink .debug-field input {
+    border-color: #000000;
+    background-color: #ffffff;
+}
+
+.theme-eink .debug-field input:focus {
+    border-color: #000000;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+}
+
+.theme-eink .debug-apply-btn {
+    background-color: #000000;
+    color: #ffffff;
+}
+
+.theme-eink .debug-apply-btn:hover {
+    background-color: #333333;
+}
+
+.theme-eink .debug-clear-btn {
+    background-color: #666666;
+    color: #ffffff;
+}
+
+.theme-eink .debug-clear-btn:hover {
+    background-color: #444444;
+}
+
+.theme-eink .debug-status {
+    border-top-color: #000000;
+}
+
+.theme-eink .debug-active {
+    color: #000000;
+}
+
+/* Theme-specific styling for new date/time components */
+.theme-eink .debug-field select {
+    border-color: #000000;
+    background-color: #ffffff;
+}
+
+.theme-eink .debug-field select:focus {
+    border-color: #000000;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+}
+
+.theme-eink .time-override-section {
+    border-color: #000000;
+    background-color: #ffffff;
+}
+
+.theme-eink .time-override-section h4 {
+    color: #000000;
+}
+
+.theme-eink .time-picker-container label {
+    color: #333333;
+}
+
+.theme-eink .time-preview {
+    background-color: #f0f0f0;
+    border-color: #000000;
+    color: #000000;
+}
+
+.theme-eink .time-preview.disabled {
+    background-color: #ffffff;
+    border-color: #666666;
+    color: #666666;
+}
+
+.theme-eink .checkbox-field label {
+    color: #000000;
+}
+
+/* Ensure debug panel doesn't interfere with normal layout */
+.debug-panel {
+    pointer-events: auto;
+}
+
+.debug-panel.hidden {
+    pointer-events: none;
+}
+
+/* Focus management for debug panel */
+.debug-panel input:focus,
+.debug-panel button:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+.theme-eink .debug-panel input:focus,
+.theme-eink .debug-panel button:focus {
+    outline-color: #000000;
+}
+
+/* Animation for debug panel appearance */
+@keyframes debugPanelSlideIn {
+    from {
+        opacity: 0;
+        transform: translate(20px, -50%); /* Slide in from further right */
+    }
+    to {
+        opacity: 1;
+        transform: translateY(-50%); /* Final position centered vertically */
+    }
+}
+
+.debug-panel:not(.hidden) {
+    animation: debugPanelSlideIn 0.3s ease-out;
+}
+
+/* High contrast mode support for debug panel */
+@media (prefers-contrast: high) {
+    .debug-panel {
+        border-width: 4px;
+    }
+    
+    .debug-field input {
+        border-width: 3px;
+    }
+    
+    .debug-apply-btn,
+    .debug-clear-btn {
+        border: 2px solid transparent;
+    }
+    
+    .debug-apply-btn {
+        border-color: #1e7e34;
+    }
+    
+    .debug-clear-btn {
+        border-color: #495057;
+    }
+}
+
+/* Reduced motion preferences for debug panel */
+@media (prefers-reduced-motion: reduce) {
+    .debug-panel {
+        transition: none;
+        animation: none;
+    }
+    
+    .debug-apply-btn:hover,
+    .debug-clear-btn:hover {
+        transform: none;
+    }
+}
+
+/* End of Whats-Next-View CSS */

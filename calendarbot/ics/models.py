@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
@@ -23,12 +23,12 @@ class ICSAuth(BaseModel):
     password: Optional[str] = None
     bearer_token: Optional[str] = None
 
-    def get_headers(self) -> Dict[str, str]:
+    def get_headers(self) -> dict[str, str]:
         """Get HTTP headers for authentication."""
         headers = {}
 
         if self.type == AuthType.BASIC and self.username and self.password:
-            import base64
+            import base64  # noqa: PLC0415
 
             credentials = f"{self.username}:{self.password}"
             encoded = base64.b64encode(credentials.encode()).decode()
@@ -52,7 +52,7 @@ class ICSSource(BaseModel):
     timeout: int = Field(default=30, description="HTTP timeout in seconds")
 
     # Optional headers
-    custom_headers: Dict[str, str] = Field(default_factory=dict, description="Custom HTTP headers")
+    custom_headers: dict[str, str] = Field(default_factory=dict, description="Custom HTTP headers")
 
     # Validation settings
     validate_ssl: bool = Field(default=True, description="Validate SSL certificates")
@@ -66,7 +66,7 @@ class ICSResponse(BaseModel):
     success: bool
     content: Optional[str] = None
     status_code: Optional[int] = None
-    headers: Dict[str, str] = Field(default_factory=dict)
+    headers: dict[str, str] = Field(default_factory=dict)
     error_message: Optional[str] = None
     fetch_time: datetime = Field(default_factory=datetime.now)
 
@@ -92,7 +92,7 @@ class ICSParseResult(BaseModel):
     """Result of ICS parsing operation."""
 
     success: bool
-    events: List[Any] = Field(default_factory=list, description="Parsed calendar events")
+    events: list[Any] = Field(default_factory=list, description="Parsed calendar events")
     calendar_name: Optional[str] = None
     calendar_description: Optional[str] = None
     timezone: Optional[str] = None
@@ -104,7 +104,7 @@ class ICSParseResult(BaseModel):
 
     # Error information
     error_message: Optional[str] = None
-    warnings: List[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
     # Parsing metadata
     parse_time: datetime = Field(default_factory=datetime.now)
@@ -129,11 +129,11 @@ class ICSValidationResult(BaseModel):
     response_time_ms: Optional[float] = None
 
     # Error details
-    errors: List[str] = Field(default_factory=list)
-    warnings: List[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
     # Sample events (for validation)
-    sample_events: List[str] = Field(default_factory=list, description="Sample event titles")
+    sample_events: list[str] = Field(default_factory=list, description="Sample event titles")
 
     @property
     def is_valid(self) -> bool:
@@ -203,7 +203,7 @@ class Location(BaseModel):
 
     display_name: str = Field(..., description="Display name of the location")
     address: Optional[str] = Field(default=None, description="Physical address")
-    coordinates: Optional[Dict[str, float]] = Field(default=None, description="GPS coordinates")
+    coordinates: Optional[dict[str, float]] = Field(default=None, description="GPS coordinates")
 
 
 class Attendee(BaseModel):
@@ -237,7 +237,7 @@ class CalendarEvent(BaseModel):
     # Organizer and attendees
     is_organizer: bool = Field(default=False, description="Is current user the organizer")
     location: Optional[Location] = Field(default=None, description="Event location")
-    attendees: Optional[List[Attendee]] = Field(default=None, description="Event attendees")
+    attendees: Optional[list[Attendee]] = Field(default=None, description="Event attendees")
 
     # Recurrence
     is_recurring: bool = Field(default=False, description="Recurring event flag")

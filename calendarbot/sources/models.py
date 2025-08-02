@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -40,10 +40,10 @@ class SourceConfig(BaseModel):
 
     # Authentication
     auth_type: Optional[str] = Field(default=None, description="Authentication type")
-    auth_config: Dict[str, Any] = Field(default_factory=dict, description="Auth configuration")
+    auth_config: dict[str, Any] = Field(default_factory=dict, description="Auth configuration")
 
     # Advanced settings
-    custom_headers: Dict[str, str] = Field(default_factory=dict, description="Custom HTTP headers")
+    custom_headers: dict[str, str] = Field(default_factory=dict, description="Custom HTTP headers")
     validate_ssl: bool = Field(default=True, description="Validate SSL certificates")
 
     # Retry and error handling
@@ -234,7 +234,7 @@ class SourceInfo(BaseModel):
             return f"Error: {self.health.error_message}"
         return "Unknown"
 
-    def get_status_dict(self) -> Dict[str, Any]:
+    def get_status_dict(self) -> dict[str, Any]:
         """Get status information as dictionary."""
         return {
             "name": self.config.name,

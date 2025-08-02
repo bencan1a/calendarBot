@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ..cache.models import CachedEvent
 
@@ -24,7 +24,7 @@ class EventData:
     duration_minutes: Optional[int] = None
     formatted_time_range: str = ""
     organizer: Optional[str] = None
-    attendees: List[str] = field(default_factory=list)
+    attendees: list[str] = field(default_factory=list)
 
     @classmethod
     def from_cached_event(cls, event: CachedEvent, current_time: datetime) -> "EventData":
@@ -98,7 +98,7 @@ class WeatherData:
     temperature: Optional[float] = None
     condition: Optional[str] = None
     icon: Optional[str] = None
-    forecast: Optional[List[Dict[str, Any]]] = None
+    forecast: Optional[list[dict[str, Any]]] = None
 
 
 @dataclass
@@ -109,7 +109,7 @@ class SettingsData:
     layout: str = "4x8"
     refresh_interval: int = 300
     display_type: str = "html"
-    custom_settings: Dict[str, Any] = field(default_factory=dict)
+    custom_settings: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -118,9 +118,9 @@ class WhatsNextViewModel:
 
     current_time: datetime
     display_date: str
-    next_events: List[EventData] = field(default_factory=list)
-    current_events: List[EventData] = field(default_factory=list)
-    later_events: List[EventData] = field(default_factory=list)
+    next_events: list[EventData] = field(default_factory=list)
+    current_events: list[EventData] = field(default_factory=list)
+    later_events: list[EventData] = field(default_factory=list)
     status_info: StatusInfo = field(default_factory=lambda: StatusInfo(last_update=datetime.now()))
     weather_info: Optional[WeatherData] = None
     settings_data: Optional[SettingsData] = None
@@ -128,9 +128,9 @@ class WhatsNextViewModel:
     @classmethod
     def from_cached_events(
         cls,
-        events: List[CachedEvent],
+        events: list[CachedEvent],
         current_time: Optional[datetime] = None,
-        status_info: Optional[Dict[str, Any]] = None,
+        status_info: Optional[dict[str, Any]] = None,
     ) -> "WhatsNextViewModel":
         """Create WhatsNextViewModel from a list of cached events.
 
@@ -143,7 +143,7 @@ class WhatsNextViewModel:
             WhatsNextViewModel instance
         """
         if current_time is None:
-            from ..utils.helpers import get_timezone_aware_now
+            from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
 
             current_time = get_timezone_aware_now()
 
@@ -158,10 +158,7 @@ class WhatsNextViewModel:
         )
 
         # Format display date
-        if status.selected_date:
-            display_date = status.selected_date
-        else:
-            display_date = current_time.strftime("%A, %B %d")
+        display_date = status.selected_date or current_time.strftime("%A, %B %d")
 
         # Group and convert events
         current_event_data = []
@@ -170,20 +167,24 @@ class WhatsNextViewModel:
 
         # Find current events
         current_events = [e for e in events if e.is_current()]
-        for event in current_events[:1]:  # Show only one current event
-            current_event_data.append(EventData.from_cached_event(event, current_time))
+        # Show only one current event
+        current_event_data = [
+            EventData.from_cached_event(event, current_time) for event in current_events[:1]
+        ]
 
         # Find upcoming events
         upcoming_events = [e for e in events if e.is_upcoming()]
         upcoming_events.sort(key=lambda e: e.start_dt)  # Sort by start time
 
         # Next up events (first 3)
-        for event in upcoming_events[:3]:
-            next_event_data.append(EventData.from_cached_event(event, current_time))
+        next_event_data = [
+            EventData.from_cached_event(event, current_time) for event in upcoming_events[:3]
+        ]
 
         # Later events (next 5 after the first 3)
-        for event in upcoming_events[3:8]:
-            later_event_data.append(EventData.from_cached_event(event, current_time))
+        later_event_data = [
+            EventData.from_cached_event(event, current_time) for event in upcoming_events[3:8]
+        ]
 
         return cls(
             current_time=current_time,

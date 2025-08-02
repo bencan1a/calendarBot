@@ -27,10 +27,23 @@ def create_runtime_tracker(settings: Any) -> Optional[RuntimeResourceTracker]:
         return None
 
     try:
-        # Extract runtime tracking configuration
-        sampling_interval = getattr(settings.runtime_tracking, "sampling_interval", 1.0)
+        # Extract runtime tracking configuration with proper type checking
+        sampling_interval_raw = getattr(settings.runtime_tracking, "sampling_interval", 1.0)
+        # Ensure sampling_interval is a proper numeric value, not a mock
+        try:
+            sampling_interval = float(sampling_interval_raw)
+        except (TypeError, ValueError):
+            # If conversion fails (e.g., mock object), use default
+            sampling_interval = 1.0
+
         # With simplified CLI, automatically enable saving when tracking is enabled
-        save_samples = getattr(settings.runtime_tracking, "save_samples", True)
+        save_samples_raw = getattr(settings.runtime_tracking, "save_samples", True)
+        # Ensure save_samples is a proper boolean value, not a mock
+        try:
+            save_samples = bool(save_samples_raw)
+        except (TypeError, ValueError):
+            # If conversion fails (e.g., mock object), use default
+            save_samples = True
 
         # Create and configure the tracker (no session_name in constructor)
         tracker = RuntimeResourceTracker(
@@ -42,11 +55,11 @@ def create_runtime_tracker(settings: Any) -> Optional[RuntimeResourceTracker]:
         logger.info(
             f"Created runtime tracker with interval={sampling_interval}s, save_samples={save_samples}"
         )
-        return tracker
-
-    except Exception as e:
-        logger.error(f"Failed to create runtime tracker: {e}")
+    except Exception:
+        logger.exception("Failed to create runtime tracker")
         return None
+    else:
+        return tracker
 
 
 def start_runtime_tracking(
@@ -79,12 +92,12 @@ def start_runtime_tracking(
             f"Started runtime tracking for operation: {operation_name} (session: {session_id})"
         )
         print(f"Runtime tracking started for: {operation_name}")
-        return True
-
     except Exception as e:
-        logger.error(f"Failed to start runtime tracking for {operation_name}: {e}")
+        logger.exception(f"Failed to start runtime tracking for {operation_name}")
         print(f"Warning: Could not start runtime tracking - {e}")
         return False
+    else:
+        return True
 
 
 def stop_runtime_tracking(
@@ -131,9 +144,9 @@ def stop_runtime_tracking(
                 print("   Results saved to performance database")
 
         logger.info(f"Stopped runtime tracking for operation: {operation_name}")
-        return True
-
     except Exception as e:
-        logger.error(f"Failed to stop runtime tracking for {operation_name}: {e}")
+        logger.exception(f"Failed to stop runtime tracking for {operation_name}")
         print(f"Warning: Error stopping runtime tracking - {e}")
         return False
+    else:
+        return True

@@ -2,11 +2,8 @@
 
 import json
 import shutil
-import tempfile
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
-from unittest.mock import Mock, call, mock_open, patch
+from unittest.mock import Mock, mock_open, patch
 
 import pytest
 

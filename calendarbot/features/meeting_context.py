@@ -1,7 +1,7 @@
 """Meeting context preparation and analysis features."""
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ..ics.models import CalendarEvent
 from ..utils.helpers import get_timezone_aware_now
@@ -21,14 +21,14 @@ class MeetingContextAnalyzer:
             preparation_buffer_minutes: Minutes before meeting to consider for preparation
         """
         self.preparation_buffer = timedelta(minutes=preparation_buffer_minutes)
-        self.context_cache: Dict[str, Dict[str, Any]] = {}
+        self.context_cache: dict[str, dict[str, Any]] = {}
         logger.info(
             f"Meeting context analyzer initialized with {preparation_buffer_minutes}min buffer"
         )
 
     def analyze_upcoming_meetings(
-        self, events: List[CalendarEvent], current_time: Optional[datetime] = None
-    ) -> List[Dict[str, Any]]:
+        self, events: list[CalendarEvent], current_time: Optional[datetime] = None
+    ) -> list[dict[str, Any]]:
         """
         Analyze upcoming meetings and provide context insights.
 
@@ -63,13 +63,13 @@ class MeetingContextAnalyzer:
             logger.info(f"Generated {len(context_insights)} meeting insights")
             return context_insights
 
-        except Exception as e:
-            logger.error(f"Error analyzing meetings: {e}")
+        except Exception:
+            logger.exception("Error analyzing meetings")
             raise
 
     def _filter_upcoming_meetings(
-        self, events: List[CalendarEvent], current_time: datetime
-    ) -> List[CalendarEvent]:
+        self, events: list[CalendarEvent], current_time: datetime
+    ) -> list[CalendarEvent]:
         """
         Filter events to only upcoming meetings within preparation window.
 
@@ -81,16 +81,16 @@ class MeetingContextAnalyzer:
             Filtered list of upcoming meetings requiring preparation
         """
         cutoff_time = current_time + timedelta(hours=24)  # Look ahead 24 hours
-        upcoming = []
-
-        for event in events:
+        upcoming = [
+            event
+            for event in events
             if (
                 event.start.date_time > current_time
                 and event.start.date_time <= cutoff_time
                 and event.is_busy_status
                 and not event.is_cancelled
-            ):
-                upcoming.append(event)
+            )
+        ]
 
         # Sort by start time
         upcoming.sort(key=lambda e: e.start.date_time)
@@ -98,7 +98,7 @@ class MeetingContextAnalyzer:
 
     def _generate_meeting_insight(
         self, meeting: CalendarEvent, current_time: datetime
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """
         Generate context insight for a specific meeting.
 
@@ -118,7 +118,7 @@ class MeetingContextAnalyzer:
 
             preparation_needed = time_until_meeting <= self.preparation_buffer
 
-            insight = {
+            return {
                 "meeting_id": meeting.id,
                 "subject": meeting.subject,
                 "start_time": meeting.start.date_time.isoformat(),
@@ -130,8 +130,6 @@ class MeetingContextAnalyzer:
                 "is_online": meeting.is_online_meeting,
                 "preparation_recommendations": self._generate_preparation_recommendations(meeting),
             }
-
-            return insight
 
         except Exception as e:
             logger.warning(f"Could not generate insight for meeting {meeting.id}: {e}")
@@ -164,7 +162,7 @@ class MeetingContextAnalyzer:
             return "virtual"
         return "standard"
 
-    def _generate_preparation_recommendations(self, meeting: CalendarEvent) -> List[str]:
+    def _generate_preparation_recommendations(self, meeting: CalendarEvent) -> list[str]:
         """
         Generate preparation recommendations based on meeting characteristics.
 
@@ -221,8 +219,8 @@ class MeetingContextAnalyzer:
 
 
 async def get_meeting_context_for_timeframe(
-    events: List[CalendarEvent], hours_ahead: int = 4
-) -> Dict[str, Any]:
+    events: list[CalendarEvent], hours_ahead: int = 4
+) -> dict[str, Any]:
     """
     Get comprehensive meeting context for a specified timeframe.
 
@@ -279,8 +277,8 @@ async def get_meeting_context_for_timeframe(
         )
         return context_summary
 
-    except Exception as e:
-        logger.error(f"Error generating meeting context: {e}")
+    except Exception:
+        logger.exception("Error generating meeting context")
         raise
 
 

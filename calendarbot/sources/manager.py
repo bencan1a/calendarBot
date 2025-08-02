@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ..cache import CacheManager
 from ..ics.models import CalendarEvent
@@ -26,8 +26,8 @@ class SourceManager:
         self.cache_manager = cache_manager
 
         # Source handlers
-        self._sources: Dict[str, ICSSourceHandler] = {}
-        self._source_configs: Dict[str, SourceConfig] = {}
+        self._sources: dict[str, ICSSourceHandler] = {}
+        self._source_configs: dict[str, SourceConfig] = {}
 
         # Tracking
         self._last_successful_update: Optional[datetime] = None
@@ -64,8 +64,8 @@ class SourceManager:
 
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to initialize source manager: {e}")
+        except Exception:
+            logger.exception("Failed to initialize source manager")
             return False
 
     async def add_ics_source(
@@ -135,8 +135,8 @@ class SourceManager:
             logger.info(f"ICS source '{name}' added successfully")
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to add ICS source {name}: {e}")
+        except Exception:
+            logger.exception(f"Failed to add ICS source {name}")
             return False
 
     async def remove_source(self, name: str) -> bool:
@@ -157,8 +157,8 @@ class SourceManager:
             logger.warning(f"Source '{name}' not found")
             return False
 
-        except Exception as e:
-            logger.error(f"Failed to remove source {name}: {e}")
+        except Exception:
+            logger.exception(f"Failed to remove source {name}")
             return False
 
     async def fetch_and_cache_events(self) -> bool:
@@ -270,8 +270,8 @@ class SourceManager:
 
                     logger.debug(f"Fetched {len(events)} events from source '{name}'")
 
-                except Exception as e:
-                    logger.error(f"Failed to fetch from source '{name}': {e}")
+                except Exception:
+                    logger.exception(f"Failed to fetch from source '{name}'")
 
             # Cache events if we have a cache manager
             if self.cache_manager and all_events:
@@ -296,12 +296,12 @@ class SourceManager:
             self._consecutive_failures += 1
             return False
 
-        except Exception as e:
-            logger.error(f"Failed to fetch and cache events: {e}")
+        except Exception:
+            logger.exception("Failed to fetch and cache events")
             self._consecutive_failures += 1
             return False
 
-    async def fetch_todays_events(self, timezone: str = "UTC") -> List[CalendarEvent]:
+    async def fetch_todays_events(self, timezone: str = "UTC") -> list[CalendarEvent]:
         """Fetch today's events from all sources.
 
         Args:
@@ -312,7 +312,7 @@ class SourceManager:
         """
         return await self.get_todays_events(timezone)
 
-    async def get_todays_events(self, timezone: str = "UTC") -> List[CalendarEvent]:
+    async def get_todays_events(self, timezone: str = "UTC") -> list[CalendarEvent]:
         """Get today's events from all sources.
 
         Args:
@@ -322,23 +322,26 @@ class SourceManager:
             List of today's calendar events
         """
         all_events = []
+        errors = []
 
         for name, handler in self._sources.items():
-            try:
-                if handler.is_healthy():
+            if handler.is_healthy():
+                try:
                     events = await handler.get_todays_events(timezone)
                     all_events.extend(events)
-            except Exception as e:
-                logger.error(f"Failed to get today's events from source '{name}': {e}")
+                except Exception as e:
+                    errors.append((name, e))
+
+        # Log any errors that occurred
+        for name, error in errors:
+            logger.exception(f"Failed to get today's events from source '{name}': {error}")
 
         # Remove duplicates (by event ID)
-        unique_events = self._deduplicate_events(all_events)
-
-        return unique_events
+        return self._deduplicate_events(all_events)
 
     async def get_events_for_date_range(
         self, start_date: datetime, end_date: datetime
-    ) -> List[CalendarEvent]:
+    ) -> list[CalendarEvent]:
         """Get events for a specific date range from all sources.
 
         Args:
@@ -349,14 +352,19 @@ class SourceManager:
             List of events in date range
         """
         all_events = []
+        errors = []
 
         for name, handler in self._sources.items():
-            try:
-                if handler.is_healthy():
+            if handler.is_healthy():
+                try:
                     events = await handler.get_events_for_date_range(start_date, end_date)
                     all_events.extend(events)
-            except Exception as e:
-                logger.error(f"Failed to get events from source '{name}': {e}")
+                except Exception as e:
+                    errors.append((name, e))
+
+        # Log any errors that occurred
+        for name, error in errors:
+            logger.exception(f"Failed to get events from source '{name}': {error}")
 
         # Remove duplicates and sort by start time
         unique_events = self._deduplicate_events(all_events)
@@ -364,18 +372,17 @@ class SourceManager:
 
         return unique_events
 
-    async def test_all_sources(self) -> Dict[str, Dict[str, Any]]:
+    async def test_all_sources(self) -> dict[str, dict[str, Any]]:
         """Test connection to all sources.
 
         Returns:
             Dictionary with test results for each source
         """
-        results = {}
-
-        for name, handler in self._sources.items():
+        async def _test_single_source(name: str, handler: Any) -> tuple[str, dict[str, Any]]:
+            """Test a single source and return results."""
             try:
                 health_check = await handler.test_connection()
-                results[name] = {
+                return name, {
                     "healthy": health_check.is_healthy,
                     "status": health_check.status,
                     "response_time_ms": health_check.response_time_ms,
@@ -383,15 +390,21 @@ class SourceManager:
                     "events_fetched": health_check.events_fetched,
                 }
             except Exception as e:
-                results[name] = {
+                return name, {
                     "healthy": False,
                     "status": SourceStatus.ERROR,
                     "error_message": str(e),
                 }
 
+        # Execute tests for all sources
+        results = {}
+        for name, handler in self._sources.items():
+            source_name, source_result = await _test_single_source(name, handler)
+            results[source_name] = source_result
+
         return results
 
-    def get_source_status(self) -> Dict[str, Dict[str, Any]]:
+    def get_source_status(self) -> dict[str, dict[str, Any]]:
         """Get status of all sources.
 
         Returns:
@@ -454,9 +467,7 @@ class SourceManager:
         last_cache_update = None
 
         if self.cache_manager:
-            # This would need to be implemented in cache manager
-            # cached_events_count = await self.cache_manager.get_events_count()
-            # last_cache_update = await self.cache_manager.get_last_update()
+            # Cache manager integration would be implemented here
             pass
 
         return SourceInfo(
@@ -467,7 +478,7 @@ class SourceManager:
             last_cache_update=last_cache_update,
         )
 
-    def _deduplicate_events(self, events: List[CalendarEvent]) -> List[CalendarEvent]:
+    def _deduplicate_events(self, events: list[CalendarEvent]) -> list[CalendarEvent]:
         """Remove duplicate events based on ID.
 
         Args:
@@ -533,7 +544,7 @@ class SourceManager:
         status_message = f"{healthy_count}/{total_sources} sources healthy"
         return HealthCheckResult(True, status_message)
 
-    def get_summary_status(self) -> Dict[str, Any]:
+    def get_summary_status(self) -> dict[str, Any]:
         """Get summary status of source manager.
 
         Returns:
@@ -560,7 +571,6 @@ class SourceManager:
 
             # Example: reload primary source if settings changed
             if hasattr(self.settings, "ics_url") and "primary" in self._sources:
-                current_handler = self._sources["primary"]
                 current_config = self._source_configs["primary"]
 
                 # Check if URL changed
@@ -568,8 +578,8 @@ class SourceManager:
                     logger.info("Primary source URL changed, updating configuration")
                     # Would need to update the configuration here
 
-        except Exception as e:
-            logger.error(f"Failed to refresh source configurations: {e}")
+        except Exception:
+            logger.exception("Failed to refresh source configurations")
 
     async def cleanup(self) -> None:
         """Clean up resources."""
@@ -577,12 +587,12 @@ class SourceManager:
             logger.info("Cleaning up source manager")
 
             # Close any open connections in source handlers
-            for handler in self._sources.values():
+            for _handler in self._sources.values():
                 # ICS handlers don't have persistent connections to close
                 # but this is where we'd clean up if they did
                 pass
 
             logger.info("Source manager cleanup completed")
 
-        except Exception as e:
-            logger.error(f"Error during source manager cleanup: {e}")
+        except Exception:
+            logger.exception("Error during source manager cleanup")

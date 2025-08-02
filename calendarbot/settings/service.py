@@ -8,7 +8,7 @@ and coordination between the models and persistence layers.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from ..config.settings import CalendarBotSettings
 from .exceptions import SettingsError, SettingsPersistenceError, SettingsValidationError
@@ -63,7 +63,7 @@ class SettingsService:
             if calendarbot_settings is not None:
                 self.calendarbot_settings = calendarbot_settings
             else:
-                from ..config.settings import settings as default_settings
+                from ..config.settings import settings as default_settings  # noqa: PLC0415
 
                 self.calendarbot_settings = default_settings
 
@@ -88,7 +88,7 @@ class SettingsService:
                     "error": str(e),
                     "config_dir": str(config_dir) if config_dir else "default",
                 },
-            )
+            ) from e
 
     def get_settings(self, force_reload: bool = False) -> SettingsData:
         """Get current settings data with caching support.
@@ -117,7 +117,7 @@ class SettingsService:
         except Exception as e:
             raise SettingsError(
                 "Failed to get settings", details={"force_reload": force_reload, "error": str(e)}
-            )
+            ) from e
 
     def update_settings(self, settings: SettingsData) -> SettingsData:
         """Update settings with validation and persistence.
@@ -138,10 +138,7 @@ class SettingsService:
 
             # Validate settings before saving
             validation_errors = self.validate_settings(settings)
-            if validation_errors:
-                raise SettingsValidationError(
-                    "Settings validation failed", validation_errors=validation_errors
-                )
+            self._raise_if_validation_failed(validation_errors)
 
             # Additional business logic validation
             self._validate_settings_consistency(settings)
@@ -151,10 +148,7 @@ class SettingsService:
 
             # Save to persistence layer
             success = self.persistence.save_settings(settings)
-            if not success:
-                raise SettingsPersistenceError(
-                    "Settings save operation returned false", operation="save"
-                )
+            self._raise_if_save_failed(success)
 
             # Update cache
             self._current_settings = settings
@@ -166,7 +160,7 @@ class SettingsService:
             # Re-raise validation and persistence errors as-is
             raise
         except Exception as e:
-            raise SettingsError("Failed to update settings", details={"error": str(e)})
+            raise SettingsError("Failed to update settings", details={"error": str(e)}) from e
 
     def get_filter_settings(self) -> EventFilterSettings:
         """Get current event filter settings.
@@ -195,7 +189,7 @@ class SettingsService:
             return updated.event_filters
 
         except Exception as e:
-            raise SettingsError("Failed to update filter settings", details={"error": str(e)})
+            raise SettingsError("Failed to update filter settings", details={"error": str(e)}) from e
 
     def get_display_settings(self) -> DisplaySettings:
         """Get current display settings.
@@ -224,7 +218,7 @@ class SettingsService:
             return updated.display
 
         except Exception as e:
-            raise SettingsError("Failed to update display settings", details={"error": str(e)})
+            raise SettingsError("Failed to update display settings", details={"error": str(e)}) from e
 
     def get_conflict_settings(self) -> ConflictResolutionSettings:
         """Get current conflict resolution settings.
@@ -255,7 +249,7 @@ class SettingsService:
             return updated.conflict_resolution
 
         except Exception as e:
-            raise SettingsError("Failed to update conflict settings", details={"error": str(e)})
+            raise SettingsError("Failed to update conflict settings", details={"error": str(e)}) from e
 
     def get_epaper_settings(self) -> EpaperSettings:
         """Get current e-Paper display settings.
@@ -284,7 +278,7 @@ class SettingsService:
             return updated.epaper
 
         except Exception as e:
-            raise SettingsError("Failed to update epaper settings", details={"error": str(e)})
+            raise SettingsError("Failed to update epaper settings", details={"error": str(e)}) from e
 
     def add_filter_pattern(
         self,
@@ -330,7 +324,7 @@ class SettingsService:
         except Exception as e:
             raise SettingsError(
                 "Failed to add filter pattern", details={"pattern": pattern, "error": str(e)}
-            )
+            ) from e
 
     def remove_filter_pattern(self, pattern: str, is_regex: bool = False) -> bool:
         """Remove a filter pattern from event filters.
@@ -363,7 +357,7 @@ class SettingsService:
         except Exception as e:
             raise SettingsError(
                 "Failed to remove filter pattern", details={"pattern": pattern, "error": str(e)}
-            )
+            ) from e
 
     def toggle_filter_pattern(self, pattern: str, is_regex: bool = False) -> Optional[bool]:
         """Toggle the active state of a filter pattern.
@@ -396,9 +390,9 @@ class SettingsService:
         except Exception as e:
             raise SettingsError(
                 "Failed to toggle filter pattern", details={"pattern": pattern, "error": str(e)}
-            )
+            ) from e
 
-    def validate_settings(self, settings: SettingsData) -> List[str]:
+    def validate_settings(self, settings: SettingsData) -> list[str]:
         """Validate settings data and return list of validation errors.
 
         Args:
@@ -463,7 +457,7 @@ class SettingsService:
             return self.update_settings(default_settings)
 
         except Exception as e:
-            raise SettingsError("Failed to reset settings to defaults", details={"error": str(e)})
+            raise SettingsError("Failed to reset settings to defaults", details={"error": str(e)}) from e
 
     def export_settings(self, export_path: Path) -> bool:
         """Export current settings to a file.
@@ -483,7 +477,7 @@ class SettingsService:
             raise SettingsError(
                 "Failed to export settings",
                 details={"export_path": str(export_path), "error": str(e)},
-            )
+            ) from e
 
     def import_settings(self, import_path: Path) -> SettingsData:
         """Import settings from a file.
@@ -506,9 +500,9 @@ class SettingsService:
             raise SettingsError(
                 "Failed to import settings",
                 details={"import_path": str(import_path), "error": str(e)},
-            )
+            ) from e
 
-    def get_settings_info(self) -> Dict[str, Any]:
+    def get_settings_info(self) -> dict[str, Any]:
         """Get comprehensive information about current settings.
 
         Returns:
@@ -541,7 +535,7 @@ class SettingsService:
             }
 
         except Exception as e:
-            logger.error(f"Error getting settings info: {e}")
+            logger.exception("Error getting settings info")
             return {
                 "error": str(e),
                 "service_info": {
@@ -569,9 +563,9 @@ class SettingsService:
             raise SettingsError(
                 "Failed to create settings backup",
                 details={"backup_name": backup_name, "error": str(e)},
-            )
+            ) from e
 
-    def list_backups(self) -> List[Tuple[Path, str]]:
+    def list_backups(self) -> list[tuple[Path, str]]:
         """List available settings backups.
 
         Returns:
@@ -580,8 +574,8 @@ class SettingsService:
         try:
             backups = self.persistence.list_backups()
             return [(path, timestamp.strftime("%Y-%m-%d %H:%M:%S")) for path, timestamp in backups]
-        except Exception as e:
-            logger.error(f"Error listing backups: {e}")
+        except Exception:
+            logger.exception("Error listing backups")
             return []
 
     def _validate_settings_consistency(self, settings: SettingsData) -> None:
@@ -612,7 +606,7 @@ class SettingsService:
                 "Settings consistency validation failed", validation_errors=errors
             )
 
-    def _get_available_layouts(self) -> List[str]:
+    def _get_available_layouts(self) -> list[str]:
         """Get list of available layouts from CalendarBot system.
 
         Returns:
@@ -620,7 +614,7 @@ class SettingsService:
         """
         try:
             # Try to import and use layout registry
-            from ..layout.registry import LayoutRegistry
+            from ..layout.registry import LayoutRegistry  # noqa: PLC0415
 
             registry = LayoutRegistry()
             return registry.get_available_layouts()
@@ -628,3 +622,31 @@ class SettingsService:
             logger.warning(f"Could not get available layouts: {e}")
             # Return common default layouts as fallback
             return ["3x4", "4x8", "whats-next-view"]
+
+    def _raise_if_validation_failed(self, validation_errors: list[str]) -> None:
+        """Raise SettingsValidationError if validation errors exist.
+
+        Args:
+            validation_errors: List of validation error messages
+
+        Raises:
+            SettingsValidationError: If validation errors exist
+        """
+        if validation_errors:
+            raise SettingsValidationError(
+                "Settings validation failed", validation_errors=validation_errors
+            )
+
+    def _raise_if_save_failed(self, success: bool) -> None:
+        """Raise SettingsPersistenceError if save operation failed.
+
+        Args:
+            success: Whether the save operation succeeded
+
+        Raises:
+            SettingsPersistenceError: If save operation failed
+        """
+        if not success:
+            raise SettingsPersistenceError(
+                "Settings save operation returned false", operation="save"
+            )

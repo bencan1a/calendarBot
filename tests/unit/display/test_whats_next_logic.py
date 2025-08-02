@@ -1,7 +1,7 @@
 """Tests for WhatsNextLogic business logic class."""
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Optional, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -182,7 +182,7 @@ class TestWhatsNextLogic:
         current_time = datetime(2025, 7, 14, 12, 0, 0)
         mock_get_now.return_value = current_time
 
-        events: List[CachedEvent] = []
+        events: list[CachedEvent] = []
         status_info = {"is_cached": False}
 
         result = logic.create_view_model(events, status_info)
@@ -202,7 +202,7 @@ class TestWhatsNextLogic:
         current_time = datetime(2025, 7, 14, 12, 0, 0)
         mock_get_now.return_value = current_time
 
-        events: List[CachedEvent] = []
+        events: list[CachedEvent] = []
 
         result = logic.create_view_model(events, None)
 

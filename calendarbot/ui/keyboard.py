@@ -5,7 +5,7 @@ import logging
 import sys
 from collections.abc import Awaitable
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class KeyboardHandler:
     def __init__(self) -> None:
         """Initialize keyboard handler."""
         self._running = False
-        self._key_callbacks: Dict[
+        self._key_callbacks: dict[
             KeyCode, Union[Callable[[], None], Callable[[], Awaitable[None]]]
         ] = {}
         self._raw_key_callback: Optional[Callable[[str], None]] = None
@@ -44,11 +44,11 @@ class KeyboardHandler:
     def _setup_platform_input(self) -> None:
         """Set up platform-specific keyboard input handling."""
         self._fallback_mode = False
-        self._old_settings: Optional[List[Any]] = None
+        self._old_settings: Optional[list[Any]] = None
 
         try:
             if sys.platform == "win32":
-                import msvcrt
+                import msvcrt  # noqa: PLC0415
 
                 self._getch = msvcrt.getch
                 self._kbhit = msvcrt.kbhit
@@ -60,7 +60,7 @@ class KeyboardHandler:
 
                 def _kbhit() -> bool:
                     """Check for available input using select."""
-                    import select
+                    import select  # noqa: PLC0415
 
                     return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
 
@@ -75,7 +75,7 @@ class KeyboardHandler:
         """Set up terminal for raw input mode on Unix systems."""
         if sys.platform != "win32":
             try:
-                import termios
+                import termios  # noqa: PLC0415
 
                 fd = sys.stdin.fileno()
                 self._old_settings = termios.tcgetattr(fd)
@@ -116,7 +116,7 @@ class KeyboardHandler:
         """Restore terminal settings on Unix systems."""
         if sys.platform != "win32" and self._old_settings:
             try:
-                import termios
+                import termios  # noqa: PLC0415
 
                 fd = sys.stdin.fileno()
                 termios.tcsetattr(fd, termios.TCSADRAIN, self._old_settings)
@@ -137,70 +137,135 @@ class KeyboardHandler:
         if not key_data:
             return KeyCode.UNKNOWN
 
-        # Handle fallback mode with text input
+        # Use appropriate parsing method based on mode
         if self._fallback_mode:
-            key_lower = key_data.lower().strip()
-            if key_lower in ["left", "l", "←"]:
-                return KeyCode.LEFT_ARROW
-            if key_lower in ["right", "r", "→"]:
-                return KeyCode.RIGHT_ARROW
-            if key_lower in ["up", "u", "↑"]:
-                return KeyCode.UP_ARROW
-            if key_lower in ["down", "d", "↓"]:
-                return KeyCode.DOWN_ARROW
-            if key_lower in ["space", "s", " "]:
-                return KeyCode.SPACE
-            if key_lower in ["esc", "escape", "e", "exit", "q"]:
-                return KeyCode.ESCAPE
-            if key_lower in ["home", "h"]:
-                return KeyCode.HOME
-            if key_lower in ["end"]:
-                return KeyCode.END
-            if key_lower in ["enter", "\n", "\r"]:
-                return KeyCode.ENTER
-            return KeyCode.UNKNOWN
-
-        # Handle single character keys in raw mode
+            return self._parse_fallback_mode(key_data)
         if len(key_data) == 1:
-            char = key_data.lower()
-            if char == " ":
-                return KeyCode.SPACE
-            if char == "\x1b":  # ESC
-                return KeyCode.ESCAPE
-            if char == "\r" or char == "\n":
-                return KeyCode.ENTER
-            return KeyCode.UNKNOWN
-
-        # Handle escape sequences (arrow keys, etc.)
+            return self._parse_single_char(key_data)
         if key_data.startswith("\x1b["):
-            sequence = key_data[2:]
-            if sequence == "A":
-                return KeyCode.UP_ARROW
-            if sequence == "B":
-                return KeyCode.DOWN_ARROW
-            if sequence == "C":
-                return KeyCode.RIGHT_ARROW
-            if sequence == "D":
-                return KeyCode.LEFT_ARROW
-            if sequence == "H" or sequence == "1~":
-                return KeyCode.HOME
-            if sequence == "F" or sequence == "4~":
-                return KeyCode.END
-
-        # Windows-specific sequences
+            return self._parse_escape_sequence(key_data[2:])
         if sys.platform == "win32":
-            if key_data == b"\xe0":  # Special key prefix on Windows
-                return KeyCode.UNKNOWN  # Need next byte
-            if key_data == b"H":  # Up arrow
-                return KeyCode.UP_ARROW
-            if key_data == b"P":  # Down arrow
-                return KeyCode.DOWN_ARROW
-            if key_data == b"M":  # Right arrow
-                return KeyCode.RIGHT_ARROW
-            if key_data == b"K":  # Left arrow
-                return KeyCode.LEFT_ARROW
+            return self._parse_windows_sequence(key_data)
 
         return KeyCode.UNKNOWN
+
+    def _parse_fallback_mode(self, key_data: str) -> KeyCode:
+        """Parse key input in fallback mode.
+
+        Args:
+            key_data: Raw key data from input
+
+        Returns:
+            Corresponding KeyCode
+        """
+        # Mapping of fallback mode inputs to KeyCodes
+        fallback_mappings = {
+            "left": KeyCode.LEFT_ARROW,
+            "l": KeyCode.LEFT_ARROW,
+            "←": KeyCode.LEFT_ARROW,
+            "right": KeyCode.RIGHT_ARROW,
+            "r": KeyCode.RIGHT_ARROW,
+            "→": KeyCode.RIGHT_ARROW,
+            "up": KeyCode.UP_ARROW,
+            "u": KeyCode.UP_ARROW,
+            "↑": KeyCode.UP_ARROW,
+            "down": KeyCode.DOWN_ARROW,
+            "d": KeyCode.DOWN_ARROW,
+            "↓": KeyCode.DOWN_ARROW,
+            "space": KeyCode.SPACE,
+            "s": KeyCode.SPACE,
+            " ": KeyCode.SPACE,
+            "esc": KeyCode.ESCAPE,
+            "escape": KeyCode.ESCAPE,
+            "e": KeyCode.ESCAPE,
+            "exit": KeyCode.ESCAPE,
+            "q": KeyCode.ESCAPE,
+            "home": KeyCode.HOME,
+            "h": KeyCode.HOME,
+            "end": KeyCode.END,
+            "enter": KeyCode.ENTER,
+            "\n": KeyCode.ENTER,
+            "\r": KeyCode.ENTER,
+        }
+
+        key_lower = key_data.lower().strip()
+        return fallback_mappings.get(key_lower, KeyCode.UNKNOWN)
+
+    def _parse_single_char(self, key_data: str) -> KeyCode:
+        """Parse a single character input.
+
+        Args:
+            key_data: Single character input
+
+        Returns:
+            Corresponding KeyCode
+        """
+        char = key_data.lower()
+
+        # Mapping of single characters to KeyCodes
+        char_mappings = {
+            " ": KeyCode.SPACE,
+            "\x1b": KeyCode.ESCAPE,  # ESC
+            "\r": KeyCode.ENTER,
+            "\n": KeyCode.ENTER,
+        }
+
+        return char_mappings.get(char, KeyCode.UNKNOWN)
+
+    def _parse_escape_sequence(self, sequence: str) -> KeyCode:
+        """Parse an escape sequence.
+
+        Args:
+            sequence: The escape sequence without the '\x1b[' prefix
+
+        Returns:
+            Corresponding KeyCode
+        """
+        # Mapping of escape sequences to KeyCodes
+        escape_mappings = {
+            "A": KeyCode.UP_ARROW,
+            "B": KeyCode.DOWN_ARROW,
+            "C": KeyCode.RIGHT_ARROW,
+            "D": KeyCode.LEFT_ARROW,
+        }
+
+        # Home and End keys can have multiple representations
+        if sequence in {"H", "1~"}:
+            return KeyCode.HOME
+        if sequence in {"F", "4~"}:
+            return KeyCode.END
+
+        return escape_mappings.get(sequence, KeyCode.UNKNOWN)
+
+    def _parse_windows_sequence(self, key_data: Union[str, bytes]) -> KeyCode:
+        """Parse Windows-specific key sequences.
+
+        Args:
+            key_data: Raw key data from Windows input, can be str or bytes
+
+        Returns:
+            Corresponding KeyCode
+        """
+        # Mapping of Windows-specific sequences to KeyCodes
+        windows_mappings = {
+            b"\xe0": KeyCode.UNKNOWN,  # Special key prefix, need next byte
+            b"H": KeyCode.UP_ARROW,
+            b"P": KeyCode.DOWN_ARROW,
+            b"M": KeyCode.RIGHT_ARROW,
+            b"K": KeyCode.LEFT_ARROW,
+        }
+
+        # Handle the case where key_data is a string
+        if isinstance(key_data, str):
+            # Try to encode to bytes for comparison
+            try:
+                key_bytes = key_data.encode("latin1")
+                return windows_mappings.get(key_bytes, KeyCode.UNKNOWN)
+            except (UnicodeError, AttributeError):
+                return KeyCode.UNKNOWN
+
+        # If key_data is already bytes
+        return windows_mappings.get(key_data, KeyCode.UNKNOWN)
 
     def register_key_handler(
         self, key_code: KeyCode, callback: Union[Callable[[], None], Callable[[], Awaitable[None]]]
@@ -294,8 +359,8 @@ class KeyboardHandler:
             except KeyboardInterrupt:
                 logger.info("Keyboard interrupt received")
                 break
-            except Exception as e:
-                logger.error(f"Error in keyboard input loop: {e}")
+            except Exception:
+                logger.exception("Error in keyboard input loop")
                 await asyncio.sleep(0.1)
 
     async def _read_key_sequence(self) -> str:
@@ -313,9 +378,7 @@ class KeyboardHandler:
                     next_char = self._getch()
                     if next_char:  # Got a character
                         sequence += next_char
-                        logger.debug(
-                            f"Read escape char: {next_char!r}, sequence: {sequence!r}"
-                        )
+                        logger.debug(f"Read escape char: {next_char!r}, sequence: {sequence!r}")
 
                         # Most escape sequences end with a letter or ~
                         if next_char.isalpha() or next_char == "~":
@@ -359,8 +422,8 @@ class KeyboardHandler:
             elif key_code == KeyCode.UNKNOWN:
                 logger.debug(f"Unknown key sequence: {key_data!r}")
 
-        except Exception as e:
-            logger.error(f"Error handling key input: {e}")
+        except Exception:
+            logger.exception("Error handling key input")
 
     @property
     def is_running(self) -> bool:
@@ -384,8 +447,10 @@ class KeyboardHandler:
             KeyCode.END: "End: End of week",
         }
 
-        for key_code in self._key_callbacks:
-            if key_code in key_descriptions:
-                help_lines.append(key_descriptions[key_code])
+        help_lines = [
+            key_descriptions[key_code]
+            for key_code in self._key_callbacks
+            if key_code in key_descriptions
+        ]
 
         return " | ".join(help_lines) if help_lines else "No key handlers registered"

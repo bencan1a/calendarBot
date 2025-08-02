@@ -7,19 +7,14 @@ including dynamic test selection, timing analysis, optimization recommendations,
 and execution reporting.
 """
 
-import asyncio
-import hashlib
-import importlib.util
 import json
-import os
 import sqlite3
 import subprocess
 import sys
-import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 # Add project root to path for imports
 project_root = Path(__file__).parent.parent.parent
@@ -122,7 +117,7 @@ class TestSuiteManager:
             """
             )
 
-    def get_changed_files(self, since: Optional[datetime] = None) -> List[str]:
+    def get_changed_files(self, since: Optional[datetime] = None) -> list[str]:
         """
         Get list of files changed since a specific time or last test run.
 
@@ -160,7 +155,7 @@ class TestSuiteManager:
 
         return changed_files
 
-    def get_related_tests(self, changed_files: List[str]) -> Set[str]:
+    def get_related_tests(self, changed_files: list[str]) -> set[str]:
         """
         Determine which tests should run based on changed files.
 
@@ -189,6 +184,68 @@ class TestSuiteManager:
                     f"tests/integration/test_{module_name}_integration.py",
                     f"tests/e2e/test_{module_name}_workflows.py",
                 ]
+                
+                # Add new subdirectory paths for moved test files
+                if "benchmarking" in str(path_obj):
+                    potential_tests.append(f"tests/unit/benchmarking/test_{module_name}.py")
+                
+                if "monitoring" in str(path_obj):
+                    potential_tests.append(f"tests/unit/monitoring/test_{module_name}.py")
+                    potential_tests.append(f"tests/unit/monitoring/test_performance_{module_name}.py")
+                    potential_tests.append(f"tests/unit/monitoring/test_runtime_{module_name}.py")
+                
+                # Add mappings for all new subdirectories from the reorganization
+                if "cache" in str(path_obj):
+                    potential_tests.append(f"tests/unit/cache/test_{module_name}.py")
+                    potential_tests.append(f"tests/unit/cache/test_cache_{module_name}.py")
+                
+                if "cli" in str(path_obj):
+                    potential_tests.append(f"tests/unit/cli/test_{module_name}.py")
+                    potential_tests.append(f"tests/unit/cli/test_cli_{module_name}.py")
+                
+                if "display" in str(path_obj):
+                    potential_tests.append(f"tests/unit/display/test_{module_name}.py")
+                    potential_tests.append(f"tests/unit/display/test_display_{module_name}.py")
+                
+                if "features" in str(path_obj):
+                    potential_tests.append(f"tests/unit/features/test_{module_name}.py")
+                
+                if "ics" in str(path_obj):
+                    potential_tests.append(f"tests/unit/ics/test_{module_name}.py")
+                    potential_tests.append(f"tests/unit/ics/test_ics_{module_name}.py")
+                
+                if "layout" in str(path_obj):
+                    potential_tests.append(f"tests/unit/layout/test_{module_name}.py")
+                    potential_tests.append(f"tests/unit/layout/test_layout_{module_name}.py")
+                
+                if "optimization" in str(path_obj):
+                    potential_tests.append(f"tests/unit/optimization/test_{module_name}.py")
+                    potential_tests.append(f"tests/unit/optimization/test_optimization_{module_name}.py")
+                
+                if "security" in str(path_obj):
+                    potential_tests.append(f"tests/unit/security/test_{module_name}.py")
+                
+                if "settings" in str(path_obj):
+                    potential_tests.append(f"tests/unit/settings/test_{module_name}.py")
+                
+                if "sources" in str(path_obj):
+                    potential_tests.append(f"tests/unit/sources/test_{module_name}.py")
+                    potential_tests.append(f"tests/unit/sources/test_source_{module_name}.py")
+                
+                if "structured" in str(path_obj):
+                    potential_tests.append(f"tests/unit/structured/test_{module_name}.py")
+                
+                if "ui" in str(path_obj):
+                    potential_tests.append(f"tests/unit/ui/test_{module_name}.py")
+                    potential_tests.append(f"tests/unit/ui/test_ui_{module_name}.py")
+                
+                if "utils" in str(path_obj):
+                    potential_tests.append(f"tests/unit/utils/test_{module_name}.py")
+                    potential_tests.append(f"tests/unit/utils/test_util_{module_name}.py")
+                
+                if "validation" in str(path_obj):
+                    potential_tests.append(f"tests/unit/validation/test_{module_name}.py")
+                    potential_tests.append(f"tests/unit/validation/test_validation_{module_name}.py")
 
                 for test_path in potential_tests:
                     if (self.workspace_dir / test_path).exists():
@@ -220,7 +277,7 @@ class TestSuiteManager:
 
         return existing_tests
 
-    def analyze_test_performance(self, days: int = 7) -> Dict[str, Any]:
+    def analyze_test_performance(self, days: int = 7) -> dict[str, Any]:
         """
         Analyze test performance over time.
 
@@ -250,7 +307,7 @@ class TestSuiteManager:
             return {"message": "No test executions found in the specified period"}
 
         # Group by suite
-        suites: Dict[str, List[Dict[str, Any]]] = {}
+        suites: dict[str, list[dict[str, Any]]] = {}
         for exec_data in executions:
             suite_name = exec_data[0]
             if suite_name not in suites:
@@ -293,7 +350,7 @@ class TestSuiteManager:
             "recommendations": self._generate_performance_recommendations(analysis),
         }
 
-    def _calculate_trend(self, durations: List[float]) -> str:
+    def _calculate_trend(self, durations: list[float]) -> str:
         """Calculate performance trend from duration data."""
         if len(durations) < 2:
             return "insufficient_data"
@@ -305,12 +362,11 @@ class TestSuiteManager:
 
         if second_half_avg < first_half_avg * 0.95:
             return "improving"
-        elif second_half_avg > first_half_avg * 1.05:
+        if second_half_avg > first_half_avg * 1.05:
             return "degrading"
-        else:
-            return "stable"
+        return "stable"
 
-    def _generate_performance_recommendations(self, analysis: Dict[str, Any]) -> List[str]:
+    def _generate_performance_recommendations(self, analysis: dict[str, Any]) -> list[str]:
         """Generate performance improvement recommendations."""
         recommendations = []
 
@@ -362,7 +418,7 @@ class TestSuiteManager:
                 raise ValueError(f"Unknown suite: {suite_name}")
 
             # Execute the test suite
-            result = subprocess.run(args, cwd=self.workspace_dir, capture_output=True, text=True)
+            result = subprocess.run(args, check=False, cwd=self.workspace_dir, capture_output=True, text=True)
 
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
@@ -433,7 +489,7 @@ class TestSuiteManager:
             self._store_execution(execution)
             return execution
 
-    def _parse_pytest_output(self, output: str) -> Tuple[int, int, int, int]:
+    def _parse_pytest_output(self, output: str) -> tuple[int, int, int, int]:
         """Parse pytest output for test counts and detect coverage failures."""
         import re
 
@@ -468,7 +524,7 @@ class TestSuiteManager:
 
         return 0, 0, 0, 0
 
-    def _parse_coverage_output(self, output: str) -> Tuple[float, float]:
+    def _parse_coverage_output(self, output: str) -> tuple[float, float]:
         """Parse coverage information from output."""
         import re
 
@@ -484,7 +540,7 @@ class TestSuiteManager:
 
         return line_coverage, branch_coverage
 
-    def _parse_coverage_failure(self, output: str) -> Optional[Dict[str, float]]:
+    def _parse_coverage_failure(self, output: str) -> Optional[dict[str, float]]:
         """Parse coverage failure details from pytest output."""
         import re
 
@@ -500,7 +556,7 @@ class TestSuiteManager:
         """Get current git commit hash."""
         try:
             result = subprocess.run(
-                ["git", "rev-parse", "HEAD"], cwd=self.workspace_dir, capture_output=True, text=True
+                ["git", "rev-parse", "HEAD"], check=False, cwd=self.workspace_dir, capture_output=True, text=True
             )
             return result.stdout.strip() if result.returncode == 0 else None
         except:
@@ -533,7 +589,7 @@ class TestSuiteManager:
                 ),
             )
 
-    def smart_test_selection(self, target_duration: Optional[float] = None) -> Dict[str, Any]:
+    def smart_test_selection(self, target_duration: Optional[float] = None) -> dict[str, Any]:
         """
         Intelligently select tests based on recent changes and performance data.
 
@@ -547,7 +603,7 @@ class TestSuiteManager:
         related_tests = self.get_related_tests(changed_files)
 
         if not changed_files:
-            recommendation: Dict[str, Any] = {
+            recommendation: dict[str, Any] = {
                 "strategy": "critical_path",
                 "reason": "No recent changes detected",
                 "tests": None,
@@ -580,7 +636,7 @@ class TestSuiteManager:
 
         return recommendation
 
-    def generate_execution_report(self, execution: TestExecution) -> Dict[str, Any]:
+    def generate_execution_report(self, execution: TestExecution) -> dict[str, Any]:
         """
         Generate a comprehensive execution report.
 
@@ -656,8 +712,8 @@ class TestSuiteManager:
         }
 
     def _generate_execution_recommendations(
-        self, execution: TestExecution, validation: Dict[str, Any]
-    ) -> List[str]:
+        self, execution: TestExecution, validation: dict[str, Any]
+    ) -> list[str]:
         """Generate recommendations based on execution results."""
         recommendations = []
 
@@ -706,7 +762,7 @@ class TestSuiteManager:
             recommendation = self.smart_test_selection()
 
             if verbose:
-                print(f"🔍 Smart Test Selection Analysis:")
+                print("🔍 Smart Test Selection Analysis:")
                 print(f"   Strategy: {recommendation['strategy']}")
                 print(f"   Reason: {recommendation['reason']}")
                 print(f"   Estimated Duration: {recommendation['estimated_duration']}s")
@@ -738,7 +794,7 @@ class TestSuiteManager:
                 ] + test_files
 
                 result = subprocess.run(
-                    args, cwd=self.workspace_dir, capture_output=True, text=True
+                    args, check=False, cwd=self.workspace_dir, capture_output=True, text=True
                 )
 
                 if verbose:
@@ -751,7 +807,7 @@ class TestSuiteManager:
 
                 return result.returncode
 
-            elif strategy == "critical_path":
+            if strategy == "critical_path":
                 # Execute critical path suite
                 if verbose:
                     print("🚀 Running critical path test suite...")
@@ -770,7 +826,7 @@ class TestSuiteManager:
 
                 return 0 if execution.status == "PASS" else 1
 
-            elif strategy == "full_regression":
+            if strategy == "full_regression":
                 # Execute full regression suite
                 if verbose:
                     print("🏗️  Running full regression test suite...")
@@ -790,17 +846,16 @@ class TestSuiteManager:
 
                 return 0 if execution.status == "PASS" else 1
 
-            else:
-                if verbose:
-                    print(f"❌ Unknown strategy: {strategy}")
-                return 1
+            if verbose:
+                print(f"❌ Unknown strategy: {strategy}")
+            return 1
 
         except Exception as e:
             if verbose:
-                print(f"❌ Smart test execution failed: {str(e)}")
+                print(f"❌ Smart test execution failed: {e!s}")
             return 1
 
-    def execute_targeted_tests(self, test_files: List[str], verbose: bool = True) -> int:
+    def execute_targeted_tests(self, test_files: list[str], verbose: bool = True) -> int:
         """
         Execute specific test files with optimized settings.
 
@@ -830,7 +885,7 @@ class TestSuiteManager:
             if verbose:
                 print(f"🎯 Executing {len(test_files)} targeted test files...")
 
-            result = subprocess.run(args, cwd=self.workspace_dir, capture_output=True, text=True)
+            result = subprocess.run(args, check=False, cwd=self.workspace_dir, capture_output=True, text=True)
 
             # Parse basic results
             test_count, passed, failed, skipped = self._parse_pytest_output(result.stdout)
@@ -857,7 +912,7 @@ class TestSuiteManager:
 
         except Exception as e:
             if verbose:
-                print(f"❌ Error executing targeted tests: {str(e)}")
+                print(f"❌ Error executing targeted tests: {e!s}")
             return 1
 
 

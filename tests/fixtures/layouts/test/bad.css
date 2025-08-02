@@ -1,0 +1,9 @@
+/* Bad CSS file for testing error handling */
+.bad-style {
+    color: red;
+    background: #ff0000;
+}
+
+.error-test {
+    border: 1px solid red;
+}

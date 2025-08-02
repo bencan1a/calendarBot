@@ -1,6 +1,6 @@
 """Region model for e-Paper displays."""
 
-from typing import Tuple
+
 
 
 class Region:
@@ -56,7 +56,7 @@ class Region:
             or other.y + other.height <= self.y
         )
 
-    def get_coordinates(self) -> Tuple[int, int, int, int]:
+    def get_coordinates(self) -> tuple[int, int, int, int]:
         """Get coordinates of the region.
 
         Returns:

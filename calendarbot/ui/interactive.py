@@ -1,9 +1,10 @@
 """Interactive UI controller for calendar navigation."""
 
 import asyncio
+import contextlib
 import logging
 from datetime import date, datetime as dt, timedelta
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Optional, cast
 
 from ..cache import CacheManager
 from ..cache.models import CachedEvent
@@ -98,7 +99,7 @@ class InteractiveController:
         """
         logger.debug(f"Date changed to: {new_date}")
         # Trigger display update
-        asyncio.create_task(self._update_display())
+        self._last_display_update_task = asyncio.create_task(self._update_display())
 
     async def start(self, initial_date: Optional[date] = None) -> None:
         """Start interactive mode.
@@ -138,14 +139,12 @@ class InteractiveController:
 
             # Cancel remaining tasks
             for task in pending:
-                task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await task
-                except asyncio.CancelledError:
-                    pass
+                    await task
 
-        except Exception as e:
-            logger.error(f"Error in interactive mode: {e}")
+        except Exception:
+            logger.exception("Error in interactive mode")
         finally:
             self._running = False
             self._cleanup_split_display_logging()
@@ -194,10 +193,10 @@ class InteractiveController:
             else:
                 logger.warning("Display update failed")
 
-        except Exception as e:
-            logger.error(f"Failed to update display: {e}")
+        except Exception:
+            logger.exception("Failed to update display")
 
-    async def _get_status_info(self) -> Dict[str, Any]:
+    async def _get_status_info(self) -> dict[str, Any]:
         """Get status information for display.
 
         Returns:
@@ -215,18 +214,15 @@ class InteractiveController:
             }
 
             # Combine status information
-            status_info = {
+            return {
                 "last_update": cache_status.last_update,
                 "is_cached": cache_status.is_stale,
                 "connection_status": "Online" if not cache_status.is_stale else "Cached Data",
                 "interactive_mode": True,
                 **nav_info,
             }
-
-            return status_info
-
         except Exception as e:
-            logger.error(f"Failed to get status info: {e}")
+            logger.exception("Failed to get status info")
             return {
                 "selected_date": self.navigation.get_display_date(),
                 "interactive_mode": True,
@@ -235,40 +231,41 @@ class InteractiveController:
 
     async def _background_update_loop(self) -> None:
         """Background loop to check for data updates."""
-        while self._running:
-            try:
-                # Check if cache has been updated
-                cache_status = await self.cache_manager.get_cache_status()
-
-                # Normalize cache status timestamp for comparison
-                last_update_normalized: Optional[dt] = None
-                if cache_status.last_update:
-                    # Convert string timestamp to datetime for comparison
-                    last_update_normalized = dt.fromisoformat(
-                        cache_status.last_update.replace("Z", "+00:00")
-                    )
-
-                if self._last_data_update is None or (
-                    last_update_normalized and last_update_normalized != self._last_data_update
-                ):
-                    # Data has been updated, refresh display
-                    self._last_data_update = last_update_normalized
-                    await self._update_display()
-                    logger.debug("Display refreshed due to data update")
-
-                # Update today reference (in case we've crossed midnight)
-                self.navigation.update_today()
-
-                # Sleep before next check
+        try:
+            while self._running:
+                await self._background_update_iteration()
                 await asyncio.sleep(30)  # Check every 30 seconds
+        except asyncio.CancelledError:
+            pass  # Expected when stopping
+        except Exception:
+            logger.exception("Error in background update loop")
+            # Don't re-raise to avoid crashing the loop
 
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in background update loop: {e}")
-                await asyncio.sleep(60)  # Longer sleep on error
+    async def _background_update_iteration(self) -> None:
+        """Single iteration of background update check, extracted to avoid try/except overhead in loop."""
+        # Check if cache has been updated
+        cache_status = await self.cache_manager.get_cache_status()
 
-    async def get_events_for_date(self, target_date: date) -> List[CachedEvent]:
+        # Normalize cache status timestamp for comparison
+        last_update_normalized: Optional[dt] = None
+        if cache_status.last_update:
+            # Convert string timestamp to datetime for comparison
+            last_update_normalized = dt.fromisoformat(
+                cache_status.last_update.replace("Z", "+00:00")
+            )
+
+        if self._last_data_update is None or (
+            last_update_normalized and last_update_normalized != self._last_data_update
+        ):
+            # Data has been updated, refresh display
+            self._last_data_update = last_update_normalized
+            await self._update_display()
+            logger.debug("Display refreshed due to data update")
+
+        # Update today reference (in case we've crossed midnight)
+        self.navigation.update_today()
+
+    async def get_events_for_date(self, target_date: date) -> list[CachedEvent]:
         """Get events for a specific date.
 
         Args:
@@ -282,13 +279,13 @@ class InteractiveController:
             end_datetime = start_datetime + timedelta(days=1)
 
             events = await self.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
+        except Exception:
+            logger.exception(f"Failed to get events for {target_date}")
+            return []
+        else:
             return events
 
-        except Exception as e:
-            logger.error(f"Failed to get events for {target_date}: {e}")
-            return []
-
-    async def get_events_for_week(self, target_date: date) -> Dict[date, List[CachedEvent]]:
+    async def get_events_for_week(self, target_date: date) -> dict[date, list[CachedEvent]]:
         """Get events for the week containing the target date.
 
         Args:
@@ -311,41 +308,51 @@ class InteractiveController:
             )
 
             # Group events by date
-            events_by_date: Dict[date, List[CachedEvent]] = {}
+            events_by_date: dict[date, list[CachedEvent]] = {}
             current_date = start_of_week
 
             while current_date <= end_of_week:
                 events_by_date[current_date] = []
                 current_date += timedelta(days=1)
 
+            # Process events with extracted function to avoid try/except overhead in loop
             for event in all_events:
-                try:
-                    logger.debug(f"Processing event '{event.subject}' for date grouping")
-                    # Use the start_dt property which provides parsed datetime
-                    if hasattr(event, "start_dt"):
-                        event_date = event.start_dt.date()
-                    else:
-                        # Fallback to parsing start_datetime string
-                        from datetime import datetime
-
-                        start_datetime = datetime.fromisoformat(
-                            event.start_datetime.replace("Z", "+00:00")
-                        )
-                        event_date = start_datetime.date()
-
-                    logger.debug(f"Event date parsed as: {event_date}")
-                    if event_date in events_by_date:
-                        events_by_date[event_date].append(event)
-                        logger.debug(f"Added event to date {event_date}")
-                except Exception as e:
-                    logger.debug(f"Failed to process event '{event.subject}': {e}")
-                    logger.debug(f"Event start_datetime raw: '{event.start_datetime}'")
+                self._process_event_for_date_grouping(event, events_by_date)
 
             return events_by_date
 
-        except Exception as e:
-            logger.error(f"Failed to get events for week containing {target_date}: {e}")
+        except Exception:
+            logger.exception(f"Failed to get events for week containing {target_date}")
             return {}
+
+    def _process_event_for_date_grouping(self, event: CachedEvent, events_by_date: dict[date, list[CachedEvent]]) -> None:
+        """Process a single event for date grouping, avoiding try/except overhead in loops.
+
+        Args:
+            event: Event to process
+            events_by_date: Dictionary to group events by date
+        """
+        try:
+            logger.debug(f"Processing event '{event.subject}' for date grouping")
+            # Use the start_dt property which provides parsed datetime
+            if hasattr(event, "start_dt"):
+                event_date = event.start_dt.date()
+            else:
+                # Fallback to parsing start_datetime string
+                from datetime import datetime  # noqa: PLC0415
+
+                start_datetime = datetime.fromisoformat(
+                    event.start_datetime.replace("Z", "+00:00")
+                )
+                event_date = start_datetime.date()
+
+            logger.debug(f"Event date parsed as: {event_date}")
+            if event_date in events_by_date:
+                events_by_date[event_date].append(event)
+                logger.debug(f"Added event to date {event_date}")
+        except Exception as e:
+            logger.debug(f"Failed to process event '{event.subject}': {e}")
+            logger.debug(f"Event start_datetime raw: '{event.start_datetime}'")
 
     @property
     def is_running(self) -> bool:
@@ -357,7 +364,7 @@ class InteractiveController:
         """Get the currently selected date."""
         return self.navigation.selected_date
 
-    def get_navigation_state(self) -> Dict[str, Any]:
+    def get_navigation_state(self) -> dict[str, Any]:
         """Get current navigation state information.
 
         Returns:

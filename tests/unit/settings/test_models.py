@@ -2,7 +2,6 @@
 
 import re
 from datetime import datetime
-from typing import Any, Dict
 
 import pytest
 
@@ -64,18 +63,15 @@ class TestFilterPattern:
 
     def test_filter_pattern_when_invalid_regex_then_raises_validation_error(self) -> None:
         """Test FilterPattern validation fails with invalid regex."""
-        # NOTE: Current implementation doesn't validate regex patterns at creation time
-        # This is a limitation that should be addressed in the future
-        # For now, test that the pattern is accepted but would fail at runtime
-        pattern = FilterPattern(pattern="[unclosed", is_regex=True)
-        assert pattern.pattern == "[unclosed"
-        assert pattern.is_regex is True
-
-        # Test that the pattern would fail when actually used
-        import re
-
-        with pytest.raises(re.error):
-            re.compile(pattern.pattern)
+        # With the updated implementation, regex patterns are validated at creation time
+        # using a model_validator with mode="after"
+        with pytest.raises(SettingsValidationError) as exc_info:
+            FilterPattern(pattern="[unclosed", is_regex=True)
+        
+        assert "Invalid regex pattern" in str(exc_info.value)
+        assert "unterminated character set" in str(exc_info.value)
+        assert exc_info.value.field_name == "pattern"
+        assert exc_info.value.field_value == "[unclosed"
 
     @pytest.mark.parametrize(
         "pattern,is_regex,expected",

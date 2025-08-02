@@ -1,7 +1,7 @@
 """Image processing utilities for e-Paper displays."""
 
 import logging
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 from PIL import Image, ImageDraw, ImageFont
 from PIL.ImageFont import FreeTypeFont, ImageFont as BuiltinFont
@@ -76,7 +76,7 @@ def resize_image_for_epaper(
     width: int,
     height: int,
     maintain_aspect_ratio: bool = True,
-    bg_color: Union[str, Tuple[int, int, int]] = "white",
+    bg_color: Union[str, tuple[int, int, int]] = "white",
 ) -> Image.Image:
     """Resize image for e-Paper display.
 
@@ -117,8 +117,8 @@ def render_text_to_image(
     height: int,
     font_path: Optional[str] = None,
     font_size: int = 20,
-    text_color: Tuple[int, int, int] = (0, 0, 0),
-    bg_color: Tuple[int, int, int] = (255, 255, 255),
+    text_color: tuple[int, int, int] = (0, 0, 0),
+    bg_color: tuple[int, int, int] = (255, 255, 255),
     align: str = "center",
 ) -> Image.Image:
     """Render text to a PIL Image.
@@ -143,10 +143,7 @@ def render_text_to_image(
     # Load font
     font: Union[FreeTypeFont, BuiltinFont]
     try:
-        if font_path:
-            font = ImageFont.truetype(font_path, font_size)
-        else:
-            font = ImageFont.load_default()
+        font = ImageFont.truetype(font_path, font_size) if font_path else ImageFont.load_default()
     except Exception as e:
         logger.warning(f"Failed to load font: {e}, using default font")
         font = ImageFont.load_default()

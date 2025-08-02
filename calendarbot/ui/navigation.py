@@ -3,7 +3,7 @@
 import logging
 from datetime import date, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class NavigationState:
         """
         self._selected_date = initial_date or date.today()
         self._today = date.today()
-        self._change_callbacks: List[Callable[[date], None]] = []
+        self._change_callbacks: list[Callable[[date], None]] = []
 
         logger.debug(f"Navigation state initialized with date: {self._selected_date}")
 
@@ -197,13 +197,16 @@ class NavigationState:
 
     def _notify_change(self) -> None:
         """Notify all registered callbacks of date change."""
+        errors = []
         for callback in self._change_callbacks:
             try:
                 callback(self._selected_date)
-            except Exception as e:
-                logger.error(f"Error in date change callback: {e}")
+            except Exception as e:  # noqa: PERF203
+                errors.append(e)
+        for error in errors:
+            logger.exception("Error in date change callback", exc_info=error)
 
-    def get_week_context(self) -> Dict[str, Any]:
+    def get_week_context(self) -> dict[str, Any]:
         """Get context about the selected date's week.
 
         Returns:

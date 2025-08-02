@@ -10,10 +10,10 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 
-def load_coverage_data() -> Optional[Dict]:
+def load_coverage_data() -> Optional[dict]:
     """Load coverage data from coverage.json."""
     coverage_file = Path("coverage.json")
     if not coverage_file.exists():
@@ -23,12 +23,12 @@ def load_coverage_data() -> Optional[Dict]:
     try:
         with open(coverage_file) as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
+    except (OSError, json.JSONDecodeError) as e:
         print(f"❌ Error loading coverage data: {e}")
         return None
 
 
-def analyze_coverage(coverage_data: Dict, threshold: float) -> Tuple[bool, Dict]:
+def analyze_coverage(coverage_data: dict, threshold: float) -> tuple[bool, dict]:
     """
     Analyze coverage data against threshold.
 
@@ -69,7 +69,7 @@ def analyze_coverage(coverage_data: Dict, threshold: float) -> Tuple[bool, Dict]
     return analysis["passes_threshold"], analysis
 
 
-def generate_coverage_report(analysis: Dict) -> str:
+def generate_coverage_report(analysis: dict) -> str:
     """Generate detailed coverage report."""
     report_lines = []
 
@@ -124,7 +124,7 @@ def generate_coverage_report(analysis: Dict) -> str:
     return "\n".join(report_lines)
 
 
-def check_coverage_trend(current_coverage: float) -> Dict:
+def check_coverage_trend(current_coverage: float) -> dict:
     """Check coverage trend against previous runs."""
     trend_file = Path("coverage_trend.json")
 
@@ -160,7 +160,7 @@ def check_coverage_trend(current_coverage: float) -> Dict:
 
             return {"trend": trend, "change": change, "previous": previous_coverage}
 
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         pass
 
     return {"trend": "unknown", "change": 0.0}
