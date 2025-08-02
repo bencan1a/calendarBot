@@ -36,6 +36,7 @@ class InteractiveController:
         self._running = False
         self._last_data_update: Optional[dt] = None
         self._background_update_task: Optional[asyncio.Task[Any]] = None
+        self._last_display_update_task: Optional[asyncio.Task[Any]] = None
 
         # Setup keyboard handlers
         self._setup_keyboard_handlers()
@@ -140,7 +141,7 @@ class InteractiveController:
             # Cancel remaining tasks
             for task in pending:
                 with contextlib.suppress(asyncio.CancelledError):
-                    await task
+                    task.cancel()
                     await task
 
         except Exception:
@@ -178,7 +179,10 @@ class InteractiveController:
             logger.debug(f"Found {len(events)} events for {selected_date}")
             if events:
                 for event in events[:3]:  # Log first 3 events
-                    logger.debug(f"Event - {event.subject} at {event.start_datetime}")
+                    try:
+                        logger.debug(f"Event - {event.subject} at {event.start_datetime}")
+                    except AttributeError:
+                        logger.debug(f"Event details not available for logging")
 
             # Prepare status information
             status_info = await self._get_status_info()
@@ -234,7 +238,8 @@ class InteractiveController:
         try:
             while self._running:
                 await self._background_update_iteration()
-                await asyncio.sleep(30)  # Check every 30 seconds
+                if self._running:  # Check again before sleeping
+                    await asyncio.sleep(30)  # Check every 30 seconds
         except asyncio.CancelledError:
             pass  # Expected when stopping
         except Exception:
@@ -335,16 +340,24 @@ class InteractiveController:
         try:
             logger.debug(f"Processing event '{event.subject}' for date grouping")
             # Use the start_dt property which provides parsed datetime
-            if hasattr(event, "start_dt"):
+            if hasattr(event, "start_dt") and event.start_dt is not None:
                 event_date = event.start_dt.date()
-            else:
+            elif hasattr(event, "start_datetime") and event.start_datetime:
                 # Fallback to parsing start_datetime string
                 from datetime import datetime  # noqa: PLC0415
 
-                start_datetime = datetime.fromisoformat(
-                    event.start_datetime.replace("Z", "+00:00")
-                )
+                # Handle different datetime formats
+                dt_str = event.start_datetime
+                if "Z" in dt_str:
+                    dt_str = dt_str.replace("Z", "+00:00")
+                elif "+" not in dt_str and "-" not in dt_str[10:]:  # No timezone info
+                    dt_str = f"{dt_str}+00:00"
+                
+                start_datetime = datetime.fromisoformat(dt_str)
                 event_date = start_datetime.date()
+            else:
+                logger.debug(f"Event '{event.subject}' has no valid date information")
+                return
 
             logger.debug(f"Event date parsed as: {event_date}")
             if event_date in events_by_date:

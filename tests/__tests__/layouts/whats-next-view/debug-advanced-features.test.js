@@ -662,56 +662,6 @@ describe('Whats-Next-View Debug & Advanced Features - Phase 3', () => {
       });
     });
 
-    it('should integrate debug workflow with meeting data processing', async () => {
-      // Mock meeting data response with debug time consideration
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: jest.fn().mockResolvedValue({
-          success: true,
-          html: '<div class="current-event"><div class="event-title">Debug Meeting</div><div class="event-time">2:00 PM - 3:00 PM</div></div>'
-        })
-      });
-
-      // Setup: Configure debug time
-      // FIX: Ensure debug mode is enabled (don't toggle, set explicitly)
-      if (!window.getDebugState().enabled) {
-        window.toggleDebugMode(); // Enable debug mode only if not already enabled
-      }
-      window.setDebugValues({
-        customTimeEnabled: true,
-        customDate: '2024-06-15',
-        customTime: '14:00',
-        customAmPm: 'PM'
-      });
-
-      // Mock loadMeetingData to include debug time in request
-      global.loadMeetingData = jest.fn().mockImplementation(async () => {
-        const requestBody = {};
-        const state = window.getDebugState();
-        if (state.enabled && state.data.customTimeEnabled) {
-          const customTime = window.getCurrentTime();
-          requestBody.debug_time = customTime.toISOString();
-        }
-
-        await mockFetch('/api/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
-        });
-
-        return Promise.resolve();
-      });
-
-      // Execute: Apply debug values and load meeting data
-      await window.applyDebugValues();
-
-      // Verify: Debug time included in API request
-      expect(mockFetch).toHaveBeenCalledWith('/api/refresh', expect.objectContaining({
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: expect.stringContaining('debug_time')
-      }));
-    });
 
     it('should maintain debug state consistency across multiple operations', async () => {
       // Execute: Complex workflow

@@ -167,17 +167,21 @@ class TestMainEntry:
         """Test main_entry when not configured."""
         with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
             "calendarbot.cli.check_configuration"
-        ) as mock_check_config, patch("calendarbot.cli.show_setup_guidance") as mock_guidance:
+        ) as mock_check_config, patch("calendarbot.cli.show_setup_guidance") as mock_guidance, patch(
+            "calendarbot.cli.run_web_mode", new_callable=AsyncMock
+        ) as mock_web_mode:
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
             mock_check_config.return_value = (False, None)
+            mock_web_mode.return_value = 0
 
             result = await main_entry()
 
-            assert result == 1
+            assert result == 0  # Should succeed as web mode runs even when not configured
             mock_check_config.assert_called_once()
             mock_guidance.assert_called_once()
+            mock_web_mode.assert_called_once_with(mock_parser_args)
 
             captured = capsys.readouterr()
             assert "Tip: Run 'calendarbot --setup'" in captured.out
