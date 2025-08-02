@@ -16,5 +16,16 @@
     ],
     "bandit.ignorePatterns": [
         "exclude = [     \"venv/\",     \".venv/\",     \"build/\",     \"dist/\",     \"tests/\",     \"backup/\",     \"scripts/\" ]"
-    ]
+    ],
+    // JavaScript/Jest testing configuration
+    "testing.automaticallyOpenPeekView": "never",
+    "testing.gutterEnabled": true,
+    "testing.followRunningTest": true,
+    "testing.defaultGutterClickAction": "run",
+    "terminal.integrated.defaultProfile.linux": "sh",
+    "terminal.integrated.profiles.linux": {
+        "sh": {
+            "path": "/usr/bin/bash"
+        }
+    }
 }

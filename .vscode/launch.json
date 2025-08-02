@@ -3,7 +3,7 @@
     "configurations": [
         {
             "name": "Calendar Bot - Web Mode",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "args": ["--web"],
@@ -16,7 +16,7 @@
         },
         {
             "name": "Calendar Bot - Setup Mode",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "args": ["--setup"],
@@ -29,7 +29,7 @@
         },
         {
             "name": "Calendar Bot - Console Mode",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
@@ -41,7 +41,7 @@
         },
         {
             "name": "Calendar Bot - Debug Mode",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "args": ["--debug"],
@@ -51,6 +51,34 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             }
+        },
+        {
+            "type": "node",
+            "name": "Debug Jest Tests",
+            "request": "launch",
+            "runtimeExecutable": "npx",
+            "runtimeArgs": [
+                "jest",
+                "--runInBand",
+                "--testPathPatterns=tests/__tests__"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        },
+        {
+            "type": "node",
+            "name": "Debug Current Jest Test",
+            "request": "launch",
+            "runtimeExecutable": "npx",
+            "runtimeArgs": [
+                "jest",
+                "--runInBand",
+                "${relativeFile}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
         }
     ]
 }

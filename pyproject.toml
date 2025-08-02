@@ -373,6 +373,7 @@ omit = [
     "scripts/*",
     "setup.py",
     "manage.py",
+    "format_and_stage.py",
 ]
 
 [tool.coverage.report]
