@@ -6,10 +6,8 @@ configuration checks, and main entry point functionality.
 
 import asyncio
 import signal
-import sys
 from datetime import datetime
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 

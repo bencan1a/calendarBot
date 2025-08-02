@@ -6,9 +6,9 @@ Revises:
 Create Date: 2025-06-17 15:00:00.000000
 
 """
-from alembic import op
+
 import sqlalchemy as sa
-import json
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '20250617'
@@ -97,7 +97,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )
-    
+
     # Seed initial data
     op.execute("INSERT INTO product_context (id, content) VALUES (1, '{}')")
     op.execute("INSERT INTO active_context (id, content) VALUES (1, '{}')")

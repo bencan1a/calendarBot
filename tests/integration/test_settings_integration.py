@@ -3,14 +3,12 @@
 import json
 import tempfile
 from pathlib import Path
-from typing import Any, Dict
 from unittest.mock import Mock, patch
 
 import pytest
 
 from calendarbot.settings.exceptions import (
     SettingsError,
-    SettingsPersistenceError,
     SettingsValidationError,
 )
 from calendarbot.settings.models import (
@@ -19,7 +17,6 @@ from calendarbot.settings.models import (
     EventFilterSettings,
     FilterPattern,
     SettingsData,
-    SettingsMetadata,
 )
 from calendarbot.settings.persistence import SettingsPersistence
 from calendarbot.settings.service import SettingsService
@@ -105,7 +102,7 @@ class TestSettingsEndToEndWorkflows:
         settings_file = temp_settings_dir / "settings.json"
         assert settings_file.exists()
 
-        with open(settings_file, "r") as f:
+        with open(settings_file) as f:
             persisted_data = json.load(f)
 
         assert persisted_data["event_filters"]["enabled"] is True
@@ -145,7 +142,7 @@ class TestSettingsEndToEndWorkflows:
 
         # 2. Verify persistence
         settings_file = temp_settings_dir / "settings.json"
-        with open(settings_file, "r") as f:
+        with open(settings_file) as f:
             persisted_data = json.load(f)
 
         patterns = persisted_data["event_filters"]["patterns"]
@@ -165,7 +162,7 @@ class TestSettingsEndToEndWorkflows:
         web_handler._handle_add_filter_pattern(settings_service, second_pattern)
 
         # 4. Verify both patterns exist
-        with open(settings_file, "r") as f:
+        with open(settings_file) as f:
             persisted_data = json.load(f)
 
         patterns = persisted_data["event_filters"]["patterns"]
@@ -186,7 +183,7 @@ class TestSettingsEndToEndWorkflows:
         assert "Filter pattern removed successfully" in call_args[0][1]["message"]
 
         # 6. Verify persistence after removal
-        with open(settings_file, "r") as f:
+        with open(settings_file) as f:
             persisted_data = json.load(f)
 
         patterns = persisted_data["event_filters"]["patterns"]
@@ -304,7 +301,7 @@ class TestSettingsEndToEndWorkflows:
         settings_file = temp_settings_dir / "settings.json"
         # File might exist with defaults, but should not contain invalid data
         if settings_file.exists():
-            with open(settings_file, "r") as f:
+            with open(settings_file) as f:
                 persisted_data = json.load(f)
             # Should not contain invalid values
             assert persisted_data["event_filters"]["enabled"] in [True, False]
@@ -353,7 +350,7 @@ class TestSettingsEndToEndWorkflows:
 
         # 3. Verify final state consistency
         settings_file = temp_settings_dir / "settings.json"
-        with open(settings_file, "r") as f:
+        with open(settings_file) as f:
             persisted_data = json.load(f)
 
         patterns = persisted_data["event_filters"]["patterns"]

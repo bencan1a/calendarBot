@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
 from ..layout.registry import LayoutRegistry
@@ -67,7 +67,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             path = parsed_url.path
             query_params = parse_qs(parsed_url.query)
 
-            if path == "/" or path == "/calendar":
+            if path in {"/", "/calendar"}:
                 self._serve_calendar_page(query_params)
             elif path.startswith("/api/"):
                 self._handle_api_request(path, query_params)
@@ -77,7 +77,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_404()
 
         except Exception as e:
-            logger.error(f"Error handling GET request: {e}")
+            logger.exception("Error handling GET request")
             self._send_500(str(e))
 
     def do_POST(self) -> None:
@@ -100,7 +100,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_404()
 
         except Exception as e:
-            logger.error(f"Error handling POST request: {e}")
+            logger.exception("Error handling POST request")
             self._send_500(str(e))
 
     def do_PUT(self) -> None:
@@ -123,10 +123,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_404()
 
         except Exception as e:
-            logger.error(f"Error handling PUT request: {e}")
+            logger.exception("Error handling PUT request")
             self._send_500(str(e))
 
-    def _serve_calendar_page(self, query_params: Dict[str, List[str]]) -> None:
+    def _serve_calendar_page(self, query_params: dict[str, list[str]]) -> None:
         """Serve the main calendar page."""
         try:
             if not self.web_server:
@@ -141,11 +141,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_response(200, html_content, "text/html")
 
         except Exception as e:
-            logger.error(f"Error serving calendar page: {e}")
+            logger.exception("Error serving calendar page")
             self._send_500(str(e))
 
     def _handle_api_request(
-        self, path: str, params: Union[Dict[str, List[str]], Dict[str, Any]]
+        self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle API requests."""
         try:
@@ -172,10 +172,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(404, {"error": "API endpoint not found"})
 
         except Exception as e:
-            logger.error(f"Error handling API request: {e}")
+            logger.exception("Error handling API request")
             self._send_json_response(500, {"error": str(e)})
 
-    def _handle_navigation_api(self, params: Union[Dict[str, List[str]], Dict[str, Any]]) -> None:
+    def _handle_navigation_api(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
         """Handle navigation API requests."""
         logger.debug(f"Navigation API params type: {type(params)}")
         logger.debug(f"Navigation API params content: {params}")
@@ -238,7 +238,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         else:
             self._send_json_response(500, {"error": "Web server not available"})
 
-    def _handle_theme_api(self, params: Union[Dict[str, List[str]], Dict[str, Any]]) -> None:
+    def _handle_theme_api(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
         """Handle theme switching API requests."""
         if isinstance(params, dict) and "theme" in params:
             theme_value = params["theme"]
@@ -259,7 +259,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             new_theme = self.web_server.toggle_theme()
             self._send_json_response(200, {"success": True, "theme": new_theme})
 
-    def _handle_layout_api(self, params: Union[Dict[str, List[str]], Dict[str, Any]]) -> None:
+    def _handle_layout_api(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
         """Handle layout switching API requests."""
         if isinstance(params, dict) and "layout" in params:
             layout_value = params["layout"]
@@ -294,7 +294,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_refresh_api(
-        self, params: Optional[Union[Dict[str, List[str]], Dict[str, Any]]] = None
+        self, params: Optional[Union[dict[str, list[str]], dict[str, Any]]] = None
     ) -> None:
         """Handle refresh API requests with optional debug time override."""
         if not self.web_server:
@@ -305,22 +305,24 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         debug_time = None
         current_layout = self.web_server.get_current_layout()
 
-        if current_layout == "whats-next-view" and params:
-            if isinstance(params, dict) and "debug_time" in params:
-                debug_time_value = params["debug_time"]
-                debug_time_str = (
-                    debug_time_value[0]
-                    if isinstance(debug_time_value, list)
-                    else str(debug_time_value)
-                )
+        if (
+            current_layout == "whats-next-view"
+            and params
+            and isinstance(params, dict)
+            and "debug_time" in params
+        ):
+            debug_time_value = params["debug_time"]
+            debug_time_str = (
+                debug_time_value[0] if isinstance(debug_time_value, list) else str(debug_time_value)
+            )
 
-                try:
-                    # Parse ISO format debug time
-                    debug_time = datetime.fromisoformat(debug_time_str.replace("Z", "+00:00"))
-                    logger.info(f"Debug mode: Using override time {debug_time.isoformat()}")
-                except (ValueError, TypeError) as e:
-                    logger.warning(f"Invalid debug_time format '{debug_time_str}': {e}")
-                    debug_time = None
+            try:
+                # Parse ISO format debug time
+                debug_time = datetime.fromisoformat(debug_time_str.replace("Z", "+00:00"))
+                logger.info(f"Debug mode: Using override time {debug_time.isoformat()}")
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Invalid debug_time format '{debug_time_str}': {e}")
+                debug_time = None
 
         success = self.web_server.refresh_data()
         days = 7 if current_layout == "whats-next-view" else 1
@@ -337,7 +339,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self._send_json_response(200, status)
 
     def _handle_debug_whats_next_api(
-        self, params: Union[Dict[str, List[str]], Dict[str, Any]]
+        self, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle debug whats-next API requests for setting debug values."""
         try:
@@ -426,11 +428,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
         except Exception as e:
-            logger.error(f"Error handling debug whats-next API: {e}")
+            logger.exception("Error handling debug whats-next API")
             self._send_json_response(500, {"error": str(e)})
 
     def _handle_settings_api(
-        self, path: str, params: Union[Dict[str, List[str]], Dict[str, Any]]
+        self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle settings API requests with comprehensive endpoint support.
 
@@ -450,84 +452,57 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 return
 
             settings_service = self.web_server.settings_service
-            method = self.command  # GET, POST, PUT, etc.
+            method = self.command
 
-            # Route to specific settings endpoint handlers
-            if path == "/api/settings":
-                if method == "GET":
-                    self._handle_get_settings(settings_service)
-                elif method == "PUT":
-                    self._handle_update_settings(settings_service, params)
-                else:
-                    self._send_json_response(405, {"error": "Method not allowed"})
+            # Settings API routing table
+            route_handlers = {
+                "/api/settings": {
+                    "GET": lambda: self._handle_get_settings(settings_service),
+                    "PUT": lambda: self._handle_update_settings(settings_service, params),
+                },
+                "/api/settings/filters": {
+                    "GET": lambda: self._handle_get_filter_settings(settings_service),
+                    "PUT": lambda: self._handle_update_filter_settings(settings_service, params),
+                },
+                "/api/settings/display": {
+                    "GET": lambda: self._handle_get_display_settings(settings_service),
+                    "PUT": lambda: self._handle_update_display_settings(settings_service, params),
+                },
+                "/api/settings/conflicts": {
+                    "GET": lambda: self._handle_get_conflict_settings(settings_service),
+                    "PUT": lambda: self._handle_update_conflict_settings(settings_service, params),
+                },
+                "/api/settings/validate": {
+                    "POST": lambda: self._handle_validate_settings(settings_service, params),
+                },
+                "/api/settings/export": {
+                    "GET": lambda: self._handle_export_settings(settings_service),
+                },
+                "/api/settings/import": {
+                    "POST": lambda: self._handle_import_settings(settings_service, params),
+                },
+                "/api/settings/reset": {
+                    "POST": lambda: self._handle_reset_settings(settings_service),
+                },
+                "/api/settings/info": {
+                    "GET": lambda: self._handle_get_settings_info(settings_service),
+                },
+                "/api/settings/filters/patterns": {
+                    "POST": lambda: self._handle_add_filter_pattern(settings_service, params),
+                    "DELETE": lambda: self._handle_remove_filter_pattern(settings_service, params),
+                },
+            }
 
-            elif path == "/api/settings/filters":
-                if method == "GET":
-                    self._handle_get_filter_settings(settings_service)
-                elif method == "PUT":
-                    self._handle_update_filter_settings(settings_service, params)
-                else:
-                    self._send_json_response(405, {"error": "Method not allowed"})
-
-            elif path == "/api/settings/display":
-                if method == "GET":
-                    self._handle_get_display_settings(settings_service)
-                elif method == "PUT":
-                    self._handle_update_display_settings(settings_service, params)
-                else:
-                    self._send_json_response(405, {"error": "Method not allowed"})
-
-            elif path == "/api/settings/conflicts":
-                if method == "GET":
-                    self._handle_get_conflict_settings(settings_service)
-                elif method == "PUT":
-                    self._handle_update_conflict_settings(settings_service, params)
-                else:
-                    self._send_json_response(405, {"error": "Method not allowed"})
-
-            elif path == "/api/settings/validate":
-                if method == "POST":
-                    self._handle_validate_settings(settings_service, params)
-                else:
-                    self._send_json_response(405, {"error": "Method not allowed"})
-
-            elif path == "/api/settings/export":
-                if method == "GET":
-                    self._handle_export_settings(settings_service)
-                else:
-                    self._send_json_response(405, {"error": "Method not allowed"})
-
-            elif path == "/api/settings/import":
-                if method == "POST":
-                    self._handle_import_settings(settings_service, params)
-                else:
-                    self._send_json_response(405, {"error": "Method not allowed"})
-
-            elif path == "/api/settings/reset":
-                if method == "POST":
-                    self._handle_reset_settings(settings_service)
-                else:
-                    self._send_json_response(405, {"error": "Method not allowed"})
-
-            elif path == "/api/settings/info":
-                if method == "GET":
-                    self._handle_get_settings_info(settings_service)
-                else:
-                    self._send_json_response(405, {"error": "Method not allowed"})
-
-            elif path == "/api/settings/filters/patterns":
-                if method == "POST":
-                    self._handle_add_filter_pattern(settings_service, params)
-                elif method == "DELETE":
-                    self._handle_remove_filter_pattern(settings_service, params)
-                else:
-                    self._send_json_response(405, {"error": "Method not allowed"})
-
+            # Route request using lookup table
+            if path in route_handlers and method in route_handlers[path]:
+                route_handlers[path][method]()
+            elif path in route_handlers:
+                self._send_json_response(405, {"error": "Method not allowed"})
             else:
                 self._send_json_response(404, {"error": "Settings API endpoint not found"})
 
         except Exception as e:
-            logger.error(f"Error handling settings API request: {e}")
+            logger.exception("Error handling settings API request")
             self._send_json_response(500, {"error": str(e)})
 
     def _handle_get_settings(self, settings_service: SettingsService) -> None:
@@ -539,7 +514,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(500, {"error": "Failed to get settings", "message": str(e)})
 
     def _handle_update_settings(
-        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle PUT /api/settings - update complete settings."""
         try:
@@ -548,12 +523,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
-            from typing import cast
+            from typing import cast  # noqa: PLC0415
 
-            from ..settings.models import SettingsData
+            from ..settings.models import SettingsData  # noqa: PLC0415
 
             # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(Dict[str, Any], params)
+            json_params = cast(dict[str, Any], params)
             settings = SettingsData(**json_params)
             updated_settings = settings_service.update_settings(settings)
 
@@ -588,7 +563,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_update_filter_settings(
-        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle PUT /api/settings/filters - update filter settings."""
         try:
@@ -598,12 +573,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
-            from typing import cast
+            from typing import cast  # noqa: PLC0415
 
-            from ..settings.models import EventFilterSettings
+            from ..settings.models import EventFilterSettings  # noqa: PLC0415
 
             # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(Dict[str, Any], params)
+            json_params = cast(dict[str, Any], params)
             filter_settings = EventFilterSettings(**json_params)
             updated_filters = settings_service.update_filter_settings(filter_settings)
 
@@ -635,7 +610,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_update_display_settings(
-        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle PUT /api/settings/display - update display settings."""
         try:
@@ -645,12 +620,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
-            from typing import cast
+            from typing import cast  # noqa: PLC0415
 
-            from ..settings.models import DisplaySettings
+            from ..settings.models import DisplaySettings  # noqa: PLC0415
 
             # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(Dict[str, Any], params)
+            json_params = cast(dict[str, Any], params)
             display_settings = DisplaySettings(**json_params)
             updated_display = settings_service.update_display_settings(display_settings)
 
@@ -682,7 +657,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_update_conflict_settings(
-        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle PUT /api/settings/conflicts - update conflict resolution settings."""
         try:
@@ -692,12 +667,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
-            from typing import cast
+            from typing import cast  # noqa: PLC0415
 
-            from ..settings.models import ConflictResolutionSettings
+            from ..settings.models import ConflictResolutionSettings  # noqa: PLC0415
 
             # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(Dict[str, Any], params)
+            json_params = cast(dict[str, Any], params)
             conflict_settings = ConflictResolutionSettings(**json_params)
             updated_conflicts = settings_service.update_conflict_settings(conflict_settings)
 
@@ -719,7 +694,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_validate_settings(
-        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle POST /api/settings/validate - validate settings data."""
         try:
@@ -728,12 +703,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
-            from typing import cast
+            from typing import cast  # noqa: PLC0415
 
-            from ..settings.models import SettingsData
+            from ..settings.models import SettingsData  # noqa: PLC0415
 
             # For POST requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(Dict[str, Any], params)
+            json_params = cast(dict[str, Any], params)
             settings = SettingsData(**json_params)
             validation_errors = settings_service.validate_settings(settings)
 
@@ -771,7 +746,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(500, {"error": "Failed to export settings", "message": str(e)})
 
     def _handle_import_settings(
-        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle POST /api/settings/import - import settings."""
         try:
@@ -780,12 +755,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_json_response(400, {"error": "Invalid request data"})
                 return
 
-            from typing import cast
+            from typing import cast  # noqa: PLC0415
 
-            from ..settings.models import SettingsData
+            from ..settings.models import SettingsData  # noqa: PLC0415
 
             # For POST requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(Dict[str, Any], params)
+            json_params = cast(dict[str, Any], params)
             settings = SettingsData(**json_params)
             imported_settings = settings_service.update_settings(settings)
 
@@ -832,7 +807,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_add_filter_pattern(
-        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle POST /api/settings/filters/patterns - add a new filter pattern."""
         try:
@@ -878,7 +853,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_remove_filter_pattern(
-        self, settings_service: SettingsService, params: Union[Dict[str, List[str]], Dict[str, Any]]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle DELETE /api/settings/filters/patterns - remove a filter pattern."""
         try:
@@ -935,11 +910,14 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     f"STATIC_FILE_REQUEST: layout_path.is_file(): {layout_path.is_file() if layout_path.exists() else 'N/A'}"
                 )
 
-                if layout_path.exists() and layout_path.is_file():
-                    # Security check - ensure file is within layouts directory
-                    if str(layout_path.resolve()).startswith(str(layouts_dir.resolve())):
-                        full_path = layout_path
-                        logger.debug("STATIC_FILE_REQUEST: Found in layout directory")
+                # Security check - ensure file exists, is a file, and is within layouts directory
+                if (
+                    layout_path.exists()
+                    and layout_path.is_file()
+                    and str(layout_path.resolve()).startswith(str(layouts_dir.resolve()))
+                ):
+                    full_path = layout_path
+                    logger.debug("STATIC_FILE_REQUEST: Found in layout directory")
 
             # If not found in layouts, try the legacy static directory (web/static)
             if not full_path:
@@ -947,11 +925,14 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 legacy_path = static_dir / file_path
                 logger.debug(f"STATIC_FILE_REQUEST: Checking legacy path: {legacy_path}")
 
-                if legacy_path.exists() and legacy_path.is_file():
-                    # Security check - ensure file is within static directory
-                    if str(legacy_path.resolve()).startswith(str(static_dir.resolve())):
-                        full_path = legacy_path
-                        logger.debug("STATIC_FILE_REQUEST: Found in legacy static directory")
+                # Security check - ensure file exists, is a file, and is within static directory
+                if (
+                    legacy_path.exists()
+                    and legacy_path.is_file()
+                    and str(legacy_path.resolve()).startswith(str(static_dir.resolve()))
+                ):
+                    full_path = legacy_path
+                    logger.debug("STATIC_FILE_REQUEST: Found in legacy static directory")
 
             # If not found in legacy, try the layout directories with filename matching
             if not full_path:
@@ -968,13 +949,16 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                         f"STATIC_FILE_REQUEST: Checking layout filename match path: {layout_path}"
                     )
 
-                    if layout_path.exists() and layout_path.is_file():
-                        # Security check - ensure file is within layouts directory
-                        if str(layout_path.resolve()).startswith(str(layouts_dir.resolve())):
-                            full_path = layout_path
-                            logger.debug(
-                                "STATIC_FILE_REQUEST: Found via filename matching in layout directory"
-                            )
+                    # Security check - ensure file exists, is a file, and is within layouts directory
+                    if (
+                        layout_path.exists()
+                        and layout_path.is_file()
+                        and str(layout_path.resolve()).startswith(str(layouts_dir.resolve()))
+                    ):
+                        full_path = layout_path
+                        logger.debug(
+                            "STATIC_FILE_REQUEST: Found via filename matching in layout directory"
+                        )
 
             logger.debug(f"STATIC_FILE_REQUEST: Final path resolved: {full_path}")
             logger.debug(
@@ -990,7 +974,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 logger.debug(f"STATIC_FILE_REQUEST: Serving file with content type: {content_type}")
 
                 # Read and serve file
-                with open(full_path, "rb") as f:
+                with full_path.open("rb") as f:
                     content = f.read()
 
                 logger.debug(
@@ -1009,7 +993,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._send_404()
 
         except Exception as e:
-            logger.error(f"Error serving static file {path}: {e}")
+            logger.exception(f"Error serving static file {path}")
             self._send_500(str(e))
 
     def _send_response(
@@ -1020,17 +1004,14 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Cache-Control", "no-cache")
 
-        if isinstance(content, str):
-            content_bytes = content.encode("utf-8")
-        else:
-            content_bytes = content
+        content_bytes = content.encode("utf-8") if isinstance(content, str) else content
 
         self.send_header("Content-Length", str(len(content_bytes)))
         self.end_headers()
 
         self.wfile.write(content_bytes)
 
-    def _send_json_response(self, status_code: int, data: Dict[str, Any]) -> None:
+    def _send_json_response(self, status_code: int, data: dict[str, Any]) -> None:
         """Send JSON response."""
         json_content = json.dumps(data, indent=2)
         self._send_response(status_code, json_content, "application/json")
@@ -1162,8 +1143,8 @@ class WebServer:
             self.running = True
             logger.info(f"Web server started on http://{self.host}:{self.port}")
 
-        except Exception as e:
-            logger.error(f"Failed to start web server: {e}")
+        except Exception:
+            logger.exception("Failed to start web server")
             raise
 
     def _serve_with_cleanup(self) -> None:
@@ -1193,7 +1174,7 @@ class WebServer:
                 logger.debug("Calling server.shutdown()...")
 
                 # Use threading to timeout the shutdown call
-                import threading
+                import threading  # noqa: PLC0415
 
                 shutdown_complete = threading.Event()
                 shutdown_error = None
@@ -1237,16 +1218,16 @@ class WebServer:
 
             logger.info("Web server stopped successfully")
 
-        except Exception as e:
-            logger.error(f"Error stopping web server: {e}")
-            import traceback
+        except Exception:
+            logger.exception("Error stopping web server")
+            import traceback  # noqa: PLC0415
 
-            logger.error(f"Shutdown traceback: {traceback.format_exc()}")
+            logger.exception(f"Shutdown traceback: {traceback.format_exc()}")
 
         # Always ensure running is False
         self.running = False
 
-    def get_calendar_html(self, days: int = 1, debug_time: Optional[datetime] = None) -> str:
+    def get_calendar_html(self, days: int = 1, debug_time: Optional[datetime] = None) -> str:  # noqa: PLR0915
         """Get current calendar HTML content.
 
         Args:
@@ -1273,11 +1254,11 @@ class WebServer:
                     loop = asyncio.get_running_loop()
                     # If we're in an event loop, we can't use asyncio.run()
                     # Create a task and run it synchronously (this is for web server context)
-                    import concurrent.futures
+                    import concurrent.futures  # noqa: PLC0415
 
                     # Run the async function in a separate thread to avoid event loop conflicts
                     def run_async_in_thread() -> Any:
-                        import asyncio
+                        import asyncio  # noqa: PLC0415
 
                         new_loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(new_loop)
@@ -1303,7 +1284,7 @@ class WebServer:
                 logger.debug(f"Retrieved {len(events)} events for selected date")
 
                 # Build status info for interactive mode
-                from ..utils.helpers import get_timezone_aware_now
+                from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
 
                 status_info = {
                     "selected_date": self.navigation_state.get_display_date(),
@@ -1325,13 +1306,13 @@ class WebServer:
                 # Handle async call from sync context properly
                 try:
                     # Try to get the running event loop
-                    loop = asyncio.get_running_loop()
+                    loop = asyncio.get_running_loop()  # noqa: F841
                     # If we're in an event loop, we can't use asyncio.run()
                     # Run the async function in a separate thread to avoid event loop conflicts
-                    import concurrent.futures
+                    import concurrent.futures  # noqa: PLC0415
 
                     def run_async_in_thread() -> Any:
-                        import asyncio
+                        import asyncio  # noqa: PLC0415
 
                         new_loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(new_loop)
@@ -1357,7 +1338,7 @@ class WebServer:
                 logger.debug(f"Retrieved {len(events)} events for today")
 
                 # Static web display mode - no navigation buttons
-                from ..utils.helpers import get_timezone_aware_now
+                from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
 
                 status_info = {
                     "last_update": get_timezone_aware_now().isoformat(),
@@ -1391,7 +1372,7 @@ class WebServer:
             return "<html><body><h1>Error: HTML renderer not available</h1></body></html>"
 
         except Exception as e:
-            logger.error(f"Error getting calendar HTML: {e}")
+            logger.exception("Error getting calendar HTML")
             return f"<html><body><h1>Error</h1><p>{e}</p></body></html>"
 
     def handle_navigation(self, action: str) -> bool:
@@ -1425,8 +1406,8 @@ class WebServer:
             logger.debug(f"Navigation action '{action}' completed")
             return True
 
-        except Exception as e:
-            logger.error(f"Error handling navigation action '{action}': {e}")
+        except Exception:
+            logger.exception(f"Error handling navigation action '{action}'")
             return False
 
     def set_theme(self, theme: str) -> bool:
@@ -1546,11 +1527,11 @@ class WebServer:
             # For now, we'll just return success
             logger.debug("Data refresh requested")
             return True
-        except Exception as e:
-            logger.error(f"Error refreshing data: {e}")
+        except Exception:
+            logger.exception("Error refreshing data")
             return False
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get server status information.
 
         Returns:

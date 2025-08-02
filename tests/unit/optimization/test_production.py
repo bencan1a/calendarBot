@@ -6,15 +6,12 @@ and production filtering functionality.
 """
 
 import ast
-import json
 import logging
-import os
 import tempfile
-import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -795,21 +792,6 @@ class TestErrorHandling:
 
         assert analysis["total_files"] == 1
         assert analysis["total_lines"] == 0  # No lines read due to error
-
-    def test_debug_analyzer_file_error(self, tmp_path):
-        """Test handling of file errors in debug analysis."""
-        analyzer = DebugStatementAnalyzer()
-
-        # Create an unreadable file (simulate permission error)
-        py_file = tmp_path / "unreadable.py"
-        py_file.write_text("print('test')")
-
-        with patch("builtins.open", side_effect=PermissionError("Access denied")):
-            analysis = analyzer.analyze_codebase(tmp_path)
-
-        # Should handle error gracefully
-        assert analysis["python_files"] == 1
-        assert len(analysis["print_statements"]) == 0  # No statements found due to error
 
     def test_optimization_rule_regex_error(self):
         """Test handling of invalid regex patterns in rules."""

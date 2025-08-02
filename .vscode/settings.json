@@ -13,5 +13,8 @@
     "mypy-type-checker.cwd": "${workspaceFolder}",
     "mypy-type-checker.args": [
         "exclude = [     \"venv/\",     \".venv/\",     \"build/\",     \"dist/\",     \"tests/\",     \"backup/\",     \"scripts/\" ]"
+    ],
+    "bandit.ignorePatterns": [
+        "exclude = [     \"venv/\",     \".venv/\",     \"build/\",     \"dist/\",     \"tests/\",     \"backup/\",     \"scripts/\" ]"
     ]
 }

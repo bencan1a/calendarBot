@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from re import Pattern
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Optional
 
-# Lazy import moved to function level to avoid circular dependency
+from ..utils.logging import get_logger
 
 
 class SecurityEventType(Enum):
@@ -80,10 +80,10 @@ class SecurityEvent:
     resource: Optional[str] = None
     action: Optional[str] = None
     result: Optional[str] = None
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
     correlation_id: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert security event to dictionary for logging."""
         return {
             "event_id": self.event_id,
@@ -106,7 +106,7 @@ class CredentialMaskingPatterns:
     """Predefined patterns for credential detection and masking."""
 
     # Compiled regex patterns for various credential types
-    PATTERNS: Dict[str, Pattern[str]] = {
+    PATTERNS: ClassVar[dict[str, Pattern[str]]] = {
         "password": re.compile(r'(password["\s]*[:=]["\s]*)([^"\s,}]+)', re.IGNORECASE),
         "token": re.compile(r'(token["\s]*[:=]["\s]*)([^"\s,}]+)', re.IGNORECASE),
         "bearer": re.compile(r'(bearer["\s]+)([a-zA-Z0-9._-]+)', re.IGNORECASE),
@@ -157,7 +157,7 @@ class CredentialMaskingPatterns:
         return f"{prefix}{'*' * mask_length}{suffix}"
 
 
-def mask_credentials(text: str, custom_patterns: Optional[Dict[str, Pattern[str]]] = None) -> str:
+def mask_credentials(text: str, custom_patterns: Optional[dict[str, Pattern[str]]] = None) -> str:
     """
     Mask credentials in text using predefined and custom patterns.
 
@@ -177,7 +177,7 @@ def mask_credentials(text: str, custom_patterns: Optional[Dict[str, Pattern[str]
     if custom_patterns:
         patterns.update(custom_patterns)
 
-    for pattern_name, pattern in patterns.items():
+    for pattern in patterns.values():
 
         def mask_match(match: Any) -> str:
             prefix = match.group(1) if match.lastindex >= 1 else ""
@@ -200,7 +200,7 @@ class SecureFormatter(logging.Formatter):
         self,
         *args: Any,
         enable_masking: bool = True,
-        custom_patterns: Optional[Dict[str, Pattern[str]]] = None,
+        custom_patterns: Optional[dict[str, Pattern[str]]] = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -266,12 +266,9 @@ class SecurityEventLogger:
 
     def __init__(self, settings: Optional[Any] = None) -> None:
         self.settings = settings
-        # Lazy import to avoid circular dependency
-        from ..utils.logging import get_logger
-
         self.logger = get_logger("security")
         self.audit_logger = self._setup_audit_logger()
-        self._event_cache: List[SecurityEvent] = []
+        self._event_cache: list[SecurityEvent] = []
         self.cache_size = 1000
 
     def _setup_audit_logger(self) -> logging.Logger:
@@ -291,12 +288,15 @@ class SecurityEventLogger:
         audit_dir.mkdir(parents=True, exist_ok=True)
 
         # Set up file handler with rotation
-        from logging.handlers import RotatingFileHandler
+        from logging.handlers import RotatingFileHandler  # noqa: PLC0415
 
         audit_file = audit_dir / "security_audit.log"
 
         audit_handler = RotatingFileHandler(
-            audit_file, maxBytes=50 * 1024 * 1024, backupCount=10, encoding="utf-8"  # 50MB
+            audit_file,
+            maxBytes=50 * 1024 * 1024,
+            backupCount=10,
+            encoding="utf-8",  # 50MB
         )
 
         # Use secure formatter for audit logs
@@ -335,15 +335,15 @@ class SecurityEventLogger:
             # Always log to audit trail
             self.audit_logger.info(f"AUDIT: {event_json}")
 
-        except Exception as e:
+        except Exception:
             # Fallback logging - don't let security logging break the application
-            self.logger.error(f"Failed to log security event: {e}")
+            self.logger.exception("Failed to log security event")
 
     def log_authentication_success(
         self,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log successful authentication event."""
         event = SecurityEvent(
@@ -361,7 +361,7 @@ class SecurityEventLogger:
         self,
         user_id: Optional[str] = None,
         reason: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log failed authentication event."""
         event_details = details or {}
@@ -393,7 +393,7 @@ class SecurityEventLogger:
         self.log_event(event)
 
     def log_input_validation_failure(
-        self, input_type: str, validation_error: str, details: Optional[Dict[str, Any]] = None
+        self, input_type: str, validation_error: str, details: Optional[dict[str, Any]] = None
     ) -> None:
         """Log input validation failure event.
 
@@ -455,7 +455,7 @@ class SecurityEventLogger:
         violation_type: str,
         description: str,
         severity: SecuritySeverity = SecuritySeverity.HIGH,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log general security violation."""
         event_details = details or {}
@@ -493,7 +493,7 @@ class SecurityEventLogger:
         limit: int = 100,
         event_type: Optional[SecurityEventType] = None,
         severity: Optional[SecuritySeverity] = None,
-    ) -> List[SecurityEvent]:
+    ) -> list[SecurityEvent]:
         """
         Get recent security events from cache.
 
@@ -517,7 +517,7 @@ class SecurityEventLogger:
         # Return most recent events
         return sorted(events, key=lambda e: e.timestamp, reverse=True)[:limit]
 
-    def get_security_summary(self) -> Dict[str, Any]:
+    def get_security_summary(self) -> dict[str, Any]:
         """Get summary of recent security events."""
         if not self._event_cache:
             return {"total_events": 0, "by_severity": {}, "by_type": {}}
@@ -558,14 +558,14 @@ _security_logger: Optional[SecurityEventLogger] = None
 
 def get_security_logger(settings: Optional[Any] = None) -> SecurityEventLogger:
     """Get or create global security logger instance."""
-    global _security_logger
-    if _security_logger is None:
-        _security_logger = SecurityEventLogger(settings)
-    return _security_logger
+    # Access module-level variable without using 'global'
+    if globals()["_security_logger"] is None:
+        globals()["_security_logger"] = SecurityEventLogger(settings)
+    return globals()["_security_logger"]
 
 
 def init_security_logging(settings: Any) -> SecurityEventLogger:
     """Initialize security logging system with settings."""
-    global _security_logger
-    _security_logger = SecurityEventLogger(settings)
-    return _security_logger
+    # Update module-level variable without using 'global'
+    globals()["_security_logger"] = SecurityEventLogger(settings)
+    return globals()["_security_logger"]

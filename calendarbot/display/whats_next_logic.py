@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from ..cache.models import CachedEvent
 from ..utils.helpers import get_timezone_aware_now
@@ -49,7 +49,7 @@ class WhatsNextLogic:
         return now
 
     def create_view_model(
-        self, events: List[CachedEvent], status_info: Optional[Dict[str, Any]] = None
+        self, events: list[CachedEvent], status_info: Optional[dict[str, Any]] = None
     ) -> WhatsNextViewModel:
         """Create view model from events and status info.
 
@@ -80,8 +80,8 @@ class WhatsNextLogic:
         # Create status info
         status = self._create_status_info(status_info, current_time)
 
-        # Create view model
-        view_model = WhatsNextViewModel(
+        # Create and return view model
+        return WhatsNextViewModel(
             current_time=current_time,
             display_date=display_date,
             next_events=next_event_data,
@@ -90,11 +90,9 @@ class WhatsNextLogic:
             status_info=status,
         )
 
-        return view_model
-
     def _group_events(
-        self, events: List[CachedEvent], current_time: datetime
-    ) -> Tuple[List[CachedEvent], List[CachedEvent], List[CachedEvent]]:
+        self, events: list[CachedEvent], current_time: datetime
+    ) -> tuple[list[CachedEvent], list[CachedEvent], list[CachedEvent]]:
         """Group events into current, upcoming, and later categories.
 
         Args:
@@ -128,7 +126,7 @@ class WhatsNextLogic:
         return current_events[:1], upcoming_events, later_events
 
     def _format_display_date(
-        self, status_info: Optional[Dict[str, Any]], current_time: datetime
+        self, status_info: Optional[dict[str, Any]], current_time: datetime
     ) -> str:
         """Format display date string.
 
@@ -147,7 +145,7 @@ class WhatsNextLogic:
         return current_time.strftime("%A, %B %d")
 
     def _create_status_info(
-        self, status_info: Optional[Dict[str, Any]], current_time: datetime
+        self, status_info: Optional[dict[str, Any]], current_time: datetime
     ) -> StatusInfo:
         """Create StatusInfo from raw status info.
 
@@ -167,7 +165,7 @@ class WhatsNextLogic:
             selected_date=status_info.get("selected_date") if status_info else None,
         )
 
-    def find_next_upcoming_event(self, events: List[CachedEvent]) -> Optional[CachedEvent]:
+    def find_next_upcoming_event(self, events: list[CachedEvent]) -> Optional[CachedEvent]:
         """Find the next single upcoming event after current time.
 
         Args:
@@ -216,6 +214,6 @@ class WhatsNextLogic:
             )
             return next_event
 
-        except Exception as e:
-            logger.error(f"Error finding next upcoming event: {e}")
+        except Exception:
+            logger.exception("Error finding next upcoming event")
             return None

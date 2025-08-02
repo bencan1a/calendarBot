@@ -8,7 +8,7 @@ import argparse
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from calendarbot.layout.exceptions import LayoutError
 from calendarbot.layout.registry import LayoutRegistry
@@ -23,7 +23,7 @@ class LayoutAction(argparse.Action):
     by the Layout Registry, providing dynamic validation instead of hardcoded choices.
     """
 
-    def __init__(self, option_strings: List[str], dest: str, **kwargs: Any) -> None:
+    def __init__(self, option_strings: list[str], dest: str, **kwargs: Any) -> None:
         """Initialize the layout action.
 
         Args:
@@ -63,13 +63,8 @@ class LayoutAction(argparse.Action):
             if not registry.validate_layout(layout_name):
                 available_layouts = registry.get_available_layouts()
                 if available_layouts:
-                    raise argparse.ArgumentTypeError(
-                        f"Invalid layout '{layout_name}'. "
-                        f"Available layouts: {', '.join(available_layouts)}"
-                    )
-                raise argparse.ArgumentTypeError(
-                    f"Invalid layout '{layout_name}'. No layouts available."
-                )
+                    self._raise_invalid_layout_error(layout_name, available_layouts)
+                self._raise_no_layouts_error(layout_name)
 
             # Set the validated layout name
             setattr(namespace, self.dest, layout_name)
@@ -83,24 +78,60 @@ class LayoutAction(argparse.Action):
             # Fallback to legacy validation for backward compatibility
             legacy_layouts = ["4x8", "3x4"]
             if layout_name not in legacy_layouts:
-                raise argparse.ArgumentTypeError(
-                    f"Invalid layout '{layout_name}'. "
-                    f"Available layouts: {', '.join(legacy_layouts)} "
-                    f"(using fallback validation due to registry error)"
-                )
+                self._raise_fallback_error(layout_name, legacy_layouts, "registry error")
             setattr(namespace, self.dest, layout_name)
 
-        except Exception as e:
-            logger.error(f"Unexpected error during layout validation: {e}")
+        except Exception:
+            logger.exception("Unexpected error during layout validation")
             # Fallback to legacy validation for robustness
             legacy_layouts = ["4x8", "3x4"]
             if layout_name not in legacy_layouts:
-                raise argparse.ArgumentTypeError(
-                    f"Invalid layout '{layout_name}'. "
-                    f"Available layouts: {', '.join(legacy_layouts)} "
-                    f"(using fallback validation due to error)"
-                )
+                self._raise_fallback_error(layout_name, legacy_layouts, "error")
             setattr(namespace, self.dest, layout_name)
+
+    def _raise_invalid_layout_error(self, layout_name: str, available_layouts: list[str]) -> None:
+        """Raise an error for invalid layout when layouts are available.
+
+        Args:
+            layout_name: The invalid layout name
+            available_layouts: List of available layout names
+
+        Raises:
+            argparse.ArgumentTypeError: With formatted error message
+        """
+        raise argparse.ArgumentTypeError(
+            f"Invalid layout '{layout_name}'. Available layouts: {', '.join(available_layouts)}"
+        )
+
+    def _raise_no_layouts_error(self, layout_name: str) -> None:
+        """Raise an error for invalid layout when no layouts are available.
+
+        Args:
+            layout_name: The invalid layout name
+
+        Raises:
+            argparse.ArgumentTypeError: With formatted error message
+        """
+        raise argparse.ArgumentTypeError(f"Invalid layout '{layout_name}'. No layouts available.")
+
+    def _raise_fallback_error(
+        self, layout_name: str, legacy_layouts: list[str], reason: str
+    ) -> None:
+        """Raise an error for invalid layout when using fallback validation.
+
+        Args:
+            layout_name: The invalid layout name
+            legacy_layouts: List of legacy layout names
+            reason: The reason for fallback validation
+
+        Raises:
+            argparse.ArgumentTypeError: With formatted error message
+        """
+        raise argparse.ArgumentTypeError(
+            f"Invalid layout '{layout_name}'. "
+            f"Available layouts: {', '.join(legacy_layouts)} "
+            f"(using fallback validation due to {reason})"
+        )
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -402,11 +433,13 @@ def parse_date(date_str: str) -> datetime:
     """
     try:
         return datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"Invalid date format: {date_str}. Use YYYY-MM-DD")
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(
+            f"Invalid date format: {date_str}. Use YYYY-MM-DD"
+        ) from err
 
 
-def parse_components(components_str: str) -> List[str]:
+def parse_components(components_str: str) -> list[str]:
     """Parse components string into a list of valid component names.
 
     Validates and processes a comma-separated string of component names

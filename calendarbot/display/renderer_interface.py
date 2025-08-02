@@ -2,9 +2,10 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Optional, Protocol
 
 from ..cache.models import CachedEvent
+from .whats_next_data_model import WhatsNextViewModel
 
 logger = logging.getLogger(__name__)
 
@@ -13,11 +14,7 @@ class InteractionEvent(Protocol):
     """Protocol defining the structure of interaction events."""
 
     event_type: str
-    data: Dict[str, Any]
-
-
-# Import the WhatsNextViewModel from the new data model
-from .whats_next_data_model import WhatsNextViewModel
+    data: dict[str, Any]
 
 
 class RendererInterface(ABC):
@@ -44,7 +41,7 @@ class RendererInterface(ABC):
 
     @abstractmethod
     def render_error(
-        self, error_message: str, cached_events: Optional[List[CachedEvent]] = None
+        self, error_message: str, cached_events: Optional[list[CachedEvent]] = None
     ) -> Any:
         """Render an error message with optional cached events.
 

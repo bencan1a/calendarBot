@@ -1,6 +1,6 @@
 """Display capabilities model for e-Paper displays."""
 
-from typing import Any, Dict
+from typing import Any
 
 
 class DisplayCapabilities:
@@ -44,7 +44,7 @@ class DisplayCapabilities:
             f"grayscale={self.supports_grayscale}, red={self.supports_red})"
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert capabilities to dictionary.
 
         Returns:
@@ -60,7 +60,7 @@ class DisplayCapabilities:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DisplayCapabilities":
+    def from_dict(cls, data: dict[str, Any]) -> "DisplayCapabilities":
         """Create DisplayCapabilities from dictionary.
 
         Args:

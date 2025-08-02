@@ -1,8 +1,7 @@
 """Comprehensive unit tests for meeting context analysis features."""
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -33,7 +32,7 @@ def sample_meeting() -> CalendarEvent:
 
 
 @pytest.fixture
-def sample_events_list() -> List[CalendarEvent]:
+def sample_events_list() -> list[CalendarEvent]:
     """Create a list of sample calendar events for testing."""
     base_time = datetime.now(timezone.utc)
 
@@ -111,7 +110,7 @@ class TestMeetingContextAnalyzer:
             analyzer.analyze_upcoming_meetings([])
 
     def test_analyze_upcoming_meetings_when_valid_events_then_returns_insights(
-        self, sample_events_list: List[CalendarEvent]
+        self, sample_events_list: list[CalendarEvent]
     ) -> None:
         """Test successful analysis of upcoming meetings."""
         analyzer = MeetingContextAnalyzer()
@@ -141,7 +140,7 @@ class TestMeetingContextAnalyzer:
             assert all(key in insight for key in required_keys)
 
     def test_analyze_upcoming_meetings_when_exception_occurs_then_logs_and_raises(
-        self, sample_events_list: List[CalendarEvent]
+        self, sample_events_list: list[CalendarEvent]
     ) -> None:
         """Test error handling during meeting analysis."""
         analyzer = MeetingContextAnalyzer()
@@ -154,7 +153,7 @@ class TestMeetingContextAnalyzer:
                 analyzer.analyze_upcoming_meetings(sample_events_list)
 
     def test_filter_upcoming_meetings_when_mixed_events_then_filters_correctly(
-        self, sample_events_list: List[CalendarEvent]
+        self, sample_events_list: list[CalendarEvent]
     ) -> None:
         """Test filtering of upcoming meetings."""
         analyzer = MeetingContextAnalyzer()
@@ -294,7 +293,7 @@ class TestMeetingContextAnalyzer:
 
 @pytest.mark.asyncio
 async def test_get_meeting_context_for_timeframe_when_valid_input_then_returns_context(
-    sample_events_list: List[CalendarEvent],
+    sample_events_list: list[CalendarEvent],
 ) -> None:
     """Test async function for getting meeting context within timeframe."""
     result = await get_meeting_context_for_timeframe(sample_events_list, hours_ahead=4)
@@ -347,7 +346,7 @@ async def test_get_meeting_context_for_timeframe_when_empty_events_then_raises_v
 
 @pytest.mark.asyncio
 async def test_get_meeting_context_for_timeframe_when_exception_occurs_then_logs_and_raises(
-    sample_events_list: List[CalendarEvent],
+    sample_events_list: list[CalendarEvent],
 ) -> None:
     """Test error handling in async meeting context function."""
     with patch("calendarbot.features.meeting_context.MeetingContextAnalyzer") as mock_analyzer:

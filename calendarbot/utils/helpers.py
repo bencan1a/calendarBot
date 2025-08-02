@@ -7,7 +7,9 @@ import os
 import subprocess
 from collections.abc import Awaitable
 from datetime import datetime
-from typing import Any, Callable, Optional, Tuple, Type, TypeVar
+from typing import Any, Callable, Optional, TypeVar
+
+from .exceptions import CircuitBreakerError, RetryError
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +22,7 @@ async def retry_with_backoff(
     backoff_factor: float = 1.5,
     initial_delay: float = 1.0,
     max_delay: float = 60.0,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,),
+    exceptions: tuple[type[Exception], ...] = (Exception,),
     *args: Any,
     **kwargs: Any,
 ) -> T:
@@ -57,32 +59,34 @@ async def retry_with_backoff(
         ...     exceptions=(ConnectionError, TimeoutError)
         ... )
     """
-    last_exception = None
     delay = initial_delay
 
     for attempt in range(max_retries + 1):
-        try:
-            return await func(*args, **kwargs)
-        except exceptions as e:
-            last_exception = e
+        if attempt == max_retries:
+            # Final attempt - log and raise
+            try:
+                return await func(*args, **kwargs)
+            except exceptions as e:
+                logger.exception(f"Function {func.__name__} failed after {max_retries} retries")
+                raise RetryError(
+                    f"Function {func.__name__} failed after {max_retries} retries",
+                    max_retries,
+                    e
+                ) from e
+        else:
+            # Regular attempt with retry logic
+            try:
+                return await func(*args, **kwargs)
+            except exceptions as e:
+                logger.warning(
+                    f"Function {func.__name__} failed (attempt {attempt + 1}), "
+                    f"retrying in {delay:.1f}s: {e}"
+                )
+                await asyncio.sleep(delay)
+                delay = min(delay * backoff_factor, max_delay)
 
-            if attempt == max_retries:
-                logger.error(f"Function {func.__name__} failed after {max_retries} retries: {e}")
-                break
-
-            logger.warning(
-                f"Function {func.__name__} failed (attempt {attempt + 1}), "
-                f"retrying in {delay:.1f}s: {e}"
-            )
-
-            await asyncio.sleep(delay)
-            delay = min(delay * backoff_factor, max_delay)
-
-    # Re-raise the last exception
-    if last_exception is not None:
-        raise last_exception
-    # This should never happen given the logic above, but satisfy mypy
-    raise Exception("Function failed with no recorded exception")
+    # This should never be reached, but satisfy mypy
+    raise RetryError(f"Function {func.__name__} failed with no recorded exception", max_retries, RuntimeError("No exception recorded"))
 
 
 async def safe_async_call(
@@ -106,9 +110,9 @@ async def safe_async_call(
     """
     try:
         return await func(*args, **kwargs)
-    except Exception as e:
+    except Exception:
         if log_errors:
-            logger.error(f"Error in {func.__name__}: {e}")
+            logger.exception(f"Error in {func.__name__}")
         return default
 
 
@@ -178,7 +182,7 @@ def ensure_timezone_aware(dt: datetime, default_tz: Optional[str] = None) -> dat
     if dt.tzinfo is None:
         # If no timezone info, assume local time or use default
         if default_tz:
-            import pytz
+            import pytz  # noqa: PLC0415
 
             tz = pytz.timezone(default_tz)
             return tz.localize(dt)
@@ -199,17 +203,14 @@ def get_timezone_aware_now(user_timezone: Optional[str] = None) -> datetime:
         Current datetime with specified or default timezone
     """
     try:
-
         if not user_timezone:
             user_timezone = "America/Los_Angeles"
 
-        import pytz
+        import pytz  # noqa: PLC0415
 
         tz = pytz.timezone(user_timezone)
         utc_now = datetime.now(pytz.utc)
-        local_now = utc_now.astimezone(tz)
-
-        return local_now
+        return utc_now.astimezone(tz)
 
     except Exception as e:
         # Fallback to system timezone if user timezone is invalid
@@ -243,7 +244,7 @@ def validate_email(email: str) -> bool:
     Returns:
         True if email appears valid, False otherwise
     """
-    import re
+    import re  # noqa: PLC0415
 
     # More strict pattern that doesn't allow consecutive dots
     pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$"
@@ -343,7 +344,7 @@ class CircuitBreaker:
         self,
         failure_threshold: int = 5,
         recovery_timeout: int = 60,
-        expected_exception: Type[Exception] = Exception,
+        expected_exception: type[Exception] = Exception,
     ):
         """Initialize circuit breaker.
 
@@ -379,7 +380,7 @@ class CircuitBreaker:
                 self.last_failure_time is not None
                 and (datetime.now().timestamp() - self.last_failure_time) < self.recovery_timeout
             ):
-                raise Exception("Circuit breaker is OPEN")
+                raise CircuitBreakerError("Circuit breaker is OPEN")
             self.state = "HALF_OPEN"
 
         try:
@@ -426,8 +427,8 @@ def secure_clear_screen() -> bool:
         # Fallback: print enough newlines to simulate screen clearing
         print("\n" * 50)
         return False
-    except Exception as e:
-        logger.error(f"Unexpected error clearing screen: {e}")
+    except Exception:
+        logger.exception("Unexpected error clearing screen")
         # Fallback: print enough newlines to simulate screen clearing
         print("\n" * 50)
         return False

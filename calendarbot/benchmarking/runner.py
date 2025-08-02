@@ -6,7 +6,8 @@ import statistics
 import time
 import uuid
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, List, Optional, Union
+from dataclasses import dataclass
+from typing import Any, Callable, Optional, Union
 
 from ..monitoring.performance import (
     MetricType,
@@ -23,6 +24,21 @@ from .models import (
     BenchmarkSuite,
 )
 from .storage import BenchmarkResultStorage
+
+
+@dataclass
+class BenchmarkConfig:
+    """Configuration for benchmark registration."""
+
+    category: str = "general"
+    description: str = ""
+    expected_duration_seconds: Optional[float] = None
+    min_iterations: int = 1
+    max_iterations: int = 10
+    warmup_iterations: Optional[int] = None
+    timeout_seconds: Optional[float] = None
+    tags: Optional[list[str]] = None
+    prerequisites: Optional[list[str]] = None
 
 
 class BenchmarkRunner:
@@ -55,8 +71,8 @@ class BenchmarkRunner:
         self.perf_logger = performance_logger or get_performance_logger(settings)
 
         # Benchmark registry
-        self._benchmark_registry: Dict[str, Callable[..., Any]] = {}
-        self._benchmark_metadata: Dict[str, BenchmarkMetadata] = {}
+        self._benchmark_registry: dict[str, Callable[..., Any]] = {}
+        self._benchmark_metadata: dict[str, BenchmarkMetadata] = {}
 
         # Execution state
         self._current_run: Optional[BenchmarkRun] = None
@@ -71,15 +87,17 @@ class BenchmarkRunner:
         self,
         name: str,
         func: Callable[..., Any],
-        category: str = "general",
+        category_or_config: Union[str, BenchmarkConfig, None] = None,
         description: str = "",
         expected_duration_seconds: Optional[float] = None,
         min_iterations: int = 1,
         max_iterations: int = 10,
         warmup_iterations: Optional[int] = None,
         timeout_seconds: Optional[float] = None,
-        tags: Optional[List[str]] = None,
-        prerequisites: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
+        prerequisites: Optional[list[str]] = None,
+        *,
+        category: Optional[str] = None,
     ) -> str:
         """
         Register a benchmark function.
@@ -87,34 +105,75 @@ class BenchmarkRunner:
         Args:
             name: Benchmark name.
             func: Function to benchmark.
-            category: Benchmark category.
-            description: Benchmark description.
-            expected_duration_seconds: Expected duration for planning.
-            min_iterations: Minimum iterations to run.
-            max_iterations: Maximum iterations to run.
-            warmup_iterations: Number of warmup iterations.
-            timeout_seconds: Timeout for individual benchmark.
-            tags: Optional tags for categorization.
-            prerequisites: Optional prerequisite benchmark IDs.
+            category_or_config: Either category string (old API) or BenchmarkConfig object (new API).
+            description: Benchmark description (backward compatibility).
+            expected_duration_seconds: Expected duration (backward compatibility).
+            min_iterations: Minimum iterations (backward compatibility).
+            max_iterations: Maximum iterations (backward compatibility).
+            warmup_iterations: Warmup iterations (backward compatibility).
+            timeout_seconds: Timeout in seconds (backward compatibility).
+            tags: Optional tags (backward compatibility).
+            prerequisites: Prerequisites (backward compatibility).
+            category: Category for backward compatibility (keyword-only).
 
         Returns:
             Benchmark ID for reference.
         """
+        # Handle backward compatibility for category keyword argument
+        if category is not None and category_or_config is not None:
+            # If both are provided, prefer category_or_config but warn
+            self.logger.warning(
+                "Both 'category' and 'category_or_config' provided. Using 'category_or_config'."
+            )
+        elif category is not None and category_or_config is None:
+            # Use category keyword argument (old API)
+            category_or_config = category
+
+        # Handle backward compatibility
+        if isinstance(category_or_config, BenchmarkConfig):
+            config = category_or_config
+        elif isinstance(category_or_config, str):
+            # Old API: third parameter is category
+            config = BenchmarkConfig(
+                category=category_or_config,
+                description=description,
+                expected_duration_seconds=expected_duration_seconds,
+                min_iterations=min_iterations,
+                max_iterations=max_iterations,
+                warmup_iterations=warmup_iterations,
+                timeout_seconds=timeout_seconds,
+                tags=tags,
+                prerequisites=prerequisites,
+            )
+        else:
+            # Default case (None)
+            config = BenchmarkConfig(
+                category="general",
+                description=description,
+                expected_duration_seconds=expected_duration_seconds,
+                min_iterations=min_iterations,
+                max_iterations=max_iterations,
+                warmup_iterations=warmup_iterations,
+                timeout_seconds=timeout_seconds,
+                tags=tags,
+                prerequisites=prerequisites,
+            )
+
         benchmark_id = str(uuid.uuid4())
 
         # Create metadata
         metadata = BenchmarkMetadata(
             benchmark_id=benchmark_id,
             name=name,
-            description=description or f"Benchmark for {func.__name__}",
-            category=category,
-            expected_duration_seconds=expected_duration_seconds,
-            min_iterations=min_iterations,
-            max_iterations=max_iterations,
-            warmup_iterations=warmup_iterations or self.warmup_iterations,
-            timeout_seconds=timeout_seconds,
-            tags=tags or [],
-            prerequisites=prerequisites or [],
+            description=config.description or f"Benchmark for {func.__name__}",
+            category=config.category,
+            expected_duration_seconds=config.expected_duration_seconds,
+            min_iterations=config.min_iterations,
+            max_iterations=config.max_iterations,
+            warmup_iterations=config.warmup_iterations or self.warmup_iterations,
+            timeout_seconds=config.timeout_seconds,
+            tags=config.tags or [],
+            prerequisites=config.prerequisites or [],
         )
 
         # Store in registry
@@ -135,7 +194,7 @@ class BenchmarkRunner:
         iterations: Optional[int] = None,
         warmup_iterations: Optional[int] = None,
         timeout_seconds: Optional[float] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
     ) -> Callable[..., Any]:
         """
         Decorator for registering benchmark functions.
@@ -155,9 +214,7 @@ class BenchmarkRunner:
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             benchmark_name = name or func.__name__
-            self.register_benchmark(
-                name=benchmark_name,
-                func=func,
+            config = BenchmarkConfig(
                 category=category,
                 description=description or f"Benchmark for {func.__name__}",
                 max_iterations=iterations or self.default_iterations,
@@ -165,11 +222,16 @@ class BenchmarkRunner:
                 timeout_seconds=timeout_seconds,
                 tags=tags,
             )
+            self.register_benchmark(
+                name=benchmark_name,
+                func=func,
+                category_or_config=config,
+            )
             return func
 
         return decorator
 
-    def run_benchmark(
+    def run_benchmark(  # noqa: PLR0915
         self,
         benchmark_id: str,
         iterations: Optional[int] = None,
@@ -283,7 +345,7 @@ class BenchmarkRunner:
                     with self._performance_context(metadata.name, correlation_id):
                         self._execute_function_safely(func, metadata.timeout_seconds, **kwargs)
                 except Exception as e:
-                    self.logger.error(f"Benchmark iteration {iteration} failed: {e}")
+                    self.logger.exception(f"Benchmark iteration {iteration} failed")
                     result.status = BenchmarkStatus.FAILED
                     result.error_message = str(e)
                     return result
@@ -351,7 +413,7 @@ class BenchmarkRunner:
             )
 
         except Exception as e:
-            self.logger.error(f"Benchmark '{metadata.name}' failed: {e}")
+            self.logger.exception(f"Benchmark '{metadata.name}' failed")
             result.status = BenchmarkStatus.FAILED
             result.error_message = str(e)
             self.storage.store_benchmark_result(result)
@@ -416,8 +478,8 @@ class BenchmarkRunner:
                         )
                         break
 
-                except Exception as e:
-                    self.logger.error(f"Failed to run benchmark {benchmark_id}: {e}")
+                except Exception:
+                    self.logger.exception(f"Failed to run benchmark {benchmark_id}")
                     if suite_obj.stop_on_failure:
                         break
 
@@ -438,7 +500,7 @@ class BenchmarkRunner:
             )
 
         except Exception as e:
-            self.logger.error(f"Suite '{suite_obj.name}' failed: {e}")
+            self.logger.exception(f"Suite '{suite_obj.name}' failed")
             run.complete(success=False)
             run.error_message = str(e)
         finally:
@@ -468,16 +530,9 @@ class BenchmarkRunner:
         # Simple timeout implementation
         start_time = time.perf_counter()
 
-        try:
-            # Get function signature to determine if it accepts arguments
-            sig = inspect.signature(func)
-            if sig.parameters:
-                result = func(**kwargs)
-            else:
-                result = func()
-        except Exception as e:
-            # Re-raise the exception to be handled by caller
-            raise e
+        # Get function signature to determine if it accepts arguments
+        sig = inspect.signature(func)
+        result = func(**kwargs) if sig.parameters else func()
 
         # Check timeout
         if timeout_seconds and (time.perf_counter() - start_time) > timeout_seconds:
@@ -526,7 +581,7 @@ class BenchmarkRunner:
         """
         return self._benchmark_metadata.get(benchmark_id)
 
-    def list_benchmarks(self, category: Optional[str] = None) -> List[BenchmarkMetadata]:
+    def list_benchmarks(self, category: Optional[str] = None) -> list[BenchmarkMetadata]:
         """
         List all registered benchmarks.
 
@@ -546,12 +601,12 @@ class BenchmarkRunner:
     def create_suite(
         self,
         name: str,
-        benchmark_ids: List[str],
+        benchmark_ids: list[str],
         description: str = "",
         parallel_execution: bool = False,
         stop_on_failure: bool = False,
         max_execution_time_seconds: Optional[float] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
     ) -> BenchmarkSuite:
         """
         Create a new benchmark suite.
@@ -590,7 +645,7 @@ class BenchmarkRunner:
         self.logger.info(f"Created benchmark suite '{name}' with {len(benchmark_ids)} benchmarks")
         return suite
 
-    def get_performance_summary(self, hours: int = 24) -> Dict[str, Any]:
+    def get_performance_summary(self, hours: int = 24) -> dict[str, Any]:
         """
         Get performance summary from the performance logger.
 

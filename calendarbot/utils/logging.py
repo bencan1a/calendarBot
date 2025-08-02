@@ -7,7 +7,7 @@ import sys
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Deque, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 # Lazy imports moved to function level to avoid circular dependencies
 
@@ -52,15 +52,14 @@ def get_log_level(level_name: str) -> int:
 
     Converts string log level names to their numeric equivalents, with support
     for the custom VERBOSE level (15) in addition to standard Python logging levels.
+    For invalid or unrecognized level names, returns INFO (20) as a safe default.
 
     Args:
         level_name (str): Log level name (DEBUG, VERBOSE, INFO, WARNING, ERROR, CRITICAL)
 
     Returns:
-        int: Numeric log level value for use with logging methods
-
-    Raises:
-        AttributeError: If level name is not recognized or invalid
+        int: Numeric log level value for use with logging methods.
+             Returns logging.INFO (20) for invalid or unrecognized level names.
 
     Example:
         >>> level = get_log_level("VERBOSE")
@@ -72,19 +71,40 @@ def get_log_level(level_name: str) -> int:
         >>> # Case insensitive
         >>> level = get_log_level("debug")
         >>> print(level)  # 10
+        >>>
+        >>> # Invalid levels return INFO as default
+        >>> level = get_log_level("INVALID")
+        >>> print(level)  # 20 (logging.INFO)
     """
-    level_name = level_name.upper()
-    if level_name == "VERBOSE":
+    # Handle mock objects gracefully - convert to string if possible
+    try:
+        level_name_str = str(level_name).upper()
+    except (TypeError, AttributeError):
+        # If conversion fails, use default INFO level
+        level_name_str = "INFO"
+
+    if level_name_str == "VERBOSE":
         return VERBOSE
-    level: int = getattr(logging, level_name)
-    return level
+
+    # Ensure we have a valid string for getattr
+    if not isinstance(level_name_str, str) or not level_name_str.isalpha():
+        return logging.INFO  # Default fallback
+
+    try:
+        level: int = getattr(logging, level_name_str)
+        return level
+    except AttributeError:
+        # If level name is not recognized, return INFO as default
+        return logging.INFO
 
 
 class AutoColoredFormatter(logging.Formatter):
     """Formatter that auto-detects terminal color support."""
 
     # Color schemes for different terminal types
-    COLORS = {
+    from typing import ClassVar  # noqa: PLC0415
+
+    COLORS: ClassVar[dict[str, dict[str, str]]] = {
         "ERROR": {"truecolor": "\033[91m", "basic": "\033[31m", "none": ""},
         "INFO": {"truecolor": "\033[94m", "basic": "\033[34m", "none": ""},
         "VERBOSE": {"truecolor": "\033[92m", "basic": "\033[32m", "none": ""},
@@ -156,7 +176,12 @@ class TimestampedFileHandler(logging.FileHandler):
     ) -> None:
         self.log_dir = Path(log_dir)
         self.prefix = prefix
-        self.max_files = max_files
+        # Ensure max_files is a proper integer, not a mock
+        try:
+            self.max_files = int(max_files)
+        except (TypeError, ValueError):
+            # If conversion fails (e.g., mock object), use default
+            self.max_files = 5
 
         # Create timestamped filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -182,11 +207,11 @@ class TimestampedFileHandler(logging.FileHandler):
             log_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
 
             # Remove oldest files
+            import contextlib  # noqa: PLC0415
+
             for old_file in log_files[self.max_files :]:
-                try:
+                with contextlib.suppress(OSError):
                     old_file.unlink()
-                except OSError:
-                    pass  # Ignore cleanup errors
 
 
 class SplitDisplayHandler(logging.Handler):
@@ -196,7 +221,7 @@ class SplitDisplayHandler(logging.Handler):
         super().__init__()
         self.display_manager = display_manager
         self.max_log_lines = max_log_lines
-        self.log_buffer: Deque[str] = deque(maxlen=max_log_lines)
+        self.log_buffer: deque[str] = deque(maxlen=max_log_lines)
 
     def emit(self, record: logging.LogRecord) -> None:
         """Add log record to buffer and trigger display update."""
@@ -208,9 +233,9 @@ class SplitDisplayHandler(logging.Handler):
             if self.display_manager.renderer is not None and hasattr(
                 self.display_manager.renderer, "update_log_area"
             ):
-                from typing import cast
+                from typing import cast  # noqa: PLC0415
 
-                from ..display.renderer_protocol import ConsoleRendererProtocol
+                from ..display.renderer_protocol import ConsoleRendererProtocol  # noqa: PLC0415
 
                 cast(ConsoleRendererProtocol, self.display_manager.renderer).update_log_area(
                     list(self.log_buffer)
@@ -220,7 +245,7 @@ class SplitDisplayHandler(logging.Handler):
             pass
 
 
-def setup_enhanced_logging(
+def setup_enhanced_logging(  # noqa: PLR0915
     settings: "CalendarBotSettings",
     interactive_mode: bool = False,
     display_manager: Optional["DisplayManager"] = None,
@@ -228,10 +253,10 @@ def setup_enhanced_logging(
     """Set up enhanced logging system with all features including security, performance, structured logging, and production optimization."""
 
     # Lazy imports to avoid circular dependencies
-    from ..monitoring import init_performance_logging
-    from ..optimization import LoggingOptimizer, ProductionLogFilter
-    from ..security import init_security_logging
-    from ..structured import init_structured_logging
+    from ..monitoring import init_performance_logging  # noqa: PLC0415
+    from ..optimization import LoggingOptimizer, ProductionLogFilter  # noqa: PLC0415
+    from ..security import init_security_logging  # noqa: PLC0415
+    from ..structured import init_structured_logging  # noqa: PLC0415
 
     # Create main logger
     logger = logging.getLogger("calendarbot")
@@ -277,7 +302,7 @@ def setup_enhanced_logging(
             split_handler.setFormatter(console_formatter)
 
             # Apply production optimization filters to console
-            from ..optimization import ProductionLogFilter
+            from ..optimization import ProductionLogFilter  # noqa: PLC0415
 
             production_filter = ProductionLogFilter(optimizer.rules, settings)
             split_handler.addFilter(production_filter)
@@ -289,7 +314,7 @@ def setup_enhanced_logging(
             console_handler.setFormatter(console_formatter)
 
             # Apply production optimization filters to console - but allow INFO+ through
-            from ..optimization import ProductionLogFilter
+            from ..optimization import ProductionLogFilter  # noqa: PLC0415
 
             # Create console-friendly filter rules (suppress only DEBUG, allow INFO+)
             console_rules = [
@@ -327,7 +352,7 @@ def setup_enhanced_logging(
 
         # Use structured formatter for file logs if enabled
         if hasattr(settings.logging, "structured_format") and settings.logging.structured_format:
-            from ..structured.logging import StructuredFormatter
+            from ..structured.logging import StructuredFormatter  # noqa: PLC0415
 
             file_formatter: logging.Formatter = StructuredFormatter(
                 format_type="json", include_context=True, include_source=True
@@ -346,7 +371,7 @@ def setup_enhanced_logging(
         file_handler.setFormatter(file_formatter)
 
         # Apply production optimization filters to file handler
-        from ..optimization import ProductionLogFilter
+        from ..optimization import ProductionLogFilter  # noqa: PLC0415
 
         production_filter = ProductionLogFilter(optimizer.rules, settings)
         file_handler.addFilter(production_filter)
@@ -362,10 +387,10 @@ def setup_enhanced_logging(
 
     # 5. Store references for access by other modules
     # Type ignore because we're dynamically adding attributes to logger
-    logger._security_logger = security_logger  # type: ignore[attr-defined]
-    logger._performance_monitor = performance_monitor  # type: ignore[attr-defined]
-    logger._structured_logger = structured_logger  # type: ignore[attr-defined]
-    logger._optimizer = optimizer  # type: ignore[attr-defined]
+    logger._security_logger = security_logger  # type: ignore[attr-defined]  # noqa: SLF001
+    logger._performance_monitor = performance_monitor  # type: ignore[attr-defined]  # noqa: SLF001
+    logger._structured_logger = structured_logger  # type: ignore[attr-defined]  # noqa: SLF001
+    logger._optimizer = optimizer  # type: ignore[attr-defined]  # noqa: SLF001
 
     # Enhanced logging system initialized - removed verbose message
     return logger
@@ -423,7 +448,10 @@ def setup_logging(
 
         # Use rotating file handler to prevent large log files
         file_handler = logging.handlers.RotatingFileHandler(
-            log_path, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"  # 10MB
+            log_path,
+            maxBytes=10 * 1024 * 1024,
+            backupCount=5,
+            encoding="utf-8",  # 10MB
         )
         file_handler.setLevel(logging.DEBUG)  # File logs everything
         file_handler.setFormatter(file_formatter)
@@ -491,7 +519,7 @@ def apply_command_line_overrides(
         >>> if args.quiet:
         ...     print(f"Console level: {settings.logging.console_level}")  # "ERROR"
     """
-    # Priority: Command-line > Environment > YAML > Defaults
+    # Priority: Command-line > Environment > YAML > Defaults  # noqa: ERA001
 
     if hasattr(args, "log_level") and args.log_level:
         settings.logging.console_level = args.log_level

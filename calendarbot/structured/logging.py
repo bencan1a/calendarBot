@@ -3,6 +3,7 @@
 import inspect
 import json
 import logging
+import os
 import threading
 import uuid
 from contextlib import contextmanager
@@ -10,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 
 class LogLevel(Enum):
@@ -58,12 +59,12 @@ class LogContext:
     function_name: Optional[str] = None
     thread_id: Optional[str] = None
     process_id: Optional[int] = None
-    custom_fields: Dict[str, Any] = field(default_factory=dict)
+    custom_fields: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert context to dictionary for logging."""
-        context_dict: Dict[str, Any] = {}
+        context_dict: dict[str, Any] = {}
 
         if self.correlation_id:
             context_dict["correlation_id"] = str(self.correlation_id)
@@ -107,8 +108,6 @@ class LogContext:
             context.source_line = frame.f_lineno
             context.function_name = frame.f_code.co_name
             context.thread_id = str(threading.get_ident())
-            import os
-
             context.process_id = os.getpid()
 
         return context
@@ -227,7 +226,7 @@ class StructuredFormatter(logging.Formatter):
         # human-readable
         return self._format_human_readable(log_entry)
 
-    def _format_key_value(self, log_entry: Dict[str, Any]) -> str:
+    def _format_key_value(self, log_entry: dict[str, Any]) -> str:
         """Format as key=value pairs."""
         pairs = []
         for key, value in log_entry.items():
@@ -238,7 +237,7 @@ class StructuredFormatter(logging.Formatter):
                 pairs.append(f"{key}={value}")
         return " ".join(pairs)
 
-    def _format_human_readable(self, log_entry: Dict[str, Any]) -> str:
+    def _format_human_readable(self, log_entry: dict[str, Any]) -> str:
         """Format as human-readable text."""
         timestamp = log_entry["timestamp"]
         level = log_entry["level"]
@@ -261,7 +260,7 @@ class StructuredLogger:
         self.name = name
         self.settings = settings
         self.logger = logging.getLogger(name)
-        self._context_stack: List[LogContext] = []
+        self._context_stack: list[LogContext] = []
 
         # Set up structured formatter if not already configured
         self._setup_structured_handler()
@@ -290,7 +289,7 @@ class StructuredLogger:
         level: int,
         message: str,
         context: Optional[LogContext] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        extra: Optional[dict[str, Any]] = None,
         exc_info: Optional[Any] = None,
     ) -> None:
         """Log message with structured context."""
@@ -325,7 +324,7 @@ class StructuredLogger:
         self,
         message: str,
         context: Optional[LogContext] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        extra: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log trace message."""
         self._log_with_context(LogLevel.TRACE.value, message, context, extra)
@@ -334,7 +333,7 @@ class StructuredLogger:
         self,
         message: str,
         context: Optional[LogContext] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        extra: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log debug message."""
         self._log_with_context(logging.DEBUG, message, context, extra)
@@ -343,7 +342,7 @@ class StructuredLogger:
         self,
         message: str,
         context: Optional[LogContext] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        extra: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log info message."""
         self._log_with_context(logging.INFO, message, context, extra)
@@ -352,7 +351,7 @@ class StructuredLogger:
         self,
         message: str,
         context: Optional[LogContext] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        extra: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log warning message."""
         self._log_with_context(logging.WARNING, message, context, extra)
@@ -361,7 +360,7 @@ class StructuredLogger:
         self,
         message: str,
         context: Optional[LogContext] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        extra: Optional[dict[str, Any]] = None,
         exc_info: Optional[Any] = None,
     ) -> None:
         """Log error message."""
@@ -371,7 +370,7 @@ class StructuredLogger:
         self,
         message: str,
         context: Optional[LogContext] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        extra: Optional[dict[str, Any]] = None,
         exc_info: Optional[Any] = None,
     ) -> None:
         """Log critical message."""
@@ -381,7 +380,7 @@ class StructuredLogger:
         self,
         message: str,
         context: Optional[LogContext] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        extra: Optional[dict[str, Any]] = None,
     ) -> None:
         """Log audit message."""
         self._log_with_context(LogLevel.AUDIT.value, message, context, extra)
@@ -614,22 +613,24 @@ def get_structured_logger(
     name: str = "calendarbot.structured", settings: Optional[Any] = None
 ) -> StructuredLogger:
     """Get or create structured logger instance."""
-    global _structured_logger
-    if _structured_logger is None or _structured_logger.name != name:
-        _structured_logger = StructuredLogger(name, settings)
-    return _structured_logger
+    # Access module-level variable without using 'global'
+    # This pattern allows reading the variable without the global keyword
+    # and modifies it through direct module reference
+    if globals()["_structured_logger"] is None or globals()["_structured_logger"].name != name:
+        globals()["_structured_logger"] = StructuredLogger(name, settings)
+    return globals()["_structured_logger"]
 
 
 def init_structured_logging(settings: Any) -> StructuredLogger:
     """Initialize structured logging system with settings."""
-    global _structured_logger
-    _structured_logger = StructuredLogger("calendarbot.structured", settings)
+    # Access module-level variable without using 'global'
+    globals()["_structured_logger"] = StructuredLogger("calendarbot.structured", settings)
 
     # Add TRACE and AUDIT levels
     logging.addLevelName(LogLevel.TRACE.value, "TRACE")
     logging.addLevelName(LogLevel.AUDIT.value, "AUDIT")
 
-    return _structured_logger
+    return globals()["_structured_logger"]
 
 
 # Make os available for process ID

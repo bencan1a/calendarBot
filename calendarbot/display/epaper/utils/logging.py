@@ -1,9 +1,9 @@
 """Logging utilities for e-Paper displays."""
 
 import logging
-import os
 import sys
-from typing import Dict, Optional, Union
+from pathlib import Path
+from typing import Optional, Union
 
 # Default log format
 DEFAULT_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -43,9 +43,8 @@ def setup_logger(
     # Add file handler if log_file is specified
     if log_file:
         # Create directory if it doesn't exist
-        log_dir = os.path.dirname(log_file)
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir)
+        log_path = Path(log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
 
         file_handler = logging.FileHandler(log_file)
         file_handler.setFormatter(formatter)
@@ -91,7 +90,7 @@ def configure_package_logging(
     log_format: str = DEFAULT_FORMAT,
     log_file: Optional[str] = None,
     console: bool = True,
-) -> Dict[str, logging.Logger]:
+) -> dict[str, logging.Logger]:
     """Configure logging for the entire package.
 
     Args:
@@ -113,7 +112,7 @@ def configure_package_logging(
     )
 
     # Configure loggers for each module
-    loggers = {
+    return {
         "root": root_logger,
         "display": setup_logger("calendarbot.display.epaper.display", level, log_format),
         "drivers": setup_logger("calendarbot.display.epaper.drivers", level, log_format),
@@ -123,5 +122,3 @@ def configure_package_logging(
         "rendering": setup_logger("calendarbot.display.epaper.rendering", level, log_format),
         "utils": setup_logger("calendarbot.display.epaper.utils", level, log_format),
     }
-
-    return loggers

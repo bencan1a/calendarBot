@@ -2,10 +2,14 @@
 
 import logging
 
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 from ..capabilities import DisplayCapabilities
-from .image_processing import convert_image_to_epaper_format, resize_image_for_epaper
+from .image_processing import (
+    convert_image_to_epaper_format,
+    create_test_pattern,
+    resize_image_for_epaper,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +41,10 @@ class ImageProcessor:
             ValueError: If image or capabilities are invalid
         """
         if not isinstance(image, Image.Image):
-            raise ValueError("Input must be a PIL Image")
+            raise TypeError("Input must be a PIL Image")
 
         if not isinstance(capabilities, DisplayCapabilities):
-            raise ValueError("Capabilities must be a DisplayCapabilities instance")
+            raise TypeError("Capabilities must be a DisplayCapabilities instance")
 
         try:
             # Resize image to match display dimensions
@@ -67,8 +71,8 @@ class ImageProcessor:
 
             return display_buffer
 
-        except Exception as e:
-            logger.error(f"Failed to convert image to display format: {e}")
+        except Exception:
+            logger.exception("Failed to convert image to display format")
             raise
 
     def resize_for_display(
@@ -91,10 +95,10 @@ class ImageProcessor:
             ValueError: If image or capabilities are invalid
         """
         if not isinstance(image, Image.Image):
-            raise ValueError("Input must be a PIL Image")
+            raise TypeError("Input must be a PIL Image")
 
         if not isinstance(capabilities, DisplayCapabilities):
-            raise ValueError("Capabilities must be a DisplayCapabilities instance")
+            raise TypeError("Capabilities must be a DisplayCapabilities instance")
 
         try:
             resized_image = resize_image_for_epaper(
@@ -111,8 +115,8 @@ class ImageProcessor:
 
             return resized_image
 
-        except Exception as e:
-            logger.error(f"Failed to resize image: {e}")
+        except Exception:
+            logger.exception("Failed to resize image")
             raise
 
     def optimize_for_eink(self, image: Image.Image) -> Image.Image:
@@ -128,7 +132,7 @@ class ImageProcessor:
             ValueError: If image is invalid
         """
         if not isinstance(image, Image.Image):
-            raise ValueError("Input must be a PIL Image")
+            raise TypeError("Input must be a PIL Image")
 
         try:
             # Convert to RGB if not already
@@ -137,7 +141,6 @@ class ImageProcessor:
 
             # Apply e-Ink optimizations
             # 1. Increase contrast for better e-Ink visibility
-            from PIL import ImageEnhance
 
             # Enhance contrast
             enhancer = ImageEnhance.Contrast(image)
@@ -151,8 +154,8 @@ class ImageProcessor:
 
             return optimized_image
 
-        except Exception as e:
-            logger.error(f"Failed to optimize image for e-Ink: {e}")
+        except Exception:
+            logger.exception("Failed to optimize image for e-Ink")
             raise
 
     def create_test_image(self, capabilities: DisplayCapabilities) -> bytes:
@@ -165,7 +168,6 @@ class ImageProcessor:
             Test image in e-Paper display format
         """
         try:
-            from .image_processing import create_test_pattern
 
             test_buffer = create_test_pattern(
                 capabilities.width, capabilities.height, has_red=capabilities.supports_red
@@ -178,6 +180,6 @@ class ImageProcessor:
 
             return test_buffer
 
-        except Exception as e:
-            logger.error(f"Failed to create test image: {e}")
+        except Exception:
+            logger.exception("Failed to create test image")
             raise

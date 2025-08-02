@@ -6,7 +6,7 @@ that can occur during settings operations, including validation errors, persiste
 failures, and general settings management issues.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 class SettingsError(Exception):
@@ -23,7 +23,7 @@ class SettingsError(Exception):
         >>> raise SettingsError("Configuration failed", {"component": "persistence"})
     """
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         self.message = message
         self.details = details or {}
         super().__init__(self.message)
@@ -61,8 +61,8 @@ class SettingsValidationError(SettingsError):
         message: str,
         field_name: Optional[str] = None,
         field_value: Optional[Any] = None,
-        validation_errors: Optional[List[str]] = None,
-        details: Optional[Dict[str, Any]] = None,
+        validation_errors: Optional[list[str]] = None,
+        details: Optional[dict[str, Any]] = None,
     ) -> None:
         self.field_name = field_name
         self.field_value = field_value
@@ -109,7 +109,7 @@ class SettingsPersistenceError(SettingsError):
         operation: Optional[str] = None,
         file_path: Optional[str] = None,
         original_error: Optional[Exception] = None,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ) -> None:
         self.operation = operation
         self.file_path = file_path
@@ -156,7 +156,7 @@ class SettingsSchemaError(SettingsError):
         current_version: Optional[str] = None,
         expected_version: Optional[str] = None,
         migration_path: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
     ) -> None:
         self.current_version = current_version
         self.expected_version = expected_version

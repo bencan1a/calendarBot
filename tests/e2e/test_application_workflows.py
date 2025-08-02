@@ -1,9 +1,7 @@
 """End-to-end tests for complete application workflows."""
 
 import asyncio
-import os
-import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

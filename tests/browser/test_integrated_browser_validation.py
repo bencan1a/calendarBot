@@ -5,7 +5,6 @@ Converts the working simple_browser_validation.py approach to pytest format.
 """
 
 import asyncio
-import os
 import sys
 import tempfile
 import time

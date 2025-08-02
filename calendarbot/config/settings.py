@@ -1,9 +1,10 @@
 """Settings management using Pydantic for type validation and configuration."""
 
+import logging
 import os
 from pathlib import Path
 from re import Pattern
-from typing import TYPE_CHECKING, Any, Dict, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import yaml
 from pydantic import BaseModel, Field, PrivateAttr
@@ -32,7 +33,7 @@ SettingsBase = BaseSettings
 def _get_safe_web_host() -> str:
     """Get a safe default web host, preferring local network interface over 0.0.0.0."""
     try:
-        from calendarbot.utils.network import get_local_network_interface
+        from calendarbot.utils.network import get_local_network_interface  # noqa: PLC0415
 
         return get_local_network_interface()
     except ImportError:
@@ -42,9 +43,11 @@ def _get_safe_web_host() -> str:
 
 # Security logging fallbacks - avoid name conflicts with imports
 def _mask_credentials_fallback(
-    text: str, custom_patterns: Optional[Dict[str, Pattern[Any]]] = None
+    text: str, custom_patterns: Optional[dict[str, Pattern[Any]]] = None
 ) -> str:
     """Fallback credential masking function."""
+    # custom_patterns parameter is kept for API compatibility but not used in fallback
+    _ = custom_patterns  # Suppress unused argument warning
     if not text:
         return text
     return text[:2] + "*" * (len(text) - 4) + text[-2:] if len(text) > 4 else "***"
@@ -337,6 +340,12 @@ class CalendarBotSettings(BaseSettings):
         default="console", description="Renderer type: console, html, rpi, compact, eink-whats-next"
     )
 
+    # Generic Display Dimensions (used by tests and some renderers)
+    display_width: int = Field(default=800, description="Generic display width in pixels")
+    display_height: int = Field(default=600, description="Generic display height in pixels")
+    compact_display_width: int = Field(default=400, description="Compact display width in pixels")
+    compact_display_height: int = Field(default=300, description="Compact display height in pixels")
+
     # Core E-Paper Configuration
     epaper: EpaperConfiguration = Field(
         default_factory=EpaperConfiguration, description="Core e-Paper display configuration"
@@ -463,8 +472,8 @@ class CalendarBotSettings(BaseSettings):
             # Load YAML configuration after basic initialization
             self._load_yaml_config()
 
-            # Validate configuration
-            self._validate_required_config()
+            # Note: ICS validation is now deferred until actually needed
+            # This allows the app to start for help/version/setup commands
 
         finally:
             # Restore original environment variables if we modified them
@@ -472,20 +481,38 @@ class CalendarBotSettings(BaseSettings):
                 for key, value in original_env.items():
                     os.environ[key] = value
 
-    def _validate_required_config(self) -> None:
-        """Validate that required configuration is present."""
+    def _validate_ics_config(self) -> None:
+        """Validate that ICS configuration is present when needed for calendar operations.
+
+        Raises:
+            ValueError: If ICS URL is not configured when calendar functionality is accessed.
+        """
         if not self.ics_url:
             raise ValueError(
-                "ICS URL is required but not configured. "
+                "ICS URL is required for calendar operations but not configured. "
                 "Please set CALENDARBOT_ICS_URL environment variable or configure 'ics.url' in config.yaml"
             )
 
+    def _validate_required_config(self) -> None:
+        """Validate that required configuration is present.
+
+        This method is kept for backward compatibility but no longer validates ICS
+        during initialization. ICS validation is now deferred until needed.
+        """
+        # ICS validation is now deferred - see _validate_ics_config()
+
     def _find_config_file(self) -> Optional[Path]:
         """Find config file, checking project directory first, then user home."""
-        # Check project directory first (relative to this file)
-        project_config = Path(__file__).parent / "config.yaml"
+        # Check project root directory first (go up from calendarbot/config to project root)
+        project_root = Path(__file__).parent.parent.parent
+        project_config = project_root / "config" / "config.yaml"
         if project_config.exists():
             return project_config
+
+        # Check legacy location (relative to this file)
+        legacy_config = Path(__file__).parent / "config.yaml"
+        if legacy_config.exists():
+            return legacy_config
 
         # Fall back to user home directory
         user_config = self.config_dir / "config.yaml"
@@ -494,6 +521,226 @@ class CalendarBotSettings(BaseSettings):
 
         return None
 
+    def _log_credential_loading(self, credential_type: str, credential_value: str) -> None:
+        """Log credential loading with security masking."""
+        if SECURITY_LOGGING_AVAILABLE:
+            from calendarbot.security.logging import (  # noqa: PLC0415
+                SecurityEvent,
+                SecurityEventLogger,
+                SecurityEventType,
+                SecuritySeverity,
+            )
+
+            security_logger = SecurityEventLogger()
+            event = SecurityEvent(
+                event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
+                severity=SecuritySeverity.LOW,
+                action="credential_load",
+                result="success",
+                details={
+                    "credential_type": credential_type,
+                    "description": f"ICS {credential_type} loaded from config: {mask_credentials(credential_value)}",
+                    "source_ip": "internal",
+                },
+            )
+            security_logger.log_event(event)
+
+    def _load_ics_config(self, config_data: dict) -> None:
+        """Load ICS configuration from YAML data."""
+        if "ics" not in config_data:
+            return
+
+        ics_config = config_data["ics"]
+
+        # Basic ICS settings
+        if ("url" in ics_config and not self.ics_url and "ics_url" not in self._explicit_args):
+            self.ics_url = ics_config["url"]
+        if ("auth_type" in ics_config and not self.ics_auth_type and "ics_auth_type" not in self._explicit_args):
+            self.ics_auth_type = ics_config["auth_type"]
+
+        # Credentials with security logging
+        if ("username" in ics_config and not self.ics_username and "ics_username" not in self._explicit_args):
+            username = ics_config["username"]
+            self.ics_username = username
+            self._log_credential_loading("username", username)
+
+        if ("password" in ics_config and not self.ics_password and "ics_password" not in self._explicit_args):
+            password = ics_config["password"]
+            self.ics_password = password
+            self._log_credential_loading("password", password)
+
+        if "token" in ics_config and not self.ics_bearer_token:
+            token = ics_config["token"]
+            self.ics_bearer_token = token
+            self._log_credential_loading("bearer_token", token)
+
+        # Custom headers handling
+        if "custom_headers" in ics_config and not self.ics_custom_headers:
+            import json  # noqa: PLC0415
+            try:
+                headers = ics_config["custom_headers"]
+                if isinstance(headers, dict):
+                    self.ics_custom_headers = json.dumps(headers)
+                else:
+                    self.ics_custom_headers = str(headers)
+            except Exception as e:
+                logging.warning(f"Failed to convert custom headers: {e}")
+
+        if "verify_ssl" in ics_config:
+            self.ics_validate_ssl = ics_config["verify_ssl"]
+
+    def _load_basic_settings(self, config_data: dict) -> None:
+        """Load basic application settings from YAML data."""
+        basic_settings = ["refresh_interval", "cache_ttl", "auto_kill_existing"]
+
+        for setting in basic_settings:
+            if (setting in config_data and
+                setting not in self._explicit_args and
+                setting not in self._env_vars_set):
+                setattr(self, setting, config_data[setting])
+
+    def _load_legacy_logging_config(self, config_data: dict) -> None:
+        """Load legacy logging settings for backward compatibility."""
+        if "log_level" in config_data:
+            self.log_level = config_data["log_level"]
+            self.logging.console_level = config_data["log_level"]
+            self.logging.file_level = config_data["log_level"]
+        if "log_file" in config_data:
+            self.log_file = config_data["log_file"]
+            if config_data["log_file"]:
+                self.logging.file_enabled = True
+
+    def _load_logging_config(self, config_data: dict) -> None:
+        """Load comprehensive logging configuration from YAML data."""
+        if "logging" not in config_data:
+            return
+
+        logging_config = config_data["logging"]
+
+        # Console settings
+        console_settings = ["console_enabled", "console_level", "console_colors"]
+        for setting in console_settings:
+            if setting in logging_config:
+                setattr(self.logging, setting, logging_config[setting])
+
+        # File settings
+        file_settings = ["file_enabled", "file_level", "file_directory",
+                        "file_prefix", "max_log_files", "include_function_names"]
+        for setting in file_settings:
+            if setting in logging_config:
+                setattr(self.logging, setting, logging_config[setting])
+
+        # Interactive mode settings
+        interactive_settings = ["interactive_split_display", "interactive_log_lines"]
+        for setting in interactive_settings:
+            if setting in logging_config:
+                setattr(self.logging, setting, logging_config[setting])
+
+        # Advanced settings
+        advanced_settings = ["third_party_level", "buffer_size", "flush_interval"]
+        for setting in advanced_settings:
+            if setting in logging_config:
+                setattr(self.logging, setting, logging_config[setting])
+
+    def _load_display_settings(self, config_data: dict) -> None:
+        """Load display configuration from YAML data."""
+        display_settings = ["display_enabled", "display_type"]
+
+        for setting in display_settings:
+            if (setting in config_data and
+                setting not in self._explicit_args and
+                setting not in self._env_vars_set):
+                setattr(self, setting, config_data[setting])
+
+    def _load_rpi_config(self, config_data: dict) -> None:
+        """Load RPI display configuration from YAML data."""
+        if "rpi" not in config_data:
+            return
+
+        rpi_config = config_data["rpi"]
+        rpi_settings = ["enabled", "display_width", "display_height", "refresh_mode", "auto_layout"]
+
+        for setting in rpi_settings:
+            if setting in rpi_config:
+                setattr(self, f"rpi_{setting}", rpi_config[setting])
+
+        # Backward compatibility for auto_theme
+        if "auto_theme" in rpi_config:
+            self.rpi_auto_layout = rpi_config["auto_theme"]
+
+    def _load_web_config(self, config_data: dict) -> None:
+        """Load web configuration from YAML data."""
+        if "web" not in config_data:
+            return
+
+        web_config = config_data["web"]
+        web_settings = ["enabled", "port", "host", "layout", "auto_refresh"]
+
+        for setting in web_settings:
+            web_field = f"web_{setting}"
+            if setting in web_config and web_field not in self._explicit_args:
+                setattr(self, web_field, web_config[setting])
+
+        # Backward compatibility for theme -> layout
+        if "theme" in web_config and "web_layout" not in self._explicit_args:
+            self.web_layout = web_config["theme"]
+
+    def _load_epaper_config(self, config_data: dict) -> None:
+        """Load e-paper configuration from YAML data."""
+        if "epaper" not in config_data:
+            return
+
+        epaper_config = config_data["epaper"]
+
+        # Core settings
+        core_settings = ["enabled", "force_epaper", "display_model"]
+        for setting in core_settings:
+            if setting in epaper_config:
+                setattr(self.epaper, setting, epaper_config[setting])
+
+        # Display properties
+        display_props = ["width", "height", "rotation"]
+        for prop in display_props:
+            if prop in epaper_config:
+                setattr(self.epaper, prop, epaper_config[prop])
+
+        # Refresh and rendering settings
+        refresh_settings = ["partial_refresh", "refresh_interval", "contrast_level", "dither_mode"]
+        for setting in refresh_settings:
+            if setting in epaper_config:
+                setattr(self.epaper, setting, epaper_config[setting])
+
+        # Fallback and advanced settings
+        advanced_settings = ["error_fallback", "png_fallback_enabled", "png_output_path",
+                           "hardware_detection_enabled", "update_strategy"]
+        for setting in advanced_settings:
+            if setting in epaper_config:
+                setattr(self.epaper, setting, epaper_config[setting])
+
+        # Backward compatibility: set legacy fields
+        legacy_mappings = {
+            "force_epaper": "force_epaper",
+            "display_model": "epaper_display_model",
+            "rotation": "epaper_rotation",
+            "partial_refresh": "epaper_partial_refresh",
+            "refresh_interval": "epaper_refresh_interval",
+            "contrast_level": "epaper_contrast_level",
+            "dither_mode": "epaper_dither_mode",
+            "error_fallback": "epaper_error_fallback"
+        }
+
+        for config_key, legacy_field in legacy_mappings.items():
+            if config_key in epaper_config:
+                setattr(self, legacy_field, epaper_config[config_key])
+
+    def _load_network_settings(self, config_data: dict) -> None:
+        """Load network and retry settings from YAML data."""
+        network_settings = ["request_timeout", "max_retries", "retry_backoff_factor"]
+
+        for setting in network_settings:
+            if setting in config_data:
+                setattr(self, setting, config_data[setting])
+
     def _load_yaml_config(self) -> None:
         """Load configuration from YAML file if it exists."""
         config_file = self._find_config_file()
@@ -501,325 +748,26 @@ class CalendarBotSettings(BaseSettings):
             return
 
         try:
-            with open(config_file) as f:
+            with config_file.open() as f:
                 config_data = yaml.safe_load(f)
 
             if not config_data:
                 return
 
-            # Map YAML structure to settings fields
-            # Only set values that weren't explicitly provided via env vars or constructor args
-            if "ics" in config_data:
-                ics_config = config_data["ics"]
-                if (
-                    "url" in ics_config
-                    and not self.ics_url
-                    and "ics_url" not in self._explicit_args
-                ):
-                    self.ics_url = ics_config["url"]
-                if (
-                    "auth_type" in ics_config
-                    and not self.ics_auth_type
-                    and "ics_auth_type" not in self._explicit_args
-                ):
-                    self.ics_auth_type = ics_config["auth_type"]
-                if (
-                    "username" in ics_config
-                    and not self.ics_username
-                    and "ics_username" not in self._explicit_args
-                ):
-                    username = ics_config["username"]
-                    self.ics_username = username
-                    # Log credential loading with masking
-                    if SECURITY_LOGGING_AVAILABLE:
-                        from calendarbot.security.logging import (
-                            SecurityEvent,
-                            SecurityEventLogger,
-                            SecurityEventType,
-                            SecuritySeverity,
-                        )
-
-                        security_logger = SecurityEventLogger()
-                        event = SecurityEvent(
-                            event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
-                            severity=SecuritySeverity.LOW,
-                            action="credential_load",
-                            result="success",
-                            details={
-                                "credential_type": "username",
-                                "description": f"ICS username loaded from config: {mask_credentials(username)}",
-                                "source_ip": "internal",
-                            },
-                        )
-                        security_logger.log_event(event)
-                if (
-                    "password" in ics_config
-                    and not self.ics_password
-                    and "ics_password" not in self._explicit_args
-                ):
-                    password = ics_config["password"]
-                    self.ics_password = password
-                    # Log credential loading with masking
-                    if SECURITY_LOGGING_AVAILABLE:
-                        from calendarbot.security.logging import (
-                            SecurityEvent,
-                            SecurityEventLogger,
-                            SecurityEventType,
-                            SecuritySeverity,
-                        )
-
-                        security_logger = SecurityEventLogger()
-                        event = SecurityEvent(
-                            event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
-                            severity=SecuritySeverity.LOW,
-                            action="credential_load",
-                            result="success",
-                            details={
-                                "credential_type": "password",
-                                "description": f"ICS password loaded from config: {mask_credentials(password)}",
-                                "source_ip": "internal",
-                            },
-                        )
-                        security_logger.log_event(event)
-                if "token" in ics_config and not self.ics_bearer_token:
-                    token = ics_config["token"]
-                    self.ics_bearer_token = token
-                    # Log credential loading with masking
-                    if SECURITY_LOGGING_AVAILABLE:
-                        from calendarbot.security.logging import (
-                            SecurityEvent,
-                            SecurityEventLogger,
-                            SecurityEventType,
-                            SecuritySeverity,
-                        )
-
-                        security_logger = SecurityEventLogger()
-                        event = SecurityEvent(
-                            event_type=SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
-                            severity=SecuritySeverity.LOW,
-                            action="credential_load",
-                            result="success",
-                            details={
-                                "credential_type": "bearer_token",
-                                "description": f"ICS bearer token loaded from config: {mask_credentials(token)}",
-                                "source_ip": "internal",
-                            },
-                        )
-                        security_logger.log_event(event)
-                if "custom_headers" in ics_config and not self.ics_custom_headers:
-                    import json
-
-                    try:
-                        # Convert dict to JSON string if needed
-                        headers = ics_config["custom_headers"]
-                        if isinstance(headers, dict):
-                            self.ics_custom_headers = json.dumps(headers)
-                        else:
-                            self.ics_custom_headers = str(headers)
-                    except Exception:
-                        # If conversion fails, skip custom headers
-                        pass
-                if "verify_ssl" in ics_config:
-                    self.ics_validate_ssl = ics_config["verify_ssl"]
-
-            # Map other top-level settings
-            # Only set values that weren't explicitly provided via env vars or constructor args
-            if (
-                "refresh_interval" in config_data
-                and "refresh_interval" not in self._explicit_args
-                and "refresh_interval" not in self._env_vars_set
-            ):
-                self.refresh_interval = config_data["refresh_interval"]
-            if (
-                "cache_ttl" in config_data
-                and "cache_ttl" not in self._explicit_args
-                and "cache_ttl" not in self._env_vars_set
-            ):
-                self.cache_ttl = config_data["cache_ttl"]
-            if (
-                "auto_kill_existing" in config_data
-                and "auto_kill_existing" not in self._explicit_args
-                and "auto_kill_existing" not in self._env_vars_set
-            ):
-                self.auto_kill_existing = config_data["auto_kill_existing"]
-
-            # Legacy logging settings (backward compatibility)
-            if "log_level" in config_data:
-                self.log_level = config_data["log_level"]
-                self.logging.console_level = config_data["log_level"]
-                self.logging.file_level = config_data["log_level"]
-            if "log_file" in config_data:
-                self.log_file = config_data["log_file"]
-                if config_data["log_file"]:
-                    self.logging.file_enabled = True
-
-            # New comprehensive logging settings
-            if "logging" in config_data:
-                logging_config = config_data["logging"]
-
-                # Console settings
-                if "console_enabled" in logging_config:
-                    self.logging.console_enabled = logging_config["console_enabled"]
-                if "console_level" in logging_config:
-                    self.logging.console_level = logging_config["console_level"]
-                if "console_colors" in logging_config:
-                    self.logging.console_colors = logging_config["console_colors"]
-
-                # File settings
-                if "file_enabled" in logging_config:
-                    self.logging.file_enabled = logging_config["file_enabled"]
-                if "file_level" in logging_config:
-                    self.logging.file_level = logging_config["file_level"]
-                if "file_directory" in logging_config:
-                    self.logging.file_directory = logging_config["file_directory"]
-                if "file_prefix" in logging_config:
-                    self.logging.file_prefix = logging_config["file_prefix"]
-                if "max_log_files" in logging_config:
-                    self.logging.max_log_files = logging_config["max_log_files"]
-                if "include_function_names" in logging_config:
-                    self.logging.include_function_names = logging_config["include_function_names"]
-
-                # Interactive mode settings
-                if "interactive_split_display" in logging_config:
-                    self.logging.interactive_split_display = logging_config[
-                        "interactive_split_display"
-                    ]
-                if "interactive_log_lines" in logging_config:
-                    self.logging.interactive_log_lines = logging_config["interactive_log_lines"]
-
-                # Third-party and advanced settings
-                if "third_party_level" in logging_config:
-                    self.logging.third_party_level = logging_config["third_party_level"]
-                if "buffer_size" in logging_config:
-                    self.logging.buffer_size = logging_config["buffer_size"]
-                if "flush_interval" in logging_config:
-                    self.logging.flush_interval = logging_config["flush_interval"]
-
-            if (
-                "display_enabled" in config_data
-                and "display_enabled" not in self._explicit_args
-                and "display_enabled" not in self._env_vars_set
-            ):
-                self.display_enabled = config_data["display_enabled"]
-            if (
-                "display_type" in config_data
-                and "display_type" not in self._explicit_args
-                and "display_type" not in self._env_vars_set
-            ):
-                self.display_type = config_data["display_type"]
-
-            # RPI Display settings
-            if "rpi" in config_data:
-                rpi_config = config_data["rpi"]
-                if "enabled" in rpi_config:
-                    self.rpi_enabled = rpi_config["enabled"]
-                if "display_width" in rpi_config:
-                    self.rpi_display_width = rpi_config["display_width"]
-                if "display_height" in rpi_config:
-                    self.rpi_display_height = rpi_config["display_height"]
-                if "refresh_mode" in rpi_config:
-                    self.rpi_refresh_mode = rpi_config["refresh_mode"]
-                if "auto_layout" in rpi_config:
-                    self.rpi_auto_layout = rpi_config["auto_layout"]
-                elif "auto_theme" in rpi_config:
-                    # Backward compatibility: map old "auto_theme" to new "auto_layout"
-                    self.rpi_auto_layout = rpi_config["auto_theme"]
-
-            # Web settings
-            if "web" in config_data:
-                web_config = config_data["web"]
-                if "enabled" in web_config and "web_enabled" not in self._explicit_args:
-                    self.web_enabled = web_config["enabled"]
-                if "port" in web_config and "web_port" not in self._explicit_args:
-                    self.web_port = web_config["port"]
-                if "host" in web_config and "web_host" not in self._explicit_args:
-                    self.web_host = web_config["host"]
-                if "layout" in web_config and "web_layout" not in self._explicit_args:
-                    self.web_layout = web_config["layout"]
-                elif "theme" in web_config and "web_layout" not in self._explicit_args:
-                    # Backward compatibility: map old "theme" to new "layout"
-                    self.web_layout = web_config["theme"]
-                if "auto_refresh" in web_config and "web_auto_refresh" not in self._explicit_args:
-                    self.web_auto_refresh = web_config["auto_refresh"]
-
-            # E-Paper settings (new structured configuration)
-            if "epaper" in config_data:
-                epaper_config = config_data["epaper"]
-
-                # Core settings
-                if "enabled" in epaper_config:
-                    self.epaper.enabled = epaper_config["enabled"]
-                if "force_epaper" in epaper_config:
-                    self.epaper.force_epaper = epaper_config["force_epaper"]
-                if "display_model" in epaper_config:
-                    self.epaper.display_model = epaper_config["display_model"]
-
-                # Display properties
-                if "width" in epaper_config:
-                    self.epaper.width = epaper_config["width"]
-                if "height" in epaper_config:
-                    self.epaper.height = epaper_config["height"]
-                if "rotation" in epaper_config:
-                    self.epaper.rotation = epaper_config["rotation"]
-
-                # Refresh settings
-                if "partial_refresh" in epaper_config:
-                    self.epaper.partial_refresh = epaper_config["partial_refresh"]
-                if "refresh_interval" in epaper_config:
-                    self.epaper.refresh_interval = epaper_config["refresh_interval"]
-
-                # Rendering options
-                if "contrast_level" in epaper_config:
-                    self.epaper.contrast_level = epaper_config["contrast_level"]
-                if "dither_mode" in epaper_config:
-                    self.epaper.dither_mode = epaper_config["dither_mode"]
-
-                # Fallback settings
-                if "error_fallback" in epaper_config:
-                    self.epaper.error_fallback = epaper_config["error_fallback"]
-                if "png_fallback_enabled" in epaper_config:
-                    self.epaper.png_fallback_enabled = epaper_config["png_fallback_enabled"]
-                if "png_output_path" in epaper_config:
-                    self.epaper.png_output_path = epaper_config["png_output_path"]
-
-                # Hardware detection
-                if "hardware_detection_enabled" in epaper_config:
-                    self.epaper.hardware_detection_enabled = epaper_config[
-                        "hardware_detection_enabled"
-                    ]
-
-                # Advanced settings
-                if "update_strategy" in epaper_config:
-                    self.epaper.update_strategy = epaper_config["update_strategy"]
-
-                # Backward compatibility: also set legacy fields if present
-                if "force_epaper" in epaper_config:
-                    self.force_epaper = epaper_config["force_epaper"]
-                if "display_model" in epaper_config:
-                    self.epaper_display_model = epaper_config["display_model"]
-                if "rotation" in epaper_config:
-                    self.epaper_rotation = epaper_config["rotation"]
-                if "partial_refresh" in epaper_config:
-                    self.epaper_partial_refresh = epaper_config["partial_refresh"]
-                if "refresh_interval" in epaper_config:
-                    self.epaper_refresh_interval = epaper_config["refresh_interval"]
-                if "contrast_level" in epaper_config:
-                    self.epaper_contrast_level = epaper_config["contrast_level"]
-                if "dither_mode" in epaper_config:
-                    self.epaper_dither_mode = epaper_config["dither_mode"]
-                if "error_fallback" in epaper_config:
-                    self.epaper_error_fallback = epaper_config["error_fallback"]
-
-            if "request_timeout" in config_data:
-                self.request_timeout = config_data["request_timeout"]
-            if "max_retries" in config_data:
-                self.max_retries = config_data["max_retries"]
-            if "retry_backoff_factor" in config_data:
-                self.retry_backoff_factor = config_data["retry_backoff_factor"]
+            # Load configuration in logical sections
+            self._load_ics_config(config_data)
+            self._load_basic_settings(config_data)
+            self._load_legacy_logging_config(config_data)
+            self._load_logging_config(config_data)
+            self._load_display_settings(config_data)
+            self._load_rpi_config(config_data)
+            self._load_web_config(config_data)
+            self._load_epaper_config(config_data)
+            self._load_network_settings(config_data)
 
         except Exception as e:
             # Don't fail if YAML loading fails, just continue with defaults/env vars
-            print(f"Warning: Could not load YAML config from {config_file}: {e}")
+            logging.warning(f"Could not load YAML config from {config_file}: {e}")
 
     def _migrate_legacy_epaper_fields(self) -> None:
         """Migrate legacy epaper fields to new structured configuration for backward compatibility."""
@@ -870,16 +818,18 @@ def get_settings() -> CalendarBotSettings:
     Raises:
         ValueError: If settings cannot be initialized due to missing configuration
     """
-    global _settings_instance
-    if _settings_instance is None:
-        _settings_instance = CalendarBotSettings()
-    return _settings_instance
+    # Access module-level variable without using 'global'
+    # This pattern allows reading the variable without the global keyword
+    # and modifies it through direct module reference
+    if globals()["_settings_instance"] is None:
+        globals()["_settings_instance"] = CalendarBotSettings()
+    return globals()["_settings_instance"]
 
 
 def reset_settings() -> None:
     """Reset the global settings instance (primarily for testing)."""
-    global _settings_instance
-    _settings_instance = None
+    # Access module-level variable without using 'global'
+    globals()["_settings_instance"] = None
 
 
 # Backward compatibility: Provide settings attribute that initializes lazily

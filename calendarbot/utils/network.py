@@ -77,10 +77,7 @@ def _is_private_ip(ip: str) -> bool:
             return True
         if octets[0] == 192 and octets[1] == 168:
             return True
-        if octets[0] == 127:
-            return True  # Localhost range (127.0.0.0/8)
-
-        return False
+        return octets[0] == 127  # Localhost range (127.0.0.0/8)
 
     except (ValueError, IndexError):
         return False

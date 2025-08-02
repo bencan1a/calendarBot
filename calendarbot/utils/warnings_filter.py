@@ -7,7 +7,6 @@ from third-party libraries while preserving warnings for application code.
 """
 
 import warnings
-from typing import List, Tuple
 
 
 def suppress_websockets_deprecation_warnings() -> None:
@@ -79,17 +78,8 @@ def suppress_browser_test_warnings() -> None:
     suppress_websockets_deprecation_warnings()
     suppress_datetime_deprecation_warnings()
 
-    # Add any other browser-related warning filters here
-    # Example for other potential warnings:
-    # warnings.filterwarnings(
-    #     "ignore",
-    #     category=DeprecationWarning,
-    #     message="some other deprecated feature",
-    #     module="some.module"
-    # )
 
-
-def get_filtered_warning_categories() -> List[Tuple[str, str]]:
+def get_filtered_warning_categories() -> list[tuple[str, str]]:
     """
     Get a list of all warning categories being filtered.
 

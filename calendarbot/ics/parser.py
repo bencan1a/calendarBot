@@ -3,12 +3,12 @@
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, List, Optional, cast
+from typing import Any, Optional, cast
 
 from dateutil import tz
 from icalendar import Calendar, Event as ICalEvent
 
-from ..security.logging import SecurityEventLogger
+from ..security.logging import SecurityEventLogger  # type: ignore
 from .models import (
     Attendee,
     AttendeeType,
@@ -110,7 +110,7 @@ class ICSParser:
             )
 
         except Exception as e:
-            logger.error(f"Failed to parse ICS content: {e}")
+            logger.exception("Failed to parse ICS content")
             return ICSParseResult(success=False, error_message=str(e))
 
     def _parse_event_component(
@@ -150,10 +150,7 @@ class ICSParser:
             else:
                 # Use duration if available, otherwise default to 1 hour
                 duration = component.get("DURATION")
-                if duration:
-                    end_dt = start_dt + duration.dt
-                else:
-                    end_dt = start_dt + timedelta(hours=1)
+                end_dt = start_dt + duration.dt if duration else start_dt + timedelta(hours=1)
 
             end_info = DateTimeInfo(
                 date_time=end_dt, time_zone=str(end_dt.tzinfo) if end_dt.tzinfo else "UTC"
@@ -190,16 +187,14 @@ class ICSParser:
 
             # Parse attendees
             for attendee_prop in component.get("ATTENDEE", []):
-                if not isinstance(attendee_prop, list):
-                    attendee_prop = [attendee_prop]
+                attendee_list = (
+                    attendee_prop if isinstance(attendee_prop, list) else [attendee_prop]
+                )
 
-                for att in attendee_prop:
-                    try:
-                        attendee = self._parse_attendee(att)
-                        if attendee:
-                            attendees.append(attendee)
-                    except Exception as e:
-                        logger.debug(f"Failed to parse attendee: {e}")
+                for att in attendee_list:
+                    attendee = self._parse_attendee(att)
+                    if attendee:
+                        attendees.append(attendee)
 
             # Recurrence
             rrule_prop = component.get("RRULE")
@@ -222,7 +217,7 @@ class ICSParser:
                 ):
                     is_online_meeting = True
                     # Try to extract URL (basic implementation)
-                    import re
+                    import re  # noqa: PLC0415
 
                     url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
                     urls = re.findall(url_pattern, str(description))
@@ -230,7 +225,7 @@ class ICSParser:
                         online_meeting_url = urls[0]
 
             # Create CalendarEvent
-            event = CalendarEvent(
+            calendar_event = CalendarEvent(
                 id=uid,
                 subject=summary,
                 body_preview=body_preview,
@@ -249,11 +244,11 @@ class ICSParser:
                 online_meeting_url=online_meeting_url,
             )
 
-            return event
-
-        except Exception as e:
-            logger.error(f"Failed to parse event component: {e}")
+        except Exception:
+            logger.exception("Failed to parse event component")
             return None
+        else:
+            return calendar_event
 
     def _parse_datetime(self, dt_prop: Any, default_timezone: Optional[str] = None) -> datetime:
         """Parse iCalendar datetime property.
@@ -402,8 +397,8 @@ class ICSParser:
             return None
 
     def expand_recurring_events(
-        self, events: List[CalendarEvent], start_date: datetime, end_date: datetime
-    ) -> List[CalendarEvent]:
+        self, events: list[CalendarEvent], start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
         """Expand recurring events within date range.
 
         **IMPLEMENTATION STATUS: PLACEHOLDER - NOT YET IMPLEMENTED**
@@ -461,7 +456,7 @@ class ICSParser:
         )
         return events
 
-    def filter_busy_events(self, events: List[CalendarEvent]) -> List[CalendarEvent]:
+    def filter_busy_events(self, events: list[CalendarEvent]) -> list[CalendarEvent]:
         """Filter to only show busy/tentative events.
 
         Args:

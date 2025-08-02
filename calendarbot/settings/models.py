@@ -6,12 +6,13 @@ including validation logic, default values, and comprehensive documentation.
 All models use Pydantic for automatic validation, serialization, and type checking.
 """
 
+import builtins
 import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
-from pydantic import BaseModel, Field, model_validator, root_validator, validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .exceptions import SettingsValidationError
 
@@ -50,13 +51,13 @@ class FilterPattern(BaseModel):
     match_count: int = Field(default=0, ge=0, description="Number of events matched")
     description: Optional[str] = Field(default=None, max_length=200, description="User description")
 
-    @validator("pattern")
-    def validate_pattern(cls, v: str, values: Dict[str, Any]) -> str:
-        """Validate pattern syntax, especially for regex patterns.
+    @field_validator("pattern")
+    @classmethod
+    def validate_pattern(cls, v: str) -> str:
+        """Validate pattern syntax.
 
         Args:
             v: The pattern string to validate
-            values: Other field values for context
 
         Returns:
             The validated pattern string
@@ -68,22 +69,32 @@ class FilterPattern(BaseModel):
             raise SettingsValidationError(
                 "Pattern cannot be empty or whitespace only", field_name="pattern", field_value=v
             )
+        return v.strip()
 
-        # If it's a regex pattern, validate regex syntax
-        if values.get("is_regex", False):
+    @model_validator(mode="after")
+    def validate_regex_pattern(self) -> "FilterPattern":
+        """Validate regex pattern syntax if is_regex is True.
+
+        Returns:
+            The validated FilterPattern instance
+
+        Raises:
+            SettingsValidationError: If regex pattern is invalid
+        """
+        if self.is_regex:
             try:
-                re.compile(v)
+                re.compile(self.pattern)
             except re.error as e:
                 raise SettingsValidationError(
                     f"Invalid regex pattern: {e}",
                     field_name="pattern",
-                    field_value=v,
+                    field_value=self.pattern,
                     validation_errors=[str(e)],
-                )
+                ) from e
+        return self
 
-        return v.strip()
-
-    @validator("description")
+    @field_validator("description")
+    @classmethod
     def validate_description(cls, v: Optional[str]) -> Optional[str]:
         """Validate and clean description field.
 
@@ -125,22 +136,23 @@ class EventFilterSettings(BaseModel):
 
     enabled: bool = Field(default=True, description="Whether event filtering is enabled")
     hide_all_day_events: bool = Field(default=False, description="Hide all-day events")
-    title_patterns: List[FilterPattern] = Field(
+    title_patterns: list[FilterPattern] = Field(
         default_factory=list, description="Title filter patterns"
     )
-    event_categories: Dict[str, bool] = Field(
+    event_categories: dict[str, bool] = Field(
         default_factory=dict, description="Category filter settings"
     )
-    recurring_filters: Dict[str, bool] = Field(
+    recurring_filters: dict[str, bool] = Field(
         default_factory=dict, description="Recurring event filters"
     )
-    attendee_count_filter: Optional[Dict[str, int]] = Field(
+    attendee_count_filter: Optional[dict[str, int]] = Field(
         default=None, description="Filter by attendee count"
     )
     default_action: str = Field(default="include", description="Default action: include or exclude")
 
-    @root_validator(pre=True)
-    def map_patterns_field(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+    @model_validator(mode="before")
+    @classmethod
+    def map_patterns_field(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Map 'patterns' field to 'title_patterns' for backward compatibility.
 
         Args:
@@ -155,8 +167,9 @@ class EventFilterSettings(BaseModel):
 
         return values
 
-    @validator("title_patterns")
-    def validate_title_patterns(cls, v: List[FilterPattern]) -> List[FilterPattern]:
+    @field_validator("title_patterns")
+    @classmethod
+    def validate_title_patterns(cls, v: list[FilterPattern]) -> list[FilterPattern]:
         """Validate title pattern list for duplicates and limits.
 
         Args:
@@ -189,10 +202,11 @@ class EventFilterSettings(BaseModel):
 
         return v
 
-    @validator("attendee_count_filter")
+    @field_validator("attendee_count_filter")
+    @classmethod
     def validate_attendee_count_filter(
-        cls, v: Optional[Dict[str, int]]
-    ) -> Optional[Dict[str, int]]:
+        cls, v: Optional[dict[str, int]]
+    ) -> Optional[dict[str, int]]:
         """Validate attendee count filter settings.
 
         Args:
@@ -231,7 +245,8 @@ class EventFilterSettings(BaseModel):
 
         return v
 
-    @validator("default_action")
+    @field_validator("default_action")
+    @classmethod
     def validate_default_action(cls, v: str) -> str:
         """Validate default action setting.
 
@@ -254,7 +269,7 @@ class EventFilterSettings(BaseModel):
             )
         return v
 
-    def dict(self, **kwargs: Any) -> Dict[str, Any]:
+    def dict(self, **kwargs: Any) -> dict[str, Any]:
         """Override dict method to include backward compatibility for integration tests.
 
         Args:
@@ -301,7 +316,8 @@ class ConflictResolutionSettings(BaseModel):
     show_multiple_conflicts: bool = Field(default=True, description="Show conflict indicators")
     conflict_display_mode: str = Field(default="primary", description="primary|all|indicator")
 
-    @validator("conflict_display_mode")
+    @field_validator("conflict_display_mode")
+    @classmethod
     def validate_conflict_display_mode(cls, v: str) -> str:
         """Validate conflict display mode setting.
 
@@ -407,7 +423,7 @@ class EpaperSettings(BaseModel):
     )
 
     # Advanced Settings
-    color_palette: Dict[str, str] = Field(
+    color_palette: dict[str, str] = Field(
         default_factory=lambda: {
             "background": "#FFFFFF",
             "foreground": "#000000",
@@ -419,7 +435,8 @@ class EpaperSettings(BaseModel):
         default="adaptive", description="Update strategy: full, partial, adaptive"
     )
 
-    @validator("rotation")
+    @field_validator("rotation")
+    @classmethod
     def validate_rotation(cls, v: int) -> int:
         """Validate display rotation value.
 
@@ -442,7 +459,8 @@ class EpaperSettings(BaseModel):
             )
         return v
 
-    @validator("dither_mode")
+    @field_validator("dither_mode")
+    @classmethod
     def validate_dither_mode(cls, v: str) -> str:
         """Validate dithering mode.
 
@@ -465,7 +483,8 @@ class EpaperSettings(BaseModel):
             )
         return v
 
-    @validator("error_fallback_mode")
+    @field_validator("error_fallback_mode")
+    @classmethod
     def validate_error_fallback_mode(cls, v: str) -> str:
         """Validate error fallback mode.
 
@@ -488,7 +507,8 @@ class EpaperSettings(BaseModel):
             )
         return v
 
-    @validator("update_strategy")
+    @field_validator("update_strategy")
+    @classmethod
     def validate_update_strategy(cls, v: str) -> str:
         """Validate display update strategy.
 
@@ -511,8 +531,9 @@ class EpaperSettings(BaseModel):
             )
         return v
 
-    @validator("color_palette")
-    def validate_color_palette(cls, v: Dict[str, str]) -> Dict[str, str]:
+    @field_validator("color_palette")
+    @classmethod
+    def validate_color_palette(cls, v: dict[str, str]) -> dict[str, str]:
         """Validate color palette configuration.
 
         Args:
@@ -534,7 +555,7 @@ class EpaperSettings(BaseModel):
                 )
 
         # Validate hex color format for each color
-        import re
+        import re  # noqa: PLC0415
 
         hex_pattern = re.compile(r"^#[0-9A-Fa-f]{6}$")
         for color_name, color_value in v.items():
@@ -548,8 +569,9 @@ class EpaperSettings(BaseModel):
 
         return v
 
-    @root_validator(pre=True)
-    def set_png_output_default(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+    @model_validator(mode="before")
+    @classmethod
+    def set_png_output_default(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Set default PNG output path if not specified.
 
         Args:
@@ -587,13 +609,14 @@ class DisplaySettings(BaseModel):
     """
 
     default_layout: str = Field(default="whats-next-view", description="Default layout name")
-    font_sizes: Dict[str, str] = Field(default_factory=dict, description="Font size overrides")
+    font_sizes: dict[str, str] = Field(default_factory=dict, description="Font size overrides")
     display_density: str = Field(default="normal", description="compact|normal|spacious")
     color_theme: str = Field(default="default", description="Color theme preference")
     animation_enabled: bool = Field(default=True, description="Enable animations")
     timezone: str = Field(default="UTC", description="User's preferred timezone")
 
-    @validator("default_layout")
+    @field_validator("default_layout")
+    @classmethod
     def validate_default_layout(cls, v: str) -> str:
         """Validate default layout name.
 
@@ -614,7 +637,8 @@ class DisplaySettings(BaseModel):
             )
         return v.strip()
 
-    @validator("display_density")
+    @field_validator("display_density")
+    @classmethod
     def validate_display_density(cls, v: str) -> str:
         """Validate display density setting.
 
@@ -637,8 +661,9 @@ class DisplaySettings(BaseModel):
             )
         return v
 
-    @validator("font_sizes")
-    def validate_font_sizes(cls, v: Dict[str, str]) -> Dict[str, str]:
+    @field_validator("font_sizes")
+    @classmethod
+    def validate_font_sizes(cls, v: dict[str, str]) -> dict[str, str]:
         """Validate font size configuration.
 
         Args:
@@ -667,7 +692,8 @@ class DisplaySettings(BaseModel):
 
         return v
 
-    @validator("timezone")
+    @field_validator("timezone")
+    @classmethod
     def validate_timezone(cls, v: str) -> str:
         """Validate timezone string.
 
@@ -686,7 +712,7 @@ class DisplaySettings(BaseModel):
             )
 
         try:
-            import pytz
+            import pytz  # noqa: PLC0415
 
             # Validate timezone exists
             pytz.timezone(v)
@@ -723,7 +749,7 @@ class DisplaySettings(BaseModel):
                     validation_errors=[
                         "Must be a valid timezone (e.g., 'America/Los_Angeles', 'Europe/London', 'UTC')"
                     ],
-                )
+                ) from e
             logger.warning(f"Timezone validation error: {e}")
             return v.strip()
 
@@ -754,7 +780,8 @@ class SettingsMetadata(BaseModel):
     last_modified_by: str = Field(default="user", description="Last modifier")
     device_id: Optional[str] = Field(default=None, description="Device identifier")
 
-    @validator("version")
+    @field_validator("version")
+    @classmethod
     def validate_version(cls, v: str) -> str:
         """Validate version string format.
 
@@ -833,7 +860,7 @@ class SettingsData(BaseModel):
 
         return self
 
-    def dict(self, **kwargs: Any) -> Dict[str, Any]:
+    def dict(self, **kwargs: Any) -> dict[str, Any]:
         """Override dict method to ensure custom EventFilterSettings serialization.
 
         Args:
@@ -849,7 +876,7 @@ class SettingsData(BaseModel):
 
         return result
 
-    def to_api_dict(self) -> Dict[str, Any]:
+    def to_api_dict(self) -> builtins.dict[str, Any]:
         """Convert settings to API-friendly dictionary format.
 
         Returns:

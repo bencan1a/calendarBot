@@ -9,12 +9,10 @@ by performing the complete cycle in iterations until stable.
 import hashlib
 import subprocess
 import sys
-import tempfile
-from pathlib import Path
-from typing import List, Optional, Set
+from typing import Optional
 
 
-def get_staged_files() -> List[str]:
+def get_staged_files() -> list[str]:
     """Get list of staged Python files."""
     try:
         result = subprocess.run(
@@ -38,7 +36,7 @@ def get_file_hash(filepath: str) -> Optional[str]:
         return None
 
 
-def run_formatter(command: List[str], files: List[str]) -> bool:
+def run_formatter(command: list[str], files: list[str]) -> bool:
     """Run a formatter command on files and return True if any files were modified."""
     if not files:
         return False
@@ -51,7 +49,7 @@ def run_formatter(command: List[str], files: List[str]) -> bool:
         # Run the formatter
         cmd = command + files
         print(f"    Running command: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
         print(f"    Command result: return_code={result.returncode}")
         if result.stdout:
             print(f"    stdout: {result.stdout}")
@@ -78,7 +76,7 @@ def run_formatter(command: List[str], files: List[str]) -> bool:
         return False
 
 
-def get_staged_vs_working_differences(files: List[str]) -> List[str]:
+def get_staged_vs_working_differences(files: list[str]) -> list[str]:
     """Get list of files that differ between staging area and working directory."""
     different_files = []
 
@@ -115,7 +113,7 @@ def get_staged_vs_working_differences(files: List[str]) -> List[str]:
     return different_files
 
 
-def stage_files(files: List[str]) -> bool:
+def stage_files(files: list[str]) -> bool:
     """Stage the specified files."""
     if not files:
         return True
@@ -171,7 +169,7 @@ def main() -> int:
         # If no formatting changes were made, check for staging differences
         if not any_changes:
             print(f"  No formatting changes in iteration {iteration}")
-            print(f"  Checking for staging differences...")
+            print("  Checking for staging differences...")
 
             # Check if any staged files differ from working directory
             different_files = get_staged_vs_working_differences(staged_files)
@@ -179,7 +177,7 @@ def main() -> int:
             if different_files:
                 print(f"  Found {len(different_files)} files that need re-staging")
                 if not stage_files(different_files):
-                    print(f"✗ Failed to re-stage different files")
+                    print("✗ Failed to re-stage different files")
                     return 1
                 any_changes = True  # Continue to next iteration to verify
             else:

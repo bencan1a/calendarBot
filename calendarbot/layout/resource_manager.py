@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 from .exceptions import LayoutNotFoundError, ResourceLoadingError
 from .registry import LayoutRegistry
@@ -22,11 +22,11 @@ class ResourceManager:
         """
         self.layout_registry = layout_registry
         self.base_url = base_url.rstrip("/")
-        self._resource_cache: Dict[str, Dict[str, List[str]]] = {}
-        self._css_cache: Dict[str, str] = {}
-        self._js_cache: Dict[str, str] = {}
+        self._resource_cache: dict[str, dict[str, list[str]]] = {}
+        self._css_cache: dict[str, str] = {}
+        self._js_cache: dict[str, str] = {}
 
-    def get_css_urls(self, layout_name: str) -> List[str]:
+    def get_css_urls(self, layout_name: str) -> list[str]:
         """Get CSS file URLs for a layout.
 
         Args:
@@ -46,10 +46,7 @@ class ResourceManager:
             css_urls = []
             for css_file in css_files:
                 # Handle both string and object formats
-                if isinstance(css_file, dict):
-                    file_name = css_file.get("file", "")
-                else:
-                    file_name = css_file
+                file_name = css_file.get("file", "") if isinstance(css_file, dict) else css_file
 
                 if not file_name or not isinstance(file_name, str):
                     continue
@@ -63,12 +60,12 @@ class ResourceManager:
 
             return css_urls
 
-        except Exception as e:
-            logger.error(f"Failed to get CSS URLs for layout '{layout_name}': {e}")
+        except Exception:
+            logger.exception(f"Failed to get CSS URLs for layout '{layout_name}'")
             # Fallback to legacy CSS files
             return self._get_legacy_css_urls(layout_name)
 
-    def get_js_urls(self, layout_name: str) -> List[str]:
+    def get_js_urls(self, layout_name: str) -> list[str]:
         """Get JavaScript file URLs for a layout.
 
         Args:
@@ -88,10 +85,7 @@ class ResourceManager:
             js_urls = []
             for js_file in js_files:
                 # Handle both string and object formats
-                if isinstance(js_file, dict):
-                    file_name = js_file.get("file", "")
-                else:
-                    file_name = js_file
+                file_name = js_file.get("file", "") if isinstance(js_file, dict) else js_file
 
                 if not file_name or not isinstance(file_name, str):
                     continue
@@ -105,12 +99,12 @@ class ResourceManager:
 
             return js_urls
 
-        except Exception as e:
-            logger.error(f"Failed to get JS URLs for layout '{layout_name}': {e}")
+        except Exception:
+            logger.exception(f"Failed to get JS URLs for layout '{layout_name}'")
             # Fallback to legacy JS files
             return self._get_legacy_js_urls(layout_name)
 
-    def _get_legacy_css_urls(self, layout_name: str) -> List[str]:
+    def _get_legacy_css_urls(self, layout_name: str) -> list[str]:
         """Get legacy CSS URLs for backward compatibility.
 
         Args:
@@ -127,7 +121,7 @@ class ResourceManager:
 
         return legacy_css_map.get(layout_name, [])
 
-    def _get_legacy_js_urls(self, layout_name: str) -> List[str]:
+    def _get_legacy_js_urls(self, layout_name: str) -> list[str]:
         """Get legacy JavaScript URLs for backward compatibility.
 
         Args:
@@ -174,15 +168,14 @@ class ResourceManager:
             all_js_urls = shared_js_urls + js_urls
 
             # Build CSS link tags
-            css_links = []
-            for css_url in all_css_urls:
-                css_links.append(f'<link rel="stylesheet" type="text/css" href="{css_url}">')
+            css_links = [
+                f'<link rel="stylesheet" type="text/css" href="{css_url}">'
+                for css_url in all_css_urls
+            ]
             css_html = "\n    ".join(css_links)
 
             # Build JS script tags
-            js_scripts = []
-            for js_url in all_js_urls:
-                js_scripts.append(f'<script src="{js_url}"></script>')
+            js_scripts = [f'<script src="{js_url}"></script>' for js_url in all_js_urls]
             js_html = "\n    ".join(js_scripts)
 
             # Inject resources into template
@@ -199,16 +192,18 @@ class ResourceManager:
             return updated_template
 
         except Exception as e:
-            logger.error(f"Failed to inject resources for layout '{layout_name}': {e}")
-            raise ResourceLoadingError(f"Resource injection failed: {e}")
+            logger.exception(f"Failed to inject resources for layout '{layout_name}'")
+            raise ResourceLoadingError(f"Resource injection failed: {e}") from e
 
-    def preload_resources(self, layout_names: List[str]) -> None:
+    def preload_resources(self, layout_names: list[str]) -> None:
         """Preload resources for multiple layouts.
 
         Args:
             layout_names: List of layout names to preload.
         """
-        for layout_name in layout_names:
+
+        def _preload_single_layout(layout_name: str) -> None:
+            """Helper to preload a single layout with error handling."""
             try:
                 # Cache URLs for later use
                 css_urls = self.get_css_urls(layout_name)
@@ -220,6 +215,9 @@ class ResourceManager:
 
             except Exception as e:
                 logger.warning(f"Failed to preload resources for layout '{layout_name}': {e}")
+
+        for layout_name in layout_names:
+            _preload_single_layout(layout_name)
 
     def get_css_content(self, layout_name: str) -> str:
         """Get CSS file content for a layout.
@@ -241,18 +239,23 @@ class ResourceManager:
         if not self.layout_registry.validate_layout(layout_name):
             raise LayoutNotFoundError(f"Layout '{layout_name}' not found")
 
+        def _read_file_content(file_path: Path) -> str:
+            """Helper to read file content with error handling."""
+            try:
+                with file_path.open(encoding="utf-8") as f:
+                    return f.read()
+            except Exception as e:
+                logger.warning(f"Failed to read CSS file '{file_path}': {e}")
+                return ""
+
         try:
             css_paths = self.layout_registry.get_layout_css_paths(layout_name)
 
             css_content_parts = []
             for css_path in css_paths:
-                try:
-                    with open(css_path, encoding="utf-8") as f:
-                        content = f.read()
-                        css_content_parts.append(content)
-                except Exception as e:
-                    logger.warning(f"Failed to read CSS file '{css_path}': {e}")
-                    continue
+                content = _read_file_content(css_path)
+                if content:
+                    css_content_parts.append(content)
 
             combined_content = "\n".join(css_content_parts)
 
@@ -261,8 +264,8 @@ class ResourceManager:
 
             return combined_content
 
-        except Exception as e:
-            logger.error(f"Failed to get CSS content for layout '{layout_name}': {e}")
+        except Exception:
+            logger.exception(f"Failed to get CSS content for layout '{layout_name}'")
             return ""
 
     def get_js_content(self, layout_name: str) -> str:
@@ -285,18 +288,23 @@ class ResourceManager:
         if not self.layout_registry.validate_layout(layout_name):
             raise LayoutNotFoundError(f"Layout '{layout_name}' not found")
 
+        def _read_file_content(file_path: Path) -> str:
+            """Helper to read file content with error handling."""
+            try:
+                with file_path.open(encoding="utf-8") as f:
+                    return f.read()
+            except Exception as e:
+                logger.warning(f"Failed to read JS file '{file_path}': {e}")
+                return ""
+
         try:
             js_paths = self.layout_registry.get_layout_js_paths(layout_name)
 
             js_content_parts = []
             for js_path in js_paths:
-                try:
-                    with open(js_path, encoding="utf-8") as f:
-                        content = f.read()
-                        js_content_parts.append(content)
-                except Exception as e:
-                    logger.warning(f"Failed to read JS file '{js_path}': {e}")
-                    continue
+                content = _read_file_content(js_path)
+                if content:
+                    js_content_parts.append(content)
 
             combined_content = "\n".join(js_content_parts)
 
@@ -305,11 +313,11 @@ class ResourceManager:
 
             return combined_content
 
-        except Exception as e:
-            logger.error(f"Failed to get JS content for layout '{layout_name}': {e}")
+        except Exception:
+            logger.exception(f"Failed to get JS content for layout '{layout_name}'")
             return ""
 
-    def get_css_paths_for_layout(self, layout_name: str) -> List[Path]:
+    def get_css_paths_for_layout(self, layout_name: str) -> list[Path]:
         """Get CSS file paths for a layout.
 
         Args:
@@ -318,10 +326,10 @@ class ResourceManager:
         Returns:
             List of Path objects for CSS files.
         """
-        css_paths: List[Path] = self.layout_registry.get_layout_css_paths(layout_name)
+        css_paths: list[Path] = self.layout_registry.get_layout_css_paths(layout_name)
         return css_paths
 
-    def get_js_paths_for_layout(self, layout_name: str) -> List[Path]:
+    def get_js_paths_for_layout(self, layout_name: str) -> list[Path]:
         """Get JavaScript file paths for a layout.
 
         Args:
@@ -330,7 +338,7 @@ class ResourceManager:
         Returns:
             List of Path objects for JavaScript files.
         """
-        js_paths: List[Path] = self.layout_registry.get_layout_js_paths(layout_name)
+        js_paths: list[Path] = self.layout_registry.get_layout_js_paths(layout_name)
         return js_paths
 
     def get_css_path(self, layout_name: str) -> Optional[Path]:
@@ -353,10 +361,7 @@ class ResourceManager:
             first_css = css_files[0]
 
             # Handle both string and object formats
-            if isinstance(first_css, dict):
-                file_name = first_css.get("file", "")
-            else:
-                file_name = first_css
+            file_name = first_css.get("file", "") if isinstance(first_css, dict) else first_css
 
             # Skip external URLs or invalid entries
             if not file_name or not isinstance(file_name, str) or file_name.startswith("http"):
@@ -389,10 +394,7 @@ class ResourceManager:
             first_js = js_files[0]
 
             # Handle both string and object formats
-            if isinstance(first_js, dict):
-                file_name = first_js.get("file", "")
-            else:
-                file_name = first_js
+            file_name = first_js.get("file", "") if isinstance(first_js, dict) else first_js
 
             # Skip external URLs or invalid entries
             if not file_name or not isinstance(file_name, str) or file_name.startswith("http"):
@@ -423,7 +425,7 @@ class ResourceManager:
         """
         return f"{self.base_url}/layouts/{layout_name}"
 
-    def validate_layout_resources(self, layout_name: str) -> Dict[str, bool]:
+    def validate_layout_resources(self, layout_name: str) -> dict[str, bool]:
         """Validate that layout resources exist.
 
         Args:
@@ -450,10 +452,7 @@ class ResourceManager:
                 css_files = layout_info.resources.get("css", [])
                 for css_file in css_files:
                     # Handle both string and object formats
-                    if isinstance(css_file, dict):
-                        file_name = css_file.get("file", "")
-                    else:
-                        file_name = css_file
+                    file_name = css_file.get("file", "") if isinstance(css_file, dict) else css_file
 
                     if (
                         file_name
@@ -469,10 +468,7 @@ class ResourceManager:
                 js_files = layout_info.resources.get("js", [])
                 for js_file in js_files:
                     # Handle both string and object formats
-                    if isinstance(js_file, dict):
-                        file_name = js_file.get("file", "")
-                    else:
-                        file_name = js_file
+                    file_name = js_file.get("file", "") if isinstance(js_file, dict) else js_file
 
                     if (
                         file_name
@@ -487,9 +483,10 @@ class ResourceManager:
                 validation_results["css_valid"] = False
                 validation_results["js_valid"] = False
 
-        except Exception as e:
-            logger.error(f"Error validating resources for layout '{layout_name}': {e}")
+        except Exception:
+            logger.exception(f"Error validating resources for layout '{layout_name}'")
             validation_results["css_valid"] = False
             validation_results["js_valid"] = False
 
         return validation_results
+

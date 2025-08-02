@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 
 class ValidationStatus(Enum):
@@ -24,7 +24,7 @@ class ValidationItem:
     test_name: str
     status: ValidationStatus
     message: str
-    details: Optional[Dict[str, Any]] = None
+    details: Optional[dict[str, Any]] = None
     timestamp: datetime = field(default_factory=datetime.now)
     duration_ms: Optional[int] = None
 
@@ -34,10 +34,10 @@ class ValidationResults:
 
     def __init__(self) -> None:
         """Initialize validation results tracking."""
-        self.items: List[ValidationItem] = []
+        self.items: list[ValidationItem] = []
         self.start_time: datetime = datetime.now()
         self.end_time: Optional[datetime] = None
-        self.components_tested: Set[str] = set()
+        self.components_tested: set[str] = set()
 
     def add_result(
         self,
@@ -45,7 +45,7 @@ class ValidationResults:
         test_name: str,
         status: ValidationStatus,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
         duration_ms: Optional[int] = None,
     ) -> None:
         """Add a validation result.
@@ -74,7 +74,7 @@ class ValidationResults:
         component: str,
         test_name: str,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
         duration_ms: Optional[int] = None,
     ) -> None:
         """Add a successful validation result."""
@@ -87,7 +87,7 @@ class ValidationResults:
         component: str,
         test_name: str,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
         duration_ms: Optional[int] = None,
     ) -> None:
         """Add a failed validation result."""
@@ -100,7 +100,7 @@ class ValidationResults:
         component: str,
         test_name: str,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, Any]] = None,
         duration_ms: Optional[int] = None,
     ) -> None:
         """Add a warning validation result."""
@@ -109,7 +109,7 @@ class ValidationResults:
         )
 
     def add_skipped(
-        self, component: str, test_name: str, message: str, details: Optional[Dict[str, Any]] = None
+        self, component: str, test_name: str, message: str, details: Optional[dict[str, Any]] = None
     ) -> None:
         """Add a skipped validation result."""
         self.add_result(component, test_name, ValidationStatus.SKIPPED, message, details)
@@ -118,7 +118,7 @@ class ValidationResults:
         """Mark validation as complete."""
         self.end_time = datetime.now()
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Get validation summary statistics.
 
         Returns:
@@ -147,7 +147,7 @@ class ValidationResults:
             "end_time": self.end_time.isoformat() if self.end_time else None,
             "total_duration_seconds": total_duration,
             "total_tests": len(self.items),
-            "components_tested": sorted(list(self.components_tested)),
+            "components_tested": sorted(self.components_tested),
             "status_counts": status_counts,
             "component_stats": component_stats,
             "success_rate": status_counts["success"] / len(self.items) if self.items else 0.0,
@@ -169,7 +169,7 @@ class ValidationResults:
         """
         return any(item.status == ValidationStatus.WARNING for item in self.items)
 
-    def get_failures(self) -> List[ValidationItem]:
+    def get_failures(self) -> list[ValidationItem]:
         """Get all failed validation items.
 
         Returns:
@@ -177,7 +177,7 @@ class ValidationResults:
         """
         return [item for item in self.items if item.status == ValidationStatus.FAILURE]
 
-    def get_warnings(self) -> List[ValidationItem]:
+    def get_warnings(self) -> list[ValidationItem]:
         """Get all warning validation items.
 
         Returns:
@@ -253,9 +253,9 @@ class ValidationResults:
         summary = self.get_summary()
 
         # Convert items to dictionaries
-        items_data: List[Dict[str, Any]] = []
+        items_data: list[dict[str, Any]] = []
         for item in self.items:
-            item_data: Dict[str, Any] = {
+            item_data: dict[str, Any] = {
                 "component": item.component,
                 "test_name": item.test_name,
                 "status": item.status.value,

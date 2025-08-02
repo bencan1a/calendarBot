@@ -8,8 +8,8 @@ from pathlib import Path
 # Add the project root to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from calendarbot.benchmarking.storage import BenchmarkResultStorage
 from calendarbot.benchmarking.models import BenchmarkStatus
+from calendarbot.benchmarking.storage import BenchmarkResultStorage
 
 
 def format_memory(mb: float) -> str:
@@ -147,7 +147,7 @@ def get_performance_summary() -> None:
 
         avg_memory = sum(memory_values) / len(memory_values) if memory_values else 0
 
-        print(f"\n🔄 Recent Performance (last 10 runs):")
+        print("\n🔄 Recent Performance (last 10 runs):")
         print(f"   Average execution: {avg_exec_time * 1000:.1f}ms")
         if avg_memory > 0:
             print(f"   Average memory: {format_memory(avg_memory)}")

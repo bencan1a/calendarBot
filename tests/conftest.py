@@ -1,10 +1,10 @@
 """Optimized test configuration with lightweight fixtures for fast execution."""
 
-import asyncio
+import logging
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, List
+from typing import Any, AsyncGenerator, Dict, Generator, List
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -13,11 +13,11 @@ import pytest_asyncio
 
 # Fast, lightweight test settings fixture
 @pytest.fixture
-def test_settings():
+def test_settings() -> Any:
     """Create lightweight test settings without file I/O."""
 
     class MockSettings:
-        def __init__(self):
+        def __init__(self) -> None:
             # Core settings
             self.ics_url = "http://example.com/test.ics"
             self.ics_timeout = 10
@@ -47,6 +47,16 @@ def test_settings():
 
             # Display settings
             self.display_type = "console"
+            
+            # Missing display dimensions that tests expect
+            self.compact_display_width = 800
+            self.compact_display_height = 480
+            self.display_width = 1024
+            self.display_height = 768
+
+            # E-Paper configuration (matches CalendarBotSettings structure)
+            from calendarbot.config.settings import EpaperConfiguration
+            self.epaper = EpaperConfiguration()
 
             # Web settings
             self.web_host = "127.0.0.1"
@@ -58,7 +68,7 @@ def test_settings():
 
 # Lightweight event fixtures for testing
 @pytest.fixture
-def sample_events():
+def sample_events() -> List[Any]:
     """Create minimal test events without heavy processing."""
     from calendarbot.ics.models import CalendarEvent, DateTimeInfo, EventStatus
 
@@ -92,7 +102,7 @@ def sample_events():
 
 # Lightweight cache manager mock
 @pytest.fixture
-def mock_cache_manager():
+def mock_cache_manager() -> AsyncMock:
     """Create lightweight cache manager mock."""
     mock = AsyncMock()
     mock.initialize.return_value = True
@@ -115,7 +125,7 @@ def mock_cache_manager():
 
 # Real cache manager fixture for integration tests
 @pytest_asyncio.fixture
-async def cache_manager(test_settings):
+async def cache_manager(test_settings: Any) -> AsyncGenerator[Any, None]:
     """Create real CacheManager instance for testing."""
     from calendarbot.cache.manager import CacheManager
 
@@ -130,21 +140,22 @@ async def cache_manager(test_settings):
     try:
         await cache_mgr.clear_cache()
         if hasattr(cache_mgr, "db") and cache_mgr.db:
-            await cache_mgr.db.close()
-    except Exception:
-        pass  # Ignore cleanup errors
+            # Database cleanup is handled by CacheManager.clear_cache()
+            pass
+    except Exception as e:
+        logging.warning(f"Cache cleanup failed: {e}")
 
 
 # Alias for existing sample_events fixture
 @pytest.fixture
-def sample_calendar_events(sample_events):
+def sample_calendar_events(sample_events: List[Any]) -> List[Any]:
     """Alias for sample_events to match test expectations."""
     return sample_events
 
 
 # Test database with populated data
 @pytest_asyncio.fixture
-async def populated_test_database(test_settings, sample_events):
+async def populated_test_database(test_settings: Any, sample_events: List[Any]) -> AsyncGenerator[Any, None]:
     """Create test database with sample data."""
     from calendarbot.cache.manager import CacheManager
 
@@ -157,7 +168,7 @@ async def populated_test_database(test_settings, sample_events):
 
     # Create mock database object for compatibility
     class MockTestDatabase:
-        def __init__(self, settings, db, cache_manager):
+        def __init__(self, settings: Any, db: Any, cache_manager: Any) -> None:
             self.settings = settings
             self.db = db
             self.cache_manager = cache_manager
@@ -169,14 +180,15 @@ async def populated_test_database(test_settings, sample_events):
     # Cleanup
     try:
         await cache_mgr.clear_cache()
-        await cache_mgr.db.close()
-    except Exception:
+        # Database cleanup is handled by CacheManager.clear_cache()
         pass
+    except Exception as e:
+        logging.warning(f"Test database cleanup failed: {e}")
 
 
 # Stale cache database for freshness testing
 @pytest_asyncio.fixture
-async def stale_cache_database(test_settings, sample_events):
+async def stale_cache_database(test_settings: Any, sample_events: List[Any]) -> AsyncGenerator[Any, None]:
     """Create test database with stale data."""
     from calendarbot.cache.manager import CacheManager
 
@@ -193,7 +205,7 @@ async def stale_cache_database(test_settings, sample_events):
     stale_timestamp_str = old_timestamp.isoformat()
 
     # Update cache metadata to make cache stale
-    async def make_stale():
+    async def make_stale() -> None:
         # Use the correct API method and metadata field for cache freshness
         await cache_mgr.db.update_cache_metadata(last_successful_fetch=stale_timestamp_str)
 
@@ -201,7 +213,7 @@ async def stale_cache_database(test_settings, sample_events):
 
     # Create mock database object for compatibility
     class MockStaleDatabase:
-        def __init__(self, settings, db, cache_manager):
+        def __init__(self, settings: Any, db: Any, cache_manager: Any) -> None:
             self.settings = settings
             self.db = db
             self.cache_manager = cache_manager
@@ -213,14 +225,15 @@ async def stale_cache_database(test_settings, sample_events):
     # Cleanup
     try:
         await cache_mgr.clear_cache()
-        await cache_mgr.db.close()
-    except Exception:
+        # Database cleanup is handled by CacheManager.clear_cache()
         pass
+    except Exception as e:
+        logging.warning(f"Stale database cleanup failed: {e}")
 
 
 # Performance test database
 @pytest_asyncio.fixture
-async def performance_test_database(test_settings):
+async def performance_test_database(test_settings: Any) -> AsyncGenerator[Any, None]:
     """Create test database optimized for performance testing."""
     from calendarbot.cache.manager import CacheManager
     from calendarbot.ics.models import CalendarEvent, DateTimeInfo, EventStatus
@@ -257,7 +270,7 @@ async def performance_test_database(test_settings):
 
     # Create mock database object
     class MockPerformanceDatabase:
-        def __init__(self, settings, db, cache_manager):
+        def __init__(self, settings: Any, db: Any, cache_manager: Any) -> None:
             self.settings = settings
             self.db = db
             self.cache_manager = cache_manager
@@ -269,14 +282,15 @@ async def performance_test_database(test_settings):
     # Cleanup
     try:
         await cache_mgr.clear_cache()
-        await cache_mgr.db.close()
-    except Exception:
+        # Database cleanup is handled by CacheManager.clear_cache()
         pass
+    except Exception as e:
+        logging.warning(f"Performance database cleanup failed: {e}")
 
 
 # Lightweight source manager mock
 @pytest.fixture
-def mock_source_manager():
+def mock_source_manager() -> AsyncMock:
     """Create lightweight source manager mock."""
     mock = AsyncMock()
     mock.initialize.return_value = True
@@ -301,7 +315,7 @@ def mock_source_manager():
 
 # Real source manager fixture for integration tests
 @pytest_asyncio.fixture
-async def source_manager(test_settings):
+async def source_manager(test_settings: Any) -> AsyncGenerator[Any, None]:
     """Create real SourceManager instance for testing."""
     from calendarbot.sources.manager import SourceManager
 
@@ -313,13 +327,13 @@ async def source_manager(test_settings):
     # Cleanup
     try:
         await source_mgr.cleanup()
-    except Exception:
-        pass  # Ignore cleanup errors
+    except Exception as e:
+        logging.warning(f"Source manager cleanup failed: {e}")
 
 
 # Lightweight display manager mock
 @pytest.fixture
-def mock_display_manager():
+def mock_display_manager() -> MagicMock:
     """Create lightweight display manager mock."""
     mock = MagicMock()
     # Use AsyncMock for async methods that are awaited in CalendarBot
@@ -330,14 +344,14 @@ def mock_display_manager():
 
 # In-memory database for cache tests
 @pytest.fixture
-def memory_db_path():
+def memory_db_path() -> str:
     """Return in-memory SQLite database path."""
     return ":memory:"
 
 
 # Simple ICS content for parser tests
 @pytest.fixture
-def sample_ics_content():
+def sample_ics_content() -> str:
     """Create minimal valid ICS content."""
     now = datetime.now()
     return f"""BEGIN:VCALENDAR
@@ -355,7 +369,7 @@ END:VCALENDAR"""
 
 # Mock HTTP responses for fetcher tests
 @pytest.fixture
-def mock_http_response():
+def mock_http_response() -> MagicMock:
     """Create mock HTTP response."""
     mock = MagicMock()
     mock.status_code = 200
@@ -367,38 +381,39 @@ def mock_http_response():
 
 # Performance testing utilities
 @pytest.fixture
-def performance_tracker():
+def performance_tracker() -> Any:
     """Simple performance tracking for test optimization."""
 
     class PerformanceTracker:
-        def __init__(self):
-            self.metrics = {}
+        def __init__(self) -> None:
+            self.metrics: Dict[str, Dict[str, float]] = {}
 
-        def start_timer(self, name: str):
+        def start_timer(self, name: str) -> None:
             import time
 
             self.metrics[name] = {"start": time.time()}
 
-        def end_timer(self, name: str):
+        def end_timer(self, name: str) -> None:
             import time
 
             if name in self.metrics:
                 self.metrics[name]["duration"] = time.time() - self.metrics[name]["start"]
 
         def get_duration(self, name: str) -> float:
-            return self.metrics.get(name, {}).get("duration", 0.0)
+            duration = self.metrics.get(name, {}).get("duration", 0.0)
+            return float(duration)
 
-        def assert_performance(self, name: str, max_duration: float):
+        def assert_performance(self, name: str, max_duration: float) -> None:
             duration = self.get_duration(name)
-            assert (
-                duration <= max_duration
-            ), f"{name} took {duration:.3f}s, expected <= {max_duration}s"
+            if duration > max_duration:
+                import pytest
+                pytest.fail(f"{name} took {duration:.3f}s, expected <= {max_duration}s")
 
     return PerformanceTracker()
 
 
 # Configure pytest for optimized async testing
-def pytest_configure(config):
+def pytest_configure(config: Any) -> None:
     """Configure pytest with optimized markers."""
     config.addinivalue_line("markers", "unit: Fast unit tests")
     config.addinivalue_line("markers", "critical_path: Core functionality tests")
@@ -407,7 +422,7 @@ def pytest_configure(config):
 
 # Settings model fixtures for API tests
 @pytest.fixture
-def sample_settings_data():
+def sample_settings_data() -> Any:
     """Create sample SettingsData for testing."""
     from calendarbot.settings.models import (
         ConflictResolutionSettings,
@@ -418,47 +433,59 @@ def sample_settings_data():
 
     return SettingsData(
         event_filters=EventFilterSettings(
-            enabled_patterns=[], disabled_patterns=[], case_sensitive=False
+            enabled=True,
+            hide_all_day_events=False,
+            title_patterns=[],
         ),
         display=DisplaySettings(
-            show_location=True, show_time_remaining=True, compact_mode=False, max_title_length=50
+            default_layout="whats-next-view",
+            display_density="normal",
+            timezone="UTC",
         ),
         conflict_resolution=ConflictResolutionSettings(
-            strategy="priority", auto_resolve=False, preferred_calendar=None
+            priority_by_acceptance=True,
+            conflict_display_mode="primary",
         ),
     )
 
 
 @pytest.fixture
-def sample_event_filter_settings():
+def sample_event_filter_settings() -> Any:
     """Create sample EventFilterSettings for testing."""
     from calendarbot.settings.models import EventFilterSettings
 
-    return EventFilterSettings(enabled_patterns=[], disabled_patterns=[], case_sensitive=False)
+    return EventFilterSettings(
+        enabled=True,
+        hide_all_day_events=False,
+        title_patterns=[],
+    )
 
 
 @pytest.fixture
-def sample_display_settings():
+def sample_display_settings() -> Any:
     """Create sample DisplaySettings for testing."""
     from calendarbot.settings.models import DisplaySettings
 
     return DisplaySettings(
-        show_location=True, show_time_remaining=True, compact_mode=False, max_title_length=50
+        default_layout="whats-next-view",
+        display_density="normal",
+        timezone="UTC",
     )
 
 
 @pytest.fixture
-def sample_conflict_resolution_settings():
+def sample_conflict_resolution_settings() -> Any:
     """Create sample ConflictResolutionSettings for testing."""
     from calendarbot.settings.models import ConflictResolutionSettings
 
     return ConflictResolutionSettings(
-        strategy="priority", auto_resolve=False, preferred_calendar=None
+        priority_by_acceptance=True,
+        conflict_display_mode="primary",
     )
 
 
 @pytest.fixture
-def sample_filter_pattern():
+def sample_filter_pattern() -> Any:
     """Create sample FilterPattern for testing."""
     from calendarbot.settings.models import FilterPattern
 
@@ -472,9 +499,8 @@ def sample_filter_pattern():
 
 # Ensure clean test isolation
 @pytest.fixture(autouse=True)
-def clean_test_environment():
+def clean_test_environment() -> None:
     """Ensure clean test environment for each test."""
     # Reset any global state if needed
-    yield
+    return
     # Cleanup after test
-    pass

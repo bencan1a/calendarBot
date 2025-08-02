@@ -1,9 +1,10 @@
 """HTTP client for downloading ICS calendar files."""
 
+# Standard library imports
 import asyncio
 import ipaddress
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, NoReturn, Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -18,6 +19,11 @@ from .exceptions import ICSAuthError, ICSFetchError, ICSNetworkError
 from .models import ICSResponse, ICSSource
 
 logger = logging.getLogger(__name__)
+
+
+def _raise_client_not_initialized() -> NoReturn:
+    """Raise ICSFetchError for uninitialized HTTP client."""
+    raise ICSFetchError("HTTP client not initialized")
 
 
 class ICSFetcher:
@@ -241,11 +247,8 @@ class ICSFetcher:
                         pass  # Not a valid alternative IP format
 
                     # Hostname is not an IP, check for localhost patterns
-                    if (
-                        hostname.lower() in ["localhost", "127.0.0.1", "::1"]
-                        or hostname.startswith("192.168.")
-                        or hostname.startswith("10.")
-                        or hostname.startswith("172.")
+                    if hostname.lower() in ["localhost", "127.0.0.1", "::1"] or hostname.startswith(
+                        ("192.168.", "10.", "172.")
                     ):
                         event = SecurityEvent(
                             event_type=SecurityEventType.SYSTEM_SECURITY_VIOLATION,
@@ -280,7 +283,7 @@ class ICSFetcher:
             return False
 
     async def fetch_ics(
-        self, source: ICSSource, conditional_headers: Optional[Dict[str, str]] = None
+        self, source: ICSSource, conditional_headers: Optional[dict[str, str]] = None
     ) -> ICSResponse:
         """Download ICS content from source with comprehensive error handling and security validation.
 
@@ -396,8 +399,8 @@ class ICSFetcher:
 
             return self._create_response(response)
 
-        except httpx.TimeoutException as e:
-            logger.error(f"Timeout fetching ICS from {source.url}: {e}")
+        except httpx.TimeoutException:
+            logger.exception(f"Timeout fetching ICS from {source.url}")
             return ICSResponse(
                 success=False,
                 error_message=f"Request timeout after {source.timeout}s",
@@ -405,14 +408,14 @@ class ICSFetcher:
             )
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error fetching ICS from {source.url}: {e.response.status_code}")
+            logger.exception(f"HTTP error fetching ICS from {source.url}: {e.response.status_code}")
 
             if e.response.status_code == 401:
                 error_msg = "Authentication failed - check credentials"
-                raise ICSAuthError(error_msg, e.response.status_code)
+                raise ICSAuthError(error_msg, e.response.status_code) from e
             if e.response.status_code == 403:
                 error_msg = "Access forbidden - insufficient permissions"
-                raise ICSAuthError(error_msg, e.response.status_code)
+                raise ICSAuthError(error_msg, e.response.status_code) from e
             return ICSResponse(
                 success=False,
                 status_code=e.response.status_code,
@@ -421,15 +424,15 @@ class ICSFetcher:
             )
 
         except httpx.NetworkError as e:
-            logger.error(f"Network error fetching ICS from {source.url}: {e}")
-            raise ICSNetworkError(f"Network error: {e}")
+            logger.exception(f"Network error fetching ICS from {source.url}")
+            raise ICSNetworkError(f"Network error: {e}") from e
 
         except Exception as e:
-            logger.error(f"Unexpected error fetching ICS from {source.url}: {e}")
-            raise ICSFetchError(f"Unexpected error: {e}")
+            logger.exception(f"Unexpected error fetching ICS from {source.url}")
+            raise ICSFetchError(f"Unexpected error: {e}") from e
 
     async def _make_request_with_retry(
-        self, url: str, headers: Dict[str, str], timeout: int, verify_ssl: bool
+        self, url: str, headers: dict[str, str], timeout: int, verify_ssl: bool
     ) -> httpx.Response:
         """Make HTTP request with retry logic.
 
@@ -444,11 +447,12 @@ class ICSFetcher:
         """
         last_exception = None
 
-        for attempt in range(self.settings.max_retries + 1):
+        attempt = 0
+        while attempt <= self.settings.max_retries:
             try:
                 # Create request with SSL verification setting
                 if self.client is None:
-                    raise ICSFetchError("HTTP client not initialized")
+                    _raise_client_not_initialized()
 
                 # Note: SSL verification is configured at client level, not per request
                 response = await self.client.get(url, headers=headers, timeout=timeout)
@@ -461,6 +465,10 @@ class ICSFetcher:
                 logger.debug(f"Successfully fetched ICS from {url} (attempt {attempt + 1})")
                 return response
 
+            except httpx.HTTPStatusError:
+                # Don't retry HTTP errors (auth errors, not found, etc.)
+                raise
+
             except (httpx.TimeoutException, httpx.NetworkError) as e:
                 last_exception = e
 
@@ -472,12 +480,9 @@ class ICSFetcher:
                     )
                     await asyncio.sleep(backoff_time)
                 else:
-                    logger.error(f"All retry attempts failed for {url}")
-                    raise e
-
-            except httpx.HTTPStatusError as e:
-                # Don't retry HTTP errors (auth errors, not found, etc.)
-                raise e
+                    logger.exception(f"All retry attempts failed for {url}")
+                    raise
+            attempt += 1
 
         # Should not reach here, but just in case
         if last_exception:
@@ -560,7 +565,7 @@ class ICSFetcher:
             headers.update(source.custom_headers)
 
             if self.client is None:
-                raise ICSFetchError("HTTP client not initialized")
+                _raise_client_not_initialized()
 
             response = await self.client.head(source.url, headers=headers, timeout=source.timeout)
 
@@ -574,13 +579,13 @@ class ICSFetcher:
             logger.warning(f"Connection test failed: HTTP {response.status_code}")
             return False
 
-        except Exception as e:
-            logger.error(f"Connection test failed for {source.url}: {e}")
+        except Exception:
+            logger.exception(f"Connection test failed for {source.url}")
             return False
 
     def get_conditional_headers(
         self, etag: Optional[str] = None, last_modified: Optional[str] = None
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Get conditional request headers for caching.
 
         Args:

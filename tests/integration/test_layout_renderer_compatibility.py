@@ -3,8 +3,7 @@
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -14,7 +13,6 @@ from calendarbot.config.settings import CalendarBotSettings
 from calendarbot.display.manager import DisplayManager
 from calendarbot.display.renderer_factory import RendererFactory
 from calendarbot.layout.registry import LayoutRegistry
-from calendarbot.sources.manager import SourceManager
 from calendarbot.ui.navigation import NavigationState
 from calendarbot.web.server import WebServer
 from tests.fixtures.mock_ics_data import ICSTestData
@@ -158,7 +156,7 @@ class TestLayoutRendererCompatibility:
                             "error": str(e),
                         }
 
-                        logger.warning(f"DIAGNOSTIC: {combination_key} FAILED - {str(e)}")
+                        logger.warning(f"DIAGNOSTIC: {combination_key} FAILED - {e!s}")
 
             # Analyze results
             successful_combinations = [k for k, v in creation_results.items() if v["success"]]
@@ -168,7 +166,7 @@ class TestLayoutRendererCompatibility:
             logger.info(f"DIAGNOSTIC: Failed combinations: {len(failed_combinations)}")
 
             if failed_combinations:
-                logger.warning(f"DIAGNOSTIC: Failed combinations details:")
+                logger.warning("DIAGNOSTIC: Failed combinations details:")
                 for combo in failed_combinations:
                     logger.warning(f"  {combo}: {creation_results[combo]['error']}")
 
@@ -234,7 +232,7 @@ class TestLayoutRendererCompatibility:
                         }
 
                         logger.warning(
-                            f"DIAGNOSTIC: {combination_key} DisplayManager FAILED - {str(e)}"
+                            f"DIAGNOSTIC: {combination_key} DisplayManager FAILED - {e!s}"
                         )
 
             # Analyze results
@@ -304,7 +302,7 @@ class TestLayoutRendererCompatibility:
                         "error": str(e),
                     }
 
-                    logger.warning(f"DIAGNOSTIC: Layout '{layout_name}' switch FAILED - {str(e)}")
+                    logger.warning(f"DIAGNOSTIC: Layout '{layout_name}' switch FAILED - {e!s}")
 
             # Test layout toggle functionality
             logger.info("DIAGNOSTIC: Testing layout toggle functionality")
@@ -323,7 +321,7 @@ class TestLayoutRendererCompatibility:
                 logger.info(f"DIAGNOSTIC: Layout toggle: {toggle_result}")
 
             except Exception as e:
-                logger.warning(f"DIAGNOSTIC: Layout toggle FAILED - {str(e)}")
+                logger.warning(f"DIAGNOSTIC: Layout toggle FAILED - {e!s}")
                 toggle_result = {"error": str(e)}
 
             # Analyze results
@@ -416,7 +414,7 @@ class TestLayoutRendererCompatibility:
                         }
 
                         logger.warning(
-                            f"DIAGNOSTIC: {combination_key} FULL STACK FAILED - {str(e)}"
+                            f"DIAGNOSTIC: {combination_key} FULL STACK FAILED - {e!s}"
                         )
 
             # Generate compatibility report

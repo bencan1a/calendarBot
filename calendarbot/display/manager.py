@@ -2,15 +2,15 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Optional, Union, cast
 
 from ..cache.models import CachedEvent
 from ..layout.registry import LayoutRegistry
 from ..utils.helpers import secure_clear_screen
-from .console_renderer import ConsoleRenderer
 from .renderer_factory import RendererFactory
 from .renderer_interface import RendererInterface
 from .renderer_protocol import ConsoleRendererProtocol, RendererProtocol
+from .whats_next_logic import WhatsNextLogic
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +86,9 @@ class DisplayManager:
             self.renderer = self.renderer_factory.create_renderer(
                 settings=settings, renderer_type=effective_renderer_type, layout_name=layout_name
             )
-        except Exception as e:
+        except Exception:
             # Handle renderer factory failures gracefully
-            logger.error(f"Failed to create renderer: {e}")
+            logger.exception("Failed to create renderer")
             self.renderer = None
 
         if self.renderer:
@@ -99,6 +99,18 @@ class DisplayManager:
             f"Layout: {getattr(settings, 'layout_name', 'default')}, "
             f"Renderer: {self._current_renderer_type or 'auto-detected'}"
         )
+
+    def _validate_renderer_interface(self, renderer: Any) -> None:
+        """Validate that renderer implements RendererInterface.
+
+        Args:
+            renderer: The renderer to validate
+
+        Raises:
+            TypeError: If renderer is not an instance of RendererInterface
+        """
+        if not isinstance(renderer, RendererInterface):
+            raise TypeError("Renderer is not an instance of RendererInterface")
 
     def _should_use_epaper_renderer(self) -> bool:
         """Determine if e-Paper renderer should be used based on device detection.
@@ -177,8 +189,8 @@ class DisplayManager:
             )
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to change display type to {display_type}: {e}")
+        except Exception:
+            logger.exception(f"Failed to change display type to {display_type}")
             return False
 
     def get_display_type(self) -> str:
@@ -194,7 +206,7 @@ class DisplayManager:
         )
         return str(current_type)
 
-    def get_available_display_types(self) -> List[str]:
+    def get_available_display_types(self) -> list[str]:
         """Get list of available display types.
 
         Returns:
@@ -226,8 +238,8 @@ class DisplayManager:
 
     async def display_events(
         self,
-        events: List[CachedEvent],
-        status_info: Optional[Dict[str, Any]] = None,
+        events: list[CachedEvent],
+        status_info: Optional[dict[str, Any]] = None,
         clear_screen: bool = True,
     ) -> bool:
         """Display calendar events using the configured renderer.
@@ -262,13 +274,11 @@ class DisplayManager:
                 )
             elif hasattr(self.renderer, "render"):
                 # RendererInterface - need to create view model
-                from .whats_next_logic import WhatsNextLogic
-
                 logic = WhatsNextLogic(self.settings)
                 view_model = logic.create_view_model(events, display_status)
-                # Assert type to satisfy static type checker without redundant cast
-                assert isinstance(self.renderer, RendererInterface)
-                content = self.renderer.render(view_model)
+                # Explicit runtime type check for RendererInterface
+                self._validate_renderer_interface(self.renderer)
+                content = cast(RendererInterface, self.renderer).render(view_model)
             else:
                 logger.error("Renderer does not support any known rendering interface")
                 return False
@@ -282,14 +292,14 @@ class DisplayManager:
             logger.debug(f"Displayed {len(events)} events successfully")
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to display events: {e}")
+        except Exception:
+            logger.exception("Failed to display events")
             return False
 
     async def display_error(
         self,
         error_message: str,
-        cached_events: Optional[List[CachedEvent]] = None,
+        cached_events: Optional[list[CachedEvent]] = None,
         clear_screen: bool = True,
     ) -> bool:
         """Display error message with optional cached events.
@@ -326,8 +336,8 @@ class DisplayManager:
             logger.debug("Displayed error message successfully")
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to display error: {e}")
+        except Exception:
+            logger.exception("Failed to display error")
             return False
 
     async def display_authentication_prompt(
@@ -363,11 +373,11 @@ class DisplayManager:
             logger.debug("Displayed authentication prompt successfully")
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to display authentication prompt: {e}")
+        except Exception:
+            logger.exception("Failed to display authentication prompt")
             return False
 
-    async def display_status(self, status_info: Dict[str, Any], clear_screen: bool = True) -> bool:
+    async def display_status(self, status_info: dict[str, Any], clear_screen: bool = True) -> bool:
         """Display system status information.
 
         Args:
@@ -411,8 +421,8 @@ class DisplayManager:
             logger.debug("Displayed status information successfully")
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to display status: {e}")
+        except Exception:
+            logger.exception("Failed to display status")
             return False
 
     def clear_display(self) -> bool:
@@ -427,11 +437,11 @@ class DisplayManager:
                 return True
             return secure_clear_screen()
 
-        except Exception as e:
-            logger.error(f"Failed to clear display: {e}")
+        except Exception:
+            logger.exception("Failed to clear display")
             return False
 
-    def get_renderer_info(self) -> Dict[str, Any]:
+    def get_renderer_info(self) -> dict[str, Any]:
         """Get information about the current renderer and layout.
 
         Returns:
@@ -511,8 +521,8 @@ class DisplayManager:
             logger.debug(f"Layout changed to: {layout_name}")
             return True
 
-        except Exception as e:
-            logger.error(f"Failed to change layout to {layout_name}: {e}")
+        except Exception:
+            logger.exception(f"Failed to change layout to {layout_name}")
             return False
 
     def get_current_layout(self) -> Optional[str]:
@@ -531,7 +541,7 @@ class DisplayManager:
         """
         return getattr(self.settings, "display_type", None)
 
-    def get_available_layouts(self) -> List[str]:
+    def get_available_layouts(self) -> list[str]:
         """Get list of available layouts.
 
         Returns:

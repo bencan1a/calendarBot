@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ..cache.models import CachedEvent
 from .html_renderer import HTMLRenderer
@@ -71,7 +71,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
     def _render_full_page_html(
         self,
         events_content: str,
-        status_info: Dict[str, Any],
+        status_info: dict[str, Any],
         current_time: datetime,
         display_date: str,
     ) -> str:
@@ -111,7 +111,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
             return self._wrap_html_document(body_content, f"Calendar - {display_date}")
 
         except Exception as e:
-            logger.error(f"Error building full page HTML: {e}")
+            logger.exception("Error building full page HTML")
             return self._render_error_html(f"Error rendering page: {e}")
 
     def _wrap_html_document(self, body_content: str, title: str) -> str:
@@ -189,24 +189,36 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         if view_model.current_events:
             content_parts.append('<section class="current-events">')
             content_parts.append('<h2 class="section-title">▶ Current Event</h2>')
-            for event in view_model.current_events:
-                content_parts.append(self._format_event_data_html(event, is_current=True))
+            content_parts.extend(
+                [
+                    self._format_event_data_html(event, is_current=True)
+                    for event in view_model.current_events
+                ]
+            )
             content_parts.append("</section>")
 
         # Next events (upcoming)
         if view_model.next_events:
             content_parts.append('<section class="upcoming-events">')
             content_parts.append('<h2 class="section-title">📋 What\'s Next</h2>')
-            for event in view_model.next_events:
-                content_parts.append(self._format_event_data_html(event, is_current=False))
+            content_parts.extend(
+                [
+                    self._format_event_data_html(event, is_current=False)
+                    for event in view_model.next_events
+                ]
+            )
             content_parts.append("</section>")
 
         # Later events
         if view_model.later_events:
             content_parts.append('<section class="later-events">')
             content_parts.append('<h2 class="section-title">📅 Later Today</h2>')
-            for event in view_model.later_events:
-                content_parts.append(self._format_event_data_html(event, is_current=False))
+            content_parts.extend(
+                [
+                    self._format_event_data_html(event, is_current=False)
+                    for event in view_model.later_events
+                ]
+            )
             content_parts.append("</section>")
 
         return "\n".join(content_parts)
@@ -252,7 +264,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
             return "\n".join(html_parts)
 
         except Exception as e:
-            logger.error(f"Error formatting EventData: {e}")
+            logger.exception("Error formatting EventData")
             return f'<div class="error">Error formatting event: {self._escape_html(str(e))}</div>'
 
     def handle_interaction(self, interaction: InteractionEvent) -> None:
@@ -278,7 +290,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         # as the content is returned to the web server
         return True
 
-    def _render_events_content(self, events: List[CachedEvent], interactive_mode: bool) -> str:
+    def _render_events_content(self, events: list[CachedEvent], interactive_mode: bool) -> str:
         """Render events content filtered to show only the next upcoming event.
 
         Args:
@@ -322,8 +334,8 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
             logger.debug(f"Rendering next event: {next_event.subject}")
             return self._render_single_event_content(next_event, is_current=False)
 
-        except Exception as e:
-            logger.error(f"Error filtering events in WhatsNextRenderer: {e}")
+        except Exception:
+            logger.exception("Error filtering events in WhatsNextRenderer")
             # Fallback to parent implementation
             return super()._render_events_content(events, interactive_mode)
 
@@ -357,13 +369,13 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
             return "\n".join(content_parts)
 
         except Exception as e:
-            logger.error(f"Error rendering single event content: {e}")
+            logger.exception("Error rendering single event content")
             return f'<div class="error">Error rendering event: {self._escape_html(str(e))}</div>'
 
     def render_events(
         self,
-        events: List[CachedEvent],
-        status_info: Optional[Dict[str, Any]] = None,
+        events: list[CachedEvent],
+        status_info: Optional[dict[str, Any]] = None,
         debug_time: Optional[datetime] = None,
     ) -> str:
         """Render events to formatted HTML output for What's Next view.
@@ -387,7 +399,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         try:
             return super().render_events(events, status_info)
         except Exception as e:
-            logger.error(f"Error in WhatsNextRenderer.render_events: {e}")
+            logger.exception("Error in WhatsNextRenderer.render_events")
             return self._render_error_html(f"Error rendering What's Next view: {e}")
         finally:
             # Clean up debug_time after rendering

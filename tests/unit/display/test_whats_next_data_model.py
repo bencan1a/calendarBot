@@ -1,10 +1,8 @@
 """Tests for WhatsNextDataModel classes."""
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Optional
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from calendarbot.cache.models import CachedEvent
 from calendarbot.display.whats_next_data_model import (
@@ -469,7 +467,7 @@ class TestWhatsNextViewModel:
         upcoming_event.location_display_name = None
         upcoming_event.format_time_range = MagicMock(return_value="3:00 PM - 4:00 PM")
 
-        events: List[CachedEvent] = [current_event, upcoming_event]  # type: ignore
+        events: list[CachedEvent] = [current_event, upcoming_event]  # type: ignore
         status_info = {"is_cached": True, "connection_status": "Connected"}
 
         view_model = WhatsNextViewModel.from_cached_events(events, current_time, status_info)

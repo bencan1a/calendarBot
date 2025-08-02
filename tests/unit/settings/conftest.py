@@ -5,16 +5,11 @@ import shutil
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import Mock, patch
 
 import pytest
 
-from calendarbot.settings.exceptions import (
-    SettingsError,
-    SettingsPersistenceError,
-    SettingsValidationError,
-)
 from calendarbot.settings.models import (
     ConflictResolutionSettings,
     DisplaySettings,
@@ -166,13 +161,13 @@ def mock_settings_service() -> Mock:
 
 
 @pytest.fixture
-def invalid_regex_pattern_data() -> Dict[str, Any]:
+def invalid_regex_pattern_data() -> dict[str, Any]:
     """Create invalid regex pattern data for testing validation."""
     return {"pattern": "[unclosed", "is_regex": True, "is_active": True, "case_sensitive": False}
 
 
 @pytest.fixture
-def invalid_attendee_filter_data() -> Dict[str, Any]:
+def invalid_attendee_filter_data() -> dict[str, Any]:
     """Create invalid attendee filter data for testing validation."""
     return {"min_count": 10, "max_count": 5}  # max < min should fail validation
 
@@ -260,7 +255,7 @@ def mock_web_request_handler() -> Mock:
 
 
 @pytest.fixture
-def api_test_data() -> Dict[str, Any]:
+def api_test_data() -> dict[str, Any]:
     """Create test data for API endpoint testing."""
     return {
         "event_filters": {

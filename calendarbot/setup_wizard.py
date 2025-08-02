@@ -4,7 +4,7 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, ClassVar, Optional
 
 import yaml
 
@@ -12,7 +12,7 @@ from calendarbot.config.settings import CalendarBotSettings
 
 from .ics.exceptions import ICSError
 from .ics.fetcher import ICSFetcher
-from .ics.models import ICSAuth, ICSSource
+from .ics.models import AuthType, ICSAuth, ICSSource
 
 # Import security logging
 from .security import SecurityEventLogger, mask_credentials
@@ -42,7 +42,7 @@ class SetupWizard:
     """Interactive configuration wizard for Calendar Bot."""
 
     # Service templates for popular calendar providers
-    SERVICE_TEMPLATES = {
+    SERVICE_TEMPLATES: ClassVar[dict[str, "CalendarServiceTemplate"]] = {
         "outlook": CalendarServiceTemplate(
             name="Microsoft Outlook",
             description="Outlook.com or Office 365 calendar",
@@ -115,7 +115,7 @@ For other calendar services:
 
     def __init__(self) -> None:
         """Initialize setup wizard."""
-        self.config_data: Dict[str, Any] = {}
+        self.config_data: dict[str, Any] = {}
         self.settings = None
 
     def print_header(self, title: str) -> None:
@@ -138,10 +138,7 @@ For other calendar services:
     ) -> str:
         """Get user input with validation."""
         while True:
-            if default:
-                full_prompt = f"{prompt} [{default}]: "
-            else:
-                full_prompt = f"{prompt}: "
+            full_prompt = f"{prompt} [{default}]: " if default else f"{prompt}: "
 
             response = input(full_prompt).strip()
 
@@ -168,7 +165,7 @@ For other calendar services:
             return response
 
     def get_choice(
-        self, prompt: str, choices: List[str], descriptions: Optional[List[str]] = None
+        self, prompt: str, choices: list[str], descriptions: Optional[list[str]] = None
     ) -> str:
         """Get user choice from a list of options."""
         print(f"\n{prompt}")
@@ -180,15 +177,17 @@ For other calendar services:
                 print(f"  {i}. {choice}")
 
         while True:
-            try:
-                response = input(f"\nEnter choice (1-{len(choices)}): ").strip()
-                choice_num = int(response)
+            response = input(f"\nEnter choice (1-{len(choices)}): ").strip()
 
-                if 1 <= choice_num <= len(choices):
-                    return choices[choice_num - 1]
-                print(f"❌ Please enter a number between 1 and {len(choices)}")
-            except ValueError:
+            # Validate input without try-except in loop
+            if not response.isdigit():
                 print("❌ Please enter a valid number")
+                continue
+
+            choice_num = int(response)
+            if 1 <= choice_num <= len(choices):
+                return choices[choice_num - 1]
+            print(f"❌ Please enter a number between 1 and {len(choices)}")
 
     def get_yes_no(self, prompt: str, default: bool = False) -> bool:
         """Get yes/no input from user."""
@@ -239,7 +238,7 @@ For other calendar services:
 
         return "custom"  # fallback
 
-    def configure_ics_url(self, service_key: str) -> Dict[str, Any]:
+    def configure_ics_url(self, service_key: str) -> dict[str, Any]:
         """Configure ICS URL with service-specific guidance."""
         template = self.SERVICE_TEMPLATES[service_key]
 
@@ -266,7 +265,7 @@ For other calendar services:
 
         return {"url": url, "recommended_auth": template.auth_type}
 
-    def configure_authentication(self, recommended_auth: str = "none") -> Dict[str, Any]:
+    def configure_authentication(self, recommended_auth: str = "none") -> dict[str, Any]:
         """Configure authentication settings."""
         self.print_section("Authentication Configuration")
 
@@ -285,7 +284,7 @@ For other calendar services:
 
         auth_type = self.get_choice("Select authentication method:", auth_types, auth_descriptions)
 
-        auth_config: Dict[str, Any] = {"auth_type": auth_type}
+        auth_config: dict[str, Any] = {"auth_type": auth_type}
 
         if auth_type == "basic":
             print("\n📝 Basic Authentication Setup:")
@@ -317,13 +316,13 @@ For other calendar services:
 
         return auth_config
 
-    def configure_advanced_settings(self) -> Dict[str, Any]:
+    def configure_advanced_settings(self) -> dict[str, Any]:
         """Configure advanced application settings."""
         self.print_section("Advanced Settings")
 
         print("Configure advanced settings (or press Enter for defaults):")
 
-        settings: Dict[str, Any] = {}
+        settings: dict[str, Any] = {}
 
         # Refresh interval
         refresh_str = self.get_input("Refresh interval in seconds", default="300", required=False)
@@ -355,7 +354,7 @@ For other calendar services:
 
         return settings
 
-    async def test_configuration(self, ics_config: Dict[str, Any]) -> bool:
+    async def test_configuration(self, ics_config: dict[str, Any]) -> bool:
         """Test the ICS configuration."""
         self.print_section("Configuration Testing")
 
@@ -363,8 +362,6 @@ For other calendar services:
 
         try:
             # Create ICS source from config
-            from .ics.models import AuthType
-
             auth_type_str = ics_config.get("auth_type", "none")
             if auth_type_str == "basic":
                 auth_type = AuthType.BASIC
@@ -421,7 +418,7 @@ For other calendar services:
             return False
 
     def generate_config_content(
-        self, ics_config: Dict[str, Any], advanced_settings: Dict[str, Any]
+        self, ics_config: dict[str, Any], advanced_settings: dict[str, Any]
     ) -> str:
         """Generate YAML configuration content."""
         config = {
@@ -515,16 +512,15 @@ For other calendar services:
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Check if file exists
-        if config_path.exists():
-            if not self.get_yes_no(
-                f"Configuration file already exists at {config_path}. Overwrite?"
-            ):
-                print("❌ Configuration not saved. Exiting wizard.")
-                return None
+        if config_path.exists() and not self.get_yes_no(
+            f"Configuration file already exists at {config_path}. Overwrite?"
+        ):
+            print("❌ Configuration not saved. Exiting wizard.")
+            return None
 
         # Save configuration
         try:
-            with open(config_path, "w") as f:
+            with Path(config_path).open("w") as f:
                 f.write(config_content)
 
             print(f"✅ Configuration saved to: {config_path}")
@@ -585,10 +581,9 @@ For other calendar services:
             if self.get_yes_no("Test configuration before saving?", default=True):
                 test_success = await self.test_configuration(ics_config)
 
-                if not test_success:
-                    if not self.get_yes_no("Configuration test failed. Continue anyway?"):
-                        print("Setup cancelled.")
-                        return False
+                if not test_success and not self.get_yes_no("Configuration test failed. Continue anyway?"):
+                    print("Setup cancelled.")
+                    return False
 
             # Step 5: Configure advanced settings
             if self.get_yes_no("Configure advanced settings?", default=False):
@@ -613,7 +608,7 @@ For other calendar services:
             return False
         except Exception as e:
             print(f"\n❌ Setup failed: {e}")
-            logger.error(f"Setup wizard error: {e}")
+            logger.exception("Setup wizard error")
             return False
 
 
@@ -665,7 +660,7 @@ def run_simple_wizard() -> bool:
             return False
 
         # Basic validation
-        if not (ics_url.startswith("http://") or ics_url.startswith("https://")):
+        if not ics_url.startswith(("http://", "https://")):
             print("⚠️  Warning: URL should start with http:// or https://")
 
         # Create basic config (same as original in main.py)
@@ -710,7 +705,7 @@ rpi:
 """
 
         # Write config file
-        with open(config_file, "w") as f:
+        with Path(config_file).open("w") as f:
             f.write(config_content)
 
         print("\n✅ Configuration created successfully!")

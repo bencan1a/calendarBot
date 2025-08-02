@@ -4,7 +4,7 @@ import logging
 import logging.handlers
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 class ValidationFormatter(logging.Formatter):
@@ -38,7 +38,7 @@ class ValidationFormatter(logging.Formatter):
 class ComponentFilter(logging.Filter):
     """Filter to only show logs from specific components."""
 
-    def __init__(self, allowed_components: Optional[List[str]] = None):
+    def __init__(self, allowed_components: Optional[list[str]] = None):
         """Initialize component filter.
 
         Args:
@@ -65,8 +65,8 @@ class ComponentFilter(logging.Filter):
 
 
 def setup_validation_logging(
-    verbose: bool = False, components: Optional[List[str]] = None, log_file: Optional[str] = None
-) -> Dict[str, logging.Logger]:
+    verbose: bool = False, components: Optional[list[str]] = None, log_file: Optional[str] = None
+) -> dict[str, logging.Logger]:
     """Set up enhanced logging for validation mode.
 
     Args:
@@ -108,7 +108,7 @@ def setup_validation_logging(
 
     # Add component filter if specified
     if components:
-        component_filter = ComponentFilter(components + ["system"])
+        component_filter = ComponentFilter([*components, "system"])
         console_handler.addFilter(component_filter)
 
     # Configure root logger
@@ -172,7 +172,7 @@ def get_validation_logger(component: str) -> logging.Logger:
 
 
 def log_validation_start(
-    logger: logging.Logger, test_name: str, details: Optional[Dict[str, Any]] = None
+    logger: logging.Logger, test_name: str, details: Optional[dict[str, Any]] = None
 ) -> None:
     """Log the start of a validation test.
 

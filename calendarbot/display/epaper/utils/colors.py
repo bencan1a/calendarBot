@@ -5,7 +5,7 @@ Extracts the grayscale color palette from the WhatsNext web CSS
 to ensure consistency between web and e-Paper rendering.
 """
 
-from typing import Dict, Tuple, Union
+from typing import Union
 
 
 # E-Paper color palette extracted from calendarbot/web/static/layouts/whats-next-view/whats-next-view.css
@@ -57,7 +57,7 @@ class EPaperColors:
     SURFACE_RECESSED = GRAY_3  # --surface-recessed: var(--gray-3)
 
 
-def get_epaper_color_palette() -> Dict[str, str]:
+def get_epaper_color_palette() -> dict[str, str]:
     """
     Get the complete e-Paper color palette.
 
@@ -103,7 +103,7 @@ def get_epaper_color_palette() -> Dict[str, str]:
     }
 
 
-def get_rendering_colors() -> Dict[str, str]:
+def get_rendering_colors() -> dict[str, str]:
     """
     Get colors optimized for e-Paper rendering.
 
@@ -126,7 +126,7 @@ def get_rendering_colors() -> Dict[str, str]:
     }
 
 
-def convert_to_pil_color(hex_color: str, mode: str = "L") -> Union[str, int, Tuple[int, int, int]]:
+def convert_to_pil_color(hex_color: str, mode: str = "L") -> Union[str, int, tuple[int, int, int]]:
     """
     Convert hex color to PIL-compatible format based on image mode.
 
@@ -156,13 +156,15 @@ def convert_to_pil_color(hex_color: str, mode: str = "L") -> Union[str, int, Tup
 
         if mode == "L":  # Grayscale (8-bit)
             # Convert to grayscale using luminance formula
-            luminance = int(0.299 * r + 0.587 * g + 0.114 * b)
-            return luminance
+            return int(0.299 * r + 0.587 * g + 0.114 * b)
 
         if mode == "RGB":  # RGB color
             return (r, g, b)
 
-        raise ValueError(f"Unsupported PIL image mode: {mode}")
+        def _raise_unsupported_mode() -> ValueError:
+            return ValueError(f"Unsupported PIL image mode: {mode}")
+
+        raise _raise_unsupported_mode()
 
     except ValueError as e:
         raise ValueError(f"Invalid hex color: {hex_color}") from e
@@ -193,7 +195,25 @@ def is_grayscale_color(hex_color: str) -> bool:
         raise ValueError(f"Invalid hex color: {hex_color}") from e
 
 
-def validate_epaper_palette() -> Tuple[bool, Dict[str, str]]:
+def _validate_single_color(color: str) -> tuple[str, bool]:
+    """
+    Validate a single color and return its report and validity.
+
+    Args:
+        color: Color hex string
+
+    Returns:
+        Tuple of (report_message, is_valid)
+    """
+    try:
+        is_valid = is_grayscale_color(color)
+        report_msg = "valid" if is_valid else f"invalid: {color} not grayscale"
+        return report_msg, is_valid
+    except ValueError as e:
+        return f"error: {e}", False
+
+
+def validate_epaper_palette() -> tuple[bool, dict[str, str]]:
     """
     Validate that all colors in the e-Paper palette are grayscale-compliant.
 
@@ -204,14 +224,11 @@ def validate_epaper_palette() -> Tuple[bool, Dict[str, str]]:
     report = {}
     all_valid = True
 
+    # Process all colors without try-except in loop
     for name, color in palette.items():
-        try:
-            is_valid = is_grayscale_color(color)
-            report[name] = "valid" if is_valid else f"invalid: {color} not grayscale"
-            if not is_valid:
-                all_valid = False
-        except ValueError as e:
-            report[name] = f"error: {e}"
+        report_msg, is_valid = _validate_single_color(color)
+        report[name] = report_msg
+        if not is_valid:
             all_valid = False
 
     return all_valid, report

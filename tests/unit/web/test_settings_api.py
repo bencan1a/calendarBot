@@ -1,16 +1,13 @@
 """Unit tests for settings API endpoints in web server."""
 
 import json
-from io import BytesIO
-from pathlib import Path
-from typing import Any, Dict
-from unittest.mock import MagicMock, Mock, patch
+from typing import Any
+from unittest.mock import Mock, patch
 
 import pytest
 
 from calendarbot.settings.exceptions import (
     SettingsError,
-    SettingsPersistenceError,
     SettingsValidationError,
 )
 from calendarbot.settings.models import (
