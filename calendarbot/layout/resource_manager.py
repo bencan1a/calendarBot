@@ -62,8 +62,7 @@ class ResourceManager:
 
         except Exception:
             logger.exception(f"Failed to get CSS URLs for layout '{layout_name}'")
-            # Fallback to legacy CSS files
-            return self._get_legacy_css_urls(layout_name)
+            return []
 
     def get_js_urls(self, layout_name: str) -> list[str]:
         """Get JavaScript file URLs for a layout.
@@ -101,42 +100,8 @@ class ResourceManager:
 
         except Exception:
             logger.exception(f"Failed to get JS URLs for layout '{layout_name}'")
-            # Fallback to legacy JS files
-            return self._get_legacy_js_urls(layout_name)
+            return []
 
-    def _get_legacy_css_urls(self, layout_name: str) -> list[str]:
-        """Get legacy CSS URLs for backward compatibility.
-
-        Args:
-            layout_name: Name of layout.
-
-        Returns:
-            List of legacy CSS URLs.
-        """
-        # Map to existing CSS files in web/static
-        legacy_css_map = {
-            "4x8": [f"{self.base_url}/4x8.css"],
-            "3x4": [f"{self.base_url}/3x4.css"],
-        }
-
-        return legacy_css_map.get(layout_name, [])
-
-    def _get_legacy_js_urls(self, layout_name: str) -> list[str]:
-        """Get legacy JavaScript URLs for backward compatibility.
-
-        Args:
-            layout_name: Name of layout.
-
-        Returns:
-            List of legacy JavaScript URLs.
-        """
-        # Map to existing JS files in web/static
-        legacy_js_map = {
-            "4x8": [f"{self.base_url}/4x8.js"],
-            "3x4": [f"{self.base_url}/3x4.js"],
-        }
-
-        return legacy_js_map.get(layout_name, [])
 
     def inject_layout_resources(self, template: str, layout_name: str) -> str:
         """Inject layout resources into HTML template.

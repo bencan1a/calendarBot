@@ -164,8 +164,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._handle_refresh_api(params)
             elif path == "/api/status":
                 self._handle_status_api()
-            elif path == "/api/debug/whats-next":
-                self._handle_debug_whats_next_api(params)
             elif path.startswith("/api/settings"):
                 self._handle_settings_api(path, params)
             else:
@@ -238,26 +236,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         else:
             self._send_json_response(500, {"error": "Web server not available"})
 
-    def _handle_theme_api(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
-        """Handle theme switching API requests."""
-        if isinstance(params, dict) and "theme" in params:
-            theme_value = params["theme"]
-            # If it's a list (query params), take first element; if string (JSON), use directly
-            theme = theme_value[0] if isinstance(theme_value, list) else theme_value
-        else:
-            theme = ""
-
-        if not self.web_server:
-            self._send_json_response(500, {"error": "Web server not available"})
-            return
-
-        if theme:
-            success = self.web_server.set_theme(str(theme))
-            self._send_json_response(200, {"success": success, "theme": theme})
-        else:
-            # Toggle theme
-            new_theme = self.web_server.toggle_theme()
-            self._send_json_response(200, {"success": True, "theme": new_theme})
 
     def _handle_layout_api(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
         """Handle layout switching API requests."""
@@ -338,98 +316,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         status = self.web_server.get_status()
         self._send_json_response(200, status)
 
-    def _handle_debug_whats_next_api(
-        self, params: Union[dict[str, list[str]], dict[str, Any]]
-    ) -> None:
-        """Handle debug whats-next API requests for setting debug values."""
-        try:
-            # Validate that this is only available for whats-next-view layout
-            if not self.web_server:
-                self._send_json_response(500, {"error": "Web server not available"})
-                return
-
-            current_layout = self.web_server.get_current_layout()
-            if current_layout != "whats-next-view":
-                self._send_json_response(
-                    400,
-                    {
-                        "error": "Debug API only available for whats-next-view layout",
-                        "current_layout": current_layout,
-                    },
-                )
-                return
-
-            # Extract parameters based on request type
-            meeting_title = ""
-            time_until_meeting = 0
-
-            if isinstance(params, dict):
-                if "meetingTitle" in params:
-                    title_value = params["meetingTitle"]
-                    meeting_title = (
-                        title_value[0] if isinstance(title_value, list) else str(title_value)
-                    )
-
-                if "timeUntilMeeting" in params:
-                    time_value = params["timeUntilMeeting"]
-                    time_str = time_value[0] if isinstance(time_value, list) else str(time_value)
-                    try:
-                        time_until_meeting = int(time_str)
-                    except (ValueError, TypeError):
-                        self._send_json_response(
-                            400, {"error": "timeUntilMeeting must be a valid integer"}
-                        )
-                        return
-
-            # Validate input
-            if not meeting_title:
-                self._send_json_response(400, {"error": "meetingTitle is required"})
-                return
-
-            if time_until_meeting < 0:
-                self._send_json_response(400, {"error": "timeUntilMeeting must be non-negative"})
-                return
-
-            if time_until_meeting > 1440:  # More than 24 hours
-                self._send_json_response(
-                    400, {"error": "timeUntilMeeting must be less than 1440 minutes (24 hours)"}
-                )
-                return
-
-            # Security logging for debug API usage
-            self.security_logger.log_input_validation_failure(
-                input_type="debug_api_usage",
-                validation_error="Debug API accessed",  # Not really a failure, but we want to log it
-                details={
-                    "source_ip": self.client_address[0],
-                    "meeting_title": meeting_title,
-                    "time_until_meeting": time_until_meeting,
-                    "current_layout": current_layout,
-                    "endpoint": "/api/debug/whats-next",
-                },
-            )
-
-            logger.info(
-                f"Debug API called: meetingTitle='{meeting_title}', timeUntilMeeting={time_until_meeting}"
-            )
-
-            # Return success response with debug values
-            self._send_json_response(
-                200,
-                {
-                    "success": True,
-                    "debug_values": {
-                        "meetingTitle": meeting_title,
-                        "timeUntilMeeting": time_until_meeting,
-                    },
-                    "message": "Debug values set successfully",
-                    "layout": current_layout,
-                },
-            )
-
-        except Exception as e:
-            logger.exception("Error handling debug whats-next API")
-            self._send_json_response(500, {"error": str(e)})
 
     def _handle_settings_api(
         self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
@@ -1410,26 +1296,6 @@ class WebServer:
             logger.exception(f"Error handling navigation action '{action}'")
             return False
 
-    def set_theme(self, theme: str) -> bool:
-        """Set the display theme (deprecated - use set_layout instead).
-
-        Args:
-            theme: Theme name (layout name, e.g. 4x8, 3x4)
-
-        Returns:
-            True if theme was set successfully
-        """
-        logger.warning("set_theme is deprecated, use set_layout instead")
-        return self.set_layout(theme)
-
-    def toggle_theme(self) -> str:
-        """Toggle between themes (deprecated - use cycle_layout instead).
-
-        Returns:
-            New theme name
-        """
-        logger.warning("toggle_theme is deprecated, use cycle_layout instead")
-        return self.cycle_layout()
 
     def toggle_layout(self) -> str:
         """Toggle between layouts (alias for cycle_layout for backward compatibility).
