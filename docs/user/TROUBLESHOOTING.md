@@ -4,7 +4,7 @@
 
 ### Display Blank
 - **Console**: Verify display is enabled in `SETUP.md` configuration
-- **Web Interface**: Check server at `http://localhost:8080` is reachable
+- **Web Interface**: Check server at `http://<host-ip>:8080` is reachable
 
 ### Calendar Not Displaying
 - Confirm ICS URL is correctly configured (follow test instructions from USAGE.md)
@@ -12,24 +12,31 @@
 
 ### High Latency in Web Mode
 - Ensure port configuration in `SETUP.md` matches router settings
-- Perform penetration testing (SECURITY.md) to rule out SSL/TLS bottlenecks
+- Check network connectivity and firewall settings
 
 ## Advanced Debugging
 
 ### Diagnostic Logging
 ```sh
-export CALENDARBOT_LOG_MODE="VERBOSE"
+export CALENDARBOT_LOG_LEVEL="DEBUG"
 . venv/bin/activate
-python main.py --verbose
+calendarbot --verbose
 ```
 
 ### Component-specific Tests
 #### Rendering Verification
-- Interactive Mode: Run `python main.py --display-only 4x8`
-- 3x4 Compact Test: `python main.py --display-type 3x4 --layout compact`
+- Interactive Mode: Run `calendarbot --interactive`
+- E-Paper Mode Test: `calendarbot --epaper`
+- Web Mode Test: `calendarbot --web --port 8080`
 
-### Known Issue: FastAPI 0.62 Compatibility
-- Temporary fix: Downgrade to FastAPI 0.60 until new release
+### Testing ICS Connectivity
 ```sh
-pip uninstall fastapi -y && pip install fastapi==0.60
+# Test ICS connectivity with verbose logging
+calendarbot --test-mode --components ics --verbose
 ```
+
+### Cache Management
+```sh
+# Clear cache and fetch fresh data
+rm -rf ~/.cache/calendarbot/*
+calendarbot --web

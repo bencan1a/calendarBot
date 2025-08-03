@@ -40,6 +40,7 @@ git clone <repository-url>
 cd calendarBot
 
 # Create and activate virtual environment
+python -m venv venv
 . venv/bin/activate  # Linux/macOS
 # or
 venv\Scripts\activate     # Windows

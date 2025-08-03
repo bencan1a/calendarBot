@@ -76,7 +76,7 @@ class InteractiveController:
 
 ### Starting Interactive Mode
 ```bash
-python main.py --interactive
+calendarbot --interactive
 ```
 
 ### Navigation Examples
@@ -137,11 +137,11 @@ Updated: 06:12 | 🌐 Live Data | 📶 Online
 ### Component Tests
 Run the test suite to verify all components:
 ```bash
-python test_interactive.py
+pytest tests/unit/ui/
 ```
 
 ### Manual Testing
-1. **Start interactive mode**: `python main.py --interactive`
+1. **Start interactive mode**: `calendarbot --interactive`
 2. **Test navigation**: Use arrow keys to move between dates
 3. **Test today jump**: Press Space to return to current date
 4. **Test week navigation**: Use Home/End keys
@@ -164,7 +164,7 @@ python test_interactive.py
 4. **Keyboard interrupt**: Graceful cleanup and exit
 
 ### Debugging
-- Enable debug logging: Set `LOG_LEVEL=DEBUG` in environment
+- Enable debug logging: Set `CALENDARBOT_LOG_LEVEL=DEBUG` in environment
 - Check cache status: Events loaded from SQLite database
 - Verify authentication: Ensure ICS authentication credentials are valid
 

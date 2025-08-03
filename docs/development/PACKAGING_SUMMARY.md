@@ -55,7 +55,7 @@ calendarbot --setup              # Interactive configuration wizard
 calendarbot --version            # Show version information
 calendarbot --help               # Comprehensive help
 calendarbot --web                # Web interface mode
-calendarbot --rpi --web          # RPI e-ink optimized mode
+calendarbot --epaper --web       # E-ink display optimized mode
 python -m calendarbot --help     # Alternative module execution
 ```
 

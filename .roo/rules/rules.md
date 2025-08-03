@@ -1,5 +1,18 @@
 # CALENDARBOT DEVELOPMENT RULES
 
+## CONPORT INTEGRATION
+- **Status Prefix**: Begin ALL responses with `[CONPORT_ACTIVE]` or `[CONPORT_INACTIVE]`
+- **Initialization**: Check for `context_portal/context.db`, load existing context or offer to create new
+  - If database exists: Load product context, active context, recent decisions/progress/patterns
+  - If no database: Ask user to initialize, optionally bootstrap from `projectBrief.md`
+- **Usage Criteria**: Use for architecture changes, new features, major refactoring; skip for bug fixes, minor tweaks
+- **Core Workflow**: Check context → work → log decisions/progress → update context
+- **Key Tools**: `log_decision` (architectural choices), `log_progress` (task tracking), `update_active_context` (session focus), `update_product_context` (project changes)
+- **Sync Command**: Use `Sync ConPort` to update database with session information
+- **Context Retrieval**: Use `semantic_search_conport` for conceptual queries, `search_*_fts` for keyword searches
+- **Error Handling**: If conport tools fail, set status to `[CONPORT_INACTIVE]` and continue without context
+- **Detailed Guidance**: See [`docs/architecture/CONPORT_USAGE_GUIDE.md`](docs/architecture/CONPORT_USAGE_GUIDE.md) for initialization sequences, tool parameters, and advanced patterns
+
 ## ENVIRONMENT & EXECUTION
 - **Shell**: sh (not bash)
 - **Python venv**: `. venv/bin/activate` (not `source`)

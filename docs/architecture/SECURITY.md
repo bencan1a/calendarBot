@@ -3,26 +3,29 @@
 ## User Authentication
 CalendarBot supports secure authentication through multiple channels:
 
-### OAuth 2.0 Integration
-- Google Calendar: Uses refresh tokens and scope-limited access
-- CalDAV: Password-based authentication tokens stored with AES256 encryption
+- **Google Calendar**: Uses secret iCal URLs for secure access
+- **CalDAV**: Basic authentication with password validation
 
-### Encrypted Data Storage
-- SQLite database uses encryption at rest via SQLCipher v4.3.0
-- Caching layer stores event metadata only (display fields remain client-side)
+## Data Storage
 
-### TLS Protocol Enforcement
-- HTTP/HTTPS strict connection requirements for all external APIs
-- Automatic certificate pinning enabled
+- **SQLite Database**: Standard SQLite database for caching calendar events
+- **Caching Layer**: Stores event metadata only (display fields remain client-side)
 
-## Role Management
-- Admin Users: Full permissions + API key regeneration capability
-- Guest Users: Read-only mode for shared calendar setups
+## Network Security
 
-## Incident Response Planning
-- Implement emergency wipe procedures for compromised devices
-- Maintain offline logs for forensic analysis
+- **TLS Protocol**: HTTP/HTTPS strict connection requirements for all external APIs
+- **SSL Validation**: Configurable SSL certificate validation
 
-## Penetration Testing
-- Bi-monthly external security audits performed by Certiphi Labs
-- Latest report (v2) passed all OWASP Top 10 benchmarks
+## Access Control
+
+- **Single User Mode**: Basic access control for calendar data
+
+## Security Monitoring
+
+- **Security Event Logging**: Comprehensive logging of security events
+- **Input Validation**: SSRF protection and input sanitization
+
+## Security Testing
+
+- **Security Unit Tests**: Automated tests for security features
+- **SSRF Protection Tests**: Validation of URL security measures

@@ -24,39 +24,36 @@ CalendarBot features a dynamic layout system with automatic discovery and valida
 
 **Command Line Selection**:
 ```bash
-# Console mode (auto-detects layout)
-calendarbot --console
+# Web interface with specific layout
+calendarbot --web --display_type 4x8
 
 # Web interface with specific layout
-calendarbot --web --layout 4x8
-
-# Web interface with theme selection
-calendarbot --web --layout 3x4 --theme eink
+calendarbot --web --display_type 3x4
 
 # Specialized countdown layout for small displays
-calendarbot --web --layout whats-next-view --theme eink
+calendarbot --web --web_layout whats-next-view
 
 # Custom layout
-calendarbot --web --layout my-custom-layout
+calendarbot --web --display_type my-custom-layout
 ```
 
 **Dynamic Layout Switching**:
 ```bash
 # Runtime layout switching via URL parameters
-# http://localhost:8080/calendar?layout=4x8&theme=dark
-# http://localhost:8080/calendar?layout=3x4&theme=eink&date=2025-01-15
+# http://<host-ip>:8080/calendar?layout=4x8
+# http://<host-ip>:8080/calendar?layout=3x4&date=2025-01-15
 ```
 
 **Layout Features**:
 - Automatic layout discovery and validation
 - Fallback chain for missing or invalid layouts
-- Multiple theme support (standard, dark, eink, high-contrast)
+- Multiple renderer support (html, rpi, compact)
 - Responsive design for different screen sizes
 - Dynamic CSS/JS resource loading
 
 **Tips**:
 - Layout affects visual rendering while maintaining data consistency
-- Use URL parameters for dynamic layout/theme switching
+- Use URL parameters for dynamic layout switching
 - Create custom layouts following the [Layout Development Guide](../development/LAYOUT_DEVELOPMENT_GUIDE.md)
 - Combine with `--help` for full option details (e.g., `calendarbot --web --help`)
 
@@ -80,7 +77,7 @@ The **whats-next-view** layout is a specialized interface designed for small dis
 
 **Keyboard Navigation**:
 - **R**: Manual refresh of meeting data
-- **T**: Toggle between themes (standard/eink)
+- **T**: Toggle between renderers
 - **L**: Switch to different layout
 - **Space**: Quick refresh (same as R key)
 
@@ -89,9 +86,10 @@ The **whats-next-view** layout is a specialized interface designed for small dis
 - **Tap Controls**: Touch-friendly interface elements
 - **Double-tap Prevention**: Prevents accidental zoom on mobile devices
 
-**Themes Available**:
-- **Standard**: Clean interface with subtle shadows and animations
-- **Eink**: High-contrast, static design optimized for e-ink displays with no animations
+**Renderers Available**:
+- **html**: Clean interface with subtle shadows and animations
+- **rpi**: High-contrast, static design optimized for e-ink displays with no animations
+- **compact**: Simplified design for very small displays
 
 **Display Information**:
 - **Current/Next Meeting**: Title, time, location, and description (truncated if needed)
@@ -101,14 +99,14 @@ The **whats-next-view** layout is a specialized interface designed for small dis
 
 **Example Usage**:
 ```bash
-# Launch whats-next-view with eink theme (recommended for small displays)
-calendarbot --web --layout whats-next-view --theme eink
+# Launch whats-next-view (recommended for small displays)
+calendarbot --web --web_layout whats-next-view --renderer rpi
 
-# Standard theme with animations
-calendarbot --web --layout whats-next-view --theme standard
+# Standard renderer with animations
+calendarbot --web --web_layout whats-next-view --renderer html
 
 # URL parameter switching
-# http://localhost:8080/calendar?layout=whats-next-view&theme=eink
+# http://<host-ip>:8080/calendar?layout=whats-next-view
 ```
 
 **Performance Characteristics**:
@@ -119,9 +117,9 @@ calendarbot --web --layout whats-next-view --theme standard
 
 ## Operational Modes
 
-### Interactive Mode (Default)
+### Interactive Mode
 
-**Command**: `python main.py` or `python main.py --interactive`
+**Command**: `calendarbot` or `calendarbot --interactive`
 
 **Features**:
 
@@ -138,19 +136,36 @@ calendarbot --web --layout whats-next-view --theme standard
 
 ### Web Interface Mode
 
-**Command**: `python main.py --web`
+**Command**: `calendarbot --web`
 
 **Features**:
 
-- Web interface on `http://localhost:8080` with mobile support
+- Web interface on `http://<host-ip>:8080` with mobile support
 - Real-time auto-refresh and navigation controls
 
 **Intermediate Options**:
 
 ```bash
-python main.py --web --port 3000       # Custom port
-python main.py --web --auto-open       # Auto-open browser
-python main.py --web --host 0.0.0.0    # Bind to all interfaces
+calendarbot --web --port 3000       # Custom port
+calendarbot --web --auto-open       # Auto-open browser
+calendarbot --web --host 0.0.0.0    # Bind to all interfaces
+```
+
+### E-Paper Display Mode
+
+**Command**: `calendarbot --epaper`
+
+**Features**:
+
+- Optimized for e-paper displays with hardware auto-detection
+- PNG fallback when hardware is not available
+- Power-efficient rendering with minimal refreshes
+
+**Options**:
+
+```bash
+calendarbot --epaper                # Auto-detect hardware
+calendarbot --epaper --rpi-width 480 --rpi-height 800  # Custom dimensions
 ```
 
 ---
@@ -162,13 +177,19 @@ python main.py --web --host 0.0.0.0    # Bind to all interfaces
 1. **Interactive Navigation** (Default)
 ```bash
 . venv/bin/activate
-python main.py  # Launch interactive mode
+calendarbot  # Launch interactive mode
 ```
 
 2. **Web Interface Viewing**
 ```bash
 . venv/bin/activate
-python main.py --web  # Launch web interface
+calendarbot --web  # Launch web interface
+```
+
+3. **E-Paper Display**
+```bash
+. venv/bin/activate
+calendarbot --epaper  # Launch e-paper mode
 ```
 
 ### Quick Event Refresh
@@ -181,14 +202,13 @@ Use Enter (interactive) or manual refresh (web mode) to update calendar view.
 
 ### Command Line Options
 
-- **Setup**: `python main.py --setup`
-- **Configuration**: `python main.py --config`
-- **Help**: `python main.py --help`
+- **Setup**: `calendarbot --setup`
+- **Help**: `calendarbot --help`
 
 **Example**:
 ```bash
 . venv/bin/activate
-python main.py --help  # View all command options
+calendarbot --help  # View all command options
 ```
 
 ---
@@ -203,7 +223,7 @@ python main.py --help  # View all command options
 **Weekly Review:**
 
 - Review logs for issues
-- Test ICS feed with `python test_ics.py --url "your-url"`
+- Verify ICS feed connectivity
 
 [⬆️ Back to Top](#table-of-contents)
 
@@ -212,9 +232,7 @@ python main.py --help  # View all command options
 ## Troubleshooting
 
 - **Events Not Displaying**:
-```bash
-python test_ics.py --url "$CALENDARBOT_ICS_URL" --verbose
-```
+Verify your ICS URL is correct and accessible.
 
 - **Offline Mode**:
 If offline, Calendar Bot serves cached data.
@@ -223,7 +241,7 @@ If offline, Calendar Bot serves cached data.
 ```bash
 export CALENDARBOT_LOG_LEVEL="DEBUG"
 . venv/bin/activate
-python main.py --verbose
+calendarbot --verbose
 ```
 
 ## Advanced Operations
@@ -233,20 +251,20 @@ python main.py --verbose
 **Validation**:
 ```bash
 . venv/bin/activate
-python main.py --test-mode  # Validates system components
+calendarbot --test-mode  # Validates system components
 ```
 
 **Component Testing**:
 ```bash
-python main.py --test-mode --components cache  # Tests cache only
+calendarbot --test-mode --components cache  # Tests cache only
 ```
 
-### Debugging
+### Performance Monitoring
 
-**Detailed Logs**:
+**Runtime Tracking**:
 ```bash
 . venv/bin/activate
-python main.py --debug  # Enables full debugging
+calendarbot --track-runtime  # Enable resource tracking
 ```
 
 ## See Also

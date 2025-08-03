@@ -1,7 +1,7 @@
 # CalendarBot System Architecture
 
-**Document Version:** 3.0
-**Last Updated:** January 7, 2025
+**Document Version:** 3.2
+**Last Updated:** August 3, 2025 (Updated to match current implementation)
 **Architecture Version:** ICS Calendar System v1.0
 **Target Audience:** Developers, System Architects, Technical Contributors
 
@@ -91,56 +91,57 @@ graph TB
 ### Module Structure
 
 #### 1. **Source Management** ([`calendarbot/sources/`](calendarbot/sources/))
-- [`manager.py`](calendarbot/sources/manager.py): Multi-source coordination and health monitoring
-- [`ics_source.py`](calendarbot/sources/ics_source.py): ICS feed handling and authentication
-- [`models.py`](calendarbot/sources/models.py): Source configuration data models
-- [`exceptions.py`](calendarbot/sources/exceptions.py): Source-specific error handling
+- Source coordination and health monitoring
+- ICS feed handling and authentication
+- Source configuration data models
+- Source-specific error handling
 
 #### 2. **ICS Processing** ([`calendarbot/ics/`](calendarbot/ics/))
-- [`fetcher.py`](calendarbot/ics/fetcher.py): Async HTTP client with auth and caching support
-- [`parser.py`](calendarbot/ics/parser.py): RFC 5545 compliant ICS content parsing
-- [`models.py`](calendarbot/ics/models.py): ICS data models and validation
-- [`exceptions.py`](calendarbot/ics/exceptions.py): ICS-specific error types
+- Async HTTP client with auth and caching support
+- RFC 5545 compliant ICS content parsing
+- ICS data models and validation
+- ICS-specific error types
 
 #### 3. **Cache Management** ([`calendarbot/cache/`](calendarbot/cache/))
-- [`manager.py`](calendarbot/cache/manager.py): Cache coordination and TTL management
-- [`database.py`](calendarbot/cache/database.py): Async SQLite operations with WAL mode
-- [`models.py`](calendarbot/cache/models.py): Cache entry data models
+- Cache coordination and TTL management
+- Async SQLite operations with WAL mode
+- Cache entry data models
 
 #### 4. **Display Management** ([`calendarbot/display/`](calendarbot/display/))
-- [`manager.py`](calendarbot/display/manager.py): Display coordination and mode switching
-- [`console_renderer.py`](calendarbot/display/console_renderer.py): Console output formatting
-- [`html_renderer.py`](calendarbot/display/html_renderer.py): Web-compatible HTML rendering
-- [`rpi_html_renderer.py`](calendarbot/display/rpi_html_renderer.py): E-ink optimized HTML layouts
+- Display coordination and mode switching
+- Console output formatting
+- Web-compatible HTML rendering
+- E-ink optimized HTML layouts
+- E-paper display drivers and integration
 
 #### 5. **Layout Management** ([`calendarbot/layout/`](calendarbot/layout/))
-- [`registry.py`](calendarbot/layout/registry.py): Dynamic layout discovery and validation
-- [`resource_manager.py`](calendarbot/layout/resource_manager.py): CSS/JS resource loading and injection
-- [`exceptions.py`](calendarbot/layout/exceptions.py): Layout-specific error handling
+- Dynamic layout discovery and validation
+- CSS/JS resource loading and injection
+- Layout-specific error handling
 
 #### 6. **User Interface** ([`calendarbot/ui/`](calendarbot/ui/))
-- [`interactive.py`](calendarbot/ui/interactive.py): Interactive navigation controller
-- [`keyboard.py`](calendarbot/ui/keyboard.py): Cross-platform keyboard input handling
-- [`navigation.py`](calendarbot/ui/navigation.py): Date navigation and filtering logic
+- Interactive navigation controller
+- Cross-platform keyboard input handling
+- Date navigation and filtering logic
 
 #### 7. **Web Interface** ([`calendarbot/web/`](calendarbot/web/))
-- [`server.py`](calendarbot/web/server.py): Web server implementation with layout integration
-- [`navigation.py`](calendarbot/web/navigation.py): Web-based navigation handling
-- [`static/layouts/`](calendarbot/web/static/layouts/): Layout configurations and resources
+- Web server implementation with layout integration
+- Web-based navigation handling
+- Layout configurations and resources in `static/layouts/`
 
 #### 8. **Utilities** ([`calendarbot/utils/`](calendarbot/utils/))
-- [`logging.py`](calendarbot/utils/logging.py): Enhanced logging system with interactive mode support
-- [`helpers.py`](calendarbot/utils/helpers.py): Common utility functions
+- Enhanced logging system with interactive mode support
+- Common utility functions
 
-#### 8. **Validation Framework** ([`calendarbot/validation/`](calendarbot/validation/))
-- [`runner.py`](calendarbot/validation/runner.py): Comprehensive system validation
-- [`results.py`](calendarbot/validation/results.py): Test result models and reporting
-- [`logging_setup.py`](calendarbot/validation/logging_setup.py): Validation-specific logging
+#### 9. **Validation Framework** ([`calendarbot/validation/`](calendarbot/validation/))
+- Comprehensive system validation
+- Test result models and reporting
+- Validation-specific logging
 
-#### 9. **Configuration System** ([`config/`](config/))
-- [`settings.py`](calendarbot/config/settings.py): Pydantic settings models with YAML integration
-- [`config.yaml.example`](calendarbot/config/config.yaml.example): Example configuration template
-- [`ics_config.py`](calendarbot/config/ics_config.py): ICS-specific configuration helpers
+#### 10. **Configuration System** ([`calendarbot/config/`](calendarbot/config/))
+- Pydantic settings models with YAML integration
+- Example configuration template
+- ICS-specific configuration helpers
 
 ## 3. Operational Modes
 
@@ -152,39 +153,39 @@ graph TB
 - Configuration file generation and management
 
 ### 2. Interactive Mode (`--interactive`)
-**Components**: [`ui.InteractiveController`](calendarbot/ui/interactive.py), [`display.ConsoleRenderer`](calendarbot/display/console_renderer.py)
+**Components**: [`cli/modes/interactive.py`](calendarbot/cli/modes/interactive.py)
 - Keyboard-driven navigation (arrow keys, space, ESC)
 - Real-time background data fetching
 - Split-screen logging in development mode
 - Cross-platform input handling
 
 ### 3. Web Mode (`--web`)
-**Components**: [`web.WebServer`](calendarbot/web/server.py), [`display.HTMLRenderer`](calendarbot/display/html_renderer.py)
+**Components**: [`cli/modes/web.py`](calendarbot/cli/modes/web.py)
 - Browser-based calendar interface
-- Multiple theme support (4x8, 3x4)
+- Multiple layout support (4x8, 3x4, whats-next-view)
 - Auto-refresh capabilities
 - Mobile-responsive design
 
-### 4. Raspberry Pi Mode (`--rpi`)
-**Components**: [`display.RPIHtmlRenderer`](calendarbot/display/rpi_html_renderer.py)
+### 4. E-Paper Mode (`--epaper`)
+**Components**: [`cli/modes/epaper.py`](calendarbot/cli/modes/epaper.py)
 - E-ink display optimized layouts (800x480px)
 - High contrast, minimal refresh themes
 - Power-efficient rendering strategies
 - Web interface integration
 
 ### 5. Test/Validation Mode (`--test-mode`)
-**Components**: [`validation.ValidationRunner`](calendarbot/validation/runner.py)
+**Components**: [`cli/modes/test.py`](calendarbot/cli/modes/test.py)
 - Comprehensive system validation
 - Component-specific testing (ICS, cache, display)
 - Performance benchmarking
 - Configuration verification
 
-### 6. Daemon Mode (default)
-**Components**: [`main.CalendarBot`](calendarbot/main.py)
-- Background operation with automatic refresh
+### 6. Default Mode
+**Components**: [`cli/__init__.py`](calendarbot/cli/__init__.py)
+- Defaults to web mode when no other mode is specified
+- Configuration validation and loading
 - Graceful error handling and recovery
-- Resource monitoring and optimization
-- Signal-based shutdown handling
+- Command-line argument processing
 
 ## 4. Layout Management System
 
@@ -1153,15 +1154,15 @@ calendarbot --test-mode --output-format json > validation-results.json
 
 ### Entry Points
 
-```python
-# pyproject.toml console scripts configuration
-[project.scripts]
-calendarbot = "main:main_entry"
-
-# Multiple execution methods
+```
+# Execution methods
 python main.py                    # Direct execution
-python -m calendarbot            # Module execution
-calendarbot                      # Installed package
+python -m calendarbot            # Module execution via __main__.py
+calendarbot --web --port 8080    # Web interface with specified port
+calendarbot --interactive        # Interactive console mode
+calendarbot --epaper             # E-paper display mode
+calendarbot --test-mode          # Test/validation mode
+calendarbot --setup              # Configuration wizard
 ```
 
 ### File Structure
@@ -1169,26 +1170,38 @@ calendarbot                      # Installed package
 ```
 calendarBot/
 ├── main.py                      # Primary entry point
-├── pyproject.toml               # Modern Python packaging
-├── config/
-│   ├── settings.py              # Pydantic settings models
-│   ├── config.yaml.example      # Configuration template
-│   └── ics_config.py            # ICS-specific helpers
+├── requirements-dev.txt         # Development dependencies
+├── requirements-dev-full.txt    # Full development dependencies
 ├── calendarbot/
 │   ├── __init__.py              # Package initialization
 │   ├── __main__.py              # Module execution support
 │   ├── main.py                  # Core application logic
 │   ├── setup_wizard.py          # Interactive configuration
+│   ├── benchmarking/            # Performance benchmarking
 │   ├── cache/                   # Event caching system
+│   ├── cli/                     # Command-line interface
+│   │   └── modes/               # Operational modes
+│   ├── config/                  # Configuration management
 │   ├── display/                 # Output rendering
+│   │   └── epaper/              # E-paper display support
+│   ├── features/                # Feature-specific modules
 │   ├── ics/                     # ICS processing
+│   ├── layout/                  # Layout management
+│   ├── monitoring/              # System monitoring
+│   ├── optimization/            # Performance optimization
+│   ├── security/                # Security-related functionality
+│   ├── settings/                # Settings management
 │   ├── sources/                 # Calendar source management
+│   ├── structured/              # Structured data models
+│   ├── theme-images/            # Theme-related images
 │   ├── ui/                      # Interactive user interface
 │   ├── utils/                   # Common utilities
 │   ├── validation/              # Testing framework
 │   └── web/                     # Web interface
-└── scripts/
-    └── dev_setup.py             # Development environment setup
+│       ├── static/              # Static assets
+│       │   └── layouts/         # Layout configurations
+│       └── templates/           # HTML templates
+└── scripts/                     # Development scripts
 ```
 
 ## 12. Extension Points
@@ -1372,7 +1385,27 @@ class DynamicLayoutManager:
         logger.info(f"Reloaded layout configuration: {config_path}")
 ```
 
-## 14. Development Workflow
+## 14. External MCP Services
+
+CalendarBot development utilizes several external MCP (Model-Controller-Portal) services for testing and documentation purposes:
+
+### Playwright MCP
+
+- **Purpose**: Browser automation, UI testing, and visual validation
+- **Usage**: Page navigation, element interaction, screenshot capture
+- **Status**: External service used during development
+- **Integration**: Used for automated browser testing of UI components
+
+### Context7 MCP
+
+- **Purpose**: Documentation and code examples
+- **Usage**: Retrieving library documentation and code samples
+- **Status**: External service used during development
+- **Integration**: Used via `resolve-library-id` and `get-library-docs` calls
+
+These services are not implemented within the CalendarBot codebase but are external tools used during development and testing as specified in the development rules.
+
+## 15. Development Workflow
 
 ### Setup and Contribution
 
@@ -1404,4 +1437,4 @@ calendarbot --test-mode --verbose
 
 ---
 
-**Architecture Document v3.0** - Reflects the current ICS-based CalendarBot system with comprehensive module documentation, operational modes, and development workflows.
+**Architecture Document v3.2** - Reflects the current ICS-based CalendarBot system with comprehensive module documentation, operational modes, development workflows, and external MCP service usage. Updated to align with actual implementation.

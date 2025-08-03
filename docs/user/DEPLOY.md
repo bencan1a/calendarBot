@@ -126,7 +126,7 @@ calendarbot --test-mode
 ```bash
 # Create isolated environment
 python -m venv calendarbot-env
-source calendarbot-env/bin/activate  # Windows: calendarbot-env\Scripts\activate
+. calendarbot-env/bin/activate  # Windows: calendarbot-env\Scripts\activate
 
 # Install CalendarBot
 pip install calendarbot
@@ -164,7 +164,7 @@ CalendarBot uses a hierarchical configuration system:
 
 ```bash
 # Project directory (development)
-./calendarbot/config/config.yaml
+./config/config.yaml
 
 # User home directory
 ~/.config/calendarbot/config.yaml
@@ -203,14 +203,14 @@ log_level: "WARNING"
 
 # Display Settings
 display_enabled: true
-display_type: "console"
+display_type: "html"
 
 # Web Interface Settings
 web:
   enabled: true
   port: 8080
   host: "0.0.0.0"
-  theme: "4x8"
+  web_layout: "4x8"
   auto_refresh: 60
 EOF
 ```
@@ -506,7 +506,7 @@ services:
     environment:
       - CALENDARBOT_ICS_URL=https://your-calendar.ics
       - CALENDARBOT_LOG_LEVEL=INFO
-      - CALENDARBOT_WEB_THEME=4x8
+      - CALENDARBOT_WEB_LAYOUT=4x8
     volumes:
       - calendarbot-data:/home/calendarbot/.local/share/calendarbot
       - calendarbot-config:/home/calendarbot/.config/calendarbot
@@ -636,7 +636,7 @@ calendarbot --test-mode --components ics,cache,display
 # Custom health check script
 #!/bin/bash
 # health-check.sh
-HEALTH_URL="http://localhost:8080"
+HEALTH_URL="http://<host-ip>:8080"
 TIMEOUT=10
 
 if curl -f -s --max-time $TIMEOUT $HEALTH_URL > /dev/null; then
@@ -836,7 +836,7 @@ sudo ufw status
 sudo iptables -L
 
 # Test local connection
-curl http://localhost:8080
+curl http://<host-ip>:8080
 ```
 
 **Issue**: High memory usage

@@ -6,10 +6,12 @@ CalendarBot utilizes a modular, multi-layered architecture optimized for embedde
 ## Key Components
 
 ### Backend Framework
-- **FastAPI**: Provides asynchronous API handling with validation powered by Pydantic. Supports both local and cloud deployment scenarios.
+- **Python HTTPServer**: Provides HTTP request handling for the web interface. Chosen for its lightweight footprint and integration with the standard library.
+- **Pydantic**: Used for data validation and settings management throughout the application.
 
 ### Data Storage
-- **SQLite**: Lightweight relational database for scheduled events. Chosen for offline capability and transaction reliability. Uses SQLAlchemy ORM layer.
+- **SQLite**: Lightweight relational database for scheduled events. Chosen for offline capability and transaction reliability. Uses direct SQL queries with `sqlite3` and `aiosqlite` modules for asynchronous operations.
+- **WAL Mode**: Write-Ahead Logging for improved concurrency and performance.
 
 ### Interface Protocols
 - **ICS (iCalendar) Parsing**: Implements complex event parsing via custom calendarbot.ics model
@@ -21,7 +23,8 @@ CalendarBot utilizes a modular, multi-layered architecture optimized for embedde
 
 ### Cryptographic Security
 - **TLS/HTTPS Integration**: For all calendar API integrations (CalDAV & Google Calendar)
-- **Token Management**: Utilizes OAuth 2.0 protocol for secure token storage and rotation
+- **Secret URL Access**: Google Calendar integration uses secret iCal URLs for secure access
+- **SSL Certificate Validation**: Configurable SSL certificate validation for external APIs
 
 ## Software Lifespan Overview
 

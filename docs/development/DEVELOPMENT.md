@@ -69,7 +69,7 @@ The [`scripts/dev_setup.py`](scripts/dev_setup.py) script provides comprehensive
 ```bash
 # Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+. venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install in development mode
 pip install -e .[dev]
@@ -632,10 +632,10 @@ pip install -e .[dev]
 
 ```bash
 # Profile memory usage
-python -m memory_profiler main.py --test-mode
+python -m memory_profiler -m calendarbot --test-mode
 
 # Profile execution time
-python -m cProfile -o profile.out main.py --test-mode
+python -m cProfile -o profile.out -m calendarbot --test-mode
 python -c "import pstats; pstats.Stats('profile.out').sort_stats('time').print_stats(10)"
 
 # Monitor resource usage
@@ -661,7 +661,7 @@ After setting up your development environment:
 
 1. **Explore the Codebase**: Start with [`calendarbot/main.py`](calendarbot/main.py) and [`config/settings.py`](config/settings.py)
 2. **Run Tests**: Execute `pytest --cov=calendarbot` to understand test coverage
-3. **Try Different Modes**: Test `--setup`, `--interactive`, `--web`, and `--test-mode`
+3. **Try Different Modes**: Test `--setup`, `--interactive`, `--web`, `--epaper`, and `--test-mode`
 4. **Read Architecture**: Review [`ARCHITECTURE.md`](ARCHITECTURE.md) for system design
 5. **Check Issues**: Look for "good first issue" labels in the repository
 
