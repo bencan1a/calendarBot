@@ -2,6 +2,16 @@
 
 This guide serves as a comprehensive reference for CalendarBot's architectural design, development practices, and extension mechanisms.
 
+## Table of Contents
+
+- [Architecture Overview](#architecture-overview)
+- [Code Organization Principles](#code-organization-principles)
+- [Development Practices](#development-practices)
+- [Key Design Patterns](#key-design-patterns)
+- [Developer Workflows](#developer-workflows)
+- [Extension Points](#extension-points)
+- [Conclusion](#conclusion)
+
 ## Architecture Overview
 
 ### High-Level Component Diagram
@@ -63,6 +73,7 @@ graph TD
 
 - **Unit Tests:** For isolated components (e.g., [`test_cache_manager.py`](tests/unit/test_cache_manager.py))
 - **Integration Tests:** Full pipeline validation (e.g., [`test_full_pipeline.py`](tests/integration/test_full_pipeline.py))
+- **UI Tests:** Browser-based testing for visual validation and interaction testing
 - **End-to-End Tests:** User flow scenarios (planned in v2.0)
 
 ### Error Handling Patterns
@@ -102,6 +113,7 @@ graph TD
 - **Server Framework:** [`server.py`](calendarbot/web/server.py)
 - **Route Management:** REST API endpoints with async handlers
 
+
 ## Developer Workflows
 
 ### Setting Up Environment
@@ -120,6 +132,7 @@ python scripts/dev_setup.py
 4. Add tests covering new functionality
 5. Update documentation in `DEVELOPER_GUIDE.md`
 6. Submit PR with clear explanations
+
 
 ### Extending Display Renderers
 
@@ -176,6 +189,7 @@ class GoogleCalendarSourceHandler(ICSSourceHandler):
         return await super().fetch_events(use_cache)
 ```
 
+
 ## Extension Points
 
 ### Example: Adding a New CLI Command
@@ -217,6 +231,7 @@ class MyExtendedWebServer(WebServer):
             """Custom API endpoint."""
             return {"data": "Hello from custom endpoint"}
 ```
+
 
 ### Case Study: whats-next-view Layout Development
 

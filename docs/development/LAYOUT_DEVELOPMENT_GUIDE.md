@@ -142,7 +142,7 @@ calendarbot/web/static/layouts/my-layout/
       "rows": 8
     },
     "display_modes": ["landscape", "portrait", "responsive"],
-    "supported_devices": ["desktop", "tablet", "mobile", "rpi"],
+    "supported_devices": ["desktop", "tablet", "mobile", "epaper"],
     "animations": true,
     "layout_switching": true,
     "touch_support": true,
@@ -992,26 +992,19 @@ Use browser dev tools to check:
 
 ```bash
 # Check layout discovery
-python -c "
-from calendarbot.layout.registry import LayoutRegistry
-registry = LayoutRegistry()
-print('Available layouts:', registry.get_available_layouts())
-"
+calendarbot --list-layouts
 
 # Validate specific layout
-python -c "
-from calendarbot.layout.registry import LayoutRegistry
-registry = LayoutRegistry()
-print('Layout valid:', registry.validate_layout('my-layout'))
-print('Layout info:', registry.get_layout_info('my-layout'))
-"
+calendarbot --validate-layout my-layout
 
-# Check resource URLs
+# For more detailed debugging, you can use Python directly:
 python -c "
 from calendarbot.layout.registry import LayoutRegistry
 from calendarbot.layout.resource_manager import ResourceManager
 registry = LayoutRegistry()
 manager = ResourceManager(registry)
+print('Layout valid:', registry.validate_layout('my-layout'))
+print('Layout info:', registry.get_layout_info('my-layout'))
 print('CSS URLs:', manager.get_css_urls('my-layout'))
 print('JS URLs:', manager.get_js_urls('my-layout'))
 "

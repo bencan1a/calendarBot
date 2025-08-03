@@ -2,12 +2,12 @@
 
 ## Overview
 
-CalendarBot uses a **custom HTTP server** implementation built on Python's `BaseHTTPRequestHandler`, not FastAPI. The web interface provides RESTful endpoints for calendar navigation, theming, and system control.
+CalendarBot uses a **custom HTTP server** implementation built on Python's `BaseHTTPRequestHandler`, not FastAPI. The web interface provides RESTful endpoints for calendar navigation, layout management, and system control.
 
 ## Base URL
 
 ```
-http://localhost:8080
+http://<host-ip>:8080
 ```
 
 ## Authentication
@@ -54,7 +54,7 @@ Currently, no authentication is required for API endpoints.
 **POST Request Body:**
 ```json
 {
-  "layout": "4x8|3x4|custom-layout"
+  "layout": "4x8|3x4|whats-next-view"
 }
 ```
 
@@ -98,7 +98,7 @@ Currently, no authentication is required for API endpoints.
       "version": "1.0.0",
       "capabilities": {
         "grid_dimensions": {"columns": 4, "rows": 8},
-        "themes": ["standard", "dark", "eink"]
+        "renderers": ["html", "rpi", "compact"]
       }
     },
     {
@@ -108,7 +108,7 @@ Currently, no authentication is required for API endpoints.
       "version": "1.0.0",
       "capabilities": {
         "grid_dimensions": {"columns": 3, "rows": 4},
-        "themes": ["standard", "eink"]
+        "renderers": ["html", "rpi"]
       }
     },
     {
@@ -121,7 +121,7 @@ Currently, no authentication is required for API endpoints.
         "countdown_timer": true,
         "meeting_detection": true,
         "real_time_updates": true,
-        "themes": ["standard", "eink"]
+        "renderers": ["html", "rpi"]
       }
     }
   ]
@@ -142,38 +142,37 @@ Currently, no authentication is required for API endpoints.
     "layout_exists": true,
     "css_valid": true,
     "js_valid": true,
-    "themes_available": ["standard", "dark", "eink"]
+    "renderers_available": ["html", "rpi", "compact"]
   }
 }
 ```
 
-### Theme API
+### Renderer API
 
-#### Switch Theme
-- **Endpoint**: `/api/theme`
+#### Switch Renderer
+- **Endpoint**: `/api/renderer`
 - **Methods**: `GET`, `POST`
-- **Description**: Switch between available themes for the current layout
+- **Description**: Switch between available renderers for the current layout
 
 **POST Request Body:**
 ```json
 {
-  "theme": "standard|dark|eink|high-contrast"
+  "renderer": "html|rpi|compact"
 }
 ```
 
-**Available Themes:**
-- `standard`: Default light theme
-- `dark`: Dark mode theme
-- `eink`: High contrast e-ink optimized theme
-- `high-contrast`: Accessibility-focused high contrast theme
+**Available Renderers:**
+- `html`: Default renderer for web browsers
+- `rpi`: Optimized for Raspberry Pi e-ink displays
+- `compact`: Simplified renderer for very small displays
 
 **Response:**
 ```json
 {
   "status": "success",
-  "theme": "dark",
+  "renderer": "rpi",
   "layout": "4x8",
-  "message": "Theme switched to dark for layout 4x8"
+  "message": "Renderer switched to rpi for layout 4x8"
 }
 ```
 
@@ -253,7 +252,7 @@ All endpoints return consistent error responses:
 
 - `INVALID_REQUEST`: Malformed request data
 - `INVALID_DATE`: Date format or value is invalid
-- `INVALID_THEME`: Unknown theme specified
+- `INVALID_RENDERER`: Unknown renderer specified
 - `INVALID_LAYOUT`: Unknown layout specified
 - `SOURCE_ERROR`: Calendar source connection failed
 - `CACHE_ERROR`: Cache operation failed
@@ -290,28 +289,28 @@ HTTP Request → WebServer.do_GET/do_POST → Route Handler → Manager Layer �
 
 **Navigate to today:**
 ```bash
-curl -X POST http://localhost:8080/api/navigate \
+curl -X POST http://<host-ip>:8080/api/navigate \
   -H "Content-Type: application/json" \
   -d '{"direction": "today"}'
 ```
 
-**Switch to eink theme:**
+**Switch to rpi renderer:**
 ```bash
-curl -X POST http://localhost:8080/api/theme \
+curl -X POST http://<host-ip>:8080/api/renderer \
   -H "Content-Type: application/json" \
-  -d '{"theme": "eink"}'
+  -d '{"renderer": "rpi"}'
 ```
 
 **Refresh calendar data:**
 ```bash
-curl -X POST http://localhost:8080/api/refresh \
+curl -X POST http://<host-ip>:8080/api/refresh \
   -H "Content-Type: application/json" \
   -d '{"force": true}'
 ```
 
 **Get server status:**
 ```bash
-curl http://localhost:8080/api/status
+curl http://<host-ip>:8080/api/status
 ```
 
 ### JavaScript Examples
@@ -327,12 +326,12 @@ const navigateToDate = async (date) => {
   return response.json();
 };
 
-// Switch theme
-const switchTheme = async (theme) => {
-  const response = await fetch('/api/theme', {
+// Switch renderer
+const switchRenderer = async (renderer) => {
+  const response = await fetch('/api/renderer', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ theme })
+    body: JSON.stringify({ renderer })
   });
   return response.json();
 };

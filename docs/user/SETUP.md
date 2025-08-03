@@ -18,7 +18,7 @@ Calendar Bot includes an interactive setup wizard that guides you through the co
 ### Running the Wizard
 
 ```bash
-python main.py --setup
+calendarbot --setup
 ```
 
 ### Wizard Features
@@ -36,7 +36,7 @@ The setup wizard provides:
 #### Full Wizard (Recommended)
 
 ```bash
-python main.py --setup
+calendarbot --setup
 # Choose: 1. Full wizard (recommended)
 ```
 
@@ -73,7 +73,7 @@ Enter choice (1-5): 1
 #### Quick Setup
 
 ```bash
-python main.py --setup
+calendarbot --setup
 # Choose: 2. Quick setup
 ```
 
@@ -119,11 +119,11 @@ The wizard includes templates for popular calendar services:
 
 ## Manual Configuration
 
-If you prefer manual configuration, edit the `calendarbot/config/config.yaml` file directly.
+If you prefer manual configuration, edit the configuration file directly.
 
 ### Basic Configuration
 
-Create or edit `calendarbot/config/config.yaml`:
+Create or edit `~/.config/calendarbot/config.yaml`:
 
 ```yaml
 # ICS Calendar Configuration
@@ -144,14 +144,14 @@ log_file: null
 
 # Display Settings
 display_enabled: true
-display_type: "console"
+display_type: "html"
 ```
 
 ### Configuration File Locations
 
 Calendar Bot searches for configuration in this order:
 
-1. **Project directory**: `calendarbot/config/config.yaml` (relative to project root)
+1. **Project directory**: `config/config.yaml` (relative to project root)
 2. **User home directory**: `~/.config/calendarbot/config.yaml`
 3. **Environment variables**: `CALENDARBOT_*` prefixed variables
 
@@ -170,7 +170,7 @@ export CALENDARBOT_CACHE_TTL="3600"
 export CALENDARBOT_LOG_LEVEL="INFO"
 
 # Display Settings
-export CALENDARBOT_DISPLAY_TYPE="console"
+export CALENDARBOT_DISPLAY_TYPE="html"
 ```
 
 ### Configuration Validation
@@ -179,10 +179,10 @@ Test your configuration:
 
 ```bash
 # Validate configuration syntax
-python -c "from config.settings import settings; print('✅ Config valid')"
+python -c "from calendarbot.config.settings import settings; print('✅ Config valid')"
 
 # Test complete setup
-python main.py --test-mode --verbose
+calendarbot --test-mode --verbose
 ```
 
 ## Authentication Setup
@@ -237,17 +237,11 @@ export CALENDARBOT_ICS_BEARER_TOKEN="your-bearer-token"
 
 ### Testing Authentication
 
-Verify authentication setup:
+Verify authentication setup by using the test mode:
 
 ```bash
-# Test public feed
-python test_ics.py --url "your-url"
-
-# Test with basic auth
-python test_ics.py --url "your-url" --auth-type basic --username "user" --password "pass"
-
-# Test with bearer token
-python test_ics.py --url "your-url" --auth-type bearer --token "your-token"
+# Test with the configured authentication
+calendarbot --test-mode --components ics --verbose
 ```
 
 ## Advanced Settings
@@ -325,7 +319,7 @@ web:
   enabled: false            # Enable web interface
   port: 8080               # Web server port
   host: "0.0.0.0"          # Bind address
-  theme: "4x8"             # Available layouts: 4x8, 3x4, whats-next-view
+  web_layout: "4x8"        # Available layouts: 4x8, 3x4, whats-next-view
   auto_refresh: 60         # Auto-refresh interval in seconds
 ```
 
@@ -348,7 +342,7 @@ The **whats-next-view** layout provides a specialized countdown display perfect 
 ```yaml
 web:
   enabled: true
-  theme: "whats-next-view"
+  web_layout: "whats-next-view"
   auto_refresh: 5          # Faster refresh for countdown accuracy
 ```
 
@@ -364,15 +358,15 @@ web:
 ```yaml
 # Display configuration
 display_enabled: true
-display_type: "console"     # console, html, rpi
+display_type: "html"     # html, rpi, compact
 
-# Raspberry Pi specific (for future e-ink displays)
-rpi:
-  enabled: false
-  display_width: 800
-  display_height: 480
-  refresh_mode: "partial"
-  auto_theme: true
+# E-Paper configuration
+epaper:
+  enabled: true
+  width: 400
+  height: 300
+  refresh_interval: 300  # 5 minutes
+  hardware_detection_enabled: true
 ```
 
 ## Configuration Management
@@ -383,13 +377,13 @@ Calendar Bot includes built-in configuration management:
 
 ```bash
 # Backup current configuration
-python main.py --backup
+calendarbot --backup
 
 # List available backups
-python main.py --list-backups
+calendarbot --list-backups
 
 # Restore from backup
-python main.py --restore backup_file.yaml
+calendarbot --restore backup_file.yaml
 ```
 
 **Example backup output**:
@@ -403,10 +397,10 @@ Use the example configuration as a starting point:
 
 ```bash
 # Copy example configuration
-cp calendarbot/config/config.yaml.example calendarbot/config/config.yaml
+cp config/config.yaml.example ~/.config/calendarbot/config.yaml
 
 # Edit with your settings
-nano calendarbot/config/config.yaml
+nano ~/.config/calendarbot/config.yaml
 ```
 
 ### Validation and Testing
@@ -415,13 +409,10 @@ Always validate configuration after changes:
 
 ```bash
 # Test configuration syntax
-python -c "from config.settings import settings; print('✅ Config loaded successfully')"
-
-# Test ICS connectivity
-python test_ics.py
+python -c "from calendarbot.config.settings import settings; print('✅ Config loaded successfully')"
 
 # Run full validation
-python main.py --test-mode --verbose
+calendarbot --test-mode --verbose
 ```
 
 ## Troubleshooting Setup
@@ -435,10 +426,10 @@ python main.py --test-mode --verbose
 **Solution**:
 ```bash
 # Check if config file exists
-ls -la calendarbot/config/config.yaml
+ls -la ~/.config/calendarbot/config.yaml
 
 # Run setup wizard
-python main.py --setup
+calendarbot --setup
 
 # Or set environment variable
 export CALENDARBOT_ICS_URL="your-url"
@@ -451,7 +442,7 @@ export CALENDARBOT_ICS_URL="your-url"
 **Solution**:
 ```bash
 # Validate YAML syntax
-python -c "import yaml; yaml.safe_load(open('calendarbot/config/config.yaml'))"
+python -c "import yaml; yaml.safe_load(open('~/.config/calendarbot/config.yaml'))"
 
 # Common issues:
 # - Wrong indentation (use 2 spaces)
@@ -465,9 +456,6 @@ python -c "import yaml; yaml.safe_load(open('calendarbot/config/config.yaml'))"
 
 **Solution**:
 ```bash
-# Test URL format
-python test_ics.py --url "your-url" --validate-only
-
 # Check URL accessibility
 curl -I "your-url"
 
@@ -480,9 +468,6 @@ curl -I "your-url"
 
 **Solution**:
 ```bash
-# Test authentication
-python test_ics.py --url "url" --auth-type basic --username "user" --password "pass"
-
 # Check credentials
 # Verify username/password are correct
 # Ensure URL requires authentication
@@ -500,13 +485,13 @@ python test_ics.py --url "url" --auth-type basic --username "user" --password "p
 ```bash
 # Check Python environment
 python --version
-source venv/bin/activate  # If using virtual environment
+. venv/bin/activate  # If using virtual environment
 
 # Verify imports
-python -c "import calendarbot.setup_wizard; print('✅ Import successful')"
+python -c "import calendarbot; print('✅ Import successful')"
 
 # Run with debug
-python main.py --setup --verbose
+calendarbot --setup --verbose
 ```
 
 #### Connection Testing Fails
@@ -521,9 +506,6 @@ curl -I "your-ics-url"
 # Check network connectivity
 ping google.com
 
-# Test with verbose output
-python test_ics.py --url "your-url" --verbose
-
 # Check firewall/proxy settings
 ```
 
@@ -534,14 +516,14 @@ python test_ics.py --url "your-url" --verbose
 **Solution**:
 ```bash
 # Check file permissions
-ls -la config/
-touch config/test.txt  # Test write permissions
+ls -la ~/.config/calendarbot/
+touch ~/.config/calendarbot/test.txt  # Test write permissions
 
 # Verify directory exists
 mkdir -p ~/.config/calendarbot
 
 # Run wizard with debug output
-python main.py --setup --verbose
+calendarbot --setup --verbose
 ```
 
 ### Recovery Procedures
@@ -550,13 +532,13 @@ python main.py --setup --verbose
 
 ```bash
 # Backup current config
-python main.py --backup
+calendarbot --backup
 
 # Remove current config
-rm calendarbot/config/config.yaml
+rm ~/.config/calendarbot/config.yaml
 
 # Run setup wizard again
-python main.py --setup
+calendarbot --setup
 ```
 
 #### Factory Reset
@@ -567,23 +549,19 @@ rm -rf ~/.config/calendarbot/
 rm -rf ~/.local/share/calendarbot/
 rm -rf ~/.cache/calendarbot/
 
-# Remove project config
-rm -f calendarbot/config/config.yaml
-
 # Start fresh setup
-python main.py --setup
+calendarbot --setup
 ```
 
 ### Getting Help
 
 If setup issues persist:
 
-1. **Run diagnostics**: `python main.py --test-mode --verbose`
-2. **Test ICS URL**: `python test_ics.py --url "your-url" --verbose`
-3. **Check logs**: Enable debug logging for detailed output
-4. **Verify requirements**: Ensure all dependencies are installed
-5. **Check examples**: Review `calendarbot/config/config.yaml.example`
-6. **Create issue**: Include setup logs and exact error messages
+1. **Run diagnostics**: `calendarbot --test-mode --verbose`
+2. **Check logs**: Enable debug logging for detailed output
+3. **Verify requirements**: Ensure all dependencies are installed
+4. **Check examples**: Review `config/config.yaml.example`
+5. **Create issue**: Include setup logs and exact error messages
 
 ---
 
