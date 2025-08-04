@@ -7,6 +7,7 @@ from typing import Any, Optional
 from ..cache.models import CachedEvent
 from .html_renderer import HTMLRenderer
 from .renderer_interface import InteractionEvent, RendererInterface
+from .shared_styling import SharedStylingConstants
 from .whats_next_data_model import EventData, WhatsNextViewModel
 from .whats_next_logic import WhatsNextLogic
 
@@ -145,24 +146,28 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         Returns:
             CSS styles string
         """
-        return """
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
-        .calendar-container { background: white; border-radius: 8px; padding: 20px; max-width: 800px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { text-align: center; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 20px; }
-        .header h1 { margin: 0; color: #333; }
-        .time-display { font-size: 1.2em; color: #666; margin-top: 10px; }
-        .current-events, .upcoming-events, .later-events { margin: 20px 0; }
-        .section-title { color: #444; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-        .current-event, .upcoming-event { background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin: 10px 0; }
-        .current-event { background: #e8f5e8; border-color: #4CAF50; }
-        .event-title { margin: 0 0 8px 0; font-weight: bold; color: #333; }
-        .event-time { margin: 5px 0; color: #666; font-size: 0.9em; }
-        .event-location { margin: 5px 0; color: #888; font-size: 0.9em; }
-        .event-duration { margin: 5px 0; color: #888; font-size: 0.9em; }
-        .no-events { text-align: center; padding: 40px; color: #666; }
-        .no-events-icon { font-size: 3em; margin-bottom: 15px; }
-        .status-footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; font-size: 0.9em; color: #666; text-align: center; }
-        .error { background: #ffebee; border: 1px solid #f44336; color: #c62828; padding: 15px; border-radius: 6px; margin: 10px 0; }
+        # Use SharedStylingConstants for consistent styling
+        colors = SharedStylingConstants.COLORS
+        typography = SharedStylingConstants.TYPOGRAPHY["html"]
+
+        return f"""
+        body {{ font-family: Arial, sans-serif; margin: 20px; background-color: {colors["background_secondary"]}; }}
+        .calendar-container {{ background: {colors["background"]}; border-radius: 8px; padding: 20px; max-width: 800px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        .header {{ text-align: center; border-bottom: 2px solid #ddd; padding-bottom: 15px; margin-bottom: 20px; }}
+        .header h1 {{ margin: 0; color: {colors["text_primary"]}; }}
+        .time-display {{ font-size: 1.2em; color: {colors["text_secondary"]}; margin-top: 10px; }}
+        .current-events, .upcoming-events, .later-events {{ margin: 20px 0; }}
+        .section-title {{ color: {colors["text_primary"]}; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
+        .current-event, .upcoming-event {{ background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin: 10px 0; }}
+        .current-event {{ background: #e8f5e8; border-color: #4CAF50; }}
+        .event-title {{ margin: 0 0 8px 0; font-weight: bold; color: {colors["text_primary"]}; }}
+        .event-time {{ margin: 5px 0; color: {colors["text_secondary"]}; font-size: {typography["small"]}; }}
+        .event-location {{ margin: 5px 0; color: {colors["text_supporting"]}; font-size: {typography["small"]}; }}
+        .event-duration {{ margin: 5px 0; color: {colors["text_supporting"]}; font-size: {typography["small"]}; }}
+        .no-events {{ text-align: center; padding: 40px; color: {colors["text_secondary"]}; }}
+        .no-events-icon {{ font-size: 3em; margin-bottom: 15px; }}
+        .status-footer {{ margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; font-size: {typography["small"]}; color: {colors["text_supporting"]}; text-align: center; }}
+        .error {{ background: #ffebee; border: 1px solid {colors["urgent"]}; color: #c62828; padding: 15px; border-radius: 6px; margin: 10px 0; }}
         """
 
     def _render_events_from_view_model(self, view_model: WhatsNextViewModel) -> str:

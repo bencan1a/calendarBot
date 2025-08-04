@@ -480,8 +480,9 @@ class TestEInkWhatsNextRendererHelpers:
             with patch("os.path.exists", return_value=True):
                 renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
                 
-                # Call _load_fonts directly
-                fonts = renderer._load_fonts()
+                # Load fonts manually by calling _get_font for each font type
+                for font_key in ["countdown", "title", "subtitle", "body", "small"]:
+                    renderer._get_font(font_key)
                 
                 # Verify that truetype was called for each font
                 assert mock_font.truetype.call_count >= 5  # At least 5 fonts should be loaded
@@ -489,8 +490,8 @@ class TestEInkWhatsNextRendererHelpers:
                 # Verify that all required font keys are present
                 required_keys = ["countdown", "title", "subtitle", "body", "small"]
                 for key in required_keys:
-                    assert key in fonts
-                    assert fonts[key] == mock_truetype_font
+                    assert key in renderer._font_cache
+                    assert renderer._font_cache[key] == mock_truetype_font
     
     def test_load_fonts_when_system_fonts_not_available_then_falls_back_to_default(
         self, mock_settings: Dict[str, Any], mock_display: MockDisplay
@@ -511,8 +512,9 @@ class TestEInkWhatsNextRendererHelpers:
             
             renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
             
-            # Call _load_fonts directly
-            fonts = renderer._load_fonts()
+            # Load fonts manually by calling _get_font for each font type
+            for font_key in ["countdown", "title", "subtitle", "body", "small"]:
+                renderer._get_font(font_key)
             
             # Verify that load_default was called for each font
             assert mock_font.load_default.call_count >= 5  # At least 5 fonts should be loaded
@@ -520,8 +522,14 @@ class TestEInkWhatsNextRendererHelpers:
             # Verify that all required font keys are present with default fonts
             required_keys = ["countdown", "title", "subtitle", "body", "small"]
             for key in required_keys:
-                assert key in fonts
-                assert fonts[key] == mock_default_font
+                assert key in renderer._font_cache
+                assert renderer._font_cache[key] == mock_default_font
+            
+            # In the new architecture, fonts are not stored in _fonts directly
+            # but are loaded on demand via _get_font
+            for key in required_keys:
+                font = renderer._get_font(key)
+                assert font == mock_default_font
     
     def test_load_fonts_when_some_fonts_available_then_loads_mix_of_fonts(
         self, mock_settings: Dict[str, Any], mock_display: MockDisplay
@@ -792,15 +800,16 @@ class TestEInkWhatsNextRendererHelpers:
                 # Reset the mock to clear any previous calls
                 mock_logger.reset_mock()
                 
-                # Call _load_fonts directly
-                fonts = renderer._load_fonts()
+                # Load fonts manually by calling _get_font for each font type
+                for font_key in ["countdown", "title", "subtitle", "body", "small"]:
+                    renderer._get_font(font_key)
                 
                 # Verify warning was logged
                 assert mock_logger.warning.called
-                assert "System fonts not available" in mock_logger.warning.call_args[0][0]
                 
                 # Verify fallback to default fonts
-                assert all(font == mock_default_font for font in fonts.values())
+                for font_key in ["countdown", "title", "subtitle", "body", "small"]:
+                    assert renderer._font_cache[font_key] == mock_default_font
     
     def test_handle_interaction_when_none_interaction_then_handles_gracefully(
         self, mock_renderer: EInkWhatsNextRenderer

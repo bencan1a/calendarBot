@@ -6,11 +6,9 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional, cast
 
-from .compact_eink_renderer import CompactEInkRenderer
 from .console_renderer import ConsoleRenderer
 from .html_renderer import HTMLRenderer
 from .renderer_protocol import RendererProtocol
-from .rpi_html_renderer import RaspberryPiHTMLRenderer
 from .whats_next_renderer import WhatsNextRenderer
 
 logger = logging.getLogger(__name__)
@@ -155,9 +153,10 @@ class RendererFactory:
         Returns:
             List of renderer type names
         """
-        renderers = ["html", "rpi", "compact", "console", "whats-next"]
+        renderers = ["html", "console", "whats-next"]
         if EPAPER_AVAILABLE:
-            renderers.append("eink-whats-next")
+            renderers.append("epaper")
+            renderers.append("eink-whats-next")  # Keep for backward compatibility
         return renderers
 
     @staticmethod
@@ -247,7 +246,12 @@ def _map_device_to_renderer(device_type: str) -> str:
     Returns:
         Renderer type string
     """
-    mapping = {"compact": "compact", "rpi": "rpi", "desktop": "html", "unknown": "console"}
+    mapping = {
+        "desktop": "html",
+        "unknown": "console",
+        "rpi": "whats-next",
+        "compact": "epaper"  # Updated to use the new standardized "epaper" type
+    }
     return mapping.get(device_type, "console")
 
 
@@ -266,15 +270,17 @@ def _create_renderer_instance(renderer_type: str, settings: Any) -> RendererProt
     """
     renderer_classes = {
         "html": HTMLRenderer,
-        "rpi": RaspberryPiHTMLRenderer,
-        "compact": CompactEInkRenderer,
         "console": ConsoleRenderer,
         "whats-next": WhatsNextRenderer,
+        # Legacy type mappings for backward compatibility
+        "rpi": WhatsNextRenderer,
+        "compact": EInkWhatsNextRenderer_TYPE if EPAPER_AVAILABLE and EInkWhatsNextRenderer_TYPE is not None else ConsoleRenderer,
     }
 
     # Add e-Paper renderer if available
     if EPAPER_AVAILABLE and EInkWhatsNextRenderer_TYPE is not None:
         renderer_classes["eink-whats-next"] = EInkWhatsNextRenderer_TYPE
+        renderer_classes["epaper"] = EInkWhatsNextRenderer_TYPE  # Add direct mapping for "epaper" display_type
 
     renderer_class = renderer_classes.get(renderer_type)
     if renderer_class is None:
