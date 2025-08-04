@@ -79,16 +79,64 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
 
     # Initialize e-paper renderer with hardware detection
     logger.info("Initializing e-paper renderer with hardware detection...")
-    context.epaper_renderer = EInkWhatsNextRenderer(updated_settings)
 
     # Detect hardware and set up display mode
     context.hardware_available = detect_epaper_hardware()
+
+    # Force HTML-to-PNG conversion for emulation mode
+    if not context.hardware_available:
+        # Ensure html2image is available
+        try:
+            from calendarbot.display.epaper.utils.html_to_png import is_html2image_available
+            html2image_available = is_html2image_available()
+            if not html2image_available:
+                logger.warning("html2image is not available. Install with: pip install html2image")
+                print("Warning: html2image is not available. Install with: pip install html2image")
+                print("Falling back to PIL rendering for emulation mode")
+        except ImportError:
+            html2image_available = False
+            logger.warning("Failed to import html2image module")
+
+    # Create the renderer
+    context.epaper_renderer = EInkWhatsNextRenderer(updated_settings)
+
     if context.hardware_available:
         logger.info("E-paper hardware detected - using physical display")
         print("E-paper hardware detected - rendering to physical display")
     else:
         logger.info("No e-paper hardware detected - using PNG emulation mode")
         print("No e-paper hardware detected - using PNG emulation (output saved to files)")
+
+        # Ensure HTML-to-PNG conversion is used for emulation mode
+        if context.epaper_renderer.html_converter is None:
+            logger.warning("HTML-to-PNG converter not initialized, forcing initialization for emulation mode")
+            try:
+                import tempfile
+                from pathlib import Path
+
+                from calendarbot.display.epaper.utils.html_to_png import create_converter
+                from calendarbot.display.shared_styling import get_layout_for_renderer
+
+                # Get layout dimensions
+                layout = get_layout_for_renderer("epaper")
+                width, height = int(layout["width"]), int(layout["height"])
+
+                # Create temporary directory for output files
+                temp_dir_path = tempfile.mkdtemp(prefix="calendarbot_epaper_")
+                context.epaper_renderer.temp_dir = Path(temp_dir_path)
+
+                # Ensure the directory exists
+                context.epaper_renderer.temp_dir.mkdir(exist_ok=True, parents=True)
+                logger.info(f"Created temporary directory: {context.epaper_renderer.temp_dir}")
+
+                # Initialize converter with e-paper dimensions
+                context.epaper_renderer.html_converter = create_converter(
+                    size=(width, height),
+                    output_path=str(context.epaper_renderer.temp_dir),
+                )
+                logger.info(f"HTML-to-PNG converter initialized with size {width}x{height}")
+            except Exception as e:
+                logger.warning(f"Failed to initialize HTML-to-PNG converter: {e}")
 
     return context, updated_settings
 
@@ -297,26 +345,55 @@ def detect_epaper_hardware() -> bool:
         True if real e-paper hardware is detected and accessible, False otherwise
     """
     try:
-        # First try to detect real hardware drivers (Waveshare, etc.)
+        # First check if the driver module is using real GPIO/SPI
         try:
-            # Try to initialize real hardware
+            import calendarbot.display.epaper.drivers.waveshare.epd4in2b_v2 as epd_module
+            has_real_gpio = getattr(epd_module, '_HAS_REAL_GPIO', False)
+
+            logger.debug(f"Hardware detection: _HAS_REAL_GPIO = {has_real_gpio}")
+
+            if not has_real_gpio:
+                logger.info(
+                    "E-paper hardware detection: FAILED - Using mock GPIO/SPI drivers, no physical hardware"
+                )
+                return False
+
+        except ImportError:
+            logger.debug("Waveshare drivers not available")
+            return False
+
+        # Check for physical hardware indicators
+        from pathlib import Path
+
+        # Check for SPI device files
+        spi_devices = ["/dev/spidev0.0", "/dev/spidev0.1", "/dev/spidev1.0", "/dev/spidev1.1"]
+        spi_found = any(Path(device).exists() for device in spi_devices)
+
+        # Check for GPIO filesystem
+        gpio_base = Path("/sys/class/gpio")
+        gpio_available = gpio_base.exists()
+
+        logger.debug(f"Hardware detection: SPI devices found = {spi_found}, GPIO filesystem = {gpio_available}")
+
+        if not spi_found or not gpio_available:
+            logger.info(
+                f"E-paper hardware detection: FAILED - Missing hardware interfaces (SPI: {spi_found}, GPIO: {gpio_available})"
+            )
+            return False
+
+        # Try to initialize the driver with real hardware
+        try:
             test_driver = EPD4in2bV2()
             if test_driver.initialize():
                 logger.info(
-                    "E-paper hardware detection: SUCCESS - Physical Waveshare display detected"
+                    "E-paper hardware detection: SUCCESS - Physical Waveshare display detected and initialized"
                 )
                 return True
-            logger.info("E-paper hardware detection: Physical driver failed to initialize")
-        except ImportError:
-            logger.debug("Waveshare drivers not available or hardware not connected")
+            logger.info("E-paper hardware detection: FAILED - Driver initialization failed")
+            return False
         except Exception as e:
-            logger.debug(f"Real hardware initialization failed: {e}")
-
-        # If we reach here, no real hardware was detected
-        logger.info(
-            "E-paper hardware detection: FAILED - No physical hardware detected, using PNG fallback"
-        )
-        return False
+            logger.info(f"E-paper hardware detection: FAILED - Driver initialization error: {e}")
+            return False
 
     except Exception as e:
         logger.info(f"E-paper hardware detection: FAILED - Detection error: {e}")

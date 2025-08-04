@@ -36,6 +36,15 @@ class DevelopmentSetup:
             "flake8": ">=6.0.0",
             "bandit": ">=1.7.0",
         }
+        
+        # Raspberry Pi dependencies
+        self.rpi_deps = {
+            "RPi.GPIO": ">=0.7.1",
+            "spidev": ">=3.5",
+        }
+        
+        # Initialize installation flags
+        self._rpi_installed = False
 
         logger.info(f"Development setup for: {project_root}")
 
@@ -112,8 +121,12 @@ class DevelopmentSetup:
         # Unix/Linux/macOS
         return self.venv_path / "bin" / "python"
 
-    def install_dependencies(self) -> bool:
-        """Install project and development dependencies."""
+    def install_dependencies(self, install_rpi: bool = False) -> bool:
+        """Install project and development dependencies.
+        
+        Args:
+            install_rpi: Whether to install Raspberry Pi dependencies
+        """
         logger.info("Installing project dependencies")
 
         pip_path = self.get_pip_path()
@@ -129,7 +142,17 @@ class DevelopmentSetup:
             logger.info("Installing development tools")
             for tool, version in self.dev_tools.items():
                 self.run_command([str(pip_path), "install", f"{tool}{version}"])
-
+                
+            # Install Raspberry Pi dependencies if requested
+            if install_rpi:
+                logger.info("Installing Raspberry Pi dependencies")
+                for dep, version in self.rpi_deps.items():
+                    self.run_command([str(pip_path), "install", f"{dep}{version}"])
+                # Set flag to indicate Raspberry Pi dependencies were installed
+                self._rpi_installed = True
+            else:
+                self._rpi_installed = False
+            
             # Install project in editable mode
             logger.info("Installing project in editable mode")
             self.run_command([str(pip_path), "install", "-e", "."])
@@ -632,13 +655,18 @@ if __name__ == "__main__":
             logger.exception(f"Failed to create VS Code config: {e}")
             return False
 
-    def setup_development_environment(self, force_venv: bool = False) -> bool:
-        """Setup complete development environment."""
+    def setup_development_environment(self, force_venv: bool = False, install_rpi: bool = False) -> bool:
+        """Setup complete development environment.
+        
+        Args:
+            force_venv: Whether to force recreation of virtual environment
+            install_rpi: Whether to install Raspberry Pi dependencies
+        """
         logger.info("Setting up Calendar Bot development environment")
 
         steps = [
             ("Creating virtual environment", lambda: self.create_virtual_environment(force_venv)),
-            ("Installing dependencies", self.install_dependencies),
+            ("Installing dependencies", lambda: self.install_dependencies(install_rpi)),
             ("Setting up pre-commit hooks", self.setup_pre_commit),
             ("Creating development config", self.create_development_config),
             ("Creating development scripts", self.create_development_scripts),
@@ -667,6 +695,10 @@ if __name__ == "__main__":
         print(f"📁 Project root: {self.project_root}")
         print(f"🐍 Virtual environment: {self.venv_path}")
         print(f"⚙️  Development config: {self.project_root}/calendarbot/config/development/")
+        
+        # Show Raspberry Pi status
+        rpi_status = "Installed" if hasattr(self, "_rpi_installed") and self._rpi_installed else "Not installed"
+        print(f"🍓 Raspberry Pi dependencies: {rpi_status}")
 
         print("\n🚀 Quick Start:")
         print("   source venv/bin/activate          # Activate virtual environment")
@@ -706,6 +738,10 @@ def main():
     parser.add_argument(
         "--force-venv", action="store_true", help="Force recreate virtual environment"
     )
+    
+    parser.add_argument(
+        "--rpi", action="store_true", help="Install Raspberry Pi dependencies"
+    )
 
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
 
@@ -723,7 +759,7 @@ def main():
     dev_setup = DevelopmentSetup(args.project_root)
 
     try:
-        success = dev_setup.setup_development_environment(args.force_venv)
+        success = dev_setup.setup_development_environment(args.force_venv, args.rpi)
         return 0 if success else 1
     except KeyboardInterrupt:
         logger.info("Setup cancelled by user")

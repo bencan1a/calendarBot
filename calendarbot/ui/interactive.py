@@ -182,7 +182,7 @@ class InteractiveController:
                     try:
                         logger.debug(f"Event - {event.subject} at {event.start_datetime}")
                     except AttributeError:
-                        logger.debug(f"Event details not available for logging")
+                        logger.debug("Event details not available for logging")
 
             # Prepare status information
             status_info = await self._get_status_info()
@@ -352,7 +352,7 @@ class InteractiveController:
                     dt_str = dt_str.replace("Z", "+00:00")
                 elif "+" not in dt_str and "-" not in dt_str[10:]:  # No timezone info
                     dt_str = f"{dt_str}+00:00"
-                
+
                 start_datetime = datetime.fromisoformat(dt_str)
                 event_date = start_datetime.date()
             else:

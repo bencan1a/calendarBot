@@ -101,7 +101,9 @@ class MockEvent:
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         location: str = "Test Location",
-        time_until_minutes: int = 30
+        time_until_minutes: int = 30,
+        is_current: bool = False,
+        is_upcoming: bool = False
     ) -> None:
         """Initialize mock event.
         
@@ -111,13 +113,20 @@ class MockEvent:
             end_time: Event end time
             location: Event location
             time_until_minutes: Minutes until event starts
+            is_current: Whether this is a current event
+            is_upcoming: Whether this is an upcoming event
         """
         self.subject = subject
         self.start_time = start_time or datetime.now() + timedelta(minutes=time_until_minutes)
         self.end_time = end_time or self.start_time + timedelta(hours=1)
         self.location = location
         self.time_until_minutes = time_until_minutes
+        self.duration_minutes = int((self.end_time - self.start_time).total_seconds() / 60)
         self.formatted_time_range = f"{self.start_time.strftime('%H:%M')} - {self.end_time.strftime('%H:%M')}"
+        self.is_current = is_current
+        self.is_upcoming = is_upcoming
+        self.organizer = "Test Organizer"
+        self.attendees = ["Attendee 1", "Attendee 2"]
     
     def format_time_range(self) -> str:
         """Format time range.
@@ -128,6 +137,34 @@ class MockEvent:
         return self.formatted_time_range
 
 
+class MockStatusInfo:
+    """Mock status info for testing."""
+    
+    def __init__(
+        self,
+        is_cached: bool = False,
+        connection_status: str = "connected",
+        relative_description: str = "now",
+        interactive_mode: bool = False,
+        selected_date: Optional[str] = None
+    ) -> None:
+        """Initialize mock status info.
+        
+        Args:
+            is_cached: Whether data is cached
+            connection_status: Connection status
+            relative_description: Relative time description
+            interactive_mode: Whether in interactive mode
+            selected_date: Selected date if any
+        """
+        self.is_cached = is_cached
+        self.last_update = datetime.now()
+        self.connection_status = connection_status
+        self.relative_description = relative_description
+        self.interactive_mode = interactive_mode
+        self.selected_date = selected_date
+
+
 class MockViewModel:
     """Mock view model for testing."""
     
@@ -135,20 +172,32 @@ class MockViewModel:
         self,
         current_events: Optional[List[MockEvent]] = None,
         next_events: Optional[List[MockEvent]] = None,
-        display_date: str = "2025-08-01"
+        later_events: Optional[List[MockEvent]] = None,
+        display_date: str = "2025-08-01",
+        current_time: Optional[datetime] = None,
+        status_info: Optional[MockStatusInfo] = None
     ) -> None:
         """Initialize mock view model.
         
         Args:
             current_events: List of current events
             next_events: List of next events
+            later_events: List of later events
             display_date: Display date
+            current_time: Current time
+            status_info: Status information
         """
         self.current_events = current_events or []
         self.next_events = next_events or []
+        self.later_events = later_events or []
         self.display_date = display_date
-        self.status_info = MagicMock()
-        self.status_info.is_cached = False
+        self.current_time = current_time or datetime.now()
+        
+        # Use provided status_info or create a default one
+        self.status_info = status_info or MockStatusInfo()
+        
+        self.weather_info = None
+        self.settings_data = None
     
     def get_next_event(self) -> Optional[MockEvent]:
         """Get next event.
@@ -157,6 +206,22 @@ class MockViewModel:
             Next event or None if no next events
         """
         return self.next_events[0] if self.next_events else None
+    
+    def get_current_event(self) -> Optional[MockEvent]:
+        """Get current event.
+        
+        Returns:
+            Current event or None if no current events
+        """
+        return self.current_events[0] if self.current_events else None
+    
+    def has_events(self) -> bool:
+        """Check if there are any events to display.
+        
+        Returns:
+            True if there are any events, False otherwise
+        """
+        return bool(self.next_events or self.current_events or self.later_events)
 
 
 @pytest.fixture
@@ -199,16 +264,29 @@ def mock_view_model_with_events() -> MockViewModel:
     current_event = MockEvent(
         subject="Current Meeting",
         time_until_minutes=0,
-        location="Conference Room A"
+        location="Conference Room A",
+        is_current=True,
+        is_upcoming=False
     )
     next_event = MockEvent(
         subject="Next Meeting",
         time_until_minutes=30,
-        location="Conference Room B"
+        location="Conference Room B",
+        is_current=False,
+        is_upcoming=True
+    )
+    later_event = MockEvent(
+        subject="Later Meeting",
+        time_until_minutes=120,
+        location="Conference Room C",
+        is_current=False,
+        is_upcoming=True
     )
     return MockViewModel(
         current_events=[current_event],
-        next_events=[next_event]
+        next_events=[next_event],
+        later_events=[later_event],
+        current_time=datetime.now()
     )
 
 
@@ -282,17 +360,19 @@ class TestEInkWhatsNextRendererCore:
         """
         renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
         
-        # Mock the internal render methods
-        renderer._can_do_partial_update = MagicMock(return_value=False)
-        renderer._render_full_image = MagicMock(return_value=Image.new("L", (100, 100)))
-        
-        result = renderer.render(mock_view_model_with_events)
-        
-        assert isinstance(result, Image.Image)
-        renderer._can_do_partial_update.assert_called_once_with(mock_view_model_with_events)
-        renderer._render_full_image.assert_called_once_with(mock_view_model_with_events)
-        assert renderer._last_view_model == mock_view_model_with_events
-        assert renderer._last_rendered_content is not None
+        # Mock the HTML converter to be None to skip HTML-to-PNG conversion
+        with patch.object(renderer, "html_converter", None):
+            # Mock the internal render methods
+            renderer._can_do_partial_update = MagicMock(return_value=False)
+            renderer._render_full_image = MagicMock(return_value=Image.new("L", (100, 100)))
+            
+            result = renderer.render(mock_view_model_with_events)
+            
+            assert isinstance(result, Image.Image)
+            renderer._can_do_partial_update.assert_called_once_with(mock_view_model_with_events)
+            renderer._render_full_image.assert_called_once_with(mock_view_model_with_events)
+            assert renderer._last_view_model == mock_view_model_with_events
+            assert renderer._last_rendered_content is not None
     
     def test_render_when_partial_update_possible_then_uses_partial_update(
         self, mock_settings: Dict[str, Any], mock_display: MockDisplay, mock_view_model_with_events: MockViewModel
@@ -306,15 +386,17 @@ class TestEInkWhatsNextRendererCore:
         """
         renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
         
-        # Mock the internal render methods
-        renderer._can_do_partial_update = MagicMock(return_value=True)
-        renderer._render_partial_update = MagicMock(return_value=Image.new("L", (100, 100)))
-        
-        result = renderer.render(mock_view_model_with_events)
-        
-        assert isinstance(result, Image.Image)
-        renderer._can_do_partial_update.assert_called_once_with(mock_view_model_with_events)
-        renderer._render_partial_update.assert_called_once_with(mock_view_model_with_events)
+        # Mock the HTML converter to be None to skip HTML-to-PNG conversion
+        with patch.object(renderer, "html_converter", None):
+            # Mock the internal render methods
+            renderer._can_do_partial_update = MagicMock(return_value=True)
+            renderer._render_partial_update = MagicMock(return_value=Image.new("L", (100, 100)))
+            
+            result = renderer.render(mock_view_model_with_events)
+            
+            assert isinstance(result, Image.Image)
+            renderer._can_do_partial_update.assert_called_once_with(mock_view_model_with_events)
+            renderer._render_partial_update.assert_called_once_with(mock_view_model_with_events)
     
     def test_render_when_exception_occurs_then_returns_error_image(
         self, mock_settings: Dict[str, Any], mock_display: MockDisplay, mock_view_model_with_events: MockViewModel
@@ -328,16 +410,18 @@ class TestEInkWhatsNextRendererCore:
         """
         renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
         
-        # Mock the internal render methods to raise an exception
-        renderer._can_do_partial_update = MagicMock(side_effect=ValueError("Test error"))
-        renderer._render_error_image = MagicMock(return_value=Image.new("L", (100, 100)))
-        
-        result = renderer.render(mock_view_model_with_events)
-        
-        assert isinstance(result, Image.Image)
-        renderer._can_do_partial_update.assert_called_once_with(mock_view_model_with_events)
-        renderer._render_error_image.assert_called_once()
-        assert "Test error" in renderer._render_error_image.call_args[0][0]
+        # Mock the HTML converter to be None to skip HTML-to-PNG conversion
+        with patch.object(renderer, "html_converter", None):
+            # Mock the internal render methods to raise an exception
+            renderer._can_do_partial_update = MagicMock(side_effect=ValueError("Test error"))
+            renderer._render_error_image = MagicMock(return_value=Image.new("L", (100, 100)))
+            
+            result = renderer.render(mock_view_model_with_events)
+            
+            assert isinstance(result, Image.Image)
+            renderer._can_do_partial_update.assert_called_once_with(mock_view_model_with_events)
+            renderer._render_error_image.assert_called_once()
+            assert "Test error" in renderer._render_error_image.call_args[0][0]
     
     def test_update_display_when_valid_image_then_returns_true(
         self, mock_settings: Dict[str, Any], mock_display: MockDisplay

@@ -14,7 +14,7 @@ This guide provides complete instructions for installing and setting up Calendar
 
 ### System Requirements
 
-- **Python 3.8 or higher** with pip
+- **Python 3.9 or higher** with pip
 - **Git** for cloning the repository
 - **Internet connection** for accessing calendar feeds
 
@@ -99,6 +99,20 @@ python-dateutil>=2.8.0    # Date parsing
 pytz>=2023.3          # Timezone support
 cryptography>=41.0.0  # Secure credentials
 APScheduler>=3.10.0   # Task scheduling
+psutil>=5.8.0         # System monitoring
+Pillow>=9.0.0         # Image processing
+numpy>=1.20.0         # Numerical operations
+```
+
+### Optional Dependencies
+
+For Raspberry Pi e-paper display support, additional packages are required:
+
+```bash
+# Install Raspberry Pi dependencies
+pip install "calendarbot[rpi]"
+# or
+pip install RPi.GPIO>=0.7.1 spidev>=3.5
 ```
 
 ## Troubleshooting

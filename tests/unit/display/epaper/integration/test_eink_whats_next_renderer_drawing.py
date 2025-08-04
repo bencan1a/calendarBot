@@ -12,6 +12,8 @@ import pytest
 from unittest.mock import MagicMock, patch, PropertyMock, call
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
+from calendarbot.display.epaper.capabilities import DisplayCapabilities
+
 from PIL import Image, ImageDraw, ImageFont
 
 from calendarbot.display.epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer
@@ -19,7 +21,7 @@ from calendarbot.display.epaper.abstraction import DisplayAbstractionLayer
 from calendarbot.display.epaper.utils.colors import convert_to_pil_color, EPaperColors
 
 
-class MockDisplayCapabilities:
+class MockDisplayCapabilities(DisplayCapabilities):
     """Mock display capabilities for testing."""
     
     def __init__(
@@ -41,12 +43,14 @@ class MockDisplayCapabilities:
             supports_grayscale: Whether grayscale is supported
             supports_red: Whether red color is supported
         """
-        self.width = width
-        self.height = height
-        self.colors = colors
-        self.supports_partial_update = supports_partial_update
-        self.supports_grayscale = supports_grayscale
-        self.supports_red = supports_red
+        super().__init__(
+            width=width,
+            height=height,
+            colors=colors,
+            supports_partial_update=supports_partial_update,
+            supports_grayscale=supports_grayscale,
+            supports_red=supports_red
+        )
 
 
 class MockDisplay(DisplayAbstractionLayer):
@@ -81,20 +85,20 @@ class MockDisplay(DisplayAbstractionLayer):
         self.initialize_called = True
         return self.initialize_success
     
-    def render(self, buffer: Any) -> bool:
+    def render(self, content: Any) -> bool:
         """Mock render method.
         
         Args:
-            buffer: Display buffer to render
+            content: Display content to render
             
         Returns:
             True if render was successful based on render_success
         """
         self.render_called = True
-        self.render_buffer = buffer
+        self.render_buffer = content
         return self.render_success
     
-    def get_capabilities(self) -> MockDisplayCapabilities:
+    def get_capabilities(self) -> DisplayCapabilities:
         """Get display capabilities.
         
         Returns:
@@ -517,21 +521,25 @@ class TestEInkWhatsNextRendererDrawing:
             mock_truetype = MagicMock(spec=ImageFont.FreeTypeFont)
             mock_font.truetype.return_value = mock_truetype
             
-            # Create renderer to trigger font loading
+            # Create renderer
             renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
+            
+            # Load fonts manually for testing
+            for font_key in ["countdown", "title", "subtitle", "body", "small"]:
+                renderer._get_font(font_key)
             
             # Verify truetype fonts were loaded
             assert mock_font.truetype.call_count == 5, "Should load 5 truetype fonts"
             
-            # Verify font dictionary structure
-            assert "countdown" in renderer._fonts
-            assert "title" in renderer._fonts
-            assert "subtitle" in renderer._fonts
-            assert "body" in renderer._fonts
-            assert "small" in renderer._fonts
+            # Verify font cache structure
+            assert "countdown" in renderer._font_cache
+            assert "title" in renderer._font_cache
+            assert "subtitle" in renderer._font_cache
+            assert "body" in renderer._font_cache
+            assert "small" in renderer._font_cache
             
             # Verify all fonts are truetype
-            for font in renderer._fonts.values():
+            for font in renderer._font_cache.values():
                 assert font is mock_truetype, "All fonts should be truetype"
     
     def test_load_fonts_when_system_fonts_unavailable_then_falls_back_to_default(
@@ -551,8 +559,12 @@ class TestEInkWhatsNextRendererDrawing:
             mock_default = MagicMock(spec=ImageFont.ImageFont)
             mock_font.load_default.return_value = mock_default
             
-            # Create renderer to trigger font loading
+            # Create renderer
             renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
+            
+            # Load fonts manually for testing
+            for font_key in ["countdown", "title", "subtitle", "body", "small"]:
+                renderer._get_font(font_key)
             
             # Verify truetype fonts were attempted
             assert mock_font.truetype.call_count > 0, "Should attempt to load truetype fonts"
@@ -561,20 +573,20 @@ class TestEInkWhatsNextRendererDrawing:
             assert mock_font.load_default.call_count > 0, "Should load default fonts"
             
             # Verify font dictionary structure
-            assert "countdown" in renderer._fonts
-            assert "title" in renderer._fonts
-            assert "subtitle" in renderer._fonts
-            assert "body" in renderer._fonts
-            assert "small" in renderer._fonts
+            assert "countdown" in renderer._font_cache
+            assert "title" in renderer._font_cache
+            assert "subtitle" in renderer._font_cache
+            assert "body" in renderer._font_cache
+            assert "small" in renderer._font_cache
             
             # Verify all fonts are default
-            for font in renderer._fonts.values():
+            for font in renderer._font_cache.values():
                 assert font is mock_default, "All fonts should be default"
     
-    def test_load_fonts_when_called_then_returns_correct_dictionary_structure(
+    def test_load_fonts_when_called_then_returns_empty_dictionary_for_lazy_loading(
         self, mock_settings: Dict[str, Any], mock_display: MockDisplay
     ) -> None:
-        """Test _load_fonts returns correct dictionary structure.
+        """Test _load_fonts returns empty dictionary for lazy loading.
         
         Args:
             mock_settings: Mock settings
@@ -587,18 +599,18 @@ class TestEInkWhatsNextRendererDrawing:
             # Create renderer
             renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
             
-            # Get fonts dictionary
-            fonts = renderer._fonts
+            # Get fonts dictionary from _load_fonts method
+            fonts = renderer._load_fonts()
             
-            # Verify dictionary structure
+            # Verify it returns an empty dictionary for lazy loading
             assert isinstance(fonts, dict), "Should return a dictionary"
-            assert len(fonts) == 5, "Should contain 5 font entries"
+            assert len(fonts) == 0, "Should return an empty dictionary for lazy loading"
             
-            # Verify required font keys
+            # Load fonts manually and verify they're loaded correctly
             required_keys = ["countdown", "title", "subtitle", "body", "small"]
             for key in required_keys:
-                assert key in fonts, f"Should contain '{key}' font"
-                assert fonts[key] is not None, f"'{key}' font should not be None"
+                font = renderer._get_font(key)
+                assert font is not None, f"'{key}' font should not be None when loaded via _get_font"
     
     def test_convert_to_pil_color_when_monochrome_mode_then_returns_binary_value(self) -> None:
         """Test convert_to_pil_color with monochrome mode.
@@ -637,6 +649,12 @@ class TestEInkWhatsNextRendererDrawing:
         medium_gray_result = convert_to_pil_color("#777777", mode="L")
         light_gray_result = convert_to_pil_color("#cccccc", mode="L")
         
+        # Ensure we're working with integers for comparison
+        assert isinstance(dark_gray_result, int), "Grayscale conversion should return an integer"
+        assert isinstance(medium_gray_result, int), "Grayscale conversion should return an integer"
+        assert isinstance(light_gray_result, int), "Grayscale conversion should return an integer"
+        
+        # Now compare the integer values
         assert 0 < dark_gray_result < medium_gray_result < light_gray_result < 255, "Grayscale values should be ordered by intensity"
     
     def test_convert_to_pil_color_when_rgb_mode_then_returns_rgb_tuple(self) -> None:

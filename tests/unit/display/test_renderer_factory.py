@@ -42,25 +42,36 @@ class TestRendererFactory:
 
     def test_create_renderer_rpi_type(self, mock_settings) -> None:
         """Test creating Raspberry Pi renderer."""
-        with patch("calendarbot.display.renderer_factory.RaspberryPiHTMLRenderer") as mock_rpi:
+        with patch("calendarbot.display.renderer_factory.WhatsNextRenderer") as mock_whats_next:
             mock_renderer = Mock()
-            mock_rpi.return_value = mock_renderer
+            mock_whats_next.return_value = mock_renderer
 
             result = RendererFactory.create_renderer("rpi", mock_settings)
 
             assert result == mock_renderer
-            mock_rpi.assert_called_once_with(mock_settings)
+            mock_whats_next.assert_called_once_with(mock_settings)
 
     def test_create_renderer_compact_type(self, mock_settings) -> None:
         """Test creating compact eink renderer."""
-        with patch("calendarbot.display.renderer_factory.CompactEInkRenderer") as mock_compact:
+        with patch("calendarbot.display.renderer_factory.EInkWhatsNextRenderer_TYPE") as mock_eink:
             mock_renderer = Mock()
-            mock_compact.return_value = mock_renderer
+            mock_eink.return_value = mock_renderer
 
             result = RendererFactory.create_renderer("compact", mock_settings)
 
             assert result == mock_renderer
-            mock_compact.assert_called_once_with(mock_settings)
+            mock_eink.assert_called_once_with(mock_settings)
+
+    def test_create_renderer_epaper_type(self, mock_settings) -> None:
+        """Test creating epaper renderer."""
+        with patch("calendarbot.display.renderer_factory.EInkWhatsNextRenderer_TYPE") as mock_eink:
+            mock_renderer = Mock()
+            mock_eink.return_value = mock_renderer
+
+            result = RendererFactory.create_renderer("epaper", mock_settings)
+
+            assert result == mock_renderer
+            mock_eink.assert_called_once_with(mock_settings)
 
     def test_create_renderer_unknown_type_defaults_to_console(self, mock_settings) -> None:
         """Test creating renderer with unknown type defaults to console."""
@@ -109,7 +120,7 @@ class TestRendererFactory:
         """Test getting list of available renderer types."""
         types = RendererFactory.get_available_renderers()
 
-        expected_types = ["html", "rpi", "compact", "console", "whats-next", "eink-whats-next"]
+        expected_types = ["html", "console", "whats-next", "epaper", "eink-whats-next"]
         assert types == expected_types
 
     def test_detect_device_type_rpi_environment(self) -> None:
@@ -156,15 +167,19 @@ class TestRendererFactory:
         [
             ("console", "ConsoleRenderer"),
             ("html", "HTMLRenderer"),
-            ("rpi", "RaspberryPiHTMLRenderer"),
-            ("compact", "CompactEInkRenderer"),
+            ("whats-next", "WhatsNextRenderer"),
+            ("eink-whats-next", "EInkWhatsNextRenderer"),
+            ("epaper", "EInkWhatsNextRenderer"),
         ],
     )
     def test_create_renderer_type_mapping(
         self, mock_settings, renderer_type: str, expected_class: str
     ) -> None:
         """Test renderer type to class mapping."""
-        mock_module = f"calendarbot.display.renderer_factory.{expected_class}"
+        if expected_class == "EInkWhatsNextRenderer":
+            mock_module = "calendarbot.display.renderer_factory.EInkWhatsNextRenderer_TYPE"
+        else:
+            mock_module = f"calendarbot.display.renderer_factory.{expected_class}"
 
         with patch(mock_module) as mock_renderer_class:
             mock_renderer = Mock()
@@ -307,8 +322,8 @@ class TestRendererFactoryIntegration:
         """Test device type to renderer type mapping."""
         from calendarbot.display.renderer_factory import _map_device_to_renderer
 
-        assert _map_device_to_renderer("compact") == "compact"
-        assert _map_device_to_renderer("rpi") == "rpi"
+        assert _map_device_to_renderer("compact") == "epaper"
+        assert _map_device_to_renderer("rpi") == "whats-next"
         assert _map_device_to_renderer("desktop") == "html"
         assert _map_device_to_renderer("unknown") == "console"
 

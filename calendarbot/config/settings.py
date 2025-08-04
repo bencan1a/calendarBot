@@ -337,7 +337,7 @@ class CalendarBotSettings(BaseSettings):
     # Display Settings
     display_enabled: bool = Field(default=True, description="Enable display output")
     display_type: str = Field(
-        default="console", description="Renderer type: console, html, rpi, compact, eink-whats-next"
+        default="console", description="Renderer type: console, html, whats-next, epaper, rpi, compact, eink-whats-next"
     )
 
     # Generic Display Dimensions (used by tests and some renderers)
