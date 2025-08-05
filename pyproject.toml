@@ -62,6 +62,7 @@ dependencies = [
     # E-Paper display dependencies (now core features)
     "Pillow>=9.0.0",
     "numpy>=1.20.0",
+    "html2image>=2.0.0",
 ]
 
 [project.optional-dependencies]
