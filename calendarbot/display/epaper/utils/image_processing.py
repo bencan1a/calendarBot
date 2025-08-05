@@ -226,3 +226,59 @@ def create_test_pattern(width: int, height: int, has_red: bool = True) -> bytes:
 
     # Convert to e-Paper format
     return convert_image_to_epaper_format(image, red_threshold=200 if has_red else None)
+
+
+def create_epaper_preview_image(
+    image: Image.Image, threshold: int = 128, red_threshold: Optional[int] = None
+) -> Image.Image:
+    """Create a preview image showing how the e-Paper display would render the image.
+
+    This function processes an image pixel-by-pixel using the same logic as
+    convert_image_to_epaper_format() but creates a visual PIL image instead of binary data.
+
+    Args:
+        image: PIL Image to process
+        threshold: Threshold for black/white conversion (0-255)
+        red_threshold: Threshold for red conversion (0-255), None to disable red
+
+    Returns:
+        PIL Image showing black/white/red pixels as they would appear on e-Paper
+    """
+    # Ensure image is in RGB mode
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+
+    width, height = image.size
+
+    # Create a new image with the same dimensions
+    preview = Image.new("RGB", (width, height), (255, 255, 255))  # White background
+
+    # Process image pixel by pixel
+    for y in range(height):
+        for x in range(width):
+            # Get pixel color
+            pixel = image.getpixel((x, y))
+            if isinstance(pixel, (tuple, list)) and len(pixel) >= 3:
+                r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
+            else:
+                # Handle grayscale or other formats
+                val = int(pixel) if isinstance(pixel, (int, float)) else 0
+                r = g = b = val
+
+            # Apply the same logic as convert_image_to_epaper_format
+            if (
+                red_threshold is not None
+                and r > red_threshold
+                and g < red_threshold
+                and b < red_threshold
+            ):
+                # Red pixel
+                preview.putpixel((x, y), (255, 0, 0))  # Pure red
+            elif r < threshold and g < threshold and b < threshold:
+                # Black pixel
+                preview.putpixel((x, y), (0, 0, 0))  # Pure black
+            else:
+                # White pixel (already set in background)
+                pass
+
+    return preview

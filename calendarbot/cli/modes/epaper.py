@@ -235,8 +235,10 @@ async def _handle_render_error(
         if context.hardware_available:
             context.epaper_renderer.update_display(error_image)
         else:
-            error_path = save_png_emulation(error_image, f"error_{render_count + 1}")
-            print(f"Error display saved to: {error_path}")
+            png_path, processed_path = save_png_emulation(error_image, f"error_{render_count + 1}")
+            print(f"Error display saved to: {png_path}")
+            if processed_path:
+                print(f"Processed e-paper visualization saved to: {processed_path}")
     except Exception:
         logger.exception("Failed to render error display")
 
@@ -332,10 +334,12 @@ async def _run_epaper_main_loop(context: EpaperModeContext) -> None:  # noqa: PL
                 else:
                     logger.warning(f"Failed to update e-paper display (cycle {render_count + 1})")
             else:
-                # Save as PNG for emulation mode
-                output_path = save_png_emulation(rendered_image, render_count + 1)
-                logger.info(f"Saved PNG emulation to: {output_path}")
-                print(f"Calendar rendered to: {output_path}")
+                # Save as PNG for emulation mode and also save processed visualization
+                png_path, processed_path = save_png_emulation(rendered_image, render_count + 1)
+                logger.info(f"Saved PNG emulation to: {png_path}")
+                if processed_path:
+                    logger.info(f"Saved processed e-paper visualization to: {processed_path}")
+                print(f"Calendar rendered to: {png_path}")
 
             render_count += 1
 
@@ -528,15 +532,16 @@ def detect_epaper_hardware() -> bool:
         return False
 
 
-def save_png_emulation(image: Any, cycle_number: Union[int, str]) -> Path:
-    """Save rendered image as PNG for emulation mode.
+def save_png_emulation(image: Any, cycle_number: Union[int, str]) -> tuple[Path, Optional[Path]]:
+    """Save rendered image as PNG for emulation mode and also save a processed version
+    showing how it would appear on the e-paper display.
 
     Args:
         image: PIL Image to save
         cycle_number: Render cycle number for filename (int or str)
 
     Returns:
-        Path to saved PNG file
+        Tuple of (Path to saved PNG file, Path to saved processed BMP file)
     """
     # Create output directory if it doesn't exist
     output_dir = Path("epaper_output")
@@ -545,17 +550,35 @@ def save_png_emulation(image: Any, cycle_number: Union[int, str]) -> Path:
     # Generate filename with timestamp and cycle number
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if isinstance(cycle_number, str):
-        filename = f"calendar_epaper_{timestamp}_{cycle_number}.png"
+        base_filename = f"calendar_epaper_{timestamp}_{cycle_number}"
     else:
-        filename = f"calendar_epaper_{timestamp}_cycle{cycle_number:03d}.png"
+        base_filename = f"calendar_epaper_{timestamp}_cycle{cycle_number:03d}"
 
-    output_path = output_dir / filename
+    png_filename = f"{base_filename}.png"
+    processed_filename = f"{base_filename}_processed.bmp"
 
-    # Save the image
-    image.save(output_path, "PNG")
-    logger.debug(f"Saved PNG emulation: {output_path}")
+    png_path = output_dir / png_filename
+    processed_path = output_dir / processed_filename
 
-    return output_path
+    # Save the original image
+    image.save(png_path, "PNG")
+    logger.debug(f"Saved PNG emulation: {png_path}")
+
+    # Create and save the processed image
+    from calendarbot.display.epaper.utils.image_processing import create_epaper_preview_image  # noqa: I001, PLC0415
+
+    try:
+        # Default thresholds for black/white/red conversion
+        processed_image = create_epaper_preview_image(image, threshold=128, red_threshold=200)
+        processed_image.save(processed_path, "BMP")
+        logger.debug(f"Saved processed BMP emulation: {processed_path}")
+    except Exception:
+        logger.exception("Failed to create processed image")
+        logger.debug(traceback.format_exc())
+        # Return only the PNG path if processing fails
+        return (png_path, None)
+
+    return png_path, processed_path
 
 
 def apply_epaper_mode_overrides(settings: Any, _args: Any) -> Any:
