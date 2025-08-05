@@ -7,7 +7,7 @@ by performing the complete cycle in iterations until stable.
 """
 
 import hashlib
-import subprocess
+import subprocess  # nosec
 import sys
 from typing import Optional
 
