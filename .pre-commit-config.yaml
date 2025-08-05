@@ -51,32 +51,14 @@ repos:
         exclude: ^(tests/|docs/|scripts/|backup/|\.venv/|venv/)
         additional_dependencies: ["bandit[toml]"]
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.17.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.7
     hooks:
-      - id: mypy
-        name: "Type Checking (Full Scope)"
+      - id: ruff-check
+        name: "Ruff Linter (includes type checking)"
         files: ^calendarbot/.*\.py$
         exclude: ^(tests/|docs/|scripts/|backup/|\.venv/|venv/)
-        args: [--config-file=pyproject.toml]
-        additional_dependencies:
-          [
-            types-PyYAML,
-            types-requests,
-            types-psutil,
-            types-pytz,
-            types-python-dateutil,
-            types-setuptools,
-            pydantic>=2.0.0,
-            pydantic-settings>=2.0.0,
-            httpx>=0.25.0,
-            pytest>=7.4.0,
-            pytest-asyncio>=0.21.0,
-            aiosqlite>=0.19.0,
-            icalendar>=5.0.0,
-            APScheduler>=3.10.0,
-            cryptography>=41.0.0,
-          ]
+        args: [--config=pyproject.toml]
 
       # ============================================================================
       # STAGE 3: Smart Test Execution (90-390 seconds)
@@ -133,21 +115,13 @@ repos:
         name: "Fix Requirements.txt"
         stages: [manual]
 
-  - repo: https://github.com/psf/black
-    rev: 24.4.2
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.7
     hooks:
-      - id: black
+      - id: ruff-format
         name: "Auto-fix Code Formatting"
-        args: [--line-length=100]
+        args: [--config=pyproject.toml]
         language_version: python3
-        stages: [manual]
-
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        name: "Auto-fix Import Sorting"
-        args: [--profile=black, --line-length=100]
         stages: [manual]
 
 # ============================================================================

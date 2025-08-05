@@ -2,7 +2,7 @@
 
 import logging
 import platform
-import subprocess
+import subprocess  # nosec
 from pathlib import Path
 from typing import Any, Optional, cast
 
@@ -221,7 +221,7 @@ def _has_compact_display() -> bool:
 
         # Check for SPI devices (common for e-ink displays)
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec
                 ["ls", "/dev/spi*"], check=False, capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0 and result.stdout.strip():
@@ -250,7 +250,7 @@ def _map_device_to_renderer(device_type: str) -> str:
         "desktop": "html",
         "unknown": "console",
         "rpi": "whats-next",
-        "compact": "epaper"  # Updated to use the new standardized "epaper" type
+        "compact": "epaper",  # Updated to use the new standardized "epaper" type
     }
     return mapping.get(device_type, "console")
 
@@ -274,13 +274,17 @@ def _create_renderer_instance(renderer_type: str, settings: Any) -> RendererProt
         "whats-next": WhatsNextRenderer,
         # Legacy type mappings for backward compatibility
         "rpi": WhatsNextRenderer,
-        "compact": EInkWhatsNextRenderer_TYPE if EPAPER_AVAILABLE and EInkWhatsNextRenderer_TYPE is not None else ConsoleRenderer,
+        "compact": EInkWhatsNextRenderer_TYPE
+        if EPAPER_AVAILABLE and EInkWhatsNextRenderer_TYPE is not None
+        else ConsoleRenderer,
     }
 
     # Add e-Paper renderer if available
     if EPAPER_AVAILABLE and EInkWhatsNextRenderer_TYPE is not None:
         renderer_classes["eink-whats-next"] = EInkWhatsNextRenderer_TYPE
-        renderer_classes["epaper"] = EInkWhatsNextRenderer_TYPE  # Add direct mapping for "epaper" display_type
+        renderer_classes["epaper"] = (
+            EInkWhatsNextRenderer_TYPE  # Add direct mapping for "epaper" display_type
+        )
 
     renderer_class = renderer_classes.get(renderer_type)
     if renderer_class is None:

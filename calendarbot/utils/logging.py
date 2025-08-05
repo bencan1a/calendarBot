@@ -240,7 +240,7 @@ class SplitDisplayHandler(logging.Handler):
                 cast(ConsoleRendererProtocol, self.display_manager.renderer).update_log_area(
                     list(self.log_buffer)
                 )
-        except Exception:
+        except Exception:  # nosec
             # Don't let logging errors break the application
             pass
 

@@ -236,7 +236,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         else:
             self._send_json_response(500, {"error": "Web server not available"})
 
-
     def _handle_layout_api(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
         """Handle layout switching API requests."""
         if isinstance(params, dict) and "layout" in params:
@@ -315,7 +314,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         status = self.web_server.get_status()
         self._send_json_response(200, status)
-
 
     def _handle_settings_api(
         self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
@@ -776,8 +774,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         try:
             # Remove /static/ prefix
             file_path = path[8:]  # Remove '/static/'
-            logger.debug(f"STATIC_FILE_REQUEST: Extracted file path: {file_path}")
-            logger.debug(f"STATIC_FILE_REQUEST: Original path: {path}")
 
             # Try to find file in multiple locations
             full_path = None
@@ -788,13 +784,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 layouts_dir = Path(__file__).parent.parent / "layouts"
                 layout_file_path = file_path[8:]  # Remove 'layouts/' prefix
                 layout_path = layouts_dir / layout_file_path
-                logger.debug(f"STATIC_FILE_REQUEST: layouts_dir: {layouts_dir}")
-                logger.debug(f"STATIC_FILE_REQUEST: layout_file_path: {layout_file_path}")
-                logger.debug(f"STATIC_FILE_REQUEST: layout_path: {layout_path}")
-                logger.debug(f"STATIC_FILE_REQUEST: layout_path.exists(): {layout_path.exists()}")
-                logger.debug(
-                    f"STATIC_FILE_REQUEST: layout_path.is_file(): {layout_path.is_file() if layout_path.exists() else 'N/A'}"
-                )
 
                 # Security check - ensure file exists, is a file, and is within layouts directory
                 if (
@@ -803,13 +792,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     and str(layout_path.resolve()).startswith(str(layouts_dir.resolve()))
                 ):
                     full_path = layout_path
-                    logger.debug("STATIC_FILE_REQUEST: Found in layout directory")
 
             # If not found in layouts, try the legacy static directory (web/static)
             if not full_path:
                 static_dir = Path(__file__).parent / "static"
                 legacy_path = static_dir / file_path
-                logger.debug(f"STATIC_FILE_REQUEST: Checking legacy path: {legacy_path}")
 
                 # Security check - ensure file exists, is a file, and is within static directory
                 if (
@@ -818,22 +805,15 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     and str(legacy_path.resolve()).startswith(str(static_dir.resolve()))
                 ):
                     full_path = legacy_path
-                    logger.debug("STATIC_FILE_REQUEST: Found in legacy static directory")
 
             # If not found in legacy, try the layout directories with filename matching
             if not full_path:
                 layouts_dir = Path(__file__).parent.parent / "layouts"
-                logger.debug(
-                    f"STATIC_FILE_REQUEST: Checking layouts directory with filename matching: {layouts_dir}"
-                )
 
                 # Check if file matches layout pattern (e.g., "4x8.css" -> "layouts/4x8/4x8.css")
                 if "." in file_path:
                     name_part = file_path.split(".")[0]  # e.g., "4x8" from "4x8.css"
                     layout_path = layouts_dir / name_part / file_path
-                    logger.debug(
-                        f"STATIC_FILE_REQUEST: Checking layout filename match path: {layout_path}"
-                    )
 
                     # Security check - ensure file exists, is a file, and is within layouts directory
                     if (
@@ -842,14 +822,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                         and str(layout_path.resolve()).startswith(str(layouts_dir.resolve()))
                     ):
                         full_path = layout_path
-                        logger.debug(
-                            "STATIC_FILE_REQUEST: Found via filename matching in layout directory"
-                        )
-
-            logger.debug(f"STATIC_FILE_REQUEST: Final path resolved: {full_path}")
-            logger.debug(
-                f"STATIC_FILE_REQUEST: File exists: {full_path.exists() if full_path else False}"
-            )
 
             if full_path and full_path.exists() and full_path.is_file():
                 # Determine content type
@@ -857,15 +829,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 if not content_type:
                     content_type = "text/plain"
 
-                logger.debug(f"STATIC_FILE_REQUEST: Serving file with content type: {content_type}")
-
                 # Read and serve file
                 with full_path.open("rb") as f:
                     content = f.read()
-
-                logger.debug(
-                    f"STATIC_FILE_REQUEST: Successfully serving {file_path} ({len(content)} bytes)"
-                )
 
                 # Send binary response directly
                 self.send_response(200)
@@ -1295,7 +1261,6 @@ class WebServer:
         except Exception:
             logger.exception(f"Error handling navigation action '{action}'")
             return False
-
 
     def toggle_layout(self) -> str:
         """Toggle between layouts (alias for cycle_layout for backward compatibility).

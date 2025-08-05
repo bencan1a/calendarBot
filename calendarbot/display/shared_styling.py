@@ -6,7 +6,7 @@ between web (HTML) and e-paper (PIL) renderers. It extracts styling values from 
 WhatsNextRenderer CSS and provides them in formats suitable for different rendering backends.
 """
 
-from typing import Literal, Union, cast
+from typing import Any, ClassVar, Literal, Union, cast
 
 
 class SharedStylingConstants:
@@ -18,50 +18,49 @@ class SharedStylingConstants:
     """
 
     # Color constants extracted from WhatsNextRenderer CSS
-    COLORS = {
+    COLORS: ClassVar[dict[str, str]] = {
         "background": "#ffffff",  # White background
         "background_secondary": "#f5f5f5",  # Light gray for secondary backgrounds
         "text_primary": "#212529",  # Dark gray for primary text
         "text_secondary": "#6c757d",  # Medium gray for secondary text
         "text_supporting": "#adb5bd",  # Light gray for supporting text
         "accent": "#007bff",  # Blue for accent elements
-        "urgent": "#dc3545"  # Red for urgent elements
+        "urgent": "#dc3545",  # Red for urgent elements
     }
 
     # Typography constants with both HTML and PIL formats
-    TYPOGRAPHY = {
+    TYPOGRAPHY: ClassVar[dict[str, dict[str, Any]]] = {
         "html": {
             "countdown": "30px",  # Large font for countdown timer
             "title": "24px",  # Large font for titles
             "subtitle": "18px",  # Medium font for subtitles
             "body": "14px",  # Regular font for body text
-            "small": "12px"  # Small font for supporting text
+            "small": "12px",  # Small font for supporting text
         },
         "pil": {
             "countdown": 30,  # Numeric equivalent for PIL
             "title": 24,
             "subtitle": 18,
             "body": 14,
-            "small": 12
-        }
+            "small": 12,
+        },
     }
 
     # Layout constants for different display types
-    LAYOUTS = {
+    LAYOUTS: ClassVar[dict[str, dict[str, Any]]] = {
         "web": {
             "width": "100%",  # Responsive width
-            "height": "100vh"  # Viewport height
+            "height": "100vh",  # Viewport height
         },
         "epaper_waveshare_42": {
             "width": 400,  # Fixed width for Waveshare 4.2" e-paper display
-            "height": 300  # Fixed height for Waveshare 4.2" e-paper display
-        }
+            "height": 300,  # Fixed height for Waveshare 4.2" e-paper display
+        },
     }
 
 
 def get_colors_for_renderer(
-    renderer_type: Literal["html", "pil"],
-    mode: str = "L"
+    renderer_type: Literal["html", "pil"], mode: str = "L"
 ) -> dict[str, Union[str, int, tuple[int, int, int]]]:
     """
     Get colors formatted for the specified renderer type.
@@ -88,7 +87,7 @@ def get_colors_for_renderer(
 
 
 def get_typography_for_renderer(
-    renderer_type: Literal["html", "pil"]
+    renderer_type: Literal["html", "pil"],
 ) -> dict[str, Union[str, int]]:
     """
     Get typography formatted for the specified renderer type.
@@ -109,9 +108,7 @@ def get_typography_for_renderer(
     raise ValueError(f"Unsupported renderer type: {renderer_type}")
 
 
-def get_layout_for_renderer(
-    renderer_type: Literal["html", "epaper"]
-) -> dict[str, Union[str, int]]:
+def get_layout_for_renderer(renderer_type: Literal["html", "epaper"]) -> dict[str, Union[str, int]]:
     """
     Get layout dimensions for the specified renderer type.
 
@@ -131,10 +128,7 @@ def get_layout_for_renderer(
     raise ValueError(f"Unsupported renderer type: {renderer_type}")
 
 
-def convert_web_to_pil_color(
-    hex_color: str,
-    mode: str = "L"
-) -> Union[int, tuple[int, int, int]]:
+def convert_web_to_pil_color(hex_color: str, mode: str = "L") -> Union[int, tuple[int, int, int]]:
     """
     Convert a web hex color to a PIL-compatible color value.
 
@@ -169,7 +163,7 @@ def convert_web_to_pil_color(
         if mode == "RGB":  # RGB color
             return (r, g, b)
 
-        raise ValueError(f"Unsupported PIL image mode: {mode}")
+        raise ValueError(f"Unsupported PIL image mode: {mode}")  # noqa: TRY301
 
     except ValueError as e:
         raise ValueError(f"Invalid hex color: {hex_color}") from e

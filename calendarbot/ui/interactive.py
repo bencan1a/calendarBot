@@ -181,7 +181,7 @@ class InteractiveController:
                 for event in events[:3]:  # Log first 3 events
                     try:
                         logger.debug(f"Event - {event.subject} at {event.start_datetime}")
-                    except AttributeError:
+                    except AttributeError:  # noqa: PERF203
                         logger.debug("Event details not available for logging")
 
             # Prepare status information
@@ -330,7 +330,9 @@ class InteractiveController:
             logger.exception(f"Failed to get events for week containing {target_date}")
             return {}
 
-    def _process_event_for_date_grouping(self, event: CachedEvent, events_by_date: dict[date, list[CachedEvent]]) -> None:
+    def _process_event_for_date_grouping(
+        self, event: CachedEvent, events_by_date: dict[date, list[CachedEvent]]
+    ) -> None:
         """Process a single event for date grouping, avoiding try/except overhead in loops.
 
         Args:

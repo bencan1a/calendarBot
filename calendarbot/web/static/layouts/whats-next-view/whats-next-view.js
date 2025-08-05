@@ -990,11 +990,11 @@ function updateMeetingDisplayOptimized() {
     const isCurrentMeeting = now >= meetingStart && now <= meetingEnd;
     const statusText = isCurrentMeeting ? 'In Progress' : 'Upcoming';
 
-    // Generate new values for change detection
-    const newMeetingTitle = escapeHtml(currentMeeting.title);
+    // Generate new values for change detection (no HTML escaping needed for textContent)
+    const newMeetingTitle = currentMeeting.title;
     const newMeetingTime = formatMeetingTime(currentMeeting.start_time, currentMeeting.end_time);
-    const newMeetingLocation = currentMeeting.location ? escapeHtml(currentMeeting.location) : '';
-    const newMeetingDescription = currentMeeting.description ? escapeHtml(currentMeeting.description) : '';
+    const newMeetingLocation = currentMeeting.location || '';
+    const newMeetingDescription = currentMeeting.description || '';
     const newContextMessage = getContextMessage(isCurrentMeeting);
     const newLayoutState = 'meeting';
 
