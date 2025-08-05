@@ -1,14 +1,13 @@
 """
 Standalone HTML renderer for html2image conversion.
 
-This renderer generates HTML with inline CSS and JS instead of external 
+This renderer generates HTML with inline CSS and JS instead of external
 resource references, making it suitable for html2image conversion without
 requiring a web server.
 """
 
 import logging
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Optional
 
 from ...shared_styling import get_colors_for_renderer
@@ -26,27 +25,24 @@ class StandaloneHtmlRenderer:
         logger.info("StandaloneHtmlRenderer initialized")
 
     def render_whats_next_view(
-        self, 
-        display_date: str = "", 
-        next_event: Optional[Any] = None,
-        status_message: str = ""
+        self, display_date: str = "", next_event: Optional[Any] = None, status_message: str = ""
     ) -> str:
         """Render What's Next view as standalone HTML.
-        
+
         Args:
             display_date: Date to display in header
             next_event: Next upcoming event data
             status_message: Status message to display
-            
+
         Returns:
             Complete standalone HTML document
         """
         # Generate CSS content
         css_content = self._generate_inline_css()
-        
+
         # Generate main content
         main_content = self._generate_main_content(next_event, status_message)
-        
+
         # Build complete HTML
         html = f"""<!DOCTYPE html>
 <html lang="en" class="layout-whats-next-view">
@@ -64,13 +60,13 @@ class StandaloneHtmlRenderer:
     </main>
 </body>
 </html>"""
-        
+
         logger.debug(f"Generated standalone HTML: {len(html)} characters")
         return html
 
     def _generate_inline_css(self) -> str:
         """Generate inline CSS for the What's Next view.
-        
+
         Returns:
             CSS content as string
         """
@@ -81,7 +77,7 @@ class StandaloneHtmlRenderer:
         text_secondary = self._colors.get("text_secondary", "#666666")
         text_supporting = self._colors.get("text_supporting", "#999999")
         accent = self._colors.get("accent", "#007bff")
-        
+
         css = f"""
 /* Reset and base styles */
 * {{
@@ -214,16 +210,16 @@ body {{
     border-radius: 6px;
 }}
 """
-        
-        return css
+
+        return css  # noqa: RET504
 
     def _generate_main_content(self, next_event: Optional[Any], status_message: str) -> str:
         """Generate main content HTML.
-        
+
         Args:
             next_event: Next event data
             status_message: Status message to display
-            
+
         Returns:
             Main content HTML
         """
@@ -237,28 +233,28 @@ body {{
         </div>"""
         else:
             # Format event information
-            event_title = self._escape_html(getattr(next_event, 'subject', 'Untitled Event'))
+            event_title = self._escape_html(getattr(next_event, "subject", "Untitled Event"))
             if len(event_title) > 30:
                 event_title = event_title[:30] + "..."
-            
+
             # Time information
             time_range = ""
-            if hasattr(next_event, 'formatted_time_range'):
+            if hasattr(next_event, "formatted_time_range"):
                 time_range = next_event.formatted_time_range
-            elif hasattr(next_event, 'format_time_range'):
+            elif hasattr(next_event, "format_time_range"):
                 time_range = next_event.format_time_range()
-            
+
             # Location information
             location_html = ""
-            if hasattr(next_event, 'location') and next_event.location:
+            if hasattr(next_event, "location") and next_event.location:
                 location = self._escape_html(next_event.location)
                 if len(location) > 25:
                     location = location[:25] + "..."
                 location_html = f'<div class="event-location">📍 {location}</div>'
-            
+
             # Time until start
             time_until_html = ""
-            if hasattr(next_event, 'time_until_minutes'):
+            if hasattr(next_event, "time_until_minutes"):
                 minutes = next_event.time_until_minutes
                 if minutes is not None:
                     if minutes <= 5:
@@ -275,9 +271,9 @@ body {{
                         else:
                             time_text = f"📅 Starts in {hours}h {remaining_mins}m"
                         urgency_class = ""
-                    
+
                     time_until_html = f'<div class="time-until{urgency_class}">{time_text}</div>'
-            
+
             content = f"""
         <div class="next-event">
             <div class="event-title">{event_title}</div>
@@ -285,26 +281,26 @@ body {{
             {location_html}
             {time_until_html}
         </div>"""
-        
+
         # Add status message if provided
         if status_message:
             status_html = f'<div class="status-message">{self._escape_html(status_message)}</div>'
             content += status_html
-        
+
         return content
 
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters.
-        
+
         Args:
             text: Text to escape
-            
+
         Returns:
             HTML-escaped text
         """
         if not text:
             return ""
-        
+
         return (
             text.replace("&", "&amp;")
             .replace("<", "&lt;")
@@ -316,7 +312,7 @@ body {{
 
 def create_standalone_html_renderer() -> StandaloneHtmlRenderer:
     """Create a standalone HTML renderer instance.
-    
+
     Returns:
         StandaloneHtmlRenderer instance
     """

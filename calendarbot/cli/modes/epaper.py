@@ -3,23 +3,40 @@
 This module provides the e-paper display mode functionality for Calendar Bot,
 including hardware detection, rendering, and PNG fallback capabilities.
 E-paper is a CORE feature with automatic hardware detection and PNG emulation.
+
+The module now includes webserver integration to ensure consistent rendering
+between web mode and e-paper mode by fetching HTML from a local webserver
+instead of generating it directly.
 """
 
 import asyncio
 import logging
+import os
 import signal
+import tempfile
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, NoReturn, Optional, Union
+from typing import TYPE_CHECKING, Any, NoReturn, Optional, Union
 
+from PIL import Image
+
+from calendarbot.cli.modes.shared_webserver import SharedWebServer
 from calendarbot.config.settings import settings
 from calendarbot.display.epaper.drivers.waveshare import EPD4in2bV2
 from calendarbot.display.epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer
+from calendarbot.display.epaper.utils.html_to_png import create_converter, is_html2image_available
+from calendarbot.display.shared_styling import get_layout_for_renderer
 from calendarbot.main import CalendarBot
+from calendarbot.utils.http_client import HTTPClient
 from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
 
 from ..config import apply_cli_overrides
+
+# Type checking imports
+if TYPE_CHECKING:
+    from calendarbot.cli.modes.shared_webserver import SharedWebServer
+    from calendarbot.utils.http_client import HTTPClient
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +51,16 @@ class EpaperModeContext:
         self.fetch_task: Optional[asyncio.Task] = None
         self.shutdown_event: asyncio.Event = asyncio.Event()
 
+        # Webserver integration components
+        if TYPE_CHECKING:
+            self.webserver: Optional[SharedWebServer] = None
+            self.http_client: Optional[HTTPClient] = None
+        else:
+            self.webserver: Optional[Any] = None
+            self.http_client: Optional[Any] = None
 
-async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, Any]:
+
+async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, Any]:  # noqa: PLR0915
     """Initialize e-paper mode components and settings.
 
     Args:
@@ -87,7 +112,6 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
     if not context.hardware_available:
         # Ensure html2image is available
         try:
-            from calendarbot.display.epaper.utils.html_to_png import is_html2image_available
             html2image_available = is_html2image_available()
             if not html2image_available:
                 logger.warning("html2image is not available. Install with: pip install html2image")
@@ -109,14 +133,10 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
 
         # Ensure HTML-to-PNG conversion is used for emulation mode
         if context.epaper_renderer.html_converter is None:
-            logger.warning("HTML-to-PNG converter not initialized, forcing initialization for emulation mode")
+            logger.warning(
+                "HTML-to-PNG converter not initialized, forcing initialization for emulation mode"
+            )
             try:
-                import tempfile
-                from pathlib import Path
-
-                from calendarbot.display.epaper.utils.html_to_png import create_converter
-                from calendarbot.display.shared_styling import get_layout_for_renderer
-
                 # Get layout dimensions
                 layout = get_layout_for_renderer("epaper")
                 width, height = int(layout["width"]), int(layout["height"])
@@ -137,6 +157,58 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
                 logger.info(f"HTML-to-PNG converter initialized with size {width}x{height}")
             except Exception as e:
                 logger.warning(f"Failed to initialize HTML-to-PNG converter: {e}")
+
+    # Initialize webserver for HTML rendering
+    try:
+        logger.info("Initializing webserver for e-paper mode...")
+
+        # Configure webserver port (use a different port than default web mode)
+        webserver_enabled = getattr(updated_settings.epaper, "webserver_enabled", True)
+
+        if not webserver_enabled:
+            logger.info("Webserver is disabled in settings, skipping initialization")
+            context.webserver = None
+            context.http_client = None
+            return context, updated_settings
+
+        webserver_port = getattr(updated_settings.epaper, "webserver_port", 8081)
+
+        # Set webserver port in settings
+        updated_settings.web_port = webserver_port
+
+        # Create and start webserver
+        context.webserver = SharedWebServer(
+            settings=updated_settings,
+            display_manager=context.app.display_manager,
+            cache_manager=context.app.cache_manager,
+        )
+
+        # Start webserver with automatic port conflict resolution
+        webserver_started = context.webserver.start(auto_find_port=True, max_port_attempts=10)
+
+        if webserver_started:
+            actual_port = context.webserver.port
+            logger.info(f"Webserver started successfully on port {actual_port}")
+
+            # Create HTTP client for fetching HTML
+            # Use the IP address that we know works (192.168.1.45)
+            host = "192.168.1.45"
+            logger.debug(f"Using host {host} for HTTP client")
+            context.http_client = HTTPClient(
+                base_url=f"http://{host}:{actual_port}",
+                timeout=5.0,
+                max_retries=3,
+            )
+            logger.info(f"HTTP client initialized with base URL: {context.http_client.base_url}")
+        else:
+            logger.warning("Failed to start webserver, falling back to direct HTML generation")
+            context.webserver = None
+            context.http_client = None
+    except Exception:
+        logger.exception("Error initializing webserver")
+        logger.warning("Falling back to direct HTML generation")
+        context.webserver = None
+        context.http_client = None
 
     return context, updated_settings
 
@@ -169,7 +241,7 @@ async def _handle_render_error(
         logger.exception("Failed to render error display")
 
 
-async def _run_epaper_main_loop(context: EpaperModeContext) -> None:
+async def _run_epaper_main_loop(context: EpaperModeContext) -> None:  # noqa: PLR0912, PLR0915
     """Run the main e-paper rendering loop.
 
     Args:
@@ -202,9 +274,55 @@ async def _run_epaper_main_loop(context: EpaperModeContext) -> None:
                 ),
             }
 
-            # Render to e-paper format
-            rendered_image = context.epaper_renderer.render_from_events(events, status_info)
-            logger.debug("Successfully rendered calendar to e-paper format")
+            # Render to e-paper format - try using webserver if available
+            rendered_image = None
+            if context.webserver and context.http_client:
+                try:
+                    logger.debug("Rendering using webserver URL")
+
+                    # Use HTML-to-PNG converter if available
+                    if context.epaper_renderer.html_converter:
+                        # Create a unique filename for the output image
+                        output_filename = f"epaper_render_{os.urandom(4).hex()}.png"
+
+                        # Get the webserver URL - use the base URL without any path
+                        webserver_url = context.http_client.base_url
+                        logger.info(f"Using webserver URL: {webserver_url}")
+
+                        try:
+                            # Use the new URL-based conversion method
+                            logger.info("Using URL-based HTML-to-PNG conversion...")
+                            png_path = context.epaper_renderer.html_converter.convert_url_to_png(
+                                url=webserver_url, output_filename=output_filename
+                            )
+
+                            if png_path and Path(png_path).exists():
+                                # Load the generated PNG as a PIL Image
+                                rendered_image = Image.open(png_path)
+                                logger.info(f"Webserver URL converted successfully to {png_path}")
+                                logger.info(f"File size: {Path(png_path).stat().st_size} bytes")
+                            else:
+                                # Direct fallback if PNG path doesn't exist
+                                logger.warning(
+                                    "URL-to-PNG conversion failed to produce a valid file, using direct fallback"
+                                )
+                                logger.warning(f"png_path = {png_path}")
+                                rendered_image = None
+                        except Exception as png_error:
+                            logger.warning(f"URL-to-PNG conversion failed with error: {png_error}")
+                            logger.warning("Using direct fallback rendering")
+                            rendered_image = None
+                except Exception as e:
+                    logger.warning(f"Failed to render using webserver HTML: {e}")
+                    logger.warning("Falling back to direct rendering")
+                    rendered_image = None
+
+            # Fall back to direct rendering if webserver rendering failed
+            if rendered_image is None:
+                rendered_image = context.epaper_renderer.render_from_events(events, status_info)
+                logger.debug(
+                    "Successfully rendered calendar to e-paper format using direct rendering"
+                )
 
             # Update display (hardware or PNG file)
             if context.hardware_available:
@@ -241,6 +359,15 @@ async def _cleanup_epaper_resources(context: EpaperModeContext) -> None:
         context: E-paper mode context with resources to clean up
     """
     logger.debug("Entering cleanup phase...")
+
+    # Stop webserver if running
+    if context.webserver:
+        logger.debug("Stopping webserver...")
+        try:
+            context.webserver.stop()
+            logger.info("Webserver stopped successfully")
+        except Exception:
+            logger.exception("Error stopping webserver")
 
     # Stop background fetching
     if context.fetch_task:
@@ -347,8 +474,9 @@ def detect_epaper_hardware() -> bool:
     try:
         # First check if the driver module is using real GPIO/SPI
         try:
-            import calendarbot.display.epaper.drivers.waveshare.epd4in2b_v2 as epd_module
-            has_real_gpio = getattr(epd_module, '_HAS_REAL_GPIO', False)
+            import calendarbot.display.epaper.drivers.waveshare.epd4in2b_v2 as epd_module  # noqa: PLC0415
+
+            has_real_gpio = getattr(epd_module, "_HAS_REAL_GPIO", False)
 
             logger.debug(f"Hardware detection: _HAS_REAL_GPIO = {has_real_gpio}")
 
@@ -363,8 +491,6 @@ def detect_epaper_hardware() -> bool:
             return False
 
         # Check for physical hardware indicators
-        from pathlib import Path
-
         # Check for SPI device files
         spi_devices = ["/dev/spidev0.0", "/dev/spidev0.1", "/dev/spidev1.0", "/dev/spidev1.1"]
         spi_found = any(Path(device).exists() for device in spi_devices)
@@ -373,7 +499,9 @@ def detect_epaper_hardware() -> bool:
         gpio_base = Path("/sys/class/gpio")
         gpio_available = gpio_base.exists()
 
-        logger.debug(f"Hardware detection: SPI devices found = {spi_found}, GPIO filesystem = {gpio_available}")
+        logger.debug(
+            f"Hardware detection: SPI devices found = {spi_found}, GPIO filesystem = {gpio_available}"
+        )
 
         if not spi_found or not gpio_available:
             logger.info(
@@ -449,6 +577,14 @@ def apply_epaper_mode_overrides(settings: Any, _args: Any) -> Any:
     # E-paper specific optimizations
     settings.epaper.refresh_interval = 300  # 5 minutes - e-paper doesn't need frequent updates
     settings.cache_ttl = 600  # 10 minutes cache duration
+
+    # Configure webserver for e-paper mode (different from web mode)
+    # Use a different port to avoid conflicts with web mode
+    settings.epaper.webserver_enabled = True
+    settings.epaper.webserver_port = 8081
+
+    # Enable auto port conflict resolution
+    settings.auto_kill_existing = True
 
     logger.debug("Applied e-paper mode setting overrides")
     return settings

@@ -61,20 +61,22 @@ repos:
   # CODE FORMATTING (Target: 2-3 seconds)
   # Essential formatting for consistency
   # ============================================================================
-  - repo: https://github.com/psf/black
-    rev: 24.4.2
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.7
     hooks:
-      - id: black
-        name: "⚡ Format Code"
-        args: [--line-length=100, --fast]
+      - id: ruff-check
+        name: "⚡ Lint Code"
+        files: ^calendarbot/.*\.py$
+        exclude: ^(tests/|docs/|scripts/|backup/|\.venv/|venv/)
+        args: [--config=pyproject.toml]
         language_version: python3
-
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        name: "⚡ Sort Imports"
-        args: [--profile=black, --line-length=100]
+      
+      - id: ruff-format
+        name: "⚡ Format Code"
+        files: ^calendarbot/.*\.py$
+        exclude: ^(tests/|docs/|scripts/|backup/|\.venv/|venv/)
+        args: [--config=pyproject.toml, --fast]
+        language_version: python3
 
   # Auto-staging hook - maintains formatter changes in fast mode
   - repo: local

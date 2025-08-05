@@ -31,7 +31,7 @@ def get_file_hash(filepath: str) -> Optional[str]:
     """Get hash of file content for change detection."""
     try:
         with open(filepath, "rb") as f:
-            return hashlib.md5(f.read()).hexdigest()
+            return hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
     except (FileNotFoundError, PermissionError):
         return None
 
@@ -141,8 +141,8 @@ def main() -> int:
 
     # Define formatters to run
     formatters = [
-        ["python", "-m", "black", "--quiet"],
-        ["python", "-m", "isort", "--quiet"],
+        ["python", "-m", "ruff", "format", "--quiet"],
+        ["python", "-m", "ruff", "check", "--fix", "--quiet"],
     ]
 
     max_iterations = 5  # Prevent infinite loops
@@ -156,7 +156,7 @@ def main() -> int:
 
         # Run each formatter
         for formatter_cmd in formatters:
-            formatter_name = formatter_cmd[2]  # black or isort
+            formatter_name = formatter_cmd[2]  # format or check
             print(f"  Running {formatter_name}...")
 
             if run_formatter(formatter_cmd, staged_files):

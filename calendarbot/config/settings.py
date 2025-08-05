@@ -231,6 +231,12 @@ class EpaperConfiguration(BaseModel):
         default=None, description="E-Paper display model (e.g., 'waveshare_4_2', 'waveshare_7_5')"
     )
 
+    # Webserver Settings
+    webserver_enabled: bool = Field(
+        default=True, description="Enable webserver for e-Paper rendering"
+    )
+    webserver_port: int = Field(default=8081, description="Port for e-Paper webserver")
+
     # Display Properties
     width: int = Field(default=400, description="Display width in pixels")
     height: int = Field(default=300, description="Display height in pixels")
@@ -337,7 +343,8 @@ class CalendarBotSettings(BaseSettings):
     # Display Settings
     display_enabled: bool = Field(default=True, description="Enable display output")
     display_type: str = Field(
-        default="console", description="Renderer type: console, html, whats-next, epaper, rpi, compact, eink-whats-next"
+        default="console",
+        description="Renderer type: console, html, whats-next, epaper, rpi, compact, eink-whats-next",
     )
 
     # Generic Display Dimensions (used by tests and some renderers)
@@ -350,7 +357,6 @@ class CalendarBotSettings(BaseSettings):
     epaper: EpaperConfiguration = Field(
         default_factory=EpaperConfiguration, description="Core e-Paper display configuration"
     )
-
 
     # Raspberry Pi E-ink Display Settings
     rpi_enabled: bool = Field(default=False, description="Enable Raspberry Pi e-ink mode")
@@ -523,18 +529,30 @@ class CalendarBotSettings(BaseSettings):
         ics_config = config_data["ics"]
 
         # Basic ICS settings
-        if ("url" in ics_config and not self.ics_url and "ics_url" not in self._explicit_args):
+        if "url" in ics_config and not self.ics_url and "ics_url" not in self._explicit_args:
             self.ics_url = ics_config["url"]
-        if ("auth_type" in ics_config and not self.ics_auth_type and "ics_auth_type" not in self._explicit_args):
+        if (
+            "auth_type" in ics_config
+            and not self.ics_auth_type
+            and "ics_auth_type" not in self._explicit_args
+        ):
             self.ics_auth_type = ics_config["auth_type"]
 
         # Credentials with security logging
-        if ("username" in ics_config and not self.ics_username and "ics_username" not in self._explicit_args):
+        if (
+            "username" in ics_config
+            and not self.ics_username
+            and "ics_username" not in self._explicit_args
+        ):
             username = ics_config["username"]
             self.ics_username = username
             self._log_credential_loading("username", username)
 
-        if ("password" in ics_config and not self.ics_password and "ics_password" not in self._explicit_args):
+        if (
+            "password" in ics_config
+            and not self.ics_password
+            and "ics_password" not in self._explicit_args
+        ):
             password = ics_config["password"]
             self.ics_password = password
             self._log_credential_loading("password", password)
@@ -547,6 +565,7 @@ class CalendarBotSettings(BaseSettings):
         # Custom headers handling
         if "custom_headers" in ics_config and not self.ics_custom_headers:
             import json  # noqa: PLC0415
+
             try:
                 headers = ics_config["custom_headers"]
                 if isinstance(headers, dict):
@@ -564,9 +583,11 @@ class CalendarBotSettings(BaseSettings):
         basic_settings = ["refresh_interval", "cache_ttl", "auto_kill_existing"]
 
         for setting in basic_settings:
-            if (setting in config_data and
-                setting not in self._explicit_args and
-                setting not in self._env_vars_set):
+            if (
+                setting in config_data
+                and setting not in self._explicit_args
+                and setting not in self._env_vars_set
+            ):
                 setattr(self, setting, config_data[setting])
 
     def _load_legacy_logging_config(self, config_data: dict) -> None:
@@ -594,8 +615,14 @@ class CalendarBotSettings(BaseSettings):
                 setattr(self.logging, setting, logging_config[setting])
 
         # File settings
-        file_settings = ["file_enabled", "file_level", "file_directory",
-                        "file_prefix", "max_log_files", "include_function_names"]
+        file_settings = [
+            "file_enabled",
+            "file_level",
+            "file_directory",
+            "file_prefix",
+            "max_log_files",
+            "include_function_names",
+        ]
         for setting in file_settings:
             if setting in logging_config:
                 setattr(self.logging, setting, logging_config[setting])
@@ -617,9 +644,11 @@ class CalendarBotSettings(BaseSettings):
         display_settings = ["display_enabled", "display_type"]
 
         for setting in display_settings:
-            if (setting in config_data and
-                setting not in self._explicit_args and
-                setting not in self._env_vars_set):
+            if (
+                setting in config_data
+                and setting not in self._explicit_args
+                and setting not in self._env_vars_set
+            ):
                 setattr(self, setting, config_data[setting])
 
     def _load_rpi_config(self, config_data: dict) -> None:
@@ -681,12 +710,16 @@ class CalendarBotSettings(BaseSettings):
                 setattr(self.epaper, setting, epaper_config[setting])
 
         # Fallback and advanced settings
-        advanced_settings = ["error_fallback", "png_fallback_enabled", "png_output_path",
-                           "hardware_detection_enabled", "update_strategy"]
+        advanced_settings = [
+            "error_fallback",
+            "png_fallback_enabled",
+            "png_output_path",
+            "hardware_detection_enabled",
+            "update_strategy",
+        ]
         for setting in advanced_settings:
             if setting in epaper_config:
                 setattr(self.epaper, setting, epaper_config[setting])
-
 
     def _load_network_settings(self, config_data: dict) -> None:
         """Load network and retry settings from YAML data."""
@@ -723,7 +756,6 @@ class CalendarBotSettings(BaseSettings):
         except Exception as e:
             # Don't fail if YAML loading fails, just continue with defaults/env vars
             logging.warning(f"Could not load YAML config from {config_file}: {e}")
-
 
     @property
     def database_file(self) -> Path:

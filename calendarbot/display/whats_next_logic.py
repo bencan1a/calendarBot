@@ -41,12 +41,9 @@ class WhatsNextLogic:
             Current time or debug time if set
         """
         if self._debug_time:
-            logger.debug(f"DIAGNOSTIC WHATS_NEXT: Using DEBUG TIME override: {self._debug_time}")
             return self._debug_time
 
-        now = get_timezone_aware_now()
-        logger.debug(f"DIAGNOSTIC WHATS_NEXT: Using REAL TIME: {now}")
-        return now
+        return get_timezone_aware_now()
 
     def create_view_model(
         self, events: list[CachedEvent], status_info: Optional[dict[str, Any]] = None
@@ -112,16 +109,8 @@ class WhatsNextLogic:
         upcoming_events = [e for e in events if e.start_dt > current_time]
         upcoming_events.sort(key=lambda e: e.start_dt)  # Sort by start time
 
-        # First 3 upcoming events are "next up"
-        next_up_events = upcoming_events[:3] if upcoming_events else []
-
         # Remaining upcoming events are "later today"
         later_events = upcoming_events[3:] if len(upcoming_events) > 3 else []
-
-        logger.debug(
-            f"DIAGNOSTIC WHATS_NEXT: Grouped events - "
-            f"Current: {len(current_events)}, Next: {len(next_up_events)}, Later: {len(later_events)}"
-        )
 
         return current_events[:1], upcoming_events, later_events
 
@@ -176,32 +165,11 @@ class WhatsNextLogic:
         """
         try:
             now = self.get_current_time()
-            logger.debug(f"DIAGNOSTIC WHATS_NEXT: Current time for filtering: {now}")
-            logger.debug(f"DIAGNOSTIC WHATS_NEXT: Total events to filter: {len(events)}")
-
-            # Log all events with their times for debugging
-            for i, event in enumerate(events):
-                logger.debug(
-                    f"DIAGNOSTIC WHATS_NEXT: Event {i}: {event.subject} | "
-                    f"Start: {event.start_dt} | Current: {event.is_current()}"
-                )
-                logger.debug(
-                    f"DIAGNOSTIC WHATS_NEXT: Event {i} start > now? {event.start_dt > now}"
-                )
 
             # Filter to only upcoming events (not current)
             upcoming_events = [e for e in events if e.start_dt > now]
 
-            logger.debug(
-                f"DIAGNOSTIC WHATS_NEXT: Upcoming events after filtering: {len(upcoming_events)}"
-            )
-
             if not upcoming_events:
-                logger.debug(
-                    "DIAGNOSTIC WHATS_NEXT: No upcoming events found - checking current events"
-                )
-                current_events = [e for e in events if e.is_current()]
-                logger.debug(f"DIAGNOSTIC WHATS_NEXT: Current events found: {len(current_events)}")
                 return None
 
             # Sort by start time and return the first (earliest)
@@ -209,8 +177,7 @@ class WhatsNextLogic:
             next_event = upcoming_events[0]
 
             logger.debug(
-                f"DIAGNOSTIC WHATS_NEXT: Found next upcoming event: "
-                f"{next_event.subject} at {next_event.start_dt}"
+                f"Found next upcoming event: {next_event.subject} at {next_event.start_dt}"
             )
             return next_event
 

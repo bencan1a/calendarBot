@@ -7,6 +7,7 @@ Color Consistency:
 - Ensures visual consistency between web and e-Paper rendering
 """
 
+import contextlib
 import logging
 import os
 import tempfile
@@ -17,6 +18,8 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 from PIL import Image, ImageDraw, ImageFont
 from PIL.ImageFont import FreeTypeFont, ImageFont as BuiltinFont
+
+from calendarbot.utils.network import get_local_network_interface
 
 if TYPE_CHECKING:
     # Only import for type checking
@@ -1113,11 +1116,9 @@ class EInkWhatsNextRenderer(RendererInterface):
             logger.exception("Error rendering error image")
 
             # Safely end the performance operation if it was started
-            try:
+            with contextlib.suppress(KeyError):
+                # Operation might not have been started, which can happen in tests
                 self.performance.end_operation("render_error")
-            except KeyError:
-                # Operation wasn't started, which can happen in tests
-                pass
 
             return self._render_error_image(f"Critical error: {e}")
 
@@ -1228,15 +1229,13 @@ class EInkWhatsNextRenderer(RendererInterface):
             logger.exception("Error rendering authentication prompt")
 
             # Safely end the performance operation if it was started
-            try:
-                self.performance.end_operation("render_auth_prompt")
-            except KeyError:
+            with contextlib.suppress(KeyError):
                 # Operation wasn't started, which can happen in tests
-                pass
+                self.performance.end_operation("render_auth_prompt")
 
             return self._render_error_image(f"Authentication prompt error: {e}")
 
-    def _render_using_html_conversion(self, view_model: WhatsNextViewModel) -> Image.Image:
+    def _render_using_html_conversion(self, view_model: WhatsNextViewModel) -> Image.Image:  # noqa: PLR0915
         """Render view model using HTML-to-PNG conversion.
 
         This method uses the WhatsNextRenderer to generate HTML content and then
@@ -1294,18 +1293,8 @@ class EInkWhatsNextRenderer(RendererInterface):
             logger.debug("Generating HTML content")
             self.performance.start_operation("generate_html")
 
-            # Extract status info for parent class compatibility
-            {
-                "last_update": view_model.status_info.last_update.isoformat(),
-                "is_cached": view_model.status_info.is_cached,
-                "connection_status": view_model.status_info.connection_status,
-                "relative_description": view_model.status_info.relative_description,
-                "interactive_mode": view_model.status_info.interactive_mode,
-                "selected_date": view_model.status_info.selected_date,
-            }
-
             # Use the HTML renderer to generate HTML content
-            html_content = self.html_renderer.render(view_model)
+            self.html_renderer.render(view_model)
             html_generation_time = self.performance.end_operation("generate_html")
             logger.debug(f"HTML content generated in {html_generation_time:.2f}ms")
 
@@ -1338,8 +1327,21 @@ class EInkWhatsNextRenderer(RendererInterface):
                     logger.info(
                         f"HTML converter output path before conversion: {self.html_converter.hti.output_path}"
                     )
-                png_path = self.html_converter.convert_html_to_png(
-                    html_content=html_content, output_filename=output_filename
+                # Get the webserver URL from the HTTP client
+
+                # Get the webserver port from the settings
+                webserver_port = getattr(self.settings, "web_port", 8080)
+
+                # Get the local network interface
+                host_ip = get_local_network_interface()
+
+                # Construct the URL for the webserver - use the base URL without any path
+                webserver_url = f"http://{host_ip}:{webserver_port}"
+                logger.info(f"Using webserver URL: {webserver_url}")
+
+                # Use the URL-based conversion method
+                png_path = self.html_converter.convert_url_to_png(
+                    url=webserver_url, output_filename=output_filename
                 )
                 logger.info(f"Conversion result: {png_path}")
             finally:
@@ -1355,7 +1357,9 @@ class EInkWhatsNextRenderer(RendererInterface):
             logger.debug(f"HTML-to-PNG conversion completed in {conversion_time:.2f}ms")
 
             if not png_path or not Path(png_path).exists():
-                logger.error(f"HTML-to-PNG conversion failed, checking for file in output directory: {output_dir}")
+                logger.error(
+                    f"HTML-to-PNG conversion failed, checking for file in output directory: {output_dir}"
+                )
                 # Try to find the file in the output directory
                 expected_path = output_dir / output_filename
                 if expected_path.exists():
@@ -1363,7 +1367,10 @@ class EInkWhatsNextRenderer(RendererInterface):
                     png_path = str(expected_path)
                 else:
                     logger.error(f"Output file not found at expected path: {expected_path}")
-                    raise RuntimeError("HTML-to-PNG conversion failed")
+                    self._raise_conversion_failed_error()
+
+            # At this point, png_path is guaranteed to be a valid string
+            assert png_path is not None, "png_path should not be None after validation"
 
             # Load the generated PNG as a PIL Image
             logger.info(f"Loading PNG image from: {png_path}")
@@ -1398,13 +1405,17 @@ class EInkWhatsNextRenderer(RendererInterface):
 
         # Add current events
         if view_model.current_events:
-            for event in view_model.current_events:
-                key_parts.append(f"c:{event.subject}:{event.start_time}:{event.end_time}")
+            key_parts.extend(
+                f"c:{event.subject}:{event.start_time}:{event.end_time}"
+                for event in view_model.current_events
+            )
 
         # Add next events
         if view_model.next_events:
-            for event in view_model.next_events:
-                key_parts.append(f"n:{event.subject}:{event.start_time}:{event.end_time}")
+            key_parts.extend(
+                f"n:{event.subject}:{event.start_time}:{event.end_time}"
+                for event in view_model.next_events
+            )
 
         # Add later events (just count)
         if view_model.later_events:
@@ -1461,13 +1472,15 @@ class EInkWhatsNextRenderer(RendererInterface):
             try:
                 # Remove all files in the directory
                 for file_path in self.temp_dir.glob("*"):
-                    try:
+                    with contextlib.suppress(Exception):
                         file_path.unlink()
-                    except Exception as e:
-                        logger.warning(f"Failed to remove temporary file {file_path}: {e}")
 
                 # Remove the directory
                 self.temp_dir.rmdir()
                 logger.debug(f"Removed temporary directory: {self.temp_dir}")
             except Exception as e:
                 logger.warning(f"Failed to clean up temporary directory: {e}")
+
+    def _raise_conversion_failed_error(self) -> None:
+        """Raise a RuntimeError for HTML-to-PNG conversion failure."""
+        raise RuntimeError("HTML-to-PNG conversion failed")

@@ -17,7 +17,6 @@
     "bandit.ignorePatterns": [
         "exclude = [     \"venv/\",     \".venv/\",     \"build/\",     \"dist/\",     \"tests/\",     \"backup/\",     \"scripts/\" ]"
     ],
-    // JavaScript/Jest testing configuration
     "testing.automaticallyOpenPeekView": "never",
     "testing.gutterEnabled": true,
     "testing.followRunningTest": true,
