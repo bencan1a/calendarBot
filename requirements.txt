@@ -23,3 +23,4 @@ psutil>=5.8.0
 # Image processing (core for all display modes)
 Pillow>=9.0.0
 numpy>=1.20.0
+html2image>=2.0.0
