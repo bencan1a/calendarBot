@@ -209,6 +209,7 @@ def _apply_renderer_and_layout(settings: Any, args: Any, logger: logging.Logger)
             f"Set web_layout={settings.web_layout} from --display-type (backward compatibility)"
         )
 
+
 def _apply_rpi_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
     if getattr(args, "rpi", False):
         logger.info(f"RPI mode enabled, auto_layout={getattr(settings, 'rpi_auto_layout', True)}")
@@ -228,6 +229,7 @@ def _apply_rpi_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
                 settings.layout_name = "3x4"
             logger.info(f"Applied RPI layout override: {current_layout} -> {settings.web_layout}")
 
+
 def _apply_compact_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
     if getattr(args, "compact", False):
         logger.info("Compact mode enabled")
@@ -244,10 +246,15 @@ def _apply_compact_mode(settings: Any, args: Any, logger: logging.Logger) -> Non
                 f"Applied compact layout override: {current_layout} -> {settings.web_layout}"
             )
 
+
 def _apply_epaper_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
     if getattr(args, "epaper", False):
         logger.info("E-Paper mode enabled")
         settings.epaper.enabled = True
+    else:
+        # Explicitly set epaper to disabled when not in epaper mode
+        logger.info("E-Paper mode disabled")
+        settings.epaper.enabled = False
         settings.display_type = "eink-whats-next"
         logger.debug(f"Set display_type={settings.display_type} for epaper mode")
         epaper_fields = [
@@ -286,6 +293,7 @@ def _apply_epaper_mode(settings: Any, args: Any, logger: logging.Logger) -> None
             f"dimensions={getattr(settings.epaper, 'width', None)}x{getattr(settings.epaper, 'height', None)}, "
             f"rotation={getattr(settings.epaper, 'rotation', None)}°"
         )
+
 
 def apply_cli_overrides(settings: Any, args: Any) -> Any:
     """Apply command-line overrides to settings with proper layout/renderer separation.

@@ -932,7 +932,9 @@ class WebServer:
 
         # Initialize layout management system
         self.layout_registry = layout_registry or LayoutRegistry()
-        self.resource_manager = resource_manager or ResourceManager(self.layout_registry)
+        self.resource_manager = resource_manager or ResourceManager(
+            self.layout_registry, settings=self.settings
+        )
 
         # Initialize settings service
         try:

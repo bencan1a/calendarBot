@@ -33,7 +33,9 @@ class HTMLRenderer:
         # Initialize layout management components
         try:
             self.layout_registry: Optional[LayoutRegistry] = LayoutRegistry()
-            self.resource_manager: Optional[ResourceManager] = ResourceManager(self.layout_registry)
+            self.resource_manager: Optional[ResourceManager] = ResourceManager(
+                self.layout_registry, settings=self.settings
+            )
         except Exception as e:
             logger.warning(f"Failed to initialize layout system: {e}, using fallback behavior")
             self.layout_registry = None

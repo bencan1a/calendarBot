@@ -29,33 +29,40 @@ class TestHTTPClient(unittest.TestCase):
         self.assertEqual(self.client.max_retries, 2)
         self.assertEqual(self.client.retry_delay, 0.1)
 
-    @patch("urllib.request.urlopen")
-    def test_fetch_html_success(self, mock_urlopen):
+    @patch("urllib.request.build_opener")
+    def test_fetch_html_success(self, mock_build_opener):
         """Test successful HTML fetch."""
         # Configure mock
+        mock_opener = MagicMock()
         mock_response = MagicMock()
         mock_response.read.return_value = b"<html>Test</html>"
-        mock_urlopen.return_value.__enter__.return_value = mock_response
+        mock_opener.open.return_value.__enter__.return_value = mock_response
+        mock_build_opener.return_value = mock_opener
 
         # Call fetch_html
         html = self.client.fetch_html()
 
-        # Verify urlopen was called with correct URL
-        mock_urlopen.assert_called_once()
-        args, kwargs = mock_urlopen.call_args
+        # Verify build_opener was called
+        mock_build_opener.assert_called_once()
+
+        # Verify opener.open was called with correct URL and timeout
+        mock_opener.open.assert_called_once()
+        args, kwargs = mock_opener.open.call_args
         self.assertEqual(args[0].full_url, "http://127.0.0.1:8080/")
         self.assertEqual(kwargs["timeout"], 0.5)
 
         # Verify result
         self.assertEqual(html, "<html>Test</html>")
 
-    @patch("urllib.request.urlopen")
-    def test_fetch_html_with_path_and_params(self, mock_urlopen):
+    @patch("urllib.request.build_opener")
+    def test_fetch_html_with_path_and_params(self, mock_build_opener):
         """Test HTML fetch with path and query parameters."""
         # Configure mock
+        mock_opener = MagicMock()
         mock_response = MagicMock()
         mock_response.read.return_value = b"<html>Test</html>"
-        mock_urlopen.return_value.__enter__.return_value = mock_response
+        mock_opener.open.return_value.__enter__.return_value = mock_response
+        mock_build_opener.return_value = mock_opener
 
         # Call fetch_html with path and params
         html = self.client.fetch_html(
@@ -63,33 +70,35 @@ class TestHTTPClient(unittest.TestCase):
             params={"days": "7", "debug_time": "2023-01-01T12:00:00"},
         )
 
-        # Verify urlopen was called with correct URL
-        mock_urlopen.assert_called_once()
-        args, kwargs = mock_urlopen.call_args
+        # Verify opener.open was called with correct URL
+        mock_opener.open.assert_called_once()
+        args, kwargs = mock_opener.open.call_args
         self.assertEqual(
             args[0].full_url,
-            "http://127.0.0.1:8080/calendar?days=7&debug_time=2023-01-01T12:00:00",
+            "http://127.0.0.1:8080/calendar?days=7&debug_time=2023-01-01T12%3A00%3A00",
         )
 
         # Verify result
         self.assertEqual(html, "<html>Test</html>")
 
-    @patch("urllib.request.urlopen")
-    def test_fetch_html_with_headers(self, mock_urlopen):
+    @patch("urllib.request.build_opener")
+    def test_fetch_html_with_headers(self, mock_build_opener):
         """Test HTML fetch with custom headers."""
         # Configure mock
+        mock_opener = MagicMock()
         mock_response = MagicMock()
         mock_response.read.return_value = b"<html>Test</html>"
-        mock_urlopen.return_value.__enter__.return_value = mock_response
+        mock_opener.open.return_value.__enter__.return_value = mock_response
+        mock_build_opener.return_value = mock_opener
 
         # Call fetch_html with headers
         html = self.client.fetch_html(
             headers={"X-Custom-Header": "Value"},
         )
 
-        # Verify urlopen was called with correct headers
-        mock_urlopen.assert_called_once()
-        args, kwargs = mock_urlopen.call_args
+        # Verify opener.open was called with correct headers
+        mock_opener.open.assert_called_once()
+        args, kwargs = mock_opener.open.call_args
 
         # Get the Request object
         request = args[0]
@@ -107,24 +116,27 @@ class TestHTTPClient(unittest.TestCase):
         # Verify result
         self.assertEqual(html, "<html>Test</html>")
 
-    @patch("urllib.request.urlopen")
+    @patch("urllib.request.build_opener")
     @patch("time.sleep")
-    def test_fetch_html_retry_on_timeout(self, mock_time_sleep, mock_urlopen):
+    def test_fetch_html_retry_on_timeout(self, mock_time_sleep, mock_build_opener):
         """Test HTML fetch with retry on timeout."""
         # Configure mocks
+        mock_opener = MagicMock()
         mock_response = MagicMock()
         mock_response.read.return_value = b"<html>Test</html>"
 
-        mock_urlopen.side_effect = [
+        # First call raises timeout, second succeeds
+        mock_opener.open.side_effect = [
             socket.timeout("Connection timed out"),
             MagicMock(__enter__=MagicMock(return_value=mock_response)),
         ]
+        mock_build_opener.return_value = mock_opener
 
         # Call fetch_html
         html = self.client.fetch_html()
 
-        # Verify urlopen was called twice
-        self.assertEqual(mock_urlopen.call_count, 2)
+        # Verify opener.open was called twice
+        self.assertEqual(mock_opener.open.call_count, 2)
 
         # Verify time.sleep was called for delay
         mock_time_sleep.assert_called_once_with(self.client.retry_delay)
@@ -132,46 +144,52 @@ class TestHTTPClient(unittest.TestCase):
         # Verify result
         self.assertEqual(html, "<html>Test</html>")
 
-    @patch("urllib.request.urlopen")
-    def test_fetch_html_max_retries_exceeded(self, mock_urlopen):
+    @patch("urllib.request.build_opener")
+    def test_fetch_html_max_retries_exceeded(self, mock_build_opener):
         """Test HTML fetch with max retries exceeded."""
         # Configure mock to always raise timeout
-        mock_urlopen.side_effect = socket.timeout("Connection timed out")
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = socket.timeout("Connection timed out")
+        mock_build_opener.return_value = mock_opener
 
         # Call fetch_html and expect TimeoutError
         with self.assertRaises(TimeoutError):
             self.client.fetch_html()
 
-        # Verify urlopen was called max_retries times
-        self.assertEqual(mock_urlopen.call_count, 2)
+        # Verify opener.open was called max_retries times
+        self.assertEqual(mock_opener.open.call_count, 2)
 
-    @patch("urllib.request.urlopen")
-    def test_fetch_html_connection_refused(self, mock_urlopen):
+    @patch("urllib.request.build_opener")
+    def test_fetch_html_connection_refused(self, mock_build_opener):
         """Test HTML fetch with connection refused."""
         # Configure mock to raise ConnectionRefusedError
-        mock_urlopen.side_effect = urllib.error.URLError(ConnectionRefusedError())
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = urllib.error.URLError(ConnectionRefusedError())
+        mock_build_opener.return_value = mock_opener
 
         # Call fetch_html and expect ConnectionError
         with self.assertRaises(ConnectionError):
             self.client.fetch_html()
 
-    @patch("urllib.request.urlopen")
-    def test_fetch_calendar_html(self, mock_urlopen):
+    @patch("urllib.request.build_opener")
+    def test_fetch_calendar_html(self, mock_build_opener):
         """Test fetch_calendar_html convenience method."""
         # Configure mock
+        mock_opener = MagicMock()
         mock_response = MagicMock()
         mock_response.read.return_value = b"<html>Calendar</html>"
-        mock_urlopen.return_value.__enter__.return_value = mock_response
+        mock_opener.open.return_value.__enter__.return_value = mock_response
+        mock_build_opener.return_value = mock_opener
 
         # Call fetch_calendar_html
         html = self.client.fetch_calendar_html(days=7, debug_time="2023-01-01T12:00:00")
 
-        # Verify urlopen was called with correct URL
-        mock_urlopen.assert_called_once()
-        args, kwargs = mock_urlopen.call_args
+        # Verify opener.open was called with correct URL
+        mock_opener.open.assert_called_once()
+        args, kwargs = mock_opener.open.call_args
         self.assertEqual(
             args[0].full_url,
-            "http://127.0.0.1:8080/calendar?days=7&debug_time=2023-01-01T12:00:00",
+            "http://127.0.0.1:8080/calendar?days=7&debug_time=2023-01-01T12%3A00%3A00",
         )
 
         # Verify result

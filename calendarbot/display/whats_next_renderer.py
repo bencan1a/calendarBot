@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 
 from ..cache.models import CachedEvent
@@ -93,7 +94,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
             <div class="calendar-container whats-next-theme">
                 <div class="header">
                     <h1>📅 {self._escape_html(display_date)}</h1>
-                    <div class="time-display">{current_time.strftime('%I:%M %p')}</div>
+                    <div class="time-display">{current_time.strftime("%I:%M %p")}</div>
                 </div>
                 {events_content}
             </div>
@@ -102,8 +103,8 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
             # Build status footer
             status_html = f"""
             <div class="status-footer">
-                <p>Last updated: {status_info.get('relative_description', 'now')}</p>
-                {f'<p>Status: {status_info["connection_status"]}</p>' if status_info.get('connection_status') else ''}
+                <p>Last updated: {status_info.get("relative_description", "now")}</p>
+                {f"<p>Status: {status_info['connection_status']}</p>" if status_info.get("connection_status") else ""}
             </div>
             """
 
@@ -146,7 +147,30 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         Returns:
             CSS styles string
         """
-        # Use SharedStylingConstants for consistent styling
+        # Check if running in e-paper mode
+        is_epaper_mode = getattr(self.settings, "epaper", False)
+
+        if is_epaper_mode:
+            # Use e-paper specific CSS file
+            try:
+                css_path = (
+                    Path(__file__).parent.parent
+                    / "web"
+                    / "static"
+                    / "layouts"
+                    / "whats-next-view"
+                    / "whats-next-view-epaper.css"
+                )
+                if css_path.exists():
+                    logger.info("Using e-paper specific CSS for WhatsNextRenderer")
+                    return css_path.read_text()
+                logger.warning(
+                    f"E-paper CSS file not found at {css_path}, falling back to standard CSS"
+                )
+            except Exception:
+                logger.exception("Error loading e-paper CSS")
+
+        # Use SharedStylingConstants for consistent styling (standard mode or fallback)
         colors = SharedStylingConstants.COLORS
         typography = SharedStylingConstants.TYPOGRAPHY["html"]
 

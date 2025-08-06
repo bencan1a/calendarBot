@@ -56,6 +56,12 @@
         "file": "whats-next-view.css",
         "media": "screen",
         "priority": 1
+      },
+      {
+        "file": "whats-next-view-epaper.css",
+        "media": "screen",
+        "priority": 2,
+        "condition": "epaper"
       }
     ],
     "js": [
