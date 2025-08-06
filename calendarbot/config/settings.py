@@ -238,8 +238,8 @@ class EpaperConfiguration(BaseModel):
     webserver_port: int = Field(default=8081, description="Port for e-Paper webserver")
 
     # Display Properties
-    width: int = Field(default=400, description="Display width in pixels")
-    height: int = Field(default=300, description="Display height in pixels")
+    width: int = Field(default=300, description="Display width in pixels")
+    height: int = Field(default=400, description="Display height in pixels")
     rotation: int = Field(default=0, description="Display rotation in degrees (0, 90, 180, 270)")
 
     # Refresh Settings

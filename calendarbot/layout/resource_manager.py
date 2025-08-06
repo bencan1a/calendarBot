@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from .exceptions import LayoutNotFoundError, ResourceLoadingError
 from .registry import LayoutRegistry
@@ -13,15 +13,22 @@ logger = logging.getLogger(__name__)
 class ResourceManager:
     """Manages dynamic loading of layout resources."""
 
-    def __init__(self, layout_registry: LayoutRegistry, base_url: str = "/static") -> None:
+    def __init__(
+        self,
+        layout_registry: LayoutRegistry,
+        base_url: str = "/static",
+        settings: Optional[Any] = None,
+    ) -> None:
         """Initialize resource manager.
 
         Args:
             layout_registry: Registry instance for layout discovery.
             base_url: Base URL path for serving static resources.
+            settings: Application settings for conditional resource loading.
         """
         self.layout_registry = layout_registry
         self.base_url = base_url.rstrip("/")
+        self.settings = settings
         self._resource_cache: dict[str, dict[str, list[str]]] = {}
         self._css_cache: dict[str, str] = {}
         self._js_cache: dict[str, str] = {}
@@ -46,7 +53,28 @@ class ResourceManager:
             css_urls = []
             for css_file in css_files:
                 # Handle both string and object formats
-                file_name = css_file.get("file", "") if isinstance(css_file, dict) else css_file
+                if isinstance(css_file, dict):
+                    file_name = css_file.get("file", "")
+
+                    # Check for conditional loading
+                    condition = css_file.get("condition", None)
+                    if condition and condition == "epaper":
+                        # Skip this CSS file if the condition is not met
+                        # Only include e-paper CSS in e-paper mode
+                        if (
+                            not self.settings
+                            or not hasattr(self.settings, "epaper")
+                            or not getattr(self.settings.epaper, "enabled", False)
+                        ):
+                            logger.debug(
+                                f"Skipping e-paper CSS file {file_name} - epaper mode not enabled"
+                            )
+                            continue
+                        logger.debug(
+                            f"Including e-paper CSS file {file_name} - epaper mode enabled"
+                        )
+                else:
+                    file_name = css_file
 
                 if not file_name or not isinstance(file_name, str):
                     continue
@@ -101,7 +129,6 @@ class ResourceManager:
         except Exception:
             logger.exception(f"Failed to get JS URLs for layout '{layout_name}'")
             return []
-
 
     def inject_layout_resources(self, template: str, layout_name: str) -> str:
         """Inject layout resources into HTML template.
@@ -454,4 +481,3 @@ class ResourceManager:
             validation_results["js_valid"] = False
 
         return validation_results
-

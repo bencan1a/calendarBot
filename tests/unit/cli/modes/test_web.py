@@ -11,13 +11,11 @@ Tests cover:
 """
 
 import asyncio
-import signal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from calendarbot.cli.modes import web
-from calendarbot.layout.registry import LayoutRegistry
 
 
 class TestRunWebMode:
@@ -83,8 +81,14 @@ class TestRunWebMode:
     @patch("calendarbot.cli.modes.web.validate_host_binding")
     @patch("calendarbot.cli.modes.web.LayoutRegistry")
     def test_configure_web_settings_when_rpi_false_and_layout_not_whats_next_then_uses_html_renderer(
-        self, mock_layout_registry_class, mock_validate_host, mock_get_interface, 
-        mock_apply_cli_overrides, mock_apply_cmd_overrides, mock_args, mock_settings
+        self,
+        mock_layout_registry_class,
+        mock_validate_host,
+        mock_get_interface,
+        mock_apply_cli_overrides,
+        mock_apply_cmd_overrides,
+        mock_args,
+        mock_settings,
     ):
         """Test _configure_web_settings with rpi=False and layout not whats-next-view."""
         # Setup
@@ -92,18 +96,18 @@ class TestRunWebMode:
         mock_args.layout = "3x4"
         mock_args.host = None
         mock_args.port = 8080
-        
+
         mock_apply_cmd_overrides.return_value = mock_settings
         mock_apply_cli_overrides.return_value = mock_settings
         mock_get_interface.return_value = "192.168.1.100"
-        
+
         mock_layout_registry = MagicMock()
         mock_layout_registry.get_default_layout.return_value = "3x4"
         mock_layout_registry_class.return_value = mock_layout_registry
-        
+
         # Execute
         result = web._configure_web_settings(mock_args, mock_settings)
-        
+
         # Assert
         assert result == mock_settings
         assert result.display_type == "html"
@@ -116,8 +120,12 @@ class TestRunWebMode:
     @patch("calendarbot.cli.modes.web.apply_cli_overrides")
     @patch("calendarbot.cli.modes.web.validate_host_binding")
     def test_configure_web_settings_when_rpi_false_and_layout_whats_next_then_uses_whats_next_renderer(
-        self, mock_validate_host, mock_apply_cli_overrides, mock_apply_cmd_overrides, 
-        mock_args, mock_settings
+        self,
+        mock_validate_host,
+        mock_apply_cli_overrides,
+        mock_apply_cmd_overrides,
+        mock_args,
+        mock_settings,
     ):
         """Test _configure_web_settings with rpi=False and layout=whats-next-view."""
         # Setup
@@ -125,13 +133,13 @@ class TestRunWebMode:
         mock_args.layout = "whats-next-view"
         mock_args.host = "localhost"
         mock_args.port = 8080
-        
+
         mock_apply_cmd_overrides.return_value = mock_settings
         mock_apply_cli_overrides.return_value = mock_settings
-        
+
         # Execute
         result = web._configure_web_settings(mock_args, mock_settings)
-        
+
         # Assert
         assert result == mock_settings
         assert result.display_type == "whats-next"
@@ -145,8 +153,13 @@ class TestRunWebMode:
     @patch("calendarbot.cli.modes.web.get_local_network_interface")
     @patch("calendarbot.cli.modes.web.validate_host_binding")
     def test_configure_web_settings_when_display_type_whats_next_view_then_uses_whats_next_renderer(
-        self, mock_validate_host, mock_get_interface, mock_apply_cli_overrides, 
-        mock_apply_cmd_overrides, mock_args, mock_settings
+        self,
+        mock_validate_host,
+        mock_get_interface,
+        mock_apply_cli_overrides,
+        mock_apply_cmd_overrides,
+        mock_args,
+        mock_settings,
     ):
         """Test _configure_web_settings with display_type=whats-next-view."""
         # Setup
@@ -155,14 +168,14 @@ class TestRunWebMode:
         mock_args.display_type = "whats-next-view"
         mock_args.host = None
         mock_args.port = 8080
-        
+
         mock_apply_cmd_overrides.return_value = mock_settings
         mock_apply_cli_overrides.return_value = mock_settings
         mock_get_interface.return_value = "192.168.1.100"
-        
+
         # Execute
         result = web._configure_web_settings(mock_args, mock_settings)
-        
+
         # Assert
         assert result == mock_settings
         assert result.display_type == "whats-next"
@@ -192,10 +205,13 @@ class TestWebModeIntegration:
         ]
 
         for scenario_name, exception in error_scenarios:
-            with patch("calendarbot.main.CalendarBot", side_effect=exception), patch(
-                "builtins.print"
-            ) as mock_print, patch("traceback.print_exc") as mock_traceback, patch("signal.signal"):
-                result = await web.run_web_mode(mock_args)
+            with (
+                patch("calendarbot.cli.modes.web.CalendarBot", side_effect=exception),
+                patch("builtins.print") as mock_print,
+                patch("traceback.print_exc") as mock_traceback,
+                patch("signal.signal"),
+            ):
+                result = await asyncio.wait_for(web.run_web_mode(mock_args), timeout=5.0)
 
                 assert result == 1
                 # Check that an error message was printed (content may vary due to mock interactions)
@@ -221,7 +237,7 @@ class TestWebComponents:
         settings.web_host = "localhost"
         settings.web_port = 8080
         return settings
-        
+
     @pytest.fixture
     def mock_app(self):
         """Create mock CalendarBot instance."""
@@ -240,7 +256,7 @@ class TestWebComponents:
         server.start = MagicMock()
         server.stop = MagicMock()
         return server
-        
+
     @pytest.fixture
     def mock_args(self):
         """Create mock command line arguments."""
@@ -250,7 +266,7 @@ class TestWebComponents:
         args.auto_open = False
         args.rpi = False
         return args
-        
+
     @pytest.fixture
     def mock_navigation_handler(self):
         """Create mock navigation handler."""
@@ -264,30 +280,34 @@ class TestWebComponents:
     @patch("calendarbot.cli.modes.web.WebNavigationHandler")
     @patch("calendarbot.cli.modes.web.WebServer")
     async def test_initialize_web_components_when_successful_then_returns_components(
-        self, mock_web_server_class, mock_nav_handler_class, mock_calendar_bot_class, 
-        mock_setup_logging, mock_settings
+        self,
+        mock_web_server_class,
+        mock_nav_handler_class,
+        mock_calendar_bot_class,
+        mock_setup_logging,
+        mock_settings,
     ):
         """Test successful initialization of web components."""
         # Setup
         mock_logger = MagicMock()
         mock_setup_logging.return_value = mock_logger
-        
+
         mock_app = MagicMock()
         mock_app.initialize = AsyncMock(return_value=True)
         mock_app.display_manager = MagicMock()
         mock_app.cache_manager = MagicMock()
         mock_calendar_bot_class.return_value = mock_app
-        
+
         mock_nav_handler = MagicMock()
         mock_nav_handler.navigation_state = MagicMock()
         mock_nav_handler_class.return_value = mock_nav_handler
-        
+
         mock_web_server = MagicMock()
         mock_web_server_class.return_value = mock_web_server
-        
+
         # Execute
         app, server, nav_handler, logger = await web._initialize_web_components(mock_settings)
-        
+
         # Assert
         assert app == mock_app
         assert server == mock_web_server
@@ -298,7 +318,7 @@ class TestWebComponents:
             settings=mock_settings,
             display_manager=mock_app.display_manager,
             cache_manager=mock_app.cache_manager,
-            navigation_state=mock_nav_handler.navigation_state
+            navigation_state=mock_nav_handler.navigation_state,
         )
 
     @pytest.mark.asyncio
@@ -311,15 +331,15 @@ class TestWebComponents:
         # Setup
         mock_logger = MagicMock()
         mock_setup_logging.return_value = mock_logger
-        
+
         mock_app = MagicMock()
         mock_app.initialize = AsyncMock(return_value=False)
         mock_calendar_bot_class.return_value = mock_app
-        
+
         # Execute and Assert
         with pytest.raises(RuntimeError, match="Failed to initialize Calendar Bot"):
             await web._initialize_web_components(mock_settings)
-        
+
         mock_app.initialize.assert_called_once()
         mock_logger.error.assert_called_once_with("Failed to initialize Calendar Bot")
 
@@ -329,30 +349,34 @@ class TestWebComponents:
     @patch("calendarbot.cli.modes.web.WebNavigationHandler")
     @patch("calendarbot.cli.modes.web.WebServer")
     async def test_initialize_web_components_when_web_server_init_fails_then_raises_error(
-        self, mock_web_server_class, mock_nav_handler_class, mock_calendar_bot_class, 
-        mock_setup_logging, mock_settings
+        self,
+        mock_web_server_class,
+        mock_nav_handler_class,
+        mock_calendar_bot_class,
+        mock_setup_logging,
+        mock_settings,
     ):
         """Test initialization failure when web server initialization fails."""
         # Setup
         mock_logger = MagicMock()
         mock_setup_logging.return_value = mock_logger
-        
+
         mock_app = MagicMock()
         mock_app.initialize = AsyncMock(return_value=True)
         mock_app.display_manager = MagicMock()
         mock_app.cache_manager = MagicMock()
         mock_calendar_bot_class.return_value = mock_app
-        
+
         mock_nav_handler = MagicMock()
         mock_nav_handler.navigation_state = MagicMock()
         mock_nav_handler_class.return_value = mock_nav_handler
-        
+
         mock_web_server_class.side_effect = Exception("Web server init failed")
-        
+
         # Execute and Assert
         with pytest.raises(Exception, match="Web server init failed"):
             await web._initialize_web_components(mock_settings)
-        
+
         mock_app.initialize.assert_called_once()
         mock_logger.exception.assert_called_once_with("Failed to create WebServer")
 
@@ -365,11 +389,11 @@ class TestWebComponents:
         mock_args.auto_open = True
         mock_settings.web_host = "localhost"
         mock_settings.web_port = 8080
-        
+
         # Execute
         with patch("builtins.print") as mock_print:
             web._start_web_server(mock_web_server, mock_settings, mock_args, mock_logger)
-        
+
         # Assert
         mock_web_server.start.assert_called_once()
         mock_webbrowser.open.assert_called_once_with("http://localhost:8080")
@@ -386,15 +410,17 @@ class TestWebComponents:
         mock_settings.web_host = "localhost"
         mock_settings.web_port = 8080
         mock_webbrowser.open.side_effect = Exception("Browser open failed")
-        
+
         # Execute
         with patch("builtins.print"):
             web._start_web_server(mock_web_server, mock_settings, mock_args, mock_logger)
-        
+
         # Assert
         mock_web_server.start.assert_called_once()
         mock_webbrowser.open.assert_called_once_with("http://localhost:8080")
-        mock_logger.warning.assert_called_once_with("Failed to auto-open browser: Browser open failed")
+        mock_logger.warning.assert_called_once_with(
+            "Failed to auto-open browser: Browser open failed"
+        )
 
     def test_start_web_server_when_auto_open_false_then_does_not_open_browser(
         self, mock_web_server, mock_settings, mock_args, mock_logger
@@ -404,11 +430,14 @@ class TestWebComponents:
         mock_args.auto_open = False
         mock_settings.web_host = "localhost"
         mock_settings.web_port = 8080
-        
+
         # Execute
-        with patch("builtins.print") as mock_print, patch("calendarbot.cli.modes.web.webbrowser") as mock_webbrowser:
+        with (
+            patch("builtins.print") as mock_print,
+            patch("calendarbot.cli.modes.web.webbrowser") as mock_webbrowser,
+        ):
             web._start_web_server(mock_web_server, mock_settings, mock_args, mock_logger)
-        
+
         # Assert
         mock_web_server.start.assert_called_once()
         mock_webbrowser.open.assert_not_called()
@@ -425,14 +454,14 @@ class TestWebComponents:
         mock_runtime_tracker = MagicMock()
         mock_fetch_task = MagicMock()
         mock_fetch_task.cancel = MagicMock()
-        
+
         # Mock asyncio.wait_for to avoid actual waiting
         with patch("asyncio.wait_for", new=AsyncMock()) as mock_wait_for:
             # Execute
             await web._cleanup_web_resources(
                 mock_runtime_tracker, mock_web_server, mock_fetch_task, mock_app, mock_logger
             )
-        
+
         # Assert
         mock_web_server.stop.assert_called_once()
         mock_fetch_task.cancel.assert_called_once()
@@ -450,14 +479,14 @@ class TestWebComponents:
         mock_fetch_task = MagicMock()
         mock_fetch_task.cancel = MagicMock()
         mock_web_server.stop.side_effect = Exception("Stop failed")
-        
+
         # Mock asyncio.wait_for to avoid actual waiting
         with patch("asyncio.wait_for", new=AsyncMock()) as mock_wait_for:
             # Execute
             await web._cleanup_web_resources(
                 mock_runtime_tracker, mock_web_server, mock_fetch_task, mock_app, mock_logger
             )
-        
+
         # Assert
         mock_web_server.stop.assert_called_once()
         mock_fetch_task.cancel.assert_called_once()
@@ -473,19 +502,19 @@ class TestWebComponents:
         mock_runtime_tracker = MagicMock()
         mock_fetch_task = MagicMock()
         mock_fetch_task.cancel = MagicMock()
-        
+
         # Mock asyncio.wait_for to raise CancelledError for fetch task
         async def mock_wait_for_side_effect(coro, timeout):
             if coro == mock_fetch_task:
                 raise asyncio.CancelledError()
             return await coro
-            
+
         with patch("asyncio.wait_for", new=AsyncMock(side_effect=mock_wait_for_side_effect)):
             # Execute
             await web._cleanup_web_resources(
                 mock_runtime_tracker, mock_web_server, mock_fetch_task, mock_app, mock_logger
             )
-        
+
         # Assert
         mock_web_server.stop.assert_called_once()
         mock_fetch_task.cancel.assert_called_once()
@@ -500,19 +529,19 @@ class TestWebComponents:
         mock_runtime_tracker = MagicMock()
         mock_fetch_task = MagicMock()
         mock_fetch_task.cancel = MagicMock()
-        
+
         # Mock asyncio.wait_for to raise TimeoutError for fetch task
         async def mock_wait_for_side_effect(coro, timeout):
             if coro == mock_fetch_task:
                 raise asyncio.TimeoutError()
             return await coro
-            
+
         with patch("asyncio.wait_for", new=AsyncMock(side_effect=mock_wait_for_side_effect)):
             # Execute
             await web._cleanup_web_resources(
                 mock_runtime_tracker, mock_web_server, mock_fetch_task, mock_app, mock_logger
             )
-        
+
         # Assert
         mock_web_server.stop.assert_called_once()
         mock_fetch_task.cancel.assert_called_once()
@@ -528,30 +557,47 @@ class TestWebComponents:
     @patch("calendarbot.cli.modes.web._start_web_server")
     @patch("calendarbot.cli.modes.web._cleanup_web_resources")
     async def test_run_web_mode_when_successful_then_returns_zero(
-        self, mock_cleanup, mock_start_server, mock_start_tracking, 
-        mock_create_tracker, mock_init_components, mock_configure_settings,
-        mock_args, mock_settings, mock_app, mock_web_server, mock_navigation_handler, mock_logger
+        self,
+        mock_cleanup,
+        mock_start_server,
+        mock_start_tracking,
+        mock_create_tracker,
+        mock_init_components,
+        mock_configure_settings,
+        mock_args,
+        mock_settings,
+        mock_app,
+        mock_web_server,
+        mock_navigation_handler,
+        mock_logger,
     ):
         """Test successful web mode execution."""
         # Setup
         mock_configure_settings.return_value = mock_settings
-        mock_init_components.return_value = (mock_app, mock_web_server, mock_navigation_handler, mock_logger)
+        mock_init_components.return_value = (
+            mock_app,
+            mock_web_server,
+            mock_navigation_handler,
+            mock_logger,
+        )
         mock_runtime_tracker = MagicMock()
         mock_create_tracker.return_value = mock_runtime_tracker
         mock_cleanup.return_value = None
-        
+
         # Mock asyncio.Event and create_task
         mock_event = MagicMock()
         mock_event.is_set.side_effect = [False, True]  # Return False first, then True to exit loop
         mock_fetch_task = MagicMock()
-        
-        with patch("asyncio.Event", return_value=mock_event), \
-             patch("asyncio.create_task", return_value=mock_fetch_task), \
-             patch("asyncio.sleep", new=AsyncMock()), \
-             patch("signal.signal"):
+
+        with (
+            patch("asyncio.Event", return_value=mock_event),
+            patch("asyncio.create_task", return_value=mock_fetch_task),
+            patch("asyncio.sleep", new=AsyncMock()),
+            patch("signal.signal"),
+        ):
             # Execute
             result = await web.run_web_mode(mock_args)
-        
+
         # Assert
         assert result == 0
         mock_configure_settings.assert_called_once()

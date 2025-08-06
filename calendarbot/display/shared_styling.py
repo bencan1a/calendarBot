@@ -28,6 +28,17 @@ class SharedStylingConstants:
         "urgent": "#dc3545",  # Red for urgent elements
     }
 
+    # Pure black/white palette for e-paper displays
+    EPAPER_COLORS: ClassVar[dict[str, str]] = {
+        "background": "#ffffff",  # Pure white background
+        "background_secondary": "#ffffff",  # Pure white for secondary backgrounds
+        "text_primary": "#000000",  # Pure black for primary text
+        "text_secondary": "#000000",  # Pure black for secondary text
+        "text_supporting": "#000000",  # Pure black for supporting text
+        "accent": "#000000",  # Pure black for accent elements
+        "urgent": "#ff0000",  # Red for urgent elements
+    }
+
     # Typography constants with both HTML and PIL formats
     TYPOGRAPHY: ClassVar[dict[str, dict[str, Any]]] = {
         "html": {
@@ -60,7 +71,7 @@ class SharedStylingConstants:
 
 
 def get_colors_for_renderer(
-    renderer_type: Literal["html", "pil"], mode: str = "L"
+    renderer_type: Literal["html", "pil"], mode: str = "L", is_epaper: bool = False
 ) -> dict[str, Union[str, int, tuple[int, int, int]]]:
     """
     Get colors formatted for the specified renderer type.
@@ -68,6 +79,7 @@ def get_colors_for_renderer(
     Args:
         renderer_type: Type of renderer ("html" or "pil")
         mode: PIL image mode for PIL renderer ("1", "L", or "RGB")
+        is_epaper: Whether to use the pure black/white palette for e-paper displays
 
     Returns:
         Dictionary of colors formatted for the specified renderer
@@ -75,14 +87,14 @@ def get_colors_for_renderer(
     Raises:
         ValueError: If renderer_type is not supported
     """
+    # Select the appropriate color palette
+    colors = SharedStylingConstants.EPAPER_COLORS if is_epaper else SharedStylingConstants.COLORS
+
     if renderer_type == "html":
         # Cast to the expected return type to satisfy type checker
-        return cast(dict[str, Union[str, int, tuple[int, int, int]]], SharedStylingConstants.COLORS)
+        return cast(dict[str, Union[str, int, tuple[int, int, int]]], colors)
     if renderer_type == "pil":
-        return {
-            key: convert_web_to_pil_color(value, mode)
-            for key, value in SharedStylingConstants.COLORS.items()
-        }
+        return {key: convert_web_to_pil_color(value, mode) for key, value in colors.items()}
     raise ValueError(f"Unsupported renderer type: {renderer_type}")
 
 
