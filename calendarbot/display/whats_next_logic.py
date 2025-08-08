@@ -102,11 +102,33 @@ class WhatsNextLogic:
         if not events:
             return [], [], []
 
+        # Filter out hidden events
+        visible_events = []
+        if hasattr(self.settings, "event_filters") and hasattr(
+            self.settings.event_filters, "hidden_events"
+        ):
+            hidden_events = self.settings.event_filters.hidden_events
+            logger.debug(f"WhatsNext filtering - hidden_events: {list(hidden_events)}")
+            logger.debug(f"WhatsNext filtering - total events before filter: {len(events)}")
+            visible_events = [e for e in events if e.graph_id not in hidden_events]
+            filtered_count = len(events) - len(visible_events)
+            logger.debug(
+                f"WhatsNext filtering - events filtered out: {filtered_count}, visible events: {len(visible_events)}"
+            )
+            if filtered_count > 0:
+                filtered_ids = [e.graph_id for e in events if e.graph_id in hidden_events]
+                logger.info(
+                    f"WhatsNext filtered out {filtered_count} hidden events: {filtered_ids}"
+                )
+        else:
+            logger.debug("WhatsNext filtering - no hidden_events found in settings")
+            visible_events = events
+
         # Find current events (happening now)
-        current_events = [e for e in events if e.is_current()]
+        current_events = [e for e in visible_events if e.is_current()]
 
         # Find upcoming events (not started yet)
-        upcoming_events = [e for e in events if e.start_dt > current_time]
+        upcoming_events = [e for e in visible_events if e.start_dt > current_time]
         upcoming_events.sort(key=lambda e: e.start_dt)  # Sort by start time
 
         # Remaining upcoming events are "later today"
@@ -166,8 +188,64 @@ class WhatsNextLogic:
         try:
             now = self.get_current_time()
 
+            # Apply hidden events filter first - get fresh settings to avoid staleness
+            try:
+                from ..settings.service import SettingsService  # noqa: PLC0415
+
+                settings_service = SettingsService()
+                fresh_settings = settings_service.get_filter_settings()
+
+                if hasattr(fresh_settings, "hidden_events") and fresh_settings.hidden_events:
+                    hidden_events = fresh_settings.hidden_events
+                    logger.debug(
+                        f"find_next_upcoming_event filtering - fresh hidden_events: {list(hidden_events)}"
+                    )
+
+                    # Debug: show actual event IDs that we're using for filtering
+                    event_ids = [e.graph_id for e in events[:5]]  # Show first 5 for debugging
+                    logger.debug(
+                        f"find_next_upcoming_event - sample event IDs being used for filtering: {event_ids}"
+                    )
+
+                    # Check for matches using the same ID system as frontend
+                    matching_events = [e for e in events if e.graph_id in hidden_events]
+                    logger.debug(
+                        f"find_next_upcoming_event - found {len(matching_events)} events to hide: {[e.graph_id for e in matching_events]}"
+                    )
+
+                    visible_events = [e for e in events if e.graph_id not in hidden_events]
+                    filtered_count = len(events) - len(visible_events)
+                    logger.debug(
+                        f"find_next_upcoming_event filtered out {filtered_count} hidden events, {len(visible_events)} visible"
+                    )
+                else:
+                    logger.debug(
+                        "find_next_upcoming_event - no hidden_events found in fresh settings"
+                    )
+                    visible_events = events
+            except Exception as e:
+                logger.warning(f"Failed to get fresh settings for hidden events filtering: {e}")
+                # Fallback to original settings
+                if hasattr(self.settings, "event_filters") and hasattr(
+                    self.settings.event_filters, "hidden_events"
+                ):
+                    hidden_events = self.settings.event_filters.hidden_events
+                    logger.debug(
+                        f"find_next_upcoming_event filtering - fallback hidden_events: {list(hidden_events)}"
+                    )
+                    visible_events = [e for e in events if e.graph_id not in hidden_events]
+                    filtered_count = len(events) - len(visible_events)
+                    logger.debug(
+                        f"find_next_upcoming_event filtered out {filtered_count} hidden events (fallback), {len(visible_events)} visible"
+                    )
+                else:
+                    logger.debug(
+                        "find_next_upcoming_event - no hidden_events found in fallback settings"
+                    )
+                    visible_events = events
+
             # Filter to only upcoming events (not current)
-            upcoming_events = [e for e in events if e.start_dt > now]
+            upcoming_events = [e for e in visible_events if e.start_dt > now]
 
             if not upcoming_events:
                 return None

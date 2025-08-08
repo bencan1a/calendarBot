@@ -6,11 +6,10 @@ including validation logic, default values, and comprehensive documentation.
 All models use Pydantic for automatic validation, serialization, and type checking.
 """
 
-import builtins
 import logging
 import re
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Dict, Optional  # noqa: UP035
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -136,6 +135,9 @@ class EventFilterSettings(BaseModel):
 
     enabled: bool = Field(default=True, description="Whether event filtering is enabled")
     hide_all_day_events: bool = Field(default=False, description="Hide all-day events")
+    hidden_events: set[str] = Field(
+        default_factory=set, description="Set of graph_ids for hidden events"
+    )
     title_patterns: list[FilterPattern] = Field(
         default_factory=list, description="Title filter patterns"
     )
@@ -149,6 +151,46 @@ class EventFilterSettings(BaseModel):
         default=None, description="Filter by attendee count"
     )
     default_action: str = Field(default="include", description="Default action: include or exclude")
+
+    def hide_event(self, graph_id: str) -> None:
+        """Add an event to the hidden events set.
+
+        Args:
+            graph_id: The graph_id of the event to hide
+        """
+        if not graph_id:
+            return
+        self.hidden_events.add(graph_id)
+
+    def unhide_event(self, graph_id: str) -> bool:
+        """Remove an event from the hidden events set.
+
+        Args:
+            graph_id: The graph_id of the event to unhide
+
+        Returns:
+            True if the event was in the hidden set, False otherwise
+        """
+        if not graph_id:
+            return False
+
+        if graph_id in self.hidden_events:
+            self.hidden_events.remove(graph_id)
+            return True
+        return False
+
+    def is_event_hidden(self, graph_id: str) -> bool:
+        """Check if an event is in the hidden events set.
+
+        Args:
+            graph_id: The graph_id of the event to check
+
+        Returns:
+            True if the event is hidden, False otherwise
+        """
+        if not graph_id:
+            return False
+        return graph_id in self.hidden_events
 
     @model_validator(mode="before")
     @classmethod
@@ -279,6 +321,10 @@ class EventFilterSettings(BaseModel):
             Dictionary representation with backward compatibility
         """
         result = super().dict(**kwargs)
+
+        # Convert hidden_events set to list for JSON serialization
+        if "hidden_events" in result:
+            result["hidden_events"] = list(result["hidden_events"])
 
         # Add backward compatibility for integration tests that expect 'patterns' key
         # while maintaining the correct 'title_patterns' key for frontend
@@ -874,9 +920,13 @@ class SettingsData(BaseModel):
         # Ensure event_filters uses the custom dict method that includes 'patterns' key
         result["event_filters"] = self.event_filters.dict()
 
+        # Convert datetime objects to ISO format for JSON serialization
+        if "metadata" in result and "last_modified" in result["metadata"]:
+            result["metadata"]["last_modified"] = result["metadata"]["last_modified"].isoformat()
+
         return result
 
-    def to_api_dict(self) -> builtins.dict[str, Any]:
+    def to_api_dict(self) -> Dict[str, Any]:  # noqa: UP006
         """Convert settings to API-friendly dictionary format.
 
         Returns:
@@ -884,6 +934,10 @@ class SettingsData(BaseModel):
         """
         # Get the standard dictionary representation
         event_filters_dict = self.event_filters.dict()
+
+        # Convert hidden_events set to list for JSON serialization
+        if "hidden_events" in event_filters_dict:
+            event_filters_dict["hidden_events"] = list(event_filters_dict["hidden_events"])
 
         # Add backward compatibility for integration tests that expect 'patterns' key
         # while maintaining the correct 'title_patterns' key for frontend

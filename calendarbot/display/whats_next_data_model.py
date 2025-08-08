@@ -25,6 +25,7 @@ class EventData:
     formatted_time_range: str = ""
     organizer: Optional[str] = None
     attendees: list[str] = field(default_factory=list)
+    graph_id: Optional[str] = None  # Microsoft Graph ID for event hiding functionality
 
     @classmethod
     def from_cached_event(cls, event: CachedEvent, current_time: datetime) -> "EventData":
@@ -64,6 +65,12 @@ class EventData:
             logger.warning(f"Failed to format time range for event '{event.subject}': {e}")
             formatted_time_range = ""
 
+        # DEBUG: Check if CachedEvent has graph_id and what its value is
+        graph_id = getattr(event, "graph_id", None)
+        logger.debug(
+            f"EventData.from_cached_event - CachedEvent '{event.subject}' graph_id: {graph_id}"
+        )
+
         return cls(
             subject=event.subject,
             start_time=event.start_dt,
@@ -76,6 +83,7 @@ class EventData:
             formatted_time_range=formatted_time_range,
             organizer=getattr(event, "organizer", None),
             attendees=getattr(event, "attendees", []),
+            graph_id=graph_id,  # Microsoft Graph ID for event hiding
         )
 
 

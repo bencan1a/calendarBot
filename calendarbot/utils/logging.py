@@ -99,7 +99,7 @@ def get_log_level(level_name: str) -> int:
 
 
 class AutoColoredFormatter(logging.Formatter):
-    """Formatter that auto-detects terminal color support."""
+    """Formatter that auto-detects terminal color support and includes filename for DEBUG logs."""
 
     # Color schemes for different terminal types
     from typing import ClassVar  # noqa: PLC0415
@@ -111,12 +111,24 @@ class AutoColoredFormatter(logging.Formatter):
         "WARNING": {"truecolor": "\033[93m", "basic": "\033[33m", "none": ""},
         "DEBUG": {"truecolor": "\033[95m", "basic": "\033[35m", "none": ""},
         "CRITICAL": {"truecolor": "\033[91m\033[1m", "basic": "\033[31m\033[1m", "none": ""},
+        "FILENAME": {
+            "truecolor": "\033[96m\033[1m",
+            "basic": "\033[36m\033[1m",
+            "none": "",
+        },  # Bright cyan + bold
         "RESET": {"truecolor": "\033[0m", "basic": "\033[0m", "none": ""},
     }
 
-    def __init__(self, *args: Any, enable_colors: bool = True, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *args: Any,
+        enable_colors: bool = True,
+        include_file_for_debug: bool = True,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.enable_colors = enable_colors
+        self.include_file_for_debug = include_file_for_debug
         self.color_mode = self._detect_color_support() if enable_colors else "none"
 
     def _detect_color_support(self) -> str:
@@ -148,9 +160,28 @@ class AutoColoredFormatter(logging.Formatter):
         return "none"
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record with colors if supported."""
-        # Get base formatted message
-        formatted = super().format(record)
+        """Format log record with colors if supported and filename for DEBUG logs."""
+        # For DEBUG logs, temporarily use a different formatter to include filename
+        if self.include_file_for_debug and record.levelno == logging.DEBUG:
+            # Create a temporary formatter for DEBUG logs with filename
+            original_style_fmt = getattr(self._style, "_fmt", "")
+            if "%(asctime)s - %(levelname)s - %(message)s" in original_style_fmt:
+                debug_format = original_style_fmt.replace(
+                    "%(asctime)s - %(levelname)s - %(message)s",
+                    "%(asctime)s - %(levelname)s - %(filename)s - %(message)s",
+                )
+            else:
+                # Fallback: add filename before message
+                debug_format = original_style_fmt.replace(
+                    "%(message)s", "%(filename)s - %(message)s"
+                )
+
+            # Create temporary formatter for this record
+            temp_formatter = logging.Formatter(debug_format, datefmt=self.datefmt)
+            formatted = temp_formatter.format(record)
+        else:
+            # Get base formatted message for non-DEBUG logs
+            formatted = super().format(record)
 
         if self.color_mode == "none":
             return formatted
@@ -164,6 +195,20 @@ class AutoColoredFormatter(logging.Formatter):
             # Replace level name with colored version
             colored_level = f"{color_start}{level_name}{color_end}"
             formatted = formatted.replace(level_name, colored_level, 1)
+
+        # Apply colors to filename in DEBUG logs
+        if (
+            self.include_file_for_debug
+            and record.levelno == logging.DEBUG
+            and hasattr(record, "filename")
+        ):
+            filename = record.filename
+            filename_color_start = self.COLORS["FILENAME"][self.color_mode]
+            filename_color_end = self.COLORS["RESET"][self.color_mode]
+
+            # Replace filename with colored version
+            colored_filename = f"{filename_color_start}{filename}{filename_color_end}"
+            formatted = formatted.replace(f" - {filename} - ", f" - {colored_filename} - ", 1)
 
         return formatted
 
@@ -327,10 +372,7 @@ def setup_enhanced_logging(  # noqa: PLR0915
 
             logger.addHandler(console_handler)
 
-            # Ensure console shows INFO level for development visibility
-            if console_level > logging.INFO:
-                console_handler.setLevel(logging.INFO)
-                logger.info("Console logging enabled at INFO level for development visibility")
+            # Use the specified console level (respect user preferences)
 
     # 3. File Handler (if enabled)
     if settings.logging.file_enabled:
@@ -358,15 +400,35 @@ def setup_enhanced_logging(  # noqa: PLR0915
                 format_type="json", include_context=True, include_source=True
             )
         else:
-            # Detailed file formatter
-            if settings.logging.include_function_names:
-                file_format = (
-                    "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
-                )
-            else:
-                file_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            # Create a custom formatter that includes filename for DEBUG logs
+            class FileFormatterWithDebugFilename(logging.Formatter):
+                """Custom formatter that adds filename to DEBUG logs."""
 
-            file_formatter = logging.Formatter(file_format, datefmt="%Y-%m-%d %H:%M:%S")
+                def __init__(self, include_function_names: bool = False) -> None:
+                    self.include_function_names = include_function_names
+                    if include_function_names:
+                        base_format = "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
+                        debug_format = "%(asctime)s - %(name)s - %(levelname)s - %(filename)s - %(funcName)s:%(lineno)d - %(message)s"
+                    else:
+                        base_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                        debug_format = (
+                            "%(asctime)s - %(name)s - %(levelname)s - %(filename)s - %(message)s"
+                        )
+
+                    super().__init__(base_format, datefmt="%Y-%m-%d %H:%M:%S")
+                    self.debug_format = debug_format
+
+                def format(self, record: logging.LogRecord) -> str:
+                    """Format log record with filename for DEBUG logs."""
+                    if record.levelno == logging.DEBUG:
+                        # Use temporary formatter for DEBUG logs
+                        temp_formatter = logging.Formatter(self.debug_format, datefmt=self.datefmt)
+                        return temp_formatter.format(record)
+                    return super().format(record)
+
+            file_formatter = FileFormatterWithDebugFilename(
+                include_function_names=settings.logging.include_function_names
+            )
 
         file_handler.setFormatter(file_formatter)
 
@@ -423,13 +485,32 @@ def setup_logging(
 
     # Create formatters
     console_formatter = AutoColoredFormatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%H:%M:%S",
+        include_file_for_debug=True,
     )
 
-    file_formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    # Create file formatter that includes filename for DEBUG logs
+    class LegacyFileFormatterWithDebugFilename(logging.Formatter):
+        """Custom formatter that adds filename to DEBUG logs for legacy setup."""
+
+        def __init__(self) -> None:
+            base_format = (
+                "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
+            )
+            debug_format = "%(asctime)s - %(name)s - %(levelname)s - %(filename)s - %(funcName)s:%(lineno)d - %(message)s"
+            super().__init__(base_format, datefmt="%Y-%m-%d %H:%M:%S")
+            self.debug_format = debug_format
+
+        def format(self, record: logging.LogRecord) -> str:
+            """Format log record with filename for DEBUG logs."""
+            if record.levelno == logging.DEBUG:
+                # Use temporary formatter for DEBUG logs
+                temp_formatter = logging.Formatter(self.debug_format, datefmt=self.datefmt)
+                return temp_formatter.format(record)
+            return super().format(record)
+
+    file_formatter = LegacyFileFormatterWithDebugFilename()
 
     # Console handler
     console_handler = logging.StreamHandler()

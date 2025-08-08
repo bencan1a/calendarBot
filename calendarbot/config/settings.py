@@ -312,7 +312,7 @@ class CalendarBotSettings(BaseSettings):
     refresh_interval: int = Field(
         default=300, description="Refresh interval in seconds (5 minutes)"
     )
-    cache_ttl: int = Field(default=3600, description="Cache time-to-live in seconds (1 hour)")
+    cache_ttl: int = Field(default=600, description="Cache time-to-live in seconds (10 minutes)")
     auto_kill_existing: bool = Field(
         default=True, description="Automatically kill existing calendarbot processes on startup"
     )

@@ -78,6 +78,9 @@ function initializeWhatsNextView() {
     // Initialize settings panel
     initializeSettingsPanel();
 
+    // Initialize state manager (Phase 2)
+    initializeStateManager();
+
     // Initial data load
     loadMeetingData();
 
@@ -286,37 +289,36 @@ function setupAccessibility() {
 }
 
 /**
- * Load meeting data from CalendarBot API
+ * Load meeting data from CalendarBot API (Phase 2: JSON consumption)
+ * Uses WhatsNextStateManager instead of HTML parsing
  */
 async function loadMeetingData() {
     try {
         showLoadingIndicator('Loading meetings...');
 
-        // Prepare request body with custom time if debug mode is enabled
-        const requestBody = {};
-        if (debugModeEnabled && debugData.customTimeEnabled) {
-            const customTime = getCurrentTime();
-            requestBody.debug_time = customTime.toISOString();
-
+        if (!whatsNextStateManager) {
+            throw new Error('WhatsNextStateManager not initialized');
         }
 
-        const response = await fetch('/api/refresh', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-        });
-
-        const data = await response.json();
-
-        if (data.success && data.html) {
-            // Parse the HTML to extract meeting data
-            parseMeetingDataFromHTML(data.html);
-            updatePageContent(data.html);
-            detectCurrentMeeting();
-            updateCountdown();
+        // Use state manager to load data with automatic incremental DOM updates
+        const data = await whatsNextStateManager.loadData();
+        // DOM updates are now handled automatically by state manager's refreshView()
+        
+        // Update global variables for backward compatibility with existing functions
+        if (data && data.events) {
+            upcomingMeetings = data.events.map(event => ({
+                graph_id: event.graph_id,
+                title: event.title,
+                start_time: event.start_time,
+                end_time: event.end_time,
+                location: event.location || '',
+                description: event.description || '',
+                is_hidden: event.is_hidden || false
+            }));
+            
             lastDataUpdate = new Date();
+            
+            console.log('Whats-Next-View: Meeting data loaded with incremental DOM updates');
         } else {
             showErrorState('Failed to load meeting data');
         }
@@ -329,317 +331,9 @@ async function loadMeetingData() {
     }
 }
 
-/**
- * Parse meeting data from HTML response
- * Performance optimized: Reduced DOM queries and improved parsing efficiency
- * @param {string} html - HTML content from server
- * @returns {Array} Array of parsed meeting objects
- */
-function parseMeetingDataFromHTML(html) {
-    try {
-        // Performance optimization: Use more efficient document creation
-        let doc;
-        const trimmedHtml = html.trim();
-
-        if (trimmedHtml.startsWith('<html') || trimmedHtml.startsWith('<!DOCTYPE')) {
-            // Full HTML document
-            const parser = new DOMParser();
-            doc = parser.parseFromString(html, 'text/html');
-        } else {
-            // HTML fragment - create temporary container
-            doc = document.implementation.createHTMLDocument('temp');
-            doc.body.innerHTML = html;
-        }
-
-        initializeTimezoneBaseline(doc);
-
-        // Initialize upcomingMeetings array
-        upcomingMeetings = [];
-
-        // Performance optimization: Single query to get all potential event elements
-        const eventSelectors = [
-            '.current-event',
-            '.upcoming-event',
-            'section.current-events .event-item',
-            'section.upcoming-events .event-item'
-        ];
-
-        const allEventElements = [];
-
-        // Batch all queries into a single efficient operation
-        for (const selector of eventSelectors) {
-            const elements = doc.querySelectorAll(selector);
-            allEventElements.push(...elements);
-        }
-
-        // Fallback for body-specific selectors if no events found
-        if (allEventElements.length === 0 && doc.body) {
-            const bodySelectors = [
-                '.current-event',
-                '.upcoming-event',
-                '.event-item'
-            ];
-
-            for (const selector of bodySelectors) {
-                const elements = doc.body.querySelectorAll(selector);
-                allEventElements.push(...elements);
-            }
-        }
-
-        // Performance optimization: Process all events in a single loop
-        const meetings = [];
-        for (const eventElement of allEventElements) {
-            const meeting = extractMeetingFromElementOptimized(eventElement);
-            if (meeting) {
-                meetings.push(meeting);
-            }
-        }
-
-        // Remove duplicates based on title and start time
-        const uniqueMeetings = [];
-        const seenMeetings = new Set();
-
-        for (const meeting of meetings) {
-            const key = `${meeting.title}-${meeting.start_time}`;
-            if (!seenMeetings.has(key)) {
-                seenMeetings.add(key);
-                uniqueMeetings.push(meeting);
-            }
-        }
-
-        // Sort by start time (optimized comparison)
-        uniqueMeetings.sort((a, b) => {
-            const timeA = new Date(a.start_time).getTime();
-            const timeB = new Date(b.start_time).getTime();
-            return timeA - timeB;
-        });
-
-        upcomingMeetings = uniqueMeetings;
-
-        console.log(`Whats-Next-View: Parsed ${upcomingMeetings.length} meetings`);
-
-        return upcomingMeetings;
-
-    } catch (error) {
-        console.error('Whats-Next-View: Failed to parse meeting data', error);
-        return [];
-    }
-}
-
-/**
- * Extract meeting data from DOM element
- * @param {Element} element - DOM element containing meeting data
- * @returns {Object|null} Meeting object or null if parsing fails
- */
-function extractMeetingFromElement(element) {
-    try {
-        const titleElement = element.querySelector('.event-title');
-        // Handle both .event-time (current events) and .event-details (upcoming events)
-        const timeElement = element.querySelector('.event-time') || element.querySelector('.event-details');
-        const locationElement = element.querySelector('.event-location');
-
-        if (!titleElement || !timeElement) {
-            return null;
-        }
-
-        const title = titleElement.textContent.trim();
-        const timeText = timeElement.textContent.trim();
 
 
-        // SCOPE FIX: Declare variables at function level
-        let adjustedStartTime;
-        let adjustedEndTime;
 
-
-        const eventTimeAttr = element.getAttribute('data-event-time');
-
-        if (eventTimeAttr) {
-            // Use the timezone-aware ISO datetime from backend
-
-            const eventDateTime = new Date(eventTimeAttr);
-            if (isNaN(eventDateTime.getTime())) {
-
-                return null;
-            }
-
-            // Calculate end time (assume 1 hour duration if not specified)
-            const endDateTime = new Date(eventDateTime.getTime() + (60 * 60 * 1000));
-
-
-            adjustedStartTime = eventDateTime;
-            adjustedEndTime = endDateTime;
-        } else {
-            // Fallback to text parsing if data attribute not available
-
-
-            const timeMatch = timeText.match(/(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s*-\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
-            if (!timeMatch) {
-                return null;
-            }
-
-
-            const baseDate = getCurrentTime();
-
-            const startTime = parseTimeString(timeMatch[1], baseDate);
-            const endTime = parseTimeString(timeMatch[2], baseDate);
-
-
-            adjustedStartTime = startTime;
-            adjustedEndTime = endTime;
-        }
-
-        return {
-            id: `meeting-${Date.now()}-${Math.random()}`,
-            title: title,
-            start_time: adjustedStartTime.toISOString(),
-            end_time: adjustedEndTime.toISOString(),
-            location: locationElement ? locationElement.textContent.trim() : '',
-            description: ''
-        };
-
-    } catch (error) {
-        console.error('Whats-Next-View: Failed to extract meeting from element', error);
-        return null;
-    }
-}
-
-/**
- * Performance optimized version of extractMeetingFromElement
- * Reduces DOM queries and improves extraction efficiency
- * @param {Element} element - Event element from parsed HTML
- * @returns {Object|null} Meeting object or null if extraction fails
- */
-function extractMeetingFromElementOptimized(element) {
-    try {
-        // Single traversal to collect all needed elements
-        const selectors = {
-            title: ['.event-title', '.event-summary', 'h3', 'h4'],
-            time: ['.event-time', '.event-datetime', '.time', '.event-details'],
-            location: ['.event-location', '.location'],
-            description: ['.event-description', '.description']
-        };
-
-        const elements = {};
-
-        // Efficient single-pass collection
-        for (const [key, selectorList] of Object.entries(selectors)) {
-            for (const selector of selectorList) {
-                const found = element.querySelector(selector);
-                if (found) {
-                    elements[key] = found;
-                    break; // Stop at first match for efficiency
-                }
-            }
-        }
-
-        // Fast validation check
-        if (!elements.title || !elements.time) {
-            return null;
-        }
-
-        // Extract text content efficiently
-        const title = elements.title.textContent.trim();
-        const timeText = elements.time.textContent.trim();
-        const location = elements.location?.textContent?.trim() || '';
-
-        // Optimized time extraction with data attributes priority
-        let adjustedStartTime;
-        let adjustedEndTime;
-
-        // Check data attributes first (fastest path)
-        const eventTimeAttr = element.getAttribute('data-event-time');
-
-        if (eventTimeAttr) {
-            // Use timezone-aware ISO datetime from backend
-            const eventDateTime = new Date(eventTimeAttr);
-            if (isNaN(eventDateTime.getTime())) {
-                return null;
-            }
-
-            // Calculate end time (assume 1 hour duration if not specified)
-            const endDateTime = new Date(eventDateTime.getTime() + (60 * 60 * 1000));
-
-            adjustedStartTime = eventDateTime;
-            adjustedEndTime = endDateTime;
-        } else {
-            // Fallback to text parsing
-            const timeMatch = timeText.match(/(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s*-\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
-            if (!timeMatch) {
-                return null;
-            }
-
-            const baseDate = getCurrentTime();
-            const startTime = parseTimeString(timeMatch[1], baseDate);
-            const endTime = parseTimeString(timeMatch[2], baseDate);
-
-            adjustedStartTime = startTime;
-            adjustedEndTime = endTime;
-        }
-
-        // Return structured object with performance-optimized ID generation
-        return {
-            id: `meeting-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            title,
-            start_time: adjustedStartTime.toISOString(),
-            end_time: adjustedEndTime.toISOString(),
-            location,
-            description: ''
-        };
-
-    } catch (error) {
-        console.error('Whats-Next-View: Failed to extract meeting from element (optimized)', error);
-        return null;
-    }
-}
-
-/**
- * Parse time string into Date object
- * @param {string} timeStr - Time string (e.g., "2:30 PM")
- * @param {Date} baseDate - Base date to use
- * @returns {Date} Parsed date object
- */
-function parseTimeString(timeStr, baseDate) {
-    const cleanTime = timeStr.trim();
-    const date = new Date(baseDate);
-
-    // Handle 12-hour format
-    const match = cleanTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
-    if (match) {
-        let hours = parseInt(match[1]);
-        const minutes = parseInt(match[2]);
-        const ampm = match[3] ? match[3].toUpperCase() : '';
-
-        if (ampm === 'PM' && hours !== 12) {
-            hours += 12;
-        } else if (ampm === 'AM' && hours === 12) {
-            hours = 0;
-        }
-
-        date.setHours(hours, minutes, 0, 0);
-
-        // Handle day boundary: if parsed time is before current time, assume it's for tomorrow
-        // BUT: only do this if we're not in debug mode with a custom time override
-        const now = getCurrentTime();
-        const realNow = new Date(); // Always use real time for this comparison
-
-        // Only adjust date for "tomorrow" logic if we're using real time or the custom time is close to real time
-        if (!debugModeEnabled || !debugData.customTimeEnabled) {
-            // Normal operation: if time is in the past, assume it's for tomorrow
-            if (date < now) {
-                date.setDate(date.getDate() + 1);
-            }
-        } else {
-            // Debug mode: be more careful about date adjustments
-            // Only adjust if the meeting time is more than 12 hours in the past relative to custom time
-            const timeDiff = now.getTime() - date.getTime();
-            if (timeDiff > 12 * 60 * 60 * 1000) { // More than 12 hours in the past
-                date.setDate(date.getDate() + 1);
-            }
-        }
-    }
-
-    return date;
-}
 
 /**
  * Detect the current/next meeting
@@ -1049,11 +743,12 @@ function createMeetingLayoutStructure(content) {
         
         <!-- Zone 2 (140px): Next meeting information -->
         <div class="layout-zone-2">
-            <div class="meeting-card current">
+            <div class="meeting-card current" data-graph-id="${currentMeeting ? currentMeeting.id || currentMeeting.graph_id || '' : ''}">
                 <div class="meeting-title text-primary"></div>
                 <div class="meeting-time text-secondary"></div>
                 <div class="meeting-location text-supporting" style="display: none;"></div>
                 <div class="meeting-description text-small" style="display: none;"></div>
+                <button class="meeting-close-box" aria-label="Hide event" tabindex="0"></button>
             </div>
         </div>
         
@@ -1066,6 +761,9 @@ function createMeetingLayoutStructure(content) {
     `;
 
     content.innerHTML = html;
+    
+    // Set up event hiding functionality
+    setupEventHiding();
 }
 
 /**
@@ -1434,8 +1132,8 @@ async function navigate(action) {
         const data = await response.json();
 
         if (data.success && data.html) {
-            parseMeetingDataFromHTML(data.html);
-            updatePageContent(data.html);
+            // Use WhatsNextStateManager instead of deprecated HTML parsing
+            whatsNextStateManager.refreshView();
             detectCurrentMeeting();
         } else {
             console.error('Navigation failed:', data.error);
@@ -1517,126 +1215,54 @@ async function cycleLayout() {
 }
 
 /**
- * Data refresh (following 3x4 pattern)
+ * Data refresh (following 3x4 pattern) - Phase 2: Uses state manager with incremental DOM updates
  */
 async function refresh() {
     console.log('Whats-Next-View: Manual refresh requested');
-    await loadMeetingData();
-    showSuccessMessage('Meetings refreshed');
+    
+    try {
+        if (!whatsNextStateManager) {
+            console.error('WhatsNextStateManager not initialized for manual refresh');
+            showErrorMessage('State manager not available');
+            return;
+        }
+
+        // Use state manager for refresh with incremental DOM updates
+        await whatsNextStateManager.loadData();
+        // DOM is automatically updated via state manager's refreshView()
+        
+        showSuccessMessage('Meetings refreshed');
+        
+    } catch (error) {
+        console.error('Manual refresh error:', error);
+        showErrorMessage('Refresh failed: ' + error.message);
+    }
 }
 
 /**
- * Silent refresh for auto-refresh (following 3x4 pattern)
+ * Silent refresh for auto-refresh (following 3x4 pattern) - Phase 2: Uses state manager with incremental DOM updates
  */
 async function refreshSilent() {
     try {
-        // Prepare request body with custom time if debug mode is enabled
-        const requestBody = {};
-        if (debugModeEnabled && debugData.customTimeEnabled) {
-            const customTime = getCurrentTime();
-            requestBody.debug_time = customTime.toISOString();
+        if (!whatsNextStateManager) {
+            console.error('WhatsNextStateManager not initialized for auto-refresh');
+            return;
         }
 
-        const response = await fetch('/api/refresh', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-        });
-
-        const data = await response.json();
-
-        if (data.success && data.html) {
-            parseMeetingDataFromHTML(data.html);
-            updatePageContent(data.html);
-            detectCurrentMeeting();
-            console.log('Whats-Next-View: Auto-refresh completed');
-        }
+        // Use state manager for silent refresh with incremental DOM updates
+        // This now enables full DOM updates while preserving countdown elements
+        console.log('Whats-Next-View: Auto-refresh using state manager with incremental DOM updates');
+        await whatsNextStateManager.loadData();
+        // DOM is automatically updated via state manager's refreshView() which preserves countdown elements
+        
+        console.log('Whats-Next-View: Auto-refresh completed with incremental DOM updates');
 
     } catch (error) {
         console.error('Silent refresh error:', error);
+        showErrorMessage('Auto-refresh error - please try manual refresh');
     }
 }
 
-/**
- * Update page content (following 3x4 pattern)
- */
-function updatePageContent(newHTML) {
-
-    const parser = new DOMParser();
-    const newDoc = parser.parseFromString(newHTML, 'text/html');
-
-    // Check what's in the new HTML
-    const newCalendarContent = newDoc.querySelector('.calendar-content');
-    if (newCalendarContent) {
-    }
-
-    // Check what's in current DOM
-    const currentCalendarContent = document.querySelector('.calendar-content');
-
-    // Update header elements
-    const sectionsToUpdate = [
-        '.header-title',
-        '.whats-next-header'
-    ];
-
-
-    sectionsToUpdate.forEach(selector => {
-        const oldElement = document.querySelector(selector);
-        const newElement = newDoc.querySelector(selector);
-
-
-        if (oldElement && newElement) {
-            oldElement.innerHTML = newElement.innerHTML;
-        }
-    });
-
-    // FIX: Also update .calendar-content from the API response
-    // DIAGNOSTIC: Variables already declared above - reusing them to fix redeclaration bug
-
-
-    if (newCalendarContent) {
-
-        if (currentCalendarContent) {
-            // Update existing .calendar-content
-            currentCalendarContent.innerHTML = newCalendarContent.innerHTML;
-
-
-        } else {
-            // Create .calendar-content if it doesn't exist
-
-            const main = document.createElement('main');
-            main.className = 'calendar-content';
-            main.innerHTML = newCalendarContent.innerHTML;
-
-            // Insert after header or at beginning of body
-            const header = document.querySelector('header');
-            if (header && header.nextSibling) {
-                document.body.insertBefore(main, header.nextSibling);
-            } else {
-                document.body.appendChild(main);
-            }
-
-
-        }
-    } else {
-
-    }
-
-    // Verify the fix worked
-    const verifyCalendarContent = document.querySelector('.calendar-content');
-    if (verifyCalendarContent) {
-    }
-
-    // Update page title
-    if (newDoc.title) {
-        document.title = newDoc.title;
-    }
-
-    // Ensure theme class is maintained
-    document.documentElement.className = document.documentElement.className.replace(/theme-\w+/, `theme-${currentTheme}`);
-}
 
 // ===========================================
 // UI FEEDBACK FUNCTIONS
@@ -1790,14 +1416,12 @@ window.formatMeetingTime = formatMeetingTime;
 window.escapeHtml = escapeHtml;
 
 // P0 Time gap function exports for testing
-window.parseTimeString = parseTimeString;
 window.formatTimeGap = formatTimeGap;
 window.calculateTimeGap = calculateTimeGap;
 
 // Performance optimization function exports
 window.calculateTimeGapOptimized = calculateTimeGapOptimized;
 window.formatTimeGapOptimized = formatTimeGapOptimized;
-window.extractMeetingFromElementOptimized = extractMeetingFromElementOptimized;
 window.updateMeetingDisplayOptimized = updateMeetingDisplayOptimized;
 window.updateEmptyStateOptimized = updateEmptyStateOptimized;
 
@@ -1829,14 +1453,16 @@ Object.defineProperty(window, 'testScenario', {
 });
 
 // Data transformation function exports for testing
-window.extractMeetingFromElement = extractMeetingFromElement;
-window.parseMeetingDataFromHTML = parseMeetingDataFromHTML;
 window.updateTimePreview = updateTimePreview;
 
 // Accessibility function exports
 window.setupAccessibility = setupAccessibility;
 window.announceToScreenReader = announceToScreenReader;
 window.getMeetingAriaLabel = getMeetingAriaLabel;
+
+// Event hiding function exports
+window.hideEvent = hideEvent;
+window.setupEventHiding = setupEventHiding;
 
 // Debug function exports for testing
 window.toggleDebugMode = toggleDebugMode;
@@ -2702,7 +2328,9 @@ window.whatsNextView = {
     setDebugValues: setDebugValues,
     getDebugState: getDebugState,
     applyDebugValues: applyDebugValues,
-    clearDebugValues: clearDebugValues
+    clearDebugValues: clearDebugValues,
+    // State manager access (Phase 2)
+    getStateManager: () => whatsNextStateManager
 };
 
 // ===========================================
@@ -2796,6 +2424,854 @@ function hasSettingsPanel() {
 
 /**
  * Cleanup function for whats-next-view layout
+ */
+/**
+ * Set up event hiding functionality
+ * Adds click handlers to close boxes and manages animations
+ */
+function setupEventHiding() {
+    // Find all close boxes
+    const closeBoxes = document.querySelectorAll('.meeting-close-box');
+    
+    // Add click handlers to each close box
+    closeBoxes.forEach(closeBox => {
+        closeBox.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // Get the meeting card and its data
+            const meetingCard = this.closest('.meeting-card');
+            if (!meetingCard) return;
+            
+            // Find the event ID from the meeting card
+            const graphId = meetingCard.getAttribute('data-graph-id');
+            const customId = meetingCard.getAttribute('data-event-id');
+            const eventId = graphId || customId;
+            
+            if (!eventId) {
+                console.error('Cannot hide event: No event ID found');
+                return;
+            }
+            
+            // Hide the event using state manager
+            hideEvent(eventId);
+        });
+        
+        // Add keyboard support
+        closeBox.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                this.click();
+            }
+        });
+    });
+    
+    console.log('Whats-Next-View: Event hiding functionality initialized');
+}
+
+/**
+ * Hide an event using the WhatsNextStateManager
+ * @param {string} graphId - The graph_id of the event to hide
+ */
+async function hideEvent(graphId) {
+    if (!graphId) {
+        console.error('Cannot hide event: Missing graphId parameter');
+        return;
+    }
+    
+    if (!whatsNextStateManager) {
+        console.error('Cannot hide event: WhatsNextStateManager not initialized');
+        return;
+    }
+    
+    try {
+        // Delegate to state manager which handles optimistic updates, API calls, and error handling
+        const success = await whatsNextStateManager.hideEvent(graphId);
+        
+        if (success) {
+            console.log(`Event hidden successfully via state manager: ${graphId}`);
+        } else {
+            console.error(`Failed to hide event via state manager: ${graphId}`);
+        }
+        
+        return success;
+    } catch (error) {
+        console.error('Error hiding event via state manager:', error);
+        return false;
+    }
+}
+
+// ===========================================
+// WHATS-NEXT STATE MANAGER (Phase 2)
+// ===========================================
+
+/**
+ * WhatsNextStateManager - Unified state management for the Whats-Next view
+ *
+ * This class provides a single source of truth for all view state and replaces
+ * the multiple competing refresh mechanisms with a unified, event-driven approach.
+ *
+ * Key Features:
+ * - Single source of truth for all frontend state
+ * - Event-driven architecture for state changes
+ * - JSON-based data loading (replacing HTML parsing)
+ * - Optimistic updates for immediate UI feedback
+ * - Error handling and recovery mechanisms
+ */
+class WhatsNextStateManager {
+    constructor() {
+        // Internal state
+        this.state = {
+            events: [],
+            layoutName: 'whats-next-view',
+            lastUpdated: null,
+            layoutConfig: {
+                showHiddenEvents: false,
+                maxEvents: 10,
+                timeFormat: '12h'
+            },
+            loading: false,
+            error: null
+        };
+
+        // Event listeners for state changes
+        this.listeners = {
+            stateChanged: [],
+            dataLoaded: [],
+            eventHidden: [],
+            eventUnhidden: [],
+            error: []
+        };
+
+        // Internal optimistic update cache
+        this.optimisticUpdates = new Map();
+
+        // Performance tracking
+        this.performanceMetrics = {
+            lastLoadTime: null,
+            loadDuration: null,
+            apiCallCount: 0
+        };
+
+        console.log('WhatsNextStateManager: Initialized');
+    }
+
+    /**
+     * Load data from the JSON API endpoint
+     * @returns {Promise<Object>} The loaded data
+     */
+    async loadData() {
+        try {
+            this._setLoading(true);
+            this._setError(null);
+
+            const startTime = performance.now();
+            
+            // Prepare request body with custom time if debug mode is enabled
+            const requestBody = {};
+            if (debugModeEnabled && debugData.customTimeEnabled) {
+                const customTime = getCurrentTime();
+                requestBody.debug_time = customTime.toISOString();
+            }
+
+            const response = await fetch('/api/whats-next/data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            
+            // Update performance metrics
+            const endTime = performance.now();
+            this.performanceMetrics.lastLoadTime = new Date();
+            this.performanceMetrics.loadDuration = endTime - startTime;
+            this.performanceMetrics.apiCallCount++;
+
+            // Update state with new data
+            this.updateState(data);
+
+            console.log(`WhatsNextStateManager: Data loaded in ${this.performanceMetrics.loadDuration.toFixed(2)}ms`);
+            
+            // Automatically refresh the view with incremental updates
+            this.refreshView();
+            
+            // Emit data loaded event
+            this._emitEvent('dataLoaded', { data, metrics: this.performanceMetrics });
+
+            return data;
+
+        } catch (error) {
+            console.error('WhatsNextStateManager: Failed to load data', error);
+            this._setError(error.message);
+            this._emitEvent('error', { type: 'loadData', error: error.message });
+            throw error;
+        } finally {
+            this._setLoading(false);
+        }
+    }
+
+    /**
+     * Update internal state with new data
+     * @param {Object} newData - New data from API response
+     */
+    updateState(newData) {
+        const previousState = { ...this.state };
+
+        // Merge new data into state
+        if (newData.events) {
+            this.state.events = newData.events;
+        }
+        if (newData.layout_name) {
+            this.state.layoutName = newData.layout_name;
+        }
+        if (newData.last_updated) {
+            this.state.lastUpdated = new Date(newData.last_updated);
+        }
+        if (newData.layout_config) {
+            this.state.layoutConfig = { ...this.state.layoutConfig, ...newData.layout_config };
+        }
+
+        // Apply any pending optimistic updates
+        this._applyOptimisticUpdates();
+
+        console.log(`WhatsNextStateManager: State updated with ${this.state.events.length} events`);
+
+        // Emit state change event
+        this._emitEvent('stateChanged', {
+            previousState,
+            newState: { ...this.state },
+            changeType: 'update'
+        });
+    }
+
+    /**
+     * Refresh the view by synchronizing DOM with current state using incremental updates
+     * This method preserves JavaScript countdown elements by only updating changed content
+     */
+    refreshView() {
+        try {
+            // Update global variables for backward compatibility
+            this._updateLegacyGlobalState();
+
+            // Perform incremental DOM updates that preserve countdown elements
+            this._performIncrementalDOMUpdates();
+
+            console.log('WhatsNextStateManager: View refreshed with incremental updates');
+
+        } catch (error) {
+            console.error('WhatsNextStateManager: Failed to refresh view', error);
+            this._setError('View refresh failed');
+            this._emitEvent('error', { type: 'refreshView', error: error.message });
+        }
+    }
+
+    /**
+     * Perform incremental DOM updates that preserve JavaScript countdown elements
+     * Uses smart diffing to only update elements that have actually changed
+     */
+    _performIncrementalDOMUpdates() {
+        if (!this.state.events || this.state.events.length === 0) {
+            this._updateToEmptyState();
+            return;
+        }
+
+        // Find current meeting from state - filter out hidden events
+        const now = getCurrentTime();
+        let currentMeeting = null;
+        const visibleEvents = this.state.events.filter(event => !event.is_hidden);
+        
+        for (const event of visibleEvents) {
+            const meetingStart = new Date(event.start_time);
+            const meetingEnd = new Date(event.end_time);
+            
+            // Check if meeting is currently happening or upcoming
+            if (now >= meetingStart && now <= meetingEnd) {
+                currentMeeting = event;
+                break;
+            }
+            if (meetingStart > now) {
+                currentMeeting = event;
+                break;
+            }
+        }
+
+        if (!currentMeeting) {
+            this._updateToEmptyState();
+            return;
+        }
+
+        // Update current meeting display with incremental updates
+        this._updateMeetingDisplayIncremental(currentMeeting);
+        
+        // Update countdown display (preserves countdown elements)
+        this._updateCountdownIncremental(currentMeeting, now);
+        
+        // Update last update timestamp
+        this._updateLastUpdateIncremental();
+    }
+
+    /**
+     * Update meeting display using incremental DOM updates
+     * @param {Object} meeting - The current meeting object
+     */
+    _updateMeetingDisplayIncremental(meeting) {
+        const content = document.querySelector('.calendar-content');
+        
+        if (!content) {
+            console.error('WhatsNextStateManager: .calendar-content container not found');
+            return;
+        }
+
+        // Ensure basic meeting layout structure exists
+        this._ensureMeetingLayoutStructure(content);
+
+        // Update individual components with change detection
+        this._updateElementIfChanged('.meeting-title', meeting.title);
+        this._updateElementIfChanged('.meeting-time', this._formatMeetingTime(meeting.start_time, meeting.end_time));
+        this._updateElementIfChanged('.meeting-location', meeting.location || '');
+        this._updateElementIfChanged('.meeting-description', meeting.description || '');
+        
+        // Update context message
+        const isCurrentMeeting = this._isMeetingCurrent(meeting);
+        const contextMessage = this._getContextMessage(isCurrentMeeting);
+        this._updateElementIfChanged('.context-message', contextMessage);
+    }
+
+    /**
+     * Update countdown display while preserving countdown JavaScript elements
+     * @param {Object} meeting - The current meeting object
+     * @param {Date} now - Current time
+     */
+    _updateCountdownIncremental(meeting, now) {
+        const meetingStart = new Date(meeting.start_time);
+        const meetingEnd = new Date(meeting.end_time);
+        
+        // Update global currentMeeting for backward compatibility with countdown system
+        window.currentMeeting = {
+            title: meeting.title,
+            start_time: meeting.start_time,
+            end_time: meeting.end_time,
+            location: meeting.location || '',
+            description: meeting.description || '',
+            graph_id: meeting.graph_id
+        };
+        
+        // Trigger existing countdown update function which preserves countdown elements
+        updateCountdown();
+    }
+
+    /**
+     * Update an element's text content only if it has changed
+     * @param {string} selector - CSS selector for the element
+     * @param {string} newContent - New content to set
+     */
+    _updateElementIfChanged(selector, newContent) {
+        const element = document.querySelector(selector);
+        if (!element) {
+            return;
+        }
+        
+        const currentContent = element.textContent.trim();
+        const trimmedNewContent = (newContent || '').trim();
+        
+        if (currentContent !== trimmedNewContent) {
+            element.textContent = trimmedNewContent;
+            console.log(`WhatsNextStateManager: Updated ${selector} content`);
+        }
+    }
+
+    /**
+     * Ensure basic meeting layout structure exists in the content container
+     * @param {Element} content - The calendar content container
+     */
+    _ensureMeetingLayoutStructure(content) {
+        // Check if meeting structure already exists
+        let meetingContainer = content.querySelector('.meeting-container');
+        
+        if (!meetingContainer) {
+            // Create basic meeting structure without destroying existing countdown elements
+            const existingCountdown = content.querySelector('.countdown-container');
+            
+            meetingContainer = document.createElement('div');
+            meetingContainer.className = 'meeting-container';
+            
+            // Create meeting info elements
+            const meetingTitle = document.createElement('h2');
+            meetingTitle.className = 'meeting-title';
+            
+            const meetingTime = document.createElement('div');
+            meetingTime.className = 'meeting-time';
+            
+            const meetingLocation = document.createElement('div');
+            meetingLocation.className = 'meeting-location';
+            
+            const meetingDescription = document.createElement('div');
+            meetingDescription.className = 'meeting-description';
+            
+            const contextMessage = document.createElement('div');
+            contextMessage.className = 'context-message';
+            
+            // Add elements to container
+            meetingContainer.appendChild(meetingTitle);
+            meetingContainer.appendChild(meetingTime);
+            meetingContainer.appendChild(meetingLocation);
+            meetingContainer.appendChild(meetingDescription);
+            meetingContainer.appendChild(contextMessage);
+            
+            // Insert meeting container while preserving countdown
+            if (existingCountdown && existingCountdown.parentNode === content) {
+                content.insertBefore(meetingContainer, existingCountdown);
+            } else {
+                content.appendChild(meetingContainer);
+            }
+        }
+    }
+
+    /**
+     * Update display to empty state when no meetings are available
+     */
+    _updateToEmptyState() {
+        const content = document.querySelector('.calendar-content');
+        if (!content) {
+            return;
+        }
+        
+        // Preserve countdown elements while updating meeting content
+        const existingCountdown = content.querySelector('.countdown-container');
+        
+        // Update meeting container to show empty state
+        let meetingContainer = content.querySelector('.meeting-container');
+        if (meetingContainer) {
+            meetingContainer.innerHTML = '<div class="no-meetings">No upcoming meetings</div>';
+        } else {
+            // Create empty state container
+            meetingContainer = document.createElement('div');
+            meetingContainer.className = 'meeting-container';
+            meetingContainer.innerHTML = '<div class="no-meetings">No upcoming meetings</div>';
+            
+            if (existingCountdown) {
+                content.insertBefore(meetingContainer, existingCountdown);
+            } else {
+                content.appendChild(meetingContainer);
+            }
+        }
+        
+        // Clear global currentMeeting
+        window.currentMeeting = null;
+    }
+
+    /**
+     * Update last update timestamp incrementally
+     */
+    _updateLastUpdateIncremental() {
+        const lastUpdateElement = document.querySelector('.last-update');
+        if (lastUpdateElement && this.state.lastUpdated) {
+            const formattedTime = this.state.lastUpdated.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            this._updateElementIfChanged('.last-update', `Last updated: ${formattedTime}`);
+        }
+    }
+
+    /**
+     * Format meeting time for display
+     * @param {string} startTime - ISO string of start time
+     * @param {string} endTime - ISO string of end time
+     * @returns {string} Formatted time string
+     */
+    _formatMeetingTime(startTime, endTime) {
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+        
+        const options = {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        };
+        
+        return `${start.toLocaleTimeString([], options)} - ${end.toLocaleTimeString([], options)}`;
+    }
+
+    /**
+     * Check if a meeting is currently happening
+     * @param {Object} meeting - Meeting object
+     * @returns {boolean} True if meeting is current
+     */
+    _isMeetingCurrent(meeting) {
+        const now = getCurrentTime();
+        const meetingStart = new Date(meeting.start_time);
+        const meetingEnd = new Date(meeting.end_time);
+        
+        return now >= meetingStart && now <= meetingEnd;
+    }
+
+    /**
+     * Get context message for meeting
+     * @param {boolean} isCurrentMeeting - Whether meeting is currently happening
+     * @returns {string} Context message
+     */
+    _getContextMessage(isCurrentMeeting) {
+        return isCurrentMeeting ? 'Meeting in progress' : 'Next meeting';
+    }
+
+    /**
+     * Hide an event with optimistic UI updates
+     * @param {string} graphId - The graph ID of the event to hide
+     * @returns {Promise<boolean>} Success status
+     */
+    async hideEvent(graphId) {
+        if (!graphId) {
+            console.error('WhatsNextStateManager: hideEvent called without graphId');
+            return false;
+        }
+
+        try {
+            // Apply optimistic update immediately
+            this._addOptimisticUpdate(graphId, { is_hidden: true });
+            this._applyOptimisticUpdates();
+            this.refreshView();
+
+            console.log(`WhatsNextStateManager: Optimistic hide for event ${graphId}`);
+
+            // Make API call in background
+            const response = await fetch('/api/events/hide', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ graph_id: graphId }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Hide request failed: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            // Update state with server response if it includes updated data
+            if (result.events) {
+                this.updateState(result);
+            }
+
+            // Remove optimistic update since server confirmed
+            this._removeOptimisticUpdate(graphId);
+
+            console.log(`WhatsNextStateManager: Event ${graphId} hidden successfully`);
+
+            // Emit event hidden notification
+            this._emitEvent('eventHidden', { graphId, result });
+
+            return true;
+
+        } catch (error) {
+            console.error(`WhatsNextStateManager: Failed to hide event ${graphId}`, error);
+            
+            // Rollback optimistic update
+            this._removeOptimisticUpdate(graphId);
+            this._applyOptimisticUpdates();
+            this.refreshView();
+
+            this._setError(`Failed to hide event: ${error.message}`);
+            this._emitEvent('error', { type: 'hideEvent', graphId, error: error.message });
+            
+            return false;
+        }
+    }
+
+    /**
+     * Unhide an event with optimistic UI updates
+     * @param {string} graphId - The graph ID of the event to unhide
+     * @returns {Promise<boolean>} Success status
+     */
+    async unhideEvent(graphId) {
+        if (!graphId) {
+            console.error('WhatsNextStateManager: unhideEvent called without graphId');
+            return false;
+        }
+
+        try {
+            // Apply optimistic update immediately
+            this._addOptimisticUpdate(graphId, { is_hidden: false });
+            this._applyOptimisticUpdates();
+            this.refreshView();
+
+            console.log(`WhatsNextStateManager: Optimistic unhide for event ${graphId}`);
+
+            // Make API call in background
+            const response = await fetch('/api/events/unhide', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ graph_id: graphId }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Unhide request failed: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            // Update state with server response if it includes updated data
+            if (result.events) {
+                this.updateState(result);
+            }
+
+            // Remove optimistic update since server confirmed
+            this._removeOptimisticUpdate(graphId);
+
+            console.log(`WhatsNextStateManager: Event ${graphId} unhidden successfully`);
+
+            // Emit event unhidden notification
+            this._emitEvent('eventUnhidden', { graphId, result });
+
+            return true;
+
+        } catch (error) {
+            console.error(`WhatsNextStateManager: Failed to unhide event ${graphId}`, error);
+            
+            // Rollback optimistic update
+            this._removeOptimisticUpdate(graphId);
+            this._applyOptimisticUpdates();
+            this.refreshView();
+
+            this._setError(`Failed to unhide event: ${error.message}`);
+            this._emitEvent('error', { type: 'unhideEvent', graphId, error: error.message });
+            
+            return false;
+        }
+    }
+
+    /**
+     * Get current state
+     * @returns {Object} Current state object
+     */
+    getState() {
+        return { ...this.state };
+    }
+
+    /**
+     * Get current events
+     * @returns {Array} Current events array
+     */
+    getEvents() {
+        return [...this.state.events];
+    }
+
+    /**
+     * Get performance metrics
+     * @returns {Object} Performance metrics
+     */
+    getPerformanceMetrics() {
+        return { ...this.performanceMetrics };
+    }
+
+    /**
+     * Add event listener for state changes
+     * @param {string} eventType - Type of event to listen for
+     * @param {Function} callback - Callback function
+     */
+    addEventListener(eventType, callback) {
+        if (this.listeners[eventType]) {
+            this.listeners[eventType].push(callback);
+        } else {
+            console.warn(`WhatsNextStateManager: Unknown event type: ${eventType}`);
+        }
+    }
+
+    /**
+     * Remove event listener
+     * @param {string} eventType - Type of event
+     * @param {Function} callback - Callback function to remove
+     */
+    removeEventListener(eventType, callback) {
+        if (this.listeners[eventType]) {
+            const index = this.listeners[eventType].indexOf(callback);
+            if (index > -1) {
+                this.listeners[eventType].splice(index, 1);
+            }
+        }
+    }
+
+    // Private methods
+
+    /**
+     * Set loading state
+     * @private
+     */
+    _setLoading(loading) {
+        this.state.loading = loading;
+    }
+
+    /**
+     * Set error state
+     * @private
+     */
+    _setError(error) {
+        this.state.error = error;
+    }
+
+    /**
+     * Emit event to all listeners
+     * @private
+     */
+    _emitEvent(eventType, data) {
+        if (this.listeners[eventType]) {
+            this.listeners[eventType].forEach(callback => {
+                try {
+                    callback(data);
+                } catch (error) {
+                    console.error(`WhatsNextStateManager: Error in ${eventType} listener`, error);
+                }
+            });
+        }
+    }
+
+    /**
+     * Add optimistic update for immediate UI feedback
+     * @private
+     */
+    _addOptimisticUpdate(graphId, updates) {
+        this.optimisticUpdates.set(graphId, updates);
+    }
+
+    /**
+     * Remove optimistic update
+     * @private
+     */
+    _removeOptimisticUpdate(graphId) {
+        this.optimisticUpdates.delete(graphId);
+    }
+
+    /**
+     * Apply pending optimistic updates to state
+     * @private
+     */
+    _applyOptimisticUpdates() {
+        this.state.events = this.state.events.map(event => {
+            if (this.optimisticUpdates.has(event.graph_id)) {
+                const updates = this.optimisticUpdates.get(event.graph_id);
+                return { ...event, ...updates };
+            }
+            return event;
+        });
+    }
+
+    /**
+     * Update legacy global state variables for backward compatibility
+     * @private
+     */
+    _updateLegacyGlobalState() {
+        // Update global variables that existing code depends on - filter out hidden events
+        upcomingMeetings = (this.state.events || []).filter(event => !event.is_hidden);
+        lastDataUpdate = this.state.lastUpdated || new Date();
+
+        // Find current meeting using existing logic
+        const now = getCurrentTime();
+        currentMeeting = null;
+
+        for (const meeting of upcomingMeetings) {
+            const meetingStart = new Date(meeting.start_time);
+            const meetingEnd = new Date(meeting.end_time);
+
+            // Check if meeting is currently happening
+            if (now >= meetingStart && now <= meetingEnd) {
+                currentMeeting = meeting;
+                break;
+            }
+
+            // Check if meeting is upcoming
+            if (meetingStart > now) {
+                currentMeeting = meeting;
+                break;
+            }
+        }
+    }
+}
+
+// Global state manager instance (initialized after DOM loads)
+let whatsNextStateManager = null;
+
+/**
+ * Initialize the WhatsNextStateManager
+ * Called alongside existing initialization code
+ */
+function initializeStateManager() {
+    try {
+        if (!whatsNextStateManager) {
+            whatsNextStateManager = new WhatsNextStateManager();
+
+            // Set up error handling
+            whatsNextStateManager.addEventListener('error', (data) => {
+                console.error('WhatsNextStateManager Error:', data);
+                showErrorMessage('State manager error: ' + data.error);
+            });
+
+            // Set up state change handling for debugging
+            whatsNextStateManager.addEventListener('stateChanged', (data) => {
+                console.log('WhatsNextStateManager State Changed:', data.changeType);
+            });
+
+            // Set up data loaded event handling (Phase 2 integration)
+            whatsNextStateManager.addEventListener('dataLoaded', (data) => {
+                console.log('WhatsNextStateManager: Data loaded event received');
+                
+                // Update global variables for backward compatibility
+                if (data.data && data.data.events) {
+                    upcomingMeetings = data.data.events.map(event => ({
+                        graph_id: event.graph_id,
+                        title: event.title,
+                        start_time: event.start_time,
+                        end_time: event.end_time,
+                        location: event.location || '',
+                        description: event.description || '',
+                        is_hidden: event.is_hidden || false
+                    }));
+                    
+                    lastDataUpdate = new Date();
+                    
+                    // Trigger existing UI update functions
+                    detectCurrentMeeting();
+                    updateCountdown();
+                }
+            });
+
+            // Set up event hidden/unhidden event handling
+            whatsNextStateManager.addEventListener('eventHidden', (data) => {
+                console.log('WhatsNextStateManager: Event hidden:', data.graphId);
+                // Update UI to reflect hidden event
+                detectCurrentMeeting();
+                updateCountdown();
+            });
+
+            whatsNextStateManager.addEventListener('eventUnhidden', (data) => {
+                console.log('WhatsNextStateManager: Event unhidden:', data.graphId);
+                // Update UI to reflect unhidden event
+                detectCurrentMeeting();
+                updateCountdown();
+            });
+
+            console.log('WhatsNextStateManager: Global instance initialized');
+        }
+    } catch (error) {
+        console.error('WhatsNextStateManager: Failed to initialize', error);
+    }
+}
+
+// ===========================================
+// END WHATS-NEXT STATE MANAGER
+// ===========================================
+
+/**
+ * Cleanup function for the Whats-Next-View
  */
 function cleanup() {
     console.log('Whats-Next-View: Starting cleanup...');

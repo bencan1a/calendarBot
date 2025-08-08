@@ -11,6 +11,7 @@ from threading import Thread
 from typing import Any, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
+from ..display.whats_next_data_model import EventData, WhatsNextViewModel
 from ..layout.registry import LayoutRegistry
 from ..layout.resource_manager import ResourceManager
 from ..security.logging import SecurityEventLogger
@@ -19,6 +20,10 @@ from ..settings.service import SettingsService
 from ..utils.process import auto_cleanup_before_start
 
 logger = logging.getLogger(__name__)
+
+
+class WebServerError(Exception):
+    """Custom exception for web server errors."""
 
 
 class WebRequestHandler(BaseHTTPRequestHandler):
@@ -149,24 +154,39 @@ class WebRequestHandler(BaseHTTPRequestHandler):
     ) -> None:
         """Handle API requests."""
         try:
+            logger.debug(f"API request routing: path='{path}', method={self.command}")
+
             if not self.web_server:
                 self._send_json_response(500, {"error": "Web server not available"})
                 return
 
             if path == "/api/navigate":
+                logger.debug("Routing to navigation API")
                 self._handle_navigation_api(params)
             elif path == "/api/layout":
+                logger.debug("Routing to layout API")
                 self._handle_layout_api(params)
             elif path == "/api/theme":
+                logger.debug("Routing to theme API (redirect to layout)")
                 # Backward compatibility - redirect to layout API
                 self._handle_layout_api(params)
             elif path == "/api/refresh":
+                logger.debug("Routing to refresh API")
                 self._handle_refresh_api(params)
+            elif path == "/api/whats-next/data":
+                logger.debug("Routing to whats-next data API")
+                self._handle_whats_next_data_api(params)
             elif path == "/api/status":
+                logger.debug("Routing to status API")
                 self._handle_status_api()
             elif path.startswith("/api/settings"):
+                logger.debug("Routing to settings API")
+                self._handle_settings_api(path, params)
+            elif path.startswith("/api/events"):
+                logger.debug("Routing events API to settings handler")
                 self._handle_settings_api(path, params)
             else:
+                logger.warning(f"No route found for API path: {path}")
                 self._send_json_response(404, {"error": "API endpoint not found"})
 
         except Exception as e:
@@ -306,6 +326,400 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         html_content = self.web_server.get_calendar_html(days, debug_time=debug_time)
         self._send_json_response(200, {"success": success, "html": html_content})
 
+    def _handle_whats_next_data_api(
+        self, params: Optional[Union[dict[str, list[str]], dict[str, Any]]] = None
+    ) -> None:
+        """Handle What's Next data API requests.
+
+        Args:
+            params: Request parameters, including optional debug_time
+        """
+        if not self.web_server:
+            self._send_json_response(500, {"error": "Web server not available"})
+            return
+
+        try:
+            # Extract debug time and get current layout
+            debug_time = self._extract_debug_time(params)
+            current_layout = self.web_server.get_current_layout()
+
+            # Get events and status info
+            events, status_info = self._get_events_for_api(current_layout)
+
+            # Filter out hidden events
+            filtered_events = self._filter_events(events)
+
+            # Create view model and return response
+            self._create_and_send_view_model(filtered_events, status_info, debug_time)
+
+        except Exception as e:
+            logger.exception("Error handling What's Next data API request")
+            self._send_json_response(500, {"error": str(e)})
+
+    def _extract_debug_time(
+        self, params: Optional[Union[dict[str, list[str]], dict[str, Any]]]
+    ) -> Optional[datetime]:
+        """Extract and parse debug_time from request parameters."""
+        if not self.web_server:
+            return None
+
+        current_layout = self.web_server.get_current_layout()
+
+        if (
+            current_layout == "whats-next-view"
+            and params
+            and isinstance(params, dict)
+            and "debug_time" in params
+        ):
+            debug_time_value = params["debug_time"]
+            debug_time_str = (
+                debug_time_value[0] if isinstance(debug_time_value, list) else str(debug_time_value)
+            )
+
+            try:
+                # Parse ISO format debug time
+                debug_time = datetime.fromisoformat(debug_time_str.replace("Z", "+00:00"))
+                logger.info(f"Debug mode: Using override time {debug_time.isoformat()}")
+                return debug_time
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Invalid debug_time format '{debug_time_str}': {e}")
+
+        return None
+
+    def _get_events_for_api(self, current_layout: str) -> tuple[list[Any], dict[str, Any]]:
+        """Get events and status info based on current layout and navigation state."""
+        if not self.web_server:
+            return [], {}
+
+        days = 7 if current_layout == "whats-next-view" else 1
+
+        if self.web_server.navigation_state:
+            return self._get_interactive_mode_events(days)
+        return self._get_non_interactive_mode_events(days)
+
+    def _get_interactive_mode_events(self, days: int) -> tuple[list[Any], dict[str, Any]]:
+        """Get events for interactive mode (navigation state available)."""
+        if not self.web_server or not self.web_server.navigation_state:
+            return [], {}
+
+        selected_date = self.web_server.navigation_state.selected_date
+        start_datetime = datetime.combine(selected_date, datetime.min.time())
+        end_datetime = start_datetime + timedelta(days=days)
+
+        logger.debug(
+            f"Interactive mode - getting events for {selected_date} ({start_datetime} to {end_datetime}) [days: {days}]"
+        )
+
+        events = self._get_events_async_safe(start_datetime, end_datetime)
+        logger.debug(f"Retrieved {len(events)} events for selected date")
+
+        # Build status info for interactive mode
+        from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
+
+        status_info = {
+            "selected_date": self.web_server.navigation_state.get_display_date(),
+            "is_today": self.web_server.navigation_state.is_today(),
+            "interactive_mode": True,
+            "last_update": get_timezone_aware_now().isoformat(),
+            "is_cached": False,  # TODO: Get actual cache status
+        }
+
+        return events, status_info
+
+    def _get_non_interactive_mode_events(self, days: int) -> tuple[list[Any], dict[str, Any]]:
+        """Get events for non-interactive mode (static web display)."""
+        today = date.today()
+        start_datetime = datetime.combine(today, datetime.min.time())
+        end_datetime = start_datetime + timedelta(days=days)
+
+        logger.debug(
+            f"Non-interactive mode - getting events for today {today} ({start_datetime} to {end_datetime}) [days: {days}]"
+        )
+
+        events = self._get_events_async_safe(start_datetime, end_datetime)
+        logger.debug(f"Retrieved {len(events)} events for today")
+
+        # Static web display mode - no navigation buttons
+        from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
+
+        status_info = {
+            "last_update": get_timezone_aware_now().isoformat(),
+            "is_cached": False,
+            "interactive_mode": False,
+        }
+
+        return events, status_info
+
+    def _get_events_async_safe(self, start_datetime: datetime, end_datetime: datetime) -> list[Any]:
+        """Safely handle async event fetching from sync context."""
+        if not self.web_server or not hasattr(self.web_server, "cache_manager"):
+            logger.error("Web server or cache manager not available")
+            return []
+
+        web_server = self.web_server  # Store for type narrowing
+
+        try:
+            # Try to get the running event loop
+            asyncio.get_running_loop()
+            # If we're in an event loop, we can't use asyncio.run()
+            import concurrent.futures  # noqa: PLC0415
+
+            def run_async_in_thread() -> Any:
+                import asyncio  # noqa: PLC0415
+
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(
+                        web_server.cache_manager.get_events_by_date_range(
+                            start_datetime, end_datetime
+                        )
+                    )
+                finally:
+                    new_loop.close()
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_async_in_thread)
+                return future.result(timeout=5.0)
+
+        except RuntimeError:
+            # No running event loop, safe to use asyncio.run()
+            return asyncio.run(
+                web_server.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
+            )
+
+    def _filter_events(self, events: list[Any]) -> list[Any]:
+        """Filter out hidden events based on settings."""
+        if self.web_server and self.web_server.settings_service:
+            filter_settings = self.web_server.settings_service.get_filter_settings()
+            return [
+                event for event in events if not filter_settings.is_event_hidden(event.graph_id)
+            ]
+        # Fallback if settings service not available
+        return events
+
+    def _create_and_send_view_model(
+        self,
+        filtered_events: list[Any],
+        status_info: dict[str, Any],
+        debug_time: Optional[datetime],
+    ) -> None:
+        """Create view model and send JSON response."""
+        if not self.web_server:
+            self._send_json_response(500, {"error": "Web server not available"})
+            return
+
+        # Use WhatsNextLogic to create the view model
+        from ..display.whats_next_logic import WhatsNextLogic  # noqa: PLC0415
+
+        whats_next_logic = WhatsNextLogic(self.web_server.settings)
+        if debug_time:
+            whats_next_logic.set_debug_time(debug_time)
+
+        view_model = whats_next_logic.create_view_model(filtered_events, status_info)
+
+        # Convert view model to dictionary for JSON serialization
+        result = self._view_model_to_dict(view_model)
+
+        # Return the data as JSON
+        self._send_json_response(200, result)
+
+    def _view_model_to_dict(self, view_model: "WhatsNextViewModel") -> dict[str, Any]:
+        """Convert WhatsNextViewModel to dictionary for JSON serialization.
+
+        Args:
+            view_model: The view model to convert
+
+        Returns:
+            Dictionary representation of the view model
+        """
+
+        # Helper function to convert datetime to ISO format string
+        def format_datetime(dt: Optional[datetime]) -> Optional[str]:
+            return dt.isoformat() if dt else None
+
+        # Convert EventData objects to dictionaries
+        def event_to_dict(event: "EventData") -> dict[str, Any]:
+            return {
+                "graph_id": event.graph_id,
+                "title": event.subject,  # Frontend expects 'title' field
+                "start_time": format_datetime(event.start_time),
+                "end_time": format_datetime(event.end_time),
+                "location": event.location,
+                "is_current": event.is_current,
+                "is_upcoming": event.is_upcoming,
+                "time_until_minutes": event.time_until_minutes,
+                "duration_minutes": event.duration_minutes,
+                "formatted_time_range": event.formatted_time_range,
+                "organizer": event.organizer,
+                "attendees": event.attendees,
+                # Include hidden status from settings
+                "is_hidden": False,  # Simplified for now - can be enhanced later
+            }
+
+        # Convert StatusInfo to dictionary
+        status_dict = {
+            "last_update": format_datetime(view_model.status_info.last_update),
+            "is_cached": view_model.status_info.is_cached,
+            "connection_status": view_model.status_info.connection_status,
+            "relative_description": view_model.status_info.relative_description,
+            "interactive_mode": view_model.status_info.interactive_mode,
+            "selected_date": view_model.status_info.selected_date,
+        }
+
+        # Build the complete result dictionary
+        current_events_list = [event_to_dict(event) for event in view_model.current_events]
+        next_events_list = [event_to_dict(event) for event in view_model.next_events]
+        later_events_list = [event_to_dict(event) for event in view_model.later_events]
+
+        result = {
+            "layout_name": (
+                self.web_server.get_current_layout()
+                if self.web_server and hasattr(self.web_server, "get_current_layout")
+                else "unknown"
+            ),
+            "current_time": format_datetime(view_model.current_time),
+            "display_date": view_model.display_date,
+            "current_events": current_events_list,
+            "next_events": next_events_list,
+            "later_events": later_events_list,
+            # Flattened events array for frontend compatibility
+            "events": current_events_list + next_events_list + later_events_list,
+            "status_info": status_dict,
+            "layout_config": {
+                "show_hidden_events": False,  # Default value, could be made configurable
+                "max_events": 8,  # Default value based on current implementation
+                "time_format": "12h",  # Default value, could be made configurable
+            },
+        }
+
+        # Add weather info if available
+        if view_model.weather_info:
+            result["weather_info"] = {
+                "temperature": view_model.weather_info.temperature,
+                "condition": view_model.weather_info.condition,
+                "icon": view_model.weather_info.icon,
+                "forecast": view_model.weather_info.forecast,
+            }
+
+        # Add settings data if available
+        if view_model.settings_data:
+            result["settings_data"] = {
+                "theme": view_model.settings_data.theme,
+                "layout": view_model.settings_data.layout,
+                "refresh_interval": view_model.settings_data.refresh_interval,
+                "display_type": view_model.settings_data.display_type,
+                "custom_settings": view_model.settings_data.custom_settings,
+            }
+
+        return result
+
+    def _get_updated_whats_next_data(self) -> dict[str, Any]:
+        """Get updated whats-next data after event hiding/unhiding operations.
+
+        Returns:
+            Dictionary containing the updated event data in same format as /api/whats-next/data
+
+        Raises:
+            Exception: If unable to retrieve updated data
+        """
+        if not self.web_server:
+            raise WebServerError("Web server not available")
+
+        # Get the current layout to determine data retrieval approach
+        current_layout = self.web_server.get_current_layout()
+
+        # Calculate date range - use 7 days for whats-next-view, 1 day for others
+        days = 7 if current_layout == "whats-next-view" else 1
+
+        # Get events for the specified time period
+        if self.web_server.navigation_state:
+            # Interactive mode - get events for selected date
+            selected_date = self.web_server.navigation_state.selected_date
+            start_datetime = datetime.combine(selected_date, datetime.min.time())
+            end_datetime = start_datetime + timedelta(days=days)
+
+            # Build status info for interactive mode
+            from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
+
+            status_info = {
+                "selected_date": self.web_server.navigation_state.get_display_date(),
+                "is_today": self.web_server.navigation_state.is_today(),
+                "interactive_mode": True,
+                "last_update": get_timezone_aware_now().isoformat(),
+                "is_cached": False,
+            }
+        else:
+            # Non-interactive mode - get today's events
+            today = date.today()
+            start_datetime = datetime.combine(today, datetime.min.time())
+            end_datetime = start_datetime + timedelta(days=days)
+
+            # Static web display mode - no navigation buttons
+            from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
+
+            status_info = {
+                "last_update": get_timezone_aware_now().isoformat(),
+                "is_cached": False,
+                "interactive_mode": False,
+            }
+
+        # Check if web_server is available
+        if not self.web_server or not hasattr(self.web_server, "cache_manager"):
+            logger.error("Web server or cache manager not available")
+            events = []
+        else:
+            web_server = self.web_server  # Store for type narrowing
+            # Get events using async call handling
+            try:
+                # Try to get the running event loop
+                loop = asyncio.get_running_loop()  # noqa: F841
+                # If we're in an event loop, we can't use asyncio.run()
+                import concurrent.futures  # noqa: PLC0415
+
+                def run_async_in_thread() -> Any:
+                    import asyncio  # noqa: PLC0415
+
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    try:
+                        return new_loop.run_until_complete(
+                            web_server.cache_manager.get_events_by_date_range(
+                                start_datetime, end_datetime
+                            )
+                        )
+                    finally:
+                        new_loop.close()
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(run_async_in_thread)
+                    events = future.result(timeout=5.0)
+
+            except RuntimeError:
+                # No running event loop, safe to use asyncio.run()
+                events = asyncio.run(
+                    web_server.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
+                )
+
+        # Filter out hidden events before creating view model
+        if self.web_server and self.web_server.settings_service:
+            filter_settings = self.web_server.settings_service.get_filter_settings()
+            filtered_events = [
+                event for event in events if not filter_settings.is_event_hidden(event.graph_id)
+            ]
+        else:
+            # Fallback if settings service not available
+            filtered_events = events
+
+        # Use WhatsNextLogic to create the view model
+        from ..display.whats_next_logic import WhatsNextLogic  # noqa: PLC0415
+
+        whats_next_logic = WhatsNextLogic(self.web_server.settings)
+        view_model = whats_next_logic.create_view_model(filtered_events, status_info)
+
+        # Convert view model to dictionary for JSON serialization
+        return self._view_model_to_dict(view_model)
+
     def _handle_status_api(self) -> None:
         """Handle status API requests."""
         if not self.web_server:
@@ -374,6 +788,15 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "/api/settings/filters/patterns": {
                     "POST": lambda: self._handle_add_filter_pattern(settings_service, params),
                     "DELETE": lambda: self._handle_remove_filter_pattern(settings_service, params),
+                },
+                "/api/events/hide": {
+                    "POST": lambda: self._handle_hide_event(settings_service, params),
+                },
+                "/api/events/unhide": {
+                    "POST": lambda: self._handle_unhide_event(settings_service, params),
+                },
+                "/api/events/hidden": {
+                    "GET": lambda: self._handle_get_hidden_events(settings_service),
                 },
             }
 
@@ -767,6 +1190,127 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         except SettingsError as e:
             self._send_json_response(
                 500, {"error": "Failed to remove filter pattern", "message": str(e)}
+            )
+
+    def _handle_hide_event(
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+    ) -> None:
+        """Handle POST /api/events/hide - hide a specific event."""
+        try:
+            # Check for missing graph_id first, before validating params structure
+            graph_id = params.get("graph_id", "") if isinstance(params, dict) else ""
+            if not graph_id:
+                self._send_json_response(400, {"error": "Missing graph_id"})
+                return
+
+            # Get current filter settings
+            filter_settings = settings_service.get_filter_settings()
+            logger.debug(f"Before hiding - hidden_events: {list(filter_settings.hidden_events)}")
+
+            # Hide the event
+            filter_settings.hide_event(str(graph_id))
+            logger.debug(
+                f"After hide_event() - hidden_events: {list(filter_settings.hidden_events)}"
+            )
+
+            # Update filter settings
+            updated_settings = settings_service.update_filter_settings(filter_settings)
+            logger.debug(
+                f"After update_filter_settings() - hidden_events: {list(updated_settings.hidden_events)}"
+            )
+
+            # Get updated count
+            hidden_count = len(filter_settings.hidden_events)
+            logger.info(
+                f"Event {graph_id} hidden successfully. Total hidden events: {hidden_count}"
+            )
+
+            # Get updated event data after hiding
+            try:
+                updated_data = self._get_updated_whats_next_data()
+                response_data = {
+                    "success": True,
+                    "message": "Event hidden successfully",
+                    "count": hidden_count,
+                    "data": updated_data,
+                }
+            except Exception as data_error:
+                logger.warning(f"Failed to get updated data after hiding event: {data_error}")
+                # Fallback to original response format
+                response_data = {
+                    "success": True,
+                    "message": "Event hidden successfully",
+                    "count": hidden_count,
+                    "data": {"graph_id": str(graph_id), "hidden": True},
+                }
+
+            self._send_json_response(200, response_data)
+        except SettingsError as e:
+            self._send_json_response(500, {"error": "Failed to hide event", "message": str(e)})
+
+    def _handle_unhide_event(
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+    ) -> None:
+        """Handle POST /api/events/unhide - unhide a specific event."""
+        try:
+            # Check for missing graph_id first, before validating params structure
+            graph_id = params.get("graph_id", "") if isinstance(params, dict) else ""
+            if not graph_id:
+                self._send_json_response(400, {"error": "Missing graph_id"})
+                return
+
+            # Get current filter settings
+            filter_settings = settings_service.get_filter_settings()
+
+            # Unhide the event
+            was_hidden = filter_settings.unhide_event(str(graph_id))
+
+            # Update filter settings
+            settings_service.update_filter_settings(filter_settings)
+
+            # Get updated count
+            hidden_count = len(filter_settings.hidden_events)
+
+            # Get updated event data after unhiding
+            try:
+                updated_data = self._get_updated_whats_next_data()
+                response_data = {
+                    "success": True,
+                    "message": "Event unhidden successfully"
+                    if was_hidden
+                    else "Event was not hidden",
+                    "count": hidden_count,
+                    "data": updated_data,
+                }
+            except Exception as data_error:
+                logger.warning(f"Failed to get updated data after unhiding event: {data_error}")
+                # Fallback to original response format
+                response_data = {
+                    "success": True,
+                    "message": "Event unhidden successfully"
+                    if was_hidden
+                    else "Event was not hidden",
+                    "count": hidden_count,
+                    "data": {"graph_id": str(graph_id), "hidden": False, "was_hidden": was_hidden},
+                }
+
+            self._send_json_response(200, response_data)
+        except SettingsError as e:
+            self._send_json_response(500, {"error": "Failed to unhide event", "message": str(e)})
+
+    def _handle_get_hidden_events(self, settings_service: SettingsService) -> None:
+        """Handle GET /api/events/hidden - get list of hidden events."""
+        try:
+            filter_settings = settings_service.get_filter_settings()
+            hidden_events = list(filter_settings.hidden_events)
+
+            self._send_json_response(
+                200,
+                {"success": True, "hidden_events": hidden_events, "count": len(hidden_events)},
+            )
+        except SettingsError as e:
+            self._send_json_response(
+                500, {"error": "Failed to get hidden events", "message": str(e)}
             )
 
     def _serve_static_file(self, path: str) -> None:

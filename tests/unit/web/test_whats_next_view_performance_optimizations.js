@@ -244,111 +244,12 @@ describe('WhatsNextView Performance Optimizations', () => {
         });
     });
 
-    describe('HTML Parsing Optimization', () => {
-        let extractMeetingFromElementOptimized;
-
-        beforeAll(() => {
-            // Mock the optimized HTML parsing function
-            extractMeetingFromElementOptimized = function (element) {
-                if (!element) {
-                    return null;
-                }
-
-                try {
-                    // Optimized parsing with single query selection
-                    const titleElement = element.querySelector('.meeting-title');
-                    const timeElement = element.querySelector('.meeting-time');
-                    const locationElement = element.querySelector('.meeting-location');
-                    const descriptionElement = element.querySelector('.meeting-description');
-
-                    return {
-                        title: titleElement?.textContent?.trim() || '',
-                        time: timeElement?.textContent?.trim() || '',
-                        location: locationElement?.textContent?.trim() || '',
-                        description: descriptionElement?.textContent?.trim() || ''
-                    };
-                } catch (error) {
-                    console.error('Error parsing meeting element:', error);
-                    return null;
-                }
-            };
-        });
-
-        test('when_valid_element_provided_then_extracts_meeting_data', () => {
-            const mockElement = {
-                querySelector: jest.fn((selector) => {
-                    const mockElements = {
-                        '.meeting-title': { textContent: '  Team Meeting  ' },
-                        '.meeting-time': { textContent: '  2:00 PM  ' },
-                        '.meeting-location': { textContent: '  Conference Room A  ' },
-                        '.meeting-description': { textContent: '  Weekly sync meeting  ' }
-                    };
-                    return mockElements[selector];
-                })
-            };
-
-            const result = extractMeetingFromElementOptimized(mockElement);
-
-            expect(result).toEqual({
-                title: 'Team Meeting',
-                time: '2:00 PM',
-                location: 'Conference Room A',
-                description: 'Weekly sync meeting'
-            });
-            expect(mockElement.querySelector).toHaveBeenCalledTimes(4);
-        });
-
-        test('when_element_missing_some_fields_then_returns_empty_strings', () => {
-            const mockElement = {
-                querySelector: jest.fn((selector) => {
-                    const mockElements = {
-                        '.meeting-title': { textContent: 'Team Meeting' },
-                        '.meeting-time': null,
-                        '.meeting-location': { textContent: '' },
-                        '.meeting-description': { textContent: 'Weekly sync' }
-                    };
-                    return mockElements[selector];
-                })
-            };
-
-            const result = extractMeetingFromElementOptimized(mockElement);
-
-            expect(result).toEqual({
-                title: 'Team Meeting',
-                time: '',
-                location: '',
-                description: 'Weekly sync'
-            });
-        });
-
-        test('when_element_null_then_returns_null', () => {
-            const result = extractMeetingFromElementOptimized(null);
-
-            expect(result).toBe(null);
-        });
-
-        test('when_element_undefined_then_returns_null', () => {
-            const result = extractMeetingFromElementOptimized(undefined);
-
-            expect(result).toBe(null);
-        });
-
-        test('when_parsing_throws_error_then_returns_null_and_logs_error', () => {
-            const mockElement = {
-                querySelector: jest.fn(() => {
-                    throw new Error('DOM access error');
-                })
-            };
-
-            const result = extractMeetingFromElementOptimized(mockElement);
-
-            expect(result).toBe(null);
-            expect(mockConsole.error).toHaveBeenCalledWith(
-                'Error parsing meeting element:',
-                expect.any(Error)
-            );
-        });
-    });
+    // NOTE: HTML Parsing Optimization tests removed in Phase 3
+    //
+    // The extractMeetingFromElementOptimized() function has been removed and replaced
+    // by WhatsNextStateManager JSON-based data loading. HTML parsing optimizations
+    // are no longer needed since the architecture now uses direct JSON consumption
+    // from API endpoints instead of parsing HTML content.
 
     describe('Incremental DOM Updates', () => {
         let lastDOMState;
