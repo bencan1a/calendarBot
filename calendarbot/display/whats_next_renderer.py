@@ -266,7 +266,24 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
             # Build event HTML similar to existing format
             event_class = "current-event" if is_current else "upcoming-event"
 
-            html_parts = [f'<div class="{event_class}">']
+            # Create opening div with data-graph-id attribute for event hiding functionality
+            graph_id = getattr(event, "graph_id", None)
+            logger.debug(
+                f"_format_event_data_html - EventData '{event.subject}' has graph_id: {graph_id}"
+            )
+
+            if graph_id:
+                html_parts = [
+                    f'<div class="{event_class}" data-graph-id="{self._escape_html(graph_id)}">'
+                ]
+                logger.warning(
+                    f"BACKEND SENDS: data-graph-id='{graph_id}' for event '{event.subject}' - THIS SHOULD BE USED BY FRONTEND"
+                )
+            else:
+                html_parts = [f'<div class="{event_class}">']
+                logger.warning(
+                    f"Event '{event.subject}' missing graph_id - hide functionality may not work"
+                )
 
             # Event title
             html_parts.append(f'<h3 class="event-title">{self._escape_html(event.subject)}</h3>')

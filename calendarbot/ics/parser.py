@@ -62,6 +62,7 @@ class ICSParser:
 
             # Parse events
             events = []
+            raw_components = []  # Store raw components for phantom filtering
             total_components = 0
             event_count = 0
             recurring_event_count = 0
@@ -77,6 +78,7 @@ class ICSParser:
                         )
                         if event:
                             events.append(event)
+                            raw_components.append(component)  # Store raw component
                             event_count += 1
 
                             if event.is_recurring:
@@ -86,6 +88,9 @@ class ICSParser:
                         warning = f"Failed to parse event: {e}"
                         warnings.append(warning)
                         logger.warning(warning)
+
+            # Apply conservative RFC 5545 phantom recurring event filter (Microsoft ICS bug fix)
+            # events = self.filter_phantom_recurring_events_conservative(events, raw_components)  # noqa
 
             # Filter to only busy/tentative events (same as Graph API behavior)
             filtered_events = [e for e in events if e.is_busy_status and not e.is_cancelled]
@@ -113,7 +118,7 @@ class ICSParser:
             logger.exception("Failed to parse ICS content")
             return ICSParseResult(success=False, error_message=str(e))
 
-    def _parse_event_component(
+    def _parse_event_component(  # noqa
         self, component: ICalEvent, default_timezone: Optional[str] = None
     ) -> Optional[CalendarEvent]:
         """Parse a single VEVENT component into CalendarEvent.
@@ -199,6 +204,16 @@ class ICSParser:
             # Recurrence
             rrule_prop = component.get("RRULE")
             is_recurring = rrule_prop is not None
+
+            # RFC 5545 RECURRENCE-ID detection for Microsoft ICS bug
+            # When a recurring instance is moved, the original slot should be excluded
+            recurrence_id = component.get("RECURRENCE-ID")
+            is_moved_instance = recurrence_id is not None  # noqa
+
+            # Check if this event should be excluded due to EXDATE
+            exdate_props = component.get("EXDATE", [])
+            if not isinstance(exdate_props, list):
+                exdate_props = [exdate_props] if exdate_props else []
 
             # Additional metadata
             created = self._parse_datetime_optional(component.get("CREATED"))
@@ -455,6 +470,142 @@ class ICSParser:
             f"Placeholder: Would expand {len([e for e in events if e.is_recurring])} recurring events from {start_date} to {end_date}"
         )
         return events
+
+    def filter_phantom_recurring_events_conservative(  # noqa
+        self, events: list[CalendarEvent], raw_components: list
+    ) -> list[CalendarEvent]:
+        """Conservative filter for phantom recurring events caused by Microsoft ICS RFC 5545 bug.
+
+        Only removes events with explicit evidence of the Microsoft bug:
+        - Event must be recurring with no RECURRENCE-ID (original pattern slot)
+        - Must have a moved instance (RECURRENCE-ID) within the same UID series
+        - Original slot must lack proper EXDATE exclusion
+
+        Args:
+            events: Parsed calendar events
+            raw_components: Raw iCalendar VEVENT components for RFC 5545 field access
+
+        Returns:
+            Filtered events with confirmed phantom recurring instances removed
+        """
+        if len(events) != len(raw_components):
+            logger.warning("Event/component count mismatch, skipping phantom filter")
+            return events
+
+        # Build UID-based mapping for precise targeting
+        uid_to_events = {}  # UID -> list of (event, component) tuples
+
+        for event, component in zip(events, raw_components):
+            uid = str(component.get("UID", ""))
+            if uid not in uid_to_events:
+                uid_to_events[uid] = []
+            uid_to_events[uid].append((event, component))
+
+        filtered_events = []
+        phantom_count = 0
+
+        # Process each UID series independently
+        for uid, event_component_pairs in uid_to_events.items():
+            # Separate original patterns from moved instances within this UID series
+            original_patterns = []
+            moved_instances = []
+            exdate_times = []
+
+            for event, component in event_component_pairs:
+                if component.get("RECURRENCE-ID"):
+                    # This is a moved instance
+                    moved_instances.append((event, component))
+                elif event.is_recurring:
+                    # This is an original recurring pattern
+                    original_patterns.append((event, component))
+
+                # Collect EXDATE times for this UID
+                exdate_props = component.get("EXDATE", [])
+                if exdate_props:
+                    if not isinstance(exdate_props, list):
+                        exdate_props = [exdate_props]
+                    for exdate in exdate_props:
+                        try:
+                            # Use the event's timezone for proper parsing
+                            timezone_str = (
+                                event.start.time_zone
+                                if hasattr(event.start, "time_zone")
+                                else "UTC"
+                            )
+                            excluded_time = self._parse_datetime(exdate, timezone_str)
+                            exdate_times.append(excluded_time)
+                        except Exception:  # noqa: PERF203
+                            continue
+
+            # Only check for phantoms if we have both moved instances AND original patterns
+            if moved_instances and original_patterns:
+                logger.info(
+                    f"🔍 Analyzing UID {uid[:20]}... - {len(original_patterns)} patterns, {len(moved_instances)} moved"
+                )
+
+                # Check each original pattern for phantom status
+                for event, component in original_patterns:  # noqa
+                    is_phantom = False
+                    event_start = event.start.date_time
+
+                    # Check if this pattern slot has a corresponding moved instance
+                    for moved_event, moved_component in moved_instances:
+                        recurrence_id = moved_component.get("RECURRENCE-ID")
+                        if recurrence_id:
+                            try:
+                                # Parse using the moved event's timezone
+                                moved_timezone = (
+                                    moved_event.start.time_zone
+                                    if hasattr(moved_event.start, "time_zone")
+                                    else "UTC"
+                                )
+                                original_time = self._parse_datetime(recurrence_id, moved_timezone)
+
+                                # Check if this pattern matches the moved instance's original time
+                                if (
+                                    abs((event_start - original_time).total_seconds()) < 300
+                                ):  # 5 minute tolerance
+                                    # Found a moved instance - check if EXDATE properly excludes this slot
+                                    is_properly_excluded = any(
+                                        abs((event_start - ex_time).total_seconds()) < 300
+                                        for ex_time in exdate_times
+                                    )
+
+                                    if not is_properly_excluded:
+                                        # This is a phantom - moved instance exists but no EXDATE exclusion
+                                        logger.debug(
+                                            f"🚨 Found phantom recurring event: {event.subject} at {event_start}"
+                                        )
+                                        logger.debug(
+                                            f"   - Moved instance exists with RECURRENCE-ID: {recurrence_id}"
+                                        )
+                                        logger.debug("   - No proper EXDATE exclusion found")
+                                        is_phantom = True
+                                        phantom_count += 1
+                                        break
+                            except Exception as e:
+                                logger.warning(f"Error parsing RECURRENCE-ID {recurrence_id}: {e}")
+                                continue
+
+                    if not is_phantom:
+                        filtered_events.append(event)
+
+                # Always include moved instances (they're the real meetings)
+                for moved_event, _ in moved_instances:
+                    filtered_events.append(moved_event)
+            else:
+                # No moved instances, include all events for this UID
+                for event, _ in event_component_pairs:
+                    filtered_events.append(event)
+
+        if phantom_count > 0:
+            logger.info(
+                f"🎯 Conservative phantom filter: removed {phantom_count} confirmed phantom events"
+            )
+        else:
+            logger.info("✅ Conservative phantom filter: no phantom events detected")
+
+        return filtered_events
 
     def filter_busy_events(self, events: list[CalendarEvent]) -> list[CalendarEvent]:
         """Filter to only show busy/tentative events.

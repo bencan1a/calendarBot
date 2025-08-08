@@ -253,6 +253,7 @@ body {
     padding: 1rem;
     margin-bottom: 1rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: relative; /* Required for absolute positioning of close box */
 }
 
 .meeting-card.current {
@@ -292,6 +293,120 @@ body {
     max-height: 3rem;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* ==========================================
+   CLOSE BOX FOR EVENT HIDING
+   ========================================== */
+
+.meeting-close-box {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: var(--gray-3);
+    border: 1px solid var(--gray-5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+    z-index: 10;
+}
+
+.meeting-close-box::before,
+.meeting-close-box::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 2px;
+    background-color: var(--gray-7);
+    transform: rotate(45deg);
+}
+
+.meeting-close-box::after {
+    transform: rotate(-45deg);
+}
+
+.meeting-card:hover .meeting-close-box,
+.meeting-card:focus-within .meeting-close-box,
+.meeting-close-box:focus {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.meeting-close-box:hover {
+    background-color: var(--gray-4);
+}
+
+.meeting-close-box:active {
+    transform: scale(0.9);
+}
+
+/* E-ink theme adjustments for close box */
+.theme-eink .meeting-close-box {
+    background-color: var(--eink-white);
+    border: 2px solid var(--eink-black);
+}
+
+.theme-eink .meeting-close-box::before,
+.theme-eink .meeting-close-box::after {
+    background-color: var(--eink-black);
+    height: 2px;
+}
+
+/* Accessibility focus styles */
+.meeting-close-box:focus {
+    outline: 2px solid var(--gray-6);
+    outline-offset: 2px;
+}
+
+/* Animation for hiding events */
+@keyframes hideEvent {
+    0% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
+
+.meeting-card.hiding {
+    animation: hideEvent 300ms ease-out forwards;
+    pointer-events: none;
+}
+
+/* Animation for sliding up subsequent events */
+@keyframes slideUp {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(-100%);
+    }
+}
+
+.meeting-card.slide-up {
+    animation: slideUp 200ms ease-out forwards;
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .meeting-card.hiding,
+    .meeting-card.slide-up {
+        animation: none;
+        transition: opacity 0.3s ease;
+    }
+    
+    .meeting-card.hiding {
+        opacity: 0;
+    }
 }
 
 /* ==========================================

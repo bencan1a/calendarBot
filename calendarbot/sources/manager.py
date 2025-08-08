@@ -248,6 +248,17 @@ class SourceManager:
         """
         try:
             logger.debug("SourceManager.fetch_and_cache_events() called")
+
+            # Clear cache completely before fetching to ensure no stale events persist
+            if self.cache_manager:
+                logger.debug("Clearing entire cache to prevent stale events")
+                await self.cache_manager.clear_cache()
+
+            # Clear HTTP cache headers on all sources to force fresh fetches
+            for name, handler in self._sources.items():
+                logger.debug(f"Clearing HTTP cache headers for source: {name}")
+                handler.clear_cache_headers()
+
             logger.debug("Fetching events from all sources")
 
             if not self._sources:
@@ -378,6 +389,7 @@ class SourceManager:
         Returns:
             Dictionary with test results for each source
         """
+
         async def _test_single_source(name: str, handler: Any) -> tuple[str, dict[str, Any]]:
             """Test a single source and return results."""
             try:
