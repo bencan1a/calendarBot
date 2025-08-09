@@ -15,6 +15,7 @@ from .config import (
     restore_configuration,
     show_setup_guidance,
 )
+from .modes.daemon import run_daemon_mode
 from .modes.epaper import run_epaper_mode
 from .modes.interactive import run_interactive_mode
 from .modes.test import run_test_mode
@@ -44,6 +45,13 @@ async def main_entry() -> int:
         result = restore_configuration(args.restore)
     elif hasattr(args, "list_backups") and args.list_backups:
         result = list_backups()
+    # Handle daemon operations (can run without configuration)
+    elif (
+        (hasattr(args, "daemon") and args.daemon)
+        or (hasattr(args, "daemon_status") and args.daemon_status)
+        or (hasattr(args, "daemon_stop") and args.daemon_stop)
+    ):
+        result = await run_daemon_mode(args)
     else:
         # Validate mutually exclusive modes BEFORE executing any mode
         mode_count = sum(
@@ -93,6 +101,7 @@ __all__ = [
     "parse_components",
     "parse_date",
     "restore_configuration",
+    "run_daemon_mode",
     "run_epaper_mode",
     "run_interactive_mode",
     "run_setup_wizard",

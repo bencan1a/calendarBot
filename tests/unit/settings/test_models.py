@@ -67,7 +67,7 @@ class TestFilterPattern:
         # using a model_validator with mode="after"
         with pytest.raises(SettingsValidationError) as exc_info:
             FilterPattern(pattern="[unclosed", is_regex=True)
-        
+
         assert "Invalid regex pattern" in str(exc_info.value)
         assert "unterminated character set" in str(exc_info.value)
         assert exc_info.value.field_name == "pattern"

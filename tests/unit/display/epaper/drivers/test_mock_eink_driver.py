@@ -1,11 +1,6 @@
 """Tests for MockEInkDriver class."""
 
-import logging
-from typing import Any, Optional
-from unittest.mock import MagicMock, PropertyMock, patch
-
-import pytest
-from PIL import Image
+from unittest.mock import MagicMock, patch
 
 from calendarbot.display.epaper.capabilities import DisplayCapabilities
 from calendarbot.display.epaper.drivers.mock_eink_driver import MockEInkDriver
@@ -58,10 +53,10 @@ class TestMockEInkDriver:
         # Arrange
         driver = MockEInkDriver()
         test_content = "test content"
-        
+
         # Act
         result = driver.render(test_content)
-        
+
         # Assert
         assert result is True
         assert driver._initialized is True
@@ -72,11 +67,11 @@ class TestMockEInkDriver:
         # Arrange
         driver = MockEInkDriver()
         test_content = "test content"
-        
-        with patch.object(driver, 'initialize', return_value=False):
+
+        with patch.object(driver, "initialize", return_value=False):
             # Act
             result = driver.render(test_content)
-            
+
             # Assert
             assert result is False
 
@@ -85,15 +80,15 @@ class TestMockEInkDriver:
         # Arrange
         driver = MockEInkDriver()
         driver.initialize()
-        
+
         # Create a simple PIL Image
         image = MagicMock()
         image.tobytes.return_value = b"image_bytes"
         image.size = (100, 100)
-        
+
         # Act
         result = driver.render(image)
-        
+
         # Assert
         assert result is True
         assert driver._last_rendered_content == b"image_bytes"
@@ -105,10 +100,10 @@ class TestMockEInkDriver:
         driver = MockEInkDriver()
         driver.initialize()
         test_content = b"test bytes"
-        
+
         # Act
         result = driver.render(test_content)
-        
+
         # Assert
         assert result is True
         assert driver._last_rendered_content == test_content
@@ -119,10 +114,10 @@ class TestMockEInkDriver:
         driver = MockEInkDriver()
         driver.initialize()
         test_content = 12345
-        
+
         # Act
         result = driver.render(test_content)
-        
+
         # Assert
         assert result is True
         assert driver._last_rendered_content == b"12345"
@@ -137,10 +132,10 @@ class TestMockEInkDriver:
         driver.initialize()
         driver.render("test content")
         assert driver._last_rendered_content is not None
-        
+
         # Act
         result = driver.clear()
-        
+
         # Assert
         assert result is True
         assert driver._last_rendered_content is None
@@ -156,10 +151,10 @@ class TestMockEInkDriver:
         driver.render("test content")
         assert driver._initialized is True
         assert driver._last_rendered_content is not None
-        
+
         # Act
         result = driver.shutdown()
-        
+
         # Assert
         assert result is True
         assert driver._initialized is False
@@ -172,10 +167,10 @@ class TestMockEInkDriver:
         """Test get_capabilities method returns correct capabilities with red support."""
         # Arrange
         driver = MockEInkDriver(width=800, height=600, supports_red=True)
-        
+
         # Act
         capabilities = driver.get_capabilities()
-        
+
         # Assert
         assert isinstance(capabilities, DisplayCapabilities)
         assert capabilities.width == 800
@@ -189,10 +184,10 @@ class TestMockEInkDriver:
         """Test get_capabilities method returns correct capabilities without red support."""
         # Arrange
         driver = MockEInkDriver(width=800, height=600, supports_red=False)
-        
+
         # Act
         capabilities = driver.get_capabilities()
-        
+
         # Assert
         assert isinstance(capabilities, DisplayCapabilities)
         assert capabilities.width == 800
@@ -206,10 +201,10 @@ class TestMockEInkDriver:
         """Test get_last_rendered_content returns None when nothing rendered."""
         # Arrange
         driver = MockEInkDriver()
-        
+
         # Act
         content = driver.get_last_rendered_content()
-        
+
         # Assert
         assert content is None
 
@@ -219,10 +214,10 @@ class TestMockEInkDriver:
         driver = MockEInkDriver()
         driver.initialize()
         driver.render(b"test content")
-        
+
         # Act
         content = driver.get_last_rendered_content()
-        
+
         # Assert
         assert content == b"test content"
 
@@ -230,10 +225,10 @@ class TestMockEInkDriver:
         """Test is_initialized returns False when not initialized."""
         # Arrange
         driver = MockEInkDriver()
-        
+
         # Act
         result = driver.is_initialized()
-        
+
         # Assert
         assert result is False
 
@@ -242,10 +237,10 @@ class TestMockEInkDriver:
         # Arrange
         driver = MockEInkDriver()
         driver.initialize()
-        
+
         # Act
         result = driver.is_initialized()
-        
+
         # Assert
         assert result is True
 
@@ -253,6 +248,6 @@ class TestMockEInkDriver:
         """Test that EInkDriver is an alias for MockEInkDriver."""
         # Arrange & Act
         from calendarbot.display.epaper.drivers.mock_eink_driver import EInkDriver
-        
+
         # Assert
         assert EInkDriver is MockEInkDriver

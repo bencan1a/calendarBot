@@ -1,15 +1,25 @@
 # CalendarBot Operational Modes
 
-**Version:** 1.0.0  
-**Last Updated:** August 3, 2025  
-**Related Modules:** 
+**Version:** 1.0.0
+**Last Updated:** August 8, 2025
+**Related Modules:**
 - `calendarbot/cli/modes/`
 - `calendarbot/setup_wizard.py`
+- `calendarbot/utils/daemon.py`
 **Status:** Implemented
 
 ## Overview
 
-CalendarBot supports multiple operational modes to accommodate different use cases, environments, and user preferences. Each mode provides specialized functionality while sharing the core calendar processing capabilities. This modular approach allows CalendarBot to function effectively in various deployment scenarios, from headless servers to interactive terminals to Raspberry Pi e-paper displays.
+CalendarBot supports multiple operational modes to accommodate different use cases, environments, and user preferences. Each mode provides specialized functionality while sharing the core calendar processing capabilities. This modular approach allows CalendarBot to function effectively in various deployment scenarios, from headless servers to interactive terminals to Raspberry Pi e-paper displays, and as background daemon services.
+
+**Available Operational Modes:**
+- **Setup Mode:** Interactive configuration wizard
+- **Interactive Mode:** Terminal-based user interface
+- **Web Mode:** Browser-based calendar interface
+- **E-Paper Mode:** Optimized for e-ink displays
+- **Test Mode:** System validation and diagnostics
+- **Daemon Mode:** Background service operation
+- **Default Mode:** Automatic web mode selection
 
 ## Available Modes
 
@@ -133,7 +143,35 @@ calendarbot --test-mode
 4. Verifies cache functionality
 5. Reports results with detailed diagnostics
 
-### 6. Default Mode
+### 6. Daemon Mode (`--daemon`)
+
+Daemon mode runs CalendarBot as a background service with Docker Compose-style management commands for start, status, and stop operations.
+
+**Entry Point:** `calendarbot/cli/modes/daemon.py`
+
+**Key Features:**
+- Background service operation with process detachment
+- Docker Compose-style command interface (start, status, stop)
+- PID file management and graceful shutdown handling
+- File-based logging for daemon operations
+- Signal handling for clean shutdowns
+- Integration with system service managers
+
+**Usage:**
+```bash
+calendarbot --daemon              # Start daemon
+calendarbot --daemon-status       # Check status
+calendarbot --daemon-stop         # Stop daemon
+```
+
+**Example Workflow:**
+1. User runs CalendarBot in daemon mode
+2. Process detaches from terminal using Unix double-fork
+3. PID file created at ~/.calendarbot/daemon.pid
+4. Web server starts in background with file-only logging
+5. User can check status or stop daemon with management commands
+
+### 7. Default Mode
 
 When no specific mode is provided, CalendarBot defaults to web mode with standard settings.
 
@@ -160,11 +198,13 @@ calendarbot
 
 CalendarBot uses the following logic to determine which mode to run:
 
-1. Command-line arguments are parsed first (`--setup`, `--interactive`, etc.)
+1. Command-line arguments are parsed first (`--setup`, `--interactive`, `--daemon`, etc.)
 2. If multiple mode flags are provided, precedence is:
-   - Setup > Test > E-Paper > Interactive > Web
+   - Setup > Test > Daemon > E-Paper > Interactive > Web
 3. If no mode flag is provided, defaults to web mode
 4. Configuration file settings can specify a default mode
+
+**Note:** Daemon mode operations (`--daemon`, `--daemon-status`, `--daemon-stop`) have special handling and are processed before other mode selection logic.
 
 ## Configuration
 
@@ -187,6 +227,16 @@ web:
   host: "0.0.0.0"
   layout: "4x8"
   auto_refresh: 60  # seconds
+
+# Daemon Mode Settings
+daemon:
+  enabled: true
+  port: 8080
+  host: "127.0.0.1"
+  pid_file: "~/.calendarbot/daemon.pid"
+  log_file: "~/.calendarbot/logs/daemon.log"
+  shutdown_timeout: 30  # seconds
+  auto_restart: false
 
 # E-Paper Mode Settings
 epaper:
@@ -278,6 +328,8 @@ def cleanup() -> None:
 
 - Only one mode can be active at a time
 - Some modes require specific hardware (e-paper mode)
+- Daemon mode requires Unix-like operating system (Linux, macOS)
 - No remote control or API for switching modes at runtime
 - Limited customization of mode-specific behaviors
 - No support for custom renderers in interactive mode
+- Daemon mode cannot be used simultaneously with other interactive modes

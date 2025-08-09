@@ -13,7 +13,6 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from calendarbot.ui.interactive import InteractiveController
-from calendarbot.ui.keyboard import KeyCode
 
 
 class TestNavigationEventHandlers:
@@ -26,13 +25,13 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Mock navigation.navigate_backward
         controller.navigation.navigate_backward = Mock()
-        
+
         # Call the handler
         await controller._handle_previous_day()
-        
+
         # Verify navigate_backward was called
         controller.navigation.navigate_backward.assert_called_once()
 
@@ -43,13 +42,13 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Mock navigation.navigate_forward
         controller.navigation.navigate_forward = Mock()
-        
+
         # Call the handler
         await controller._handle_next_day()
-        
+
         # Verify navigate_forward was called
         controller.navigation.navigate_forward.assert_called_once()
 
@@ -60,13 +59,13 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Mock navigation.jump_to_today
         controller.navigation.jump_to_today = Mock()
-        
+
         # Call the handler
         await controller._handle_jump_to_today()
-        
+
         # Verify jump_to_today was called
         controller.navigation.jump_to_today.assert_called_once()
 
@@ -77,13 +76,13 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Mock navigation.jump_to_start_of_week
         controller.navigation.jump_to_start_of_week = Mock()
-        
+
         # Call the handler
         await controller._handle_start_of_week()
-        
+
         # Verify jump_to_start_of_week was called
         controller.navigation.jump_to_start_of_week.assert_called_once()
 
@@ -94,13 +93,13 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Mock navigation.jump_to_end_of_week
         controller.navigation.jump_to_end_of_week = Mock()
-        
+
         # Call the handler
         await controller._handle_end_of_week()
-        
+
         # Verify jump_to_end_of_week was called
         controller.navigation.jump_to_end_of_week.assert_called_once()
 
@@ -111,13 +110,13 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Mock controller.stop
         controller.stop = AsyncMock()
-        
+
         # Call the handler
         await controller._handle_exit()
-        
+
         # Verify stop was called
         controller.stop.assert_called_once()
 
@@ -128,23 +127,24 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Mock methods to avoid actual execution
         controller.navigation.jump_to_date = Mock()
         controller._setup_split_display_logging = Mock()
         controller._update_display = AsyncMock()
         controller.keyboard.start_listening = AsyncMock()
         controller._background_update_loop = AsyncMock()
-        
+
         # Mock asyncio.wait to return immediately
-        with patch('calendarbot.ui.interactive.asyncio.wait') as mock_wait:
+        with patch("calendarbot.ui.interactive.asyncio.wait") as mock_wait:
             mock_wait.return_value = (set(), set())
-            
+
             # Call start with initial date
             from datetime import date
+
             test_date = date(2024, 1, 15)
             await controller.start(test_date)
-            
+
             # Verify jump_to_date was called with the initial date
             controller.navigation.jump_to_date.assert_called_once_with(test_date)
 
@@ -155,18 +155,18 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Set running to True
         controller._running = True
-        
+
         # Mock methods to verify they're not called
         controller.navigation.jump_to_date = Mock()
         controller._setup_split_display_logging = Mock()
         controller._update_display = AsyncMock()
-        
+
         # Call start
         await controller.start()
-        
+
         # Verify methods were not called
         controller.navigation.jump_to_date.assert_not_called()
         controller._setup_split_display_logging.assert_not_called()
@@ -179,27 +179,27 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Set running to True
         controller._running = True
-        
+
         # Mock keyboard.stop_listening
         controller.keyboard.stop_listening = Mock()
-        
+
         # Create mock background task
         mock_task = Mock()
         mock_task.cancel = Mock()
         controller._background_update_task = mock_task
-        
+
         # Call stop
         await controller.stop()
-        
+
         # Verify running was set to False
         assert controller._running is False
-        
+
         # Verify keyboard.stop_listening was called
         controller.keyboard.stop_listening.assert_called_once()
-        
+
         # Verify background task was cancelled
         mock_task.cancel.assert_called_once()
 
@@ -209,10 +209,10 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Default should be False
         assert controller.is_running is False
-        
+
         # Set to True and check
         controller._running = True
         assert controller.is_running is True
@@ -223,16 +223,17 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Mock navigation.selected_date property
         from datetime import date
+
         test_date = date(2024, 1, 15)
-        
+
         # Create a mock for the navigation object with a selected_date property
         mock_navigation = Mock()
         mock_navigation.selected_date = test_date
         controller.navigation = mock_navigation
-        
+
         # Check current_date property
         assert controller.current_date == test_date
 
@@ -242,11 +243,12 @@ class TestNavigationEventHandlers:
         mock_cache_manager = Mock()
         mock_display_manager = Mock()
         controller = InteractiveController(mock_cache_manager, mock_display_manager)
-        
+
         # Create a mock for the navigation object
         from datetime import date
+
         test_date = date(2024, 1, 15)
-        
+
         mock_navigation = Mock()
         mock_navigation.selected_date = test_date
         mock_navigation.get_display_date.return_value = "Monday, January 15"
@@ -255,12 +257,12 @@ class TestNavigationEventHandlers:
         mock_navigation.is_future.return_value = True
         mock_navigation.days_from_today.return_value = 5
         mock_navigation.get_week_context.return_value = {"week": "context"}
-        
+
         controller.navigation = mock_navigation
-        
+
         # Call get_navigation_state
         result = controller.get_navigation_state()
-        
+
         # Verify result contains expected keys
         assert "selected_date" in result
         assert "display_date" in result
@@ -269,7 +271,7 @@ class TestNavigationEventHandlers:
         assert "is_future" in result
         assert "days_from_today" in result
         assert "week_context" in result
-        
+
         # Verify values
         assert result["selected_date"] == test_date.isoformat()
         assert result["display_date"] == "Monday, January 15"

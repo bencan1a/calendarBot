@@ -9,6 +9,8 @@ module structure within the calendarbot package.
 
 from typing import Any, Callable
 
+from .daemon import run_daemon_mode
+
 # Mode registry for available execution modes
 MODE_REGISTRY: dict[str, dict[str, Any]] = {
     "interactive": {
@@ -35,7 +37,7 @@ MODE_REGISTRY: dict[str, dict[str, Any]] = {
     "daemon": {
         "name": "Daemon Mode",
         "description": "Background daemon mode for continuous operation",
-        "handler": None,  # Will be set during Phase 2 migration
+        "handler": run_daemon_mode,
         "requires_display": False,
         "async_mode": True,
     },
@@ -136,4 +138,5 @@ __all__ = [
     "get_available_modes",
     "get_mode_handler",
     "register_mode",
+    "run_daemon_mode",
 ]

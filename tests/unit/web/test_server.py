@@ -10,7 +10,7 @@ import json
 from datetime import date
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import Mock, mock_open, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -54,7 +54,10 @@ class TestWebRequestHandler:
                 handler.security_logger = mock_security_logger.return_value
                 handler.client_address = mock_client_address
                 handler.path = "/"
+                # Add missing command attribute that BaseHTTPRequestHandler normally provides
+                handler.command = "GET"
                 from email.message import Message
+
                 handler.headers = Message()
                 handler.rfile = BytesIO()
                 handler.wfile = Mock()
@@ -422,14 +425,14 @@ class TestWebRequestHandler:
             )
             mock_full_path.exists.return_value = True
             mock_full_path.is_file.return_value = True
-            
+
             # Fix: Configure mock_full_path.open to return a proper context manager
             mock_file = Mock()
             mock_file.__enter__ = Mock(return_value=mock_file)
             mock_file.__exit__ = Mock(return_value=None)
             mock_file.read = Mock(return_value=test_content)
             mock_full_path.open = Mock(return_value=mock_file)
-            
+
             mock_static_dir.__truediv__ = Mock(return_value=mock_full_path)
 
             # Return the mock file path when Path(__file__) is called

@@ -1,6 +1,5 @@
 """Mock ICS data and factory functions for testing."""
 
-import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
@@ -25,9 +24,9 @@ class ICSTestData:
 
             # Create mock event with Microsoft Graph API structure
             event = SimpleNamespace(
-                id=f"test-event-{i+1}",
-                subject=f"Test Event {i+1}",
-                body_preview=f"This is test event number {i+1}",
+                id=f"test-event-{i + 1}",
+                subject=f"Test Event {i + 1}",
+                body_preview=f"This is test event number {i + 1}",
                 start=SimpleNamespace(date_time=start_time, time_zone="UTC"),
                 end=SimpleNamespace(date_time=end_time, time_zone="UTC"),
                 is_all_day=False,
@@ -35,11 +34,11 @@ class ICSTestData:
                 is_cancelled=False,
                 is_organizer=True,
                 location=SimpleNamespace(
-                    display_name=f"Test Location {i+1}", address=f"Test Address {i+1}"
+                    display_name=f"Test Location {i + 1}", address=f"Test Address {i + 1}"
                 ),
                 is_online_meeting=False,
                 online_meeting_url=None,
-                web_link=f"https://example.com/event/{i+1}",
+                web_link=f"https://example.com/event/{i + 1}",
                 is_recurring=False,
                 series_master_id=None,
                 last_modified_date_time=start_time,
@@ -122,12 +121,12 @@ METHOD:PUBLISH
             event_end = event_start + timedelta(hours=1)
 
             ics_content += f"""BEGIN:VEVENT
-UID:test-event-{i+1}@example.com
+UID:test-event-{i + 1}@example.com
 DTSTART:{event_start.strftime("%Y%m%dT%H%M%SZ")}
 DTEND:{event_end.strftime("%Y%m%dT%H%M%SZ")}
-SUMMARY:Test Event {i+1}
-DESCRIPTION:This is test event number {i+1}
-LOCATION:Test Location {i+1}
+SUMMARY:Test Event {i + 1}
+DESCRIPTION:This is test event number {i + 1}
+LOCATION:Test Location {i + 1}
 STATUS:CONFIRMED
 SEQUENCE:0
 END:VEVENT
@@ -222,12 +221,12 @@ METHOD:PUBLISH
             event_end = event_start + timedelta(hours=1)
 
             ics_content += f"""BEGIN:VEVENT
-UID:large-test-event-{i+1}@example.com
+UID:large-test-event-{i + 1}@example.com
 DTSTART:{event_start.strftime("%Y%m%dT%H%M%SZ")}
 DTEND:{event_end.strftime("%Y%m%dT%H%M%SZ")}
-SUMMARY:Large Test Event {i+1}
-DESCRIPTION:Event {i+1} in large calendar test with lots of details and content to test parsing performance and memory usage during processing.
-LOCATION:Location {i+1}
+SUMMARY:Large Test Event {i + 1}
+DESCRIPTION:Event {i + 1} in large calendar test with lots of details and content to test parsing performance and memory usage during processing.
+LOCATION:Location {i + 1}
 STATUS:CONFIRMED
 SEQUENCE:0
 END:VEVENT

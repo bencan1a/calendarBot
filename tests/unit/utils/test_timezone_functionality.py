@@ -64,6 +64,8 @@ class TestTimezoneSettings:
 
         assert "Invalid timezone" in str(exc_info.value)
         assert exc_info.value.field_name == "timezone"
+
+
 class TestTimezoneAwareHelpers:
     """Test timezone-aware helper functions."""
 
@@ -110,12 +112,12 @@ class TestTimezoneAwareHelpers:
     def test_get_timezone_aware_now_when_pytz_unavailable_then_falls_back_to_system(self) -> None:
         """Test that pytz unavailable falls back to system timezone."""
         original_import = __import__
-        
+
         def mock_import(name, *args, **kwargs):
             if name == "pytz":
                 raise ImportError("No module named 'pytz'")
             return original_import(name, *args, **kwargs)
-            
+
         with patch("builtins.__import__", mock_import):
             result = get_timezone_aware_now("America/Los_Angeles")
 

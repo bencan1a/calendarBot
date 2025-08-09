@@ -406,10 +406,10 @@ class TestHTMLRendererRenderEventsContent:
             event = Mock(spec=CachedEvent)
             event.is_current.return_value = False
             event.is_upcoming.return_value = True
-            event.subject = f"Meeting {i+1}"
+            event.subject = f"Meeting {i + 1}"
             event.location_display_name = None
             event.is_online_meeting = False
-            event.format_time_range.return_value = f"10:{i+1}0 AM - 11:{i+1}0 AM"
+            event.format_time_range.return_value = f"10:{i + 1}0 AM - 11:{i + 1}0 AM"
             upcoming_events.append(event)
 
         with patch.object(
@@ -432,11 +432,11 @@ class TestHTMLRendererRenderEventsContent:
             event = Mock(spec=CachedEvent)
             event.is_current.return_value = False
             event.is_upcoming.return_value = True
-            event.subject = f"Meeting {i+1}"
+            event.subject = f"Meeting {i + 1}"
             # 4th event has location, 5th event is online meeting
-            event.location_display_name = f"Room {i+1}" if i == 3 else None
+            event.location_display_name = f"Room {i + 1}" if i == 3 else None
             event.is_online_meeting = i == 4  # Fifth event is online
-            event.format_time_range.return_value = f"10:{i+1}0 AM - 11:{i+1}0 AM"
+            event.format_time_range.return_value = f"10:{i + 1}0 AM - 11:{i + 1}0 AM"
             upcoming_events.append(event)
 
         with patch.object(
@@ -458,10 +458,10 @@ class TestHTMLRendererRenderEventsContent:
             event = Mock(spec=CachedEvent)
             event.is_current.return_value = False
             event.is_upcoming.return_value = True
-            event.subject = f"Meeting {i+1}"
+            event.subject = f"Meeting {i + 1}"
             event.location_display_name = "Microsoft Teams Meeting" if i == 3 else None
             event.is_online_meeting = False
-            event.format_time_range.return_value = f"10:{i+1}0 AM - 11:{i+1}0 AM"
+            event.format_time_range.return_value = f"10:{i + 1}0 AM - 11:{i + 1}0 AM"
             upcoming_events.append(event)
 
         with patch.object(
@@ -989,7 +989,7 @@ class TestHTMLRendererRenderError:
         cached_events = []
         for i in range(10):  # Create 10 events
             event = Mock(spec=CachedEvent)
-            event.subject = f"Meeting {i+1}"
+            event.subject = f"Meeting {i + 1}"
             event.location_display_name = None
             event.format_time_range.return_value = f"1{i}:00 AM - 1{i}:30 AM"
             cached_events.append(event)
@@ -1084,10 +1084,10 @@ class TestHTMLRendererIntegration:
             event = Mock(spec=CachedEvent)
             event.is_current.return_value = False
             event.is_upcoming.return_value = True
-            event.subject = f"Meeting {i+1}"
-            event.location_display_name = f"Room {i+1}"
+            event.subject = f"Meeting {i + 1}"
+            event.location_display_name = f"Room {i + 1}"
             event.is_online_meeting = False
-            event.format_time_range.return_value = f"1{i+1}:00 AM - 1{i+1}:30 AM"
+            event.format_time_range.return_value = f"1{i + 1}:00 AM - 1{i + 1}:30 AM"
             event.time_until_start.return_value = (i + 1) * 30  # 30, 60, 90 minutes
             upcoming_events.append(event)
 
@@ -1206,7 +1206,7 @@ class TestHTMLRendererViewportConfiguration:
             "dimensions": {"fixed_dimensions": True, "optimal_width": 300, "optimal_height": 400}
         }
         mock_json_load.return_value = mock_config
-        
+
         # Set up the mock open to return a file-like object
         mock_file = Mock()
         mock_path_open.return_value.__enter__.return_value = mock_file
@@ -1236,7 +1236,9 @@ class TestHTMLRendererViewportConfiguration:
     @patch("json.load")
     @patch("builtins.open")
     @patch("pathlib.Path.exists")
-    def test_get_layout_config_json_parse_error(self, mock_exists: Any, mock_open: Any, mock_json_load: Any) -> None:
+    def test_get_layout_config_json_parse_error(
+        self, mock_exists: Any, mock_open: Any, mock_json_load: Any
+    ) -> None:
         """Test handling of JSON parsing errors."""
         self.settings.web_layout = "4x8"
         renderer = HTMLRenderer(self.settings)
@@ -1363,8 +1365,9 @@ class TestHTMLRendererViewportConfiguration:
         self.settings.web_layout = "4x8"
         renderer = HTMLRenderer(self.settings)
 
-        with patch.object(renderer, "_has_fixed_dimensions", return_value=True), patch.object(
-            renderer, "_get_layout_dimensions", return_value=(480, 800)
+        with (
+            patch.object(renderer, "_has_fixed_dimensions", return_value=True),
+            patch.object(renderer, "_get_layout_dimensions", return_value=(480, 800)),
         ):
             result = renderer._generate_viewport_meta_tag()
 
@@ -1378,8 +1381,9 @@ class TestHTMLRendererViewportConfiguration:
         self.settings.web_layout = "3x4"
         renderer = HTMLRenderer(self.settings)
 
-        with patch.object(renderer, "_has_fixed_dimensions", return_value=True), patch.object(
-            renderer, "_get_layout_dimensions", return_value=(300, 400)
+        with (
+            patch.object(renderer, "_has_fixed_dimensions", return_value=True),
+            patch.object(renderer, "_get_layout_dimensions", return_value=(300, 400)),
         ):
             result = renderer._generate_viewport_meta_tag()
 
@@ -1403,8 +1407,9 @@ class TestHTMLRendererViewportConfiguration:
         self.settings.web_layout = "4x8"
         renderer = HTMLRenderer(self.settings)
 
-        with patch.object(renderer, "_has_fixed_dimensions", return_value=True), patch.object(
-            renderer, "_get_layout_dimensions", return_value=(None, None)
+        with (
+            patch.object(renderer, "_has_fixed_dimensions", return_value=True),
+            patch.object(renderer, "_get_layout_dimensions", return_value=(None, None)),
         ):
             result = renderer._generate_viewport_meta_tag()
 

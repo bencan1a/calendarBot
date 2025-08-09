@@ -74,6 +74,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
             if path in {"/", "/calendar"}:
                 self._serve_calendar_page(query_params)
+            elif path == "/health":
+                self._handle_health_check()
             elif path.startswith("/api/"):
                 self._handle_api_request(path, query_params)
             elif path.startswith("/static/"):
@@ -719,6 +721,20 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # Convert view model to dictionary for JSON serialization
         return self._view_model_to_dict(view_model)
+
+    def _handle_health_check(self) -> None:
+        """Handle health check requests for monitoring and smoke tests."""
+        try:
+            # Simple health check - if we can respond, we're healthy
+            health_data = {
+                "status": "ok",
+                "timestamp": datetime.now().isoformat(),
+                "service": "calendarbot-web",
+            }
+            self._send_json_response(200, health_data)
+        except Exception as e:
+            logger.exception("Error handling health check")
+            self._send_json_response(500, {"status": "error", "error": str(e)})
 
     def _handle_status_api(self) -> None:
         """Handle status API requests."""

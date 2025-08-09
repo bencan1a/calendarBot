@@ -276,11 +276,15 @@ class TestWhatsNextDataAPI(unittest.TestCase):
 
         # Verify event data
         next_event = result["next_events"][0]
-        self.assertEqual(next_event["subject"], "Test Event 1")
+        self.assertEqual(
+            next_event["title"], "Test Event 1"
+        )  # Implementation uses 'title' not 'subject'
         self.assertEqual(next_event["graph_id"], "test-graph-id-1")
 
         current_event = result["current_events"][0]
-        self.assertEqual(current_event["subject"], "Test Event 2")
+        self.assertEqual(
+            current_event["title"], "Test Event 2"
+        )  # Implementation uses 'title' not 'subject'
         self.assertEqual(current_event["graph_id"], "test-graph-id-2")
 
         # Verify status info
