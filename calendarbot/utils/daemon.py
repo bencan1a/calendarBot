@@ -293,6 +293,7 @@ class DaemonManager:
                         "memory_info": process.memory_info()._asdict(),
                         "cpu_percent": process.cpu_percent(),
                         "status": process.status(),
+                        "cmdline": process.cmdline(),
                     }
                 )
             except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
@@ -311,6 +312,7 @@ def detach_process() -> None:
     2. Become session leader
     3. Second fork to prevent TTY reacquisition
     4. Redirect standard file descriptors
+    5. Reset asyncio event loop to prevent conflicts
 
     Raises:
         DaemonError: If process detachment fails
@@ -346,6 +348,25 @@ def detach_process() -> None:
 
     # Set file mode creation mask
     os.umask(0)
+
+    # Reset asyncio event loop to prevent conflicts after fork
+    try:
+        import asyncio  # noqa: PLC0415
+
+        # Close any existing event loop from parent process
+        try:
+            loop = asyncio.get_running_loop()
+            loop.close()
+        except RuntimeError:
+            # No running loop, which is fine
+            pass
+
+        # Set a fresh event loop policy for the daemon process
+        asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+
+        logger.info("Reset asyncio event loop for daemon process")
+    except Exception as e:
+        logger.warning(f"Failed to reset asyncio event loop: {e}")
 
     # Redirect standard file descriptors to /dev/null
     with Path("/dev/null").open(encoding="utf-8") as devnull_r:
@@ -465,6 +486,25 @@ class DaemonController:
             self.daemon_manager.cleanup_pid_file()
             return True
 
+    def _parse_port_from_cmdline(self, cmdline: list[str]) -> Optional[int]:
+        """Parse port number from command line arguments.
+
+        Args:
+            cmdline: List of command line arguments
+
+        Returns:
+            Port number if found, None otherwise
+        """
+        try:
+            for i, arg in enumerate(cmdline):
+                if arg == "--port" and i + 1 < len(cmdline):
+                    return int(cmdline[i + 1])
+                if arg.startswith("--port="):
+                    return int(arg.split("=", 1)[1])
+        except (ValueError, IndexError):
+            logger.warning(f"Failed to parse port from command line: {cmdline}")
+        return None
+
     def get_daemon_status(self) -> Optional[DaemonStatus]:
         """Get current daemon status information.
 
@@ -486,8 +526,15 @@ class DaemonController:
         # Basic health check - process is running
         is_healthy = process_info.get("running", False)
 
-        # Try to determine port (this would need to be enhanced based on actual usage)
-        port = 8000  # Default, could be enhanced to read from config or process args
+        # Try to determine actual port from command line arguments
+        port = 8080  # Default fallback (matches system default)
+        if process_info.get("cmdline"):
+            detected_port = self._parse_port_from_cmdline(process_info["cmdline"])
+            if detected_port:
+                port = detected_port
+                logger.debug(f"Detected daemon port from command line: {port}")
+            else:
+                logger.debug("Could not detect port from command line, using default 8080")
 
         # Find log file (could be enhanced to read from daemon's actual log location)
         log_file = None
