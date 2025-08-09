@@ -1,5 +1,6 @@
 """Optimized test configuration with lightweight fixtures for fast execution."""
 
+import gc
 import logging
 import tempfile
 from collections.abc import AsyncGenerator
@@ -10,6 +11,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
+
+# Global resource tracking for cleanup
+_test_resources = []
+_temp_directories = []
 
 
 # Fast, lightweight test settings fixture
@@ -501,10 +506,111 @@ def sample_filter_pattern() -> Any:
     )
 
 
-# Ensure clean test isolation
+# Enhanced resource management and cleanup
 @pytest.fixture(autouse=True)
-def clean_test_environment() -> None:
+def aggressive_cleanup():
+    """Aggressive resource cleanup to prevent memory exhaustion."""
+    # Pre-test cleanup
+    gc.collect()  # Force garbage collection before each test
+
+    yield  # Run the test
+
+    # Post-test cleanup
+    try:
+        # Clean up tracked resources
+        global _test_resources, _temp_directories
+
+        for resource in _test_resources[:]:
+            try:
+                if hasattr(resource, "close"):
+                    resource.close()
+                elif hasattr(resource, "cleanup"):
+                    resource.cleanup()
+                elif callable(resource):
+                    resource()
+            except Exception as e:
+                logging.warning(f"Failed to cleanup resource: {e}")
+
+        # Clean up temporary directories
+        for temp_dir in _temp_directories[:]:
+            try:
+                if temp_dir.exists():
+                    import shutil
+
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+            except Exception as e:
+                logging.warning(f"Failed to cleanup temp directory {temp_dir}: {e}")
+
+        # Clear tracking lists
+        _test_resources.clear()
+        _temp_directories.clear()
+
+        # Force garbage collection after each test
+        gc.collect()
+
+        # Clean up any remaining asyncio tasks
+        try:
+            import asyncio
+
+            loop = asyncio.get_event_loop()
+            pending_tasks = [task for task in asyncio.all_tasks(loop) if not task.done()]
+            if pending_tasks:
+                logging.warning(f"Cleaning up {len(pending_tasks)} pending async tasks")
+                for task in pending_tasks:
+                    task.cancel()
+        except Exception:
+            pass  # Loop may not exist
+
+    except Exception as e:
+        logging.exception(f"Error during aggressive cleanup: {e}")
+
+
+def register_test_resource(resource: Any) -> None:
+    """Register a resource for cleanup after test completion."""
+    global _test_resources
+    _test_resources.append(resource)
+
+
+def register_temp_directory(temp_dir: Path) -> None:
+    """Register a temporary directory for cleanup after test completion."""
+    global _temp_directories
+    _temp_directories.append(temp_dir)
+
+
+# Memory pressure monitoring
+@pytest.fixture(autouse=True)
+def memory_pressure_monitor():
+    """Monitor memory pressure and force cleanup when needed."""
+    try:
+        import psutil
+
+        process = psutil.Process()
+
+        # Check memory before test
+        memory_info = process.memory_info()
+        memory_mb = memory_info.rss / (1024 * 1024)
+
+        # If memory usage is high, force aggressive cleanup
+        if memory_mb > 500:  # More than 500MB
+            logging.warning(f"High memory usage detected: {memory_mb:.1f}MB - forcing cleanup")
+            gc.collect()
+
+            # Try to reduce memory pressure
+            import sys
+
+            if hasattr(sys, "_clear_type_cache"):
+                sys._clear_type_cache()
+
+    except ImportError:
+        pass  # psutil not available
+    except Exception as e:
+        logging.debug(f"Memory monitoring error: {e}")
+
+
+# Ensure clean test isolation with enhanced cleanup
+@pytest.fixture(autouse=True)
+def clean_test_environment() -> Any:
     """Ensure clean test environment for each test."""
     # Reset any global state if needed
     return
-    # Cleanup after test
+    # Cleanup is handled by aggressive_cleanup fixture

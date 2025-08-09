@@ -1,0 +1,21 @@
+[Unit]
+Description=CalendarBot Kiosk System Setup
+Documentation=https://github.com/your-org/calendarbot
+DefaultDependencies=false
+After=local-fs.target
+Before=basic.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/local/bin/calendarbot-kiosk-system-setup.sh
+User=root
+
+# No restart needed - this is a one-time setup
+Restart=no
+
+# Timeout for system setup
+TimeoutStartSec=60
+
+[Install]
+WantedBy=basic.target

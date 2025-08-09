@@ -1,7 +1,6 @@
 """Unit tests for the shared webserver utility."""
 
 import socket
-import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,47 +8,65 @@ import pytest
 from calendarbot.cli.modes.shared_webserver import SharedWebServer, find_available_port
 
 
-class TestSharedWebServer(unittest.TestCase):
+class TestSharedWebServer:
     """Test cases for the SharedWebServer class."""
 
-    def setUp(self):
-        """Set up test fixtures."""
-        # Create mock objects
-        self.mock_settings = MagicMock()
-        self.mock_settings.web_host = "127.0.0.1"
-        self.mock_settings.web_port = 8081
-        self.mock_settings.web_layout = "whats-next-view"
-        self.mock_settings.auto_kill_existing = False
+    @pytest.fixture
+    def mock_settings(self):
+        """Create mock settings fixture."""
+        mock_settings = MagicMock()
+        mock_settings.web_host = "127.0.0.1"
+        mock_settings.web_port = 8081
+        mock_settings.web_layout = "whats-next-view"
+        mock_settings.auto_kill_existing = False
+        return mock_settings
 
-        self.mock_display_manager = MagicMock()
-        self.mock_cache_manager = MagicMock()
-        self.mock_navigation_state = MagicMock()
+    @pytest.fixture
+    def mock_display_manager(self):
+        """Create mock display manager fixture."""
+        return MagicMock()
 
-        # Create a mock WebServer
-        self.mock_web_server = MagicMock()
+    @pytest.fixture
+    def mock_cache_manager(self):
+        """Create mock cache manager fixture."""
+        return MagicMock()
+
+    @pytest.fixture
+    def mock_navigation_state(self):
+        """Create mock navigation state fixture."""
+        return MagicMock()
 
     @patch("calendarbot.cli.modes.shared_webserver.WebServer")
-    def test_init(self, mock_web_server_class):
+    def test_init(
+        self,
+        mock_web_server_class,
+        mock_settings,
+        mock_display_manager,
+        mock_cache_manager,
+        mock_navigation_state,
+    ):
         """Test SharedWebServer initialization."""
         # Create SharedWebServer instance
         server = SharedWebServer(
-            settings=self.mock_settings,
-            display_manager=self.mock_display_manager,
-            cache_manager=self.mock_cache_manager,
-            navigation_state=self.mock_navigation_state,
+            settings=mock_settings,
+            display_manager=mock_display_manager,
+            cache_manager=mock_cache_manager,
+            navigation_state=mock_navigation_state,
         )
 
         # Verify attributes
-        self.assertEqual(server.host, "127.0.0.1")
-        self.assertEqual(server.port, 8081)
-        self.assertEqual(server.layout, "whats-next-view")
-        self.assertFalse(server.running)
-        self.assertIsNone(server.server)
-        self.assertIsNone(server.server_thread)
-        self.assertIsNone(server.web_server)
+        assert server.host == "127.0.0.1"
+        assert server.port == 8081
+        assert server.layout == "whats-next-view"
+        assert server.running is False
+        assert server.server is None
+        assert server.server_thread is None
+        assert server.web_server is None
 
     @patch("calendarbot.cli.modes.shared_webserver.WebServer")
-    def test_start_success(self, mock_web_server_class):
+    def test_start_success(
+        self, mock_web_server_class, mock_settings, mock_display_manager, mock_cache_manager
+    ):
         """Test successful server start."""
         # Configure mock
         mock_web_server_instance = MagicMock()
@@ -57,9 +74,9 @@ class TestSharedWebServer(unittest.TestCase):
 
         # Create SharedWebServer instance
         server = SharedWebServer(
-            settings=self.mock_settings,
-            display_manager=self.mock_display_manager,
-            cache_manager=self.mock_cache_manager,
+            settings=mock_settings,
+            display_manager=mock_display_manager,
+            cache_manager=mock_cache_manager,
         )
 
         # Call start method
@@ -70,12 +87,14 @@ class TestSharedWebServer(unittest.TestCase):
         mock_web_server_instance.start.assert_called_once()
 
         # Verify result and state
-        self.assertTrue(result)
-        self.assertTrue(server.running)
-        self.assertEqual(server.web_server, mock_web_server_instance)
+        assert result is True
+        assert server.running is True
+        assert server.web_server == mock_web_server_instance
 
     @patch("calendarbot.cli.modes.shared_webserver.WebServer")
-    def test_start_failure(self, mock_web_server_class):
+    def test_start_failure(
+        self, mock_web_server_class, mock_settings, mock_display_manager, mock_cache_manager
+    ):
         """Test server start failure."""
         # Configure mock to raise an exception
         mock_web_server_instance = MagicMock()
@@ -84,9 +103,9 @@ class TestSharedWebServer(unittest.TestCase):
 
         # Create SharedWebServer instance
         server = SharedWebServer(
-            settings=self.mock_settings,
-            display_manager=self.mock_display_manager,
-            cache_manager=self.mock_cache_manager,
+            settings=mock_settings,
+            display_manager=mock_display_manager,
+            cache_manager=mock_cache_manager,
         )
 
         # Call start method
@@ -97,11 +116,13 @@ class TestSharedWebServer(unittest.TestCase):
         mock_web_server_instance.start.assert_called_once()
 
         # Verify result and state
-        self.assertFalse(result)
-        self.assertFalse(server.running)
+        assert result is False
+        assert server.running is False
 
     @patch("calendarbot.cli.modes.shared_webserver.WebServer")
-    def test_stop_success(self, mock_web_server_class):
+    def test_stop_success(
+        self, mock_web_server_class, mock_settings, mock_display_manager, mock_cache_manager
+    ):
         """Test successful server stop."""
         # Configure mock
         mock_web_server_instance = MagicMock()
@@ -109,9 +130,9 @@ class TestSharedWebServer(unittest.TestCase):
 
         # Create SharedWebServer instance
         server = SharedWebServer(
-            settings=self.mock_settings,
-            display_manager=self.mock_display_manager,
-            cache_manager=self.mock_cache_manager,
+            settings=mock_settings,
+            display_manager=mock_display_manager,
+            cache_manager=mock_cache_manager,
         )
 
         # Start server
@@ -124,11 +145,13 @@ class TestSharedWebServer(unittest.TestCase):
         mock_web_server_instance.stop.assert_called_once()
 
         # Verify result and state
-        self.assertTrue(result)
-        self.assertFalse(server.running)
+        assert result is True
+        assert server.running is False
 
     @patch("calendarbot.cli.modes.shared_webserver.WebServer")
-    def test_stop_failure(self, mock_web_server_class):
+    def test_stop_failure(
+        self, mock_web_server_class, mock_settings, mock_display_manager, mock_cache_manager
+    ):
         """Test server stop failure."""
         # Configure mock to raise an exception
         mock_web_server_instance = MagicMock()
@@ -137,9 +160,9 @@ class TestSharedWebServer(unittest.TestCase):
 
         # Create SharedWebServer instance
         server = SharedWebServer(
-            settings=self.mock_settings,
-            display_manager=self.mock_display_manager,
-            cache_manager=self.mock_cache_manager,
+            settings=mock_settings,
+            display_manager=mock_display_manager,
+            cache_manager=mock_cache_manager,
         )
 
         # Start server
@@ -152,11 +175,13 @@ class TestSharedWebServer(unittest.TestCase):
         mock_web_server_instance.stop.assert_called_once()
 
         # Verify result and state
-        self.assertFalse(result)
-        self.assertFalse(server.running)
+        assert result is False
+        assert server.running is False
 
     @patch("calendarbot.cli.modes.shared_webserver.WebServer")
-    def test_get_calendar_html(self, mock_web_server_class):
+    def test_get_calendar_html(
+        self, mock_web_server_class, mock_settings, mock_display_manager, mock_cache_manager
+    ):
         """Test get_calendar_html method."""
         # Configure mock
         mock_web_server_instance = MagicMock()
@@ -165,9 +190,9 @@ class TestSharedWebServer(unittest.TestCase):
 
         # Create SharedWebServer instance
         server = SharedWebServer(
-            settings=self.mock_settings,
-            display_manager=self.mock_display_manager,
-            cache_manager=self.mock_cache_manager,
+            settings=mock_settings,
+            display_manager=mock_display_manager,
+            cache_manager=mock_cache_manager,
         )
 
         # Start server
@@ -180,24 +205,28 @@ class TestSharedWebServer(unittest.TestCase):
         mock_web_server_instance.get_calendar_html.assert_called_once_with(7, None)
 
         # Verify result
-        self.assertEqual(html, "<html>Test</html>")
+        assert html == "<html>Test</html>"
 
     @patch("calendarbot.cli.modes.shared_webserver.WebServer")
-    def test_get_calendar_html_not_running(self, mock_web_server_class):
+    def test_get_calendar_html_not_running(
+        self, mock_web_server_class, mock_settings, mock_display_manager, mock_cache_manager
+    ):
         """Test get_calendar_html when server is not running."""
         # Create SharedWebServer instance
         server = SharedWebServer(
-            settings=self.mock_settings,
-            display_manager=self.mock_display_manager,
-            cache_manager=self.mock_cache_manager,
+            settings=mock_settings,
+            display_manager=mock_display_manager,
+            cache_manager=mock_cache_manager,
         )
 
         # Call get_calendar_html method without starting server
-        with self.assertRaises(RuntimeError):
+        with pytest.raises(RuntimeError):
             server.get_calendar_html()
 
     @patch("calendarbot.cli.modes.shared_webserver.WebServer")
-    def test_get_status(self, mock_web_server_class):
+    def test_get_status(
+        self, mock_web_server_class, mock_settings, mock_display_manager, mock_cache_manager
+    ):
         """Test get_status method."""
         # Configure mock
         mock_web_server_instance = MagicMock()
@@ -211,9 +240,9 @@ class TestSharedWebServer(unittest.TestCase):
 
         # Create SharedWebServer instance
         server = SharedWebServer(
-            settings=self.mock_settings,
-            display_manager=self.mock_display_manager,
-            cache_manager=self.mock_cache_manager,
+            settings=mock_settings,
+            display_manager=mock_display_manager,
+            cache_manager=mock_cache_manager,
         )
 
         # Start server
@@ -226,8 +255,8 @@ class TestSharedWebServer(unittest.TestCase):
         mock_web_server_instance.get_status.assert_called_once()
 
         # Verify result
-        self.assertEqual(status["running"], True)
-        self.assertEqual(status["port"], 8081)
+        assert status["running"] is True
+        assert status["port"] == 8081
 
     @patch("calendarbot.cli.modes.shared_webserver.socket.socket")
     def test_find_available_port(self, mock_socket):
@@ -244,7 +273,7 @@ class TestSharedWebServer(unittest.TestCase):
         mock_socket_instance.bind.assert_called_once_with(("127.0.0.1", 8080))
 
         # Verify result
-        self.assertEqual(port, 8080)
+        assert port == 8080
 
     @patch("calendarbot.cli.modes.shared_webserver.socket.socket")
     def test_find_available_port_retry(self, mock_socket):
@@ -261,14 +290,14 @@ class TestSharedWebServer(unittest.TestCase):
         port = find_available_port(start_port=8080, max_attempts=5)
 
         # Verify socket was created twice and bind was called twice
-        self.assertEqual(mock_socket.call_count, 2)
+        assert mock_socket.call_count == 2
 
         # Verify bind was called with different ports
         mock_socket_instance.bind.assert_any_call(("127.0.0.1", 8080))
         mock_socket_instance.bind.assert_any_call(("127.0.0.1", 8081))
 
         # Verify result
-        self.assertEqual(port, 8081)
+        assert port == 8081
 
     @patch("calendarbot.cli.modes.shared_webserver.socket.socket")
     def test_find_available_port_exhausted(self, mock_socket):
@@ -279,11 +308,11 @@ class TestSharedWebServer(unittest.TestCase):
         mock_socket_instance.bind.side_effect = OSError("Address in use")
 
         # Call find_available_port
-        with self.assertRaises(RuntimeError):
+        with pytest.raises(RuntimeError):
             find_available_port(start_port=8080, max_attempts=3)
 
         # Verify socket was created three times and bind was called three times
-        self.assertEqual(mock_socket.call_count, 3)
+        assert mock_socket.call_count == 3
 
         # Verify bind was called with different ports
         mock_socket_instance.bind.assert_any_call(("127.0.0.1", 8080))

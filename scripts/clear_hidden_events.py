@@ -44,7 +44,7 @@ def clear_all_hidden_events() -> None:
         print("All events are now visible.")
 
     except Exception as e:
-        logging.exception(f"Failed to clear hidden events: {e}")
+        logging.exception("Failed to clear hidden events")
         print(f"Error: {e}")
         sys.exit(1)
 

@@ -43,6 +43,13 @@ class TestMainEntry:
         args.daemon_status = False
         args.daemon_stop = False
 
+        # Kiosk mode arguments (newly added CLI options)
+        args.kiosk = False
+        args.kiosk_status = False
+        args.kiosk_stop = False
+        args.kiosk_restart = False
+        args.kiosk_setup = False
+
         # Test mode arguments
         args.date = None
         args.end_date = None
@@ -560,6 +567,13 @@ class TestCliIntegration:
             args.daemon = False
             args.daemon_status = False
             args.daemon_stop = False
+
+            # Add missing kiosk arguments
+            args.kiosk = False
+            args.kiosk_status = False
+            args.kiosk_stop = False
+            args.kiosk_restart = False
+            args.kiosk_setup = False
 
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = args

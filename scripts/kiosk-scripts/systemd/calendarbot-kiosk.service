@@ -1,0 +1,69 @@
+[Unit]
+Description=CalendarBot Kiosk Mode Display
+Documentation=https://github.com/your-org/calendarbot
+After=graphical-session.target network-online.target calendarbot-kiosk-setup.service
+Wants=network-online.target
+Requires=graphical-session.target calendarbot-kiosk-setup.service
+
+# Conflict with other display managers to prevent conflicts
+Conflicts=gdm.service lightdm.service sddm.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+
+# Environment setup
+Environment=DISPLAY=:0
+Environment=HOME=/home/pi
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=XDG_SESSION_TYPE=x11
+Environment=QT_QPA_PLATFORM=xcb
+Environment=XAUTHORITY=/home/pi/.Xauthority
+
+# Working directory
+WorkingDirectory=/home/pi/calendarbot
+
+# Startup delay to ensure system readiness
+ExecStartPre=/bin/sleep 30
+ExecStartPre=/usr/local/bin/calendarbot-kiosk-prestart.sh
+
+# Main kiosk process
+ExecStart=/home/pi/calendarbot/venv/bin/python -m calendarbot --kiosk
+ExecStop=/bin/kill -TERM $MAINPID
+ExecStopPost=/usr/local/bin/calendarbot-kiosk-cleanup.sh
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+# Restart configuration for reliability
+Restart=always
+RestartSec=15
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Resource limits for Pi Zero 2W (512MB RAM)
+MemoryLimit=400M
+CPUQuota=80%
+IOSchedulingClass=2
+IOSchedulingPriority=4
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/.config/calendarbot /tmp /var/log/calendarbot
+
+# Additional security
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+
+[Install]
+WantedBy=graphical.target

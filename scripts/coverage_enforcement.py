@@ -21,7 +21,7 @@ def load_coverage_data() -> Optional[dict]:
         return None
 
     try:
-        with open(coverage_file) as f:
+        with coverage_file.open() as f:
             return json.load(f)
     except (OSError, json.JSONDecodeError) as e:
         print(f"❌ Error loading coverage data: {e}")
@@ -131,12 +131,12 @@ def check_coverage_trend(current_coverage: float) -> dict:
     if not trend_file.exists():
         # First run, create baseline
         trend_data = {"history": [current_coverage]}
-        with open(trend_file, "w") as f:
+        with trend_file.open("w") as f:
             json.dump(trend_data, f)
         return {"trend": "baseline", "change": 0.0}
 
     try:
-        with open(trend_file) as f:
+        with trend_file.open() as f:
             trend_data = json.load(f)
 
         history = trend_data.get("history", [])
@@ -148,7 +148,7 @@ def check_coverage_trend(current_coverage: float) -> dict:
             history.append(current_coverage)
             trend_data["history"] = history[-10:]
 
-            with open(trend_file, "w") as f:
+            with trend_file.open("w") as f:
                 json.dump(trend_data, f)
 
             if change > 1.0:

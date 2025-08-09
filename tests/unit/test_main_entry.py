@@ -18,10 +18,11 @@ class TestMainEntryPoint:
 
     def test_main_successful_execution(self):
         """Test successful execution of main() function."""
-        with patch("calendarbot.__main__.asyncio.run") as mock_run, patch(
-            "calendarbot.__main__.sys.exit"
-        ) as mock_exit:
-
+        with (
+            patch("calendarbot.__main__.asyncio.run") as mock_run,
+            patch("calendarbot.__main__.sys.exit") as mock_exit,
+            patch("calendarbot.__main__._handle_daemon_mode_early", return_value=False),
+        ):
             # Mock successful execution
             mock_run.return_value = 0
 
@@ -36,10 +37,11 @@ class TestMainEntryPoint:
 
     def test_main_keyboard_interrupt_handling(self, capsys):
         """Test KeyboardInterrupt handling in main() function."""
-        with patch("calendarbot.__main__.asyncio.run") as mock_run, patch(
-            "calendarbot.__main__.sys.exit"
-        ) as mock_exit:
-
+        with (
+            patch("calendarbot.__main__.asyncio.run") as mock_run,
+            patch("calendarbot.__main__.sys.exit") as mock_exit,
+            patch("calendarbot.__main__._handle_daemon_mode_early", return_value=False),
+        ):
             # Mock KeyboardInterrupt
             mock_run.side_effect = KeyboardInterrupt()
 
@@ -56,10 +58,11 @@ class TestMainEntryPoint:
 
     def test_main_general_exception_handling(self, capsys):
         """Test general exception handling in main() function."""
-        with patch("calendarbot.__main__.asyncio.run") as mock_run, patch(
-            "calendarbot.__main__.sys.exit"
-        ) as mock_exit:
-
+        with (
+            patch("calendarbot.__main__.asyncio.run") as mock_run,
+            patch("calendarbot.__main__.sys.exit") as mock_exit,
+            patch("calendarbot.__main__._handle_daemon_mode_early", return_value=False),
+        ):
             # Mock general exception
             test_error = RuntimeError("Test error message")
             mock_run.side_effect = test_error
@@ -80,10 +83,11 @@ class TestMainEntryPoint:
         test_cases = [0, 1, 2, 130]
 
         for exit_code in test_cases:
-            with patch("calendarbot.__main__.asyncio.run") as mock_run, patch(
-                "calendarbot.__main__.sys.exit"
-            ) as mock_exit:
-
+            with (
+                patch("calendarbot.__main__.asyncio.run") as mock_run,
+                patch("calendarbot.__main__.sys.exit") as mock_exit,
+                patch("calendarbot.__main__._handle_daemon_mode_early", return_value=False),
+            ):
                 # Mock main_entry returning specific exit code
                 mock_run.return_value = exit_code
 
@@ -104,10 +108,10 @@ class TestMainEntryPoint:
                 raise ImportError("Mock import error")
             return original_import(name, *args, **kwargs)
 
-        with patch("builtins.__import__", side_effect=mock_import), patch(
-            "calendarbot.__main__.sys.exit"
-        ) as mock_exit:
-
+        with (
+            patch("builtins.__import__", side_effect=mock_import),
+            patch("calendarbot.__main__.sys.exit") as mock_exit,
+        ):
             # This will trigger the ImportError during module load
             # We need to reload the module to test this
             import importlib
@@ -157,10 +161,10 @@ class TestMainEntryPoint:
     def test_main_entry_import_success(self):
         """Test successful import of main_entry function."""
         # This test ensures the import works correctly
-        with patch("calendarbot.__main__.asyncio.run") as mock_run, patch(
-            "calendarbot.__main__.sys.exit"
+        with (
+            patch("calendarbot.__main__.asyncio.run") as mock_run,
+            patch("calendarbot.__main__.sys.exit"),
         ):
-
             mock_run.return_value = 0
 
             from calendarbot.__main__ import main
@@ -184,10 +188,11 @@ class TestMainEntryPoint:
     )
     def test_exception_handling_parametrized(self, exception_type, expected_exit_code, capsys):
         """Test various exception types and their handling."""
-        with patch("calendarbot.__main__.asyncio.run") as mock_run, patch(
-            "calendarbot.__main__.sys.exit"
-        ) as mock_exit:
-
+        with (
+            patch("calendarbot.__main__.asyncio.run") as mock_run,
+            patch("calendarbot.__main__.sys.exit") as mock_exit,
+            patch("calendarbot.__main__._handle_daemon_mode_early", return_value=False),
+        ):
             mock_run.side_effect = exception_type
 
             from calendarbot.__main__ import main
@@ -204,10 +209,11 @@ class TestMainEntryPoint:
 
     def test_asyncio_run_called_correctly(self):
         """Test that asyncio.run is called with the correct function."""
-        with patch("calendarbot.__main__.asyncio.run") as mock_run, patch(
-            "calendarbot.__main__.sys.exit"
-        ), patch("calendarbot.__main__.main_entry") as mock_main_entry:
-
+        with (
+            patch("calendarbot.__main__.asyncio.run") as mock_run,
+            patch("calendarbot.__main__.sys.exit"),
+            patch("calendarbot.__main__.main_entry") as mock_main_entry,
+        ):
             mock_run.return_value = 0
 
             from calendarbot.__main__ import main

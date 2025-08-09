@@ -292,12 +292,19 @@ addopts = [
     "--strict-config",        # Treat configuration errors as errors
     "--verbose",              # Verbose output
     "--tb=short",             # Short traceback format
-    "--maxfail=10",           # Stop after 10 failures
+    "--maxfail=5",            # Reduce max failures to prevent resource exhaustion
     "--durations=10",         # Show 10 slowest tests
+    "--import-mode=importlib", # Use importlib mode to avoid namespace conflicts
+    # Memory management options to prevent OOM kills
+    "--disable-warnings",     # Reduce memory from warning objects
 ]
 
 # Async test support
 asyncio_mode = "auto"
+
+# Resource management settings to prevent memory exhaustion
+junit_duration_report = "call"  # Reduce memory usage from duration tracking
+junit_logging = "no"            # Disable junit logging to save memory
 
 # Console logging configuration
 log_cli = true

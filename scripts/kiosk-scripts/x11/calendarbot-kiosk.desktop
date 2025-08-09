@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=CalendarBot Kiosk
+Comment=CalendarBot Kiosk Mode Display
+Exec=/home/pi/.xsession
+Type=Application
+DesktopNames=Kiosk

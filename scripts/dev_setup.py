@@ -103,8 +103,8 @@ class DevelopmentSetup:
             logger.info("Virtual environment created successfully")
             return True
 
-        except Exception as e:
-            logger.exception(f"Failed to create virtual environment: {e}")
+        except Exception:
+            logger.exception("Failed to create virtual environment")
             return False
 
     def get_pip_path(self) -> Path:
@@ -160,8 +160,8 @@ class DevelopmentSetup:
             logger.info("Dependencies installed successfully")
             return True
 
-        except subprocess.CalledProcessError as e:
-            logger.exception(f"Failed to install dependencies: {e}")
+        except subprocess.CalledProcessError:
+            logger.exception("Failed to install dependencies")
             return False
 
     def setup_pre_commit(self) -> bool:
@@ -221,8 +221,8 @@ class DevelopmentSetup:
             logger.info("Pre-commit hooks installed successfully")
             return True
 
-        except subprocess.CalledProcessError as e:
-            logger.exception(f"Failed to setup pre-commit: {e}")
+        except subprocess.CalledProcessError:
+            logger.exception("Failed to setup pre-commit")
             return False
 
     def create_development_config(self) -> bool:
@@ -336,8 +336,8 @@ testing:
 
             return True
 
-        except Exception as e:
-            logger.exception(f"Failed to create development config: {e}")
+        except Exception:
+            logger.exception("Failed to create development config")
             return False
 
     def create_development_scripts(self) -> bool:
@@ -507,8 +507,8 @@ if __name__ == "__main__":
             logger.info("Development scripts created successfully")
             return True
 
-        except Exception as e:
-            logger.exception(f"Failed to create development scripts: {e}")
+        except Exception:
+            logger.exception("Failed to create development scripts")
             return False
 
     def create_vscode_config(self) -> bool:
@@ -651,8 +651,8 @@ if __name__ == "__main__":
             logger.info("VS Code configuration created successfully")
             return True
 
-        except Exception as e:
-            logger.exception(f"Failed to create VS Code config: {e}")
+        except Exception:
+            logger.exception("Failed to create VS Code config")
             return False
 
     def setup_development_environment(
@@ -681,8 +681,8 @@ if __name__ == "__main__":
                 if not step_func():
                     logger.error(f"Setup failed at step: {step_name}")
                     return False
-            except Exception as e:
-                logger.exception(f"Setup failed at step '{step_name}': {e}")
+            except Exception:
+                logger.exception(f"Setup failed at step '{step_name}'")
                 return False
 
         logger.info("Development environment setup completed successfully!")
@@ -768,8 +768,8 @@ def main():
     except KeyboardInterrupt:
         logger.info("Setup cancelled by user")
         return 1
-    except Exception as e:
-        logger.exception(f"Setup failed: {e}")
+    except Exception:
+        logger.exception("Setup failed")
         return 1
 
 
