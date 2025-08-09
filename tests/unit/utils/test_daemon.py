@@ -860,6 +860,7 @@ class TestDaemonController:
         mock_manager.get_process_info.return_value = {
             "running": True,
             "create_time": datetime(2024, 1, 1, 12, 0, 0),
+            "cmdline": ["python", "-m", "calendarbot", "--daemon"],
         }
 
         with patch("calendarbot.utils.daemon.get_logger"):
@@ -871,8 +872,128 @@ class TestDaemonController:
             # Assert
             assert isinstance(status, DaemonStatus)
             assert status.pid == 1234
-            assert status.port == 8000  # Default port
+            assert status.port == 8080  # Default port (no --port in cmdline)
             assert status.is_healthy is True
+
+    @patch("calendarbot.utils.daemon.PSUTIL_AVAILABLE", True)
+    def test_get_daemon_status_when_port_in_cmdline_then_detects_port(self):
+        """Test get_daemon_status detects port from command line arguments."""
+        # Arrange
+        mock_manager = Mock()
+        mock_manager.get_daemon_pid.return_value = 1234
+        mock_manager.get_process_info.return_value = {
+            "running": True,
+            "create_time": datetime(2024, 1, 1, 12, 0, 0),
+            "cmdline": ["python", "-m", "calendarbot", "--daemon", "--port", "8080"],
+        }
+
+        with patch("calendarbot.utils.daemon.get_logger"):
+            controller = DaemonController(daemon_manager=mock_manager)
+
+            # Act
+            status = controller.get_daemon_status()
+
+            # Assert
+            assert isinstance(status, DaemonStatus)
+            assert status.pid == 1234
+            assert status.port == 8080  # Detected from cmdline
+            assert status.is_healthy is True
+
+    @patch("calendarbot.utils.daemon.PSUTIL_AVAILABLE", True)
+    def test_get_daemon_status_when_port_equals_format_then_detects_port(self):
+        """Test get_daemon_status detects port from --port=value format."""
+        # Arrange
+        mock_manager = Mock()
+        mock_manager.get_daemon_pid.return_value = 1234
+        mock_manager.get_process_info.return_value = {
+            "running": True,
+            "create_time": datetime(2024, 1, 1, 12, 0, 0),
+            "cmdline": ["python", "-m", "calendarbot", "--daemon", "--port=9090"],
+        }
+
+        with patch("calendarbot.utils.daemon.get_logger"):
+            controller = DaemonController(daemon_manager=mock_manager)
+
+            # Act
+            status = controller.get_daemon_status()
+
+            # Assert
+            assert isinstance(status, DaemonStatus)
+            assert status.pid == 1234
+            assert status.port == 9090  # Detected from --port=value
+            assert status.is_healthy is True
+
+    def test_parse_port_from_cmdline_when_port_flag_then_returns_port(self):
+        """Test _parse_port_from_cmdline with --port flag format."""
+        # Arrange
+        controller = DaemonController()
+        cmdline = ["python", "-m", "calendarbot", "--daemon", "--port", "8080"]
+
+        # Act
+        port = controller._parse_port_from_cmdline(cmdline)
+
+        # Assert
+        assert port == 8080
+
+    def test_parse_port_from_cmdline_when_port_equals_then_returns_port(self):
+        """Test _parse_port_from_cmdline with --port= format."""
+        # Arrange
+        controller = DaemonController()
+        cmdline = ["python", "-m", "calendarbot", "--daemon", "--port=9090"]
+
+        # Act
+        port = controller._parse_port_from_cmdline(cmdline)
+
+        # Assert
+        assert port == 9090
+
+    def test_parse_port_from_cmdline_when_no_port_then_returns_none(self):
+        """Test _parse_port_from_cmdline when no port specified."""
+        # Arrange
+        controller = DaemonController()
+        cmdline = ["python", "-m", "calendarbot", "--daemon"]
+
+        # Act
+        port = controller._parse_port_from_cmdline(cmdline)
+
+        # Assert
+        assert port is None
+
+    def test_parse_port_from_cmdline_when_invalid_port_then_returns_none(self):
+        """Test _parse_port_from_cmdline with invalid port value."""
+        # Arrange
+        controller = DaemonController()
+        cmdline = ["python", "-m", "calendarbot", "--daemon", "--port", "invalid"]
+
+        # Act
+        port = controller._parse_port_from_cmdline(cmdline)
+
+        # Assert
+        assert port is None
+
+    def test_parse_port_from_cmdline_when_port_flag_at_end_then_returns_none(self):
+        """Test _parse_port_from_cmdline when --port is last argument."""
+        # Arrange
+        controller = DaemonController()
+        cmdline = ["python", "-m", "calendarbot", "--daemon", "--port"]
+
+        # Act
+        port = controller._parse_port_from_cmdline(cmdline)
+
+        # Assert
+        assert port is None
+
+    def test_parse_port_from_cmdline_when_empty_cmdline_then_returns_none(self):
+        """Test _parse_port_from_cmdline with empty command line."""
+        # Arrange
+        controller = DaemonController()
+        cmdline = []
+
+        # Act
+        port = controller._parse_port_from_cmdline(cmdline)
+
+        # Assert
+        assert port is None
 
     @patch("calendarbot.utils.daemon.os.kill")
     def test_send_signal_when_daemon_running_then_sends_signal(self, mock_kill):

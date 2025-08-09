@@ -46,14 +46,13 @@ def _configure_daemon_settings(args: Any, base_settings: Any) -> Any:
         updated_settings.logging.console_enabled = False
         # Ensure file logging is enabled
         updated_settings.logging.file_enabled = True
-        # Set appropriate log file path for daemon
-        if (
-            not hasattr(updated_settings.logging, "log_file")
-            or not updated_settings.logging.log_file
-        ):
+        # Set appropriate log directory for daemon
+        if not updated_settings.logging.file_directory:
             log_dir = Path.home() / ".calendarbot" / "logs"
             log_dir.mkdir(parents=True, exist_ok=True)
-            updated_settings.logging.log_file = log_dir / "daemon.log"
+            updated_settings.logging.file_directory = str(log_dir)
+            # Set daemon-specific prefix to distinguish from regular logs
+            updated_settings.logging.file_prefix = "daemon"
 
     return updated_settings
 
@@ -74,7 +73,7 @@ def _setup_daemon_logging(updated_settings: Any) -> Any:
 
 
 async def _start_daemon_process(args: Any) -> int:
-    """Start CalendarBot as a daemon process.
+    """Start CalendarBot as a daemon process (called after fork).
 
     Args:
         args: Parsed command line arguments
@@ -82,9 +81,9 @@ async def _start_daemon_process(args: Any) -> int:
     Returns:
         Exit code (0 for success, 1 for failure)
 
-    Raises:
-        DaemonAlreadyRunningError: If daemon is already running
-        DaemonError: If daemon startup fails
+    Note:
+        This function assumes detach_process() has already been called
+        before entering the async context to avoid event loop conflicts.
     """
     try:
         # Configure daemon settings
@@ -93,18 +92,13 @@ async def _start_daemon_process(args: Any) -> int:
         # Create daemon controller
         daemon_controller = DaemonController()
 
-        # Check if daemon is already running
+        # Check if daemon is already running (this might be redundant after fork)
         if daemon_controller.daemon_manager.is_daemon_running():
             existing_pid = daemon_controller.daemon_manager.get_daemon_pid()
             print(f"CalendarBot daemon is already running with PID {existing_pid}")
             print("Use 'calendarbot --daemon-status' to check status")
             print("Use 'calendarbot --daemon-stop' to stop the daemon")
             return 1
-
-        print("Starting CalendarBot daemon...")
-
-        # Detach from terminal for daemon mode
-        detach_process()
 
         # Create PID file and set up daemon infrastructure
         pid = daemon_controller.daemon_manager.create_pid_file()
