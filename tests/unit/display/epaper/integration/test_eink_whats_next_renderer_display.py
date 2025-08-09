@@ -15,227 +15,169 @@ import pytest
 from PIL import Image, ImageDraw
 
 from calendarbot.display.epaper.abstraction import DisplayAbstractionLayer
-from calendarbot.display.epaper.capabilities import DisplayCapabilities
 from calendarbot.display.epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer
 from calendarbot.display.epaper.utils.image_processor import ImageProcessor
 
 
-class MockDisplayCapabilities:
-    """Mock display capabilities for testing."""
+def create_mock_display_capabilities(
+    width: int = 300,
+    height: int = 400,
+    colors: int = 2,
+    supports_partial_update: bool = True,
+    supports_grayscale: bool = True,
+    supports_red: bool = False,
+) -> MagicMock:
+    """Create mock display capabilities for testing.
 
-    def __init__(
-        self,
-        width: int = 300,
-        height: int = 400,
-        colors: int = 2,
-        supports_partial_update: bool = True,
-        supports_grayscale: bool = True,
-        supports_red: bool = False,
-    ) -> None:
-        """Initialize mock display capabilities.
+    Args:
+        width: Display width in pixels
+        height: Display height in pixels
+        colors: Number of colors supported
+        supports_partial_update: Whether partial updates are supported
+        supports_grayscale: Whether grayscale is supported
+        supports_red: Whether red color is supported
 
-        Args:
-            width: Display width in pixels
-            height: Display height in pixels
-            colors: Number of colors supported
-            supports_partial_update: Whether partial updates are supported
-            supports_grayscale: Whether grayscale is supported
-            supports_red: Whether red color is supported
-        """
-        self.width = width
-        self.height = height
-        self.colors = colors
-        self.supports_partial_update = supports_partial_update
-        self.supports_grayscale = supports_grayscale
-        self.supports_red = supports_red
-
-
-class MockDisplay(DisplayAbstractionLayer):
-    """Mock display for testing."""
-
-    def __init__(
-        self,
-        capabilities: Optional[MockDisplayCapabilities] = None,
-        initialize_success: bool = True,
-        render_success: bool = True,
-    ) -> None:
-        """Initialize mock display.
-
-        Args:
-            capabilities: Optional display capabilities
-            initialize_success: Whether initialize() should return success
-            render_success: Whether render() should return success
-        """
-        self.capabilities = capabilities or MockDisplayCapabilities()
-        self.initialize_called = False
-        self.render_called = False
-        self.render_buffer = None
-        self.initialize_success = initialize_success
-        self.render_success = render_success
-
-    def initialize(self) -> bool:
-        """Mock initialize method.
-
-        Returns:
-            True if initialization was successful based on initialize_success
-        """
-        self.initialize_called = True
-        return self.initialize_success
-
-    def render(self, buffer: Any) -> bool:
-        """Mock render method.
-
-        Args:
-            buffer: Display buffer to render
-
-        Returns:
-            True if render was successful based on render_success
-        """
-        self.render_called = True
-        self.render_buffer = buffer
-        return self.render_success
-
-    def get_capabilities(self) -> MockDisplayCapabilities:
-        """Get display capabilities.
-
-        Returns:
-            Display capabilities
-        """
-        return self.capabilities
-
-    def clear(self) -> bool:
-        """Clear the display.
-
-        Returns:
-            True if clearing was successful
-        """
-        return True
-
-    def shutdown(self) -> bool:
-        """Shutdown the display.
-
-        Returns:
-            True if shutdown was successful
-        """
-        return True
+    Returns:
+        Mock display capabilities
+    """
+    capabilities = MagicMock()
+    capabilities.width = width
+    capabilities.height = height
+    capabilities.colors = colors
+    capabilities.supports_partial_update = supports_partial_update
+    capabilities.supports_grayscale = supports_grayscale
+    capabilities.supports_red = supports_red
+    return capabilities
 
 
-class MockImageProcessor:
-    """Mock image processor for testing."""
+def create_mock_display(
+    capabilities: Optional[MagicMock] = None,
+    initialize_success: bool = True,
+    render_success: bool = True,
+) -> MagicMock:
+    """Create mock display for testing.
 
-    def __init__(self, conversion_success: bool = True) -> None:
-        """Initialize mock image processor.
+    Args:
+        capabilities: Optional display capabilities
+        initialize_success: Whether initialize() should return success
+        render_success: Whether render() should return success
 
-        Args:
-            conversion_success: Whether conversion should succeed
-        """
-        self.conversion_success = conversion_success
-        self.convert_called = False
-        self.resize_called = False
-        self.optimize_called = False
+    Returns:
+        Mock display instance
+    """
+    display = MagicMock(spec=DisplayAbstractionLayer)
+    display.capabilities = capabilities or create_mock_display_capabilities()
+    display.initialize_called = False
+    display.render_called = False
+    display.render_buffer = None
+    display.initialize_success = initialize_success
+    display.render_success = render_success
 
-    def convert_to_display_format(
-        self, image: Image.Image, capabilities: DisplayCapabilities
-    ) -> bytes:
-        """Mock convert to display format.
+    def mock_initialize():
+        display.initialize_called = True
+        return display.initialize_success
 
-        Args:
-            image: PIL Image to convert
-            capabilities: Display capabilities
+    def mock_render(buffer):
+        display.render_called = True
+        display.render_buffer = buffer
+        return display.render_success
 
-        Returns:
-            Mock display buffer
+    def mock_get_capabilities():
+        return display.capabilities
 
-        Raises:
-            ValueError: If conversion_success is False
-        """
-        self.convert_called = True
+    display.initialize.side_effect = mock_initialize
+    display.render.side_effect = mock_render
+    display.get_capabilities.side_effect = mock_get_capabilities
+    display.clear.return_value = True
+    display.shutdown.return_value = True
 
-        if not self.conversion_success:
+    return display
+
+
+def create_mock_image_processor(conversion_success: bool = True) -> MagicMock:
+    """Create mock image processor for testing.
+
+    Args:
+        conversion_success: Whether conversion should succeed
+
+    Returns:
+        Mock image processor instance
+    """
+    processor = MagicMock()
+    processor.conversion_success = conversion_success
+    processor.convert_called = False
+    processor.resize_called = False
+    processor.optimize_called = False
+
+    def mock_convert_to_display_format(image, capabilities):
+        processor.convert_called = True
+        if not processor.conversion_success:
             raise ValueError("Mock conversion error")
-
         return b"mock_display_buffer"
 
-    def resize_for_display(
-        self,
-        image: Image.Image,
-        capabilities: DisplayCapabilities,
-        maintain_aspect_ratio: bool = True,
-    ) -> Image.Image:
-        """Mock resize for display.
-
-        Args:
-            image: PIL Image to resize
-            capabilities: Display capabilities
-            maintain_aspect_ratio: Whether to maintain aspect ratio
-
-        Returns:
-            Resized PIL Image
-        """
-        self.resize_called = True
+    def mock_resize_for_display(image, capabilities, maintain_aspect_ratio=True):
+        processor.resize_called = True
         return image
 
-    def optimize_for_eink(self, image: Image.Image) -> Image.Image:
-        """Mock optimize for e-Ink.
-
-        Args:
-            image: PIL Image to optimize
-
-        Returns:
-            Optimized PIL Image
-        """
-        self.optimize_called = True
+    def mock_optimize_for_eink(image):
+        processor.optimize_called = True
         return image
+
+    processor.convert_to_display_format.side_effect = mock_convert_to_display_format
+    processor.resize_for_display.side_effect = mock_resize_for_display
+    processor.optimize_for_eink.side_effect = mock_optimize_for_eink
+
+    return processor
 
 
 @pytest.fixture
-def mock_display() -> MockDisplay:
+def mock_display() -> MagicMock:
     """Fixture for mock display.
 
     Returns:
         Mock display instance
     """
-    return MockDisplay()
+    return create_mock_display()
 
 
 @pytest.fixture
-def mock_display_init_fail() -> MockDisplay:
+def mock_display_init_fail() -> MagicMock:
     """Fixture for mock display with initialization failure.
 
     Returns:
         Mock display instance with initialization failure
     """
-    return MockDisplay(initialize_success=False)
+    return create_mock_display(initialize_success=False)
 
 
 @pytest.fixture
-def mock_display_render_fail() -> MockDisplay:
+def mock_display_render_fail() -> MagicMock:
     """Fixture for mock display with render failure.
 
     Returns:
         Mock display instance with render failure
     """
-    return MockDisplay(render_success=False)
+    return create_mock_display(render_success=False)
 
 
 @pytest.fixture
-def mock_image_processor() -> MockImageProcessor:
+def mock_image_processor() -> MagicMock:
     """Fixture for mock image processor.
 
     Returns:
         Mock image processor instance
     """
-    return MockImageProcessor()
+    return create_mock_image_processor()
 
 
 @pytest.fixture
-def mock_image_processor_fail() -> MockImageProcessor:
+def mock_image_processor_fail() -> MagicMock:
     """Fixture for mock image processor with conversion failure.
 
     Returns:
         Mock image processor instance with conversion failure
     """
-    return MockImageProcessor(conversion_success=False)
+    return create_mock_image_processor(conversion_success=False)
 
 
 @pytest.fixture
@@ -266,7 +208,7 @@ class TestEInkWhatsNextRendererDisplay:
     """Test display integration functionality of EInkWhatsNextRenderer."""
 
     def test_update_display_when_valid_image_then_initializes_and_renders(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay, test_image: Image.Image
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock, test_image: Image.Image
     ) -> None:
         """Test update_display method with valid image.
 
@@ -278,7 +220,7 @@ class TestEInkWhatsNextRendererDisplay:
         renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
 
         # Mock the image processor
-        renderer.image_processor = cast(ImageProcessor, MockImageProcessor())
+        renderer.image_processor = cast(ImageProcessor, create_mock_image_processor())
 
         result = renderer.update_display(test_image)
 
@@ -286,12 +228,12 @@ class TestEInkWhatsNextRendererDisplay:
         assert mock_display.initialize_called is True
         assert mock_display.render_called is True
         assert mock_display.render_buffer == b"mock_display_buffer"
-        assert cast(MockImageProcessor, renderer.image_processor).convert_called is True
+        assert renderer.image_processor.convert_called is True
 
     def test_update_display_when_initialize_fails_then_returns_false(
         self,
         mock_settings: Dict[str, Any],
-        mock_display_init_fail: MockDisplay,
+        mock_display_init_fail: MagicMock,
         test_image: Image.Image,
     ) -> None:
         """Test update_display method when initialize fails.
@@ -312,7 +254,7 @@ class TestEInkWhatsNextRendererDisplay:
     def test_update_display_when_render_fails_then_returns_false(
         self,
         mock_settings: Dict[str, Any],
-        mock_display_render_fail: MockDisplay,
+        mock_display_render_fail: MagicMock,
         test_image: Image.Image,
     ) -> None:
         """Test update_display method when render fails.
@@ -325,17 +267,17 @@ class TestEInkWhatsNextRendererDisplay:
         renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display_render_fail)
 
         # Mock the image processor
-        renderer.image_processor = cast(ImageProcessor, MockImageProcessor())
+        renderer.image_processor = cast(ImageProcessor, create_mock_image_processor())
 
         result = renderer.update_display(test_image)
 
         assert result is False
         assert mock_display_render_fail.initialize_called is True
         assert mock_display_render_fail.render_called is True
-        assert cast(MockImageProcessor, renderer.image_processor).convert_called is True
+        assert renderer.image_processor.convert_called is True
 
     def test_update_display_when_image_processing_fails_then_returns_false(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay, test_image: Image.Image
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock, test_image: Image.Image
     ) -> None:
         """Test update_display method when image processing fails.
 
@@ -348,7 +290,7 @@ class TestEInkWhatsNextRendererDisplay:
 
         # Mock the image processor to fail
         renderer.image_processor = cast(
-            ImageProcessor, MockImageProcessor(conversion_success=False)
+            ImageProcessor, create_mock_image_processor(conversion_success=False)
         )
 
         result = renderer.update_display(test_image)
@@ -356,10 +298,10 @@ class TestEInkWhatsNextRendererDisplay:
         assert result is False
         assert mock_display.initialize_called is True
         assert mock_display.render_called is False
-        assert cast(MockImageProcessor, renderer.image_processor).convert_called is True
+        assert renderer.image_processor.convert_called is True
 
     def test_update_display_when_exception_occurs_then_returns_false_and_logs_error(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay, test_image: Image.Image
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock, test_image: Image.Image
     ) -> None:
         """Test update_display method with exception.
 
@@ -386,7 +328,7 @@ class TestEInkWhatsNextRendererDisplay:
             mock_logger.exception.assert_called_once_with("Error updating e-Paper display")
 
     def test_update_display_when_invalid_image_then_returns_false(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test update_display method with invalid image.
 
@@ -424,37 +366,37 @@ class TestEInkWhatsNextRendererDisplay:
             test_image: Test image
         """
         # Test with grayscale display
-        grayscale_display = MockDisplay(
-            MockDisplayCapabilities(supports_grayscale=True, supports_red=False)
+        grayscale_display = create_mock_display(
+            create_mock_display_capabilities(supports_grayscale=True, supports_red=False)
         )
         grayscale_renderer = EInkWhatsNextRenderer(mock_settings, display=grayscale_display)
-        grayscale_renderer.image_processor = cast(ImageProcessor, MockImageProcessor())
+        grayscale_renderer.image_processor = cast(ImageProcessor, create_mock_image_processor())
 
         grayscale_result = grayscale_renderer.update_display(test_image)
         assert grayscale_result is True
 
         # Test with red support display
-        red_display = MockDisplay(
-            MockDisplayCapabilities(supports_grayscale=True, supports_red=True)
+        red_display = create_mock_display(
+            create_mock_display_capabilities(supports_grayscale=True, supports_red=True)
         )
         red_renderer = EInkWhatsNextRenderer(mock_settings, display=red_display)
-        red_renderer.image_processor = cast(ImageProcessor, MockImageProcessor())
+        red_renderer.image_processor = cast(ImageProcessor, create_mock_image_processor())
 
         red_result = red_renderer.update_display(test_image)
         assert red_result is True
 
         # Test with monochrome display
-        mono_display = MockDisplay(
-            MockDisplayCapabilities(supports_grayscale=False, supports_red=False)
+        mono_display = create_mock_display(
+            create_mock_display_capabilities(supports_grayscale=False, supports_red=False)
         )
         mono_renderer = EInkWhatsNextRenderer(mock_settings, display=mono_display)
-        mono_renderer.image_processor = cast(ImageProcessor, MockImageProcessor())
+        mono_renderer.image_processor = cast(ImageProcessor, create_mock_image_processor())
 
         mono_result = mono_renderer.update_display(test_image)
         assert mono_result is True
 
     def test_image_processor_integration_when_converting_image_then_uses_correct_parameters(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay, test_image: Image.Image
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock, test_image: Image.Image
     ) -> None:
         """Test integration with image processor for converting images.
 
@@ -489,12 +431,12 @@ class TestEInkWhatsNextRendererDisplay:
         strict_mock_display = MagicMock(spec=DisplayAbstractionLayer)
         strict_mock_display.initialize.return_value = True
         strict_mock_display.render.return_value = True
-        strict_mock_display.get_capabilities.return_value = MockDisplayCapabilities()
+        strict_mock_display.get_capabilities.return_value = create_mock_display_capabilities()
 
         renderer = EInkWhatsNextRenderer(mock_settings, display=strict_mock_display)
 
         # Mock the image processor
-        renderer.image_processor = cast(ImageProcessor, MockImageProcessor())
+        renderer.image_processor = cast(ImageProcessor, create_mock_image_processor())
 
         result = renderer.update_display(test_image)
 

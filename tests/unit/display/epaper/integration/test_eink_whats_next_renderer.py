@@ -6,7 +6,7 @@ the SharedStylingConstants component for the unified rendering pipeline.
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,175 +16,141 @@ from calendarbot.display.epaper.abstraction import DisplayAbstractionLayer
 from calendarbot.display.epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer
 
 # Import shared styling components
-from calendarbot.display.whats_next_data_model import WhatsNextViewModel
 
 
-class MockDisplayCapabilities:
-    """Mock display capabilities for testing."""
+def create_mock_display_capabilities(
+    width: int = 400,
+    height: int = 300,
+    supports_partial_update: bool = True,
+    supports_grayscale: bool = True,
+    supports_red: bool = False,
+) -> MagicMock:
+    """Create mock display capabilities for testing.
 
-    def __init__(
-        self,
-        width: int = 400,
-        height: int = 300,
-        supports_partial_update: bool = True,
-        supports_grayscale: bool = True,
-        supports_red: bool = False,
-    ) -> None:
-        """Initialize mock display capabilities.
+    Args:
+        width: Display width in pixels
+        height: Display height in pixels
+        supports_partial_update: Whether partial updates are supported
+        supports_grayscale: Whether grayscale is supported
+        supports_red: Whether red color is supported
 
-        Args:
-            width: Display width in pixels
-            height: Display height in pixels
-            supports_partial_update: Whether partial updates are supported
-            supports_grayscale: Whether grayscale is supported
-            supports_red: Whether red color is supported
-        """
-        self.width = width
-        self.height = height
-        self.supports_partial_update = supports_partial_update
-        self.supports_grayscale = supports_grayscale
-        self.supports_red = supports_red
+    Returns:
+        Mock display capabilities
+    """
+    capabilities = MagicMock()
+    capabilities.width = width
+    capabilities.height = height
+    capabilities.supports_partial_update = supports_partial_update
+    capabilities.supports_grayscale = supports_grayscale
+    capabilities.supports_red = supports_red
+    return capabilities
 
 
-class MockDisplay(DisplayAbstractionLayer):
-    """Mock display for testing."""
+def create_mock_display(capabilities: Optional[MagicMock] = None) -> MagicMock:
+    """Create mock display for testing.
 
-    def __init__(self, capabilities: Optional[MockDisplayCapabilities] = None) -> None:
-        """Initialize mock display.
+    Args:
+        capabilities: Optional display capabilities
 
-        Args:
-            capabilities: Optional display capabilities
-        """
-        self.capabilities = capabilities or MockDisplayCapabilities()
-        self.initialize_called = False
-        self.render_called = False
-        self.render_buffer = None
+    Returns:
+        Mock display instance
+    """
+    display = MagicMock(spec=DisplayAbstractionLayer)
+    display.capabilities = capabilities or create_mock_display_capabilities()
+    display.initialize_called = False
+    display.render_called = False
+    display.render_buffer = None
 
-    def initialize(self) -> bool:
-        """Mock initialize method.
-
-        Returns:
-            True if initialization was successful
-        """
-        self.initialize_called = True
+    def mock_initialize():
+        display.initialize_called = True
         return True
 
-    def render(self, content: Any) -> bool:
-        """Mock render method.
-
-        Args:
-            content: Display buffer to render
-
-        Returns:
-            True if render was successful
-        """
-        self.render_called = True
-        self.render_buffer = content
+    def mock_render(content):
+        display.render_called = True
+        display.render_buffer = content
         return True
 
-    def get_capabilities(self) -> Any:
-        """Get display capabilities.
+    def mock_get_capabilities():
+        return display.capabilities
 
-        Returns:
-            Display capabilities
-        """
-        return self.capabilities
+    display.initialize.side_effect = mock_initialize
+    display.render.side_effect = mock_render
+    display.get_capabilities.side_effect = mock_get_capabilities
+    display.clear.return_value = True
+    display.shutdown.return_value = True
 
-    def clear(self) -> bool:
-        """Mock clear method.
-
-        Returns:
-            True if clear was successful
-        """
-        return True
-
-    def shutdown(self) -> bool:
-        """Mock shutdown method.
-
-        Returns:
-            True if shutdown was successful
-        """
-        return True
+    return display
 
 
-class MockEvent:
-    """Mock event for testing."""
+def create_mock_event(
+    subject: str = "Test Event",
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    location: str = "Test Location",
+    time_until_minutes: int = 30,
+) -> MagicMock:
+    """Create mock event for testing.
 
-    def __init__(
-        self,
-        subject: str = "Test Event",
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        location: str = "Test Location",
-        time_until_minutes: int = 30,
-    ) -> None:
-        """Initialize mock event.
+    Args:
+        subject: Event subject
+        start_time: Event start time
+        end_time: Event end time
+        location: Event location
+        time_until_minutes: Minutes until event starts
 
-        Args:
-            subject: Event subject
-            start_time: Event start time
-            end_time: Event end time
-            location: Event location
-            time_until_minutes: Minutes until event starts
-        """
-
-        self.subject = subject
-        self.start_time = start_time or datetime.now() + timedelta(minutes=time_until_minutes)
-        self.end_time = end_time or self.start_time + timedelta(hours=1)
-        self.location = location
-        self.time_until_minutes = time_until_minutes
-        self.formatted_time_range = (
-            f"{self.start_time.strftime('%H:%M')} - {self.end_time.strftime('%H:%M')}"
-        )
-
-    def format_time_range(self) -> str:
-        """Format time range.
-
-        Returns:
-            Formatted time range
-        """
-        return self.formatted_time_range
+    Returns:
+        Mock event instance
+    """
+    event = MagicMock()
+    event.subject = subject
+    event.start_time = start_time or datetime.now() + timedelta(minutes=time_until_minutes)
+    event.end_time = end_time or event.start_time + timedelta(hours=1)
+    event.location = location
+    event.time_until_minutes = time_until_minutes
+    event.formatted_time_range = (
+        f"{event.start_time.strftime('%H:%M')} - {event.end_time.strftime('%H:%M')}"
+    )
+    event.format_time_range.return_value = event.formatted_time_range
+    return event
 
 
-class MockViewModel:
-    """Mock view model for testing."""
+def create_mock_view_model(
+    current_events: Optional[List[MagicMock]] = None,
+    next_events: Optional[List[MagicMock]] = None,
+    display_date: str = "2025-08-01",
+) -> MagicMock:
+    """Create mock view model for testing.
 
-    def __init__(
-        self,
-        current_events: Optional[List[MockEvent]] = None,
-        next_events: Optional[List[MockEvent]] = None,
-        display_date: str = "2025-08-01",
-    ) -> None:
-        """Initialize mock view model.
+    Args:
+        current_events: List of current events
+        next_events: List of next events
+        display_date: Display date
 
-        Args:
-            current_events: List of current events
-            next_events: List of next events
-            display_date: Display date
-        """
-        self.current_events = current_events or []
-        self.next_events = next_events or []
-        self.display_date = display_date
-        self.status_info = MagicMock()
-        self.status_info.is_cached = False
+    Returns:
+        Mock view model instance
+    """
+    view_model = MagicMock()
+    view_model.current_events = current_events or []
+    view_model.next_events = next_events or []
+    view_model.display_date = display_date
+    view_model.status_info = MagicMock()
+    view_model.status_info.is_cached = False
 
-    def get_next_event(self) -> Optional[MockEvent]:
-        """Get next event.
+    def get_next_event():
+        return view_model.next_events[0] if view_model.next_events else None
 
-        Returns:
-            Next event or None if no next events
-        """
-        return self.next_events[0] if self.next_events else None
+    view_model.get_next_event.side_effect = get_next_event
+    return view_model
 
 
 @pytest.fixture
-def mock_display() -> MockDisplay:
+def mock_display() -> MagicMock:
     """Fixture for mock display.
 
     Returns:
         Mock display instance
     """
-    return MockDisplay()
+    return create_mock_display()
 
 
 @pytest.fixture
@@ -198,29 +164,29 @@ def mock_settings() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def mock_view_model_empty() -> MockViewModel:
+def mock_view_model_empty() -> MagicMock:
     """Fixture for empty view model.
 
     Returns:
         Empty view model
     """
-    return MockViewModel()
+    return create_mock_view_model()
 
 
 @pytest.fixture
-def mock_view_model_with_events() -> MockViewModel:
+def mock_view_model_with_events() -> MagicMock:
     """Fixture for view model with events.
 
     Returns:
         View model with events
     """
-    current_event = MockEvent(
+    current_event = create_mock_event(
         subject="Current Meeting", time_until_minutes=0, location="Conference Room A"
     )
-    next_event = MockEvent(
+    next_event = create_mock_event(
         subject="Next Meeting", time_until_minutes=30, location="Conference Room B"
     )
-    return MockViewModel(current_events=[current_event], next_events=[next_event])
+    return create_mock_view_model(current_events=[current_event], next_events=[next_event])
 
 
 @pytest.fixture
@@ -323,7 +289,7 @@ class TestEInkWhatsNextRendererSharedStyling:
     def test_init_when_shared_styling_available_then_uses_shared_styling(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
+        mock_display: MagicMock,
         mock_shared_styling: MagicMock,
     ) -> None:
         """Test initialization with SharedStylingConstants.
@@ -359,8 +325,8 @@ class TestEInkWhatsNextRendererSharedStyling:
     def test_render_when_shared_styling_available_then_uses_shared_colors(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
-        mock_view_model_with_events: MockViewModel,
+        mock_display: MagicMock,
+        mock_view_model_with_events: MagicMock,
         mock_shared_styling: MagicMock,
         mock_get_colors_for_renderer: MagicMock,
     ) -> None:
@@ -398,7 +364,7 @@ class TestEInkWhatsNextRendererSharedStyling:
                 renderer._render_full_image = MagicMock(return_value=Image.new("L", (100, 100)))
 
                 # Render the view model
-                result = renderer.render(cast(WhatsNextViewModel, mock_view_model_with_events))
+                result = renderer.render(mock_view_model_with_events)
 
                 # Check that the renderer uses SharedStylingConstants colors
                 mock_get_colors_for_renderer.assert_called_with("pil", mode="L")
@@ -409,7 +375,7 @@ class TestEInkWhatsNextRendererSharedStyling:
     def test_render_zone1_when_shared_styling_available_then_uses_shared_typography(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
+        mock_display: MagicMock,
         mock_shared_styling: MagicMock,
         mock_get_typography_for_renderer: MagicMock,
     ) -> None:
@@ -443,7 +409,7 @@ class TestEInkWhatsNextRendererSharedStyling:
                 mock_draw = MagicMock(spec=ImageDraw.ImageDraw)
 
                 # Create a mock next event
-                next_event = MockEvent(subject="Test Event", time_until_minutes=30)
+                next_event = create_mock_event(subject="Test Event", time_until_minutes=30)
 
                 # Mock the _draw_rounded_rectangle method
                 renderer._draw_rounded_rectangle = MagicMock()
@@ -460,7 +426,7 @@ class TestEInkWhatsNextRendererSharedStyling:
     def test_render_zone2_when_shared_styling_available_then_uses_shared_colors_and_typography(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
+        mock_display: MagicMock,
         mock_shared_styling: MagicMock,
         mock_get_colors_for_renderer: MagicMock,
         mock_get_typography_for_renderer: MagicMock,
@@ -490,7 +456,7 @@ class TestEInkWhatsNextRendererSharedStyling:
                 mock_draw = MagicMock(spec=ImageDraw.ImageDraw)
 
                 # Create a mock next event
-                next_event = MockEvent(subject="Test Event", time_until_minutes=30)
+                next_event = create_mock_event(subject="Test Event", time_until_minutes=30)
 
                 # Mock the _draw_rounded_rectangle method
                 renderer._draw_rounded_rectangle = MagicMock()
@@ -508,8 +474,8 @@ class TestEInkWhatsNextRendererSharedStyling:
     def test_render_zone4_when_shared_styling_available_then_uses_shared_colors_and_typography(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
-        mock_view_model_with_events: MockViewModel,
+        mock_display: MagicMock,
+        mock_view_model_with_events: MagicMock,
         mock_shared_styling: MagicMock,
         mock_get_colors_for_renderer: MagicMock,
         mock_get_typography_for_renderer: MagicMock,
@@ -543,7 +509,7 @@ class TestEInkWhatsNextRendererSharedStyling:
                 renderer._render_zone4_context(
                     mock_draw,
                     "L",
-                    cast(WhatsNextViewModel, mock_view_model_with_events),
+                    mock_view_model_with_events,
                     0,
                     330,
                     300,
@@ -557,8 +523,8 @@ class TestEInkWhatsNextRendererSharedStyling:
     def test_render_full_image_when_shared_styling_available_then_uses_shared_layout(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
-        mock_view_model_with_events: MockViewModel,
+        mock_display: MagicMock,
+        mock_view_model_with_events: MagicMock,
         mock_shared_styling: MagicMock,
         mock_get_layout_for_renderer: MagicMock,
     ) -> None:
@@ -595,9 +561,7 @@ class TestEInkWhatsNextRendererSharedStyling:
                     renderer._render_zone4_context = MagicMock()
 
                     # Call the _render_full_image method
-                    result = renderer._render_full_image(
-                        cast(WhatsNextViewModel, mock_view_model_with_events)
-                    )
+                    result = renderer._render_full_image(mock_view_model_with_events)
 
                     # Check that the renderer uses SharedStylingConstants layout
                     mock_get_layout_for_renderer.assert_called_with("epaper")
@@ -610,7 +574,7 @@ class TestEInkWhatsNextRendererSharedStyling:
     def test_visual_consistency_when_compared_to_web_then_matches_styling(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
+        mock_display: MagicMock,
         mock_shared_styling: MagicMock,
     ) -> None:
         """Test visual consistency between web and e-paper renderers.

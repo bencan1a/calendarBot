@@ -134,7 +134,7 @@ class LayoutAction(argparse.Action):
         )
 
 
-def create_parser() -> argparse.ArgumentParser:
+def create_parser() -> argparse.ArgumentParser:  # noqa
     """Create command line argument parser with comprehensive configuration options.
 
     Builds a comprehensive ArgumentParser with all supported command-line options
@@ -429,6 +429,155 @@ Examples:
         "--daemon-stop",
         action="store_true",
         help="Stop running daemon service gracefully and cleanup PID file",
+    )
+
+    # Kiosk mode arguments
+    kiosk_group = parser.add_argument_group("kiosk", "Kiosk mode deployment options")
+
+    kiosk_group.add_argument(
+        "--kiosk",
+        action="store_true",
+        help="Run in kiosk mode with browser and web interface integration",
+    )
+
+    kiosk_group.add_argument(
+        "--kiosk-status",
+        action="store_true",
+        help="Check status of running kiosk mode (system health, browser state, resource usage)",
+    )
+
+    kiosk_group.add_argument(
+        "--kiosk-stop",
+        action="store_true",
+        help="Stop running kiosk mode gracefully and cleanup processes",
+    )
+
+    kiosk_group.add_argument(
+        "--kiosk-restart",
+        action="store_true",
+        help="Restart kiosk mode with automatic recovery and state management",
+    )
+
+    kiosk_group.add_argument(
+        "--kiosk-setup",
+        action="store_true",
+        help="Run interactive kiosk setup wizard for Pi Zero 2W deployment",
+    )
+
+    # Kiosk configuration arguments
+    kiosk_config_group = parser.add_argument_group(
+        "kiosk-config", "Kiosk mode configuration options"
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-width",
+        type=int,
+        default=480,
+        help="Kiosk display width in pixels (default: 480, optimized for Pi Zero 2W)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-height",
+        type=int,
+        default=800,
+        help="Kiosk display height in pixels (default: 800, optimized for Pi Zero 2W)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-orientation",
+        choices=["portrait", "landscape"],
+        default="portrait",
+        help="Kiosk display orientation (default: portrait)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-scale",
+        type=float,
+        default=1.0,
+        help="Kiosk display scale factor (default: 1.0)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-memory-limit",
+        type=int,
+        default=80,
+        help="Browser memory limit in MB (default: 80, optimized for Pi Zero 2W)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-startup-timeout",
+        type=int,
+        default=30,
+        help="Browser startup timeout in seconds (default: 30)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-health-interval",
+        type=int,
+        default=60,
+        help="Health check interval in seconds (default: 60)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-max-restarts",
+        type=int,
+        default=3,
+        help="Maximum browser restart attempts (default: 3)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-startup-delay",
+        type=float,
+        default=5.0,
+        help="Startup delay in seconds (default: 5.0)",
+    )
+
+    # Kiosk feature flags
+    kiosk_config_group.add_argument(
+        "--kiosk-enable-gpu",
+        action="store_true",
+        help="Enable GPU acceleration (may use more memory)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-disable-extensions",
+        action="store_true",
+        default=True,
+        help="Disable browser extensions (default: enabled for memory optimization)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-disable-plugins",
+        action="store_true",
+        default=True,
+        help="Disable browser plugins (default: enabled for memory optimization)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-fullscreen",
+        action="store_true",
+        default=True,
+        help="Force fullscreen browser display (default: enabled)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-hide-cursor",
+        action="store_true",
+        default=True,
+        help="Hide mouse cursor in kiosk mode (default: enabled)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-prevent-zoom",
+        action="store_true",
+        default=True,
+        help="Prevent user zoom gestures (default: enabled)",
+    )
+
+    kiosk_config_group.add_argument(
+        "--kiosk-auto-start",
+        action="store_true",
+        help="Auto-start kiosk mode on boot (requires system service setup)",
     )
 
     return parser

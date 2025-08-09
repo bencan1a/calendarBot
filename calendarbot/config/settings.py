@@ -278,6 +278,24 @@ class EpaperConfiguration(BaseModel):
     )
 
 
+# Import kiosk settings for integration
+try:
+    from calendarbot.settings.kiosk_models import KioskSettings as KioskSettingsImpl
+
+    KIOSK_SETTINGS_AVAILABLE = True
+    kiosk_settings_factory = KioskSettingsImpl
+
+except ImportError:
+    # Create a minimal placeholder for when kiosk settings aren't available
+    class _KioskSettingsPlaceholder(BaseModel):
+        enabled: bool = Field(
+            default=False, description="Kiosk mode disabled - kiosk_models not available"
+        )
+
+    kiosk_settings_factory = _KioskSettingsPlaceholder  # type: ignore
+    KIOSK_SETTINGS_AVAILABLE = False
+
+
 class CalendarBotSettings(BaseSettings):
     """Application settings with environment variable support."""
 
@@ -400,6 +418,12 @@ class CalendarBotSettings(BaseSettings):
         default="whats-next-view", description="Current layout name (alias for web_layout)"
     )
     web_auto_refresh: int = Field(default=60, description="Auto-refresh interval in seconds")
+
+    # Kiosk Configuration
+    kiosk: Any = Field(  # type: ignore
+        default_factory=kiosk_settings_factory,
+        description="Kiosk mode configuration for unattended displays",
+    )
 
     # Network and Retry Settings
     request_timeout: int = Field(default=30, description="HTTP request timeout in seconds")
@@ -721,6 +745,20 @@ class CalendarBotSettings(BaseSettings):
             if setting in epaper_config:
                 setattr(self.epaper, setting, epaper_config[setting])
 
+    def _apply_config_settings(
+        self, target_obj: Any, config_dict: dict, setting_names: list[str]
+    ) -> None:
+        """Generic helper to apply configuration settings to a target object.
+
+        Args:
+            target_obj: Object to apply settings to
+            config_dict: Dictionary containing configuration values
+            setting_names: List of setting names to apply
+        """
+        for setting in setting_names:
+            if setting in config_dict and hasattr(target_obj, setting):
+                setattr(target_obj, setting, config_dict[setting])
+
     def _load_network_settings(self, config_data: dict) -> None:
         """Load network and retry settings from YAML data."""
         network_settings = ["request_timeout", "max_retries", "retry_backoff_factor"]
@@ -728,6 +766,155 @@ class CalendarBotSettings(BaseSettings):
         for setting in network_settings:
             if setting in config_data:
                 setattr(self, setting, config_data[setting])
+
+    def _load_kiosk_config(self, config_data: dict) -> None:
+        """Load kiosk configuration from YAML data."""
+        if not KIOSK_SETTINGS_AVAILABLE or "kiosk" not in config_data:
+            return
+
+        kiosk_config = config_data["kiosk"]
+
+        # Only proceed if we have full kiosk settings available
+        if not hasattr(self.kiosk, "enabled"):
+            return
+
+        # Core kiosk settings - handle 'enabled' specially since it's always present
+        if "enabled" in kiosk_config:
+            self.kiosk.enabled = kiosk_config["enabled"]
+
+        # Apply other core settings using the generic helper
+        core_settings = ["auto_start", "target_layout", "debug_mode", "config_version"]
+        self._apply_config_settings(self.kiosk, kiosk_config, core_settings)
+
+        # Browser settings
+        if "browser" in kiosk_config and hasattr(self.kiosk, "browser"):
+            browser_settings = [
+                "executable_path",
+                "startup_delay",
+                "startup_timeout",
+                "shutdown_timeout",
+                "crash_restart_delay",
+                "max_restart_attempts",
+                "restart_backoff_factor",
+                "reset_attempts_after",
+                "memory_limit_mb",
+                "memory_warning_threshold",
+                "memory_critical_threshold",
+                "cache_clear_on_restart",
+                "health_check_interval",
+                "response_timeout",
+                "custom_flags",
+                "disable_extensions",
+                "disable_plugins",
+            ]
+            self._apply_config_settings(
+                self.kiosk.browser, kiosk_config["browser"], browser_settings
+            )
+
+        # Display settings
+        if "display" in kiosk_config and hasattr(self.kiosk, "display"):
+            display_settings = [
+                "width",
+                "height",
+                "orientation",
+                "scale_factor",
+                "touch_enabled",
+                "touch_calibration",
+                "screen_saver_timeout",
+                "brightness",
+                "auto_brightness",
+                "hide_cursor",
+                "fullscreen_mode",
+                "prevent_zoom",
+            ]
+            self._apply_config_settings(
+                self.kiosk.display, kiosk_config["display"], display_settings
+            )
+
+        # Monitoring settings
+        if "monitoring" in kiosk_config and hasattr(self.kiosk, "monitoring"):
+            monitoring_settings = [
+                "enabled",
+                "health_check_interval",
+                "memory_check_interval",
+                "memory_threshold_mb",
+                "cpu_threshold_percent",
+                "disk_threshold_percent",
+                "temperature_threshold_celsius",
+                "max_error_history",
+                "error_rate_threshold",
+                "remote_monitoring_enabled",
+                "remote_monitoring_port",
+                "remote_monitoring_auth",
+                "alert_methods",
+                "webhook_url",
+                "email_config",
+            ]
+            self._apply_config_settings(
+                self.kiosk.monitoring, kiosk_config["monitoring"], monitoring_settings
+            )
+
+        # Pi optimization settings
+        if "pi_optimization" in kiosk_config and hasattr(self.kiosk, "pi_optimization"):
+            pi_settings = [
+                "enable_memory_optimization",
+                "swap_size_mb",
+                "memory_split_mb",
+                "cpu_governor",
+                "cpu_max_freq_mhz",
+                "enable_thermal_throttling",
+                "thermal_soft_limit",
+                "thermal_hard_limit",
+                "enable_tmpfs_logs",
+                "tmpfs_size_mb",
+                "log_rotation_size_mb",
+                "enable_network_optimization",
+                "tcp_window_size_kb",
+            ]
+            self._apply_config_settings(
+                self.kiosk.pi_optimization, kiosk_config["pi_optimization"], pi_settings
+            )
+
+        # System settings
+        if "system" in kiosk_config and hasattr(self.kiosk, "system"):
+            system_settings = [
+                "systemd_service_name",
+                "service_user",
+                "service_group",
+                "boot_delay",
+                "wait_for_network",
+                "network_timeout",
+                "x11_display",
+                "auto_login",
+                "disable_screen_blanking",
+                "enable_watchdog",
+                "watchdog_timeout",
+                "auto_update",
+                "update_schedule",
+                "backup_config",
+                "ssh_enabled",
+                "ssh_port",
+                "vnc_enabled",
+            ]
+            self._apply_config_settings(self.kiosk.system, kiosk_config["system"], system_settings)
+
+        # Security settings
+        if "security" in kiosk_config and hasattr(self.kiosk, "security"):
+            security_settings = [
+                "enable_security_logging",
+                "failed_auth_lockout",
+                "max_failed_attempts",
+                "lockout_duration",
+                "allowed_domains",
+                "block_external_access",
+                "enable_content_filtering",
+                "admin_password_hash",
+                "session_timeout",
+                "audit_enabled",
+            ]
+            self._apply_config_settings(
+                self.kiosk.security, kiosk_config["security"], security_settings
+            )
 
     def _load_yaml_config(self) -> None:
         """Load configuration from YAML file if it exists."""
@@ -751,6 +938,7 @@ class CalendarBotSettings(BaseSettings):
             self._load_rpi_config(config_data)
             self._load_web_config(config_data)
             self._load_epaper_config(config_data)
+            self._load_kiosk_config(config_data)
             self._load_network_settings(config_data)
 
         except Exception as e:

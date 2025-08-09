@@ -193,7 +193,7 @@ class TestDaemonModeIntegration:
         # Verify integration chain was called correctly
         mock_daemon_operations["controller"].assert_called_once()
         mock_daemon_operations["daemon_manager"].is_daemon_running.assert_called_once()
-        mock_daemon_operations["detach_process"].assert_called_once()
+        # Note: detach_process() is called in __main__.py before run_daemon_mode(), not within it
         mock_daemon_operations["daemon_manager"].create_pid_file.assert_called_once()
         mock_daemon_operations["web_mode"].assert_called_once_with(args)
 

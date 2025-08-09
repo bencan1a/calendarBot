@@ -19,220 +19,195 @@ from calendarbot.display.renderer_interface import InteractionEvent
 from calendarbot.display.whats_next_logic import WhatsNextLogic
 
 
-class MockDisplayCapabilities:
-    """Mock display capabilities for testing."""
+def create_mock_display_capabilities(
+    width: int = 300,
+    height: int = 400,
+    supports_partial_update: bool = True,
+    supports_grayscale: bool = True,
+    supports_red: bool = False,
+) -> MagicMock:
+    """Create mock display capabilities for testing.
 
-    def __init__(
-        self,
-        width: int = 300,
-        height: int = 400,
-        supports_partial_update: bool = True,
-        supports_grayscale: bool = True,
-        supports_red: bool = False,
-    ) -> None:
-        """Initialize mock display capabilities.
+    Args:
+        width: Display width in pixels
+        height: Display height in pixels
+        supports_partial_update: Whether partial updates are supported
+        supports_grayscale: Whether grayscale is supported
+        supports_red: Whether red color is supported
 
-        Args:
-            width: Display width in pixels
-            height: Display height in pixels
-            supports_partial_update: Whether partial updates are supported
-            supports_grayscale: Whether grayscale is supported
-            supports_red: Whether red color is supported
-        """
-        self.width = width
-        self.height = height
-        self.supports_partial_update = supports_partial_update
-        self.supports_grayscale = supports_grayscale
-        self.supports_red = supports_red
+    Returns:
+        Mock display capabilities
+    """
+    capabilities = MagicMock()
+    capabilities.width = width
+    capabilities.height = height
+    capabilities.supports_partial_update = supports_partial_update
+    capabilities.supports_grayscale = supports_grayscale
+    capabilities.supports_red = supports_red
+    return capabilities
 
 
-class MockDisplay(DisplayAbstractionLayer):
-    """Mock display for testing."""
+def create_mock_display(capabilities: Optional[MagicMock] = None) -> MagicMock:
+    """Create mock display for testing.
 
-    def __init__(self, capabilities: Optional[MockDisplayCapabilities] = None) -> None:
-        """Initialize mock display.
+    Args:
+        capabilities: Optional display capabilities
 
-        Args:
-            capabilities: Optional display capabilities
-        """
-        self.capabilities = capabilities or MockDisplayCapabilities()
-        self.initialize_called = False
-        self.render_called = False
-        self.render_buffer = None
+    Returns:
+        Mock display instance
+    """
+    display = MagicMock(spec=DisplayAbstractionLayer)
+    display.capabilities = capabilities or create_mock_display_capabilities()
+    display.initialize_called = False
+    display.render_called = False
+    display.render_buffer = None
 
-    def initialize(self) -> bool:
-        """Mock initialize method.
-
-        Returns:
-            True if initialization was successful
-        """
-        self.initialize_called = True
+    def mock_initialize():
+        display.initialize_called = True
         return True
 
-    def render(self, buffer: Any) -> bool:
-        """Mock render method.
-
-        Args:
-            buffer: Display buffer to render
-
-        Returns:
-            True if render was successful
-        """
-        self.render_called = True
-        self.render_buffer = buffer
+    def mock_render(buffer):
+        display.render_called = True
+        display.render_buffer = buffer
         return True
 
-    def get_capabilities(self) -> MockDisplayCapabilities:
-        """Get display capabilities.
+    def mock_get_capabilities():
+        return display.capabilities
 
-        Returns:
-            Display capabilities
-        """
-        return self.capabilities
+    display.initialize.side_effect = mock_initialize
+    display.render.side_effect = mock_render
+    display.get_capabilities.side_effect = mock_get_capabilities
 
-
-class MockEvent:
-    """Mock event for testing."""
-
-    def __init__(
-        self,
-        subject: str = "Test Event",
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        location: str = "Test Location",
-        time_until_minutes: int = 30,
-        is_current: bool = False,
-        is_upcoming: bool = False,
-    ) -> None:
-        """Initialize mock event.
-
-        Args:
-            subject: Event subject
-            start_time: Event start time
-            end_time: Event end time
-            location: Event location
-            time_until_minutes: Minutes until event starts
-            is_current: Whether this is a current event
-            is_upcoming: Whether this is an upcoming event
-        """
-        self.subject = subject
-        self.start_time = start_time or datetime.now() + timedelta(minutes=time_until_minutes)
-        self.end_time = end_time or self.start_time + timedelta(hours=1)
-        self.location = location
-        self.time_until_minutes = time_until_minutes
-        self.duration_minutes = int((self.end_time - self.start_time).total_seconds() / 60)
-        self.formatted_time_range = (
-            f"{self.start_time.strftime('%H:%M')} - {self.end_time.strftime('%H:%M')}"
-        )
-        self.is_current = is_current
-        self.is_upcoming = is_upcoming
-        self.organizer = "Test Organizer"
-        self.attendees = ["Attendee 1", "Attendee 2"]
-
-    def format_time_range(self) -> str:
-        """Format time range.
-
-        Returns:
-            Formatted time range
-        """
-        return self.formatted_time_range
+    return display
 
 
-class MockStatusInfo:
-    """Mock status info for testing."""
+def create_mock_event(
+    subject: str = "Test Event",
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    location: str = "Test Location",
+    time_until_minutes: int = 30,
+    is_current: bool = False,
+    is_upcoming: bool = False,
+) -> MagicMock:
+    """Create mock event for testing.
 
-    def __init__(
-        self,
-        is_cached: bool = False,
-        connection_status: str = "connected",
-        relative_description: str = "now",
-        interactive_mode: bool = False,
-        selected_date: Optional[str] = None,
-    ) -> None:
-        """Initialize mock status info.
+    Args:
+        subject: Event subject
+        start_time: Event start time
+        end_time: Event end time
+        location: Event location
+        time_until_minutes: Minutes until event starts
+        is_current: Whether this is a current event
+        is_upcoming: Whether this is an upcoming event
 
-        Args:
-            is_cached: Whether data is cached
-            connection_status: Connection status
-            relative_description: Relative time description
-            interactive_mode: Whether in interactive mode
-            selected_date: Selected date if any
-        """
-        self.is_cached = is_cached
-        self.last_update = datetime.now()
-        self.connection_status = connection_status
-        self.relative_description = relative_description
-        self.interactive_mode = interactive_mode
-        self.selected_date = selected_date
+    Returns:
+        Mock event instance
+    """
+    event = MagicMock()
+    event.subject = subject
+    event.start_time = start_time or datetime.now() + timedelta(minutes=time_until_minutes)
+    event.end_time = end_time or event.start_time + timedelta(hours=1)
+    event.location = location
+    event.time_until_minutes = time_until_minutes
+    event.duration_minutes = int((event.end_time - event.start_time).total_seconds() / 60)
+    event.formatted_time_range = (
+        f"{event.start_time.strftime('%H:%M')} - {event.end_time.strftime('%H:%M')}"
+    )
+    event.is_current = is_current
+    event.is_upcoming = is_upcoming
+    event.organizer = "Test Organizer"
+    event.attendees = ["Attendee 1", "Attendee 2"]
+    event.format_time_range.return_value = event.formatted_time_range
+    return event
 
 
-class MockViewModel:
-    """Mock view model for testing."""
+def create_mock_status_info(
+    is_cached: bool = False,
+    connection_status: str = "connected",
+    relative_description: str = "now",
+    interactive_mode: bool = False,
+    selected_date: Optional[str] = None,
+) -> MagicMock:
+    """Create mock status info for testing.
 
-    def __init__(
-        self,
-        current_events: Optional[List[MockEvent]] = None,
-        next_events: Optional[List[MockEvent]] = None,
-        later_events: Optional[List[MockEvent]] = None,
-        display_date: str = "2025-08-01",
-        current_time: Optional[datetime] = None,
-        status_info: Optional[MockStatusInfo] = None,
-    ) -> None:
-        """Initialize mock view model.
+    Args:
+        is_cached: Whether data is cached
+        connection_status: Connection status
+        relative_description: Relative time description
+        interactive_mode: Whether in interactive mode
+        selected_date: Selected date if any
 
-        Args:
-            current_events: List of current events
-            next_events: List of next events
-            later_events: List of later events
-            display_date: Display date
-            current_time: Current time
-            status_info: Status information
-        """
-        self.current_events = current_events or []
-        self.next_events = next_events or []
-        self.later_events = later_events or []
-        self.display_date = display_date
-        self.current_time = current_time or datetime.now()
+    Returns:
+        Mock status info instance
+    """
+    status_info = MagicMock()
+    status_info.is_cached = is_cached
+    status_info.last_update = datetime.now()
+    status_info.connection_status = connection_status
+    status_info.relative_description = relative_description
+    status_info.interactive_mode = interactive_mode
+    status_info.selected_date = selected_date
+    return status_info
 
-        # Use provided status_info or create a default one
-        self.status_info = status_info or MockStatusInfo()
 
-        self.weather_info = None
-        self.settings_data = None
+def create_mock_view_model(
+    current_events: Optional[List[MagicMock]] = None,
+    next_events: Optional[List[MagicMock]] = None,
+    later_events: Optional[List[MagicMock]] = None,
+    display_date: str = "2025-08-01",
+    current_time: Optional[datetime] = None,
+    status_info: Optional[MagicMock] = None,
+) -> MagicMock:
+    """Create mock view model for testing.
 
-    def get_next_event(self) -> Optional[MockEvent]:
-        """Get next event.
+    Args:
+        current_events: List of current events
+        next_events: List of next events
+        later_events: List of later events
+        display_date: Display date
+        current_time: Current time
+        status_info: Status information
 
-        Returns:
-            Next event or None if no next events
-        """
-        return self.next_events[0] if self.next_events else None
+    Returns:
+        Mock view model instance
+    """
+    view_model = MagicMock()
+    view_model.current_events = current_events or []
+    view_model.next_events = next_events or []
+    view_model.later_events = later_events or []
+    view_model.display_date = display_date
+    view_model.current_time = current_time or datetime.now()
 
-    def get_current_event(self) -> Optional[MockEvent]:
-        """Get current event.
+    # Use provided status_info or create a default one
+    view_model.status_info = status_info or create_mock_status_info()
 
-        Returns:
-            Current event or None if no current events
-        """
-        return self.current_events[0] if self.current_events else None
+    view_model.weather_info = None
+    view_model.settings_data = None
 
-    def has_events(self) -> bool:
-        """Check if there are any events to display.
+    def get_next_event():
+        return view_model.next_events[0] if view_model.next_events else None
 
-        Returns:
-            True if there are any events, False otherwise
-        """
-        return bool(self.next_events or self.current_events or self.later_events)
+    def get_current_event():
+        return view_model.current_events[0] if view_model.current_events else None
+
+    def has_events():
+        return bool(view_model.next_events or view_model.current_events or view_model.later_events)
+
+    view_model.get_next_event.side_effect = get_next_event
+    view_model.get_current_event.side_effect = get_current_event
+    view_model.has_events.side_effect = has_events
+    return view_model
 
 
 @pytest.fixture
-def mock_display() -> MockDisplay:
+def mock_display() -> MagicMock:
     """Fixture for mock display.
 
     Returns:
         Mock display instance
     """
-    return MockDisplay()
+    return create_mock_display()
 
 
 @pytest.fixture
@@ -246,44 +221,44 @@ def mock_settings() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def mock_view_model_empty() -> MockViewModel:
+def mock_view_model_empty() -> MagicMock:
     """Fixture for empty view model.
 
     Returns:
         Empty view model
     """
-    return MockViewModel()
+    return create_mock_view_model()
 
 
 @pytest.fixture
-def mock_view_model_with_events() -> MockViewModel:
+def mock_view_model_with_events() -> MagicMock:
     """Fixture for view model with events.
 
     Returns:
         View model with events
     """
-    current_event = MockEvent(
+    current_event = create_mock_event(
         subject="Current Meeting",
         time_until_minutes=0,
         location="Conference Room A",
         is_current=True,
         is_upcoming=False,
     )
-    next_event = MockEvent(
+    next_event = create_mock_event(
         subject="Next Meeting",
         time_until_minutes=30,
         location="Conference Room B",
         is_current=False,
         is_upcoming=True,
     )
-    later_event = MockEvent(
+    later_event = create_mock_event(
         subject="Later Meeting",
         time_until_minutes=120,
         location="Conference Room C",
         is_current=False,
         is_upcoming=True,
     )
-    return MockViewModel(
+    return create_mock_view_model(
         current_events=[current_event],
         next_events=[next_event],
         later_events=[later_event],
@@ -323,7 +298,7 @@ class TestEInkWhatsNextRendererCore:
         with patch(
             "calendarbot.display.epaper.integration.eink_whats_next_renderer.EInkDriver"
         ) as mock_driver:
-            mock_driver.return_value = MockDisplay()
+            mock_driver.return_value = create_mock_display()
             renderer = EInkWhatsNextRenderer(mock_settings)
 
             assert renderer.settings == mock_settings
@@ -336,7 +311,7 @@ class TestEInkWhatsNextRendererCore:
             mock_driver.assert_called_once()
 
     def test_init_when_custom_display_then_uses_provided_display(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test initialization with custom display.
 
@@ -354,8 +329,8 @@ class TestEInkWhatsNextRendererCore:
     def test_render_when_valid_view_model_then_returns_image(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
-        mock_view_model_with_events: MockViewModel,
+        mock_display: MagicMock,
+        mock_view_model_with_events: MagicMock,
     ) -> None:
         """Test render method with valid view model.
 
@@ -383,8 +358,8 @@ class TestEInkWhatsNextRendererCore:
     def test_render_when_partial_update_possible_then_uses_partial_update(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
-        mock_view_model_with_events: MockViewModel,
+        mock_display: MagicMock,
+        mock_view_model_with_events: MagicMock,
     ) -> None:
         """Test render method with partial update.
 
@@ -410,8 +385,8 @@ class TestEInkWhatsNextRendererCore:
     def test_render_when_exception_occurs_then_returns_error_image(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
-        mock_view_model_with_events: MockViewModel,
+        mock_display: MagicMock,
+        mock_view_model_with_events: MagicMock,
     ) -> None:
         """Test render method with exception.
 
@@ -436,7 +411,7 @@ class TestEInkWhatsNextRendererCore:
             assert "Test error" in renderer._render_error_image.call_args[0][0]
 
     def test_update_display_when_valid_image_then_returns_true(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test update_display method with valid image.
 
@@ -461,7 +436,7 @@ class TestEInkWhatsNextRendererCore:
         )
 
     def test_update_display_when_initialize_fails_then_returns_false(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test update_display method when initialize fails.
 
@@ -482,7 +457,7 @@ class TestEInkWhatsNextRendererCore:
         assert mock_display.render_called is False
 
     def test_update_display_when_exception_occurs_then_returns_false(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test update_display method with exception.
 
@@ -507,7 +482,7 @@ class TestEInkWhatsNextRendererCore:
     def test_render_from_events_when_valid_events_then_creates_view_model_and_renders(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
+        mock_display: MagicMock,
         mock_cached_events: List[CachedEvent],
     ) -> None:
         """Test render_from_events method with valid events.
@@ -520,7 +495,7 @@ class TestEInkWhatsNextRendererCore:
         renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
 
         # Mock the logic and render methods
-        mock_view_model = MockViewModel()
+        mock_view_model = create_mock_view_model()
         renderer.logic.create_view_model = MagicMock(return_value=mock_view_model)
         renderer.render = MagicMock(return_value=Image.new("L", (100, 100)))
 
@@ -532,7 +507,7 @@ class TestEInkWhatsNextRendererCore:
         renderer.render.assert_called_once_with(mock_view_model)
 
     def test_can_do_partial_update_when_conditions_met_then_returns_true(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test _can_do_partial_update method when conditions are met.
 
@@ -543,14 +518,14 @@ class TestEInkWhatsNextRendererCore:
         renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
 
         # Create two identical view models
-        event1 = MockEvent(subject="Event 1")
-        event2 = MockEvent(subject="Event 2")
+        event1 = create_mock_event(subject="Event 1")
+        event2 = create_mock_event(subject="Event 2")
 
-        last_vm = MockViewModel(
+        last_vm = create_mock_view_model(
             current_events=[event1], next_events=[event2], display_date="2025-08-01"
         )
 
-        current_vm = MockViewModel(
+        current_vm = create_mock_view_model(
             current_events=[event1], next_events=[event2], display_date="2025-08-01"
         )
 
@@ -564,8 +539,8 @@ class TestEInkWhatsNextRendererCore:
     def test_can_do_partial_update_when_no_last_view_model_then_returns_false(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
-        mock_view_model_with_events: MockViewModel,
+        mock_display: MagicMock,
+        mock_view_model_with_events: MagicMock,
     ) -> None:
         """Test _can_do_partial_update method with no last view model.
 
@@ -584,7 +559,7 @@ class TestEInkWhatsNextRendererCore:
         assert result is False
 
     def test_can_do_partial_update_when_display_doesnt_support_partial_update_then_returns_false(
-        self, mock_settings: Dict[str, Any], mock_view_model_with_events: MockViewModel
+        self, mock_settings: Dict[str, Any], mock_view_model_with_events: MagicMock
     ) -> None:
         """Test _can_do_partial_update method when display doesn't support partial update.
 
@@ -593,7 +568,9 @@ class TestEInkWhatsNextRendererCore:
             mock_view_model_with_events: Mock view model with events
         """
         # Create display that doesn't support partial updates
-        mock_display = MockDisplay(MockDisplayCapabilities(supports_partial_update=False))
+        mock_display = create_mock_display(
+            create_mock_display_capabilities(supports_partial_update=False)
+        )
         renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
 
         # Set last view model
@@ -604,7 +581,7 @@ class TestEInkWhatsNextRendererCore:
         assert result is False
 
     def test_render_error_when_valid_message_then_returns_image(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test render_error method with valid message.
 
@@ -622,7 +599,7 @@ class TestEInkWhatsNextRendererCore:
     def test_render_error_when_cached_events_provided_then_includes_events_in_image(
         self,
         mock_settings: Dict[str, Any],
-        mock_display: MockDisplay,
+        mock_display: MagicMock,
         mock_cached_events: List[CachedEvent],
     ) -> None:
         """Test render_error method with cached events.
@@ -640,7 +617,7 @@ class TestEInkWhatsNextRendererCore:
         assert isinstance(result, Image.Image)
 
     def test_render_error_when_exception_occurs_then_returns_error_image(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test render_error method with exception.
 
@@ -667,7 +644,7 @@ class TestEInkWhatsNextRendererCore:
             assert "Critical error" in renderer._render_error_image.call_args[0][0]
 
     def test_render_authentication_prompt_when_valid_params_then_returns_image(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test render_authentication_prompt method with valid parameters.
 
@@ -684,7 +661,7 @@ class TestEInkWhatsNextRendererCore:
         assert isinstance(result, Image.Image)
 
     def test_render_authentication_prompt_when_exception_occurs_then_returns_error_image(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test render_authentication_prompt method with exception.
 
@@ -712,7 +689,7 @@ class TestEInkWhatsNextRendererCore:
             assert "Authentication prompt error" in renderer._render_error_image.call_args[0][0]
 
     def test_handle_interaction_when_refresh_event_then_clears_cache(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test handle_interaction method with refresh event.
 
@@ -722,7 +699,7 @@ class TestEInkWhatsNextRendererCore:
         """
         renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
         renderer._last_rendered_content = b"test_content"
-        renderer._last_view_model = MockViewModel()
+        renderer._last_view_model = create_mock_view_model()
 
         # Create refresh interaction event
         interaction = MagicMock(spec=InteractionEvent)
@@ -734,7 +711,7 @@ class TestEInkWhatsNextRendererCore:
         assert renderer._last_view_model is None
 
     def test_handle_interaction_when_button_press_event_then_logs_button_id(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: Dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test handle_interaction method with button press event.
 
@@ -754,3 +731,10 @@ class TestEInkWhatsNextRendererCore:
         ) as mock_logger:
             renderer.handle_interaction(interaction)
             mock_logger.info.assert_called_once_with("Button press: test_button")
+
+
+# Aliases for backward compatibility with test_eink_whats_next_renderer_html.py
+MockDisplay = create_mock_display
+MockEvent = create_mock_event
+MockStatusInfo = create_mock_status_info
+MockViewModel = create_mock_view_model

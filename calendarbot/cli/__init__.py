@@ -18,6 +18,7 @@ from .config import (
 from .modes.daemon import run_daemon_mode
 from .modes.epaper import run_epaper_mode
 from .modes.interactive import run_interactive_mode
+from .modes.kiosk import run_kiosk_mode
 from .modes.test import run_test_mode
 from .modes.web import run_web_mode
 from .parser import create_parser, parse_components, parse_date
@@ -52,6 +53,15 @@ async def main_entry() -> int:
         or (hasattr(args, "daemon_stop") and args.daemon_stop)
     ):
         result = await run_daemon_mode(args)
+    # Handle kiosk operations (can run without configuration)
+    elif (
+        (hasattr(args, "kiosk") and args.kiosk)
+        or (hasattr(args, "kiosk_status") and args.kiosk_status)
+        or (hasattr(args, "kiosk_stop") and args.kiosk_stop)
+        or (hasattr(args, "kiosk_restart") and args.kiosk_restart)
+        or (hasattr(args, "kiosk_setup") and args.kiosk_setup)
+    ):
+        result = await run_kiosk_mode(args)
     else:
         # Validate mutually exclusive modes BEFORE executing any mode
         mode_count = sum(
@@ -60,11 +70,12 @@ async def main_entry() -> int:
                 getattr(args, "interactive", False),
                 getattr(args, "web", False),
                 getattr(args, "epaper", False),
+                getattr(args, "kiosk", False),
             ]
         )
         if mode_count > 1:
             parser.error(
-                "Only one mode can be specified: --test-mode, --interactive, --web, or --epaper"
+                "Only one mode can be specified: --test-mode, --interactive, --web, --epaper, or --kiosk"
             )
 
         # Handle test mode - can run even without configuration
@@ -78,7 +89,8 @@ async def main_entry() -> int:
             if not is_configured:
                 show_setup_guidance()
                 print("\n💡 Tip: Run 'calendarbot --setup' to get started quickly!\n")
-                result = 1
+                # Still run web mode even when not configured
+
             # Run in specified mode
             if hasattr(args, "interactive") and args.interactive:
                 result = await run_interactive_mode(args)
@@ -104,6 +116,7 @@ __all__ = [
     "run_daemon_mode",
     "run_epaper_mode",
     "run_interactive_mode",
+    "run_kiosk_mode",
     "run_setup_wizard",
     "run_test_mode",
     "run_web_mode",

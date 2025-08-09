@@ -1,0 +1,152 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Build and Test Commands
+
+### Python Testing
+```bash
+# Full test suite with coverage
+python -m pytest --cov=calendarbot --cov-report=term-missing --cov-report=html
+
+# Quick test categories
+scripts/run_coverage.sh unit          # Unit tests (5min timeout)  
+scripts/run_coverage.sh integration   # Integration tests (10min timeout)
+scripts/run_coverage.sh browser      # Browser tests (15min timeout)
+scripts/run_coverage.sh full         # Complete suite (30min timeout)
+
+# Test specific module
+scripts/run_coverage.sh individual calendarbot.display.manager
+scripts/run_coverage.sh module tests/unit/test_setup_wizard.py
+
+# Test diagnostics
+scripts/run_coverage.sh diagnose
+```
+
+### JavaScript Testing
+```bash
+# Run Jest tests for web frontend
+npm test                    # Run all Jest tests
+npm run test:watch         # Watch mode
+npm run test:coverage      # Coverage report
+```
+
+### Code Quality
+```bash
+# Linting and formatting (replaces black/isort/flake8)
+ruff check .               # Lint check
+ruff check --fix .         # Auto-fix issues
+ruff format .              # Format code
+
+# Type checking
+mypy calendarbot/
+
+# Security analysis
+bandit -r calendarbot/
+```
+
+### Application Commands
+```bash
+# Main entry points
+calendarbot                          # Interactive mode
+python -m calendarbot               # Alternative entry
+calendarbot --setup                 # Configuration wizard
+calendarbot --web                   # Web interface
+calendarbot --daemon start          # Background daemon mode
+
+# Development
+python scripts/dev_setup.py         # Development environment setup
+```
+
+## Architecture Overview
+
+CalendarBot is an ICS calendar display system with multiple operational modes:
+
+### Core Components
+- **`calendarbot/main.py`** - Main application orchestrator (`CalendarBot` class)
+- **`calendarbot/sources/`** - ICS feed fetching and source management
+- **`calendarbot/ics/`** - Calendar parsing and HTTP client
+- **`calendarbot/cache/`** - SQLite-based event caching with aiosqlite
+- **`calendarbot/display/`** - Multi-mode rendering (console, web, e-paper)
+- **`calendarbot/web/`** - Web server and REST API
+- **`calendarbot/cli/`** - Command-line interface and mode handling
+
+### Display Modes
+- **Console**: Terminal-based calendar display
+- **Interactive**: Keyboard navigation with real-time updates
+- **Web**: HTTP server with responsive layouts at `/whats-next` endpoint
+- **E-Paper**: Raspberry Pi e-ink display integration (supports Waveshare displays)
+- **Daemon**: Background service mode
+
+### Key Design Patterns
+- **Async/await throughout**: All I/O operations are asynchronous
+- **Pydantic settings**: Type-safe configuration with `calendarbot/config/settings.py`
+- **Component isolation**: Clear separation between data fetching, caching, and display
+- **Universal calendar support**: Works with Microsoft 365, Google Calendar, Apple iCloud, CalDAV
+
+## Development Workflow
+
+### Configuration
+- **Primary config**: `calendarbot/config/config.yaml` (copy from `config.yaml.example`)
+- **Settings class**: `calendarbot.config.settings.CalendarBotSettings`
+- **Environment variables**: All settings prefixed with `CALENDARBOT_`
+
+### Testing Strategy
+- **Unit tests**: Fast tests in `tests/unit/` using pytest
+- **Integration tests**: `tests/integration/` for component interaction
+- **Browser tests**: `tests/browser/` for web interface validation  
+- **E2E tests**: `tests/e2e/` for complete workflow testing
+- **JavaScript tests**: `tests/__tests__/` using Jest for frontend components
+
+### Package Structure
+- **Modern Python packaging**: Uses `pyproject.toml` with setuptools
+- **Entry point**: `calendarbot = "calendarbot.__main__:main"`
+- **Optional dependencies**: `[rpi]` for Raspberry Pi GPIO, `[dev]` for development tools
+- **Static assets**: `calendarbot/web/static/` includes layouts and shared JavaScript/CSS
+
+### Web Frontend Architecture
+- **Layout system**: Modular layouts in `calendarbot/web/static/layouts/`
+- **Shared components**: `calendarbot/web/static/shared/js/` (settings API, gesture handling)
+- **REST API**: JSON endpoints for calendar data and settings management
+- **Responsive design**: CSS Grid layouts with mobile-first approach
+
+## Common Development Tasks
+
+### Adding New Display Modes
+1. Implement renderer in `calendarbot/display/` following `RendererProtocol`
+2. Register in `calendarbot/display/renderer_factory.py`
+3. Add CLI mode in `calendarbot/cli/modes/`
+4. Add tests in `tests/unit/display/`
+
+### Adding Calendar Sources
+1. Extend `calendarbot/sources/models.py` for new source types
+2. Update `calendarbot/ics/fetcher.py` for source-specific handling
+3. Add authentication handling if needed
+4. Add tests in `tests/unit/sources/`
+
+### Web Layout Development
+1. Create layout directory in `calendarbot/web/static/layouts/[layout_name]/`
+2. Add `layout.json`, CSS, and JavaScript files
+3. Register layout in `calendarbot/layout/registry.py`
+4. Add Jest tests in `tests/__tests__/layouts/[layout_name]/`
+
+### E-Paper Integration
+- **Driver abstraction**: `calendarbot/display/epaper/abstraction.py`
+- **Hardware drivers**: `calendarbot/display/epaper/drivers/` (Waveshare support)
+- **Rendering pipeline**: HTML → PNG → E-paper optimized output
+- **Color handling**: `calendarbot/display/epaper/utils/colors.py`
+
+## Key Files Reference
+- **Main application**: `calendarbot/main.py:CalendarBot`
+- **Settings management**: `calendarbot/config/settings.py:CalendarBotSettings` 
+- **CLI entry point**: `calendarbot/cli/__init__.py:main_entry()`
+- **Web server**: `calendarbot/web/server.py`
+- **Cache operations**: `calendarbot/cache/manager.py:CacheManager`
+- **ICS processing**: `calendarbot/ics/parser.py` and `calendarbot/ics/fetcher.py`
+
+## Dependencies Note
+- **Python 3.9+** required
+- **Core deps**: icalendar, httpx, aiosqlite, pydantic v2, PyYAML
+- **E-paper deps**: Pillow, numpy, html2image
+- **Dev deps**: pytest, ruff (replaces black/isort), mypy, bandit
+- **Optional RPi deps**: RPi.GPIO, spidev (only for Raspberry Pi deployment)

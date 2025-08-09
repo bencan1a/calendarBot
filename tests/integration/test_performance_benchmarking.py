@@ -396,9 +396,20 @@ class CalendarBotPerformanceBenchmark:
 @pytest.fixture(scope="module")
 def performance_web_server():
     """Create and start a mock web server for performance testing."""
+    import socket
+
     from tests.fixtures.mock_servers import create_api_test_server
 
-    server = create_api_test_server(port=8080)
+    # Find a free port dynamically to avoid conflicts
+    def get_free_port():
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("", 0))
+            s.listen(1)
+            port = s.getsockname()[1]
+        return port
+
+    free_port = get_free_port()
+    server = create_api_test_server(port=free_port)
 
     # Set up API handlers for performance testing
     def whats_next_data_handler(request_info):
@@ -491,7 +502,9 @@ def performance_web_server():
 @pytest.fixture(scope="module")
 def performance_benchmark(performance_web_server):
     """Create performance benchmark instance with mock server."""
-    return CalendarBotPerformanceBenchmark()
+    # Get the actual server URL with dynamic port
+    server_url = f"http://localhost:{performance_web_server.port}"
+    return CalendarBotPerformanceBenchmark(base_url=server_url)
 
 
 class TestPerformanceBenchmarks:

@@ -133,7 +133,7 @@ def view_runtime_tracking_data(hours: int = 24) -> None:
                     mem_medians.append(rs.get("memory_rss_mb_median", 0))
                     mem_maxes.append(rs.get("memory_rss_mb_max", 0))
                     sample_counts.append(rs.get("sample_count", 0))
-            except:
+            except (json.JSONDecodeError, KeyError):
                 continue
 
     if durations:

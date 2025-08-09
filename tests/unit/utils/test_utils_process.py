@@ -55,12 +55,12 @@ class TestFindCalendarbotProcesses:
         def run_side_effect(cmd, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:  # First call only
-                mock_result = type("MockResult", (), {})()
+                mock_result = MagicMock()
                 mock_result.returncode = 0
                 mock_result.stdout = "1234 python calendarbot.py\n5678 /usr/bin/python3 -m calendarbot\n9999 python main.py"
                 return mock_result
             # All other calls
-            mock_result = type("MockResult", (), {})()
+            mock_result = MagicMock()
             mock_result.returncode = 1
             mock_result.stdout = ""
             return mock_result
@@ -136,12 +136,12 @@ class TestFindCalendarbotProcesses:
         def run_side_effect(cmd, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:  # First call only
-                mock_result = type("MockResult", (), {})()
+                mock_result = MagicMock()
                 mock_result.returncode = 0
                 mock_result.stdout = "1234 \n5678 python calendarbot.py"
                 return mock_result
             # All other calls
-            mock_result = type("MockResult", (), {})()
+            mock_result = MagicMock()
             mock_result.returncode = 1
             mock_result.stdout = ""
             return mock_result
@@ -309,8 +309,8 @@ class TestKillCalendarbotProcesses:
         with patch("calendarbot.utils.process.time.sleep") as mock_sleep:
             kill_calendarbot_processes(timeout=10.0)
 
-            # Should sleep for min(timeout, 2.0) = 2.0
-            mock_sleep.assert_called_with(2.0)
+            # During testing, should sleep for min(timeout, 1.0) = 1.0
+            mock_sleep.assert_called_with(1.0)
 
 
 class TestCheckPortAvailability:
@@ -490,9 +490,16 @@ class TestAutoCleanupBeforeStart:
     @patch("calendarbot.utils.process.kill_calendarbot_processes")
     @patch("calendarbot.utils.process.check_port_availability")
     @patch("calendarbot.utils.process.find_process_using_port")
+    @patch("calendarbot.utils.process.subprocess.run")
     @patch("calendarbot.utils.process.os.kill")
     def test_port_occupied_specific_process_killed(
-        self, mock_os_kill, mock_find_port_process, mock_check_port, mock_kill, mock_find
+        self,
+        mock_os_kill,
+        mock_subprocess_run,
+        mock_find_port_process,
+        mock_check_port,
+        mock_kill,
+        mock_find,
     ):
         """Test killing specific process when port is occupied."""
         mock_find.return_value = []  # No calendarbot processes
@@ -506,19 +513,33 @@ class TestAutoCleanupBeforeStart:
         port_process = ProcessInfo(5678, "other-app", "other-app --port 8080")
         mock_find_port_process.return_value = port_process
 
+        # Mock process exists (os.kill with signal 0 doesn't raise OSError)
+        mock_os_kill.return_value = None  # Process exists
+        # Mock successful kill
+        mock_subprocess_run.return_value = MagicMock(returncode=0, stderr="")
+
         with patch("calendarbot.utils.process.time.sleep"):
             result = auto_cleanup_before_start("127.0.0.1", 8080, force=True)
 
         assert result is True
+        # Verify kill command was called with SIGTERM
+        # Verify os.kill was called for process termination
         mock_os_kill.assert_called_with(5678, signal.SIGTERM)
 
     @patch("calendarbot.utils.process.find_calendarbot_processes")
     @patch("calendarbot.utils.process.kill_calendarbot_processes")
     @patch("calendarbot.utils.process.check_port_availability")
     @patch("calendarbot.utils.process.find_process_using_port")
+    @patch("calendarbot.utils.process.subprocess.run")
     @patch("calendarbot.utils.process.os.kill")
     def test_stubborn_port_process_sigkill(
-        self, mock_os_kill, mock_find_port_process, mock_check_port, mock_kill, mock_find
+        self,
+        mock_os_kill,
+        mock_subprocess_run,
+        mock_find_port_process,
+        mock_check_port,
+        mock_kill,
+        mock_find,
     ):
         """Test SIGKILL for stubborn processes occupying port."""
         mock_find.return_value = []
@@ -533,21 +554,37 @@ class TestAutoCleanupBeforeStart:
         port_process = ProcessInfo(5678, "stubborn-app", "stubborn-app --port 8080")
         mock_find_port_process.return_value = port_process
 
+        # Mock process exists (os.kill with signal 0 doesn't raise OSError)
+        mock_os_kill.return_value = None  # Process exists
+        # Mock successful kill operations
+        mock_subprocess_run.return_value = MagicMock(returncode=0, stderr="")
+
         with patch("calendarbot.utils.process.time.sleep"):
             result = auto_cleanup_before_start("127.0.0.1", 8080, force=True)
 
         assert result is True
-        assert mock_os_kill.call_count == 2
+        # Verify both SIGTERM and SIGKILL were attempted
+        # Each _safe_kill_process call makes 2 os.kill calls: existence check (signal 0) + actual signal
+        assert mock_os_kill.call_count == 4
+        mock_os_kill.assert_any_call(5678, 0)  # Existence check before SIGTERM
         mock_os_kill.assert_any_call(5678, signal.SIGTERM)
+        mock_os_kill.assert_any_call(5678, 0)  # Existence check before SIGKILL
         mock_os_kill.assert_any_call(5678, signal.SIGKILL)
 
     @patch("calendarbot.utils.process.find_calendarbot_processes")
     @patch("calendarbot.utils.process.kill_calendarbot_processes")
     @patch("calendarbot.utils.process.check_port_availability")
     @patch("calendarbot.utils.process.find_process_using_port")
+    @patch("calendarbot.utils.process.subprocess.run")
     @patch("calendarbot.utils.process.os.kill")
     def test_kill_port_process_error(
-        self, mock_os_kill, mock_find_port_process, mock_check_port, mock_kill, mock_find
+        self,
+        mock_os_kill,
+        mock_subprocess_run,
+        mock_find_port_process,
+        mock_check_port,
+        mock_kill,
+        mock_find,
     ):
         """Test error handling when killing port process fails."""
         mock_find.return_value = []
@@ -556,7 +593,11 @@ class TestAutoCleanupBeforeStart:
 
         port_process = ProcessInfo(5678, "protected-app", "protected-app --port 8080")
         mock_find_port_process.return_value = port_process
-        mock_os_kill.side_effect = PermissionError("Operation not permitted")
+
+        # Mock process exists (os.kill with signal 0 doesn't raise OSError)
+        mock_os_kill.return_value = None  # Process exists
+        # Mock permission error
+        mock_subprocess_run.return_value = MagicMock(returncode=1, stderr="Operation not permitted")
 
         with patch("calendarbot.utils.process.time.sleep"):
             result = auto_cleanup_before_start("127.0.0.1", 8080, force=True)

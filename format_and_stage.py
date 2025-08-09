@@ -9,6 +9,7 @@ by performing the complete cycle in iterations until stable.
 import hashlib
 import subprocess  # nosec
 import sys
+from pathlib import Path
 from typing import Optional
 
 
@@ -21,8 +22,7 @@ def get_staged_files() -> list[str]:
             text=True,
             check=True,
         )
-        files = [f for f in result.stdout.strip().split("\n") if f.endswith(".py") and f]
-        return files
+        return [f for f in result.stdout.strip().split("\n") if f.endswith(".py") and f]
     except subprocess.CalledProcessError:
         return []
 
@@ -30,7 +30,7 @@ def get_staged_files() -> list[str]:
 def get_file_hash(filepath: str) -> Optional[str]:
     """Get hash of file content for change detection."""
     try:
-        with open(filepath, "rb") as f:
+        with Path(filepath).open("rb") as f:
             return hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
     except (FileNotFoundError, PermissionError):
         return None
@@ -83,7 +83,7 @@ def get_staged_vs_working_differences(files: list[str]) -> list[str]:
     for filepath in files:
         try:
             # Check if file differs between staging area and working directory
-            result = subprocess.run(
+            subprocess.run(
                 ["git", "diff", "--name-only", "--cached", filepath],
                 capture_output=True,
                 text=True,
@@ -119,7 +119,7 @@ def stage_files(files: list[str]) -> bool:
         return True
 
     try:
-        subprocess.run(["git", "add"] + files, check=True, capture_output=True)
+        subprocess.run(["git", "add", *files], check=True, capture_output=True)
         print(f"✓ Re-staged {len(files)} files: {files}")
         return True
     except subprocess.CalledProcessError as e:

@@ -53,7 +53,7 @@ class TestConfigureDaemonSettings:
         mock_args = Mock(port=8080)
         mock_settings = Mock()
         mock_settings.logging = Mock()
-        mock_settings.logging.log_file = None
+        mock_settings.logging.file_directory = None
 
         with (
             patch(
@@ -70,8 +70,8 @@ class TestConfigureDaemonSettings:
             # Assert - just verify that logging configuration was applied
             assert result.logging.console_enabled is False
             assert result.logging.file_enabled is True
-            # Log file path will be set (actual path testing not critical for unit test)
-            assert result.logging.log_file is not None
+            # File directory will be set when none exists
+            assert result.logging.file_directory is not None
 
     def test_configure_daemon_settings_when_no_logging_attr_then_handles_gracefully(self):
         """Test that daemon settings handles missing logging attribute gracefully."""
@@ -149,7 +149,6 @@ class TestStartDaemonProcess:
         with (
             patch("calendarbot.cli.modes.daemon._configure_daemon_settings") as mock_config,
             patch("calendarbot.cli.modes.daemon.DaemonController") as mock_controller_class,
-            patch("calendarbot.cli.modes.daemon.detach_process") as mock_detach,
             patch("calendarbot.cli.modes.daemon._setup_daemon_logging") as mock_logging,
             patch("calendarbot.cli.modes.daemon.run_web_mode") as mock_web_mode,
             patch("builtins.print") as mock_print,
@@ -168,7 +167,7 @@ class TestStartDaemonProcess:
 
             # Assert
             assert result == 0
-            mock_detach.assert_called_once()
+            # detach_process is called earlier in the process, not in _start_daemon_process
             mock_controller.daemon_manager.create_pid_file.assert_called_once()
             mock_controller._setup_signal_handlers.assert_called_once()
             mock_web_mode.assert_called_once_with(mock_args)

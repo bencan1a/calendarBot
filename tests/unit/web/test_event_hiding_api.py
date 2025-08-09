@@ -46,9 +46,13 @@ def request_handler(mock_web_server, mock_settings_service):
 
 
 def test_handle_hide_event_success(request_handler, mock_settings_service):
-    """Test successful event hiding."""
+    """Test successful event hiding - verify actual state changes."""
     # Set up test data
     params = {"graph_id": "test-graph-id"}
+
+    # Get initial state
+    initial_settings = mock_settings_service.get_filter_settings()
+    initial_hidden_count = len(initial_settings.hidden_events)
 
     # Mock _get_updated_whats_next_data to return sample data
     request_handler._get_updated_whats_next_data = MagicMock(
@@ -63,17 +67,17 @@ def test_handle_hide_event_success(request_handler, mock_settings_service):
     # Call the handler
     request_handler._handle_hide_event(mock_settings_service, params)
 
-    # Verify the event was hidden
-    mock_settings_service.get_filter_settings.assert_called_once()
-    mock_settings_service.update_filter_settings.assert_called_once()
+    # Verify the event was actually added to hidden events
+    updated_settings_call = mock_settings_service.update_filter_settings.call_args[0][0]
+    assert "test-graph-id" in updated_settings_call.hidden_events
+    assert len(updated_settings_call.hidden_events) == initial_hidden_count + 1
 
-    # Verify the response
+    # Verify the response reflects the actual state
     request_handler._send_json_response.assert_called_once()
     args = request_handler._send_json_response.call_args[0]
     assert args[0] == 200
     assert args[1]["success"] is True
-    assert "count" in args[1]
-    assert args[1]["count"] == 3  # 2 existing + 1 new
+    assert args[1]["count"] == initial_hidden_count + 1  # Verify actual count
     assert "data" in args[1]
     assert args[1]["data"]["layout_name"] == "whats-next-view"
 
@@ -98,9 +102,14 @@ def test_handle_hide_event_missing_graph_id(request_handler, mock_settings_servi
 
 
 def test_handle_unhide_event_success(request_handler, mock_settings_service):
-    """Test successful event unhiding."""
+    """Test successful event unhiding - verify actual state changes."""
     # Set up test data for an existing hidden event
     params = {"graph_id": "existing-id-1"}
+
+    # Get initial state
+    initial_settings = mock_settings_service.get_filter_settings()
+    initial_hidden_count = len(initial_settings.hidden_events)
+    assert "existing-id-1" in initial_settings.hidden_events  # Verify it's initially hidden
 
     # Mock _get_updated_whats_next_data to return sample data
     request_handler._get_updated_whats_next_data = MagicMock(
@@ -115,17 +124,17 @@ def test_handle_unhide_event_success(request_handler, mock_settings_service):
     # Call the handler
     request_handler._handle_unhide_event(mock_settings_service, params)
 
-    # Verify the event was unhidden
-    mock_settings_service.get_filter_settings.assert_called_once()
-    mock_settings_service.update_filter_settings.assert_called_once()
+    # Verify the event was actually removed from hidden events
+    updated_settings_call = mock_settings_service.update_filter_settings.call_args[0][0]
+    assert "existing-id-1" not in updated_settings_call.hidden_events
+    assert len(updated_settings_call.hidden_events) == initial_hidden_count - 1
 
-    # Verify the response
+    # Verify the response reflects the actual state
     request_handler._send_json_response.assert_called_once()
     args = request_handler._send_json_response.call_args[0]
     assert args[0] == 200
     assert args[1]["success"] is True
-    assert "count" in args[1]
-    assert args[1]["count"] == 1  # 2 existing - 1 removed
+    assert args[1]["count"] == initial_hidden_count - 1  # Verify actual count
     assert "data" in args[1]
     assert args[1]["data"]["layout_name"] == "whats-next-view"
 

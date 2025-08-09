@@ -1,7 +1,6 @@
 """Unit tests for the HTTP client utility."""
 
 import socket
-import unittest
 import urllib.error
 from unittest.mock import MagicMock, patch
 
@@ -10,27 +9,28 @@ import pytest
 from calendarbot.utils.http_client import HTTPClient, is_webserver_running, wait_for_webserver
 
 
-class TestHTTPClient(unittest.TestCase):
+class TestHTTPClient:
     """Test cases for the HTTPClient class."""
 
-    def setUp(self):
+    @pytest.fixture
+    def client(self):
         """Set up test fixtures."""
-        self.client = HTTPClient(
+        return HTTPClient(
             base_url="http://127.0.0.1:8080",
             timeout=0.5,
             max_retries=2,
             retry_delay=0.1,
         )
 
-    def test_init(self):
+    def test_init(self, client):
         """Test HTTPClient initialization."""
-        self.assertEqual(self.client.base_url, "http://127.0.0.1:8080")
-        self.assertEqual(self.client.timeout, 0.5)
-        self.assertEqual(self.client.max_retries, 2)
-        self.assertEqual(self.client.retry_delay, 0.1)
+        assert client.base_url == "http://127.0.0.1:8080"
+        assert client.timeout == 0.5
+        assert client.max_retries == 2
+        assert client.retry_delay == 0.1
 
     @patch("urllib.request.build_opener")
-    def test_fetch_html_success(self, mock_build_opener):
+    def test_fetch_html_success(self, mock_build_opener, client):
         """Test successful HTML fetch."""
         # Configure mock
         mock_opener = MagicMock()
@@ -40,7 +40,7 @@ class TestHTTPClient(unittest.TestCase):
         mock_build_opener.return_value = mock_opener
 
         # Call fetch_html
-        html = self.client.fetch_html()
+        html = client.fetch_html()
 
         # Verify build_opener was called
         mock_build_opener.assert_called_once()
@@ -48,14 +48,14 @@ class TestHTTPClient(unittest.TestCase):
         # Verify opener.open was called with correct URL and timeout
         mock_opener.open.assert_called_once()
         args, kwargs = mock_opener.open.call_args
-        self.assertEqual(args[0].full_url, "http://127.0.0.1:8080/")
-        self.assertEqual(kwargs["timeout"], 0.5)
+        assert args[0].full_url == "http://127.0.0.1:8080/"
+        assert kwargs["timeout"] == 0.5
 
         # Verify result
-        self.assertEqual(html, "<html>Test</html>")
+        assert html == "<html>Test</html>"
 
     @patch("urllib.request.build_opener")
-    def test_fetch_html_with_path_and_params(self, mock_build_opener):
+    def test_fetch_html_with_path_and_params(self, mock_build_opener, client):
         """Test HTML fetch with path and query parameters."""
         # Configure mock
         mock_opener = MagicMock()
@@ -65,7 +65,7 @@ class TestHTTPClient(unittest.TestCase):
         mock_build_opener.return_value = mock_opener
 
         # Call fetch_html with path and params
-        html = self.client.fetch_html(
+        html = client.fetch_html(
             path="/calendar",
             params={"days": "7", "debug_time": "2023-01-01T12:00:00"},
         )
@@ -73,16 +73,16 @@ class TestHTTPClient(unittest.TestCase):
         # Verify opener.open was called with correct URL
         mock_opener.open.assert_called_once()
         args, kwargs = mock_opener.open.call_args
-        self.assertEqual(
-            args[0].full_url,
-            "http://127.0.0.1:8080/calendar?days=7&debug_time=2023-01-01T12%3A00%3A00",
+        assert (
+            args[0].full_url
+            == "http://127.0.0.1:8080/calendar?days=7&debug_time=2023-01-01T12%3A00%3A00"
         )
 
         # Verify result
-        self.assertEqual(html, "<html>Test</html>")
+        assert html == "<html>Test</html>"
 
     @patch("urllib.request.build_opener")
-    def test_fetch_html_with_headers(self, mock_build_opener):
+    def test_fetch_html_with_headers(self, mock_build_opener, client):
         """Test HTML fetch with custom headers."""
         # Configure mock
         mock_opener = MagicMock()
@@ -92,7 +92,7 @@ class TestHTTPClient(unittest.TestCase):
         mock_build_opener.return_value = mock_opener
 
         # Call fetch_html with headers
-        html = self.client.fetch_html(
+        html = client.fetch_html(
             headers={"X-Custom-Header": "Value"},
         )
 
@@ -105,20 +105,20 @@ class TestHTTPClient(unittest.TestCase):
 
         # Check if headers were set correctly in the _prepare_headers method
         # This is an indirect test since we can't easily access the headers directly in the mock
-        with patch.object(self.client, "_prepare_headers") as mock_prepare_headers:
+        with patch.object(client, "_prepare_headers") as mock_prepare_headers:
             mock_prepare_headers.return_value = {
                 "X-Custom-Header": "Value",
                 "User-Agent": "CalendarBot/1.0",
             }
-            self.client.fetch_html(headers={"X-Custom-Header": "Value"})
+            client.fetch_html(headers={"X-Custom-Header": "Value"})
             mock_prepare_headers.assert_called_once_with({"X-Custom-Header": "Value"})
 
         # Verify result
-        self.assertEqual(html, "<html>Test</html>")
+        assert html == "<html>Test</html>"
 
     @patch("urllib.request.build_opener")
     @patch("time.sleep")
-    def test_fetch_html_retry_on_timeout(self, mock_time_sleep, mock_build_opener):
+    def test_fetch_html_retry_on_timeout(self, mock_time_sleep, mock_build_opener, client):
         """Test HTML fetch with retry on timeout."""
         # Configure mocks
         mock_opener = MagicMock()
@@ -133,19 +133,19 @@ class TestHTTPClient(unittest.TestCase):
         mock_build_opener.return_value = mock_opener
 
         # Call fetch_html
-        html = self.client.fetch_html()
+        html = client.fetch_html()
 
         # Verify opener.open was called twice
-        self.assertEqual(mock_opener.open.call_count, 2)
+        assert mock_opener.open.call_count == 2
 
         # Verify time.sleep was called for delay
-        mock_time_sleep.assert_called_once_with(self.client.retry_delay)
+        mock_time_sleep.assert_called_once_with(client.retry_delay)
 
         # Verify result
-        self.assertEqual(html, "<html>Test</html>")
+        assert html == "<html>Test</html>"
 
     @patch("urllib.request.build_opener")
-    def test_fetch_html_max_retries_exceeded(self, mock_build_opener):
+    def test_fetch_html_max_retries_exceeded(self, mock_build_opener, client):
         """Test HTML fetch with max retries exceeded."""
         # Configure mock to always raise timeout
         mock_opener = MagicMock()
@@ -153,14 +153,14 @@ class TestHTTPClient(unittest.TestCase):
         mock_build_opener.return_value = mock_opener
 
         # Call fetch_html and expect TimeoutError
-        with self.assertRaises(TimeoutError):
-            self.client.fetch_html()
+        with pytest.raises(TimeoutError):
+            client.fetch_html()
 
         # Verify opener.open was called max_retries times
-        self.assertEqual(mock_opener.open.call_count, 2)
+        assert mock_opener.open.call_count == 2
 
     @patch("urllib.request.build_opener")
-    def test_fetch_html_connection_refused(self, mock_build_opener):
+    def test_fetch_html_connection_refused(self, mock_build_opener, client):
         """Test HTML fetch with connection refused."""
         # Configure mock to raise ConnectionRefusedError
         mock_opener = MagicMock()
@@ -168,11 +168,11 @@ class TestHTTPClient(unittest.TestCase):
         mock_build_opener.return_value = mock_opener
 
         # Call fetch_html and expect ConnectionError
-        with self.assertRaises(ConnectionError):
-            self.client.fetch_html()
+        with pytest.raises(ConnectionError):
+            client.fetch_html()
 
     @patch("urllib.request.build_opener")
-    def test_fetch_calendar_html(self, mock_build_opener):
+    def test_fetch_calendar_html(self, mock_build_opener, client):
         """Test fetch_calendar_html convenience method."""
         # Configure mock
         mock_opener = MagicMock()
@@ -182,45 +182,45 @@ class TestHTTPClient(unittest.TestCase):
         mock_build_opener.return_value = mock_opener
 
         # Call fetch_calendar_html
-        html = self.client.fetch_calendar_html(days=7, debug_time="2023-01-01T12:00:00")
+        html = client.fetch_calendar_html(days=7, debug_time="2023-01-01T12:00:00")
 
         # Verify opener.open was called with correct URL
         mock_opener.open.assert_called_once()
         args, kwargs = mock_opener.open.call_args
-        self.assertEqual(
-            args[0].full_url,
-            "http://127.0.0.1:8080/calendar?days=7&debug_time=2023-01-01T12%3A00%3A00",
+        assert (
+            args[0].full_url
+            == "http://127.0.0.1:8080/calendar?days=7&debug_time=2023-01-01T12%3A00%3A00"
         )
 
         # Verify result
-        self.assertEqual(html, "<html>Calendar</html>")
+        assert html == "<html>Calendar</html>"
 
-    def test_build_url(self):
+    def test_build_url(self, client):
         """Test _build_url method."""
         # Test with path only
-        url = self.client._build_url("/test")
-        self.assertEqual(url, "http://127.0.0.1:8080/test")
+        url = client._build_url("/test")
+        assert url == "http://127.0.0.1:8080/test"
 
         # Test with path without leading slash
-        url = self.client._build_url("test")
-        self.assertEqual(url, "http://127.0.0.1:8080/test")
+        url = client._build_url("test")
+        assert url == "http://127.0.0.1:8080/test"
 
         # Test with path and params
-        url = self.client._build_url("/test", {"param1": "value1", "param2": "value2"})
-        self.assertEqual(url, "http://127.0.0.1:8080/test?param1=value1&param2=value2")
+        url = client._build_url("/test", {"param1": "value1", "param2": "value2"})
+        assert url == "http://127.0.0.1:8080/test?param1=value1&param2=value2"
 
-    def test_prepare_headers(self):
+    def test_prepare_headers(self, client):
         """Test _prepare_headers method."""
         # Test default headers
-        headers = self.client._prepare_headers()
-        self.assertEqual(headers["User-Agent"], "CalendarBot/1.0")
-        self.assertEqual(headers["Accept"], "text/html,application/xhtml+xml")
+        headers = client._prepare_headers()
+        assert headers["User-Agent"] == "CalendarBot/1.0"
+        assert headers["Accept"] == "text/html,application/xhtml+xml"
 
         # Test with custom headers
-        headers = self.client._prepare_headers({"X-Custom": "Value", "User-Agent": "Custom/1.0"})
-        self.assertEqual(headers["User-Agent"], "Custom/1.0")
-        self.assertEqual(headers["X-Custom"], "Value")
-        self.assertEqual(headers["Accept"], "text/html,application/xhtml+xml")
+        headers = client._prepare_headers({"X-Custom": "Value", "User-Agent": "Custom/1.0"})
+        assert headers["User-Agent"] == "Custom/1.0"
+        assert headers["X-Custom"] == "Value"
+        assert headers["Accept"] == "text/html,application/xhtml+xml"
 
 
 @pytest.mark.asyncio
@@ -287,7 +287,7 @@ class TestAsyncHTTPClient:
             assert html == "<html>Async Calendar</html>"
 
 
-class TestWebserverUtils(unittest.TestCase):
+class TestWebserverUtils:
     """Test cases for webserver utility functions."""
 
     @patch("socket.create_connection")
@@ -303,7 +303,7 @@ class TestWebserverUtils(unittest.TestCase):
         mock_create_connection.assert_called_once_with(("127.0.0.1", 8080), timeout=0.5)
 
         # Verify result
-        self.assertTrue(result)
+        assert result is True
 
     @patch("socket.create_connection")
     def test_is_webserver_running_false(self, mock_create_connection):
@@ -318,7 +318,7 @@ class TestWebserverUtils(unittest.TestCase):
         mock_create_connection.assert_called_once_with(("127.0.0.1", 8080), timeout=0.5)
 
         # Verify result
-        self.assertFalse(result)
+        assert result is False
 
     @patch("calendarbot.utils.http_client.is_webserver_running")
     @patch("time.time")
@@ -345,7 +345,7 @@ class TestWebserverUtils(unittest.TestCase):
         mock_is_webserver_running.assert_called_once_with("127.0.0.1", 8080, timeout=0.1)
 
         # Verify result
-        self.assertTrue(result)
+        assert result is True
 
     @patch("calendarbot.utils.http_client.is_webserver_running")
     @patch("time.time")
@@ -370,10 +370,10 @@ class TestWebserverUtils(unittest.TestCase):
         result = wait_for_webserver(host="127.0.0.1", port=8080, timeout=5.0, check_interval=0.1)
 
         # Verify is_webserver_running was called
-        self.assertEqual(mock_is_webserver_running.call_count, 1)
+        assert mock_is_webserver_running.call_count == 1
 
         # Verify result
-        self.assertFalse(result)
+        assert result is False
 
 
 @pytest.mark.asyncio

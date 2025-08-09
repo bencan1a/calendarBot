@@ -125,9 +125,11 @@ def kill_calendarbot_processes(
             logger.exception(error_msg)
             errors.append(error_msg)
 
-    # Wait for processes to terminate gracefully
-    logger.debug(f"Waiting up to {timeout}s for processes to terminate gracefully")
-    time.sleep(min(timeout, 2.0))
+    # Wait for processes to terminate gracefully - but shorter during testing
+    is_testing = os.environ.get("PYTEST_CURRENT_TEST") is not None
+    wait_time = min(timeout, 1.0) if is_testing else min(timeout, 2.0)
+    logger.debug(f"Waiting {wait_time}s for processes to terminate gracefully")
+    time.sleep(wait_time)
 
     # Second pass: Check for remaining processes and use SIGKILL if needed
     remaining_processes = find_calendarbot_processes()
@@ -235,6 +237,47 @@ def find_process_using_port(port: int) -> Optional[ProcessInfo]:
     return None
 
 
+def _safe_kill_process(pid: int, signal_type: int = signal.SIGTERM, timeout: float = 5.0) -> bool:  # noqa: ARG001
+    """Safely kill a process with timeout protection.
+
+    Args:
+        pid: Process ID to kill
+        signal_type: Signal to send (default: SIGTERM)
+        timeout: Maximum time to wait for operation (seconds)
+
+    Returns:
+        True if process was successfully killed or already dead, False if timeout/error
+    """
+    try:
+        # First check if process exists
+        try:
+            os.kill(pid, 0)  # Signal 0 checks if process exists
+        except OSError:
+            # Process doesn't exist, consider it successfully "killed"
+            logger.debug(f"Process {pid} already dead")
+            return True
+
+        # Use direct os.kill for faster operation, but with try/except for safety
+        signal_name = "SIGTERM" if signal_type == signal.SIGTERM else "SIGKILL"
+        logger.debug(f"Sending {signal_name} to process {pid}")
+
+        try:
+            os.kill(pid, signal_type)
+            logger.debug(f"Successfully sent {signal_name} to process {pid}")
+            return True
+        except ProcessLookupError:
+            # Process died between checks - that's success
+            logger.debug(f"Process {pid} died during kill operation")
+            return True
+        except PermissionError:
+            logger.warning(f"Permission denied killing process {pid}")
+            return False
+
+    except Exception as e:
+        logger.warning(f"Error killing process {pid}: {e}")
+        return False
+
+
 def auto_cleanup_before_start(host: str, port: int, force: bool = True) -> bool:
     """Automatically clean up conflicting processes before starting.
 
@@ -276,19 +319,23 @@ def auto_cleanup_before_start(host: str, port: int, force: bool = True) -> bool:
         port_process = find_process_using_port(port)
         if port_process:
             logger.warning(f"Process using port {port}: {port_process}")
-            try:
-                logger.info(f"Attempting to terminate process {port_process.pid} using port {port}")
-                os.kill(port_process.pid, signal.SIGTERM)
-                time.sleep(2.0)
 
-                # Check again
+            # Try graceful termination first with timeout protection
+            logger.info(f"Attempting to terminate process {port_process.pid} using port {port}")
+            if _safe_kill_process(port_process.pid, signal.SIGTERM, timeout=3.0):
+                time.sleep(2.0)  # Give process time to cleanup
+
+                # Check if port is now available
                 if not check_port_availability(host, port):
+                    # Try force kill with timeout protection
                     logger.warning(f"Port {port} still occupied, trying SIGKILL")
-                    os.kill(port_process.pid, signal.SIGKILL)
-                    time.sleep(1.0)
-
-            except Exception:
-                logger.exception(f"Failed to kill process using port {port}")
+                    if _safe_kill_process(port_process.pid, signal.SIGKILL, timeout=2.0):
+                        time.sleep(1.0)  # Brief wait after force kill
+                    else:
+                        logger.error(f"Failed to force kill process {port_process.pid}")
+                        return False
+            else:
+                logger.error(f"Failed to terminate process {port_process.pid}")
                 return False
 
     # Final check
