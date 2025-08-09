@@ -394,8 +394,103 @@ class CalendarBotPerformanceBenchmark:
 
 # Pytest integration
 @pytest.fixture(scope="module")
-def performance_benchmark():
-    """Create performance benchmark instance."""
+def performance_web_server():
+    """Create and start a mock web server for performance testing."""
+    from tests.fixtures.mock_servers import create_api_test_server
+
+    server = create_api_test_server(port=8080)
+
+    # Set up API handlers for performance testing
+    def whats_next_data_handler(request_info):
+        """Mock /api/whats-next/data endpoint."""
+        mock_data = {
+            "events": [
+                {
+                    "id": f"event_{i}",
+                    "subject": f"Test Event {i}",
+                    "start": "2025-01-01T09:00:00Z",
+                    "end": "2025-01-01T10:00:00Z",
+                    "location": f"Room {i}" if i % 3 == 0 else None,
+                    "description": f"Description for event {i}",
+                }
+                for i in range(20)
+            ],
+            "metadata": {"total_count": 20, "cache_time": "2025-01-01T08:00:00Z"},
+        }
+        return {
+            "status_code": 200,
+            "content": mock_data,
+            "headers": {"Content-Type": "application/json"},
+        }
+
+    def whats_next_view_handler(request_info):
+        """Mock /whats-next-view endpoint."""
+        # Make HTML response larger with more realistic content
+        mock_html = (
+            """<!DOCTYPE html>
+<html>
+<head>
+    <title>What's Next View</title>
+    <style>
+        .meeting-card { padding: 20px; border: 1px solid #ccc; margin: 10px; }
+        .event-title { font-weight: bold; font-size: 18px; }
+        .event-time { color: #666; }
+        .event-location { color: #888; }
+        .event-description { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Upcoming Events</h1>
+"""
+            + "".join(
+                [
+                    f"""
+        <div class="meeting-card">
+            <div class="event-title">Performance Test Event {i} - Long Title with Description</div>
+            <div class="event-time">9:00 AM - 10:00 AM UTC</div>
+            <div class="event-location">Conference Room {i} - Building A, Floor {i % 5 + 1}</div>
+            <div class="event-description">This is a detailed description for event {i} with multiple lines including agenda items, meeting notes, and other details that would typically be found in calendar events.</div>
+        </div>"""
+                    for i in range(20)
+                ]
+            )
+            + """
+    </div>
+</body>
+</html>"""
+        )
+        return {"status_code": 200, "content": mock_html, "headers": {"Content-Type": "text/html"}}
+
+    def event_hide_handler(request_info):
+        """Mock /api/events/hide endpoint."""
+        return {
+            "status_code": 200,
+            "content": {"success": True, "hidden_event_id": "test_event"},
+            "headers": {"Content-Type": "application/json"},
+        }
+
+    def event_unhide_handler(request_info):
+        """Mock /api/events/unhide endpoint."""
+        return {
+            "status_code": 200,
+            "content": {"success": True, "unhidden_event_id": "test_event"},
+            "headers": {"Content-Type": "application/json"},
+        }
+
+    server.set_api_handler("/api/whats-next/data", whats_next_data_handler)
+    server.set_api_handler("/whats-next-view", whats_next_view_handler)
+    server.set_api_handler("/api/events/hide", event_hide_handler)
+    server.set_api_handler("/api/events/unhide", event_unhide_handler)
+
+    server.start()
+    yield server
+    server.stop()
+
+
+@pytest.fixture(scope="module")
+def performance_benchmark(performance_web_server):
+    """Create performance benchmark instance with mock server."""
     return CalendarBotPerformanceBenchmark()
 
 

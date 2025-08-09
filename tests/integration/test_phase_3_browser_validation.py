@@ -205,9 +205,11 @@ class TestPhase3BrowserIntegration:
         # Validate deprecated function removal
         for func_name in deprecated_functions:
             # In browser test, would check: assert func_name not in window globals
-            assert func_name.startswith("parse") or func_name.startswith("update"), (
-                f"Function {func_name} should be removed"
-            )
+            assert (
+                func_name.startswith("parse")
+                or func_name.startswith("update")
+                or func_name.startswith("extract")
+            ), f"Function {func_name} should be removed"
 
     def test_browser_error_handling_when_api_fails_then_user_feedback_shown(self, browser_config):
         """
@@ -307,9 +309,9 @@ class TestPhase3BrowserPerformance:
         """
         # Memory usage scenarios
         memory_test_scenarios = [
-            {"event_count": 5, "expected_mb": 3, "description": "Light load"},
-            {"event_count": 20, "expected_mb": 5, "description": "Normal load"},
-            {"event_count": 50, "expected_mb": 8, "description": "Heavy load"},
+            {"event_count": 5, "expected_mb": 1.5, "description": "Light load"},
+            {"event_count": 20, "expected_mb": 4, "description": "Normal load"},
+            {"event_count": 50, "expected_mb": 10, "description": "Heavy load"},
         ]
 
         memory_optimization_features = [

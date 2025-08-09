@@ -282,8 +282,10 @@ class TestConsoleRendererFormatCurrentEvent:
         # Create specific times for the test
         event_start = datetime(2024, 1, 1, 10, 0, 0, tzinfo=pytz.UTC)
         event_end = datetime(2024, 1, 1, 11, 0, 0, tzinfo=pytz.UTC)  # 1 hour duration
-        current_time = datetime(2024, 1, 1, 10, 30, 0, tzinfo=pytz.UTC)  # 30 minutes after start = 30 minutes remaining
-        
+        current_time = datetime(
+            2024, 1, 1, 10, 30, 0, tzinfo=pytz.UTC
+        )  # 30 minutes after start = 30 minutes remaining
+
         mock_now.return_value = current_time
 
         event = self.create_mock_event("Meeting")
@@ -824,12 +826,12 @@ class TestConsoleRendererIntegration:
         time_until_values = [30, 90, 150, 240, 300]  # 5 events to ensure "LATER TODAY" appears
         for i in range(5):
             event = Mock(spec=CachedEvent)
-            event.subject = f"Meeting {i+1}"
+            event.subject = f"Meeting {i + 1}"
             event.location_display_name = None
             event.is_online_meeting = True
             event.is_current.return_value = False
             event.is_upcoming.return_value = True
-            event.format_time_range.return_value = f"{10+i}:00 AM - {11+i}:00 AM"
+            event.format_time_range.return_value = f"{10 + i}:00 AM - {11 + i}:00 AM"
             event.time_until_start.return_value = time_until_values[i]
             events.append(event)
 

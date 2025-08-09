@@ -184,68 +184,74 @@ class TestSuiteManager:
                     f"tests/integration/test_{module_name}_integration.py",
                     f"tests/e2e/test_{module_name}_workflows.py",
                 ]
-                
+
                 # Add new subdirectory paths for moved test files
                 if "benchmarking" in str(path_obj):
                     potential_tests.append(f"tests/unit/benchmarking/test_{module_name}.py")
-                
+
                 if "monitoring" in str(path_obj):
                     potential_tests.append(f"tests/unit/monitoring/test_{module_name}.py")
-                    potential_tests.append(f"tests/unit/monitoring/test_performance_{module_name}.py")
+                    potential_tests.append(
+                        f"tests/unit/monitoring/test_performance_{module_name}.py"
+                    )
                     potential_tests.append(f"tests/unit/monitoring/test_runtime_{module_name}.py")
-                
+
                 # Add mappings for all new subdirectories from the reorganization
                 if "cache" in str(path_obj):
                     potential_tests.append(f"tests/unit/cache/test_{module_name}.py")
                     potential_tests.append(f"tests/unit/cache/test_cache_{module_name}.py")
-                
+
                 if "cli" in str(path_obj):
                     potential_tests.append(f"tests/unit/cli/test_{module_name}.py")
                     potential_tests.append(f"tests/unit/cli/test_cli_{module_name}.py")
-                
+
                 if "display" in str(path_obj):
                     potential_tests.append(f"tests/unit/display/test_{module_name}.py")
                     potential_tests.append(f"tests/unit/display/test_display_{module_name}.py")
-                
+
                 if "features" in str(path_obj):
                     potential_tests.append(f"tests/unit/features/test_{module_name}.py")
-                
+
                 if "ics" in str(path_obj):
                     potential_tests.append(f"tests/unit/ics/test_{module_name}.py")
                     potential_tests.append(f"tests/unit/ics/test_ics_{module_name}.py")
-                
+
                 if "layout" in str(path_obj):
                     potential_tests.append(f"tests/unit/layout/test_{module_name}.py")
                     potential_tests.append(f"tests/unit/layout/test_layout_{module_name}.py")
-                
+
                 if "optimization" in str(path_obj):
                     potential_tests.append(f"tests/unit/optimization/test_{module_name}.py")
-                    potential_tests.append(f"tests/unit/optimization/test_optimization_{module_name}.py")
-                
+                    potential_tests.append(
+                        f"tests/unit/optimization/test_optimization_{module_name}.py"
+                    )
+
                 if "security" in str(path_obj):
                     potential_tests.append(f"tests/unit/security/test_{module_name}.py")
-                
+
                 if "settings" in str(path_obj):
                     potential_tests.append(f"tests/unit/settings/test_{module_name}.py")
-                
+
                 if "sources" in str(path_obj):
                     potential_tests.append(f"tests/unit/sources/test_{module_name}.py")
                     potential_tests.append(f"tests/unit/sources/test_source_{module_name}.py")
-                
+
                 if "structured" in str(path_obj):
                     potential_tests.append(f"tests/unit/structured/test_{module_name}.py")
-                
+
                 if "ui" in str(path_obj):
                     potential_tests.append(f"tests/unit/ui/test_{module_name}.py")
                     potential_tests.append(f"tests/unit/ui/test_ui_{module_name}.py")
-                
+
                 if "utils" in str(path_obj):
                     potential_tests.append(f"tests/unit/utils/test_{module_name}.py")
                     potential_tests.append(f"tests/unit/utils/test_util_{module_name}.py")
-                
+
                 if "validation" in str(path_obj):
                     potential_tests.append(f"tests/unit/validation/test_{module_name}.py")
-                    potential_tests.append(f"tests/unit/validation/test_validation_{module_name}.py")
+                    potential_tests.append(
+                        f"tests/unit/validation/test_validation_{module_name}.py"
+                    )
 
                 for test_path in potential_tests:
                     if (self.workspace_dir / test_path).exists():
@@ -418,7 +424,9 @@ class TestSuiteManager:
                 raise ValueError(f"Unknown suite: {suite_name}")
 
             # Execute the test suite
-            result = subprocess.run(args, check=False, cwd=self.workspace_dir, capture_output=True, text=True)
+            result = subprocess.run(
+                args, check=False, cwd=self.workspace_dir, capture_output=True, text=True
+            )
 
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
@@ -556,7 +564,11 @@ class TestSuiteManager:
         """Get current git commit hash."""
         try:
             result = subprocess.run(
-                ["git", "rev-parse", "HEAD"], check=False, cwd=self.workspace_dir, capture_output=True, text=True
+                ["git", "rev-parse", "HEAD"],
+                check=False,
+                cwd=self.workspace_dir,
+                capture_output=True,
+                text=True,
             )
             return result.stdout.strip() if result.returncode == 0 else None
         except:
@@ -837,7 +849,7 @@ class TestSuiteManager:
                 if verbose:
                     if execution.status == "PASS":
                         print(
-                            f"✅ Full regression tests passed ({execution.duration//60:.0f}m {execution.duration%60:.0f}s)"
+                            f"✅ Full regression tests passed ({execution.duration // 60:.0f}m {execution.duration % 60:.0f}s)"
                         )
                     else:
                         print(f"❌ Full regression tests failed ({execution.failed} failures)")
@@ -885,7 +897,9 @@ class TestSuiteManager:
             if verbose:
                 print(f"🎯 Executing {len(test_files)} targeted test files...")
 
-            result = subprocess.run(args, check=False, cwd=self.workspace_dir, capture_output=True, text=True)
+            result = subprocess.run(
+                args, check=False, cwd=self.workspace_dir, capture_output=True, text=True
+            )
 
             # Parse basic results
             test_count, passed, failed, skipped = self._parse_pytest_output(result.stdout)

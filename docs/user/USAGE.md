@@ -168,6 +168,41 @@ calendarbot --epaper                # Auto-detect hardware
 calendarbot --epaper --rpi-width 480 --rpi-height 800  # Custom dimensions
 ```
 
+### Daemon Mode
+
+**Command**: `calendarbot --daemon`
+
+**Features**:
+
+- Background service operation with process detachment
+- Docker Compose-style command interface (start, status, stop)
+- PID file management and graceful shutdown handling
+- File-based logging for daemon operations
+
+**Basic Commands**:
+
+```bash
+calendarbot --daemon              # Start as background service
+calendarbot --daemon-status       # Check daemon status
+calendarbot --daemon-stop         # Stop daemon gracefully
+```
+
+**Advanced Options**:
+
+```bash
+calendarbot --daemon --port 3000              # Custom port
+calendarbot --daemon --host 0.0.0.0           # Bind to all interfaces
+calendarbot --daemon --web_layout whats-next-view  # Custom layout
+```
+
+**Use Cases**:
+- Server deployments requiring 24/7 operation
+- Headless systems without interactive terminal access
+- E-paper displays needing continuous operation
+- Production environments with system service integration
+
+For comprehensive daemon mode documentation, see [Daemon Mode Usage Guide](DAEMON_MODE_USAGE.md).
+
 ---
 
 ## Basic Workflows
@@ -190,6 +225,12 @@ calendarbot --web  # Launch web interface
 ```bash
 . venv/bin/activate
 calendarbot --epaper  # Launch e-paper mode
+```
+
+4. **Daemon Mode (Background Service)**
+```bash
+. venv/bin/activate
+calendarbot --daemon  # Launch as background service
 ```
 
 ### Quick Event Refresh
@@ -272,3 +313,5 @@ calendarbot --track-runtime  # Enable resource tracking
 - [Setup Guide](SETUP.md)
 - [Configuration Wizard](SETUP.md#wizard)
 - [Installation Documentation](INSTALL.md)
+- [Daemon Mode Usage Guide](DAEMON_MODE_USAGE.md)
+- [Operational Modes](../features/OPERATIONAL_MODES.md)

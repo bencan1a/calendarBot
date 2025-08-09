@@ -20,6 +20,9 @@ class TestWhatsNextLogic:
         settings = MagicMock()
         settings.web_layout = "whats-next-view"
         settings.debug_time = None
+        # Configure event filtering structure
+        settings.event_filters = MagicMock()
+        settings.event_filters.hidden_events = set()
         return settings
 
     @pytest.fixture
@@ -44,6 +47,8 @@ class TestWhatsNextLogic:
         event.start_dt = start_dt
         event.end_dt = end_dt
         event.location_display_name = location
+        # Add required graph_id attribute for filtering logic
+        event.graph_id = f"test_graph_id_{subject.replace(' ', '_').lower()}"
         event.format_time_range.return_value = (
             f"{start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')}"
         )

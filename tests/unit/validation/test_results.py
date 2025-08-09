@@ -1,11 +1,8 @@
 """Tests for ValidationResults class and related components."""
 
 import json
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch
-
-import pytest
+from datetime import datetime
+from unittest.mock import patch
 
 from calendarbot.validation.results import ValidationItem, ValidationResults, ValidationStatus
 
@@ -250,37 +247,37 @@ class TestValidationResults:
         """Test get_summary calculates statistics correctly."""
         # Arrange
         results = ValidationResults()
-        
+
         # Add various results
         results.add_success("comp1", "test1", "Success 1")
         results.add_success("comp1", "test2", "Success 2")
         results.add_failure("comp1", "test3", "Failure 1")
         results.add_warning("comp2", "test1", "Warning 1")
         results.add_skipped("comp2", "test2", "Skipped 1")
-        
+
         # Act
         summary = results.get_summary()
-        
+
         # Assert
         assert summary["total_tests"] == 5
         assert len(summary["components_tested"]) == 2
         assert "comp1" in summary["components_tested"]
         assert "comp2" in summary["components_tested"]
-        
+
         # Check status counts
         assert summary["status_counts"]["success"] == 2
         assert summary["status_counts"]["failure"] == 1
         assert summary["status_counts"]["warning"] == 1
         assert summary["status_counts"]["skipped"] == 1
-        
+
         # Check component stats
         assert summary["component_stats"]["comp1"]["success"] == 2
         assert summary["component_stats"]["comp1"]["failure"] == 1
         assert summary["component_stats"]["comp2"]["warning"] == 1
         assert summary["component_stats"]["comp2"]["skipped"] == 1
-        
+
         # Check success rate
-        assert summary["success_rate"] == 2/5
+        assert summary["success_rate"] == 2 / 5
 
     def test_has_failures_when_no_failures_then_returns_false(self) -> None:
         """Test has_failures returns False when no failures."""
@@ -289,10 +286,10 @@ class TestValidationResults:
         results.add_success("comp", "test", "Success")
         results.add_warning("comp", "test", "Warning")
         results.add_skipped("comp", "test", "Skipped")
-        
+
         # Act
         has_failures = results.has_failures()
-        
+
         # Assert
         assert has_failures is False
 
@@ -302,10 +299,10 @@ class TestValidationResults:
         results = ValidationResults()
         results.add_success("comp", "test", "Success")
         results.add_failure("comp", "test", "Failure")
-        
+
         # Act
         has_failures = results.has_failures()
-        
+
         # Assert
         assert has_failures is True
 
@@ -316,10 +313,10 @@ class TestValidationResults:
         results.add_success("comp", "test", "Success")
         results.add_failure("comp", "test", "Failure")
         results.add_skipped("comp", "test", "Skipped")
-        
+
         # Act
         has_warnings = results.has_warnings()
-        
+
         # Assert
         assert has_warnings is False
 
@@ -329,10 +326,10 @@ class TestValidationResults:
         results = ValidationResults()
         results.add_success("comp", "test", "Success")
         results.add_warning("comp", "test", "Warning")
-        
+
         # Act
         has_warnings = results.has_warnings()
-        
+
         # Assert
         assert has_warnings is True
 
@@ -341,10 +338,10 @@ class TestValidationResults:
         # Arrange
         results = ValidationResults()
         results.add_success("comp", "test", "Success")
-        
+
         # Act
         failures = results.get_failures()
-        
+
         # Assert
         assert len(failures) == 0
 
@@ -355,10 +352,10 @@ class TestValidationResults:
         results.add_success("comp", "test1", "Success")
         results.add_failure("comp", "test2", "Failure 1")
         results.add_failure("comp", "test3", "Failure 2")
-        
+
         # Act
         failures = results.get_failures()
-        
+
         # Assert
         assert len(failures) == 2
         assert all(item.status == ValidationStatus.FAILURE for item in failures)
@@ -370,10 +367,10 @@ class TestValidationResults:
         # Arrange
         results = ValidationResults()
         results.add_success("comp", "test", "Success")
-        
+
         # Act
         warnings = results.get_warnings()
-        
+
         # Assert
         assert len(warnings) == 0
 
@@ -384,10 +381,10 @@ class TestValidationResults:
         results.add_success("comp", "test1", "Success")
         results.add_warning("comp", "test2", "Warning 1")
         results.add_warning("comp", "test3", "Warning 2")
-        
+
         # Act
         warnings = results.get_warnings()
-        
+
         # Assert
         assert len(warnings) == 2
         assert all(item.status == ValidationStatus.WARNING for item in warnings)
@@ -400,7 +397,7 @@ class TestValidationResults:
         results = ValidationResults()
         results.add_success("comp1", "test1", "Success 1")
         results.add_failure("comp1", "test2", "Failure 1")
-        
+
         # Act & Assert
         with patch("builtins.print") as mock_print:
             results.print_console_report()
@@ -412,11 +409,11 @@ class TestValidationResults:
         # Arrange
         results = ValidationResults()
         results.add_success("comp1", "test1", "Success 1", {"detail_key": "detail_value"})
-        
+
         # Act & Assert
         with patch("builtins.print") as mock_print:
             results.print_console_report(verbose=True)
-            
+
             # Check that detail printing was called
             detail_printed = False
             for call_args in mock_print.call_args_list:
@@ -424,7 +421,7 @@ class TestValidationResults:
                 if isinstance(args, str) and "detail_key: detail_value" in args:
                     detail_printed = True
                     break
-            
+
             assert detail_printed
 
     def test_to_json_when_called_then_returns_json_string(self) -> None:
@@ -433,22 +430,22 @@ class TestValidationResults:
         results = ValidationResults()
         results.add_success("comp1", "test1", "Success 1")
         results.add_failure("comp1", "test2", "Failure 1", {"error": "test error"})
-        
+
         # Act
         json_str = results.to_json()
-        
+
         # Assert
         # Verify it's a valid JSON string
         json_data = json.loads(json_str)
         assert "summary" in json_data
         assert "items" in json_data
         assert len(json_data["items"]) == 2
-        
+
         # Check item serialization
         assert json_data["items"][0]["component"] == "comp1"
         assert json_data["items"][0]["test_name"] == "test1"
         assert json_data["items"][0]["status"] == "success"
-        
+
         assert json_data["items"][1]["component"] == "comp1"
         assert json_data["items"][1]["test_name"] == "test2"
         assert json_data["items"][1]["status"] == "failure"
@@ -459,7 +456,7 @@ class TestValidationResults:
         # Arrange
         results = ValidationResults()
         results.add_success("comp1", "test1", "Success 1")
-        
+
         # Act & Assert
         with patch("builtins.print") as mock_print:
             with patch.object(results, "to_json", return_value='{"test": "json"}') as mock_to_json:

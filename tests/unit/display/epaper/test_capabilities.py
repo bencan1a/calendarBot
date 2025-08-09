@@ -136,7 +136,7 @@ class TestDisplayCapabilities:
         # Act & Assert
         with pytest.raises(ValueError) as excinfo:
             DisplayCapabilities.from_dict(data)
-        
+
         assert "Missing required field" in str(excinfo.value)
         assert "supports_grayscale" in str(excinfo.value)
 
@@ -148,7 +148,7 @@ class TestDisplayCapabilities:
         # Act & Assert
         with pytest.raises(ValueError) as excinfo:
             DisplayCapabilities.from_dict(data)
-        
+
         assert "Missing required field" in str(excinfo.value)
 
     def test_from_dict_when_extra_fields_then_ignores_extra_fields(self) -> None:

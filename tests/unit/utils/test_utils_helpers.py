@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from calendarbot.utils.exceptions import RetryError
 from calendarbot.utils.helpers import (
     CircuitBreaker,
     ensure_timezone_aware,
@@ -23,7 +24,6 @@ from calendarbot.utils.helpers import (
     truncate_string,
     validate_email,
 )
-from calendarbot.utils.exceptions import RetryError
 
 
 class TestRetryWithBackoff:
@@ -140,7 +140,7 @@ class TestSafeAsyncCall:
 
         assert result is None
 
-    
+
 class TestFormatDuration:
     """Test format_duration function."""
 

@@ -5,21 +5,20 @@ Tests the color constants, color palette, and color conversion functions.
 """
 
 import pytest
-from typing import Any, Dict, Tuple, Union
 
 from calendarbot.display.epaper.utils.colors import (
-    EPaperColors,
-    get_epaper_color_palette,
-    get_rendering_colors,
-    convert_to_pil_color,
-    is_grayscale_color,
-    _validate_single_color,
-    validate_epaper_palette,
-    WHITE,
     BLACK,
+    DARK_GRAY,
     LIGHT_GRAY,
     MEDIUM_GRAY,
-    DARK_GRAY,
+    WHITE,
+    EPaperColors,
+    _validate_single_color,
+    convert_to_pil_color,
+    get_epaper_color_palette,
+    get_rendering_colors,
+    is_grayscale_color,
+    validate_epaper_palette,
 )
 
 
@@ -78,27 +77,49 @@ class TestColorPalettes:
     def test_get_epaper_color_palette_when_called_then_returns_complete_palette(self) -> None:
         """Test that get_epaper_color_palette returns the complete palette."""
         palette = get_epaper_color_palette()
-        
+
         # Check that the palette has all expected keys
         expected_keys = [
             # Grayscale shades
-            "gray_1", "gray_2", "gray_3", "gray_4", "gray_5", "gray_6", "gray_7", "gray_8",
+            "gray_1",
+            "gray_2",
+            "gray_3",
+            "gray_4",
+            "gray_5",
+            "gray_6",
+            "gray_7",
+            "gray_8",
             # E-ink specific
-            "eink_black", "eink_dark_gray", "eink_medium_gray", "eink_light_gray", "eink_white",
+            "eink_black",
+            "eink_dark_gray",
+            "eink_medium_gray",
+            "eink_light_gray",
+            "eink_white",
             # Semantic backgrounds
-            "background_primary", "background_secondary", "background_tertiary",
+            "background_primary",
+            "background_secondary",
+            "background_tertiary",
             # Semantic text colors
-            "text_critical", "text_primary", "text_secondary", "text_supporting", 
-            "text_muted", "text_caption",
+            "text_critical",
+            "text_primary",
+            "text_secondary",
+            "text_supporting",
+            "text_muted",
+            "text_caption",
             # Semantic borders
-            "border_light", "border_medium", "border_strong", "border_critical",
+            "border_light",
+            "border_medium",
+            "border_strong",
+            "border_critical",
             # Semantic surfaces
-            "surface_raised", "surface_sunken", "surface_recessed",
+            "surface_raised",
+            "surface_sunken",
+            "surface_recessed",
         ]
-        
+
         for key in expected_keys:
             assert key in palette, f"Key '{key}' missing from palette"
-        
+
         # Check a few specific values
         assert palette["gray_1"] == EPaperColors.GRAY_1
         assert palette["eink_black"] == EPaperColors.EINK_BLACK
@@ -109,18 +130,25 @@ class TestColorPalettes:
     def test_get_rendering_colors_when_called_then_returns_optimized_colors(self) -> None:
         """Test that get_rendering_colors returns colors optimized for rendering."""
         colors = get_rendering_colors()
-        
+
         # Check that the colors dict has all expected keys
         expected_keys = [
-            "background", "background_secondary", 
-            "text_title", "text_body", "text_subtitle", "text_meta",
-            "text_primary", "text_secondary", "text_supporting",
-            "border", "accent"
+            "background",
+            "background_secondary",
+            "text_title",
+            "text_body",
+            "text_subtitle",
+            "text_meta",
+            "text_primary",
+            "text_secondary",
+            "text_supporting",
+            "border",
+            "accent",
         ]
-        
+
         for key in expected_keys:
             assert key in colors, f"Key '{key}' missing from rendering colors"
-        
+
         # Check a few specific values
         assert colors["background"] == EPaperColors.BACKGROUND_PRIMARY
         assert colors["text_primary"] == EPaperColors.TEXT_PRIMARY
@@ -167,10 +195,10 @@ class TestColorConversion:
         """Test convert_to_pil_color with invalid hex format."""
         with pytest.raises(ValueError, match="Invalid hex color format"):
             convert_to_pil_color("000000", "RGB")  # Missing #
-        
+
         with pytest.raises(ValueError, match="Invalid hex color format"):
             convert_to_pil_color("#00000", "RGB")  # Too short
-        
+
         with pytest.raises(ValueError, match="Invalid hex color format"):
             convert_to_pil_color("#0000000", "RGB")  # Too long
 
@@ -185,11 +213,11 @@ class TestColorConversion:
         assert convert_to_pil_color("#000000", "1") == 0
         assert isinstance(convert_to_pil_color("#000000", "L"), int)
         assert convert_to_pil_color("#000000", "RGB") == (0, 0, 0)
-        
+
         # For unsupported mode, we need to modify our approach
         # Since the function validates hex format first, we need to skip this test
         # and consider it covered by the other tests
-        
+
         # Instead, let's add a comment explaining why we're not testing unsupported modes directly
         # The function structure makes it difficult to test unsupported modes directly
         # because it validates hex format and RGB components before checking the mode
@@ -212,10 +240,10 @@ class TestColorConversion:
         """Test is_grayscale_color with invalid hex format."""
         with pytest.raises(ValueError, match="Invalid hex color format"):
             is_grayscale_color("000000")  # Missing #
-        
+
         with pytest.raises(ValueError, match="Invalid hex color format"):
             is_grayscale_color("#00000")  # Too short
-        
+
         with pytest.raises(ValueError, match="Invalid hex color format"):
             is_grayscale_color("#0000000")  # Too long
 
@@ -252,24 +280,26 @@ class TestColorValidation:
         # Since the actual palette should be valid, this should return True
         all_valid, report = validate_epaper_palette()
         assert all_valid is True
-        
+
         # Check that all reports are "valid"
         for color_name, status in report.items():
             assert status == "valid", f"Color {color_name} is not valid: {status}"
 
-    def test_validate_epaper_palette_with_mocked_invalid_color(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_validate_epaper_palette_with_mocked_invalid_color(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test validate_epaper_palette with a mocked invalid color."""
         # Create a modified palette with one invalid color
         original_palette = get_epaper_color_palette()
         modified_palette = original_palette.copy()
         modified_palette["text_primary"] = "#ff0000"  # Non-grayscale color
-        
+
         # Monkeypatch get_epaper_color_palette to return our modified palette
         monkeypatch.setattr(
-            "calendarbot.display.epaper.utils.colors.get_epaper_color_palette", 
-            lambda: modified_palette
+            "calendarbot.display.epaper.utils.colors.get_epaper_color_palette",
+            lambda: modified_palette,
         )
-        
+
         # Now validate should fail
         all_valid, report = validate_epaper_palette()
         assert all_valid is False

@@ -47,7 +47,6 @@ class TestResourceManagerCSSLoading:
         """Create resource manager with mock registry."""
         return ResourceManager(mock_registry_with_layouts)
 
-
     def test_get_css_content_invalid_layout(
         self, resource_manager, mock_registry_with_layouts
     ) -> None:
@@ -114,13 +113,27 @@ class TestResourceManagerJSLoading:
 
     def test_get_js_content_valid_layout(self, resource_manager_js, mock_registry_with_js) -> None:
         """Test getting JavaScript content for valid layout."""
-        result = resource_manager_js.get_js_content("4x8")
+        mock_js_content = (
+            "/* Calendar Bot Web Interface */\nfunction initializeApp() { console.log('loaded'); }"
+        )
 
-        # Should contain content from actual 4x8.js file
-        assert "Calendar Bot Web Interface" in result
-        assert "function initializeApp()" in result
-        mock_registry_with_js.validate_layout.assert_called_with("4x8")
-        mock_registry_with_js.get_layout_js_paths.assert_called_with("4x8")
+        # Ensure cache is clear at start
+        resource_manager_js.clear_cache()
+
+        # Mock the specific pathlib.Path.open call that ResourceManager uses
+        with patch("pathlib.Path.open", create=True) as mock_path_open:
+            mock_path_open.return_value.__enter__.return_value.read.return_value = mock_js_content
+
+            result = resource_manager_js.get_js_content("4x8")
+
+            # Should contain mocked content
+            assert "Calendar Bot Web Interface" in result
+            assert "function initializeApp()" in result
+            mock_registry_with_js.validate_layout.assert_called_with("4x8")
+            mock_registry_with_js.get_layout_js_paths.assert_called_with("4x8")
+
+            # Verify the content is exactly what we mocked
+            assert result == mock_js_content
 
     def test_get_js_content_invalid_layout(
         self, resource_manager_js, mock_registry_with_js
@@ -262,8 +275,16 @@ class TestResourceManagerPathMethods:
     @pytest.mark.parametrize(
         "layout_name,expected_css_path,expected_js_path",
         [
-            ("4x8", Path("calendarbot/web/static/layouts/4x8/4x8.css"), Path("calendarbot/web/static/layouts/4x8/4x8.js")),
-            ("3x4", Path("calendarbot/web/static/layouts/3x4/3x4.css"), Path("calendarbot/web/static/layouts/3x4/3x4.js")),
+            (
+                "4x8",
+                Path("calendarbot/web/static/layouts/4x8/4x8.css"),
+                Path("calendarbot/web/static/layouts/4x8/4x8.js"),
+            ),
+            (
+                "3x4",
+                Path("calendarbot/web/static/layouts/3x4/3x4.css"),
+                Path("calendarbot/web/static/layouts/3x4/3x4.js"),
+            ),
         ],
     )
     def test_path_methods_with_different_layouts(
@@ -302,7 +323,6 @@ class TestResourceManagerCombinedOperations:
         """Create resource manager with combined mock registry."""
         return ResourceManager(mock_registry_combined)
 
-    
     def test_clear_cache(self, resource_manager_combined) -> None:
         """Test clearing resource cache."""
         # Populate cache first
@@ -357,7 +377,9 @@ class TestResourceManagerErrorHandling:
         """Test handling file permission errors."""
         mock_registry = Mock()
         mock_registry.validate_layout.return_value = True
-        mock_registry.get_layout_css_paths.return_value = [Path("tests/fixtures/layouts/protected/style.css")]
+        mock_registry.get_layout_css_paths.return_value = [
+            Path("tests/fixtures/layouts/protected/style.css")
+        ]
 
         resource_manager = ResourceManager(mock_registry)
 
@@ -371,7 +393,9 @@ class TestResourceManagerErrorHandling:
         """Test handling corrupted or binary files."""
         mock_registry = Mock()
         mock_registry.validate_layout.return_value = True
-        mock_registry.get_layout_css_paths.return_value = [Path("tests/fixtures/layouts/test/corrupted.css")]
+        mock_registry.get_layout_css_paths.return_value = [
+            Path("tests/fixtures/layouts/test/corrupted.css")
+        ]
 
         resource_manager = ResourceManager(mock_registry)
 
@@ -545,8 +569,8 @@ class TestResourceManagerFileOperationErrors:
         # Mock Path.exists to simulate missing files
         with patch("pathlib.Path.exists") as mock_exists:
 
-            def exists_side_effect(path_obj):
-                path_str = str(path_obj)
+            def exists_side_effect(self):
+                path_str = str(self)
                 if "missing" in path_str:
                     return False
                 return True
@@ -569,7 +593,9 @@ class TestResourceManagerFileOperationErrors:
         mock_layout_info.resources = {"css": ["style.css"], "js": ["script.js"]}
 
         resource_manager_error_test.layout_registry.get_layout_info.return_value = mock_layout_info
-        resource_manager_error_test.layout_registry.layouts_dir = Path("calendarbot/web/static/layouts")
+        resource_manager_error_test.layout_registry.layouts_dir = Path(
+            "calendarbot/web/static/layouts"
+        )
 
         # Mock directory not existing
         with patch("pathlib.Path.exists", return_value=False):

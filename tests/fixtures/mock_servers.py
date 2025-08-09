@@ -1,6 +1,5 @@
 """Mock HTTP servers for testing network operations."""
 
-import asyncio
 import json
 import threading
 import time
@@ -70,7 +69,6 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         """Suppress logging to avoid cluttering test output."""
-        pass
 
 
 class MockICSServer:
@@ -182,6 +180,53 @@ class MockWebServer:
         """Set a custom handler for an API endpoint."""
         self.api_responses[endpoint] = handler
 
+    def _handle_request(self, handler_self, method: str):
+        """Handle HTTP requests - moved from nested function to method."""
+        parsed_url = urlparse(handler_self.path)
+        path = parsed_url.path
+        query_params = parse_qs(parsed_url.query)
+
+        # Log the request
+        request_info = {
+            "method": method,
+            "path": path,
+            "query_params": query_params,
+            "timestamp": time.time(),
+        }
+
+        if method == "POST":
+            content_length = int(handler_self.headers.get("Content-Length", 0))
+            request_info["body"] = handler_self.rfile.read(content_length).decode()
+
+        self.request_log.append(request_info)
+
+        # Check if we have a custom handler for this endpoint
+        if path in self.api_responses:
+            try:
+                response = self.api_responses[path](request_info)
+
+                handler_self.send_response(response.get("status_code", 200))
+
+                headers = response.get("headers", {"Content-Type": "application/json"})
+                for header, value in headers.items():
+                    handler_self.send_header(header, value)
+                handler_self.end_headers()
+
+                content = response.get("content", "")
+                if isinstance(content, dict):
+                    content = json.dumps(content)
+                handler_self.wfile.write(content.encode())
+
+            except Exception as e:
+                handler_self.send_response(500)
+                handler_self.end_headers()
+                handler_self.wfile.write(f"Handler error: {e}".encode())
+        else:
+            # Default 404 response
+            handler_self.send_response(404)
+            handler_self.end_headers()
+            handler_self.wfile.write(b"API endpoint not found")
+
     def start(self):
         """Start the mock web server."""
         if self.running:
@@ -196,52 +241,6 @@ class MockWebServer:
 
             def log_message(handler_self, format, *args):
                 pass  # Suppress logging
-
-        def _handle_request(handler_self, method):
-            parsed_url = urlparse(handler_self.path)
-            path = parsed_url.path
-            query_params = parse_qs(parsed_url.query)
-
-            # Log the request
-            request_info = {
-                "method": method,
-                "path": path,
-                "query_params": query_params,
-                "timestamp": time.time(),
-            }
-
-            if method == "POST":
-                content_length = int(handler_self.headers.get("Content-Length", 0))
-                request_info["body"] = handler_self.rfile.read(content_length).decode()
-
-            self.request_log.append(request_info)
-
-            # Check if we have a custom handler for this endpoint
-            if path in self.api_responses:
-                try:
-                    response = self.api_responses[path](request_info)
-
-                    handler_self.send_response(response.get("status_code", 200))
-
-                    headers = response.get("headers", {"Content-Type": "application/json"})
-                    for header, value in headers.items():
-                        handler_self.send_header(header, value)
-                    handler_self.end_headers()
-
-                    content = response.get("content", "")
-                    if isinstance(content, dict):
-                        content = json.dumps(content)
-                    handler_self.wfile.write(content.encode())
-
-                except Exception as e:
-                    handler_self.send_response(500)
-                    handler_self.end_headers()
-                    handler_self.wfile.write(f"Handler error: {e}".encode())
-            else:
-                # Default 404 response
-                handler_self.send_response(404)
-                handler_self.end_headers()
-                handler_self.wfile.write(b"API endpoint not found")
 
         self.server = HTTPServer((self.host, self.port), WebHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -298,12 +297,11 @@ class NetworkSimulator:
                     "content": "Server Error",
                     "headers": {"Content-Type": "text/plain"},
                 }
-            else:
-                return {
-                    "status_code": 200,
-                    "content": ics_content,
-                    "headers": {"Content-Type": "text/calendar"},
-                }
+            return {
+                "status_code": 200,
+                "content": ics_content,
+                "headers": {"Content-Type": "text/calendar"},
+            }
 
         return server
 

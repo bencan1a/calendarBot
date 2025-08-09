@@ -3,9 +3,8 @@
 Tests cover mode registration, retrieval, execution, and error handling.
 """
 
-import asyncio
-from typing import Any, Callable, Dict, Optional
-from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
+from typing import Any, Dict
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -21,7 +20,7 @@ from calendarbot.cli.modes import (
 @pytest.fixture
 def mock_mode_registry() -> Dict[str, Dict[str, Any]]:
     """Create a mock mode registry for testing.
-    
+
     Returns:
         Dict[str, Dict[str, Any]]: A mock mode registry with test modes.
     """
@@ -46,7 +45,7 @@ def mock_mode_registry() -> Dict[str, Dict[str, Any]]:
 @pytest.fixture
 def mock_args() -> MagicMock:
     """Create a mock args object for testing.
-    
+
     Returns:
         MagicMock: A mock args object.
     """
@@ -60,11 +59,11 @@ class TestGetAvailableModes:
         """Test that get_available_modes returns a copy of the mode registry."""
         # Setup
         original_registry = {"mode1": {"name": "Mode 1"}}
-        
+
         with patch("calendarbot.cli.modes.MODE_REGISTRY", original_registry):
             # Execute
             result = get_available_modes()
-            
+
             # Verify
             assert result == original_registry
             assert result is not original_registry  # Should be a copy
@@ -78,11 +77,11 @@ class TestRegisterMode:
         # Setup
         test_registry = {}
         mock_handler = MagicMock()
-        
+
         with patch("calendarbot.cli.modes.MODE_REGISTRY", test_registry):
             # Execute
             register_mode("test_mode", mock_handler)
-            
+
             # Verify
             assert "test_mode" in test_registry
             # Fix for capitalization issue - match actual implementation
@@ -97,7 +96,7 @@ class TestRegisterMode:
         # Setup
         test_registry = {}
         mock_handler = MagicMock()
-        
+
         with patch("calendarbot.cli.modes.MODE_REGISTRY", test_registry):
             # Execute
             register_mode(
@@ -107,9 +106,9 @@ class TestRegisterMode:
                 description="Custom description",
                 requires_display=True,
                 async_mode=False,
-                custom_param="custom_value"
+                custom_param="custom_value",
             )
-            
+
             # Verify
             assert "custom_mode" in test_registry
             assert test_registry["custom_mode"]["name"] == "Custom Display Name"
@@ -131,7 +130,7 @@ class TestGetModeHandler:
         with patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry):
             # Execute
             handler = get_mode_handler("test_mode")
-            
+
             # Verify
             assert handler == mock_mode_registry["test_mode"]["handler"]
 
@@ -157,10 +156,12 @@ class TestGetModeHandler:
             "requires_display": False,
             "async_mode": True,
         }
-        
+
         with patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry):
             # Execute and verify
-            with pytest.raises(RuntimeError, match="Handler not yet migrated for mode: none_handler_mode"):
+            with pytest.raises(
+                RuntimeError, match="Handler not yet migrated for mode: none_handler_mode"
+            ):
                 get_mode_handler("none_handler_mode")
 
 
@@ -176,12 +177,14 @@ class TestExecuteMode:
         async_handler = AsyncMock()
         async_handler.return_value = 0
         mock_mode_registry["test_mode"]["handler"] = async_handler
-        
-        with patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry), \
-             patch("calendarbot.cli.modes.get_mode_handler", return_value=async_handler):
+
+        with (
+            patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry),
+            patch("calendarbot.cli.modes.get_mode_handler", return_value=async_handler),
+        ):
             # Execute
             result = await execute_mode("test_mode", mock_args)
-            
+
             # Verify
             assert result == 0
             async_handler.assert_called_once_with(mock_args)
@@ -195,12 +198,14 @@ class TestExecuteMode:
         sync_handler = MagicMock()
         sync_handler.return_value = 0
         mock_mode_registry["sync_mode"]["handler"] = sync_handler
-        
-        with patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry), \
-             patch("calendarbot.cli.modes.get_mode_handler", return_value=sync_handler):
+
+        with (
+            patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry),
+            patch("calendarbot.cli.modes.get_mode_handler", return_value=sync_handler),
+        ):
             # Execute
             result = await execute_mode("sync_mode", mock_args)
-            
+
             # Verify
             assert result == 0
             sync_handler.assert_called_once_with(mock_args)
@@ -214,12 +219,14 @@ class TestExecuteMode:
         async_handler = AsyncMock()
         async_handler.return_value = None
         mock_mode_registry["test_mode"]["handler"] = async_handler
-        
-        with patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry), \
-             patch("calendarbot.cli.modes.get_mode_handler", return_value=async_handler):
+
+        with (
+            patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry),
+            patch("calendarbot.cli.modes.get_mode_handler", return_value=async_handler),
+        ):
             # Execute
             result = await execute_mode("test_mode", mock_args)
-            
+
             # Verify
             assert result == 0
             async_handler.assert_called_once_with(mock_args)
@@ -230,11 +237,16 @@ class TestExecuteMode:
     ) -> None:
         """Test execution with unknown mode."""
         # Setup
-        with patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry), \
-             patch("calendarbot.cli.modes.get_mode_handler", side_effect=KeyError("Unknown mode: unknown_mode")):
+        with (
+            patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry),
+            patch(
+                "calendarbot.cli.modes.get_mode_handler",
+                side_effect=KeyError("Unknown mode: unknown_mode"),
+            ),
+        ):
             # Execute
             result = await execute_mode("unknown_mode", mock_args)
-            
+
             # Verify
             assert result == 1
 
@@ -244,12 +256,16 @@ class TestExecuteMode:
     ) -> None:
         """Test execution when handler is not migrated."""
         # Setup
-        with patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry), \
-             patch("calendarbot.cli.modes.get_mode_handler", 
-                   side_effect=RuntimeError("Handler not yet migrated for mode: test_mode")):
+        with (
+            patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry),
+            patch(
+                "calendarbot.cli.modes.get_mode_handler",
+                side_effect=RuntimeError("Handler not yet migrated for mode: test_mode"),
+            ),
+        ):
             # Execute
             result = await execute_mode("test_mode", mock_args)
-            
+
             # Verify
             assert result == 1
 
@@ -262,12 +278,14 @@ class TestExecuteMode:
         async_handler = AsyncMock()
         async_handler.side_effect = Exception("Test error")
         mock_mode_registry["test_mode"]["handler"] = async_handler
-        
-        with patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry), \
-             patch("calendarbot.cli.modes.get_mode_handler", return_value=async_handler):
+
+        with (
+            patch("calendarbot.cli.modes.MODE_REGISTRY", mock_mode_registry),
+            patch("calendarbot.cli.modes.get_mode_handler", return_value=async_handler),
+        ):
             # Execute
             result = await execute_mode("test_mode", mock_args)
-            
+
             # Verify
             assert result == 1
             async_handler.assert_called_once_with(mock_args)
@@ -283,7 +301,7 @@ class TestModeRegistry:
         assert "web" in MODE_REGISTRY
         assert "epaper" in MODE_REGISTRY
         assert "daemon" in MODE_REGISTRY
-        
+
         # Check structure of a mode entry
         for mode_name, mode_info in MODE_REGISTRY.items():
             assert "name" in mode_info

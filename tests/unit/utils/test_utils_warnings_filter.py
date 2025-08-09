@@ -1,44 +1,46 @@
 """Comprehensive tests for calendarbot.utils.warnings_filter module."""
 
 import warnings
-from unittest.mock import patch, call
-
-import pytest
+from unittest.mock import call, patch
 
 from calendarbot.utils.warnings_filter import (
-    suppress_websockets_deprecation_warnings,
-    suppress_datetime_deprecation_warnings,
-    suppress_browser_test_warnings,
-    get_filtered_warning_categories,
     apply_test_warning_filters,
     filter_warnings,
+    get_filtered_warning_categories,
+    suppress_browser_test_warnings,
+    suppress_datetime_deprecation_warnings,
+    suppress_websockets_deprecation_warnings,
 )
 
 
 class TestSuppressWebsocketsDeprecationWarnings:
     """Test suppress_websockets_deprecation_warnings function."""
 
-    def test_suppress_websockets_deprecation_warnings_when_called_then_filters_applied(self) -> None:
+    def test_suppress_websockets_deprecation_warnings_when_called_then_filters_applied(
+        self,
+    ) -> None:
         """Test that websockets deprecation warnings are filtered correctly."""
         with patch("warnings.filterwarnings") as mock_filter:
             suppress_websockets_deprecation_warnings()
 
             # Verify the correct filters were applied
             assert mock_filter.call_count == 2
-            mock_filter.assert_has_calls([
-                call(
-                    "ignore",
-                    category=DeprecationWarning,
-                    message="remove loop argument",
-                    module="websockets.legacy.client",
-                ),
-                call(
-                    "ignore",
-                    category=DeprecationWarning,
-                    message="remove loop argument",
-                    module="websockets.legacy.protocol",
-                ),
-            ])
+            mock_filter.assert_has_calls(
+                [
+                    call(
+                        "ignore",
+                        category=DeprecationWarning,
+                        message="remove loop argument",
+                        module="websockets.legacy.client",
+                    ),
+                    call(
+                        "ignore",
+                        category=DeprecationWarning,
+                        message="remove loop argument",
+                        module="websockets.legacy.protocol",
+                    ),
+                ]
+            )
 
 
 class TestSuppressDatetimeDeprecationWarnings:
@@ -51,20 +53,22 @@ class TestSuppressDatetimeDeprecationWarnings:
 
             # Verify the correct filters were applied
             assert mock_filter.call_count == 2
-            mock_filter.assert_has_calls([
-                call(
-                    "ignore",
-                    category=DeprecationWarning,
-                    message=r"datetime.datetime.utcfromtimestamp\(\) is deprecated.*",
-                    module="pytz.tzinfo",
-                ),
-                call(
-                    "ignore",
-                    category=DeprecationWarning,
-                    message=r"datetime.datetime.utcfromtimestamp\(\) is deprecated.*",
-                    module="dateutil.tz.tz",
-                ),
-            ])
+            mock_filter.assert_has_calls(
+                [
+                    call(
+                        "ignore",
+                        category=DeprecationWarning,
+                        message=r"datetime.datetime.utcfromtimestamp\(\) is deprecated.*",
+                        module="pytz.tzinfo",
+                    ),
+                    call(
+                        "ignore",
+                        category=DeprecationWarning,
+                        message=r"datetime.datetime.utcfromtimestamp\(\) is deprecated.*",
+                        module="dateutil.tz.tz",
+                    ),
+                ]
+            )
 
 
 class TestSuppressBrowserTestWarnings:
@@ -72,8 +76,12 @@ class TestSuppressBrowserTestWarnings:
 
     def test_suppress_browser_test_warnings_when_called_then_calls_other_functions(self) -> None:
         """Test that suppress_browser_test_warnings calls the other suppression functions."""
-        with patch("calendarbot.utils.warnings_filter.suppress_websockets_deprecation_warnings") as mock_websockets:
-            with patch("calendarbot.utils.warnings_filter.suppress_datetime_deprecation_warnings") as mock_datetime:
+        with patch(
+            "calendarbot.utils.warnings_filter.suppress_websockets_deprecation_warnings"
+        ) as mock_websockets:
+            with patch(
+                "calendarbot.utils.warnings_filter.suppress_datetime_deprecation_warnings"
+            ) as mock_datetime:
                 suppress_browser_test_warnings()
 
                 # Verify both suppression functions were called
@@ -109,9 +117,13 @@ class TestGetFilteredWarningCategories:
 class TestApplyTestWarningFilters:
     """Test apply_test_warning_filters function."""
 
-    def test_apply_test_warning_filters_when_called_then_calls_suppress_browser_test_warnings(self) -> None:
+    def test_apply_test_warning_filters_when_called_then_calls_suppress_browser_test_warnings(
+        self,
+    ) -> None:
         """Test that apply_test_warning_filters calls suppress_browser_test_warnings."""
-        with patch("calendarbot.utils.warnings_filter.suppress_browser_test_warnings") as mock_suppress:
+        with patch(
+            "calendarbot.utils.warnings_filter.suppress_browser_test_warnings"
+        ) as mock_suppress:
             apply_test_warning_filters()
 
             # Verify suppress_browser_test_warnings was called
@@ -141,11 +153,7 @@ class TestWarningsFilterIntegration:
         # Test that websockets deprecation warnings are suppressed
         with warnings.catch_warnings(record=True) as recorded_warnings:
             # Trigger a warning that should be suppressed
-            warnings.warn(
-                "remove loop argument",
-                DeprecationWarning,
-                stacklevel=2
-            )
+            warnings.warn("remove loop argument", DeprecationWarning, stacklevel=2)
 
             # No warnings should be recorded if the filter is working
             # Note: This is an imperfect test since we can't fully simulate the module context
@@ -159,15 +167,15 @@ class TestWarningsFilterIntegration:
                 # Simulate running the module as a script
                 # We need to execute the code that would run in the if __name__ == "__main__" block
                 from calendarbot.utils.warnings_filter import get_filtered_warning_categories
-                
+
                 # Apply warning filters
                 apply_test_warning_filters()
-                
+
                 # Print the filtered warning categories
                 print("Applied warning filters for:")
                 for warning_type, description in get_filtered_warning_categories():
                     print(f"  - {warning_type}: {description}")
-                
+
                 # Verify print was called with the expected messages
                 assert mock_print.call_count >= 3  # Header + at least 2 warning categories
                 mock_print.assert_any_call("Applied warning filters for:")

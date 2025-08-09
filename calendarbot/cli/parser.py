@@ -165,6 +165,9 @@ Examples:
   %(prog)s --web --port 3000 --auto-open  # Run web server on port 3000 and open browser
   %(prog)s --epaper                  # Run in e-paper display mode with hardware auto-detection
   %(prog)s --rpi --web               # Run in RPI e-ink mode with web interface
+  %(prog)s --daemon --port 3000      # Start daemon mode on port 3000 (detaches from terminal)
+  %(prog)s --daemon-status           # Check status of running daemon service
+  %(prog)s --daemon-stop             # Stop running daemon service gracefully
         """,
     )
 
@@ -404,6 +407,28 @@ Examples:
 
     logging_group.add_argument(
         "--log-lines", type=int, help="Number of log lines to show in interactive mode (default: 5)"
+    )
+
+    # Daemon mode arguments
+    daemon_group = parser.add_argument_group("daemon", "Background daemon service options")
+
+    daemon_group.add_argument(
+        "--daemon",
+        "-d",
+        action="store_true",
+        help="Run in background daemon mode with web interface (detaches from terminal)",
+    )
+
+    daemon_group.add_argument(
+        "--daemon-status",
+        action="store_true",
+        help="Check status of running daemon service (PID, uptime, port, health)",
+    )
+
+    daemon_group.add_argument(
+        "--daemon-stop",
+        action="store_true",
+        help="Stop running daemon service gracefully and cleanup PID file",
     )
 
     return parser

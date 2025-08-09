@@ -38,6 +38,11 @@ class TestMainEntry:
         args.web = False
         args.epaper = False  # Add missing epaper mode argument
 
+        # Daemon mode arguments (newly added CLI options)
+        args.daemon = False
+        args.daemon_status = False
+        args.daemon_stop = False
+
         # Test mode arguments
         args.date = None
         args.end_date = None
@@ -76,11 +81,12 @@ class TestMainEntry:
         """Test main_entry setup wizard simple mode (choice 2) should work."""
         mock_parser_args.setup = True
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "builtins.input", return_value="2"
-        ), patch("builtins.print"), patch(
-            "calendarbot.setup_wizard.run_simple_wizard", return_value=True
-        ) as mock_simple:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("builtins.input", return_value="2"),
+            patch("builtins.print"),
+            patch("calendarbot.setup_wizard.run_simple_wizard", return_value=True) as mock_simple,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -95,9 +101,10 @@ class TestMainEntry:
         """Test main_entry with backup configuration argument."""
         mock_parser_args.backup = True
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.backup_configuration"
-        ) as mock_backup:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.backup_configuration") as mock_backup,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -113,9 +120,10 @@ class TestMainEntry:
         """Test main_entry with restore configuration argument."""
         mock_parser_args.restore = "backup_file.yaml"
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.restore_configuration"
-        ) as mock_restore:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.restore_configuration") as mock_restore,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -131,9 +139,10 @@ class TestMainEntry:
         """Test main_entry with list backups argument."""
         mock_parser_args.list_backups = True
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.list_backups"
-        ) as mock_list:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.list_backups") as mock_list,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -149,9 +158,10 @@ class TestMainEntry:
         """Test main_entry with test mode argument."""
         mock_parser_args.test_mode = True
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.run_test_mode", new_callable=AsyncMock
-        ) as mock_test_mode:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.run_test_mode", new_callable=AsyncMock) as mock_test_mode,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -165,11 +175,12 @@ class TestMainEntry:
     @pytest.mark.asyncio
     async def test_main_entry_not_configured(self, mock_parser_args, capsys):
         """Test main_entry when not configured."""
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.check_configuration"
-        ) as mock_check_config, patch("calendarbot.cli.show_setup_guidance") as mock_guidance, patch(
-            "calendarbot.cli.run_web_mode", new_callable=AsyncMock
-        ) as mock_web_mode:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.check_configuration") as mock_check_config,
+            patch("calendarbot.cli.show_setup_guidance") as mock_guidance,
+            patch("calendarbot.cli.run_web_mode", new_callable=AsyncMock) as mock_web_mode,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -191,9 +202,13 @@ class TestMainEntry:
         """Test main_entry in interactive mode when configured."""
         mock_parser_args.interactive = True
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.check_configuration"
-        ) as mock_check_config, patch("calendarbot.cli.run_interactive_mode", new_callable=AsyncMock) as mock_interactive:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.check_configuration") as mock_check_config,
+            patch(
+                "calendarbot.cli.run_interactive_mode", new_callable=AsyncMock
+            ) as mock_interactive,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -208,9 +223,11 @@ class TestMainEntry:
     @pytest.mark.asyncio
     async def test_main_entry_configured_web_mode_default(self, mock_parser_args):
         """Test main_entry defaults to web mode when configured."""
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.check_configuration"
-        ) as mock_check_config, patch("calendarbot.cli.run_web_mode", new_callable=AsyncMock) as mock_web:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.check_configuration") as mock_check_config,
+            patch("calendarbot.cli.run_web_mode", new_callable=AsyncMock) as mock_web,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -227,9 +244,11 @@ class TestMainEntry:
         """Test main_entry with explicit web mode argument."""
         mock_parser_args.web = True
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.check_configuration"
-        ) as mock_check_config, patch("calendarbot.cli.run_web_mode", new_callable=AsyncMock) as mock_web:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.check_configuration") as mock_check_config,
+            patch("calendarbot.cli.run_web_mode", new_callable=AsyncMock) as mock_web,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -248,9 +267,10 @@ class TestMainEntry:
         mock_parser_args.interactive = True
         mock_parser_args.web = True
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.check_configuration"
-        ) as mock_check_config:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.check_configuration") as mock_check_config,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_parser.error.side_effect = (
@@ -270,9 +290,10 @@ class TestMainEntry:
         """Test that test mode can run even without configuration."""
         mock_parser_args.test_mode = True
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.run_test_mode", new_callable=AsyncMock
-        ) as mock_test_mode:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.run_test_mode", new_callable=AsyncMock) as mock_test_mode,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -290,9 +311,11 @@ class TestMainEntry:
         delattr(mock_parser_args, "setup")
         delattr(mock_parser_args, "backup")
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.check_configuration"
-        ) as mock_check_config, patch("calendarbot.cli.run_web_mode", new_callable=AsyncMock) as mock_web:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.check_configuration") as mock_check_config,
+            patch("calendarbot.cli.run_web_mode", new_callable=AsyncMock) as mock_web,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -323,9 +346,10 @@ class TestMainEntry:
         for attr, value in mode_args.items():
             setattr(mock_parser_args, attr, value)
 
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.check_configuration"
-        ) as mock_check_config:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.check_configuration") as mock_check_config,
+        ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
@@ -345,7 +369,9 @@ class TestMainEntry:
                     result = await main_entry()
                     assert result == 0
             elif mode_args.get("interactive", False):
-                with patch("calendarbot.cli.run_interactive_mode", new_callable=AsyncMock) as mock_mode:
+                with patch(
+                    "calendarbot.cli.run_interactive_mode", new_callable=AsyncMock
+                ) as mock_mode:
                     mock_mode.return_value = 0
                     result = await main_entry()
                     assert result == 0
@@ -375,9 +401,10 @@ class TestMainEntry:
             for attr, value in args_dict.items():
                 setattr(mock_parser_args, attr, value)
 
-            with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-                f"calendarbot.cli.{mock_func_name}"
-            ) as mock_func:
+            with (
+                patch("calendarbot.cli.create_parser") as mock_create_parser,
+                patch(f"calendarbot.cli.{mock_func_name}") as mock_func,
+            ):
                 mock_parser = MagicMock()
                 mock_parser.parse_args.return_value = mock_parser_args
                 mock_create_parser.return_value = mock_parser
@@ -406,9 +433,11 @@ class TestMainEntry:
             for attr, value in args_dict.items():
                 setattr(mock_parser_args, attr, value)
 
-            with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-                "calendarbot.cli.check_configuration"
-            ) as mock_check_config, patch(f"calendarbot.cli.{mock_func_name}", new_callable=AsyncMock) as mock_func:
+            with (
+                patch("calendarbot.cli.create_parser") as mock_create_parser,
+                patch("calendarbot.cli.check_configuration") as mock_check_config,
+                patch(f"calendarbot.cli.{mock_func_name}", new_callable=AsyncMock) as mock_func,
+            ):
                 mock_parser = MagicMock()
                 mock_parser.parse_args.return_value = mock_parser_args
                 mock_create_parser.return_value = mock_parser
@@ -511,9 +540,11 @@ class TestCliIntegration:
     @pytest.mark.asyncio
     async def test_main_entry_integration_flow(self):
         """Test main_entry integration with typical argument flow."""
-        with patch("calendarbot.cli.create_parser") as mock_create_parser, patch(
-            "calendarbot.cli.check_configuration"
-        ) as mock_check_config, patch("calendarbot.cli.run_web_mode", new_callable=AsyncMock) as mock_web_mode:
+        with (
+            patch("calendarbot.cli.create_parser") as mock_create_parser,
+            patch("calendarbot.cli.check_configuration") as mock_check_config,
+            patch("calendarbot.cli.run_web_mode", new_callable=AsyncMock) as mock_web_mode,
+        ):
             # Create realistic args
             args = MagicMock()
             args.setup = False
@@ -524,6 +555,11 @@ class TestCliIntegration:
             args.interactive = False
             args.web = False
             args.epaper = False
+
+            # Add missing daemon arguments
+            args.daemon = False
+            args.daemon_status = False
+            args.daemon_stop = False
 
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = args

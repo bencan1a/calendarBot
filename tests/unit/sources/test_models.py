@@ -1,8 +1,7 @@
 """Tests for source models."""
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -30,7 +29,7 @@ class TestSourceType:
         """Test SourceType enum can be used as string."""
         # Arrange
         source_type = SourceType.ICS
-        
+
         # Act & Assert
         # Use the value property to get the string representation
         assert f"Type: {source_type.value}" == "Type: ics"
@@ -52,7 +51,7 @@ class TestSourceStatus:
         """Test SourceStatus enum can be used as string."""
         # Arrange
         status = SourceStatus.HEALTHY
-        
+
         # Act & Assert
         # Use the value property to get the string representation
         assert f"Status: {status.value}" == "Status: healthy"
@@ -69,7 +68,7 @@ class TestSourceConfig:
             type="ics",
             url="https://example.com/calendar.ics",
         )
-        
+
         # Assert
         assert config.name == "Test Source"
         assert config.type == "ics"
@@ -95,7 +94,7 @@ class TestSourceConfig:
             max_retries=5,
             retry_backoff=2.0,
         )
-        
+
         # Assert
         assert config.name == "Test Source"
         assert config.type == "ics"
@@ -130,7 +129,7 @@ class TestSourceConfig:
             type=SourceType.ICS.value,
             url="https://example.com/calendar.ics",
         )
-        
+
         # Assert
         assert config.type == "ics"
 
@@ -142,7 +141,7 @@ class TestSourceHealthCheck:
         """Test SourceHealthCheck creates instance with default values."""
         # Arrange & Act
         health = SourceHealthCheck()
-        
+
         # Assert
         assert health.status == SourceStatus.UNKNOWN
         assert health.response_time_ms is None
@@ -158,7 +157,7 @@ class TestSourceHealthCheck:
         """Test SourceHealthCheck creates instance with custom values."""
         # Arrange
         now = datetime.now()
-        
+
         # Act
         health = SourceHealthCheck(
             timestamp=now,
@@ -172,7 +171,7 @@ class TestSourceHealthCheck:
             last_successful_fetch=now,
             events_fetched=42,
         )
-        
+
         # Assert
         assert health.timestamp == now
         assert health.status == SourceStatus.HEALTHY
@@ -189,7 +188,7 @@ class TestSourceHealthCheck:
         """Test is_healthy returns True when status is HEALTHY."""
         # Arrange
         health = SourceHealthCheck(status=SourceStatus.HEALTHY)
-        
+
         # Act & Assert
         assert health.is_healthy is True
 
@@ -198,7 +197,7 @@ class TestSourceHealthCheck:
         # Arrange
         health_error = SourceHealthCheck(status=SourceStatus.ERROR)
         health_unknown = SourceHealthCheck(status=SourceStatus.UNKNOWN)
-        
+
         # Act & Assert
         assert health_error.is_healthy is False
         assert health_unknown.is_healthy is False
@@ -207,7 +206,7 @@ class TestSourceHealthCheck:
         """Test has_errors returns True when status is ERROR."""
         # Arrange
         health = SourceHealthCheck(status=SourceStatus.ERROR)
-        
+
         # Act & Assert
         assert health.has_errors is True
 
@@ -216,7 +215,7 @@ class TestSourceHealthCheck:
         # Arrange
         health_healthy = SourceHealthCheck(status=SourceStatus.HEALTHY)
         health_unknown = SourceHealthCheck(status=SourceStatus.UNKNOWN)
-        
+
         # Act & Assert
         assert health_healthy.has_errors is False
         assert health_unknown.has_errors is False
@@ -225,14 +224,14 @@ class TestSourceHealthCheck:
         """Test update_success updates fields correctly."""
         # Arrange
         health = SourceHealthCheck()
-        
+
         # Act
         with patch("calendarbot.sources.models.datetime") as mock_datetime:
             mock_now = datetime.now()
             mock_datetime.now.return_value = mock_now
-            
+
             health.update_success(150.5, 42)
-            
+
             # Assert
             assert health.status == SourceStatus.HEALTHY
             assert health.response_time_ms == 150.5
@@ -244,10 +243,10 @@ class TestSourceHealthCheck:
         """Test update_error updates fields correctly."""
         # Arrange
         health = SourceHealthCheck()
-        
+
         # Act
         health.update_error("Test error", 500)
-        
+
         # Assert
         assert health.status == SourceStatus.ERROR
         assert health.error_message == "Test error"
@@ -262,7 +261,7 @@ class TestSourceMetrics:
         """Test SourceMetrics creates instance with default values."""
         # Arrange & Act
         metrics = SourceMetrics()
-        
+
         # Assert
         assert metrics.total_requests == 0
         assert metrics.successful_requests == 0
@@ -283,7 +282,7 @@ class TestSourceMetrics:
         """Test SourceMetrics creates instance with custom values."""
         # Arrange
         now = datetime.now()
-        
+
         # Act
         metrics = SourceMetrics(
             total_requests=10,
@@ -301,7 +300,7 @@ class TestSourceMetrics:
             last_fetch_time=now,
             last_successful_fetch=now,
         )
-        
+
         # Assert
         assert metrics.total_requests == 10
         assert metrics.successful_requests == 8
@@ -322,7 +321,7 @@ class TestSourceMetrics:
         """Test success_rate returns 0 when no requests."""
         # Arrange
         metrics = SourceMetrics()
-        
+
         # Act & Assert
         assert metrics.success_rate == 0.0
 
@@ -330,7 +329,7 @@ class TestSourceMetrics:
         """Test success_rate calculates percentage correctly."""
         # Arrange
         metrics = SourceMetrics(total_requests=10, successful_requests=8)
-        
+
         # Act & Assert
         assert metrics.success_rate == 80.0
 
@@ -338,7 +337,7 @@ class TestSourceMetrics:
         """Test is_recently_successful returns False when no successful fetch."""
         # Arrange
         metrics = SourceMetrics()
-        
+
         # Act & Assert
         assert metrics.is_recently_successful is False
 
@@ -347,7 +346,7 @@ class TestSourceMetrics:
         # Arrange
         now = datetime.now()
         metrics = SourceMetrics(last_successful_fetch=now)
-        
+
         # Act & Assert
         with patch("calendarbot.sources.models.datetime") as mock_datetime:
             mock_datetime.now.return_value = now + timedelta(minutes=5)
@@ -358,7 +357,7 @@ class TestSourceMetrics:
         # Arrange
         now = datetime.now()
         metrics = SourceMetrics(last_successful_fetch=now)
-        
+
         # Act & Assert
         with patch("calendarbot.sources.models.datetime") as mock_datetime:
             mock_datetime.now.return_value = now + timedelta(hours=25)
@@ -368,14 +367,14 @@ class TestSourceMetrics:
         """Test record_success initializes metrics on first success."""
         # Arrange
         metrics = SourceMetrics()
-        
+
         # Act
         with patch("calendarbot.sources.models.datetime") as mock_datetime:
             mock_now = datetime.now()
             mock_datetime.now.return_value = mock_now
-            
+
             metrics.record_success(150.5, 42)
-            
+
             # Assert
             assert metrics.total_requests == 1
             assert metrics.successful_requests == 1
@@ -408,14 +407,14 @@ class TestSourceMetrics:
             last_fetch_time=now - timedelta(hours=1),
             last_successful_fetch=now - timedelta(hours=1),
         )
-        
+
         # Act
         with patch("calendarbot.sources.models.datetime") as mock_datetime:
             mock_now = now
             mock_datetime.now.return_value = mock_now
-            
+
             metrics.record_success(150.5, 42)
-            
+
             # Assert
             assert metrics.total_requests == 6
             assert metrics.successful_requests == 5
@@ -433,14 +432,14 @@ class TestSourceMetrics:
         """Test record_failure initializes metrics on first failure."""
         # Arrange
         metrics = SourceMetrics()
-        
+
         # Act
         with patch("calendarbot.sources.models.datetime") as mock_datetime:
             mock_now = datetime.now()
             mock_datetime.now.return_value = mock_now
-            
+
             metrics.record_failure("Test error")
-            
+
             # Assert
             assert metrics.total_requests == 1
             assert metrics.successful_requests == 0
@@ -472,14 +471,14 @@ class TestSourceMetrics:
             last_fetch_time=now - timedelta(hours=1),
             last_successful_fetch=now - timedelta(hours=2),
         )
-        
+
         # Act
         with patch("calendarbot.sources.models.datetime") as mock_datetime:
             mock_now = now
             mock_datetime.now.return_value = mock_now
-            
+
             metrics.record_failure("New error")
-            
+
             # Assert
             assert metrics.total_requests == 6
             assert metrics.successful_requests == 4
@@ -505,14 +504,14 @@ class TestSourceInfo:
         )
         health = SourceHealthCheck()
         metrics = SourceMetrics()
-        
+
         # Act
         info = SourceInfo(
             config=config,
             health=health,
             metrics=metrics,
         )
-        
+
         # Assert
         assert info.config == config
         assert info.health == health
@@ -531,7 +530,7 @@ class TestSourceInfo:
         health = SourceHealthCheck()
         metrics = SourceMetrics()
         now = datetime.now()
-        
+
         # Act
         info = SourceInfo(
             config=config,
@@ -540,7 +539,7 @@ class TestSourceInfo:
             last_cache_update=now,
             cached_events_count=42,
         )
-        
+
         # Assert
         assert info.config == config
         assert info.health == health
@@ -561,7 +560,7 @@ class TestSourceInfo:
             health=SourceHealthCheck(),
             metrics=SourceMetrics(),
         )
-        
+
         # Act & Assert
         assert info.display_name == "Test Source"
 
@@ -580,7 +579,7 @@ class TestSourceInfo:
             health=health,
             metrics=SourceMetrics(),
         )
-        
+
         # Act & Assert
         assert info.is_operational is True
 
@@ -599,7 +598,7 @@ class TestSourceInfo:
             health=health,
             metrics=SourceMetrics(),
         )
-        
+
         # Act & Assert
         assert info.is_operational is False
 
@@ -618,7 +617,7 @@ class TestSourceInfo:
             health=health,
             metrics=SourceMetrics(),
         )
-        
+
         # Act & Assert
         assert info.is_operational is False
 
@@ -636,7 +635,7 @@ class TestSourceInfo:
             health=SourceHealthCheck(),
             metrics=SourceMetrics(),
         )
-        
+
         # Act & Assert
         assert info.status_summary == "Disabled"
 
@@ -656,7 +655,7 @@ class TestSourceInfo:
             health=health,
             metrics=metrics,
         )
-        
+
         # Act & Assert
         assert info.status_summary == "Healthy (42 events)"
 
@@ -678,7 +677,7 @@ class TestSourceInfo:
             health=health,
             metrics=SourceMetrics(),
         )
-        
+
         # Act & Assert
         assert info.status_summary == "Error: Connection failed"
 
@@ -697,7 +696,7 @@ class TestSourceInfo:
             health=health,
             metrics=SourceMetrics(),
         )
-        
+
         # Act & Assert
         assert info.status_summary == "Unknown"
 
@@ -729,10 +728,10 @@ class TestSourceInfo:
             metrics=metrics,
             cached_events_count=42,
         )
-        
+
         # Act
         status_dict = info.get_status_dict()
-        
+
         # Assert
         assert status_dict["name"] == "Test Source"
         assert status_dict["type"] == "ics"

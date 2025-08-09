@@ -2,9 +2,10 @@
 
 import logging
 import tempfile
+from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, Generator, List
+from typing import Any, Dict, List
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -47,7 +48,7 @@ def test_settings() -> Any:
 
             # Display settings
             self.display_type = "console"
-            
+
             # Missing display dimensions that tests expect
             self.compact_display_width = 800
             self.compact_display_height = 480
@@ -56,6 +57,7 @@ def test_settings() -> Any:
 
             # E-Paper configuration (matches CalendarBotSettings structure)
             from calendarbot.config.settings import EpaperConfiguration
+
             self.epaper = EpaperConfiguration()
 
             # Web settings
@@ -155,7 +157,9 @@ def sample_calendar_events(sample_events: List[Any]) -> List[Any]:
 
 # Test database with populated data
 @pytest_asyncio.fixture
-async def populated_test_database(test_settings: Any, sample_events: List[Any]) -> AsyncGenerator[Any, None]:
+async def populated_test_database(
+    test_settings: Any, sample_events: List[Any]
+) -> AsyncGenerator[Any, None]:
     """Create test database with sample data."""
     from calendarbot.cache.manager import CacheManager
 
@@ -181,14 +185,15 @@ async def populated_test_database(test_settings: Any, sample_events: List[Any]) 
     try:
         await cache_mgr.clear_cache()
         # Database cleanup is handled by CacheManager.clear_cache()
-        pass
     except Exception as e:
         logging.warning(f"Test database cleanup failed: {e}")
 
 
 # Stale cache database for freshness testing
 @pytest_asyncio.fixture
-async def stale_cache_database(test_settings: Any, sample_events: List[Any]) -> AsyncGenerator[Any, None]:
+async def stale_cache_database(
+    test_settings: Any, sample_events: List[Any]
+) -> AsyncGenerator[Any, None]:
     """Create test database with stale data."""
     from calendarbot.cache.manager import CacheManager
 
@@ -226,7 +231,6 @@ async def stale_cache_database(test_settings: Any, sample_events: List[Any]) -> 
     try:
         await cache_mgr.clear_cache()
         # Database cleanup is handled by CacheManager.clear_cache()
-        pass
     except Exception as e:
         logging.warning(f"Stale database cleanup failed: {e}")
 
@@ -283,7 +287,6 @@ async def performance_test_database(test_settings: Any) -> AsyncGenerator[Any, N
     try:
         await cache_mgr.clear_cache()
         # Database cleanup is handled by CacheManager.clear_cache()
-        pass
     except Exception as e:
         logging.warning(f"Performance database cleanup failed: {e}")
 
@@ -407,6 +410,7 @@ def performance_tracker() -> Any:
             duration = self.get_duration(name)
             if duration > max_duration:
                 import pytest
+
                 pytest.fail(f"{name} took {duration:.3f}s, expected <= {max_duration}s")
 
     return PerformanceTracker()

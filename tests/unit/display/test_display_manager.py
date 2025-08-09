@@ -263,9 +263,10 @@ class TestDisplayManagerDisplayEvents:
         manager.renderer.render_events.return_value = "rendered content"
         manager.renderer.display_with_clear = Mock()
 
-        with patch("builtins.print") as mock_print, patch(
-            "calendarbot.display.manager.datetime"
-        ) as mock_datetime:
+        with (
+            patch("builtins.print") as mock_print,
+            patch("calendarbot.display.manager.datetime") as mock_datetime,
+        ):
             mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
 
             result = await manager.display_events(events, status_info, clear_screen=True)
@@ -291,9 +292,10 @@ class TestDisplayManagerDisplayEvents:
 
         manager.renderer.render_events.return_value = "rendered content"
 
-        with patch("builtins.print") as mock_print, patch(
-            "calendarbot.display.manager.datetime"
-        ) as mock_datetime:
+        with (
+            patch("builtins.print") as mock_print,
+            patch("calendarbot.display.manager.datetime") as mock_datetime,
+        ):
             mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
 
             result = await manager.display_events(events, clear_screen=False)
@@ -311,9 +313,10 @@ class TestDisplayManagerDisplayEvents:
         # Remove display_with_clear method to simulate basic renderer
         delattr(manager.renderer, "display_with_clear")
 
-        with patch("builtins.print") as mock_print, patch(
-            "calendarbot.display.manager.datetime"
-        ) as mock_datetime:
+        with (
+            patch("builtins.print") as mock_print,
+            patch("calendarbot.display.manager.datetime") as mock_datetime,
+        ):
             mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
 
             result = await manager.display_events(events, clear_screen=True)
@@ -351,9 +354,10 @@ class TestDisplayManagerDisplayEvents:
 
         manager.renderer.render_events.return_value = "content"
 
-        with patch("builtins.print"), patch(
-            "calendarbot.display.manager.datetime"
-        ) as mock_datetime:
+        with (
+            patch("builtins.print"),
+            patch("calendarbot.display.manager.datetime") as mock_datetime,
+        ):
             mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
 
             result = await manager.display_events(events, status_info=None)
@@ -567,13 +571,16 @@ class TestDisplayManagerDisplayStatus:
 
         # Add logging to debug the issue
         import logging
+
         logger = logging.getLogger("test_debug")
         logger.setLevel(logging.DEBUG)
         logger.debug("Attempting to patch ConsoleRenderer in TestDisplayManagerDisplayStatus")
-        
+
         try:
             with patch("calendarbot.display.console_renderer.ConsoleRenderer"):
-                logger.debug("Successfully patched calendarbot.display.console_renderer.ConsoleRenderer")
+                logger.debug(
+                    "Successfully patched calendarbot.display.console_renderer.ConsoleRenderer"
+                )
                 manager = DisplayManager(settings)
                 manager.renderer = Mock()
                 return manager, settings
@@ -581,7 +588,9 @@ class TestDisplayManagerDisplayStatus:
             logger.error(f"Error patching ConsoleRenderer: {e}")
             # Fallback to original approach for comparison
             with patch("calendarbot.display.manager.ConsoleRenderer"):
-                logger.debug("Attempting original patch: calendarbot.display.manager.ConsoleRenderer")
+                logger.debug(
+                    "Attempting original patch: calendarbot.display.manager.ConsoleRenderer"
+                )
                 manager = DisplayManager(settings)
                 manager.renderer = Mock()
                 return manager, settings
@@ -711,13 +720,16 @@ class TestDisplayManagerClearDisplay:
 
         # Add logging to debug the issue
         import logging
+
         logger = logging.getLogger("test_debug")
         logger.setLevel(logging.DEBUG)
         logger.debug("Attempting to patch ConsoleRenderer in TestDisplayManagerClearDisplay")
-        
+
         try:
             with patch("calendarbot.display.console_renderer.ConsoleRenderer"):
-                logger.debug("Successfully patched calendarbot.display.console_renderer.ConsoleRenderer")
+                logger.debug(
+                    "Successfully patched calendarbot.display.console_renderer.ConsoleRenderer"
+                )
                 manager = DisplayManager(settings)
                 manager.renderer = Mock()
                 return manager, settings
@@ -725,7 +737,9 @@ class TestDisplayManagerClearDisplay:
             logger.error(f"Error patching ConsoleRenderer: {e}")
             # Fallback to original approach for comparison
             with patch("calendarbot.display.manager.ConsoleRenderer"):
-                logger.debug("Attempting original patch: calendarbot.display.manager.ConsoleRenderer")
+                logger.debug(
+                    "Attempting original patch: calendarbot.display.manager.ConsoleRenderer"
+                )
                 manager = DisplayManager(settings)
                 manager.renderer = Mock()
                 return manager, settings

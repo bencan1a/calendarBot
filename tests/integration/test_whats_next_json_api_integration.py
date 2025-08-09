@@ -33,137 +33,155 @@ from calendarbot.web.server import WebRequestHandler
 logger = logging.getLogger(__name__)
 
 
+# Module-level fixtures available to all test classes
+@pytest.fixture(scope="session")
+def web_server_port() -> int:
+    """Get an available port for the test web server."""
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        port = s.getsockname()[1]
+    return port
+
+
+@pytest.fixture(scope="session")
+def mock_settings_service() -> SettingsService:
+    """Create a mock settings service with test data."""
+    mock_service = MagicMock(spec=SettingsService)
+
+    # Create test settings with hidden events
+    settings = SettingsData()
+    event_filters = EventFilterSettings()
+    event_filters.hidden_events = {"hidden-event-1", "hidden-event-2"}
+
+    mock_service.get_settings.return_value = settings
+    mock_service.get_filter_settings.return_value = event_filters
+    mock_service.update_filter_settings.side_effect = lambda x: x
+
+    return mock_service
+
+
+@pytest.fixture(scope="session")
+def sample_events() -> List[CachedEvent]:
+    """Create sample events for testing."""
+    current_time = datetime.now(timezone.utc)
+
+    events = []
+    for i in range(5):
+        event = CachedEvent(
+            id=f"test_event_{i}",
+            graph_id=f"test-event-{i}",
+            subject=f"Test Event {i}",
+            start_datetime=current_time.replace(
+                hour=10 + i, minute=0, second=0, microsecond=0
+            ).isoformat(),
+            end_datetime=current_time.replace(
+                hour=11 + i, minute=0, second=0, microsecond=0
+            ).isoformat(),
+            start_timezone="UTC",
+            end_timezone="UTC",
+            location_display_name=f"Location {i}" if i % 2 == 0 else None,
+            cached_at=current_time.isoformat(),
+        )
+        events.append(event)
+
+    return events
+
+
+@pytest.fixture(scope="session")
+def test_web_server(
+    web_server_port: int,
+    mock_settings_service: SettingsService,
+    sample_events: List[CachedEvent],
+):
+    """Create and start a test web server."""
+    # Mock the web server dependencies
+    with patch("calendarbot.web.server.WebServer") as mock_web_server_class:
+        mock_web_server = MagicMock()
+        mock_web_server.settings_service = mock_settings_service
+        mock_web_server.get_current_layout.return_value = "whats-next-view"
+
+        # Mock the cache manager to return our sample events
+        mock_cache_manager = MagicMock()
+        mock_cache_manager.get_events.return_value = sample_events
+
+        # Create proper async mock for get_events_by_date_range
+
+        async def mock_async_get_events(*args, **kwargs):
+            return sample_events
+
+        mock_cache_manager.get_events_by_date_range = mock_async_get_events
+
+        mock_web_server.cache_manager = mock_cache_manager
+
+        # Mock navigation state with proper date object
+        from datetime import date
+
+        mock_navigation_state = MagicMock()
+        mock_navigation_state.selected_date = date.today()
+        mock_navigation_state.get_display_date.return_value = "Today"
+        mock_navigation_state.is_today.return_value = True
+        mock_web_server.navigation_state = mock_navigation_state
+
+        mock_web_server_class.return_value = mock_web_server
+
+        # Create the HTTP server with our custom request handler
+        server = HTTPServer(
+            ("localhost", web_server_port),
+            lambda *args: WebRequestHandler(*args, web_server=mock_web_server),
+        )
+
+        # Start server in a thread
+        server_thread = Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+
+        # Wait for server to start
+        time.sleep(0.1)
+
+        yield f"http://localhost:{web_server_port}"
+
+        # Cleanup
+        server.shutdown()
+        server.server_close()
+
+
+@pytest.fixture(scope="session")
+def api_client(test_web_server: str):
+    """Create an API client for making requests."""
+
+    class ApiClient:
+        def __init__(self, base_url: str):
+            self.base_url = base_url
+
+        def get_whats_next_data(self, debug_time: Optional[str] = None) -> requests.Response:
+            """Get data from /api/whats-next/data endpoint."""
+            params = {}
+            if debug_time:
+                params["debug_time"] = debug_time
+            return requests.get(f"{self.base_url}/api/whats-next/data", params=params)
+
+        def hide_event(self, graph_id: str) -> requests.Response:
+            """Hide an event via /api/events/hide endpoint."""
+            return requests.post(f"{self.base_url}/api/events/hide", json={"graph_id": graph_id})
+
+        def unhide_event(self, graph_id: str) -> requests.Response:
+            """Unhide an event via /api/events/unhide endpoint."""
+            return requests.post(f"{self.base_url}/api/events/unhide", json={"graph_id": graph_id})
+
+        def get_hidden_events(self) -> requests.Response:
+            """Get hidden events via /api/events/hidden endpoint."""
+            return requests.get(f"{self.base_url}/api/events/hidden")
+
+        def get_whats_next_html(self) -> requests.Response:
+            """Get HTML content for performance comparison."""
+            return requests.get(f"{self.base_url}/whats-next-view")
+
+    return ApiClient(test_web_server)
+
+
 class TestWhatsNextJsonApiIntegration:
     """Integration test class for Phase 1 JSON API functionality."""
-
-    @pytest.fixture(scope="class")
-    def web_server_port(self) -> int:
-        """Get an available port for the test web server."""
-        import socket
-
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("", 0))
-            port = s.getsockname()[1]
-        return port
-
-    @pytest.fixture(scope="class")
-    def mock_settings_service(self) -> SettingsService:
-        """Create a mock settings service with test data."""
-        mock_service = MagicMock(spec=SettingsService)
-
-        # Create test settings with hidden events
-        settings = SettingsData()
-        event_filters = EventFilterSettings()
-        event_filters.hidden_events = {"hidden-event-1", "hidden-event-2"}
-
-        mock_service.get_settings.return_value = settings
-        mock_service.get_filter_settings.return_value = event_filters
-        mock_service.update_filter_settings.side_effect = lambda x: x
-
-        return mock_service
-
-    @pytest.fixture(scope="class")
-    def sample_events(self) -> List[CachedEvent]:
-        """Create sample events for testing."""
-        current_time = datetime.now(timezone.utc)
-
-        events = []
-        for i in range(5):
-            event = CachedEvent(
-                id=f"test_event_{i}",
-                graph_id=f"test-event-{i}",
-                subject=f"Test Event {i}",
-                start_datetime=current_time.replace(
-                    hour=10 + i, minute=0, second=0, microsecond=0
-                ).isoformat(),
-                end_datetime=current_time.replace(
-                    hour=11 + i, minute=0, second=0, microsecond=0
-                ).isoformat(),
-                start_timezone="UTC",
-                end_timezone="UTC",
-                location_display_name=f"Location {i}" if i % 2 == 0 else None,
-                cached_at=current_time.isoformat(),
-            )
-            events.append(event)
-
-        return events
-
-    @pytest.fixture(scope="class")
-    def test_web_server(
-        self,
-        web_server_port: int,
-        mock_settings_service: SettingsService,
-        sample_events: List[CachedEvent],
-    ):
-        """Create and start a test web server."""
-        # Mock the web server dependencies
-        with patch("calendarbot.web.server.CalendarBotWebServer") as mock_web_server_class:
-            mock_web_server = MagicMock()
-            mock_web_server.settings_service = mock_settings_service
-            mock_web_server.get_current_layout.return_value = "whats-next-view"
-
-            # Mock the cache manager to return our sample events
-            mock_cache_manager = MagicMock()
-            mock_cache_manager.get_events.return_value = sample_events
-            mock_web_server.cache_manager = mock_cache_manager
-
-            mock_web_server_class.return_value = mock_web_server
-
-            # Create the HTTP server with our custom request handler
-            server = HTTPServer(
-                ("localhost", web_server_port),
-                lambda *args: WebRequestHandler(*args, web_server=mock_web_server),
-            )
-
-            # Start server in a thread
-            server_thread = Thread(target=server.serve_forever, daemon=True)
-            server_thread.start()
-
-            # Wait for server to start
-            time.sleep(0.1)
-
-            yield f"http://localhost:{web_server_port}"
-
-            # Cleanup
-            server.shutdown()
-            server.server_close()
-
-    @pytest.fixture
-    def api_client(self, test_web_server: str):
-        """Create an API client for making requests."""
-
-        class ApiClient:
-            def __init__(self, base_url: str):
-                self.base_url = base_url
-
-            def get_whats_next_data(self, debug_time: Optional[str] = None) -> requests.Response:
-                """Get data from /api/whats-next/data endpoint."""
-                params = {}
-                if debug_time:
-                    params["debug_time"] = debug_time
-                return requests.get(f"{self.base_url}/api/whats-next/data", params=params)
-
-            def hide_event(self, graph_id: str) -> requests.Response:
-                """Hide an event via /api/events/hide endpoint."""
-                return requests.post(
-                    f"{self.base_url}/api/events/hide", json={"graph_id": graph_id}
-                )
-
-            def unhide_event(self, graph_id: str) -> requests.Response:
-                """Unhide an event via /api/events/unhide endpoint."""
-                return requests.post(
-                    f"{self.base_url}/api/events/unhide", json={"graph_id": graph_id}
-                )
-
-            def get_hidden_events(self) -> requests.Response:
-                """Get hidden events via /api/events/hidden endpoint."""
-                return requests.get(f"{self.base_url}/api/events/hidden")
-
-            def get_whats_next_html(self) -> requests.Response:
-                """Get HTML content for performance comparison."""
-                return requests.get(f"{self.base_url}/whats-next-view")
-
-        return ApiClient(test_web_server)
 
     def test_scenario_1_fetch_initial_data_structure(
         self, api_client, sample_events: List[CachedEvent]
@@ -182,10 +200,14 @@ class TestWhatsNextJsonApiIntegration:
         # Parse and validate JSON structure
         data = response.json()
 
-        # Validate top-level structure matches Phase 1 specification
-        required_fields = ["layout_name", "last_updated", "events", "layout_config"]
+        # Validate top-level structure matches actual API response
+        required_fields = ["layout_name", "current_time", "events", "layout_config"]
         for field in required_fields:
             assert field in data, f"Missing required field: {field}"
+
+        # Validate status_info structure
+        assert "status_info" in data, "Missing status_info field"
+        assert "last_update" in data["status_info"], "Missing last_update in status_info"
 
         assert data["layout_name"] == "whats-next-view", (
             f"Expected layout_name 'whats-next-view', got {data['layout_name']}"
@@ -197,7 +219,14 @@ class TestWhatsNextJsonApiIntegration:
         # If events exist, validate event structure
         if data["events"]:
             event = data["events"][0]
-            required_event_fields = ["graph_id", "title", "start_time", "end_time", "is_all_day"]
+            required_event_fields = [
+                "graph_id",
+                "title",
+                "start_time",
+                "end_time",
+                "is_current",
+                "is_upcoming",
+            ]
             for field in required_event_fields:
                 assert field in event, f"Missing required event field: {field}"
 
@@ -536,7 +565,8 @@ class TestPhase1CompletionValidation:
         data = response.json()
         assert "layout_name" in data, "T1.1: Should return layout_name"
         assert "events" in data, "T1.1: Should return events"
-        assert "last_updated" in data, "T1.1: Should return last_updated"
+        assert "current_time" in data, "T1.1: Should return current_time"
+        assert "status_info" in data, "T1.1: Should return status_info"
 
         logger.info("✓ T1.1: JSON Data API endpoint validation passed")
 
@@ -610,9 +640,10 @@ def validate_json_schema(data: Dict[str, Any], schema: Dict[str, type]) -> bool:
 # Expected JSON schema for validation
 WHATS_NEXT_DATA_SCHEMA = {
     "layout_name": str,
-    "last_updated": str,
+    "current_time": str,
     "events": list,
     "layout_config": dict,
+    "status_info": dict,
 }
 
 EVENT_DATA_SCHEMA = {
@@ -620,5 +651,6 @@ EVENT_DATA_SCHEMA = {
     "title": str,
     "start_time": str,
     "end_time": str,
-    "is_all_day": bool,
+    "is_current": bool,
+    "is_upcoming": bool,
 }

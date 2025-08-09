@@ -1,9 +1,7 @@
 """Tests for validation logging setup."""
 
 import logging
-import os
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -23,9 +21,13 @@ class TestValidationFormatter:
     @pytest.fixture
     def formatter(self) -> ValidationFormatter:
         """Create a ValidationFormatter for testing."""
-        return ValidationFormatter("%(asctime)s.%(msecs_formatted)s [%(component)8s] %(levelname)7s: %(message)s")
+        return ValidationFormatter(
+            "%(asctime)s.%(msecs_formatted)s [%(component)8s] %(levelname)7s: %(message)s"
+        )
 
-    def test_format_when_valid_record_then_adds_custom_fields(self, formatter: ValidationFormatter) -> None:
+    def test_format_when_valid_record_then_adds_custom_fields(
+        self, formatter: ValidationFormatter
+    ) -> None:
         """Test format adds custom fields to the log record."""
         # Arrange
         record = logging.LogRecord(
@@ -37,7 +39,7 @@ class TestValidationFormatter:
             args=(),
             exc_info=None,
         )
-        
+
         # Override the asctime to avoid timezone issues in testing
         formatter.formatTime = lambda record, datefmt: "2021-01-01 00:00:00"
         record.msecs = 123.456
@@ -51,7 +53,9 @@ class TestValidationFormatter:
         assert "Test message" in result
         assert "123" in result  # Just check for the milliseconds
 
-    def test_format_when_non_calendarbot_logger_then_uses_system_component(self, formatter: ValidationFormatter) -> None:
+    def test_format_when_non_calendarbot_logger_then_uses_system_component(
+        self, formatter: ValidationFormatter
+    ) -> None:
         """Test format uses 'system' component for non-calendarbot loggers."""
         # Arrange
         record = logging.LogRecord(
@@ -70,7 +74,9 @@ class TestValidationFormatter:
         # Assert
         assert "system" in result
 
-    def test_format_when_msecs_none_then_handles_gracefully(self, formatter: ValidationFormatter) -> None:
+    def test_format_when_msecs_none_then_handles_gracefully(
+        self, formatter: ValidationFormatter
+    ) -> None:
         """Test format handles None msecs gracefully."""
         # Arrange
         record = logging.LogRecord(
@@ -82,14 +88,14 @@ class TestValidationFormatter:
             args=(),
             exc_info=None,
         )
-        
+
         # Override the asctime to avoid timezone issues in testing
         formatter.formatTime = lambda record, datefmt: "2021-01-01 00:00:00"
-        
+
         # We need to delete msecs attribute rather than setting to None
         # to properly test the exception handling
-        if hasattr(record, 'msecs'):
-            delattr(record, 'msecs')
+        if hasattr(record, "msecs"):
+            delattr(record, "msecs")
 
         # Act
         result = formatter.format(record)
@@ -97,7 +103,9 @@ class TestValidationFormatter:
         # Assert
         assert "000" in result  # Check for zero milliseconds
 
-    def test_format_when_name_none_then_handles_gracefully(self, formatter: ValidationFormatter) -> None:
+    def test_format_when_name_none_then_handles_gracefully(
+        self, formatter: ValidationFormatter
+    ) -> None:
         """Test format handles None name gracefully."""
         # Arrange
         record = logging.LogRecord(
@@ -130,7 +138,9 @@ class TestComponentFilter:
         """Create a ComponentFilter that allows only sources component."""
         return ComponentFilter(["sources"])
 
-    def test_filter_when_no_allowed_components_then_allows_all(self, filter_all: ComponentFilter) -> None:
+    def test_filter_when_no_allowed_components_then_allows_all(
+        self, filter_all: ComponentFilter
+    ) -> None:
         """Test filter allows all records when no components are specified."""
         # Arrange
         record = logging.LogRecord(
@@ -149,7 +159,9 @@ class TestComponentFilter:
         # Assert
         assert result is True
 
-    def test_filter_when_component_allowed_then_allows_record(self, filter_sources: ComponentFilter) -> None:
+    def test_filter_when_component_allowed_then_allows_record(
+        self, filter_sources: ComponentFilter
+    ) -> None:
         """Test filter allows records from allowed components."""
         # Arrange
         record = logging.LogRecord(
@@ -168,7 +180,9 @@ class TestComponentFilter:
         # Assert
         assert result is True
 
-    def test_filter_when_component_not_allowed_then_blocks_record(self, filter_sources: ComponentFilter) -> None:
+    def test_filter_when_component_not_allowed_then_blocks_record(
+        self, filter_sources: ComponentFilter
+    ) -> None:
         """Test filter blocks records from non-allowed components."""
         # Arrange
         record = logging.LogRecord(
@@ -207,7 +221,9 @@ class TestComponentFilter:
         # Assert
         assert result is True
 
-    def test_filter_when_system_not_allowed_then_blocks_external_loggers(self, filter_sources: ComponentFilter) -> None:
+    def test_filter_when_system_not_allowed_then_blocks_external_loggers(
+        self, filter_sources: ComponentFilter
+    ) -> None:
         """Test filter blocks external loggers when system is not allowed."""
         # Arrange
         record = logging.LogRecord(
@@ -236,7 +252,7 @@ class TestSetupValidationLogging:
         mock_root_logger = Mock()
         mock_root_logger.handlers = []
         mock_component_loggers = {}
-        
+
         # Act
         with patch("calendarbot.validation.logging_setup.logging.getLogger") as mock_get_logger:
             # Setup mock to return different loggers for different calls
@@ -246,14 +262,17 @@ class TestSetupValidationLogging:
                 mock_logger = Mock()
                 mock_component_loggers[name] = mock_logger
                 return mock_logger
-                
+
             mock_get_logger.side_effect = get_logger_side_effect
-            
-            with patch("calendarbot.validation.logging_setup.logging.StreamHandler") as mock_stream_handler, \
-                 patch("calendarbot.validation.logging_setup.ValidationFormatter") as mock_formatter:
-                
+
+            with (
+                patch(
+                    "calendarbot.validation.logging_setup.logging.StreamHandler"
+                ) as mock_stream_handler,
+                patch("calendarbot.validation.logging_setup.ValidationFormatter") as mock_formatter,
+            ):
                 result = setup_validation_logging()
-                
+
                 # Assert
                 assert isinstance(result, dict)
                 assert set(result.keys()) >= {"sources", "cache", "display", "validation", "system"}
@@ -265,14 +284,18 @@ class TestSetupValidationLogging:
         """Test setup_validation_logging uses DEBUG level when verbose is True."""
         # Arrange
         mock_handler = Mock()
-        
+
         # Act
-        with patch("calendarbot.validation.logging_setup.logging.getLogger"), \
-             patch("calendarbot.validation.logging_setup.logging.StreamHandler", return_value=mock_handler), \
-             patch("calendarbot.validation.logging_setup.ValidationFormatter"):
-            
+        with (
+            patch("calendarbot.validation.logging_setup.logging.getLogger"),
+            patch(
+                "calendarbot.validation.logging_setup.logging.StreamHandler",
+                return_value=mock_handler,
+            ),
+            patch("calendarbot.validation.logging_setup.ValidationFormatter"),
+        ):
             setup_validation_logging(verbose=True)
-            
+
             # Assert
             mock_handler.setLevel.assert_called_with(logging.DEBUG)
 
@@ -280,15 +303,19 @@ class TestSetupValidationLogging:
         """Test setup_validation_logging adds ComponentFilter when components are specified."""
         # Arrange
         mock_handler = Mock()
-        
+
         # Act
-        with patch("calendarbot.validation.logging_setup.logging.getLogger"), \
-             patch("calendarbot.validation.logging_setup.logging.StreamHandler", return_value=mock_handler), \
-             patch("calendarbot.validation.logging_setup.ValidationFormatter"), \
-             patch("calendarbot.validation.logging_setup.ComponentFilter") as mock_filter_cls:
-            
+        with (
+            patch("calendarbot.validation.logging_setup.logging.getLogger"),
+            patch(
+                "calendarbot.validation.logging_setup.logging.StreamHandler",
+                return_value=mock_handler,
+            ),
+            patch("calendarbot.validation.logging_setup.ValidationFormatter"),
+            patch("calendarbot.validation.logging_setup.ComponentFilter") as mock_filter_cls,
+        ):
             setup_validation_logging(components=["sources", "cache"])
-            
+
             # Assert
             mock_filter_cls.assert_called_with(["sources", "cache", "system"])
             assert mock_handler.addFilter.call_count == 1
@@ -298,20 +325,27 @@ class TestSetupValidationLogging:
         # Arrange
         mock_logger = Mock()
         mock_logger.handlers = []
-        
+
         # Act
-        with patch("calendarbot.validation.logging_setup.logging.getLogger", return_value=mock_logger), \
-             patch("calendarbot.validation.logging_setup.logging.StreamHandler"), \
-             patch("calendarbot.validation.logging_setup.logging.handlers.RotatingFileHandler") as mock_file_handler, \
-             patch("calendarbot.validation.logging_setup.ValidationFormatter"):
-            
+        with (
+            patch(
+                "calendarbot.validation.logging_setup.logging.getLogger", return_value=mock_logger
+            ),
+            patch("calendarbot.validation.logging_setup.logging.StreamHandler"),
+            patch(
+                "calendarbot.validation.logging_setup.logging.handlers.RotatingFileHandler"
+            ) as mock_file_handler,
+            patch("calendarbot.validation.logging_setup.ValidationFormatter"),
+        ):
             # Skip the Path mock and just verify the handler is called with the right arguments
             setup_validation_logging(log_file="test.log")
-            
+
             # Assert
             mock_file_handler.assert_called_once()
             # Just check that the first argument contains test.log
-            assert mock_file_handler.call_args.args[0] == "test.log" or "test.log" in str(mock_file_handler.call_args)
+            assert mock_file_handler.call_args.args[0] == "test.log" or "test.log" in str(
+                mock_file_handler.call_args
+            )
 
 
 class TestGetValidationLogger:
@@ -321,11 +355,13 @@ class TestGetValidationLogger:
         """Test get_validation_logger returns a logger for a valid component."""
         # Arrange
         mock_logger = Mock()
-        
+
         # Act
-        with patch("calendarbot.validation.logging_setup.logging.getLogger", return_value=mock_logger) as mock_get_logger:
+        with patch(
+            "calendarbot.validation.logging_setup.logging.getLogger", return_value=mock_logger
+        ) as mock_get_logger:
             result = get_validation_logger("sources")
-            
+
             # Assert
             assert result is mock_logger
             mock_get_logger.assert_called_once_with("calendarbot.sources")
@@ -334,11 +370,13 @@ class TestGetValidationLogger:
         """Test get_validation_logger returns a logger for a custom component."""
         # Arrange
         mock_logger = Mock()
-        
+
         # Act
-        with patch("calendarbot.validation.logging_setup.logging.getLogger", return_value=mock_logger) as mock_get_logger:
+        with patch(
+            "calendarbot.validation.logging_setup.logging.getLogger", return_value=mock_logger
+        ) as mock_get_logger:
             result = get_validation_logger("custom_component")
-            
+
             # Assert
             assert result is mock_logger
             mock_get_logger.assert_called_once_with("calendarbot.custom_component")
@@ -351,10 +389,10 @@ class TestLogValidationStart:
         """Test log_validation_start logs basic validation start information."""
         # Arrange
         mock_logger = Mock()
-        
+
         # Act
         log_validation_start(mock_logger, "Test Validation")
-            
+
         # Assert
         mock_logger.info.assert_called_once()
         assert "Starting validation" in mock_logger.info.call_args[0][0]
@@ -365,15 +403,15 @@ class TestLogValidationStart:
         # Arrange
         mock_logger = Mock()
         details = {"source": "test_source", "count": 42}
-        
+
         # Act
         log_validation_start(mock_logger, "Test Validation", details)
-            
+
         # Assert
         mock_logger.info.assert_called_once()
         assert "Starting validation" in mock_logger.info.call_args[0][0]
         assert "Test Validation" in mock_logger.info.call_args[0][0]
-        
+
         # Check that debug was called for each detail
         assert mock_logger.debug.call_count == len(details)
         for key, value in details.items():
@@ -388,10 +426,10 @@ class TestLogValidationResult:
         """Test log_validation_result logs success at INFO level."""
         # Arrange
         mock_logger = Mock()
-        
+
         # Act
         log_validation_result(mock_logger, "Test Validation", True, "Success message")
-            
+
         # Assert
         assert mock_logger.log.call_count == 1
         # First arg is level, should be INFO
@@ -406,10 +444,10 @@ class TestLogValidationResult:
         """Test log_validation_result logs failure at ERROR level."""
         # Arrange
         mock_logger = Mock()
-        
+
         # Act
         log_validation_result(mock_logger, "Test Validation", False, "Validation failed")
-            
+
         # Assert
         assert mock_logger.log.call_count == 1
         # First arg is level, should be ERROR
@@ -424,10 +462,12 @@ class TestLogValidationResult:
         """Test log_validation_result includes duration when provided."""
         # Arrange
         mock_logger = Mock()
-        
+
         # Act
-        log_validation_result(mock_logger, "Test Validation", True, "Success message", duration_ms=123.45)
-            
+        log_validation_result(
+            mock_logger, "Test Validation", True, "Success message", duration_ms=123.45
+        )
+
         # Assert
         assert mock_logger.log.call_count == 1
         # Check message includes duration

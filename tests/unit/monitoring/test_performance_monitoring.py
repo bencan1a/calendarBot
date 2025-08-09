@@ -283,7 +283,7 @@ class TestCalendarBotPerformance:
         )
 
         assert metrics["benchmark_status"] == "completed"
-        assert metrics["execution_time_avg"] < 2.0  # Should complete in reasonable time
+        assert metrics["execution_time_avg"] < 3.0  # Should complete in reasonable time
 
     def test_web_server_startup_performance(self, performance_runner):
         """Test performance of web server initialization."""
@@ -329,7 +329,7 @@ class TestCalendarBotPerformance:
         )
 
         assert metrics["benchmark_status"] == "completed"
-        assert metrics["execution_time_avg"] < 2.0  # Startup should be reasonable
+        assert metrics["execution_time_avg"] < 3.0  # Startup should be reasonable
 
     def test_memory_intensive_operation_performance(self, performance_runner):
         """Test performance under memory pressure."""

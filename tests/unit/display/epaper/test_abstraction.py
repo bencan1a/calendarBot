@@ -2,8 +2,6 @@
 
 from typing import Any, Optional
 
-import pytest
-
 from calendarbot.display.epaper.abstraction import DisplayAbstractionLayer
 from calendarbot.display.epaper.capabilities import DisplayCapabilities
 
@@ -237,6 +235,7 @@ class TestDisplayAbstractionLayer:
 
     def test_protocol_usage_in_function(self) -> None:
         """Test using the protocol as a type annotation in a function."""
+
         # Define a function that uses the protocol
         def use_display(display: DisplayAbstractionLayer) -> bool:
             display.initialize()

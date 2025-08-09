@@ -1,16 +1,12 @@
 """Database fixtures and utilities for testing."""
 
-import asyncio
-import tempfile
+from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List
+from typing import Any, Dict, List
 
 import aiosqlite
-import pytest
 import pytest_asyncio
-
-from calendarbot.cache.models import CachedEvent, CacheMetadata
 
 
 class DatabaseTestManager:
