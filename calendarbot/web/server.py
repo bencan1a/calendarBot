@@ -1575,7 +1575,7 @@ class WebServer:
             logger.debug("Server thread cleanup completed")
 
     def stop(self) -> None:
-        """Stop the web server with improved shutdown handling."""
+        """Stop the web server with proper shutdown sequence and improved error handling."""
         if not self.running:
             logger.debug("Web server already stopped or not running")
             return
@@ -1585,9 +1585,16 @@ class WebServer:
 
         try:
             if self.server:
-                logger.debug("Calling server.shutdown()...")
+                # CRITICAL FIX: Close the server socket FIRST to stop accepting new connections
+                logger.debug("Calling server.server_close() first to release socket...")
+                try:
+                    self.server.server_close()
+                    logger.debug("server.server_close() completed successfully")
+                except Exception as e:
+                    logger.warning(f"Error during server_close(): {e}")
 
-                # Use threading to timeout the shutdown call
+                # Then shutdown the request handling with improved timeout
+                logger.debug("Calling server.shutdown()...")
                 import threading  # noqa: PLC0415
 
                 shutdown_complete = threading.Event()
@@ -1603,42 +1610,52 @@ class WebServer:
                         shutdown_error = e
                         shutdown_complete.set()
 
-                shutdown_thread = threading.Thread(target=shutdown_server, daemon=True)
+                shutdown_thread = threading.Thread(
+                    target=shutdown_server, daemon=True, name="ServerShutdown"
+                )
                 shutdown_thread.start()
 
-                # Wait for shutdown with timeout
-                if shutdown_complete.wait(timeout=3.0):
+                # Wait for shutdown with increased timeout (10 seconds)
+                if shutdown_complete.wait(timeout=10.0):
                     if shutdown_error:
                         logger.warning(f"Server shutdown completed with error: {shutdown_error}")
                     else:
                         logger.debug("server.shutdown() completed successfully")
                 else:
-                    logger.warning("server.shutdown() timed out after 3 seconds - forcing close")
-
-                logger.debug("Calling server.server_close()...")
-                self.server.server_close()
-                logger.debug("server.server_close() completed")
+                    logger.warning(
+                        "server.shutdown() timed out after 10 seconds - continuing with cleanup"
+                    )
 
             if self.server_thread and self.server_thread.is_alive():
-                logger.debug("Waiting for server thread to join (timeout=3s)...")
-                self.server_thread.join(timeout=3)
+                logger.debug("Waiting for server thread to join (timeout=10s)...")
+                self.server_thread.join(timeout=10)
                 if self.server_thread.is_alive():
                     logger.warning(
-                        "Server thread did not terminate within 3 seconds - continuing anyway"
+                        "Server thread did not terminate within 10 seconds - marking as daemon for cleanup"
                     )
-                    # Note: Since we changed to non-daemon thread, it will eventually stop
+                    # Mark as daemon to allow process to exit
+                    self.server_thread.daemon = True
                 else:
                     logger.debug("Server thread joined successfully")
 
+            # Clean up server reference
+            self.server = None
             logger.info("Web server stopped successfully")
 
         except Exception:
-            logger.exception("Error stopping web server")
-            import traceback  # noqa: PLC0415
+            logger.exception("Error during web server shutdown")
 
-            logger.exception(f"Shutdown traceback: {traceback.format_exc()}")
+            # Emergency cleanup
+            try:
+                if self.server:
+                    logger.debug("Emergency cleanup: attempting server_close()")
+                    self.server.server_close()
+            except Exception:
+                pass  # Ignore errors during emergency cleanup
 
-        # Always ensure running is False
+            self.server = None
+
+        # Always ensure running is False and server is cleaned up
         self.running = False
 
     def get_calendar_html(self, days: int = 1, debug_time: Optional[datetime] = None) -> str:  # noqa: PLR0915
