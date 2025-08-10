@@ -81,10 +81,21 @@ echo "Project root: $PROJECT_ROOT"
 echo "Validating dependency files..."
 MISSING_FILES=""
 
-# Check systemd files
-for service_file in "systemd/calendarbot-kiosk.service" "systemd/calendarbot-kiosk-setup.service" "systemd/calendarbot-network-wait.service"; do
+# Check systemd files (prefer templates, fallback to original)
+SYSTEMD_FILES="systemd/calendarbot-kiosk-setup.service"
+TEMPLATE_FILES="systemd/calendarbot-kiosk.service systemd/calendarbot-network-wait.service"
+
+for service_file in $SYSTEMD_FILES; do
     if [ ! -f "$SCRIPT_DIR/$service_file" ]; then
         MISSING_FILES="$MISSING_FILES\n  - $SCRIPT_DIR/$service_file"
+    fi
+done
+
+# Check templates first, fallback to original files
+for service_base in $TEMPLATE_FILES; do
+    template_file="${service_base}.template"
+    if [ ! -f "$SCRIPT_DIR/$template_file" ] && [ ! -f "$SCRIPT_DIR/$service_base" ]; then
+        MISSING_FILES="$MISSING_FILES\n  - $SCRIPT_DIR/$template_file (or $service_base as fallback)"
     fi
 done
 
