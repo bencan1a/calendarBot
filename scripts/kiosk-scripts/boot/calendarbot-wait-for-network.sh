@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Wait for network connectivity with configurable timeout
 
 set -euo pipefail
@@ -35,7 +35,7 @@ log "Waiting for network connectivity (timeout: ${TIMEOUT}s)"
 
 # Wait for network interface to be up
 i=0
-while [ $i -lt $TIMEOUT ]; do
+while [ $i -lt "$TIMEOUT" ]; do
     if ip route | grep -q default; then
         log "Default route available"
         break
@@ -52,7 +52,7 @@ done
 
 # Test actual connectivity
 i=0
-while [ $i -lt $TIMEOUT ]; do
+while [ $i -lt "$TIMEOUT" ]; do
     for host in $TEST_HOSTS; do
         if ping -c 1 -W 2 "$host" >/dev/null 2>&1; then
             log "Network connectivity verified (reached $host)"
