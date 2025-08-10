@@ -46,7 +46,7 @@ StartLimitInterval=300
 StartLimitBurst=5
 
 # Resource limits for Pi Zero 2W (512MB RAM)
-MemoryLimit=400M
+MemoryMax=400M
 CPUQuota=80%
 IOSchedulingClass=2
 IOSchedulingPriority=4
