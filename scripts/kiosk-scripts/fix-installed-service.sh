@@ -40,17 +40,27 @@ TARGET_UID=$(id -u "$TARGET_USER")
 
 echo "Detected user: $TARGET_USER (UID: $TARGET_UID, Home: $TARGET_HOME)"
 
-SERVICE_FILE="/etc/systemd/system/calendarbot-kiosk.service"
+KIOSK_SERVICE="/etc/systemd/system/calendarbot-kiosk.service"
+NETWORK_SERVICE="/etc/systemd/system/calendarbot-network-wait.service"
 
-if [ ! -f "$SERVICE_FILE" ]; then
-    echo "ERROR: Service file not found: $SERVICE_FILE"
-    echo "CalendarBot kiosk service doesn't appear to be installed"
+if [ ! -f "$KIOSK_SERVICE" ] && [ ! -f "$NETWORK_SERVICE" ]; then
+    echo "ERROR: No CalendarBot services found in /etc/systemd/system/"
+    echo "CalendarBot services don't appear to be installed"
     exit 1
 fi
 
-# Backup existing service file
-cp "$SERVICE_FILE" "${SERVICE_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
-echo "Backed up existing service file"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+# Backup existing service files
+if [ -f "$KIOSK_SERVICE" ]; then
+    cp "$KIOSK_SERVICE" "${KIOSK_SERVICE}.backup.${TIMESTAMP}"
+    echo "Backed up kiosk service file"
+fi
+
+if [ -f "$NETWORK_SERVICE" ]; then
+    cp "$NETWORK_SERVICE" "${NETWORK_SERVICE}.backup.${TIMESTAMP}"
+    echo "Backed up network service file"
+fi
 
 # Fix the service file
 cat > "$SERVICE_FILE" << EOF
