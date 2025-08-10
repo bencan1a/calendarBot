@@ -353,28 +353,45 @@ def detach_process() -> None:
     try:
         import asyncio  # noqa: PLC0415
 
+        logger.info("DEBUG: Starting asyncio event loop reset")
+
         # Close any existing event loop from parent process
         try:
             loop = asyncio.get_running_loop()
+            logger.info("DEBUG: Found existing event loop, closing it")
             loop.close()
         except RuntimeError:
             # No running loop, which is fine
-            pass
+            logger.info("DEBUG: No existing event loop found")
 
         # Set a fresh event loop policy for the daemon process
+        logger.info("DEBUG: Setting new event loop policy")
         asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
 
         logger.info("Reset asyncio event loop for daemon process")
-    except Exception as e:
-        logger.warning(f"Failed to reset asyncio event loop: {e}")
+        logger.info("DEBUG: Asyncio reset completed successfully")
+    except Exception:
+        logger.exception("CRITICAL: Failed to reset asyncio event loop")
+
+    logger.info("DEBUG: Starting file descriptor redirection")
 
     # Redirect standard file descriptors to /dev/null
-    with Path("/dev/null").open(encoding="utf-8") as devnull_r:
-        os.dup2(devnull_r.fileno(), sys.stdin.fileno())
+    try:
+        logger.info("DEBUG: Opening /dev/null for reading")
+        with Path("/dev/null").open(encoding="utf-8") as devnull_r:
+            logger.info("DEBUG: Redirecting stdin to /dev/null")
+            os.dup2(devnull_r.fileno(), sys.stdin.fileno())
 
-    with Path("/dev/null").open("w", encoding="utf-8") as devnull_w:
-        os.dup2(devnull_w.fileno(), sys.stdout.fileno())
-        os.dup2(devnull_w.fileno(), sys.stderr.fileno())
+        logger.info("DEBUG: Opening /dev/null for writing")
+        with Path("/dev/null").open("w", encoding="utf-8") as devnull_w:
+            logger.info("DEBUG: Redirecting stdout to /dev/null")
+            os.dup2(devnull_w.fileno(), sys.stdout.fileno())
+            logger.info("DEBUG: Redirecting stderr to /dev/null")
+            os.dup2(devnull_w.fileno(), sys.stderr.fileno())
+
+        logger.info("DEBUG: File descriptor redirection completed")
+    except Exception:
+        logger.exception("CRITICAL: Failed to redirect file descriptors")
 
     logger.info(f"Process detached successfully, PID: {os.getpid()}")
 
