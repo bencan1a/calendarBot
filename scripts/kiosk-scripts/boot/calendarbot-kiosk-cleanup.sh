@@ -48,7 +48,9 @@ pkill -f unclutter 2>/dev/null || true
 
 # 3. Clean up temporary files
 rm -rf /tmp/calendarbot-kiosk-* 2>/dev/null || true
-rm -rf /home/pi/.cache/chromium/Default/GPUCache/* 2>/dev/null || true
+if [ -n "$TARGET_HOME" ] && [ -d "$TARGET_HOME/.cache/chromium" ]; then
+    rm -rf "$TARGET_HOME/.cache/chromium/Default/GPUCache/"* 2>/dev/null || true
+fi
 
 # 4. Reset display settings
 xset -display :0 s default 2>/dev/null || true
