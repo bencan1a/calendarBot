@@ -4,26 +4,39 @@
 
 set -euo pipefail
 
-# Accept username as parameter, or auto-detect
-TARGET_USER="${1:-}"
+# Auto-detect target user (same logic as installer script)
+TARGET_USER=""
 
-# Auto-detect user if not provided
-if [ -z "$TARGET_USER" ]; then
-    # Try SUDO_USER first
-    if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
-        TARGET_USER="$SUDO_USER"
-    # Try to get from who's logged in
-    elif [ -n "$(who | head -1 | awk '{print $1}' | grep -v root)" ]; then
-        TARGET_USER=$(who | head -1 | awk '{print $1}')
-    # Fall back to first regular user
-    else
-        TARGET_USER=$(awk -F: '$3 >= 1000 && $3 != 65534 && $1 !~ /^snap/ {print $1}' /etc/passwd | head -1)
+# Try SUDO_USER first (most reliable when run with sudo)
+if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    TARGET_USER="$SUDO_USER"
+fi
+
+# If no SUDO_USER, try to detect from CalendarBot project directory
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+    # Find CalendarBot project directory
+    SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+    PROJECT_ROOT="$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")"
+    
+    if [ -d "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/calendarbot/__init__.py" ]; then
+        TARGET_USER=$(stat -c '%U' "$PROJECT_ROOT" 2>/dev/null || true)
     fi
 fi
 
+# Fall back to first regular user with home directory
 if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
-    echo "ERROR: Cannot determine target user. Please provide username as parameter."
-    echo "Usage: $0 [username]"
+    REGULAR_USERS=$(awk -F: '$3 >= 1000 && $3 != 65534 && $1 !~ /^snap/ {print $1}' /etc/passwd)
+    for user in $REGULAR_USERS; do
+        if [ "$user" != "nobody" ] && [ -d "/home/$user" ]; then
+            TARGET_USER="$user"
+            break
+        fi
+    done
+fi
+
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+    echo "ERROR: Cannot determine target user for CalendarBot."
+    echo "Please ensure you're running this with sudo as a regular user."
     exit 1
 fi
 
