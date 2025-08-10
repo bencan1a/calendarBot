@@ -10,6 +10,80 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+def _is_legitimate_calendarbot_process(command: str, full_command: str, pattern: str) -> bool:
+    """Check if a process is legitimately a calendarbot process.
+
+    Args:
+        command: The command name (first part of command line)
+        full_command: The full command line
+        pattern: The pgrep pattern that matched
+
+    Returns:
+        True if this appears to be a legitimate calendarbot process
+    """
+    # Reject obvious non-calendarbot processes
+    non_calendarbot_commands = {
+        "avahi-daemon",
+        "systemd",
+        "dbus",
+        "NetworkManager",
+        "bluetoothd",
+        "pulseaudio",
+        "gdm",
+        "gnome-session",
+        "firefox",
+        "chrome",
+        "chromium",
+        "code",
+        "vim",
+        "nano",
+        "ssh",
+        "sshd",
+        "rsync",
+        "cron",
+        "at",
+    }
+
+    if command in non_calendarbot_commands:
+        logger.debug(f"Rejecting known non-calendarbot command: {command}")
+        return False
+
+    # For "calendarbot" pattern, require it to be in the actual executable path or script name
+    if pattern == "calendarbot":
+        # Accept if calendarbot is in the executable name or script being run
+        calendarbot_indicators = [
+            "/calendarbot",  # executable path
+            "calendarbot.py",  # python script
+            "calendarbot",  # direct command
+            "python.*calendarbot",  # python running calendarbot
+        ]
+
+        has_indicator = any(indicator in full_command for indicator in calendarbot_indicators)
+        if not has_indicator:
+            logger.debug(
+                f"Pattern 'calendarbot' matched but no calendarbot indicators found in: {full_command}"
+            )
+            return False
+
+    # For python patterns, ensure they're actually running calendarbot code
+    if pattern.startswith("python"):
+        python_calendarbot_indicators = [
+            "calendarbot",  # module or script name
+            "main.py",  # common calendarbot entry point
+            "-m calendarbot",  # module execution
+        ]
+
+        has_python_indicator = any(
+            indicator in full_command for indicator in python_calendarbot_indicators
+        )
+        if not has_python_indicator:
+            logger.debug(f"Python pattern matched but no calendarbot indicators: {full_command}")
+            return False
+
+    logger.debug(f"Process appears legitimate for pattern '{pattern}': {command}")
+    return True
+
+
 class ProcessInfo:
     """Information about a running process."""
 
@@ -64,7 +138,13 @@ def find_calendarbot_processes() -> list[ProcessInfo]:
                                     command = command_parts[0] if command_parts else ""
 
                                     # Skip our own process and avoid duplicates
-                                    if pid != os.getpid() and pid not in seen_pids:
+                                    if (
+                                        pid != os.getpid()
+                                        and pid not in seen_pids
+                                        and _is_legitimate_calendarbot_process(
+                                            command, full_command, pattern
+                                        )
+                                    ):
                                         processes.append(ProcessInfo(pid, command, full_command))
                                         seen_pids.add(pid)
                                 except ValueError:
