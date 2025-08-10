@@ -364,31 +364,60 @@ else
 fi
 
 # 8. Add boot configuration for Pi Zero 2W (DANGEROUS - requires validation)
-echo "Configuring boot settings..."
-BOOT_CONFIG="/boot/config.txt"
+if [ "$NO_AUTOSTART" = "1" ]; then
+    echo "Skipping boot configuration (--no-autostart mode)"
+    echo "Manual boot config setup will be required for kiosk mode"
+else
+    echo "DEBUG: Starting boot configuration section..."
+    echo "Configuring boot settings..."
 
-# Critical safety checks for boot configuration
-if [ ! -f "$BOOT_CONFIG" ]; then
-    echo "ERROR: Boot config file not found at $BOOT_CONFIG"
-    echo "This is required for Raspberry Pi systems"
-    echo "Available boot locations:"
-    find /boot* -name "config.txt" 2>/dev/null || echo "  No boot config files found"
-    exit 1
+    # Check for boot config in multiple possible locations (newer vs older Pi OS)
+    BOOT_CONFIG=""
+    POSSIBLE_LOCATIONS="/boot/firmware/config.txt /boot/config.txt"
+
+    echo "DEBUG: Searching for boot config in possible locations..."
+    for location in $POSSIBLE_LOCATIONS; do
+        echo "DEBUG: Checking: $location"
+        if [ -f "$location" ]; then
+            BOOT_CONFIG="$location"
+            echo "DEBUG: Found boot config at: $BOOT_CONFIG"
+            break
+        fi
+    done
+
+    # Critical safety checks for boot configuration
+    if [ -z "$BOOT_CONFIG" ]; then
+        echo "DEBUG: No boot config file found in any location"
+        echo "ERROR: Boot config file not found in any expected location"
+        echo "This is required for Raspberry Pi systems"
+        echo "Searched locations: $POSSIBLE_LOCATIONS"
+        echo "Available boot locations:"
+        find /boot* -name "config.txt" 2>/dev/null || echo "  No boot config files found"
+        echo "DEBUG: EXITING at boot config check - no valid config found"
+        exit 1
+    fi
+    echo "DEBUG: Boot config file confirmed at $BOOT_CONFIG"
 fi
 
 # Validate current boot config is readable and appears valid
+echo "DEBUG: Checking boot config content validity..."
 if ! grep -q "arm_64bit\|gpu_mem\|hdmi_" "$BOOT_CONFIG" 2>/dev/null; then
+    echo "DEBUG: Boot config doesn't contain expected Pi config markers"
     echo "WARNING: Boot config doesn't appear to be a standard Raspberry Pi config"
     echo "Current config preview:"
     head -20 "$BOOT_CONFIG" | sed 's/^/  /'
+    echo "DEBUG: About to prompt user for confirmation..."
     read -p "Continue with boot config modification? [y/N]: " -n 1 -r
     echo
+    echo "DEBUG: User response: '$REPLY'"
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "DEBUG: User declined boot config modification"
         echo "Skipping boot configuration changes"
         echo "You may need to manually configure display settings"
         SKIP_BOOT_CONFIG=1
     fi
 fi
+echo "DEBUG: Boot config validation complete, SKIP_BOOT_CONFIG=$SKIP_BOOT_CONFIG"
 
 if [ "$SKIP_BOOT_CONFIG" != "1" ]; then
     # Create backup with more descriptive name
@@ -558,71 +587,81 @@ else
 fi
 
 # 11. Validate and enable services
-echo "Validating systemd services..."
+if [ "$NO_AUTOSTART" = "1" ]; then
+    echo "Skipping service enablement and graphical target configuration (--no-autostart mode)"
+    echo "Manual service enablement will be required for kiosk mode:"
+    echo "  sudo systemctl enable calendarbot-kiosk-setup.service"
+    echo "  sudo systemctl enable calendarbot-network-wait.service"
+    echo "  sudo systemctl enable calendarbot-kiosk.service"
+    echo "  sudo systemctl enable lightdm.service"
+    echo "  sudo systemctl set-default graphical.target"
+else
+    echo "Validating systemd services..."
 
-# Validate service files exist and are readable
-SERVICES_OK=1
-for service in "calendarbot-kiosk-setup.service" "calendarbot-network-wait.service" "calendarbot-kiosk.service"; do
-    if [ ! -f "/etc/systemd/system/$service" ]; then
-        echo "ERROR: Service file missing: /etc/systemd/system/$service"
-        SERVICES_OK=0
-    elif ! systemctl cat "$service" >/dev/null 2>&1; then
-        echo "ERROR: Service file invalid or unreadable: $service"
-        SERVICES_OK=0
-    fi
-done
-
-# Check if lightdm is available
-if ! systemctl list-unit-files lightdm.service >/dev/null 2>&1; then
-    echo "ERROR: lightdm.service not available on this system"
-    echo "Display manager is required for kiosk mode"
-    SERVICES_OK=0
-fi
-
-# Verify CalendarBot installation before enabling services
-if [ ! -f "$CALENDARBOT_HOME/venv/bin/calendarbot" ] && [ ! -f "$TARGET_HOME/.local/bin/calendarbot" ]; then
-    echo "WARNING: CalendarBot executable not found"
-    echo "Services may fail to start until CalendarBot is properly installed"
-    read -p "Continue with service enablement anyway? [y/N]: " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Skipping service enablement - you can enable them later with:"
-        echo "  sudo systemctl enable calendarbot-kiosk-setup.service"
-        echo "  sudo systemctl enable calendarbot-network-wait.service"
-        echo "  sudo systemctl enable calendarbot-kiosk.service"
-        echo "  sudo systemctl enable lightdm.service"
-        SERVICES_OK=0
-    fi
-fi
-
-if [ "$SERVICES_OK" = "1" ]; then
-    echo "Enabling systemd services..."
-    systemctl daemon-reload || {
-        echo "ERROR: Failed to reload systemd daemon"
-        exit 1
-    }
-
-    # Enable services one by one with error checking
-    for service in "calendarbot-kiosk-setup.service" "calendarbot-network-wait.service" "calendarbot-kiosk.service" "lightdm.service"; do
-        echo "Enabling $service..."
-        if ! systemctl enable "$service"; then
-            echo "ERROR: Failed to enable $service"
-            echo "You may need to enable it manually later: sudo systemctl enable $service"
-        else
-            echo "✓ $service enabled successfully"
+    # Validate service files exist and are readable
+    SERVICES_OK=1
+    for service in "calendarbot-kiosk-setup.service" "calendarbot-network-wait.service" "calendarbot-kiosk.service"; do
+        if [ ! -f "/etc/systemd/system/$service" ]; then
+            echo "ERROR: Service file missing: /etc/systemd/system/$service"
+            SERVICES_OK=0
+        elif ! systemctl cat "$service" >/dev/null 2>&1; then
+            echo "ERROR: Service file invalid or unreadable: $service"
+            SERVICES_OK=0
         fi
     done
 
-    # Set graphical target
-    if ! systemctl set-default graphical.target; then
-        echo "WARNING: Failed to set graphical target as default"
-        echo "System may boot to console instead of graphical mode"
-    else
-        echo "✓ Graphical target set as default"
+    # Check if lightdm is available
+    if ! systemctl list-unit-files lightdm.service >/dev/null 2>&1; then
+        echo "ERROR: lightdm.service not available on this system"
+        echo "Display manager is required for kiosk mode"
+        SERVICES_OK=0
     fi
-else
-    echo "Service validation failed - services not enabled"
-    echo "Manual service enablement will be required"
+
+    # Verify CalendarBot installation before enabling services
+    if [ ! -f "$CALENDARBOT_HOME/venv/bin/calendarbot" ] && [ ! -f "$TARGET_HOME/.local/bin/calendarbot" ]; then
+        echo "WARNING: CalendarBot executable not found"
+        echo "Services may fail to start until CalendarBot is properly installed"
+        read -p "Continue with service enablement anyway? [y/N]: " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Skipping service enablement - you can enable them later with:"
+            echo "  sudo systemctl enable calendarbot-kiosk-setup.service"
+            echo "  sudo systemctl enable calendarbot-network-wait.service"
+            echo "  sudo systemctl enable calendarbot-kiosk.service"
+            echo "  sudo systemctl enable lightdm.service"
+            SERVICES_OK=0
+        fi
+    fi
+
+    if [ "$SERVICES_OK" = "1" ]; then
+        echo "Enabling systemd services..."
+        systemctl daemon-reload || {
+            echo "ERROR: Failed to reload systemd daemon"
+            exit 1
+        }
+
+        # Enable services one by one with error checking
+        for service in "calendarbot-kiosk-setup.service" "calendarbot-network-wait.service" "calendarbot-kiosk.service" "lightdm.service"; do
+            echo "Enabling $service..."
+            if ! systemctl enable "$service"; then
+                echo "ERROR: Failed to enable $service"
+                echo "You may need to enable it manually later: sudo systemctl enable $service"
+            else
+                echo "✓ $service enabled successfully"
+            fi
+        done
+
+        # Set graphical target
+        if ! systemctl set-default graphical.target; then
+            echo "WARNING: Failed to set graphical target as default"
+            echo "System may boot to console instead of graphical mode"
+        else
+            echo "✓ Graphical target set as default"
+        fi
+    else
+        echo "Service validation failed - services not enabled"
+        echo "Manual service enablement will be required"
+    fi
 fi
 
 # 12. Run initial system setup
