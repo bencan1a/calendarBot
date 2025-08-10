@@ -44,7 +44,7 @@ MODES:
                       - Installs all system dependencies
                       - Sets up CalendarBot in virtual environment
                       - Skips boot config, auto-login, and service enablement
-                      - Test with: sudo -u pi /home/pi/calendarbot/venv/bin/calendarbot --web --port 8080
+                      - Test with: sudo -u [username] /home/[username]/calendarbot/venv/bin/calendarbot --web --port 8080
 
 EXAMPLES:
     sudo $0                    # Full installation with auto-boot
