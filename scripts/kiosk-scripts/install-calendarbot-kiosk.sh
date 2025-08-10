@@ -243,7 +243,8 @@ apt-get install -y \
     watchdog \
     python3-venv \
     python3-pip \
-    x11-xserver-utils || {
+    x11-xserver-utils \
+    zram-tools || {
     echo "ERROR: Failed to install required packages"
     echo "Check package availability and system compatibility"
     exit 1
@@ -694,7 +695,7 @@ rm -f /usr/local/bin/calendarbot-*
 
 # Remove X11 session
 rm -f /usr/share/xsessions/calendarbot-kiosk.desktop
-rm -f /home/pi/.xsession
+# Note: .xsession location varies by user, manual cleanup may be needed
 
 # Restore lightdm default config
 cat > /etc/lightdm/lightdm.conf << 'LIGHTDM_EOF'
@@ -731,7 +732,7 @@ Installation Summary:
 - Systemd services configured and enabled
 - Boot scripts installed in /usr/local/bin/
 - X11 session configured for kiosk mode
-- Auto-login configured for pi user
+- Auto-login configured for $TARGET_USER user
 - Boot configuration updated for Pi Zero 2W
 - CalendarBot installed in virtual environment
 
@@ -748,7 +749,7 @@ Management Commands:
 - Uninstall: sudo /usr/local/bin/uninstall-calendarbot-kiosk.sh
 
 Configuration:
-- Kiosk config: /home/pi/.config/calendarbot/
+- Kiosk config: $TARGET_HOME/.config/calendarbot/
 - Logs: /var/log/calendarbot/
 - Service files: /etc/systemd/system/calendarbot-*.service
 
