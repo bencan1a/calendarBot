@@ -62,8 +62,10 @@ if [ -f "$NETWORK_SERVICE" ]; then
     echo "Backed up network service file"
 fi
 
-# Fix the service file
-cat > "$SERVICE_FILE" << EOF
+# Fix the kiosk service file
+if [ -f "$KIOSK_SERVICE" ]; then
+    echo "Fixing kiosk service file..."
+    cat > "$KIOSK_SERVICE" << 'EOF'
 [Unit]
 Description=CalendarBot Kiosk Mode Display
 Documentation=https://github.com/your-org/calendarbot
