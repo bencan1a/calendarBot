@@ -13,6 +13,7 @@
     ],
     "reportMissingImports": true,
     "reportMissingTypeStubs": false,
+    "reportUnsupportedDunderAll": false,
     "pythonVersion": "3.12",
     "pythonPlatform": "Linux"
 }
