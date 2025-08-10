@@ -16,7 +16,7 @@ A safe, simple way to run CalendarBot in fullscreen kiosk mode without risky sys
 1. **Install CalendarBot prerequisites:**
    ```bash
    sudo apt update
-   sudo apt install -y python3-venv python3-pip chromium-browser
+   sudo apt install -y python3-venv python3-pip chromium-browser unclutter
    ```
 
 2. **Set up CalendarBot virtual environment:**
