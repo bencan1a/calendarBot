@@ -69,9 +69,9 @@ if [ -f "$KIOSK_SERVICE" ]; then
 [Unit]
 Description=CalendarBot Kiosk Mode Display
 Documentation=https://github.com/your-org/calendarbot
-After=graphical-session.target network-online.target calendarbot-kiosk-setup.service
+After=graphical.target network-online.target calendarbot-kiosk-setup.service
 Wants=network-online.target
-Requires=graphical-session.target calendarbot-kiosk-setup.service
+Requires=graphical.target calendarbot-kiosk-setup.service
 
 # Conflict with other display managers to prevent conflicts
 Conflicts=gdm.service lightdm.service sddm.service
