@@ -19,10 +19,10 @@ log() {
 find_calendarbot_url() {
     # Try common URLs in order of preference
     local urls=(
-        "http://localhost:$PORT"
-        "http://127.0.0.1:$PORT" 
-        "http://$(hostname -I | awk '{print $1}'):$PORT"
-        "http://$(hostname).local:$PORT"
+        "http://192.168.1.225:$PORT"
+        # "http://127.0.0.1:$PORT" 
+        # "http://$(hostname -I | awk '{print $1}'):$PORT"
+        # "http://$(hostname).local:$PORT"
     )
     
     for url in "${urls[@]}"; do
@@ -123,5 +123,4 @@ exec chromium-browser \
     --silent-debugger-extension-api \
     --overscroll-history-navigation=0 \
     --window-position=0,0 \
-    --window-size=1920,1080 \
     --app="$CALENDARBOT_URL"
