@@ -260,15 +260,11 @@ else
 fi
 
 # 3. Copy boot scripts
-if [ "$NO_AUTOSTART" != "1" ]; then
-    echo "Installing boot scripts..."
-    cp "$SCRIPT_DIR/boot/calendarbot-kiosk-prestart.sh" /usr/local/bin/
-    cp "$SCRIPT_DIR/boot/calendarbot-kiosk-system-setup.sh" /usr/local/bin/
-    cp "$SCRIPT_DIR/boot/calendarbot-wait-for-network.sh" /usr/local/bin/
-    cp "$SCRIPT_DIR/boot/calendarbot-kiosk-cleanup.sh" /usr/local/bin/
-else
-    echo "Skipping boot scripts installation (--no-autostart mode)"
-fi
+echo "Installing boot scripts..."
+cp "$SCRIPT_DIR/boot/calendarbot-kiosk-prestart.sh" /usr/local/bin/
+cp "$SCRIPT_DIR/boot/calendarbot-kiosk-system-setup.sh" /usr/local/bin/
+cp "$SCRIPT_DIR/boot/calendarbot-wait-for-network.sh" /usr/local/bin/
+cp "$SCRIPT_DIR/boot/calendarbot-kiosk-cleanup.sh" /usr/local/bin/
 
 # 4. Make scripts executable
 if [ "$NO_AUTOSTART" != "1" ]; then
@@ -662,8 +658,14 @@ else
 fi
 
 # 12. Run initial system setup
-echo "Running initial system setup..."
-/usr/local/bin/calendarbot-kiosk-system-setup.sh
+if [ "$NO_AUTOSTART" != "1" ]; then
+    echo "Running initial system setup..."
+    /usr/local/bin/calendarbot-kiosk-system-setup.sh
+else
+    echo "Skipping initial system setup (--no-autostart mode)"
+    echo "You can run the setup script manually later:"
+    echo "  sudo /usr/local/bin/calendarbot-kiosk-system-setup.sh"
+fi
 
 # 13. Create uninstall script
 echo "Creating uninstall script..."
