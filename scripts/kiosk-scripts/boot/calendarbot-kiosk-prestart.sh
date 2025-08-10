@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # CalendarBot Kiosk Pre-Start Script
 # Ensures system is ready for kiosk operation
 

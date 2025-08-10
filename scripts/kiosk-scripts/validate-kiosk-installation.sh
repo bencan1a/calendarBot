@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # CalendarBot Kiosk Installation Validation Script
 # Verifies that all components are properly installed and configured
 

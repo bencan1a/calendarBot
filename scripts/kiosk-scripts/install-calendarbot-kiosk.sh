@@ -346,41 +346,42 @@ else
     fi
 
     if [ "$SKIP_LIGHTDM" != "1" ]; then
-    # Create new LightDM configuration with CalendarBot settings
-    cat > "$LIGHTDM_CONF" << EOF
-# LightDM Configuration - Modified by CalendarBot Kiosk Installer
-[Seat:*]
-autologin-user=$TARGET_USER
-autologin-user-timeout=0
-user-session=calendarbot-kiosk
-autologin-session=calendarbot-kiosk
-greeter-session=lightdm-greeter
+        #     # Create new LightDM configuration with CalendarBot settings
+        #     cat > "$LIGHTDM_CONF" << EOF
+        #     # LightDM Configuration - Modified by CalendarBot Kiosk Installer
+        #     [Seat:*]
+        #     autologin-user=$TARGET_USER
+        #     autologin-user-timeout=0
+        #     user-session=calendarbot-kiosk
+        #     autologin-session=calendarbot-kiosk
+        #     greeter-session=lightdm-greeter
 
-# Disable user switching for kiosk mode
-allow-user-switching=false
-allow-guest=false
+        #     # Disable user switching for kiosk mode
+        #     allow-user-switching=false
+        #     allow-guest=false
 
-# CalendarBot kiosk mode settings
-session-setup-script=/usr/local/bin/calendarbot-kiosk-prestart.sh
-EOF
-    
-    # Validate the configuration file was written correctly
-    if ! grep -q "autologin-user=$TARGET_USER" "$LIGHTDM_CONF"; then
-        echo "ERROR: Failed to write LightDM configuration"
-        echo "Restoring backup..."
-        if [ -f "$LIGHTDM_BACKUP" ]; then
-            mv "$LIGHTDM_BACKUP" "$LIGHTDM_CONF"
+        #     # CalendarBot kiosk mode settings
+        #     session-setup-script=/usr/local/bin/calendarbot-kiosk-prestart.sh
+        #     EOF
+
+        # Validate the configuration file was written correctly
+        if ! grep -q "autologin-user=$TARGET_USER" "$LIGHTDM_CONF"; then
+            echo "ERROR: Failed to write LightDM configuration"
+            echo "Restoring backup..."
+            if [ -f "$LIGHTDM_BACKUP" ]; then
+                mv "$LIGHTDM_BACKUP" "$LIGHTDM_CONF"
+            fi
+            exit 1
         fi
-        exit 1
+        
+        echo "✓ LightDM configured for CalendarBot kiosk mode"
+        echo "IMPORTANT: Original config backed up to $LIGHTDM_BACKUP"
+    else
+        echo "LightDM configuration skipped - manual setup required:"
+        echo "  Edit $LIGHTDM_CONF to set:"
+        echo "  autologin-user=$TARGET_USER"
+        echo "  user-session=calendarbot-kiosk"
     fi
-    
-    echo "✓ LightDM configured for CalendarBot kiosk mode"
-    echo "IMPORTANT: Original config backed up to $LIGHTDM_BACKUP"
-else
-    echo "LightDM configuration skipped - manual setup required:"
-    echo "  Edit $LIGHTDM_CONF to set:"
-    echo "  autologin-user=$TARGET_USER"
-    echo "  user-session=calendarbot-kiosk"
 fi
 
 # 8. Add boot configuration for Pi Zero 2W (DANGEROUS - requires validation)
@@ -388,112 +389,56 @@ if [ "$NO_AUTOSTART" = "1" ]; then
     echo "Skipping boot configuration (--no-autostart mode)"
     echo "Manual boot config setup will be required for kiosk mode"
 else
-    echo "DEBUG: Starting boot configuration section..."
-    echo "Configuring boot settings..."
+    echo "skipping boot config setup"
+    # echo "DEBUG: Starting boot configuration section..."
+    # echo "Configuring boot settings..."
 
-    # Check for boot config in multiple possible locations (newer vs older Pi OS)
-    BOOT_CONFIG=""
-    POSSIBLE_LOCATIONS="/boot/firmware/config.txt /boot/config.txt"
+    # # Check for boot config in multiple possible locations (newer vs older Pi OS)
+    # BOOT_CONFIG=""
+    # POSSIBLE_LOCATIONS="/boot/firmware/config.txt /boot/config.txt"
 
-    echo "DEBUG: Searching for boot config in possible locations..."
-    for location in $POSSIBLE_LOCATIONS; do
-        echo "DEBUG: Checking: $location"
-        if [ -f "$location" ]; then
-            BOOT_CONFIG="$location"
-            echo "DEBUG: Found boot config at: $BOOT_CONFIG"
-            break
-        fi
-    done
+    # echo "DEBUG: Searching for boot config in possible locations..."
+    # for location in $POSSIBLE_LOCATIONS; do
+    #     echo "DEBUG: Checking: $location"
+    #     if [ -f "$location" ]; then
+    #         BOOT_CONFIG="$location"
+    #         echo "DEBUG: Found boot config at: $BOOT_CONFIG"
+    #         break
+    #     fi
+    # done
 
-    # Critical safety checks for boot configuration
-    if [ -z "$BOOT_CONFIG" ]; then
-        echo "DEBUG: No boot config file found in any location"
-        echo "ERROR: Boot config file not found in any expected location"
-        echo "This is required for Raspberry Pi systems"
-        echo "Searched locations: $POSSIBLE_LOCATIONS"
-        echo "Available boot locations:"
-        find /boot* -name "config.txt" 2>/dev/null || echo "  No boot config files found"
-        echo "DEBUG: EXITING at boot config check - no valid config found"
-        exit 1
-    fi
-    echo "DEBUG: Boot config file confirmed at $BOOT_CONFIG"
+    # # Critical safety checks for boot configuration
+    # if [ -z "$BOOT_CONFIG" ]; then
+    #     echo "DEBUG: No boot config file found in any location"
+    #     echo "ERROR: Boot config file not found in any expected location"
+    #     echo "This is required for Raspberry Pi systems"
+    #     echo "Searched locations: $POSSIBLE_LOCATIONS"
+    #     echo "Available boot locations:"
+    #     find /boot* -name "config.txt" 2>/dev/null || echo "  No boot config files found"
+    #     echo "DEBUG: EXITING at boot config check - no valid config found"
+    #     exit 1
+    # fi
+    # echo "DEBUG: Boot config file confirmed at $BOOT_CONFIG"
 
-    # Validate current boot config is readable and appears valid
-    echo "DEBUG: Checking boot config content validity..."
-    if ! grep -q "arm_64bit\|gpu_mem\|hdmi_" "$BOOT_CONFIG" 2>/dev/null; then
-        echo "DEBUG: Boot config doesn't contain expected Pi config markers"
-        echo "WARNING: Boot config doesn't appear to be a standard Raspberry Pi config"
-        echo "Current config preview:"
-        head -20 "$BOOT_CONFIG" | sed 's/^/  /'
-        echo "DEBUG: About to prompt user for confirmation..."
-        read -p "Continue with boot config modification? [y/N]: " -n 1 -r
-        echo
-        echo "DEBUG: User response: '$REPLY'"
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "DEBUG: User declined boot config modification"
-            echo "Skipping boot configuration changes"
-            echo "You may need to manually configure display settings"
-            SKIP_BOOT_CONFIG=1
-        fi
-    fi
-    echo "DEBUG: Boot config validation complete, SKIP_BOOT_CONFIG=$SKIP_BOOT_CONFIG"
-
-    if [ "$SKIP_BOOT_CONFIG" != "1" ]; then
-        # Create backup with more descriptive name
-        BACKUP_FILE="${BOOT_CONFIG}.backup.calendarbot.$(date +%Y%m%d_%H%M%S)"
-        cp "$BOOT_CONFIG" "$BACKUP_FILE" || {
-            echo "ERROR: Failed to backup boot config"
-            echo "Aborting boot config changes for safety"
-            exit 1
-        }
-        echo "Boot config backed up to: $BACKUP_FILE"
-
-    # Add CalendarBot kiosk configurations if not already present
-    if ! grep -q "# CalendarBot Kiosk Display Configuration" "$BOOT_CONFIG"; then
-        # Validate we can write to the boot config
-        if ! touch "$BOOT_CONFIG.test" 2>/dev/null; then
-            echo "ERROR: Cannot write to boot partition"
-            echo "Boot partition may be read-only or insufficient permissions"
-            exit 1
-        fi
-        rm -f "$BOOT_CONFIG.test"
-
-        cat >> "$BOOT_CONFIG" << 'EOF'
-
-# CalendarBot Kiosk Display Configuration
-# ADDED BY CALENDARBOT INSTALLER
-
-# GPU memory split for 512MB Pi Zero 2W
-gpu_mem=64
-
-# HDMI configuration for 480x800 display
-hdmi_force_hotplug=1
-hdmi_group=2
-hdmi_mode=87
-hdmi_cvt=480 800 60 6 0 0 0
-
-# Disable unnecessary hardware to save power/memory
-dtparam=audio=off
-dtoverlay=disable-bt
-
-# Hardware watchdog
-dtparam=watchdog=on
-
-# Performance settings
-arm_freq=1000
-core_freq=500
-over_voltage=2
-force_turbo=1
-
-# END CALENDARBOT CONFIGURATION
-EOF
-        echo "Boot configuration updated successfully"
-        echo "IMPORTANT: System will require reboot for display changes to take effect"
-    else
-        echo "Boot configuration already contains CalendarBot settings"
-    fi
-else
-    echo "Boot configuration skipped - manual display setup may be required"
+    # # Validate current boot config is readable and appears valid
+    # echo "DEBUG: Checking boot config content validity..."
+    # if ! grep -q "arm_64bit\|gpu_mem\|hdmi_" "$BOOT_CONFIG" 2>/dev/null; then
+    #     echo "DEBUG: Boot config doesn't contain expected Pi config markers"
+    #     echo "WARNING: Boot config doesn't appear to be a standard Raspberry Pi config"
+    #     echo "Current config preview:"
+    #     head -20 "$BOOT_CONFIG" | sed 's/^/  /'
+    #     echo "DEBUG: About to prompt user for confirmation..."
+    #     read -p "Continue with boot config modification? [y/N]: " -n 1 -r
+    #     echo
+    #     echo "DEBUG: User response: '$REPLY'"
+    #     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    #         echo "DEBUG: User declined boot config modification"
+    #         echo "Skipping boot configuration changes"
+    #         echo "You may need to manually configure display settings"
+    #         SKIP_BOOT_CONFIG=1
+    #     fi
+    # fi
+    # echo "DEBUG: Boot config validation complete, SKIP_BOOT_CONFIG=$SKIP_BOOT_CONFIG"
 fi
 
 # 9. Create CalendarBot configuration directory if it doesn't exist
@@ -543,7 +488,15 @@ if [ ! -d "$CALENDARBOT_HOME" ]; then
         echo "ERROR: Failed to create symlink to project"
         echo "Source: $PROJECT_ROOT"
         echo "Target: $CALENDARBOT_HOME"
-        echo "DEBUG: Checking if source exists: $(ls -la $PROJECT_ROOT | head -3)"
+        echo "DEBUG: Checking source directory: '$PROJECT_ROOT'"
+        if [ -d "$PROJECT_ROOT" ] && [ -r "$PROJECT_ROOT" ]; then
+            echo "DEBUG: Directory exists and is readable"
+            echo "DEBUG: Sample contents:"
+            find "$PROJECT_ROOT" -maxdepth 1 -type f -o -type d | head -3
+        else
+            echo "DEBUG: Directory does not exist or is not accessible"
+            echo "DEBUG: Directory test results: exists=$(test -d "$PROJECT_ROOT" && echo "yes" || echo "no"), readable=$(test -r "$PROJECT_ROOT" && echo "yes" || echo "no")"
+        fi
         exit 1
     fi
     echo "✓ Project linked to $CALENDARBOT_HOME"
@@ -554,13 +507,21 @@ fi
 # Validate project structure is accessible
 echo "DEBUG: Validating project structure in $CALENDARBOT_HOME"
 echo "DEBUG: Contents of $CALENDARBOT_HOME:"
-ls -la "$CALENDARBOT_HOME" | head -10
+if [ -d "$CALENDARBOT_HOME" ] && [ -r "$CALENDARBOT_HOME" ]; then
+    find "$CALENDARBOT_HOME" -maxdepth 1 -type f -o -type d | head -10
+else
+    echo "DEBUG: Directory not accessible: '$CALENDARBOT_HOME'"
+fi
 
 if [ ! -f "$CALENDARBOT_HOME/setup.py" ] && [ ! -f "$CALENDARBOT_HOME/pyproject.toml" ]; then
     echo "ERROR: CalendarBot project appears to be missing setup files"
     echo "Expected setup.py or pyproject.toml in: $CALENDARBOT_HOME"
     echo "DEBUG: Full directory listing:"
-    ls -la "$CALENDARBOT_HOME"
+    if [ -d "$CALENDARBOT_HOME" ] && [ -r "$CALENDARBOT_HOME" ]; then
+        find "$CALENDARBOT_HOME" -maxdepth 1 -type f -o -type d -exec ls -ld {} \;
+    else
+        echo "DEBUG: Directory not accessible for listing: '$CALENDARBOT_HOME'"
+    fi
     exit 1
 fi
 echo "DEBUG: Project structure validation passed"
@@ -794,6 +755,3 @@ Command: sudo reboot
 
 ===============================================
 EOF
-
-# DEBUG: Adding missing fi statement for main conditional block
-fi

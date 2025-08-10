@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # CalendarBot Kiosk Cleanup Script
 # Cleanup tasks when kiosk service stops
 

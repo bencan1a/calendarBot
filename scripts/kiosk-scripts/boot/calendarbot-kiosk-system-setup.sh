@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # CalendarBot Kiosk System Setup Script
 # One-time system configuration for optimal kiosk operation
 
