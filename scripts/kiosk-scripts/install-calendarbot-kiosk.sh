@@ -250,10 +250,22 @@ apt-get install -y \
     exit 1
 }
 
-# 2. Copy systemd service files
+# 2. Copy and customize systemd service files
 if [ "$NO_AUTOSTART" != "1" ]; then
     echo "Installing systemd services..."
-    cp "$SCRIPT_DIR/systemd/calendarbot-kiosk.service" /etc/systemd/system/
+    
+    # Generate customized kiosk service from template
+    if [ -f "$SCRIPT_DIR/systemd/calendarbot-kiosk.service.template" ]; then
+        echo "Generating customized kiosk service for user: $TARGET_USER"
+        sed -e "s|@@TARGET_USER@@|$TARGET_USER|g" \
+            -e "s|@@TARGET_HOME@@|$TARGET_HOME|g" \
+            -e "s|@@TARGET_UID@@|$(id -u "$TARGET_USER")|g" \
+            "$SCRIPT_DIR/systemd/calendarbot-kiosk.service.template" > /etc/systemd/system/calendarbot-kiosk.service
+    else
+        # Fallback to original service file if template doesn't exist
+        cp "$SCRIPT_DIR/systemd/calendarbot-kiosk.service" /etc/systemd/system/
+    fi
+    
     cp "$SCRIPT_DIR/systemd/calendarbot-kiosk-setup.service" /etc/systemd/system/
     cp "$SCRIPT_DIR/systemd/calendarbot-network-wait.service" /etc/systemd/system/
 else
