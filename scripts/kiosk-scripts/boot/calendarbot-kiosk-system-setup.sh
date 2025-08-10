@@ -4,6 +4,33 @@
 
 set -euo pipefail
 
+# Accept username as parameter, or auto-detect
+TARGET_USER="${1:-}"
+
+# Auto-detect user if not provided
+if [ -z "$TARGET_USER" ]; then
+    # Try SUDO_USER first
+    if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+        TARGET_USER="$SUDO_USER"
+    # Try to get from who's logged in
+    elif [ -n "$(who | head -1 | awk '{print $1}' | grep -v root)" ]; then
+        TARGET_USER=$(who | head -1 | awk '{print $1}')
+    # Fall back to first regular user
+    else
+        TARGET_USER=$(awk -F: '$3 >= 1000 && $3 != 65534 && $1 !~ /^snap/ {print $1}' /etc/passwd | head -1)
+    fi
+fi
+
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+    echo "ERROR: Cannot determine target user. Please provide username as parameter."
+    echo "Usage: $0 [username]"
+    exit 1
+fi
+
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+TARGET_UID=$(id -u "$TARGET_USER")
+TARGET_GID=$(id -g "$TARGET_USER")
+
 LOG_FILE="/var/log/calendarbot/system-setup.log"
 mkdir -p "$(dirname "$LOG_FILE")"
 
@@ -11,36 +38,99 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
 
-log "Starting CalendarBot kiosk system setup"
+log "Starting CalendarBot kiosk system setup for user: $TARGET_USER (UID: $TARGET_UID, Home: $TARGET_HOME)"
 
-# 1. Configure GPU memory split for Pi Zero 2W
-log "Configuring GPU memory split"
-if ! grep -q "gpu_mem=64" /boot/config.txt; then
-    echo "gpu_mem=64" >> /boot/config.txt
-    log "GPU memory split set to 64MB"
+# System compatibility check
+log "Checking system compatibility..."
+IS_RASPBERRY_PI=0
+PI_MODEL=""
+
+if [ -f "/proc/device-tree/model" ]; then
+    MODEL=$(tr -d '\0' < /proc/device-tree/model)
+    if echo "$MODEL" | grep -q "Raspberry Pi"; then
+        IS_RASPBERRY_PI=1
+        PI_MODEL="$MODEL"
+        log "Detected: $PI_MODEL"
+    fi
 fi
 
-# 2. Configure swap for memory management
-log "Configuring swap"
-SWAP_SIZE=512
-SWAP_FILE="/swapfile"
-
-if [ ! -f "$SWAP_FILE" ]; then
-    fallocate -l ${SWAP_SIZE}M "$SWAP_FILE"
-    chmod 600 "$SWAP_FILE"
-    mkswap "$SWAP_FILE"
-    echo "$SWAP_FILE none swap sw 0 0" >> /etc/fstab
-    log "Swap file created: ${SWAP_SIZE}MB"
+if [ $IS_RASPBERRY_PI -eq 0 ]; then
+    log "WARNING: Not running on Raspberry Pi hardware"
+    log "System: $(uname -a)"
+    log "Some optimizations may not apply"
 fi
 
-# Enable swap
-swapon "$SWAP_FILE" 2>/dev/null || true
+# 1. Configure GPU memory split for Raspberry Pi
+if [ $IS_RASPBERRY_PI -eq 1 ]; then
+    log "Configuring GPU memory split"
+    BOOT_CONFIG=""
+    for location in /boot/firmware/config.txt /boot/config.txt; do
+        if [ -f "$location" ]; then
+            BOOT_CONFIG="$location"
+            break
+        fi
+    done
+    
+    if [ -n "$BOOT_CONFIG" ]; then
+        if ! grep -q "gpu_mem=64" "$BOOT_CONFIG"; then
+            echo "gpu_mem=64" >> "$BOOT_CONFIG"
+            log "GPU memory split set to 64MB in $BOOT_CONFIG"
+        fi
+    else
+        log "WARNING: Boot config not found, skipping GPU memory configuration"
+    fi
+else
+    log "Skipping GPU memory configuration (not Raspberry Pi)"
+fi
+
+# 2. Configure zram (compressed RAM swap) instead of swap file
+log "Configuring memory management with zram"
+
+# Check if zram-tools is installed
+if ! command -v zramctl >/dev/null 2>&1; then
+    log "WARNING: zram-tools not installed. Skipping zram configuration."
+    log "Install with: apt-get install zram-tools"
+else
+    # Configure zram if not already configured
+    if ! zramctl | grep -q zram0; then
+        # Load zram module
+        modprobe zram num_devices=1 2>/dev/null || true
+        
+        # Calculate zram size (50% of total RAM, max 512MB for Pi Zero 2)
+        TOTAL_MEM=$(free -m | awk '/^Mem:/{print $2}')
+        ZRAM_SIZE=$(( TOTAL_MEM / 2 ))
+        if [ $ZRAM_SIZE -gt 512 ]; then
+            ZRAM_SIZE=512
+        fi
+        
+        # Set up zram device
+        if [ -b /dev/zram0 ]; then
+            echo "${ZRAM_SIZE}M" > /sys/block/zram0/disksize
+            mkswap /dev/zram0
+            swapon -p 100 /dev/zram0
+            log "zram configured: ${ZRAM_SIZE}MB compressed swap"
+        else
+            log "WARNING: zram device not available"
+        fi
+    else
+        log "zram already configured"
+    fi
+    
+    # Create zram config for persistence
+    cat > /etc/default/zramswap << EOF
+# CalendarBot Kiosk zram configuration
+ALGO=lz4
+PERCENT=50
+PRIORITY=100
+EOF
+    log "zram configuration saved to /etc/default/zramswap"
+fi
 
 # 3. Configure tmpfs for logs to reduce SD card wear
 log "Configuring tmpfs for logs"
 if ! grep -q "/var/log/calendarbot" /etc/fstab; then
-    echo "tmpfs /var/log/calendarbot tmpfs defaults,size=64M,uid=1000,gid=1000 0 0" >> /etc/fstab
-    log "tmpfs configured for CalendarBot logs"
+    echo "tmpfs /var/log/calendarbot tmpfs defaults,size=64M,uid=$TARGET_UID,gid=$TARGET_GID 0 0" >> /etc/fstab
+    log "tmpfs configured for CalendarBot logs (UID: $TARGET_UID, GID: $TARGET_GID)"
 fi
 
 # 4. Set CPU governor for consistent performance
@@ -78,7 +168,7 @@ max-load-15 = 4
 min-memory = 32768
 
 # Monitor kiosk process
-pidfile = /home/pi/.calendarbot/daemon.pid
+pidfile = $TARGET_HOME/.calendarbot/daemon.pid
 EOF
 
     systemctl enable watchdog
@@ -103,8 +193,8 @@ for service in $SERVICES_TO_DISABLE; do
     fi
 done
 
-# 8. Configure auto-login for pi user
-log "Configuring auto-login"
+# 8. Configure auto-login for target user
+log "Configuring auto-login for user: $TARGET_USER"
 systemctl set-default graphical.target
 
 # Configure auto-login through systemd
@@ -112,7 +202,13 @@ mkdir -p /etc/systemd/system/getty@tty1.service.d
 cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << EOF
 [Service]
 ExecStart=
-ExecStart=-/sbin/agetty --autologin pi --noclear %I \$TERM
+ExecStart=-/sbin/agetty --autologin $TARGET_USER --noclear %I \$TERM
 EOF
 
 log "System setup completed successfully"
+log "Configuration summary:"
+log "  - Target user: $TARGET_USER"
+log "  - Home directory: $TARGET_HOME"
+log "  - System type: $([ $IS_RASPBERRY_PI -eq 1 ] && echo "$PI_MODEL" || echo "Non-Pi system")"
+log "  - Memory management: zram (compressed swap)"
+log "  - Auto-login: Configured for $TARGET_USER"
