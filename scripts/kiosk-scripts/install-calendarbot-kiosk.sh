@@ -140,13 +140,81 @@ if [ ! -f "/proc/device-tree/model" ] || ! grep -q "Raspberry Pi" /proc/device-t
     fi
 fi
 
-# Check if 'pi' user exists
-if ! id "pi" >/dev/null 2>&1; then
-    echo "ERROR: User 'pi' does not exist on this system"
-    echo "This script is designed for standard Raspberry Pi OS installations"
+# Auto-detect target user (flexible for different systems)
+TARGET_USER=""
+
+# Try to detect user from project directory ownership
+if [ -d "$PROJECT_ROOT" ]; then
+    TARGET_USER=$(stat -c '%U' "$PROJECT_ROOT" 2>/dev/null)
+fi
+
+# Fall back to SUDO_USER if project owner detection fails
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+    if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+        TARGET_USER="$SUDO_USER"
+    fi
+fi
+
+# Final fallback: try to find the 'pi' user (traditional Raspberry Pi)
+if [ -z "$TARGET_USER" ] && id "pi" >/dev/null 2>&1; then
+    TARGET_USER="pi"
+fi
+
+# Validate we found a suitable target user
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+    echo "ERROR: Cannot determine target user for CalendarBot installation"
+    echo "Project directory: $PROJECT_ROOT"
+    echo "Available non-root users: $(cut -d: -f1 /etc/passwd | grep -E '^[a-z]' | head -5 | tr '\n' ' ')"
+    echo ""
+    echo "Please ensure:"
+    echo "  1. You are running this script with sudo"
+    echo "  2. The CalendarBot project is owned by a non-root user"
+    echo "  3. The target user account exists on this system"
+    exit 1
+fi
+
+# If still no target user found, try to detect from regular users (UID >= 1000)
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+    echo "DEBUG: Attempting to detect from regular users..."
+    REGULAR_USERS=$(awk -F: '$3 >= 1000 && $3 != 65534 && $1 !~ /^snap/ {print $1}' /etc/passwd | head -3)
+    if [ -n "$REGULAR_USERS" ]; then
+        # Use the first regular user that's not a system/snap user
+        for user in $REGULAR_USERS; do
+            if [ "$user" != "nobody" ] && [ -d "/home/$user" ]; then
+                TARGET_USER="$user"
+                echo "DEBUG: Found regular user: '$TARGET_USER'"
+                break
+            fi
+        done
+    fi
+fi
+
+# Validate the detected user exists and has a home directory
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+    echo "ERROR: Cannot determine target user for CalendarBot installation"
+    echo "Project directory: $PROJECT_ROOT"
+    echo "Available regular users: $(awk -F: '$3 >= 1000 && $3 != 65534 {print $1}' /etc/passwd | tr '\n' ' ')"
+    echo ""
+    echo "Please ensure:"
+    echo "  1. You are running this script with sudo"
+    echo "  2. The CalendarBot project is owned by a non-root user"
+    echo "  3. The target user account exists on this system"
+    exit 1
+fi
+
+if ! id "$TARGET_USER" >/dev/null 2>&1; then
+    echo "ERROR: Detected target user '$TARGET_USER' does not exist on this system"
     echo "Available users: $(cut -d: -f1 /etc/passwd | grep -E '^[a-z]' | head -5 | tr '\n' ' ')"
     exit 1
 fi
+
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+if [ ! -d "$TARGET_HOME" ]; then
+    echo "ERROR: Home directory for user '$TARGET_USER' does not exist: $TARGET_HOME"
+    exit 1
+fi
+
+echo "Target user detected: $TARGET_USER (home: $TARGET_HOME)"
 
 # Check network connectivity before attempting package installation
 echo "Checking network connectivity..."
@@ -201,14 +269,14 @@ chmod +x /usr/local/bin/calendarbot-*
 # 5. Create log directory
 echo "Creating log directory..."
 mkdir -p /var/log/calendarbot
-chown pi:pi /var/log/calendarbot
+chown "$TARGET_USER:$TARGET_USER" /var/log/calendarbot
 
 # 6. Set up X11 session
 echo "Configuring X11 session..."
 cp "$SCRIPT_DIR/x11/calendarbot-kiosk.desktop" /usr/share/xsessions/
-cp "$SCRIPT_DIR/x11/.xsession" /home/pi/
-chown pi:pi /home/pi/.xsession
-chmod +x /home/pi/.xsession
+cp "$SCRIPT_DIR/x11/.xsession" "$TARGET_HOME/"
+chown "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.xsession"
+chmod +x "$TARGET_HOME/.xsession"
 
 # 7. Configure auto-login (DANGEROUS - backup existing config)
 if [ "$NO_AUTOSTART" = "1" ]; then
@@ -243,9 +311,9 @@ else
         # Check if existing config has important settings we should preserve
         if grep -q "autologin-user.*=" "$LIGHTDM_CONF" 2>/dev/null; then
             EXISTING_USER=$(grep "autologin-user.*=" "$LIGHTDM_CONF" | head -1 | cut -d'=' -f2 | tr -d ' ')
-            if [ -n "$EXISTING_USER" ] && [ "$EXISTING_USER" != "pi" ]; then
+            if [ -n "$EXISTING_USER" ] && [ "$EXISTING_USER" != "$TARGET_USER" ]; then
                 echo "WARNING: Existing auto-login configured for user: $EXISTING_USER"
-                echo "This will be changed to 'pi' user"
+                echo "This will be changed to '$TARGET_USER' user"
                 read -p "Continue with LightDM configuration change? [y/N]: " -n 1 -r
                 echo
                 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -259,10 +327,10 @@ else
 
     if [ "$SKIP_LIGHTDM" != "1" ]; then
     # Create new LightDM configuration with CalendarBot settings
-    cat > "$LIGHTDM_CONF" << 'EOF'
+    cat > "$LIGHTDM_CONF" << EOF
 # LightDM Configuration - Modified by CalendarBot Kiosk Installer
 [Seat:*]
-autologin-user=pi
+autologin-user=$TARGET_USER
 autologin-user-timeout=0
 user-session=calendarbot-kiosk
 autologin-session=calendarbot-kiosk
@@ -277,7 +345,7 @@ session-setup-script=/usr/local/bin/calendarbot-kiosk-prestart.sh
 EOF
     
     # Validate the configuration file was written correctly
-    if ! grep -q "autologin-user=pi" "$LIGHTDM_CONF"; then
+    if ! grep -q "autologin-user=$TARGET_USER" "$LIGHTDM_CONF"; then
         echo "ERROR: Failed to write LightDM configuration"
         echo "Restoring backup..."
         if [ -f "$LIGHTDM_BACKUP" ]; then
@@ -291,7 +359,7 @@ EOF
 else
     echo "LightDM configuration skipped - manual setup required:"
     echo "  Edit $LIGHTDM_CONF to set:"
-    echo "  autologin-user=pi"
+    echo "  autologin-user=$TARGET_USER"
     echo "  user-session=calendarbot-kiosk"
 fi
 
@@ -382,8 +450,8 @@ fi
 
 # 9. Create CalendarBot configuration directory if it doesn't exist
 echo "Setting up CalendarBot configuration..."
-mkdir -p /home/pi/.config/calendarbot
-chown -R pi:pi /home/pi/.config/calendarbot
+mkdir -p "$TARGET_HOME/.config/calendarbot"
+chown -R "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config/calendarbot"
 
 # 10. Set up Python virtual environment with comprehensive validation
 echo "Setting up Python virtual environment..."
@@ -406,16 +474,16 @@ if ! python3 -m venv --help >/dev/null 2>&1; then
 fi
 
 # Set up CalendarBot directory structure
-CALENDARBOT_HOME="/home/pi/calendarbot"
+CALENDARBOT_HOME="$TARGET_HOME/calendarbot"
 if [ ! -d "$CALENDARBOT_HOME" ]; then
     echo "Creating CalendarBot home directory..."
-    if [ ! -d "/home/pi" ]; then
-        echo "ERROR: /home/pi directory does not exist"
+    if [ ! -d "$TARGET_HOME" ]; then
+        echo "ERROR: $TARGET_HOME directory does not exist"
         exit 1
     fi
     
     # Create symlink to project root
-    if ! sudo -u pi ln -sf "$PROJECT_ROOT" "$CALENDARBOT_HOME"; then
+    if ! sudo -u "$TARGET_USER" ln -sf "$PROJECT_ROOT" "$CALENDARBOT_HOME"; then
         echo "ERROR: Failed to create symlink to project"
         echo "Source: $PROJECT_ROOT"
         echo "Target: $CALENDARBOT_HOME"
@@ -437,8 +505,8 @@ VENV_PATH="$CALENDARBOT_HOME/venv"
 if [ ! -d "$VENV_PATH" ]; then
     echo "Creating Python virtual environment at $VENV_PATH..."
     
-    # Create virtual environment as pi user
-    if ! sudo -u pi python3 -m venv "$VENV_PATH"; then
+    # Create virtual environment as target user
+    if ! sudo -u "$TARGET_USER" python3 -m venv "$VENV_PATH"; then
         echo "ERROR: Failed to create virtual environment"
         echo "Check Python installation and permissions"
         exit 1
@@ -457,7 +525,7 @@ if [ ! -f "$VENV_PATH/bin/python" ]; then
 fi
 
 # Test virtual environment activation
-if ! sudo -u pi "$VENV_PATH/bin/python" --version >/dev/null 2>&1; then
+if ! sudo -u "$TARGET_USER" "$VENV_PATH/bin/python" --version >/dev/null 2>&1; then
     echo "ERROR: Virtual environment Python is not functional"
     exit 1
 fi
@@ -467,25 +535,25 @@ echo "Installing CalendarBot in virtual environment..."
 cd "$CALENDARBOT_HOME"
 
 # Upgrade pip first
-if ! sudo -u pi "$VENV_PATH/bin/pip" install --upgrade pip; then
+if ! sudo -u "$TARGET_USER" "$VENV_PATH/bin/pip" install --upgrade pip; then
     echo "WARNING: Failed to upgrade pip, continuing with existing version"
 fi
 
 # Install CalendarBot
-if ! sudo -u pi "$VENV_PATH/bin/pip" install -e .; then
+if ! sudo -u "$TARGET_USER" "$VENV_PATH/bin/pip" install -e .; then
     echo "ERROR: Failed to install CalendarBot"
     echo "Check setup.py/pyproject.toml and dependencies"
     echo "Virtual environment pip list:"
-    sudo -u pi "$VENV_PATH/bin/pip" list || true
+    sudo -u "$TARGET_USER" "$VENV_PATH/bin/pip" list || true
     exit 1
 fi
 
 # Verify CalendarBot installation
-if ! sudo -u pi "$VENV_PATH/bin/calendarbot" --version >/dev/null 2>&1; then
+if ! sudo -u "$TARGET_USER" "$VENV_PATH/bin/calendarbot" --version >/dev/null 2>&1; then
     echo "WARNING: CalendarBot installation may not be working correctly"
     echo "Test the installation manually: $VENV_PATH/bin/calendarbot --version"
 else
-    CALENDARBOT_VERSION=$(sudo -u pi "$VENV_PATH/bin/calendarbot" --version 2>&1)
+    CALENDARBOT_VERSION=$(sudo -u "$TARGET_USER" "$VENV_PATH/bin/calendarbot" --version 2>&1)
     echo "✓ CalendarBot installed successfully: $CALENDARBOT_VERSION"
 fi
 
@@ -512,7 +580,7 @@ if ! systemctl list-unit-files lightdm.service >/dev/null 2>&1; then
 fi
 
 # Verify CalendarBot installation before enabling services
-if [ ! -f "/home/pi/calendarbot/venv/bin/calendarbot" ] && [ ! -f "/home/pi/.local/bin/calendarbot" ]; then
+if [ ! -f "$CALENDARBOT_HOME/venv/bin/calendarbot" ] && [ ! -f "$TARGET_HOME/.local/bin/calendarbot" ]; then
     echo "WARNING: CalendarBot executable not found"
     echo "Services may fail to start until CalendarBot is properly installed"
     read -p "Continue with service enablement anyway? [y/N]: " -n 1 -r
