@@ -75,6 +75,9 @@ function initializeWhatsNextView() {
     setupMeetingDetection();
     setupAccessibility();
 
+    // Initialize viewport resolution display
+    setupViewportResolutionDisplay();
+
     // Initialize settings panel
     initializeSettingsPanel();
 
@@ -286,6 +289,50 @@ function setupAccessibility() {
     });
 
     console.log('Whats-Next-View: Accessibility features setup complete');
+}
+
+/**
+ * Setup viewport resolution display at bottom right of window
+ */
+function setupViewportResolutionDisplay() {
+    // Create viewport resolution display element
+    const viewportDisplay = document.createElement('div');
+    viewportDisplay.id = 'viewport-resolution-display';
+    viewportDisplay.style.cssText = `
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        z-index: 99999;
+        pointer-events: none;
+        user-select: none;
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    `;
+
+    // Function to update viewport resolution display
+    function updateViewportDisplay() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        viewportDisplay.textContent = `${width} × ${height}`;
+        console.log(`Viewport: ${width} x ${height}`);
+    }
+
+    // Initial display update
+    updateViewportDisplay();
+
+    // Add to document body
+    document.body.appendChild(viewportDisplay);
+
+    // Update on window resize
+    window.addEventListener('resize', updateViewportDisplay);
+
+    console.log('Whats-Next-View: Viewport resolution display setup complete');
 }
 
 /**
