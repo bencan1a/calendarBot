@@ -137,7 +137,30 @@ RestrictRealtime=true
 WantedBy=graphical.target
 EOF
 
-echo "Service file updated successfully"
+    echo "Kiosk service file updated successfully"
+fi
+
+# Fix the network wait service file
+if [ -f "$NETWORK_SERVICE" ]; then
+    echo "Fixing network wait service file..."
+    cat > "$NETWORK_SERVICE" << EOF
+[Unit]
+Description=Wait for network connectivity before starting kiosk
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/local/bin/calendarbot-wait-for-network.sh
+TimeoutStartSec=180
+User=$TARGET_USER
+
+[Install]
+WantedBy=network-online.target
+EOF
+    echo "Network wait service file updated successfully"
+fi
 
 # Reload systemd
 systemctl daemon-reload
