@@ -266,8 +266,18 @@ if [ "$NO_AUTOSTART" != "1" ]; then
         cp "$SCRIPT_DIR/systemd/calendarbot-kiosk.service" /etc/systemd/system/
     fi
     
+    # Generate customized network wait service from template
+    if [ -f "$SCRIPT_DIR/systemd/calendarbot-network-wait.service.template" ]; then
+        echo "Generating customized network wait service for user: $TARGET_USER"
+        sed -e "s|@@TARGET_USER@@|$TARGET_USER|g" \
+            "$SCRIPT_DIR/systemd/calendarbot-network-wait.service.template" > /etc/systemd/system/calendarbot-network-wait.service
+    else
+        # Fallback to original service file if template doesn't exist
+        cp "$SCRIPT_DIR/systemd/calendarbot-network-wait.service" /etc/systemd/system/
+    fi
+    
+    # Setup service doesn't need customization - runs as root
     cp "$SCRIPT_DIR/systemd/calendarbot-kiosk-setup.service" /etc/systemd/system/
-    cp "$SCRIPT_DIR/systemd/calendarbot-network-wait.service" /etc/systemd/system/
 else
     echo "Skipping systemd services installation (--no-autostart mode)"
 fi
