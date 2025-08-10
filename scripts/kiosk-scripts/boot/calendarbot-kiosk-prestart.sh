@@ -4,6 +4,33 @@
 
 set -euo pipefail
 
+# Auto-detect target user (same logic as system-setup script)
+TARGET_USER=""
+
+# Try SUDO_USER first (most reliable when run with sudo)
+if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    TARGET_USER="$SUDO_USER"
+fi
+
+# Fall back to first regular user with home directory
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+    REGULAR_USERS=$(awk -F: '$3 >= 1000 && $3 != 65534 && $1 !~ /^snap/ {print $1}' /etc/passwd)
+    for user in $REGULAR_USERS; do
+        if [ "$user" != "nobody" ] && [ -d "/home/$user" ]; then
+            TARGET_USER="$user"
+            break
+        fi
+    done
+fi
+
+# Get user home directory
+if [ -z "$TARGET_USER" ]; then
+    log "ERROR: Cannot determine target user"
+    exit 1
+fi
+
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+
 # Logging
 LOG_FILE="/var/log/calendarbot/kiosk-prestart.log"
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -12,7 +39,7 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
 
-log "Starting CalendarBot kiosk pre-start checks"
+log "Starting CalendarBot kiosk pre-start checks (user: $TARGET_USER)"
 
 # 1. Verify X11 display is available
 if ! xdpyinfo -display :0 >/dev/null 2>&1; then
