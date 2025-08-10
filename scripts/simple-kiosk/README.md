@@ -4,12 +4,15 @@ A safe, simple way to run CalendarBot in fullscreen kiosk mode without risky sys
 
 ## Features
 
-- **On-demand kiosk mode** - Launch when you want it
-- **No system modifications** - No boot configuration changes
+- **Comprehensive kiosk mode** - True fullscreen experience
+- **Display management** - Disables screen blanking and power management
+- **Cursor hiding** - Automatically hides cursor after 1 second of inactivity
 - **Smart URL detection** - Works with localhost, IP, or hostname
 - **Auto-startup** - Starts CalendarBot web server if not running
 - **Easy exit** - Press Alt+F4 or click stop shortcut
 - **Desktop shortcuts** - One-click launch from desktop
+- **No system modifications** - No risky boot configuration changes
+- **Clean exit** - Restores all display settings when stopped
 
 ## Installation
 
