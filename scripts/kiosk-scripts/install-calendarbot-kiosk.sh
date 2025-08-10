@@ -417,37 +417,36 @@ else
         exit 1
     fi
     echo "DEBUG: Boot config file confirmed at $BOOT_CONFIG"
-fi
 
-# Validate current boot config is readable and appears valid
-echo "DEBUG: Checking boot config content validity..."
-if ! grep -q "arm_64bit\|gpu_mem\|hdmi_" "$BOOT_CONFIG" 2>/dev/null; then
-    echo "DEBUG: Boot config doesn't contain expected Pi config markers"
-    echo "WARNING: Boot config doesn't appear to be a standard Raspberry Pi config"
-    echo "Current config preview:"
-    head -20 "$BOOT_CONFIG" | sed 's/^/  /'
-    echo "DEBUG: About to prompt user for confirmation..."
-    read -p "Continue with boot config modification? [y/N]: " -n 1 -r
-    echo
-    echo "DEBUG: User response: '$REPLY'"
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "DEBUG: User declined boot config modification"
-        echo "Skipping boot configuration changes"
-        echo "You may need to manually configure display settings"
-        SKIP_BOOT_CONFIG=1
+    # Validate current boot config is readable and appears valid
+    echo "DEBUG: Checking boot config content validity..."
+    if ! grep -q "arm_64bit\|gpu_mem\|hdmi_" "$BOOT_CONFIG" 2>/dev/null; then
+        echo "DEBUG: Boot config doesn't contain expected Pi config markers"
+        echo "WARNING: Boot config doesn't appear to be a standard Raspberry Pi config"
+        echo "Current config preview:"
+        head -20 "$BOOT_CONFIG" | sed 's/^/  /'
+        echo "DEBUG: About to prompt user for confirmation..."
+        read -p "Continue with boot config modification? [y/N]: " -n 1 -r
+        echo
+        echo "DEBUG: User response: '$REPLY'"
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "DEBUG: User declined boot config modification"
+            echo "Skipping boot configuration changes"
+            echo "You may need to manually configure display settings"
+            SKIP_BOOT_CONFIG=1
+        fi
     fi
-fi
-echo "DEBUG: Boot config validation complete, SKIP_BOOT_CONFIG=$SKIP_BOOT_CONFIG"
+    echo "DEBUG: Boot config validation complete, SKIP_BOOT_CONFIG=$SKIP_BOOT_CONFIG"
 
-if [ "$SKIP_BOOT_CONFIG" != "1" ]; then
-    # Create backup with more descriptive name
-    BACKUP_FILE="${BOOT_CONFIG}.backup.calendarbot.$(date +%Y%m%d_%H%M%S)"
-    cp "$BOOT_CONFIG" "$BACKUP_FILE" || {
-        echo "ERROR: Failed to backup boot config"
-        echo "Aborting boot config changes for safety"
-        exit 1
-    }
-    echo "Boot config backed up to: $BACKUP_FILE"
+    if [ "$SKIP_BOOT_CONFIG" != "1" ]; then
+        # Create backup with more descriptive name
+        BACKUP_FILE="${BOOT_CONFIG}.backup.calendarbot.$(date +%Y%m%d_%H%M%S)"
+        cp "$BOOT_CONFIG" "$BACKUP_FILE" || {
+            echo "ERROR: Failed to backup boot config"
+            echo "Aborting boot config changes for safety"
+            exit 1
+        }
+        echo "Boot config backed up to: $BACKUP_FILE"
 
     # Add CalendarBot kiosk configurations if not already present
     if ! grep -q "# CalendarBot Kiosk Display Configuration" "$BOOT_CONFIG"; then
