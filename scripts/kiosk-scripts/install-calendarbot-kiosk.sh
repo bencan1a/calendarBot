@@ -719,3 +719,6 @@ Command: sudo reboot
 
 ===============================================
 EOF
+
+# DEBUG: Adding missing fi statement for main conditional block
+fi
