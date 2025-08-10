@@ -304,7 +304,7 @@ function setupViewportResolutionDisplay() {
         right: 10px;
         background: rgba(0, 0, 0, 0.8);
         color: white;
-        padding: 4px 8px;
+        padding: 6px 10px;
         border-radius: 4px;
         font-family: 'Courier New', monospace;
         font-size: 11px;
@@ -313,14 +313,28 @@ function setupViewportResolutionDisplay() {
         user-select: none;
         backdrop-filter: blur(4px);
         border: 1px solid rgba(255, 255, 255, 0.2);
+        line-height: 1.3;
+        white-space: pre-line;
     `;
 
     // Function to update viewport resolution display
     function updateViewportDisplay() {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        viewportDisplay.textContent = `${width} × ${height}`;
-        console.log(`Viewport: ${width} x ${height}`);
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // Get content area dimensions
+        const contentArea = document.querySelector('.calendar-content');
+        let contentWidth = 300;  // Default from CSS
+        let contentHeight = 400; // Default from CSS
+        
+        if (contentArea) {
+            const rect = contentArea.getBoundingClientRect();
+            contentWidth = Math.round(rect.width);
+            contentHeight = Math.round(rect.height);
+        }
+        
+        viewportDisplay.textContent = `Viewport: ${viewportWidth} × ${viewportHeight}\nContent: ${contentWidth} × ${contentHeight}`;
+        console.log(`Viewport: ${viewportWidth} x ${viewportHeight}, Content Area: ${contentWidth} × ${contentHeight}`);
     }
 
     // Initial display update
@@ -331,6 +345,13 @@ function setupViewportResolutionDisplay() {
 
     // Update on window resize
     window.addEventListener('resize', updateViewportDisplay);
+    
+    // Add border to content area
+    const contentArea = document.querySelector('.calendar-content');
+    if (contentArea) {
+        contentArea.style.border = '1px solid #bdbdbd';
+        contentArea.style.boxSizing = 'border-box';
+    }
 
     console.log('Whats-Next-View: Viewport resolution display setup complete');
 }
