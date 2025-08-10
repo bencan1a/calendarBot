@@ -52,7 +52,7 @@ except ImportError:
     _kiosk_exports = []
 
 # Build __all__ list - must contain only strings for static analyzers
-__all__ = [
+__all__ = [  # pyright: ignore[reportUnsupportedDunderAll]
     "ConflictResolutionSettings",
     "DisplaySettings",
     "EventFilterSettings",
