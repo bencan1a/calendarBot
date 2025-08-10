@@ -250,33 +250,53 @@ apt-get install -y \
 }
 
 # 2. Copy systemd service files
-echo "Installing systemd services..."
-cp "$SCRIPT_DIR/systemd/calendarbot-kiosk.service" /etc/systemd/system/
-cp "$SCRIPT_DIR/systemd/calendarbot-kiosk-setup.service" /etc/systemd/system/
-cp "$SCRIPT_DIR/systemd/calendarbot-network-wait.service" /etc/systemd/system/
+if [ "$NO_AUTOSTART" != "1" ]; then
+    echo "Installing systemd services..."
+    cp "$SCRIPT_DIR/systemd/calendarbot-kiosk.service" /etc/systemd/system/
+    cp "$SCRIPT_DIR/systemd/calendarbot-kiosk-setup.service" /etc/systemd/system/
+    cp "$SCRIPT_DIR/systemd/calendarbot-network-wait.service" /etc/systemd/system/
+else
+    echo "Skipping systemd services installation (--no-autostart mode)"
+fi
 
 # 3. Copy boot scripts
-echo "Installing boot scripts..."
-cp "$SCRIPT_DIR/boot/calendarbot-kiosk-prestart.sh" /usr/local/bin/
-cp "$SCRIPT_DIR/boot/calendarbot-kiosk-system-setup.sh" /usr/local/bin/
-cp "$SCRIPT_DIR/boot/calendarbot-wait-for-network.sh" /usr/local/bin/
-cp "$SCRIPT_DIR/boot/calendarbot-kiosk-cleanup.sh" /usr/local/bin/
+if [ "$NO_AUTOSTART" != "1" ]; then
+    echo "Installing boot scripts..."
+    cp "$SCRIPT_DIR/boot/calendarbot-kiosk-prestart.sh" /usr/local/bin/
+    cp "$SCRIPT_DIR/boot/calendarbot-kiosk-system-setup.sh" /usr/local/bin/
+    cp "$SCRIPT_DIR/boot/calendarbot-wait-for-network.sh" /usr/local/bin/
+    cp "$SCRIPT_DIR/boot/calendarbot-kiosk-cleanup.sh" /usr/local/bin/
+else
+    echo "Skipping boot scripts installation (--no-autostart mode)"
+fi
 
 # 4. Make scripts executable
-echo "Setting script permissions..."
-chmod +x /usr/local/bin/calendarbot-*
+if [ "$NO_AUTOSTART" != "1" ]; then
+    echo "Setting script permissions..."
+    chmod +x /usr/local/bin/calendarbot-*
+else
+    echo "Skipping script permissions setup (--no-autostart mode)"
+fi
 
 # 5. Create log directory
-echo "Creating log directory..."
-mkdir -p /var/log/calendarbot
-chown "$TARGET_USER:$TARGET_USER" /var/log/calendarbot
+if [ "$NO_AUTOSTART" != "1" ]; then
+    echo "Creating log directory..."
+    mkdir -p /var/log/calendarbot
+    chown "$TARGET_USER:$TARGET_USER" /var/log/calendarbot
+else
+    echo "Skipping log directory creation (--no-autostart mode)"
+fi
 
 # 6. Set up X11 session
-echo "Configuring X11 session..."
-cp "$SCRIPT_DIR/x11/calendarbot-kiosk.desktop" /usr/share/xsessions/
-cp "$SCRIPT_DIR/x11/.xsession" "$TARGET_HOME/"
-chown "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.xsession"
-chmod +x "$TARGET_HOME/.xsession"
+if [ "$NO_AUTOSTART" != "1" ]; then
+    echo "Configuring X11 session..."
+    cp "$SCRIPT_DIR/x11/calendarbot-kiosk.desktop" /usr/share/xsessions/
+    cp "$SCRIPT_DIR/x11/.xsession" "$TARGET_HOME/"
+    chown "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.xsession"
+    chmod +x "$TARGET_HOME/.xsession"
+else
+    echo "Skipping X11 session configuration (--no-autostart mode)"
+fi
 
 # 7. Configure auto-login (DANGEROUS - backup existing config)
 if [ "$NO_AUTOSTART" = "1" ]; then
@@ -503,7 +523,14 @@ if ! python3 -m venv --help >/dev/null 2>&1; then
 fi
 
 # Set up CalendarBot directory structure
+echo "DEBUG: Setting up CalendarBot directory structure..."
+echo "DEBUG: PROJECT_ROOT=$PROJECT_ROOT"
+echo "DEBUG: TARGET_HOME=$TARGET_HOME"
+echo "DEBUG: TARGET_USER=$TARGET_USER"
+
 CALENDARBOT_HOME="$TARGET_HOME/calendarbot"
+echo "DEBUG: CALENDARBOT_HOME=$CALENDARBOT_HOME"
+
 if [ ! -d "$CALENDARBOT_HOME" ]; then
     echo "Creating CalendarBot home directory..."
     if [ ! -d "$TARGET_HOME" ]; then
@@ -511,23 +538,33 @@ if [ ! -d "$CALENDARBOT_HOME" ]; then
         exit 1
     fi
     
+    echo "DEBUG: Creating symlink from $PROJECT_ROOT to $CALENDARBOT_HOME"
     # Create symlink to project root
     if ! sudo -u "$TARGET_USER" ln -sf "$PROJECT_ROOT" "$CALENDARBOT_HOME"; then
         echo "ERROR: Failed to create symlink to project"
         echo "Source: $PROJECT_ROOT"
         echo "Target: $CALENDARBOT_HOME"
+        echo "DEBUG: Checking if source exists: $(ls -la $PROJECT_ROOT | head -3)"
         exit 1
     fi
     echo "✓ Project linked to $CALENDARBOT_HOME"
+else
+    echo "DEBUG: CalendarBot home directory already exists: $CALENDARBOT_HOME"
 fi
 
 # Validate project structure is accessible
+echo "DEBUG: Validating project structure in $CALENDARBOT_HOME"
+echo "DEBUG: Contents of $CALENDARBOT_HOME:"
+ls -la "$CALENDARBOT_HOME" | head -10
+
 if [ ! -f "$CALENDARBOT_HOME/setup.py" ] && [ ! -f "$CALENDARBOT_HOME/pyproject.toml" ]; then
     echo "ERROR: CalendarBot project appears to be missing setup files"
     echo "Expected setup.py or pyproject.toml in: $CALENDARBOT_HOME"
-    ls -la "$CALENDARBOT_HOME" | head -10
+    echo "DEBUG: Full directory listing:"
+    ls -la "$CALENDARBOT_HOME"
     exit 1
 fi
+echo "DEBUG: Project structure validation passed"
 
 # Create or validate virtual environment
 VENV_PATH="$CALENDARBOT_HOME/venv"
