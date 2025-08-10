@@ -65,7 +65,7 @@ fi
 # Fix the kiosk service file
 if [ -f "$KIOSK_SERVICE" ]; then
     echo "Fixing kiosk service file..."
-    cat > "$KIOSK_SERVICE" << 'EOF'
+    cat > "$KIOSK_SERVICE" << EOF
 [Unit]
 Description=CalendarBot Kiosk Mode Display
 Documentation=https://github.com/your-org/calendarbot
