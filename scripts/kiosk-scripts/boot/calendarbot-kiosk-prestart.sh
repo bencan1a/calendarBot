@@ -66,10 +66,10 @@ if ! /usr/local/bin/calendarbot-wait-for-network.sh --quick; then
 fi
 
 # 4. Check calendar configuration
-CALENDAR_CONFIG="/home/pi/.config/calendarbot/config.yaml"
+CALENDAR_CONFIG="$TARGET_HOME/.config/calendarbot/config.yaml"
 if [ ! -f "$CALENDAR_CONFIG" ]; then
-    log "ERROR: Calendar configuration not found at $CALENDAR_CONFIG"
-    exit 1
+    log "WARNING: Calendar configuration not found at $CALENDAR_CONFIG"
+    log "Will use default configuration or environment variables"
 fi
 
 # 5. Verify browser is available
