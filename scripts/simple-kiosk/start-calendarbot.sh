@@ -40,6 +40,7 @@ cd "$CALENDARBOT_DIR"
 
 # Activate virtual environment and start CalendarBot
 log "Activating virtual environment: $VENV_PATH"
+# shellcheck disable=SC1091
 source "$VENV_PATH/bin/activate"
 
 # Start CalendarBot web server
