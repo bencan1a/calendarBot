@@ -168,13 +168,30 @@ systemctl daemon-reload
 echo "Systemd configuration reloaded"
 echo ""
 echo "Fixed issues:"
-echo "  - Changed deprecated MemoryLimit= to MemoryMax="
-echo "  - Updated User/Group to: $TARGET_USER"
-echo "  - Updated all paths for: $TARGET_HOME"
-echo "  - Updated runtime directory for UID: $TARGET_UID"
+if [ -f "$KIOSK_SERVICE" ]; then
+    echo "  Kiosk service:"
+    echo "    - Changed deprecated MemoryLimit= to MemoryMax="
+    echo "    - Updated User/Group to: $TARGET_USER"
+    echo "    - Updated all paths for: $TARGET_HOME"
+    echo "    - Updated runtime directory for UID: $TARGET_UID"
+fi
+if [ -f "$NETWORK_SERVICE" ]; then
+    echo "  Network wait service:"
+    echo "    - Updated User to: $TARGET_USER (was hardcoded 'pi')"
+fi
 echo ""
-echo "You can now restart the service:"
-echo "  sudo systemctl restart calendarbot-kiosk.service"
+echo "You can now restart the services:"
+if [ -f "$KIOSK_SERVICE" ]; then
+    echo "  sudo systemctl restart calendarbot-kiosk.service"
+fi
+if [ -f "$NETWORK_SERVICE" ]; then
+    echo "  sudo systemctl restart calendarbot-network-wait.service"
+fi
 echo ""
 echo "Check status:"
-echo "  sudo systemctl status calendarbot-kiosk.service"
+if [ -f "$KIOSK_SERVICE" ]; then
+    echo "  sudo systemctl status calendarbot-kiosk.service"
+fi
+if [ -f "$NETWORK_SERVICE" ]; then
+    echo "  sudo systemctl status calendarbot-network-wait.service"
+fi
