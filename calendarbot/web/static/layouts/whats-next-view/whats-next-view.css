@@ -27,19 +27,19 @@ body::before {
     position: absolute;
         top: 0;
         left: 0;
-    width: 300px;
-    height: 400px;
+    width: 480px;
+    height: 800px;
     background-color: white;
     z-index: -1;
 }
 
 /* Reset body to be the container - remove min-width to allow browser window to resize smaller */
 body {
-    width: 300px !important;
-    height: 400px !important;
-    max-width: 300px !important;
-    max-height: 400px !important;
-    min-height: 400px !important;
+    width: 480px !important;
+    height: 800px !important;
+    max-width: 480px !important;
+    max-height: 800px !important;
+    min-height: 800px !important;
     background-color: white;
     overflow: hidden;
     position: relative;
@@ -107,8 +107,8 @@ body {
     position: sticky;
     top: 0;
     z-index: 100;
-    width: 300px !important;
-    max-width: 300px !important;
+    width: 480px !important;
+    max-width: 480px !important;
     margin: 0 auto;
     box-sizing: border-box;
     background-color: var(--background-primary);
@@ -162,12 +162,12 @@ body {
 
 .calendar-content {
     padding: 0; /* Remove padding to use zone-specific padding */
-    width: 300px !important;
-    max-width: 300px !important;
-    height: 400px !important;  /* Use full height for 300x400px target */
-    max-height: 400px !important;
+    width: 480px !important;
+    max-width: 480px !important;
+    height: 800px !important;  /* Use full height for 480x800px target */
+    max-height: 800px !important;
     margin: 0 auto;
-    overflow-y: auto;
+    overflow: hidden;
     box-sizing: border-box;
     background-color: var(--background-primary);
     display: flex;
@@ -178,11 +178,11 @@ body {
    P1 4-ZONE LAYOUT STRUCTURE (Phase 2)
    ========================================== */
 
-/* Zone 1: Time gap display (190px - sized to center Starts In box with equal spacing above and below) */
+/* Zone 1: Time gap display (300px - sized to center Starts In box with equal spacing above and below) */
 .layout-zone-1 {
-    height: 190px;
-    min-height: 190px;
-    max-height: 190px;
+    height: 300px;
+    min-height: 300px;
+    max-height: 300px;
     padding: 0.75rem;
     box-sizing: border-box;
     display: flex;
@@ -191,22 +191,22 @@ body {
     border-bottom: 1px solid var(--border-light);
 }
 
-/* Zone 2: Next meeting information (150px - adjusted to maintain total height while balancing spacing) */
+/* Zone 2: Next meeting information (400px - adjusted to maintain total height while balancing spacing) */
 .layout-zone-2 {
-    height: 150px;
-    min-height: 150px;
-    max-height: 150px;
+    height: 400px;
+    min-height: 400px;
+    max-height: 400px;
     padding: 1rem;
     box-sizing: border-box;
     overflow: hidden;
     border-bottom: 1px solid var(--border-light);
 }
 
-/* Zone 4: Additional context (50px - doubled from 25px for better usability) */
+/* Zone 4: Additional context (100px - using overflow:hidden to prevent scrollbars) */
 .layout-zone-4 {
-    height: 50px;
-    min-height: 50px;
-    max-height: 50px;
+    height: 100px;
+    min-height: 100px;
+    max-height: 100px;
     padding: 0.5rem;
     box-sizing: border-box;
     display: flex;
@@ -903,7 +903,7 @@ body {
    P1 ENHANCED E-INK OPTIMIZATIONS (Phase 2)
    ========================================== */
 
-/* Enhanced contrast ratios and spacing for 300x400px e-ink displays */
+/* Enhanced contrast ratios and spacing for 480x800px e-ink displays */
 .theme-eink {
     /* Enhanced contrast variables for e-ink */
     --eink-black: #000000;
@@ -1071,7 +1071,7 @@ body {
     box-shadow: 2px 2px 0px var(--eink-dark-gray);
 }
 
-/* Optimized line heights and spacing for 300x400px constraint */
+/* Optimized line heights and spacing for 480x800px constraint */
 .theme-eink {
     line-height: 1.4 !important;
 }
@@ -1324,14 +1324,14 @@ body {
    DEBUG MODE STYLING
    ========================================== */
 
-/* Debug panel positioned to the RIGHT of the 300x400px main frame */
+/* Debug panel positioned to the RIGHT of the 480x800px main frame */
 .debug-panel {
     position: fixed;
     top: 50%;
     left: calc(50% + 160px); /* Position to the right of the main view */
     transform: translateY(-50%); /* Center vertically only */
     width: 320px;
-    min-height: 400px; /* Match main view height for better visual balance */
+    min-height: 800px; /* Match main view height for better visual balance */
     background-color: #f8f9fa;
     border: 3px solid #007bff;
     border-radius: 8px;
