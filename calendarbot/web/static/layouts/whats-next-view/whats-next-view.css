@@ -267,10 +267,14 @@ body {
     color: var(--text-primary);
     margin-bottom: 0.5rem;
     line-height: 1.3;
-    /* Text truncation for single line display */
-    white-space: nowrap;
+    /* Two-line display with consistent height reservation */
+    height: 2.86rem; /* Calculated: 2 lines * 1.1rem * 1.3 line-height */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
+    word-wrap: break-word;
+    word-break: break-word;
 }
 
 .meeting-time {
