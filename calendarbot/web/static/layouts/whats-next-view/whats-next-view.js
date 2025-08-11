@@ -315,6 +315,7 @@ function setupViewportResolutionDisplay() {
         border: 1px solid rgba(255, 255, 255, 0.2);
         line-height: 1.3;
         white-space: pre-line;
+        display: none;
     `;
 
     // Function to update viewport resolution display
