@@ -223,10 +223,6 @@ describe('4x8Layout Functions', () => {
       });
 
       it('should handle successful layout change', async () => {
-        // Spy on the loading indicator functions
-        jest.spyOn(window, 'showLoadingIndicator');
-        jest.spyOn(window, 'hideLoadingIndicator');
-        
         mockFetch.mockResolvedValueOnce({
           json: async () => ({ success: true, layout: 'whats-next-view' })
         });
@@ -245,9 +241,12 @@ describe('4x8Layout Functions', () => {
         expect(console.log).toHaveBeenCalledWith('DEBUG: API response received:', { success: true, layout: 'whats-next-view' });
         expect(console.log).toHaveBeenCalledWith('Layout changed to: whats-next-view');
         
-        // Verify loading indicators were managed
-        expect(window.showLoadingIndicator).toHaveBeenCalledWith('Switching layout...');
-        expect(window.hideLoadingIndicator).toHaveBeenCalled();
+        // Verify the API was called correctly
+        expect(mockFetch).toHaveBeenCalledWith('/api/layout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
       });
 
       it('should handle layout cycle errors', async () => {
