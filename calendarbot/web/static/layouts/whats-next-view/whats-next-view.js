@@ -220,13 +220,19 @@ function setupMobileEnhancements() {
     function handleSwipe() {
         const swipeThreshold = 50;
         const swipeDistance = touchEndX - touchStartX;
+        const rightEdgeThreshold = 50; // Pixels from right edge to trigger layout switch
+        const windowWidth = window.innerWidth;
 
         if (Math.abs(swipeDistance) > swipeThreshold) {
-            if (swipeDistance > 0) {
+            // Check for swipe left from right edge for layout switching
+            if (swipeDistance < 0 && touchStartX >= (windowWidth - rightEdgeThreshold)) {
+                // Swipe left from right edge - switch layout
+                cycleLayout();
+            } else if (swipeDistance > 0) {
                 // Swipe right - refresh
                 refresh();
             } else {
-                // Swipe left - refresh
+                // Swipe left from non-edge - refresh
                 refresh();
             }
         }
@@ -1018,7 +1024,13 @@ function checkMeetingTransitions() {
  * @param {string} endTime - ISO time string
  * @returns {string} Formatted time string
  */
-function formatMeetingTime(startTime, endTime) {
+function formatMeetingTime(startTime, endTime, formattedTimeRange) {
+    // Use the pre-formatted time range from backend if available (timezone-aware)
+    if (formattedTimeRange) {
+        return formattedTimeRange;
+    }
+    
+    // Fallback to original formatting for backwards compatibility
     try {
         const start = new Date(startTime);
         const end = new Date(endTime);

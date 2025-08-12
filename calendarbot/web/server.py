@@ -536,9 +536,16 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             Dictionary representation of the view model
         """
 
-        # Helper function to convert datetime to ISO format string
+        # Helper function to convert datetime to ISO format string with timezone info
         def format_datetime(dt: Optional[datetime]) -> Optional[str]:
-            return dt.isoformat() if dt else None
+            if dt is None:
+                return None
+            # Ensure timezone awareness - if naive, use system timezone
+            if dt.tzinfo is None:
+                from ..utils.helpers import ensure_timezone_aware  # noqa: PLC0415
+
+                dt = ensure_timezone_aware(dt)
+            return dt.isoformat()
 
         # Convert EventData objects to dictionaries
         def event_to_dict(event: "EventData") -> dict[str, Any]:
