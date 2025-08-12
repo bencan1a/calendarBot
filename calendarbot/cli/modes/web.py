@@ -7,6 +7,7 @@ including web interface setup, server management, and browser integration.
 import asyncio
 import logging
 import signal
+import socket
 import webbrowser
 from typing import Any, Optional
 
@@ -134,11 +135,26 @@ def _start_web_server(
         web_server: WebServer instance to start
         updated_settings: Configured settings object
         args: Command line arguments
-        logger: Logger instance for output
     """
-    print(
-        f"Starting Calendar Bot web server on http://{updated_settings.web_host}:{updated_settings.web_port}"
-    )
+    # Display access URLs based on binding configuration
+    # Display access URLs based on binding configuration
+    if updated_settings.web_host == "0.0.0.0":  # nosec
+        print(f"Starting Calendar Bot web server on port {updated_settings.web_port}")
+        print(f"Local access: http://localhost:{updated_settings.web_port}")
+
+        # Try to show network IP for external access
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+                print(f"Network access: http://{local_ip}:{updated_settings.web_port}")
+        except Exception:
+            print(f"Network access: http://<your-ip>:{updated_settings.web_port}")
+    else:
+        print(
+            f"Starting Calendar Bot web server on http://{updated_settings.web_host}:{updated_settings.web_port}"
+        )
+
     print("Press Ctrl+C to stop the server")
     logger.debug(
         f"Web server configured for http://{updated_settings.web_host}:{updated_settings.web_port}"
@@ -146,7 +162,11 @@ def _start_web_server(
 
     # Optionally open browser
     if args.auto_open:
-        url = f"http://{updated_settings.web_host}:{updated_settings.web_port}"
+        # Use localhost for browser when binding to all interfaces
+        if updated_settings.web_host == "0.0.0.0":  # nosec
+            url = f"http://localhost:{updated_settings.web_port}"
+        else:
+            url = f"http://{updated_settings.web_host}:{updated_settings.web_port}"
         print(f"Opening browser to {url}")
         logger.info(f"Auto-opening browser to {url}")
         try:
