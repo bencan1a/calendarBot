@@ -230,6 +230,10 @@ describe('4x8Layout Functions', () => {
           value: originalHref
         });
         
+        // Spy on the loading indicator functions
+        jest.spyOn(window, 'showLoadingIndicator');
+        jest.spyOn(window, 'hideLoadingIndicator');
+        
         mockFetch.mockResolvedValueOnce({
           json: async () => ({ success: true, layout: 'whats-next-view' })
         });
