@@ -94,8 +94,8 @@ class ICSSourceHandler:
         start_time = time.time()
 
         try:
-            logger.info(f"[DEBUG] FULL ICS FETCH started for {self.config.name}")
-            logger.info(f"[DEBUG] Source enabled: {self.config.enabled}, use_cache: {use_cache}")
+            logger.debug(f"FULL ICS FETCH started for {self.config.name}")
+            logger.debug(f"Source enabled: {self.config.enabled}, use_cache: {use_cache}")
 
             async with self.fetcher as fetcher:
                 # Prepare conditional headers for caching

@@ -263,10 +263,11 @@ async function toggleTheme() {
 
 // Layout switching
 async function cycleLayout() {
-    console.log('Cycling layout');
+    console.log('DEBUG: cycleLayout() called - L key pressed');
 
     try {
         showLoadingIndicator('Switching layout...');
+        console.log('DEBUG: Sending layout change request to API');
 
         const response = await fetch('/api/layout', {
             method: 'POST',
@@ -277,13 +278,13 @@ async function cycleLayout() {
         });
 
         const data = await response.json();
+        console.log('DEBUG: API response received:', data);
 
         if (data.success) {
             console.log(`Layout changed to: ${data.layout}`);
             
             // Force full page reload to load new layout's CSS/JS
-            // window.location.reload(); // Disabled for testing - would reload in production
-            console.log('Layout change complete - page would reload in production');
+            window.location.reload(); // Re-enabled for production use
         } else {
             console.error('Layout cycle failed:', data.error);
             showErrorMessage('Layout switch failed');
