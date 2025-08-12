@@ -223,14 +223,27 @@ describe('4x8Layout Functions', () => {
       });
 
       it('should handle successful layout change', async () => {
+        // Mock window.location.href setter to prevent actual page reload
+        const originalLocation = window.location;
+        delete window.location;
+        window.location = { href: 'http://test.com/calendar' };
+        
         mockFetch.mockResolvedValueOnce({
           json: async () => ({ success: true, layout: 'whats-next-view' })
         });
 
         await window.cycleLayout();
 
+        expect(console.log).toHaveBeenCalledWith('DEBUG: cycleLayout() called - L key pressed');
+        expect(console.log).toHaveBeenCalledWith('DEBUG: Sending layout change request to API');
+        expect(console.log).toHaveBeenCalledWith('DEBUG: API response received:', { success: true, layout: 'whats-next-view' });
         expect(console.log).toHaveBeenCalledWith('Layout changed to: whats-next-view');
-        expect(console.log).toHaveBeenCalledWith('Layout changed complete - page would reload in production');
+        
+        // Verify page reload was attempted
+        expect(window.location.href).toBe('http://test.com/calendar');
+        
+        // Restore original location
+        window.location = originalLocation;
       });
 
       it('should handle layout cycle errors', async () => {
