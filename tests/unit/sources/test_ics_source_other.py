@@ -189,16 +189,22 @@ class TestICSSourceHandler:
     ) -> None:
         """Test test_connection returns healthy check on successful connection."""
         # Arrange
-        handler.fetcher.test_connection.return_value = True
+        mock_response = AsyncMock()
+        mock_response.status = 200
+
+        # Create a proper async context manager mock
+        async_context_mock = AsyncMock()
+        async_context_mock.__aenter__.return_value = mock_response
+        async_context_mock.__aexit__.return_value = None
+
+        mock_session = AsyncMock()
+        mock_session.head.return_value = async_context_mock
 
         # Act
         with (
-            patch.object(handler, "fetch_events", return_value=[{"event": "data"}]),
-            patch("calendarbot.sources.ics_source.time.time", side_effect=[0, 0.1, 0.2, 0.3]),
+            patch("aiohttp.ClientSession", return_value=mock_session),
+            patch("calendarbot.sources.ics_source.time.time", side_effect=[0, 0.1]),
         ):
-            # Create a new health check with the status set to healthy
-            handler.health = SourceHealthCheck(status="healthy")
-
             result = await handler.test_connection()
 
         # Assert

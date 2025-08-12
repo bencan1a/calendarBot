@@ -252,14 +252,9 @@ class HtmlToPngConverter:
 
             # Use html2image direct URL approach (recommended by documentation)
             logger.info(f"Capturing URL: {url}")
-            logger.info(f"DIAGNOSTIC: HtmlToPngConverter size setting: {self.size}")
-            logger.info(
-                f"DIAGNOSTIC: Html2Image size setting: {getattr(self.hti, 'size', 'Not set')}"
-            )
 
             try:
                 # Direct URL capture - pass size parameter explicitly per html2image docs
-                logger.info(f"DIAGNOSTIC: Calling screenshot with size={self.size}")
                 if self.hti is None:
                     logger.error("Html2Image instance (self.hti) is None")
                     return None

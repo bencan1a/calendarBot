@@ -43,7 +43,7 @@ class TestCalendarBot:
         )
         cache_manager.get_cache_summary.return_value = {"total_events": 5, "is_fresh": True}
         cache_manager.is_cache_fresh.return_value = True
-        cache_manager.cleanup_old_events.return_value = 3
+        cache_manager.clear_all_events.return_value = 3
         return cache_manager
 
     @pytest.fixture
@@ -73,12 +73,12 @@ class TestCalendarBot:
         self, mock_settings, mock_cache_manager, mock_source_manager, mock_display_manager
     ):
         """Create CalendarBot instance with mocked dependencies."""
-        with patch("calendarbot.main.settings", mock_settings), patch(
-            "calendarbot.main.CacheManager", return_value=mock_cache_manager
-        ), patch("calendarbot.main.SourceManager", return_value=mock_source_manager), patch(
-            "calendarbot.main.DisplayManager", return_value=mock_display_manager
-        ), patch(
-            "calendarbot.main.setup_logging"
+        with (
+            patch("calendarbot.main.settings", mock_settings),
+            patch("calendarbot.main.CacheManager", return_value=mock_cache_manager),
+            patch("calendarbot.main.SourceManager", return_value=mock_source_manager),
+            patch("calendarbot.main.DisplayManager", return_value=mock_display_manager),
+            patch("calendarbot.main.setup_logging"),
         ):
             bot = CalendarBot()
             bot.cache_manager = mock_cache_manager
@@ -353,9 +353,10 @@ class TestCalendarBot:
     @pytest.mark.asyncio
     async def test_start_success(self, calendar_bot):
         """Test successful application start."""
-        with patch("calendarbot.main.kill_calendarbot_processes") as mock_kill, patch.object(
-            calendar_bot, "run_scheduler", new_callable=AsyncMock
-        ) as mock_scheduler:
+        with (
+            patch("calendarbot.main.kill_calendarbot_processes") as mock_kill,
+            patch.object(calendar_bot, "run_scheduler", new_callable=AsyncMock) as mock_scheduler,
+        ):
             mock_kill.return_value = (2, [])
 
             result = await calendar_bot.start()
@@ -368,9 +369,10 @@ class TestCalendarBot:
     @pytest.mark.asyncio
     async def test_start_with_process_cleanup_warnings(self, calendar_bot):
         """Test start with process cleanup warnings."""
-        with patch("calendarbot.main.kill_calendarbot_processes") as mock_kill, patch.object(
-            calendar_bot, "run_scheduler", new_callable=AsyncMock
-        ) as mock_scheduler:
+        with (
+            patch("calendarbot.main.kill_calendarbot_processes") as mock_kill,
+            patch.object(calendar_bot, "run_scheduler", new_callable=AsyncMock) as mock_scheduler,
+        ):
             mock_kill.return_value = (1, ["Warning: Process xyz"])
 
             result = await calendar_bot.start()
@@ -383,9 +385,10 @@ class TestCalendarBot:
         """Test start without auto-kill enabled."""
         calendar_bot.settings.auto_kill_existing = False
 
-        with patch("calendarbot.main.kill_calendarbot_processes") as mock_kill, patch.object(
-            calendar_bot, "run_scheduler", new_callable=AsyncMock
-        ) as mock_scheduler:
+        with (
+            patch("calendarbot.main.kill_calendarbot_processes") as mock_kill,
+            patch.object(calendar_bot, "run_scheduler", new_callable=AsyncMock) as mock_scheduler,
+        ):
             result = await calendar_bot.start()
 
             assert result is True
@@ -437,12 +440,12 @@ class TestCalendarBot:
         """Test successful cleanup."""
         await calendar_bot.cleanup()
 
-        calendar_bot.cache_manager.cleanup_old_events.assert_called_once()
+        calendar_bot.cache_manager.clear_all_events.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_cleanup_exception(self, calendar_bot):
         """Test cleanup handles exceptions."""
-        calendar_bot.cache_manager.cleanup_old_events.side_effect = Exception("Cleanup error")
+        calendar_bot.cache_manager.clear_all_events.side_effect = Exception("Cleanup error")
 
         # Should not raise exception
         await calendar_bot.cleanup()
@@ -500,9 +503,10 @@ class TestSignalHandlers:
         """Test signal handler function creates stop task."""
         app = Mock()
 
-        with patch("calendarbot.main.signal.signal") as mock_signal, patch(
-            "calendarbot.main.asyncio.create_task"
-        ) as mock_create_task:
+        with (
+            patch("calendarbot.main.signal.signal") as mock_signal,
+            patch("calendarbot.main.asyncio.create_task") as mock_create_task,
+        ):
             setup_signal_handlers(app)
 
             # Get the signal handler function
@@ -585,9 +589,10 @@ class TestConfigurationCheck:
 
     def test_check_first_run_configuration_env_var_set(self):
         """Test configuration check when environment variable is set."""
-        with patch("pathlib.Path") as mock_path_class, patch(
-            "calendarbot.main.settings"
-        ) as mock_settings:
+        with (
+            patch("pathlib.Path") as mock_path_class,
+            patch("calendarbot.main.settings") as mock_settings,
+        ):
             # Setup mock Path instances
             mock_project_config = Mock()
             mock_project_config.exists.return_value = False
@@ -632,9 +637,10 @@ class TestConfigurationCheck:
     def test_check_first_run_configuration_no_config(self):
         """Test configuration check when no configuration found."""
         # Use a different patching strategy for the local import
-        with patch("pathlib.Path") as mock_path_class, patch(
-            "calendarbot.main.settings"
-        ) as mock_settings:
+        with (
+            patch("pathlib.Path") as mock_path_class,
+            patch("calendarbot.main.settings") as mock_settings,
+        ):
             # Setup mock Path instances that properly support pathlib operations
             mock_project_config = Mock()
             mock_project_config.exists.return_value = False
@@ -686,10 +692,11 @@ class TestMainEntryPoint:
         # Import main only when needed to avoid unused import warnings
         from calendarbot.main import main
 
-        with patch("calendarbot.main.check_first_run_configuration", return_value=True), patch(
-            "calendarbot.main.settings"
-        ) as mock_settings, patch("calendarbot.main.CalendarBot") as mock_bot_class, patch(
-            "calendarbot.main.setup_signal_handlers"
+        with (
+            patch("calendarbot.main.check_first_run_configuration", return_value=True),
+            patch("calendarbot.main.settings") as mock_settings,
+            patch("calendarbot.main.CalendarBot") as mock_bot_class,
+            patch("calendarbot.main.setup_signal_handlers"),
         ):
             mock_settings.ics_url = "https://example.com/calendar.ics"
             mock_bot = Mock()
@@ -707,9 +714,10 @@ class TestMainEntryPoint:
         # Import main only when needed to avoid unused import warnings
         from calendarbot.main import main
 
-        with patch("calendarbot.main.check_first_run_configuration", return_value=False), patch(
-            "builtins.print"
-        ) as mock_print:
+        with (
+            patch("calendarbot.main.check_first_run_configuration", return_value=False),
+            patch("builtins.print") as mock_print,
+        ):
             result = await main()
 
             assert result == 1
@@ -721,9 +729,10 @@ class TestMainEntryPoint:
         # Import main only when needed to avoid unused import warnings
         from calendarbot.main import main
 
-        with patch("calendarbot.main.check_first_run_configuration", return_value=True), patch(
-            "calendarbot.main.settings"
-        ) as mock_settings:
+        with (
+            patch("calendarbot.main.check_first_run_configuration", return_value=True),
+            patch("calendarbot.main.settings") as mock_settings,
+        ):
             mock_settings.ics_url = None
 
             result = await main()
@@ -736,10 +745,11 @@ class TestMainEntryPoint:
         # Import main only when needed to avoid unused import warnings
         from calendarbot.main import main
 
-        with patch("calendarbot.main.check_first_run_configuration", return_value=True), patch(
-            "calendarbot.main.settings"
-        ) as mock_settings, patch("calendarbot.main.CalendarBot") as mock_bot_class, patch(
-            "calendarbot.main.setup_signal_handlers"
+        with (
+            patch("calendarbot.main.check_first_run_configuration", return_value=True),
+            patch("calendarbot.main.settings") as mock_settings,
+            patch("calendarbot.main.CalendarBot") as mock_bot_class,
+            patch("calendarbot.main.setup_signal_handlers"),
         ):
             mock_settings.ics_url = "https://example.com/calendar.ics"
             mock_bot = Mock()

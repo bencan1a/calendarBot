@@ -271,11 +271,16 @@ class SourceManager:
             # Fetch from all sources
             for name, handler in self._sources.items():
                 try:
+                    logger.info(
+                        f"[DEBUG] Processing source: {name}, healthy: {handler.is_healthy()}"
+                    )
                     if not handler.is_healthy():
                         logger.warning(f"Skipping unhealthy source: {name}")
                         continue
 
+                    logger.info(f"[DEBUG] About to call fetch_events() for {name}")
                     events = await handler.fetch_events()
+                    logger.info(f"[DEBUG] fetch_events() returned {len(events)} events for {name}")
                     all_events.extend(events)
                     successful_sources += 1
 
@@ -526,6 +531,7 @@ class SourceManager:
         Returns:
             Health check result object with is_healthy and status_message
         """
+        logger.info("[DEBUG] SourceManager.health_check() ENTRY")
 
         class HealthCheckResult:
             def __init__(self, is_healthy: bool, status_message: str):
@@ -533,13 +539,17 @@ class SourceManager:
                 self.status_message = status_message
 
         if not self._sources:
+            logger.info("[DEBUG] No sources configured")
             return HealthCheckResult(False, "No sources configured")
 
+        logger.info(f"[DEBUG] Checking {len(self._sources)} sources")
         healthy_sources = []
         unhealthy_sources = []
 
         for name, handler in self._sources.items():
-            if handler.is_healthy():
+            is_healthy = handler.is_healthy()
+            logger.info(f"[DEBUG] Source {name}: is_healthy() = {is_healthy}")
+            if is_healthy:
                 healthy_sources.append(name)
             else:
                 unhealthy_sources.append(name)

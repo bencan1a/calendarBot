@@ -1858,11 +1858,8 @@ class WebServer:
         Returns:
             True if layout was set successfully
         """
-        logger.debug(f"DIAGNOSTIC: set_layout called with layout='{layout}'")
-
         # Validate layout using registry
         if self.layout_registry.validate_layout(layout):
-            logger.debug(f"DIAGNOSTIC: Calling display_manager.set_layout with layout='{layout}'")
             # Call display_manager.set_layout to change just the layout
             success = self.display_manager.set_layout(layout)
             if success:

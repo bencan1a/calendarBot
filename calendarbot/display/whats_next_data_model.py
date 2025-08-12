@@ -67,9 +67,6 @@ class EventData:
 
         # DEBUG: Check if CachedEvent has graph_id and what its value is
         graph_id = getattr(event, "graph_id", None)
-        logger.debug(
-            f"EventData.from_cached_event - CachedEvent '{event.subject}' graph_id: {graph_id}"
-        )
 
         return cls(
             subject=event.subject,

@@ -350,6 +350,19 @@ class CacheManager:
             logger.exception("Failed to cleanup old events")
             return 0
 
+    async def clear_all_events(self) -> int:
+        """Clear all events from the database.
+
+        Returns:
+            Number of events removed
+        """
+        try:
+            return await self.db.clear_all_events()
+
+        except Exception:
+            logger.exception("Failed to clear all events")
+            return 0
+
     async def clear_cache(self) -> bool:
         """Clear all cached events.
 

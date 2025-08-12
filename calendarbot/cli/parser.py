@@ -23,16 +23,24 @@ class LayoutAction(argparse.Action):
     by the Layout Registry, providing dynamic validation instead of hardcoded choices.
     """
 
-    def __init__(self, option_strings: list[str], dest: str, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        option_strings: list[str],
+        dest: str,
+        layout_registry: Optional[LayoutRegistry] = None,
+        **kwargs: Any,
+    ) -> None:
         """Initialize the layout action.
 
         Args:
             option_strings: Command line option strings (e.g., ['--layout'])
             dest: Destination attribute name for parsed value
+            layout_registry: Optional LayoutRegistry instance to use for validation
             **kwargs: Additional argparse action arguments
         """
         # Remove choices if provided since we handle validation dynamically
         kwargs.pop("choices", None)
+        self.layout_registry = layout_registry
         super().__init__(option_strings, dest, **kwargs)
 
     def __call__(
@@ -56,8 +64,11 @@ class LayoutAction(argparse.Action):
         layout_name = str(values)
 
         try:
-            # Initialize layout registry for validation
-            registry = LayoutRegistry()
+            # Use provided registry or create new one for validation
+            if self.layout_registry is not None:
+                registry = self.layout_registry
+            else:
+                registry = LayoutRegistry()
 
             # Validate layout exists
             if not registry.validate_layout(layout_name):

@@ -304,10 +304,8 @@ class CalendarBot:
             # Close any open connections
             # (SourceManager handles its own cleanup internally)
 
-            # Final cache cleanup
-            await safe_async_call(
-                self.cache_manager.cleanup_old_events, default=0, log_errors=False
-            )
+            # Clear all events from database on app exit
+            await safe_async_call(self.cache_manager.clear_all_events, default=0, log_errors=False)
 
             logger.info("Cleanup completed")
 

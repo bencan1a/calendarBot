@@ -186,6 +186,7 @@ ignore = [
     "PT012",   # pytest.raises() block should contain a single simple statement
     "B008",    # Do not perform function calls in argument defaults (common in FastAPI)
     "TRY300",  # Consider moving statement to an else block
+    "W293",    # Blank Line Contains Whitespace
 ]
 
 # Per-file ignores

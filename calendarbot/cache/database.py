@@ -1,10 +1,9 @@
 """SQLite database operations for calendar event caching."""
 
 import logging
-import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import aiosqlite
 
@@ -119,15 +118,15 @@ class DatabaseManager:
                 logger.info("Database schema initialized successfully")
                 return True
 
-        except Exception as e:
-            logger.error(f"Failed to initialize database: {e}")
+        except Exception:
+            logger.exception("Failed to initialize database")
             return False
 
-    async def store_events(self, events: List[CachedEvent]) -> bool:
+    async def store_events(self, events: list[CachedEvent]) -> bool:
         """Store calendar events in cache.
 
         Args:
-            events: List of cached events to store
+            events: list of cached events to store
 
         Returns:
             True if storage was successful, False otherwise
@@ -183,13 +182,13 @@ class DatabaseManager:
                 logger.debug(f"Stored {len(events)} events in cache")
                 return True
 
-        except Exception as e:
-            logger.error(f"Failed to store events: {e}")
+        except Exception:
+            logger.exception("Failed to store events")
             return False
 
     async def get_events_by_date_range(
         self, start_date: datetime, end_date: datetime
-    ) -> List[CachedEvent]:
+    ) -> list[CachedEvent]:
         """Get cached events within a date range.
 
         Args:
@@ -197,7 +196,7 @@ class DatabaseManager:
             end_date: End of date range
 
         Returns:
-            List of cached events
+            list of cached events
         """
         try:
             start_str = start_date.isoformat()
@@ -248,15 +247,15 @@ class DatabaseManager:
                 logger.debug(f"Retrieved {len(events)} events from cache")
                 return events
 
-        except Exception as e:
-            logger.error(f"Failed to get events by date range: {e}")
+        except Exception:
+            logger.exception("Failed to get events by date range")
             return []
 
-    async def get_todays_events(self) -> List[CachedEvent]:
+    async def get_todays_events(self) -> list[CachedEvent]:
         """Get today's cached events.
 
         Returns:
-            List of today's cached events
+            list of today's cached events
         """
         now = datetime.now()
         start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -292,8 +291,27 @@ class DatabaseManager:
                 logger.debug(f"Cleaned up {deleted_count} old events (older than {days_old} days)")
                 return deleted_count
 
-        except Exception as e:
-            logger.error(f"Failed to cleanup old events: {e}")
+        except Exception:
+            logger.exception("Failed to cleanup old events")
+            return 0
+
+    async def clear_all_events(self) -> int:
+        """Clear all events from the database.
+
+        Returns:
+            Number of events removed
+        """
+        try:
+            async with aiosqlite.connect(str(self.database_path)) as db:
+                cursor = await db.execute("DELETE FROM cached_events")
+                deleted_count = cursor.rowcount
+                await db.commit()
+
+                logger.debug(f"Cleared all {deleted_count} events from database")
+                return deleted_count
+
+        except Exception:
+            logger.exception("Failed to clear all events")
             return 0
 
     async def get_cache_metadata(self) -> CacheMetadata:
@@ -319,7 +337,7 @@ class DatabaseManager:
                     metadata_dict[row["key"]] = row["value"]
 
                 # Create metadata object
-                metadata = CacheMetadata(
+                return CacheMetadata(
                     total_events=total_events,
                     last_update=metadata_dict.get("last_update"),
                     last_successful_fetch=metadata_dict.get("last_successful_fetch"),
@@ -328,10 +346,8 @@ class DatabaseManager:
                     last_error_time=metadata_dict.get("last_error_time"),
                 )
 
-                return metadata
-
-        except Exception as e:
-            logger.error(f"Failed to get cache metadata: {e}")
+        except Exception:
+            logger.exception("Failed to get cache metadata")
             return CacheMetadata()
 
     async def update_cache_metadata(self, **kwargs: Any) -> bool:
@@ -359,21 +375,21 @@ class DatabaseManager:
                 logger.debug(f"Updated cache metadata: {kwargs}")
                 return True
 
-        except Exception as e:
-            logger.error(f"Failed to update cache metadata: {e}")
+        except Exception:
+            logger.exception("Failed to update cache metadata")
             return False
 
-    async def get_database_info(self) -> Dict[str, Any]:
+    async def get_database_info(self) -> dict[str, Any]:
         """Get database information and statistics.
 
         Returns:
-            Dictionary with database information
+            dictionary with database information
         """
         try:
             async with aiosqlite.connect(str(self.database_path)) as db:
                 db.row_factory = aiosqlite.Row
 
-                info: Dict[str, Any] = {}
+                info: dict[str, Any] = {}
 
                 # Database file size
                 if self.database_path.exists():
@@ -390,7 +406,7 @@ class DatabaseManager:
                 """
                 )
                 rows = await cursor.fetchall()
-                events_by_date: List[Dict[str, Any]] = [dict(row) for row in rows]
+                events_by_date: list[dict[str, Any]] = [dict(row) for row in rows]
                 info["events_by_date"] = events_by_date
 
                 # Database version info
@@ -405,6 +421,6 @@ class DatabaseManager:
 
                 return info
 
-        except Exception as e:
-            logger.error(f"Failed to get database info: {e}")
+        except Exception:
+            logger.exception("Failed to get database info")
             return {}

@@ -277,18 +277,48 @@ class ICSParser:
         """
         dt = dt_prop.dt
 
+        # Only log for Australian timezones to reduce noise
+        is_australian_tz = (
+            (default_timezone and "Australia" in default_timezone) if default_timezone else False
+        )
+
         # Handle date-only (all-day events)
         if isinstance(dt, datetime):
             if dt.tzinfo is None:
                 # No timezone specified, use default or UTC
                 if default_timezone:
+                    if is_australian_tz:
+                        logger.debug(
+                            f"🇦🇺 AUSTRALIAN TZ: Parsing datetime: {dt}, default_timezone: {default_timezone}"
+                        )
                     try:
                         tz_obj = tz.gettz(default_timezone)
+
+                        # DEBUG: Log timezone object type and attributes
+                        # Apply timezone to naive datetime using dateutil-compatible method
+                        # dateutil timezone objects don't have localize(), use replace() instead
                         dt = dt.replace(tzinfo=tz_obj)
-                    except Exception:
+                        if is_australian_tz:
+                            logger.debug(f"🇦🇺 AUSTRALIAN TZ: After timezone replace: {dt}")
+
+                        # TARGETED FIX: GMT+10 timezone events appear to be off by one day
+                        # If the timezone is GMT+10 (Australian time), add one day
+                        # Use string representation to check for Australia instead of .zone attribute
+                        if (default_timezone and "Australia" in default_timezone) or (
+                            tz_obj and str(tz_obj).find("Australia") != -1
+                        ):
+                            logger.debug(
+                                f"🚨 AUSTRALIAN TZ: APPLYING GMT+10 CORRECTION! Before: {dt}"
+                            )
+                            dt = dt + timedelta(days=1)
+                            logger.debug(f"🚨 AUSTRALIAN TZ: After GMT+10 correction: {dt}")
+                    except Exception as e:
+                        logger.warning(f"Failed to apply default timezone {default_timezone}: {e}")
                         dt = dt.replace(tzinfo=timezone.utc)
                 else:
                     dt = dt.replace(tzinfo=timezone.utc)
+            elif is_australian_tz:
+                logger.debug(f"🇦🇺 AUSTRALIAN TZ: Datetime already has timezone: {dt.tzinfo}")
             return dt
         # Date object - convert to datetime at midnight
         return datetime.combine(dt, datetime.min.time()).replace(tzinfo=timezone.utc)
