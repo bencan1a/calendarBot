@@ -8,50 +8,31 @@ def get_local_network_interface() -> str:
     """
     Auto-detect the local network interface for safer binding.
 
-    Returns the local network IP address (e.g., 192.168.1.x) instead of binding to all
-    interfaces (0.0.0.0), which provides better security while maintaining network accessibility.
+    Returns 0.0.0.0 to bind to all interfaces, making the server accessible via both
+    localhost (127.0.0.1) and the external network IP address.
 
     Returns:
-        str: Local network IP address, or fallback values with appropriate warnings
+        str: "0.0.0.0" to bind to all available interfaces
     """
     logger = logging.getLogger("calendarbot.network")
 
+    # Bind to all interfaces to support both localhost and external access
+    logger.info("Binding to all interfaces (0.0.0.0) for localhost and network access")
+
+    # Also try to detect and log the actual network IP for user information
     try:
-        # Method 1: Connect to a remote address to determine local interface
-        # This doesn't actually send data, just determines routing
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             # Use Google's public DNS (doesn't actually connect)
             s.connect(("8.8.8.8", 80))
             local_ip: str = s.getsockname()[0]
 
-            # Validate that we got a private network address
-            if _is_private_ip(local_ip):
-                logger.info(f"Auto-detected local network interface: {local_ip}")
-                return local_ip
-            logger.warning(f"Detected public IP {local_ip}, falling back to localhost")
-            return "127.0.0.1"
+            if _is_private_ip(local_ip) and local_ip != "127.0.0.1":
+                logger.info(f"Server will be accessible at: http://localhost and http://{local_ip}")
+    except Exception:
+        # If we can't detect the IP, that's okay - the binding will still work
+        pass
 
-    except Exception as e:
-        logger.warning(f"Failed to auto-detect network interface: {e}")
-
-    try:
-        # Method 2: Get hostname-based address
-        hostname = socket.gethostname()
-        hostname_ip: str = socket.gethostbyname(hostname)
-
-        if _is_private_ip(hostname_ip) and hostname_ip != "127.0.0.1":
-            logger.info(f"Detected network interface via hostname: {hostname_ip}")
-            return hostname_ip
-
-    except Exception as e:
-        logger.warning(f"Failed to detect interface via hostname: {e}")
-
-    # Fallback to localhost with security note
-    logger.warning(
-        "Could not auto-detect local network interface. Using localhost (127.0.0.1). "
-        "Use --host 0.0.0.0 explicitly for network access."
-    )
-    return "127.0.0.1"
+    return "0.0.0.0"  # nosec
 
 
 def _is_private_ip(ip: str) -> bool:
@@ -97,13 +78,19 @@ def validate_host_binding(host: str, warn_on_all_interfaces: bool = True) -> str
     logger = logging.getLogger("calendarbot.network")
 
     if host == "0.0.0.0" and warn_on_all_interfaces:  # nosec B104
-        logger.warning(
-            "⚠️  SECURITY WARNING: Binding to all interfaces (0.0.0.0). "
-            "This exposes the web server to your entire network. "
-            "Consider using a specific IP address or localhost for better security."
-        )
         logger.info(
-            "💡 Tip: Use 'calendarbot --web' without --host to auto-detect your local network interface"
+            "Server binding to all interfaces (0.0.0.0) for dual access. "
+            "The server will be accessible via both localhost and your network IP address."
         )
+
+        # Try to show the actual network IP for user convenience
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                local_ip: str = s.getsockname()[0]
+                if _is_private_ip(local_ip) and local_ip != "127.0.0.1":
+                    logger.info(f"💡 Access URLs: http://localhost and http://{local_ip}")
+        except Exception:
+            pass
 
     return host
