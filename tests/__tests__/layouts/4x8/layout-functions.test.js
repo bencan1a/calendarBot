@@ -223,16 +223,17 @@ describe('4x8Layout Functions', () => {
       });
 
       it('should handle successful layout change', async () => {
-        // Mock window.location.href to prevent actual reload
-        const originalHref = window.location.href;
-        Object.defineProperty(window.location, 'href', {
-          writable: true,
-          value: originalHref
-        });
-        
         // Spy on the loading indicator functions
         jest.spyOn(window, 'showLoadingIndicator');
         jest.spyOn(window, 'hideLoadingIndicator');
+        
+        // Mock window.location.href setter to prevent actual page reload
+        const originalLocation = window.location;
+        delete window.location;
+        window.location = { 
+          ...originalLocation,
+          href: originalLocation.href
+        };
         
         mockFetch.mockResolvedValueOnce({
           json: async () => ({ success: true, layout: 'whats-next-view' })
@@ -249,8 +250,11 @@ describe('4x8Layout Functions', () => {
         expect(console.log).toHaveBeenCalledWith('DEBUG: API response received:', { success: true, layout: 'whats-next-view' });
         expect(console.log).toHaveBeenCalledWith('Layout changed to: whats-next-view');
         
-        // Verify hideLoadingIndicator was called
+        // Verify hideLoadingIndicator was called  
         expect(window.hideLoadingIndicator).toHaveBeenCalled();
+        
+        // Restore original location
+        window.location = originalLocation;
       });
 
       it('should handle layout cycle errors', async () => {
