@@ -144,15 +144,19 @@ function setupMobileEnhancements() {
     function handleSwipe() {
         const swipeThreshold = 50; // Minimum distance for a swipe
         const swipeDistance = touchEndX - touchStartX;
+        const rightEdgeThreshold = 50; // Pixels from right edge to trigger layout switch
+        const windowWidth = window.innerWidth;
 
         if (Math.abs(swipeDistance) > swipeThreshold) {
-            if (swipeDistance > 0) {
+            // Check for swipe left from right edge for layout switching
+            if (swipeDistance < 0 && touchStartX >= (windowWidth - rightEdgeThreshold)) {
+                // Swipe left from right edge - switch layout
+                cycleLayout();
+            } else if (swipeDistance > 0) {
                 // Swipe right - go to previous day
                 navigate('prev');
-            } else {
-                // Swipe left - go to next day
-                navigate('next');
             }
+            // Note: Left swipes from non-edge areas are now ignored to avoid conflict with layout switching
         }
     }
 
@@ -255,8 +259,8 @@ async function cycleLayout() {
 
         if (data.success) {
             console.log(`Layout changed to: ${data.layout}`);
-            // Force full page reload to load new layout's CSS/JS
-            window.location.reload(); // Re-enabled for production use
+            // Use more reliable refresh approach instead of window.location.reload()
+            window.location.href = window.location.href;
         } else {
             console.error('Layout cycle failed:', data.error);
             showErrorMessage('Layout switch failed');
