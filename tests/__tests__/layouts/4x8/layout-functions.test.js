@@ -223,10 +223,22 @@ describe('4x8Layout Functions', () => {
       });
 
       it('should handle successful layout change', async () => {
-        // Mock window.location.href setter to prevent actual page reload
+        // Mock window.location to track reload
         const originalLocation = window.location;
+        let locationHref = 'http://test.com/calendar';
+        let reloadAttempted = false;
+        
         delete window.location;
-        window.location = { href: 'http://test.com/calendar' };
+        window.location = {
+          get href() {
+            return locationHref;
+          },
+          set href(value) {
+            // Track that a reload was attempted
+            reloadAttempted = true;
+            locationHref = value;
+          }
+        };
         
         mockFetch.mockResolvedValueOnce({
           json: async () => ({ success: true, layout: 'whats-next-view' })
@@ -240,7 +252,7 @@ describe('4x8Layout Functions', () => {
         expect(console.log).toHaveBeenCalledWith('Layout changed to: whats-next-view');
         
         // Verify page reload was attempted
-        expect(window.location.href).toBe('http://test.com/calendar');
+        expect(reloadAttempted).toBe(true);
         
         // Restore original location
         window.location = originalLocation;
