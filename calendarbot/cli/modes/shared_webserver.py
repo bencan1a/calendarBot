@@ -57,7 +57,15 @@ class SharedWebServer:
         self.navigation_state = navigation_state
 
         # Initialize layout management system
-        self.layout_registry = layout_registry or LayoutRegistry()
+        if layout_registry is not None:
+            logger.debug("SharedWebServer: Using provided LayoutRegistry instance")
+            self.layout_registry = layout_registry
+        else:
+            logger.debug(
+                "SharedWebServer: Creating new LayoutRegistry instance - POTENTIAL DUPLICATE!"
+            )
+            self.layout_registry = LayoutRegistry()
+
         self.resource_manager = resource_manager or ResourceManager(
             self.layout_registry, settings=self.settings
         )

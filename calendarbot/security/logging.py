@@ -328,10 +328,6 @@ class SecurityEventLogger:
             event_dict = event.to_dict()
             event_json = json.dumps(event_dict, separators=(",", ":"))
 
-            # Log to main logger based on severity
-            log_level = self._severity_to_log_level(event.severity)
-            self.logger.log(log_level, f"Security Event: {event_json}")
-
             # Always log to audit trail
             self.audit_logger.info(f"AUDIT: {event_json}")
 

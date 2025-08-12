@@ -87,7 +87,7 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
     setup_enhanced_logging(updated_settings, interactive_mode=False)
     logger.info("Enhanced logging initialized for e-paper mode")
 
-    logger.info("Initializing Calendar Bot components...")
+    logger.debug("Initializing Calendar Bot components...")
 
     # Create context and Calendar Bot instance
     context = EpaperModeContext()

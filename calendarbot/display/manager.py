@@ -79,12 +79,12 @@ class DisplayManager:
                 effective_renderer_type = "whats-next"
 
         try:
-            # Try old signature first for backward compatibility with tests
-            self.renderer = self.renderer_factory.create_renderer(effective_renderer_type, settings)
-        except TypeError:
-            # Fallback to new signature
+            # Always use new signature with layout_registry to prevent duplicate instantiation
             self.renderer = self.renderer_factory.create_renderer(
-                settings=settings, renderer_type=effective_renderer_type, layout_name=layout_name
+                settings=settings,
+                renderer_type=effective_renderer_type,
+                layout_name=layout_name,
+                layout_registry=self.layout_registry,
             )
         except Exception:
             # Handle renderer factory failures gracefully
@@ -172,6 +172,7 @@ class DisplayManager:
                 settings=self.settings,
                 renderer_type=effective_renderer_type,
                 layout_name=layout_name,
+                layout_registry=self.layout_registry,
             )
 
             # Update current state
@@ -201,9 +202,6 @@ class DisplayManager:
         """
         # Return the actual renderer type, not a layout-based mapping
         current_type = getattr(self.settings, "display_type", "console")
-        logger.debug(
-            f"DIAGNOSTIC LOG: get_display_type() returning renderer type: '{current_type}'"
-        )
         return str(current_type)
 
     def get_available_display_types(self) -> list[str]:
@@ -486,6 +484,7 @@ class DisplayManager:
                     settings=self.settings,
                     renderer_type=effective_renderer_type,
                     layout_name=layout_name,
+                    layout_registry=self.layout_registry,
                 )
                 self.renderer = new_renderer
                 logger.info(f"Created {new_renderer.__class__.__name__} for whats-next-view layout")
@@ -503,6 +502,7 @@ class DisplayManager:
                         settings=self.settings,
                         renderer_type=current_renderer_type,
                         layout_name=layout_name,
+                        layout_registry=self.layout_registry,
                     )
                     self.renderer = new_renderer
                     logger.info(

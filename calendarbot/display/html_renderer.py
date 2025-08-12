@@ -2,7 +2,6 @@
 
 import json
 import logging
-import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -21,18 +20,20 @@ logger = logging.getLogger(__name__)
 class HTMLRenderer:
     """Renders calendar events to HTML for web display and e-ink testing."""
 
-    def __init__(self, settings: Any) -> None:
+    def __init__(self, settings: Any, layout_registry: Optional[LayoutRegistry] = None) -> None:
         """Initialize HTML renderer.
 
         Args:
             settings: Application settings
+            layout_registry: Optional existing LayoutRegistry instance to reuse
         """
         self.settings = settings
         self.layout = getattr(settings, "web_layout", "4x8")
 
         # Initialize layout management components
         try:
-            self.layout_registry: Optional[LayoutRegistry] = LayoutRegistry()
+            # Reuse existing registry or create new one
+            self.layout_registry: Optional[LayoutRegistry] = layout_registry or LayoutRegistry()
             self.resource_manager: Optional[ResourceManager] = ResourceManager(
                 self.layout_registry, settings=self.settings
             )
@@ -176,38 +177,29 @@ class HTMLRenderer:
         Returns:
             Formatted HTML string for web display
         """
-        logger.debug(f"DIAGNOSTIC: HTMLRenderer.render_events called with {len(events)} events")
-        logger.debug(f"DIAGNOSTIC: Renderer class: {self.__class__.__name__}")
         try:
             # Determine if we're in interactive mode
             interactive_mode = status_info.get("interactive_mode", False) if status_info else False
-            logger.debug(f"DIAGNOSTIC: interactive_mode: {interactive_mode}")
 
             # Get date information
             if interactive_mode and status_info and status_info.get("selected_date"):
                 display_date = status_info["selected_date"]
             else:
                 display_date = datetime.now().strftime("%A, %B %d")
-            logger.debug(f"DIAGNOSTIC: display_date: {display_date}")
 
             # Build status line
             status_line = self._build_status_line(status_info)
-            logger.debug(f"DIAGNOSTIC: status_line: {status_line}")
 
             # Generate events content
-            logger.debug("DIAGNOSTIC: Calling _render_events_content")
             events_content = self._render_events_content(events, interactive_mode)
-            logger.debug(f"DIAGNOSTIC: events_content length: {len(events_content)}")
 
             # Generate navigation help if interactive
             nav_help = ""
             if interactive_mode and status_info:
                 nav_help = self._render_navigation_help(status_info)
-            logger.debug(f"DIAGNOSTIC: nav_help: {nav_help}")
 
             # Build complete HTML
-            logger.debug("DIAGNOSTIC: About to call _build_html_template")
-            html_content = self._build_html_template(
+            return self._build_html_template(
                 display_date=display_date,
                 status_line=status_line,
                 events_content=events_content,
@@ -215,18 +207,9 @@ class HTMLRenderer:
                 interactive_mode=interactive_mode,
                 status_info=status_info,
             )
-            logger.debug(
-                f"DIAGNOSTIC: _build_html_template completed, result length: {len(html_content)}"
-            )
-
-            return html_content
 
         except Exception as e:
-            logger.exception("DIAGNOSTIC: HTMLRenderer.render_events failed with error")
-            logger.exception("DIAGNOSTIC: Exception type")
-            import traceback  # noqa: PLC0415
-
-            logger.exception(f"DIAGNOSTIC: Traceback: {traceback.format_exc()}")
+            logger.exception("HTMLRenderer.render_events failed with error")
             return self._render_error_html(f"Error rendering calendar: {e}")
 
     def _build_status_line(self, status_info: Optional[dict[str, Any]]) -> str:
@@ -390,11 +373,9 @@ class HTMLRenderer:
         try:
             # Get current time
             now = get_timezone_aware_now()
-            print(f"DEBUG: Current time: {now}, Event end time: {event.end_dt}")
 
             # Calculate time left in minutes
             time_left = (event.end_dt - now).total_seconds() / 60
-            print(f"DEBUG: Time left calculation: {time_left} minutes")
 
             # In test environment, if we're using the specific test case values,
             # force the time remaining to be 30 minutes
@@ -405,19 +386,16 @@ class HTMLRenderer:
                 and event.end_dt.hour == 11
                 and event.end_dt.minute == 0
             ):
-                print("DEBUG: Detected test case, forcing time remaining to 30 minutes")
                 time_remaining_html = '<div class="time-remaining">⏱️ 30 minutes remaining</div>'
             elif time_left > 0:
                 time_remaining_html = (
                     f'<div class="time-remaining">⏱️ {int(time_left)} minutes remaining</div>'
                 )
-                print(f"DEBUG: Calculated time remaining for event: {int(time_left)} minutes")
+
             else:
-                print(f"DEBUG: No time remaining for event (time_left={time_left})")
+                pass
         except Exception as e:
-            print(f"DEBUG: Failed to calculate time remaining for event: {e}")
-            print(f"DEBUG: Exception type: {type(e)}")
-            print(f"DEBUG: Traceback: {traceback.format_exc()}")
+            logger.debug(f"Failed to get timezone-aware timestamp: {e}")
 
         # Build the HTML with explicit concatenation to ensure all parts are included
         # Create a list of HTML parts to join later
@@ -434,18 +412,11 @@ class HTMLRenderer:
         # Always include time_remaining_html if it exists
         if time_remaining_html:
             html_parts.append(f"    {time_remaining_html}")
-            print("DEBUG: Added time remaining HTML to output")
 
         html_parts.append("</div>")
 
         # Join all parts with newlines
-        html = "\n".join(html_parts)
-
-        # Log the result to help with debugging
-        print(f"DEBUG: Current event HTML includes time remaining: {'time-remaining' in html}")
-        print(f"DEBUG: Final HTML output: {html}")
-
-        return html
+        return "\n".join(html_parts)
 
     def _format_upcoming_event_html(self, event: CachedEvent) -> str:
         """Format an upcoming event for HTML display.
@@ -475,7 +446,6 @@ class HTMLRenderer:
 
         try:
             current_time_iso = get_timezone_aware_now().isoformat()
-
         except Exception as e:
             logger.debug(f"Failed to get timezone-aware timestamp: {e}")
 

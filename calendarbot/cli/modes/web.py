@@ -11,7 +11,6 @@ import webbrowser
 from typing import Any, Optional
 
 from calendarbot.config.settings import settings
-from calendarbot.layout.registry import LayoutRegistry
 from calendarbot.main import CalendarBot
 from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
 from calendarbot.utils.network import get_local_network_interface, validate_host_binding
@@ -53,9 +52,8 @@ def _configure_web_settings(args: Any, base_settings: Any) -> Any:
         else:
             # Use HTML renderer for proper layout structure in web mode
             updated_settings.display_type = "html"
-            # Use centralized default layout from LayoutRegistry
-            layout_registry = LayoutRegistry()
-            updated_settings.web_layout = layout_registry.get_default_layout()
+            # Use a sensible default layout instead of creating LayoutRegistry
+            updated_settings.web_layout = "default"
 
     # Configure host settings
     if args.host is None:
@@ -73,7 +71,9 @@ def _configure_web_settings(args: Any, base_settings: Any) -> Any:
     return updated_settings
 
 
-async def _initialize_web_components(updated_settings: Any) -> tuple[CalendarBot, WebServer, WebNavigationHandler, Any]:
+async def _initialize_web_components(
+    updated_settings: Any,
+) -> tuple[CalendarBot, WebServer, WebNavigationHandler, Any]:
     """Initialize Calendar Bot and web server components.
 
     Args:
@@ -94,7 +94,6 @@ async def _initialize_web_components(updated_settings: Any) -> tuple[CalendarBot
     logger.debug("Created CalendarBot instance")
 
     # Initialize components
-    logger.info("Initializing Calendar Bot components...")
     if not await app.initialize():
         logger.error("Failed to initialize Calendar Bot")
         raise RuntimeError("Failed to initialize Calendar Bot")
@@ -113,6 +112,7 @@ async def _initialize_web_components(updated_settings: Any) -> tuple[CalendarBot
             display_manager=app.display_manager,
             cache_manager=app.cache_manager,
             navigation_state=navigation_handler.navigation_state,  # Navigation enabled
+            layout_registry=app.display_manager.layout_registry,  # Reuse layout registry
         )
         logger.debug("WebServer created successfully with navigation enabled")
     except Exception:
@@ -125,7 +125,9 @@ async def _initialize_web_components(updated_settings: Any) -> tuple[CalendarBot
     return app, web_server, navigation_handler, logger
 
 
-def _start_web_server(web_server: WebServer, updated_settings: Any, args: Any, logger: logging.Logger) -> None:
+def _start_web_server(
+    web_server: WebServer, updated_settings: Any, args: Any, logger: logging.Logger
+) -> None:
     """Start the web server and optionally open browser.
 
     Args:
@@ -167,7 +169,7 @@ async def _cleanup_web_resources(
     web_server: WebServer,
     fetch_task: asyncio.Task,
     app: CalendarBot,
-    logger: logging.Logger
+    logger: logging.Logger,
 ) -> None:
     """Clean up web server resources.
 
@@ -248,7 +250,9 @@ async def run_web_mode(args: Any) -> int:
         updated_settings = _configure_web_settings(args, settings)
 
         # Initialize components
-        app, web_server, navigation_handler, logger = await _initialize_web_components(updated_settings)
+        app, web_server, navigation_handler, logger = await _initialize_web_components(
+            updated_settings
+        )
 
         # Create runtime tracker if enabled
         runtime_tracker = create_runtime_tracker(updated_settings)
@@ -264,7 +268,6 @@ async def run_web_mode(args: Any) -> int:
         # Start background data fetching
         logger.debug("Starting background data fetching task...")
         fetch_task = asyncio.create_task(app.run_background_fetch())
-        logger.debug("Background data fetching task started")
 
         try:
             # Start web server

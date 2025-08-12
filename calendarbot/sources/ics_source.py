@@ -8,6 +8,7 @@ from typing import Any, NoReturn, Optional
 from ..ics import AuthType, ICSAuth, ICSFetcher, ICSParser, ICSSource
 from ..ics.exceptions import ICSAuthError, ICSError, ICSNetworkError, ICSParseError
 from ..ics.models import CalendarEvent
+from ..utils.helpers import get_timezone_aware_now
 from .exceptions import SourceConnectionError, SourceDataError, SourceError
 from .models import SourceConfig, SourceHealthCheck, SourceMetrics
 
@@ -93,7 +94,8 @@ class ICSSourceHandler:
         start_time = time.time()
 
         try:
-            logger.debug(f"Fetching events from ICS source: {self.config.name}")
+            logger.info(f"[DEBUG] FULL ICS FETCH started for {self.config.name}")
+            logger.info(f"[DEBUG] Source enabled: {self.config.enabled}, use_cache: {use_cache}")
 
             async with self.fetcher as fetcher:
                 # Prepare conditional headers for caching
@@ -175,6 +177,9 @@ class ICSSourceHandler:
 
         except Exception as e:
             error_msg = f"Unexpected error: {e!s}"
+            logger.exception(
+                f"[DEBUG] UNEXPECTED EXCEPTION in fetch_events for {self.config.name}: {type(e).__name__}"
+            )
             self._raise_source_error(error_msg, e)
 
     async def test_connection(self) -> SourceHealthCheck:
@@ -189,27 +194,66 @@ class ICSSourceHandler:
         try:
             logger.debug(f"Testing connection to {self.config.name}")
 
-            async with self.fetcher as fetcher:
-                # Test basic connectivity
-                is_connected = await fetcher.test_connection(self.ics_source)
+            # Use lightweight HEAD request for connectivity testing
+            # This eliminates the double fetch issue during app launch
+            logger.debug(f"Testing connection with lightweight HEAD request to {self.config.url}")
 
-                if not is_connected:
-                    health_check.update_error("Connection test failed")
-                    return health_check
+            async with self.fetcher:
+                # Perform HEAD request to test connectivity without downloading content
+                import aiohttp  # noqa: PLC0415 - lazy import for optional functionality
 
-                # Test full fetch and parse
-                events = await self.fetch_events(use_cache=False)
+                timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    # Prepare authentication headers if needed
+                    headers = {}
+                    if self.ics_source.auth.type.value != "none":
+                        if (
+                            self.ics_source.auth.type.value == "basic"
+                            and self.ics_source.auth.username
+                            and self.ics_source.auth.password
+                        ):
+                            import base64  # noqa: PLC0415 - lazy import for optional functionality
 
-                response_time = (time.time() - start_time) * 1000
-                health_check.update_success(response_time, len(events))
+                            credentials = base64.b64encode(
+                                f"{self.ics_source.auth.username}:{self.ics_source.auth.password}".encode()
+                            ).decode()
+                            headers["Authorization"] = f"Basic {credentials}"
+                        elif (
+                            self.ics_source.auth.type.value == "bearer"
+                            and self.ics_source.auth.bearer_token
+                        ):
+                            headers["Authorization"] = f"Bearer {self.ics_source.auth.bearer_token}"
 
-                logger.info(f"Connection test successful for {self.config.name}")
+                    # Add custom headers
+                    headers.update(self.ics_source.custom_headers)
+
+                    # Perform HEAD request
+                    async with session.head(
+                        self.config.url, headers=headers, ssl=self.config.validate_ssl
+                    ) as response:
+                        response_time = (time.time() - start_time) * 1000
+
+                        if response.status == 200:
+                            health_check.update_success(
+                                response_time, 0
+                            )  # 0 events for HEAD request
+                            logger.info(
+                                f"Connection test successful for {self.config.name} (HEAD request: {response.status})"
+                            )
+                        else:
+                            error_msg = f"HEAD request failed with status {response.status}"
+                            health_check.update_error(error_msg)
+                            logger.warning(
+                                f"Connection test failed for {self.config.name}: {error_msg}"
+                            )
 
         except Exception as e:
             error_msg = f"Connection test failed: {e!s}"
             health_check.update_error(error_msg)
             logger.exception(f"Connection test failed for {self.config.name}")
 
+        # Update instance health status with the connection test result
+        self.health = health_check
         return health_check
 
     async def get_todays_events(self, timezone: str = "UTC") -> list[CalendarEvent]:
@@ -224,8 +268,6 @@ class ICSSourceHandler:
         all_events = await self.fetch_events()
 
         # Filter to today's events
-        from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
-
         today = get_timezone_aware_now().date()
         todays_events = []
 
@@ -233,7 +275,6 @@ class ICSSourceHandler:
             event_date = event.start.date_time.date()
             if event_date == today:
                 todays_events.append(event)
-
         return todays_events
 
     async def get_events_for_date_range(
@@ -382,6 +423,9 @@ class ICSSourceHandler:
         Returns:
             True if source is healthy, False otherwise
         """
+        logger.info(
+            f"[DEBUG] {self.config.name} health check: health.is_healthy={self.health.is_healthy}, config.enabled={self.config.enabled}, health.status={self.health.status}"
+        )
         return self.health.is_healthy and self.config.enabled
 
     def get_health_check(self) -> SourceHealthCheck:

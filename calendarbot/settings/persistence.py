@@ -62,7 +62,7 @@ class SettingsPersistence:
         # Ensure main config directory exists
         try:
             self.config_dir.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"Settings config directory created: {self.config_dir}")
+            logger.debug(f"Settings config directory: {self.config_dir}")
         except OSError as e:
             raise SettingsPersistenceError(
                 f"Failed to create settings directory: {config_dir}",
@@ -75,7 +75,7 @@ class SettingsPersistence:
         try:
             self.backup_dir.mkdir(parents=True, exist_ok=True)
             self.backup_enabled = True
-            logger.debug(f"Settings backup directory created: {self.backup_dir}")
+            logger.debug(f"Settings backup directory: {self.backup_dir}")
         except PermissionError as e:
             logger.warning(
                 f"Cannot create backup directory due to permissions: {self.backup_dir}. "
@@ -242,6 +242,7 @@ class SettingsPersistence:
         Raises:
             SettingsPersistenceError: If restore operation fails
         """
+
         def _validate_backup_file(backup_file: Optional[Path]) -> Path:
             """Validate backup file availability and existence."""
             if backup_file is None:
@@ -259,7 +260,9 @@ class SettingsPersistence:
                 )
             return backup_file
 
-        def _validate_backup_data(backup_file: Path, settings_data: Optional[SettingsData]) -> SettingsData:
+        def _validate_backup_data(
+            backup_file: Path, settings_data: Optional[SettingsData]
+        ) -> SettingsData:
             """Validate that backup data was loaded successfully."""
             if settings_data is None:
                 raise SettingsPersistenceError(
@@ -335,6 +338,7 @@ class SettingsPersistence:
             SettingsPersistenceError: If import operation fails
             SettingsSchemaError: If imported settings have incompatible schema
         """
+
         def _validate_import_file(import_file: Path) -> None:
             """Validate that import file exists."""
             if not import_file.exists():
@@ -344,7 +348,9 @@ class SettingsPersistence:
                     file_path=str(import_file),
                 )
 
-        def _validate_import_data(import_file: Path, settings_data: Optional[SettingsData]) -> SettingsData:
+        def _validate_import_data(
+            import_file: Path, settings_data: Optional[SettingsData]
+        ) -> SettingsData:
             """Validate that import data was loaded successfully."""
             if settings_data is None:
                 raise SettingsPersistenceError(

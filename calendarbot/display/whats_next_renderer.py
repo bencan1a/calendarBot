@@ -25,13 +25,14 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
     - Implements RendererInterface for compatibility with e-Paper renderer
     """
 
-    def __init__(self, settings: Any) -> None:
+    def __init__(self, settings: Any, layout_registry: Optional[Any] = None) -> None:
         """Initialize What's Next renderer.
 
         Args:
             settings: Application settings
+            layout_registry: Optional existing LayoutRegistry instance to reuse
         """
-        super().__init__(settings)
+        super().__init__(settings, layout_registry=layout_registry)
         # Initialize business logic
         self.logic = WhatsNextLogic(settings)
         logger.info("WhatsNextRenderer initialized with shared logic")

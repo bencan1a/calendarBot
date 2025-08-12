@@ -4,7 +4,9 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import pytz
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, field_serializer
+
+from ..utils.helpers import get_timezone_aware_now
 
 
 class CalendarEvent(BaseModel):
@@ -66,15 +68,11 @@ class CalendarEvent(BaseModel):
 
     def is_current(self) -> bool:
         """Check if event is currently happening."""
-        from ..utils.helpers import get_timezone_aware_now
-
         now = get_timezone_aware_now()
         return self.start_time <= now <= self.end_time
 
     def is_upcoming(self) -> bool:
         """Check if event is upcoming."""
-        from ..utils.helpers import get_timezone_aware_now
-
         now = get_timezone_aware_now()
         return self.start_time > now
 
@@ -162,15 +160,11 @@ class CachedEvent(BaseModel):
 
     def is_current(self) -> bool:
         """Check if event is currently happening."""
-        from ..utils.helpers import get_timezone_aware_now
-
         now = get_timezone_aware_now()
         return self.start_dt <= now <= self.end_dt
 
     def is_upcoming(self) -> bool:
         """Check if event is upcoming."""
-        from ..utils.helpers import get_timezone_aware_now
-
         now = get_timezone_aware_now()
         return self.start_dt > now
 
@@ -206,8 +200,6 @@ class CachedEvent(BaseModel):
         """
         if not self.is_upcoming():
             return None
-
-        from ..utils.helpers import get_timezone_aware_now
 
         now = get_timezone_aware_now()
         delta = self.start_dt - now

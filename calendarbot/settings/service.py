@@ -8,7 +8,10 @@ and coordination between the models and persistence layers.
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from ..layout.registry import LayoutRegistry
 
 from ..config.settings import CalendarBotSettings
 from .exceptions import SettingsError, SettingsPersistenceError, SettingsValidationError
@@ -189,7 +192,9 @@ class SettingsService:
             return updated.event_filters
 
         except Exception as e:
-            raise SettingsError("Failed to update filter settings", details={"error": str(e)}) from e
+            raise SettingsError(
+                "Failed to update filter settings", details={"error": str(e)}
+            ) from e
 
     def get_display_settings(self) -> DisplaySettings:
         """Get current display settings.
@@ -218,7 +223,9 @@ class SettingsService:
             return updated.display
 
         except Exception as e:
-            raise SettingsError("Failed to update display settings", details={"error": str(e)}) from e
+            raise SettingsError(
+                "Failed to update display settings", details={"error": str(e)}
+            ) from e
 
     def get_conflict_settings(self) -> ConflictResolutionSettings:
         """Get current conflict resolution settings.
@@ -249,7 +256,9 @@ class SettingsService:
             return updated.conflict_resolution
 
         except Exception as e:
-            raise SettingsError("Failed to update conflict settings", details={"error": str(e)}) from e
+            raise SettingsError(
+                "Failed to update conflict settings", details={"error": str(e)}
+            ) from e
 
     def get_epaper_settings(self) -> EpaperSettings:
         """Get current e-Paper display settings.
@@ -278,7 +287,9 @@ class SettingsService:
             return updated.epaper
 
         except Exception as e:
-            raise SettingsError("Failed to update epaper settings", details={"error": str(e)}) from e
+            raise SettingsError(
+                "Failed to update epaper settings", details={"error": str(e)}
+            ) from e
 
     def add_filter_pattern(
         self,
@@ -457,7 +468,9 @@ class SettingsService:
             return self.update_settings(default_settings)
 
         except Exception as e:
-            raise SettingsError("Failed to reset settings to defaults", details={"error": str(e)}) from e
+            raise SettingsError(
+                "Failed to reset settings to defaults", details={"error": str(e)}
+            ) from e
 
     def export_settings(self, export_path: Path) -> bool:
         """Export current settings to a file.
@@ -606,17 +619,27 @@ class SettingsService:
                 "Settings consistency validation failed", validation_errors=errors
             )
 
-    def _get_available_layouts(self) -> list[str]:
+    def _get_available_layouts(
+        self, layout_registry: Optional["LayoutRegistry"] = None
+    ) -> list[str]:
         """Get list of available layouts from CalendarBot system.
+
+        Args:
+            layout_registry: Optional LayoutRegistry instance to use
 
         Returns:
             List of available layout names
         """
         try:
-            # Try to import and use layout registry
-            from ..layout.registry import LayoutRegistry  # noqa: PLC0415
+            # Use provided registry or create new one
+            if layout_registry is not None:
+                registry = layout_registry
+            else:
+                # Try to import and use layout registry
+                from ..layout.registry import LayoutRegistry  # noqa: PLC0415
 
-            registry = LayoutRegistry()
+                registry = LayoutRegistry()
+
             return registry.get_available_layouts()
         except Exception as e:
             logger.warning(f"Could not get available layouts: {e}")

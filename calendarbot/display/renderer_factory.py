@@ -78,6 +78,7 @@ class RendererFactory:
         *,
         settings: Optional[Any] = None,
         renderer_type: Optional[str] = None,
+        layout_registry: Optional[Any] = None,
     ) -> RendererProtocol:
         """Create appropriate renderer based on device detection or explicit type.
 
@@ -90,6 +91,7 @@ class RendererFactory:
             layout_name: Optional layout name to use with the renderer
             settings: Settings object (keyword-only, new style)
             renderer_type: Renderer type (keyword-only, new style)
+            layout_registry: Optional existing LayoutRegistry instance to reuse
 
         Returns:
             Configured renderer instance
@@ -137,7 +139,9 @@ class RendererFactory:
 
         try:
             # Create renderer instance
-            renderer = _create_renderer_instance(actual_renderer_type, actual_settings)
+            renderer = _create_renderer_instance(
+                actual_renderer_type, actual_settings, layout_registry
+            )
             logger.info(f"Created {renderer.__class__.__name__} successfully")
             return renderer
 
@@ -255,12 +259,15 @@ def _map_device_to_renderer(device_type: str) -> str:
     return mapping.get(device_type, "console")
 
 
-def _create_renderer_instance(renderer_type: str, settings: Any) -> RendererProtocol:
+def _create_renderer_instance(
+    renderer_type: str, settings: Any, layout_registry: Optional[Any] = None
+) -> RendererProtocol:
     """Create renderer instance of specified type.
 
     Args:
         renderer_type: Type of renderer to create
         settings: Application settings
+        layout_registry: Optional layout registry to share between components
 
     Returns:
         Renderer instance
@@ -293,4 +300,13 @@ def _create_renderer_instance(renderer_type: str, settings: Any) -> RendererProt
             f"Unknown renderer type: {renderer_type}. Available types: {available_types}"
         )
 
+    # Pass layout_registry to HTML-based renderers (HTMLRenderer and its subclasses)
+    html_based_renderers = {
+        "html",
+        "whats-next",
+        "rpi",
+    }  # WhatsNextRenderer inherits from HTMLRenderer
+
+    if renderer_type in html_based_renderers and layout_registry is not None:
+        return cast(RendererProtocol, renderer_class(settings, layout_registry=layout_registry))
     return cast(RendererProtocol, renderer_class(settings))

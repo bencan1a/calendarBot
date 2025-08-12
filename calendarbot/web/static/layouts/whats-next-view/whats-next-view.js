@@ -1612,9 +1612,6 @@ function getCurrentTime() {
             const now = Date.now();
             const elapsedMs = now - frontendBaselineTime;
             const correctedTime = new Date(backendBaselineTime.getTime() + elapsedMs);
-
-            // DIAGNOSTIC: Log calculation details for 18-hour error debugging
-
             return correctedTime;
         } catch (error) {
 

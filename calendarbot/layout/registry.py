@@ -58,6 +58,7 @@ class LayoutRegistry:
 
         self.layouts_dir = layouts_dir
         logger.debug(f"LayoutRegistry initialized with layouts_dir: {self.layouts_dir}")
+
         self._layouts: dict[str, LayoutInfo] = {}
         self._fallback_layouts = ["4x8", "3x4", "console"]  # Emergency fallback
 
