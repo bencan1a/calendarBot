@@ -1268,8 +1268,7 @@ async function cycleLayout() {
 
         if (data.success) {
             console.log(`Layout changed to: ${data.layout}`);
-            // window.location.reload(); // Disabled for testing - would reload in production
-            console.log('Layout changed complete - page would reload in production');
+            window.location.reload(); // Re-enabled for production use
         } else {
             console.error('Layout cycle failed:', data.error);
             showErrorMessage('Layout switch failed');

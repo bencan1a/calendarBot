@@ -278,9 +278,9 @@ class SourceManager:
                         logger.warning(f"Skipping unhealthy source: {name}")
                         continue
 
-                    logger.info(f"[DEBUG] About to call fetch_events() for {name}")
+                    logger.debug(f"About to call fetch_events() for {name}")
                     events = await handler.fetch_events()
-                    logger.info(f"[DEBUG] fetch_events() returned {len(events)} events for {name}")
+                    logger.debug(f"fetch_events() returned {len(events)} events for {name}")
                     all_events.extend(events)
                     successful_sources += 1
 
@@ -542,13 +542,13 @@ class SourceManager:
             logger.info("[DEBUG] No sources configured")
             return HealthCheckResult(False, "No sources configured")
 
-        logger.info(f"[DEBUG] Checking {len(self._sources)} sources")
+        logger.debug(f"Checking {len(self._sources)} sources")
         healthy_sources = []
         unhealthy_sources = []
 
         for name, handler in self._sources.items():
             is_healthy = handler.is_healthy()
-            logger.info(f"[DEBUG] Source {name}: is_healthy() = {is_healthy}")
+            logger.debug(f"Source {name}: is_healthy() = {is_healthy}")
             if is_healthy:
                 healthy_sources.append(name)
             else:

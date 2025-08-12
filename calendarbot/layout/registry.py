@@ -160,6 +160,7 @@ class LayoutRegistry:
             resources={"css": ["4x8.css"], "js": ["4x8.js"]},
             requirements={},
         )
+        logger.warning("Created emergency 4x8 layout")
 
         # 3x4 emergency layout
         self._layouts["3x4"] = LayoutInfo(
@@ -173,6 +174,7 @@ class LayoutRegistry:
             resources={"css": ["3x4.css"], "js": []},
             requirements={},
         )
+        logger.warning("Created emergency 3x4 layout")
 
         # Console emergency layout
         self._layouts["console"] = LayoutInfo(
@@ -186,6 +188,7 @@ class LayoutRegistry:
             resources={},
             requirements={},
         )
+        logger.warning("Created emergency console layout")
 
     def get_available_layouts(self) -> list[str]:
         """Get list of all available layout names.
@@ -193,7 +196,10 @@ class LayoutRegistry:
         Returns:
             List of layout names.
         """
-        return list(self._layouts.keys())
+        all_layouts = list(self._layouts.keys())
+        logger.debug(f"All discovered layouts: {all_layouts}")
+        logger.debug(f"Returning available layouts: {all_layouts}")
+        return all_layouts
 
     def validate_layout(self, layout_name: str) -> bool:
         """Validate if a layout exists and is properly configured.
