@@ -93,6 +93,8 @@ class ICSParseResult(BaseModel):
 
     success: bool
     events: list[Any] = Field(default_factory=list, description="Parsed calendar events")
+    raw_content: Optional[str] = Field(default=None, description="Raw ICS content for storage")
+    source_url: Optional[str] = Field(default=None, description="Source URL for tracking")
     calendar_name: Optional[str] = None
     calendar_description: Optional[str] = None
     timezone: Optional[str] = None

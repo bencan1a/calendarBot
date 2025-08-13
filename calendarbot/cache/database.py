@@ -7,7 +7,7 @@ from typing import Any
 
 import aiosqlite
 
-from .models import CachedEvent, CacheMetadata
+from .models import CachedEvent, CacheMetadata, RawEvent
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +108,65 @@ class DatabaseManager:
                     AFTER UPDATE ON cached_events
                     BEGIN
                         UPDATE cached_events SET updated_at = CURRENT_TIMESTAMP
+                        WHERE id = NEW.id;
+                    END
+                """
+                )
+
+                # Create raw_events table for storing raw ICS content
+                await db.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS raw_events (
+                        id TEXT PRIMARY KEY,
+                        graph_id TEXT NOT NULL,
+                        source_url TEXT,
+                        raw_ics_content TEXT NOT NULL,
+                        content_hash TEXT NOT NULL,
+                        content_size_bytes INTEGER NOT NULL,
+                        cached_at TEXT NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (graph_id) REFERENCES cached_events(graph_id) ON DELETE CASCADE
+                    )
+                """
+                )
+
+                # Create indexes for raw_events table
+                await db.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_raw_events_graph_id
+                    ON raw_events(graph_id)
+                """
+                )
+
+                await db.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_raw_events_content_hash
+                    ON raw_events(content_hash)
+                """
+                )
+
+                await db.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_raw_events_cached_at
+                    ON raw_events(cached_at)
+                """
+                )
+
+                await db.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_raw_events_size_cached
+                    ON raw_events(content_size_bytes, cached_at)
+                """
+                )
+
+                # Create trigger to update updated_at timestamp for raw_events
+                await db.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS update_raw_events_timestamp
+                    AFTER UPDATE ON raw_events
+                    BEGIN
+                        UPDATE raw_events SET updated_at = CURRENT_TIMESTAMP
                         WHERE id = NEW.id;
                     END
                 """
@@ -230,6 +289,14 @@ class DatabaseManager:
                 row_count = len(list(rows)) if rows else 0
 
                 logger.debug(f"Query returned {row_count} rows")
+
+                # DIAGNOSTIC: Check show_as distribution in retrieved events
+                if rows:
+                    show_as_counts = {}
+                    for row in rows:
+                        show_as = row["show_as"]
+                        show_as_counts[show_as] = show_as_counts.get(show_as, 0) + 1
+                    logger.debug(f"DEBUG DATABASE: Retrieved events by show_as: {show_as_counts}")
 
                 # Convert rows to CachedEvent objects
                 events = []
@@ -424,3 +491,130 @@ class DatabaseManager:
         except Exception:
             logger.exception("Failed to get database info")
             return {}
+
+    async def store_raw_events(self, raw_events: list[RawEvent]) -> bool:
+        """Store raw ICS events in database.
+
+        Args:
+            raw_events: List of raw events to store
+
+        Returns:
+            True if storage was successful, False otherwise
+        """
+        try:
+            if not raw_events:
+                logger.debug("No raw events to store")
+                return True
+
+            async with aiosqlite.connect(str(self.database_path)) as db:
+                await db.executemany(
+                    """
+                    INSERT OR REPLACE INTO raw_events (
+                        id, graph_id, source_url, raw_ics_content,
+                        content_hash, content_size_bytes, cached_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    [
+                        (
+                            event.id,
+                            event.graph_id,
+                            event.source_url,
+                            event.raw_ics_content,
+                            event.content_hash,
+                            event.content_size_bytes,
+                            event.cached_at,
+                        )
+                        for event in raw_events
+                    ],
+                )
+
+                await db.commit()
+                logger.debug(f"Stored {len(raw_events)} raw events")
+                return True
+
+        except Exception:
+            logger.exception("Failed to store raw events")
+            return False
+
+    async def cleanup_raw_events(self, days_old: int = 7) -> int:
+        """Remove raw events older than specified days.
+
+        Args:
+            days_old: Number of days after which to remove raw events
+
+        Returns:
+            Number of raw events removed
+        """
+        try:
+            cutoff_date = datetime.now() - timedelta(days=days_old)
+            cutoff_str = cutoff_date.isoformat()
+
+            async with aiosqlite.connect(str(self.database_path)) as db:
+                cursor = await db.execute(
+                    """
+                    DELETE FROM raw_events
+                    WHERE cached_at < ?
+                    """,
+                    (cutoff_str,),
+                )
+
+                deleted_count = cursor.rowcount
+                await db.commit()
+
+                logger.debug(
+                    f"Cleaned up {deleted_count} old raw events (older than {days_old} days)"
+                )
+                return deleted_count
+
+        except Exception:
+            logger.exception("Failed to cleanup old raw events")
+            return 0
+
+    async def clear_raw_events(self) -> bool:
+        """Clear all raw events from database.
+
+        Returns:
+            True if clearing was successful, False otherwise
+        """
+        try:
+            async with aiosqlite.connect(str(self.database_path)) as db:
+                cursor = await db.execute("DELETE FROM raw_events")
+                deleted_count = cursor.rowcount
+                await db.commit()
+
+                logger.debug(f"Cleared all {deleted_count} raw events")
+                return True
+
+        except Exception:
+            logger.exception("Failed to clear all raw events")
+            return False
+
+    async def get_raw_event_by_id(self, event_id: str) -> RawEvent | None:
+        """Get raw event by ID.
+
+        Args:
+            event_id: Raw event ID to retrieve
+
+        Returns:
+            RawEvent if found, None otherwise
+        """
+        try:
+            async with aiosqlite.connect(str(self.database_path)) as db:
+                db.row_factory = aiosqlite.Row
+
+                cursor = await db.execute(
+                    """
+                    SELECT * FROM raw_events
+                    WHERE id = ?
+                    """,
+                    (event_id,),
+                )
+
+                row = await cursor.fetchone()
+                if row:
+                    return RawEvent(**dict(row))
+                return None
+
+        except Exception:
+            logger.exception(f"Failed to get raw event by ID: {event_id}")
+            return None

@@ -167,7 +167,6 @@ class TimezoneService:
 
         try:
             tz = fallback_tz or self.get_server_timezone()
-            logger.debug(f"Making timezone-naive datetime aware: {dt} -> {tz}")
 
             if ZONEINFO_AVAILABLE:
                 return dt.replace(tzinfo=tz)
@@ -189,9 +188,7 @@ class TimezoneService:
         """
         try:
             server_tz = self.get_server_timezone()
-            now = datetime.now(server_tz)
-            logger.debug(f"Current server time: {now}")
-            return now
+            return datetime.now(server_tz)
 
         except Exception as e:
             raise TimezoneError(f"Failed to get current server time: {e}") from e

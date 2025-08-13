@@ -9,6 +9,7 @@ from collections.abc import Awaitable
 from datetime import datetime
 from typing import Any, Callable, Optional, TypeVar
 
+from ..timezone import ensure_timezone_aware as tz_ensure_timezone_aware, now_server_timezone
 from .exceptions import CircuitBreakerError, RetryError
 
 logger = logging.getLogger(__name__)
@@ -69,9 +70,7 @@ async def retry_with_backoff(
             except exceptions as e:
                 logger.exception(f"Function {func.__name__} failed after {max_retries} retries")
                 raise RetryError(
-                    f"Function {func.__name__} failed after {max_retries} retries",
-                    max_retries,
-                    e
+                    f"Function {func.__name__} failed after {max_retries} retries", max_retries, e
                 ) from e
         else:
             # Regular attempt with retry logic
@@ -86,7 +85,11 @@ async def retry_with_backoff(
                 delay = min(delay * backoff_factor, max_delay)
 
     # This should never be reached, but satisfy mypy
-    raise RetryError(f"Function {func.__name__} failed with no recorded exception", max_retries, RuntimeError("No exception recorded"))
+    raise RetryError(
+        f"Function {func.__name__} failed with no recorded exception",
+        max_retries,
+        RuntimeError("No exception recorded"),
+    )
 
 
 async def safe_async_call(
@@ -179,17 +182,19 @@ def ensure_timezone_aware(dt: datetime, default_tz: Optional[str] = None) -> dat
     Returns:
         Timezone-aware datetime
     """
-    if dt.tzinfo is None:
-        # If no timezone info, assume local time or use default
-        if default_tz:
+    # Use centralized timezone service, but maintain backward compatibility
+    if default_tz:
+        # If a specific timezone is provided, we'll need to handle it specially
+        # since the service uses server timezone by default
+        if dt.tzinfo is None:
             import pytz  # noqa: PLC0415
 
             tz = pytz.timezone(default_tz)
             return tz.localize(dt)
-        # Assume local timezone
-        return dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
+        return dt
 
-    return dt
+    # Use the centralized service for standard timezone awareness
+    return tz_ensure_timezone_aware(dt)
 
 
 def get_timezone_aware_now(user_timezone: Optional[str] = None) -> datetime:
@@ -197,15 +202,17 @@ def get_timezone_aware_now(user_timezone: Optional[str] = None) -> datetime:
 
     Args:
         user_timezone: Optional user timezone string (e.g., 'America/Los_Angeles')
-                      If None, defaults to 'America/Los_Angeles' (PST/PDT)
+                      If None, defaults to server timezone (America/Los_Angeles)
 
     Returns:
         Current datetime with specified or default timezone
     """
-    try:
-        if not user_timezone:
-            user_timezone = "America/Los_Angeles"
+    if user_timezone is None:
+        # Use centralized service for server timezone
+        return now_server_timezone()
 
+    try:
+        # For backward compatibility, handle custom timezones
         import pytz  # noqa: PLC0415
 
         tz = pytz.timezone(user_timezone)
@@ -213,9 +220,9 @@ def get_timezone_aware_now(user_timezone: Optional[str] = None) -> datetime:
         return utc_now.astimezone(tz)
 
     except Exception as e:
-        # Fallback to system timezone if user timezone is invalid
-        logger.warning(f"Invalid timezone '{user_timezone}', falling back to system timezone: {e}")
-        return datetime.now().astimezone()
+        # Fallback to centralized service if user timezone is invalid
+        logger.warning(f"Invalid timezone '{user_timezone}', falling back to server timezone: {e}")
+        return now_server_timezone()
 
 
 def truncate_string(text: str, max_length: int, suffix: str = "...") -> str:
