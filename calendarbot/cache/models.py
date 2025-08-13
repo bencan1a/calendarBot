@@ -259,11 +259,46 @@ class CacheMetadata(BaseModel):
 
 
 class RawEvent(BaseModel):
-    """Raw ICS event model for storage alongside cached events."""
+    """Raw ICS event model for storage alongside cached events.
+
+    Contains same parsed event data as CachedEvent plus raw ICS content.
+    """
 
     # Primary identification
     id: str  # Unique identifier
     graph_id: str  # Links to CachedEvent.graph_id
+
+    # Event details (same as CachedEvent)
+    subject: str
+    body_preview: Optional[str] = None
+
+    # Time information (stored as ISO strings for SQLite compatibility)
+    start_datetime: str
+    end_datetime: str
+    start_timezone: str
+    end_timezone: str
+    is_all_day: bool = False
+
+    # Status and visibility
+    show_as: str = "busy"
+    is_cancelled: bool = False
+    is_organizer: bool = False
+
+    # Location
+    location_display_name: Optional[str] = None
+    location_address: Optional[str] = None
+
+    # Meeting details
+    is_online_meeting: bool = False
+    online_meeting_url: Optional[str] = None
+    web_link: Optional[str] = None
+
+    # Recurrence
+    is_recurring: bool = False
+    series_master_id: Optional[str] = None
+
+    # Cache metadata
+    last_modified: Optional[str] = None  # Last modified from Graph API
 
     # Source information
     source_url: Optional[str] = None  # ICS feed URL if available
@@ -284,15 +319,74 @@ class RawEvent(BaseModel):
         return datetime.fromisoformat(self.cached_at.replace("Z", "+00:00"))
 
     @classmethod
-    def create_from_ics(
-        cls, graph_id: str, ics_content: str, source_url: Optional[str] = None
+    def create_from_cached_event(
+        cls, cached_event: "CachedEvent", ics_content: str, source_url: Optional[str] = None
     ) -> "RawEvent":
-        """Create RawEvent instance from ICS content.
+        """Create RawEvent instance from CachedEvent and ICS content.
+
+        Args:
+            cached_event: CachedEvent to copy parsed data from
+            ics_content: Raw ICS content to store
+            source_url: Optional source URL for the ICS content
+
+        Returns:
+            New RawEvent instance with parsed data and raw content
+        """
+        content_hash = hashlib.sha256(ics_content.encode("utf-8")).hexdigest()
+
+        return cls(
+            id=f"raw_{cached_event.graph_id}",
+            graph_id=cached_event.graph_id,
+            subject=cached_event.subject,
+            body_preview=cached_event.body_preview,
+            start_datetime=cached_event.start_datetime,
+            end_datetime=cached_event.end_datetime,
+            start_timezone=cached_event.start_timezone,
+            end_timezone=cached_event.end_timezone,
+            is_all_day=cached_event.is_all_day,
+            show_as=cached_event.show_as,
+            is_cancelled=cached_event.is_cancelled,
+            is_organizer=cached_event.is_organizer,
+            location_display_name=cached_event.location_display_name,
+            location_address=cached_event.location_address,
+            is_online_meeting=cached_event.is_online_meeting,
+            online_meeting_url=cached_event.online_meeting_url,
+            web_link=cached_event.web_link,
+            is_recurring=cached_event.is_recurring,
+            series_master_id=cached_event.series_master_id,
+            last_modified=cached_event.last_modified,
+            source_url=source_url,
+            raw_ics_content=ics_content,
+            content_hash=content_hash,
+            content_size_bytes=len(ics_content.encode("utf-8")),
+            cached_at=datetime.now().isoformat(),
+        )
+
+    @classmethod
+    def create_from_ics(
+        cls,
+        graph_id: str,
+        subject: str,
+        start_datetime: str,
+        end_datetime: str,
+        start_timezone: str,
+        end_timezone: str,
+        ics_content: str,
+        source_url: Optional[str] = None,
+        **kwargs,
+    ) -> "RawEvent":
+        """Create RawEvent instance from ICS content and minimal parsed data.
 
         Args:
             graph_id: Graph ID to link to cached event
+            subject: Event subject/title
+            start_datetime: Start datetime as ISO string
+            end_datetime: End datetime as ISO string
+            start_timezone: Start timezone
+            end_timezone: End timezone
             ics_content: Raw ICS content to store
             source_url: Optional source URL for the ICS content
+            **kwargs: Additional optional fields
 
         Returns:
             New RawEvent instance with computed hash and metadata
@@ -302,9 +396,15 @@ class RawEvent(BaseModel):
         return cls(
             id=f"raw_{graph_id}",
             graph_id=graph_id,
+            subject=subject,
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+            start_timezone=start_timezone,
+            end_timezone=end_timezone,
             source_url=source_url,
             raw_ics_content=ics_content,
             content_hash=content_hash,
             content_size_bytes=len(ics_content.encode("utf-8")),
             cached_at=datetime.now().isoformat(),
+            **kwargs,
         )

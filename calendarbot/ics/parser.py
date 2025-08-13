@@ -145,58 +145,9 @@ class ICSParser:
                         warnings.append(warning)
                         logger.warning(warning)
 
-            # DIAGNOSTIC: Check filter_busy_only configuration
-            logger.info("DEBUG FILTER CONFIG: filter_busy_only setting (hardcoded to True for now)")
-            logger.info(f"DEBUG FILTER CONFIG: Total events before filtering: {len(events)}")
-            logger.info(
-                "DEBUG FILTER CONFIG: Events by status: "
-                + ", ".join(
-                    [
-                        f"{status.value}: {len([e for e in events if e.show_as == status])}"
-                        for status in [
-                            EventStatus.FREE,
-                            EventStatus.BUSY,
-                            EventStatus.TENTATIVE,
-                            EventStatus.OUT_OF_OFFICE,
-                            EventStatus.WORKING_ELSEWHERE,
-                        ]
-                    ]
-                )
-            )
-
             # Filter to only busy/tentative events (same as Graph API behavior)
             # TODO: This should respect the filter_busy_only configuration setting
             filtered_events = [e for e in events if e.is_busy_status and not e.is_cancelled]
-
-            logger.info(
-                f"DEBUG FILTER CONFIG: Events after busy status filtering: {len(filtered_events)}"
-            )
-            logger.info(
-                f"DEBUG FILTER CONFIG: TENTATIVE events before filtering: {len([e for e in events if e.show_as == EventStatus.TENTATIVE])}"
-            )
-            logger.info(
-                f"DEBUG FILTER CONFIG: TENTATIVE events after filtering: {len([e for e in filtered_events if e.show_as == EventStatus.TENTATIVE])}"
-            )
-
-            # DIAGNOSTIC: Check for August 13 or Monthly Ops Review events
-            august_13_events = [
-                e
-                for e in events
-                if "2025-08-13" in str(e.start.date_time) or "Monthly Ops Review" in e.subject
-            ]
-            if august_13_events:
-                logger.info(f"DIAGNOSTIC: Found {len(august_13_events)} Aug 13/Monthly Ops events:")
-                for event in august_13_events:
-                    logger.info(f"  Event: {event.subject} | {event.start.date_time}")
-                    logger.info(
-                        f"    show_as={event.show_as} | is_busy_status={event.is_busy_status} | is_cancelled={event.is_cancelled}"
-                    )
-
-                # Check which ones make it through filtering
-                filtered_aug_13 = [
-                    e for e in august_13_events if e.is_busy_status and not e.is_cancelled
-                ]
-                logger.info(f"  → {len(filtered_aug_13)} survived filtering")
 
             logger.debug(
                 f"Parsed {len(filtered_events)} events from ICS content "
@@ -218,6 +169,132 @@ class ICSParser:
                 raw_content=raw_content,
                 source_url=source_url,
             )
+
+        except Exception as e:
+            logger.exception("Failed to parse ICS content")
+            return ICSParseResult(
+                success=False,
+                error_message=str(e),
+                raw_content=raw_content,
+                source_url=source_url,
+            )
+
+    def parse_ics_content_unfiltered(
+        self, ics_content: str, source_url: Optional[str] = None
+    ) -> ICSParseResult:
+        """Parse ICS content into ALL events without filtering for raw event storage.
+
+        This method returns ALL parsed events without any filtering, specifically
+        for raw event storage to enable comparison with cached events.
+
+        Args:
+            ics_content: Raw ICS file content
+            source_url: Optional source URL for audit trail
+
+        Returns:
+            Parse result with ALL events and metadata including raw content
+        """
+        # Initialize variables that might be used in error handling
+        raw_content = None
+
+        try:
+            logger.debug("Starting unfiltered ICS content parsing for raw events")
+
+            # Capture raw content and validate size (with error handling)
+            try:
+                self._validate_ics_size(ics_content)
+                raw_content = ics_content
+                logger.debug(f"Raw ICS content captured: {len(ics_content)} bytes")
+            except ICSContentTooLargeError:
+                logger.exception("ICS content too large, skipping raw content storage")
+                raise  # Re-raise to stop processing
+            except Exception as e:
+                logger.warning(f"Failed to capture raw ICS content: {e}")
+                # Continue parsing without raw content
+
+            # Parse the calendar
+            calendar = Calendar.from_ical(ics_content)
+
+            # Extract calendar metadata
+            calendar_name = self._get_calendar_property(cast(Calendar, calendar), "X-WR-CALNAME")
+            calendar_description = self._get_calendar_property(
+                cast(Calendar, calendar), "X-WR-CALDESC"
+            )
+            timezone_str = self._get_calendar_property(cast(Calendar, calendar), "X-WR-TIMEZONE")
+            prodid = self._get_calendar_property(cast(Calendar, calendar), "PRODID")
+            version = self._get_calendar_property(cast(Calendar, calendar), "VERSION")
+
+            # Parse events and capture individual event raw content
+            events = []
+            event_raw_content_map = {}  # Map event ID to individual raw ICS content
+            total_components = 0
+            event_count = 0
+            recurring_event_count = 0
+            warnings = []
+
+            for component in calendar.walk():
+                total_components += 1
+
+                if component.name == "VEVENT":
+                    try:
+                        event = self._parse_event_component(
+                            cast(ICalEvent, component), timezone_str
+                        )
+                        if event:
+                            events.append(event)
+                            event_count += 1
+
+                            # Extract individual event ICS content using component.to_ical()
+                            try:
+                                individual_ics = component.to_ical().decode("utf-8")
+                                event_raw_content_map[event.id] = individual_ics
+                                logger.debug(
+                                    f"Captured raw ICS for event {event.id}: {len(individual_ics)} bytes"
+                                )
+                            except Exception as e:
+                                logger.warning(
+                                    f"Failed to extract raw ICS for event {event.id}: {e}"
+                                )
+                                # Fallback to basic event identifier
+                                event_raw_content_map[event.id] = (
+                                    f"# Event {event.id} - Raw ICS extraction failed"
+                                )
+
+                            if event.is_recurring:
+                                recurring_event_count += 1
+
+                    except Exception as e:
+                        warning = f"Failed to parse event: {e}"
+                        warnings.append(warning)
+                        logger.warning(warning)
+
+            # NO FILTERING - return ALL events for raw storage
+            logger.debug(
+                f"Parsed {len(events)} unfiltered events from ICS content "
+                f"({event_count} total events, no filtering applied)"
+            )
+
+            # Create enhanced result with individual event raw content mapping
+            result = ICSParseResult(
+                success=True,
+                events=events,  # Return ALL events without filtering
+                calendar_name=calendar_name,
+                calendar_description=calendar_description,
+                timezone=timezone_str,
+                total_components=total_components,
+                event_count=event_count,
+                recurring_event_count=recurring_event_count,
+                warnings=warnings,
+                ics_version=version,
+                prodid=prodid,
+                raw_content=raw_content,
+                source_url=source_url,
+            )
+
+            # Store individual event raw content in the result for access by cache manager
+            result.event_raw_content_map = event_raw_content_map
+
+            return result
 
         except Exception as e:
             logger.exception("Failed to parse ICS content")
@@ -275,16 +352,7 @@ class ICSParser:
             status = self._parse_status(component.get("STATUS"))
             transp = component.get("TRANSP", "OPAQUE")
 
-            # DEBUG: Track all events being processed
-            if summary and "Monthly Ops Review" in str(summary):
-                logger.info(f"DEBUG EVENT PROCESSING: {summary!s}")
-                logger.info("  About to call _map_transparency_to_status")
-
             show_as = self._map_transparency_to_status(transp, status, component)
-
-            # DEBUG: Log final show_as result
-            if summary and "Monthly Ops Review" in str(summary):
-                logger.info(f"  Final show_as result: {show_as}")
 
             # All-day events
             is_all_day = not hasattr(dtstart.dt, "hour")
@@ -476,18 +544,11 @@ class ICSParser:
 
         # Filter out Microsoft phantom deleted events
         if ms_deleted and str(ms_deleted).upper() == "TRUE":
-            event_summary = component.get("SUMMARY")
-            logger.info(f"DEBUG DELETED: Filtering out deleted event: {event_summary}")
             return EventStatus.FREE  # Will be filtered out by busy status check
 
         # Check if this is a "Following:" meeting by parsing the event title
         summary = component.get("SUMMARY")
         is_following_meeting = summary and "Following:" in str(summary)
-
-        # DEBUG: Log Microsoft deletion marker status for key events
-        if summary and ("Gary FTO" in str(summary) or "Monthly Ops Review" in str(summary)):
-            logger.info(f"DEBUG DELETION CHECK: {summary!s}")
-            logger.info(f"  ms_deleted={ms_deleted}, ms_busystatus={ms_busystatus}")
 
         # Use Microsoft busy status override if available
         if ms_busystatus:
@@ -495,19 +556,9 @@ class ICSParser:
             if ms_status == "FREE":
                 # Special case: "Following:" meetings should be TENTATIVE, not FREE
                 if is_following_meeting:
-                    logger.info(
-                        f"DEBUG MS OVERRIDE: Following meeting with FREE status → TENTATIVE: {summary!s}"
-                    )
                     return EventStatus.TENTATIVE
                 # All other FREE busy status events should be filtered out
-                logger.info(f"DEBUG MS OVERRIDE: Filtering out FREE busy status event: {summary!s}")
                 return EventStatus.FREE
-
-        # DEBUG: Log transparency mapping decision process
-        if summary and "Monthly Ops Review" in str(summary):
-            logger.info(f"DEBUG TRANSPARENCY: {summary!s}")
-            logger.info(f"  transparency={transparency}, status={status}")
-            logger.info(f"  is_following_meeting={is_following_meeting}")
 
         if status == "CANCELLED":
             mapped_status = EventStatus.FREE
@@ -524,10 +575,6 @@ class ICSParser:
         else:
             # OPAQUE or default
             mapped_status = EventStatus.BUSY
-
-        # DEBUG: Log final mapping result
-        if summary and "Monthly Ops Review" in str(summary):
-            logger.info(f"  → FINAL mapped_status={mapped_status}")
 
         return mapped_status
 

@@ -113,6 +113,11 @@ class ICSParseResult(BaseModel):
     ics_version: Optional[str] = None
     prodid: Optional[str] = None
 
+    # Individual event raw content mapping (event_id -> raw_ics_content)
+    event_raw_content_map: dict[str, str] = Field(
+        default_factory=dict, description="Mapping of event IDs to individual raw ICS content"
+    )
+
 
 class ICSValidationResult(BaseModel):
     """Result of ICS source validation."""

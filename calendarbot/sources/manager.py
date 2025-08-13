@@ -267,31 +267,45 @@ class SourceManager:
 
             all_events = []
             successful_sources = 0
+            parse_results = []
 
             # Fetch from all sources
             for name, handler in self._sources.items():
                 try:
-                    logger.info(
-                        f"[DEBUG] Processing source: {name}, healthy: {handler.is_healthy()}"
-                    )
+                    logger.debug(f"Processing source: {name}, healthy: {handler.is_healthy()}")
                     if not handler.is_healthy():
                         logger.warning(f"Skipping unhealthy source: {name}")
                         continue
 
                     logger.debug(f"About to call fetch_events() for {name}")
-                    events = await handler.fetch_events()
-                    logger.debug(f"fetch_events() returned {len(events)} events for {name}")
-                    all_events.extend(events)
+                    parse_result = await handler.fetch_events()
+                    logger.debug(
+                        f"fetch_events() returned {len(parse_result.events)} events for {name}"
+                    )
+                    all_events.extend(parse_result.events)
+                    parse_results.append(parse_result)
                     successful_sources += 1
 
-                    logger.debug(f"Fetched {len(events)} events from source '{name}'")
+                    logger.debug(f"Fetched {len(parse_result.events)} events from source '{name}'")
 
                 except Exception:
                     logger.exception(f"Failed to fetch from source '{name}'")
 
             # Cache events if we have a cache manager
-            if self.cache_manager and all_events:
-                cache_success = await self.cache_manager.cache_events(all_events)
+            if self.cache_manager and (all_events or parse_results):
+                # If we have exactly one source with raw content, pass the full parse result
+                # This preserves raw content for storage in the database
+                if len(parse_results) == 1 and parse_results[0].raw_content:
+                    cache_success = await self.cache_manager.cache_events(parse_results[0])
+                    logger.debug("Cached parse result with raw content from single source")
+                elif all_events:
+                    # Multiple sources or no raw content - use events list
+                    cache_success = await self.cache_manager.cache_events(all_events)
+                    logger.debug(
+                        f"Cached {len(all_events)} events from {len(parse_results)} sources"
+                    )
+                else:
+                    cache_success = False
                 if cache_success:
                     self._last_successful_update = datetime.now()
                     self._consecutive_failures = 0
@@ -531,7 +545,6 @@ class SourceManager:
         Returns:
             Health check result object with is_healthy and status_message
         """
-        logger.info("[DEBUG] SourceManager.health_check() ENTRY")
 
         class HealthCheckResult:
             def __init__(self, is_healthy: bool, status_message: str):
@@ -539,7 +552,7 @@ class SourceManager:
                 self.status_message = status_message
 
         if not self._sources:
-            logger.info("[DEBUG] No sources configured")
+            logger.info("No sources configured")
             return HealthCheckResult(False, "No sources configured")
 
         logger.debug(f"Checking {len(self._sources)} sources")
