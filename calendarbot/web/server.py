@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import mimetypes
+import sqlite3
 from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -74,6 +75,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
             if path in {"/", "/calendar"}:
                 self._serve_calendar_page(query_params)
+            elif path == "/database-viewer":
+                self._serve_database_viewer()
             elif path == "/health":
                 self._handle_health_check()
             elif path.startswith("/api/"):
@@ -151,6 +154,25 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.exception("Error serving calendar page")
             self._send_500(str(e))
 
+    def _serve_database_viewer(self) -> None:
+        """Serve the database viewer page."""
+        try:
+            # Get the path to the database viewer HTML file
+            static_dir = Path(__file__).parent / "static"
+            viewer_path = static_dir / "database-viewer.html"
+
+            if not viewer_path.exists():
+                self._send_404()
+                return
+
+            # Read and serve the HTML content
+            html_content = viewer_path.read_text(encoding="utf-8")
+            self._send_response(200, html_content, "text/html")
+
+        except Exception as e:
+            logger.exception("Error serving database viewer page")
+            self._send_500(str(e))
+
     def _handle_api_request(
         self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
@@ -187,6 +209,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             elif path.startswith("/api/events"):
                 logger.debug("Routing events API to settings handler")
                 self._handle_settings_api(path, params)
+            elif path.startswith("/api/database"):
+                logger.debug("Routing to database API")
+                self._handle_database_api(path, params)
             else:
                 logger.warning(f"No route found for API path: {path}")
                 self._send_json_response(404, {"error": "API endpoint not found"})
@@ -710,15 +735,38 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     web_server.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
                 )
 
+        # DIAGNOSTIC: Track TENTATIVE events through web server pipeline
+        tentative_before_settings = len(
+            [e for e in events if hasattr(e, "show_as") and str(e.show_as).upper() == "TENTATIVE"]
+        )
+        logger.info(
+            f"DEBUG WEB SERVER: TENTATIVE events received from cache: {tentative_before_settings}"
+        )
+        logger.info(f"DEBUG WEB SERVER: Total events received from cache: {len(events)}")
+
         # Filter out hidden events before creating view model
         if self.web_server and self.web_server.settings_service:
             filter_settings = self.web_server.settings_service.get_filter_settings()
             filtered_events = [
                 event for event in events if not filter_settings.is_event_hidden(event.graph_id)
             ]
+            tentative_after_settings = len(
+                [
+                    e
+                    for e in filtered_events
+                    if hasattr(e, "show_as") and str(e.show_as).upper() == "TENTATIVE"
+                ]
+            )
+            logger.info(
+                f"DEBUG WEB SERVER: TENTATIVE events after settings filtering: {tentative_after_settings}"
+            )
+            logger.info(
+                f"DEBUG WEB SERVER: Total events after settings filtering: {len(filtered_events)}"
+            )
         else:
             # Fallback if settings service not available
             filtered_events = events
+            logger.info("DEBUG WEB SERVER: No settings service - using all events")
 
         # Use WhatsNextLogic to create the view model
         from ..display.whats_next_logic import WhatsNextLogic  # noqa: PLC0415
@@ -1336,6 +1384,299 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 500, {"error": "Failed to get hidden events", "message": str(e)}
             )
 
+    def _handle_database_api(
+        self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
+    ) -> None:
+        """Handle database API requests with comprehensive endpoint support.
+
+        Args:
+            path: API endpoint path
+            params: Request parameters (query params for GET, JSON data for POST)
+        """
+        try:
+            if not self.web_server or not hasattr(self.web_server, "cache_manager"):
+                self._send_json_response(
+                    503,
+                    {
+                        "error": "Database service not available",
+                        "message": "Database functionality is currently unavailable",
+                    },
+                )
+                return
+
+            method = self.command
+
+            # Database API routing table
+            route_handlers = {
+                "/api/database/query": {
+                    "POST": lambda: self._handle_database_query(params),
+                },
+                "/api/database/schema": {
+                    "GET": lambda: self._handle_database_schema(),
+                },
+                "/api/database/tables": {
+                    "GET": lambda: self._handle_database_tables(),
+                },
+                "/api/database/info": {
+                    "GET": lambda: self._handle_database_info(),
+                },
+            }
+
+            # Route request using lookup table
+            if path in route_handlers and method in route_handlers[path]:
+                route_handlers[path][method]()
+            elif path in route_handlers:
+                self._send_json_response(405, {"error": "Method not allowed"})
+            else:
+                self._send_json_response(404, {"error": "Database API endpoint not found"})
+
+        except Exception as e:
+            logger.exception("Error handling database API request")
+            self._send_json_response(500, {"error": str(e)})
+
+    def _handle_database_query(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
+        """Handle POST /api/database/query - execute SQL query safely."""
+        try:
+            # Validate that params is a dictionary and contains query
+            if not params or not isinstance(params, dict):
+                self._send_json_response(400, {"error": "Invalid request data"})
+                return
+
+            from typing import cast  # noqa: PLC0415
+
+            # For POST requests, params comes from JSON data
+            json_params = cast(dict[str, Any], params)
+            query = json_params.get("query", "").strip()
+
+            if not query:
+                self._send_json_response(400, {"error": "Query parameter is required"})
+                return
+
+            # Security validation - only allow SELECT statements and schema queries
+            if not self._is_safe_query(query):
+                self.security_logger.log_input_validation_failure(
+                    input_type="sql_query",
+                    validation_error="Unsafe SQL query attempted",
+                    details={
+                        "source_ip": self.client_address[0] if self.client_address else "unknown",
+                        "query": query[:100],  # Log first 100 chars for debugging
+                        "endpoint": "/api/database/query",
+                    },
+                )
+                self._send_json_response(
+                    403,
+                    {
+                        "error": "Query not allowed",
+                        "message": "Only SELECT and schema queries are permitted",
+                    },
+                )
+                return
+
+            # Execute query using database manager
+            results = self._execute_safe_query(query)
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "data": results,
+                    "query": query,
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Error executing database query")
+            self._send_json_response(500, {"error": f"Query execution failed: {e!s}"})
+
+    def _is_safe_query(self, query: str) -> bool:
+        """Validate that the SQL query is safe to execute.
+
+        Args:
+            query: SQL query string to validate
+
+        Returns:
+            True if query is safe, False otherwise
+        """
+        query_upper = query.upper().strip()
+
+        # Allow only specific safe operations
+        safe_prefixes = [
+            "SELECT",
+            "PRAGMA TABLE_INFO",
+            "PRAGMA TABLE_LIST",
+            "PRAGMA INDEX_LIST",
+            "PRAGMA FOREIGN_KEY_LIST",
+            ".SCHEMA",
+            ".TABLES",
+        ]
+
+        # Check if query starts with safe prefix
+        for prefix in safe_prefixes:
+            if query_upper.startswith(prefix):
+                break
+        else:
+            return False
+
+        # Block dangerous keywords
+        dangerous_keywords = [
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "DROP",
+            "CREATE",
+            "ALTER",
+            "TRUNCATE",
+            "REPLACE",
+            "EXEC",
+            "EXECUTE",
+            "DECLARE",
+            "SCRIPT",
+            "SHUTDOWN",
+            "BACKUP",
+            "RESTORE",
+        ]
+
+        return all(keyword not in query_upper for keyword in dangerous_keywords)
+
+    def _execute_safe_query(self, query: str) -> dict[str, Any]:
+        """Execute a validated SQL query safely.
+
+        Args:
+            query: Validated SQL query string
+
+        Returns:
+            Dictionary containing query results
+        """
+        if not self.web_server or not hasattr(self.web_server, "cache_manager"):
+            raise WebServerError("Database manager not available")
+
+        # Get database path from cache manager
+        db_manager = self.web_server.cache_manager.db
+        db_path = db_manager.database_path
+
+        try:
+            with sqlite3.connect(str(db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute(query)
+
+                # Fetch results
+                rows = cursor.fetchall()
+
+                # Convert to list of dictionaries
+                results = [dict(row) for row in rows]
+
+                return {
+                    "rows": results,
+                    "count": len(results),
+                    "columns": [desc[0] for desc in cursor.description]
+                    if cursor.description
+                    else [],
+                }
+
+        except sqlite3.Error as e:
+            raise WebServerError(f"Database query failed: {e!s}") from e
+
+    def _handle_database_schema(self) -> None:
+        """Handle GET /api/database/schema - get database schema information."""
+        try:
+            schema_query = """
+                SELECT
+                    name,
+                    type,
+                    sql
+                FROM sqlite_master
+                WHERE type IN ('table', 'index', 'view')
+                ORDER BY type, name
+            """
+
+            results = self._execute_safe_query(schema_query)
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "data": results,
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Error getting database schema")
+            self._send_json_response(500, {"error": f"Failed to get schema: {e!s}"})
+
+    def _handle_database_tables(self) -> None:
+        """Handle GET /api/database/tables - get list of database tables."""
+        try:
+            tables_query = """
+                SELECT
+                    name,
+                    type,
+                    sql
+                FROM sqlite_master
+                WHERE type = 'table'
+                ORDER BY name
+            """
+
+            results = self._execute_safe_query(tables_query)
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "data": results,
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Error getting database tables")
+            self._send_json_response(500, {"error": f"Failed to get tables: {e!s}"})
+
+    def _handle_database_info(self) -> None:
+        """Handle GET /api/database/info - get database information and statistics."""
+        try:
+            if not self.web_server or not hasattr(self.web_server, "cache_manager"):
+                self._send_json_response(500, {"error": "Database manager not available"})
+                return
+
+            # Get database info from cache manager
+            db_manager = self.web_server.cache_manager.db
+
+            # Use async call handling similar to other methods
+            try:
+                # Try to get the running event loop
+                asyncio.get_running_loop()
+                import concurrent.futures  # noqa: PLC0415
+
+                def run_async_in_thread() -> Any:
+                    import asyncio  # noqa: PLC0415
+
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    try:
+                        return new_loop.run_until_complete(db_manager.get_database_info())
+                    finally:
+                        new_loop.close()
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(run_async_in_thread)
+                    db_info = future.result(timeout=5.0)
+
+            except RuntimeError:
+                # No running event loop, safe to use asyncio.run()
+                db_info = asyncio.run(db_manager.get_database_info())
+
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "data": db_info,
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Error getting database info")
+            self._send_json_response(500, {"error": f"Failed to get database info: {e!s}"})
+
     def _serve_static_file(self, path: str) -> None:
         """Serve static files (CSS, JS, etc.)."""
         try:
@@ -1647,7 +1988,6 @@ class WebServer:
 
             # Clean up server reference
             self.server = None
-            logger.info("Web server stopped successfully")
 
         except Exception:
             logger.exception("Error during web server shutdown")
