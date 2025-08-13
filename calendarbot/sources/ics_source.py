@@ -7,7 +7,7 @@ from typing import Any, NoReturn, Optional
 
 from ..ics import AuthType, ICSAuth, ICSFetcher, ICSParser, ICSSource
 from ..ics.exceptions import ICSAuthError, ICSError, ICSNetworkError, ICSParseError
-from ..ics.models import CalendarEvent
+from ..ics.models import CalendarEvent, ICSParseResult
 from ..utils.helpers import get_timezone_aware_now
 from .exceptions import SourceConnectionError, SourceDataError, SourceError
 from .models import SourceConfig, SourceHealthCheck, SourceMetrics
@@ -76,14 +76,14 @@ class ICSSourceHandler:
             validate_ssl=self.config.validate_ssl,
         )
 
-    async def fetch_events(self, use_cache: bool = True) -> list[CalendarEvent]:
+    async def fetch_events(self, use_cache: bool = True) -> ICSParseResult:
         """Fetch calendar events from ICS source.
 
         Args:
             use_cache: Whether to use conditional requests for caching
 
         Returns:
-            List of calendar events
+            ICS parse result containing events and raw content
 
         Raises:
             SourceError: If fetch fails
@@ -125,12 +125,12 @@ class ICSSourceHandler:
 
                 # Handle 304 Not Modified
                 if response.is_not_modified:
-                    logger.debug("Got 304 Not Modified, returning empty list")
+                    logger.debug("Got 304 Not Modified, returning empty parse result")
                     # Record success with 0 events
                     response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
                     self._record_success(response_time, 0)
-                    # Return empty list - caller should use cached events
-                    return []
+                    # Return empty parse result - caller should use cached events
+                    return ICSParseResult(success=True, events=[], raw_content=None)
 
                 # Update cache headers
                 if response.etag:
@@ -157,7 +157,7 @@ class ICSSourceHandler:
                     f"Successfully fetched {len(parse_result.events)} events from {self.config.name}"
                 )
 
-                return parse_result.events
+                return parse_result
 
         except ICSAuthError as e:
             error_msg = f"Authentication failed: {e.message}"
@@ -178,7 +178,7 @@ class ICSSourceHandler:
         except Exception as e:
             error_msg = f"Unexpected error: {e!s}"
             logger.exception(
-                f"[DEBUG] UNEXPECTED EXCEPTION in fetch_events for {self.config.name}: {type(e).__name__}"
+                f"UNEXPECTED EXCEPTION in fetch_events for {self.config.name}: {type(e).__name__}"
             )
             self._raise_source_error(error_msg, e)
 
@@ -265,13 +265,13 @@ class ICSSourceHandler:
         Returns:
             List of today's calendar events
         """
-        all_events = await self.fetch_events()
+        parse_result = await self.fetch_events()
 
         # Filter to today's events
         today = get_timezone_aware_now().date()
         todays_events = []
 
-        for event in all_events:
+        for event in parse_result.events:
             event_date = event.start.date_time.date()
             if event_date == today:
                 todays_events.append(event)
@@ -289,12 +289,12 @@ class ICSSourceHandler:
         Returns:
             List of events in date range
         """
-        all_events = await self.fetch_events()
+        parse_result = await self.fetch_events()
 
         # Filter events within date range
         filtered_events = []
 
-        for event in all_events:
+        for event in parse_result.events:
             event_start = event.start.date_time
             event_end = event.end.date_time
 
@@ -423,9 +423,6 @@ class ICSSourceHandler:
         Returns:
             True if source is healthy, False otherwise
         """
-        logger.info(
-            f"[DEBUG] {self.config.name} health check: health.is_healthy={self.health.is_healthy}, config.enabled={self.config.enabled}, health.status={self.health.status}"
-        )
         return self.health.is_healthy and self.config.enabled
 
     def get_health_check(self) -> SourceHealthCheck:

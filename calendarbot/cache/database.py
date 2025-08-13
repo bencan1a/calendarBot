@@ -113,12 +113,33 @@ class DatabaseManager:
                 """
                 )
 
-                # Create raw_events table for storing raw ICS content
+                # Drop and recreate raw_events table to ensure correct schema
+                await db.execute("DROP TABLE IF EXISTS raw_events")
+
+                # Create raw_events table for storing raw ICS content with parsed event data
                 await db.execute(
                     """
-                    CREATE TABLE IF NOT EXISTS raw_events (
+                    CREATE TABLE raw_events (
                         id TEXT PRIMARY KEY,
                         graph_id TEXT NOT NULL,
+                        subject TEXT NOT NULL,
+                        body_preview TEXT,
+                        start_datetime TEXT NOT NULL,
+                        end_datetime TEXT NOT NULL,
+                        start_timezone TEXT NOT NULL,
+                        end_timezone TEXT NOT NULL,
+                        is_all_day INTEGER NOT NULL DEFAULT 0,
+                        show_as TEXT NOT NULL DEFAULT 'busy',
+                        is_cancelled INTEGER NOT NULL DEFAULT 0,
+                        is_organizer INTEGER NOT NULL DEFAULT 0,
+                        location_display_name TEXT,
+                        location_address TEXT,
+                        is_online_meeting INTEGER NOT NULL DEFAULT 0,
+                        online_meeting_url TEXT,
+                        web_link TEXT,
+                        is_recurring INTEGER NOT NULL DEFAULT 0,
+                        series_master_id TEXT,
+                        last_modified TEXT,
                         source_url TEXT,
                         raw_ics_content TEXT NOT NULL,
                         content_hash TEXT NOT NULL,
@@ -296,7 +317,6 @@ class DatabaseManager:
                     for row in rows:
                         show_as = row["show_as"]
                         show_as_counts[show_as] = show_as_counts.get(show_as, 0) + 1
-                    logger.debug(f"DEBUG DATABASE: Retrieved events by show_as: {show_as_counts}")
 
                 # Convert rows to CachedEvent objects
                 events = []
@@ -510,14 +530,38 @@ class DatabaseManager:
                 await db.executemany(
                     """
                     INSERT OR REPLACE INTO raw_events (
-                        id, graph_id, source_url, raw_ics_content,
-                        content_hash, content_size_bytes, cached_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        id, graph_id, subject, body_preview,
+                        start_datetime, end_datetime, start_timezone, end_timezone,
+                        is_all_day, show_as, is_cancelled, is_organizer,
+                        location_display_name, location_address,
+                        is_online_meeting, online_meeting_url, web_link,
+                        is_recurring, series_master_id, last_modified,
+                        source_url, raw_ics_content, content_hash,
+                        content_size_bytes, cached_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     [
                         (
                             event.id,
                             event.graph_id,
+                            event.subject,
+                            event.body_preview,
+                            event.start_datetime,
+                            event.end_datetime,
+                            event.start_timezone,
+                            event.end_timezone,
+                            event.is_all_day,
+                            event.show_as,
+                            event.is_cancelled,
+                            event.is_organizer,
+                            event.location_display_name,
+                            event.location_address,
+                            event.is_online_meeting,
+                            event.online_meeting_url,
+                            event.web_link,
+                            event.is_recurring,
+                            event.series_master_id,
+                            event.last_modified,
                             event.source_url,
                             event.raw_ics_content,
                             event.content_hash,

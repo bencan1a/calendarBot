@@ -107,7 +107,7 @@ class CacheManager:
 
     @performance_monitor("cache_events")
     @with_correlation_id()
-    async def cache_events(self, api_events: list[CalendarEvent] | ICSParseResult) -> bool:
+    async def cache_events(self, api_events: list[CalendarEvent] | ICSParseResult) -> bool:  # noqa: PLR0915
         """Cache events from API response with comprehensive data validation and error handling.
 
         Processes and stores calendar events from various sources (Microsoft Graph API, ICS feeds)
@@ -229,15 +229,57 @@ class CacheManager:
             raw_events = []
             if raw_content:
                 try:
-                    # Create raw events with correlation to cached events
-                    for cached_event in cached_events:
+                    # Parse raw events independently from the ICS content
+                    # This allows comparison with cached events to detect filtering issues
+                    from ..ics.parser import ICSParser  # noqa: PLC0415
+
+                    parser = ICSParser(self.settings)
+
+                    # Re-parse the raw content independently to get ALL unfiltered event data
+                    independent_parse_result = parser.parse_ics_content_unfiltered(
+                        raw_content, source_url
+                    )
+
+                    # Create raw events from the independent parsing using individual event ICS content
+                    event_raw_content_map = getattr(
+                        independent_parse_result, "event_raw_content_map", {}
+                    )
+
+                    for event in independent_parse_result.events:
+                        # Get individual event ICS content from the mapping
+                        individual_ics_content = event_raw_content_map.get(
+                            event.id, f"# Event {event.id} - Individual ICS content not available"
+                        )
+
                         raw_event = RawEvent.create_from_ics(
-                            graph_id=cached_event.graph_id,
-                            ics_content=raw_content,
+                            graph_id=event.id,
+                            subject=event.subject,
+                            start_datetime=event.start.date_time.isoformat(),
+                            end_datetime=event.end.date_time.isoformat(),
+                            start_timezone=event.start.time_zone,
+                            end_timezone=event.end.time_zone,
+                            ics_content=individual_ics_content,  # Store individual event ICS content
                             source_url=source_url,
+                            body_preview=event.body_preview,
+                            is_all_day=event.is_all_day,
+                            show_as=str(event.show_as),
+                            is_cancelled=event.is_cancelled,
+                            is_organizer=event.is_organizer,
+                            location_display_name=event.location.display_name
+                            if event.location
+                            else None,
+                            location_address=event.location.address if event.location else None,
+                            is_online_meeting=event.is_online_meeting,
+                            online_meeting_url=event.online_meeting_url,
+                            is_recurring=event.is_recurring,
+                            last_modified=event.last_modified_date_time.isoformat()
+                            if event.last_modified_date_time
+                            else None,
                         )
                         raw_events.append(raw_event)
-                    logger.debug(f"Created {len(raw_events)} raw events from ICS content")
+                    logger.debug(
+                        f"Created {len(raw_events)} raw events from independent ICS parsing"
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to create raw events: {e}")
                     # Continue without raw events - this is a fallback strategy
