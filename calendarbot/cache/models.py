@@ -1,5 +1,6 @@
 """Database models for caching calendar events."""
 
+import hashlib
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -255,3 +256,55 @@ class CacheMetadata(BaseModel):
         now = datetime.now()
         delta = now - self.last_update_dt
         return int(delta.total_seconds() / 60)
+
+
+class RawEvent(BaseModel):
+    """Raw ICS event model for storage alongside cached events."""
+
+    # Primary identification
+    id: str  # Unique identifier
+    graph_id: str  # Links to CachedEvent.graph_id
+
+    # Source information
+    source_url: Optional[str] = None  # ICS feed URL if available
+
+    # Raw content
+    raw_ics_content: str  # Complete raw ICS text
+    content_hash: str  # SHA-256 for deduplication
+    content_size_bytes: int  # Content size for monitoring
+
+    # Timestamps
+    cached_at: str  # When stored (ISO string)
+
+    model_config = {"populate_by_name": True}
+
+    @property
+    def cached_dt(self) -> datetime:
+        """Get cached datetime as datetime object."""
+        return datetime.fromisoformat(self.cached_at.replace("Z", "+00:00"))
+
+    @classmethod
+    def create_from_ics(
+        cls, graph_id: str, ics_content: str, source_url: Optional[str] = None
+    ) -> "RawEvent":
+        """Create RawEvent instance from ICS content.
+
+        Args:
+            graph_id: Graph ID to link to cached event
+            ics_content: Raw ICS content to store
+            source_url: Optional source URL for the ICS content
+
+        Returns:
+            New RawEvent instance with computed hash and metadata
+        """
+        content_hash = hashlib.sha256(ics_content.encode("utf-8")).hexdigest()
+
+        return cls(
+            id=f"raw_{graph_id}",
+            graph_id=graph_id,
+            source_url=source_url,
+            raw_ics_content=ics_content,
+            content_hash=content_hash,
+            content_size_bytes=len(ics_content.encode("utf-8")),
+            cached_at=datetime.now().isoformat(),
+        )

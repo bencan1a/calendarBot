@@ -4,13 +4,13 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
-from ..ics.models import CalendarEvent
+from ..ics.models import CalendarEvent, ICSParseResult
 
 # Import new logging infrastructure
 from ..monitoring import cache_monitor, memory_monitor, performance_monitor
 from ..structured import with_correlation_id
 from .database import DatabaseManager
-from .models import CachedEvent, CacheMetadata
+from .models import CachedEvent, CacheMetadata, RawEvent
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +107,7 @@ class CacheManager:
 
     @performance_monitor("cache_events")
     @with_correlation_id()
-    async def cache_events(self, api_events: list[CalendarEvent]) -> bool:
+    async def cache_events(self, api_events: list[CalendarEvent] | ICSParseResult) -> bool:
         """Cache events from API response with comprehensive data validation and error handling.
 
         Processes and stores calendar events from various sources (Microsoft Graph API, ICS feeds)
@@ -194,17 +194,28 @@ class CacheManager:
             Database operations use UPSERT logic based on event graph_id uniqueness.
         """
         try:
-            event_count = len(api_events) if api_events else 0
+            # Handle both list[CalendarEvent] and ICSParseResult inputs
+            if isinstance(api_events, ICSParseResult):
+                events_list = api_events.events
+                event_count = len(events_list)
+                raw_content = api_events.raw_content
+                source_url = api_events.source_url
+            else:
+                events_list = api_events
+                event_count = len(events_list) if events_list else 0
+                raw_content = None
+                source_url = None
+
             logger.debug(f"Caching {event_count} API events")
 
-            if not api_events:
+            if not events_list:
                 logger.debug("No events to cache")
                 await self._update_fetch_metadata(success=True, error=None)
                 return True
 
             # Convert API events to cached events with memory monitoring
             with memory_monitor("event_conversion"):
-                cached_events = [self._convert_api_event_to_cached(event) for event in api_events]
+                cached_events = [self._convert_api_event_to_cached(event) for event in events_list]
 
             logger.debug(f"Converted {len(cached_events)} API events to cached events")
             if cached_events:
@@ -214,9 +225,48 @@ class CacheManager:
                     f"Sample cached event - {sample_event.subject} from {sample_event.start_datetime} to {sample_event.end_datetime}"
                 )
 
-            # Store in database with cache monitoring
+            # Prepare raw events if we have raw content
+            raw_events = []
+            if raw_content:
+                try:
+                    # Create raw events with correlation to cached events
+                    for cached_event in cached_events:
+                        raw_event = RawEvent.create_from_ics(
+                            graph_id=cached_event.graph_id,
+                            ics_content=raw_content,
+                            source_url=source_url,
+                        )
+                        raw_events.append(raw_event)
+                    logger.debug(f"Created {len(raw_events)} raw events from ICS content")
+                except Exception as e:
+                    logger.warning(f"Failed to create raw events: {e}")
+                    # Continue without raw events - this is a fallback strategy
+
+            # Store events in database with atomic transaction handling
             with cache_monitor("database_store", "cache_manager"):
-                success = await self.db.store_events(cached_events)
+                try:
+                    # First store cached events
+                    success = await self.db.store_events(cached_events)
+
+                    if success and raw_events:
+                        # Store raw events if cached events succeeded
+                        raw_success = await self.db.store_raw_events(raw_events)
+                        if raw_success:
+                            logger.debug(f"Successfully stored {len(raw_events)} raw events")
+                        else:
+                            logger.warning(
+                                "Failed to store raw events, but cached events were stored"
+                            )
+
+                except Exception:
+                    logger.exception("Failed to store events")
+                    # If storing fails, try to store just cached events as fallback
+                    try:
+                        success = await self.db.store_events(cached_events)
+                        logger.warning("Stored cached events only after raw storage error")
+                    except Exception:
+                        logger.exception("Failed to store cached events in fallback")
+                        success = False
 
             logger.debug(f"Database store_events returned: {success}")
 
@@ -459,9 +509,19 @@ class CacheManager:
             True if cleanup was successful, False otherwise
         """
         try:
-            # Clean up old events (default 7 days)
-            removed_count = await self.cleanup_old_events()
-            logger.debug(f"Cache cleanup completed, removed {removed_count} old events")
+            # Clean up old cached events (default 7 days)
+            removed_cached_count = await self.cleanup_old_events()
+            logger.debug(
+                f"Cache cleanup completed, removed {removed_cached_count} old cached events"
+            )
+
+            # Clean up old raw events (default 7 days)
+            removed_raw_count = await self.db.cleanup_raw_events()
+            logger.debug(f"Cache cleanup completed, removed {removed_raw_count} old raw events")
+
+            logger.debug(
+                f"Total cleanup: {removed_cached_count} cached + {removed_raw_count} raw events removed"
+            )
             return True
 
         except Exception:
