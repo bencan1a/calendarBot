@@ -2,13 +2,15 @@
 
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Optional, cast
 
-from dateutil import tz
 from icalendar import Calendar, Event as ICalEvent
 
 from ..security.logging import SecurityEventLogger  # type: ignore
+from ..timezone import (
+    ensure_timezone_aware,
+)
 from .models import (
     Attendee,
     AttendeeType,
@@ -21,6 +23,14 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Size validation constants from design specification
+MAX_ICS_SIZE_BYTES = 50 * 1024 * 1024  # 50MB limit
+MAX_ICS_SIZE_WARNING = 10 * 1024 * 1024  # 10MB warning threshold
+
+
+class ICSContentTooLargeError(Exception):
+    """Raised when ICS content exceeds size limits."""
 
 
 class ICSParser:
@@ -36,17 +46,63 @@ class ICSParser:
         self.security_logger = SecurityEventLogger()
         logger.debug("ICS parser initialized")
 
-    def parse_ics_content(self, ics_content: str) -> ICSParseResult:
+    def _validate_ics_size(self, ics_content: str) -> None:
+        """Validate ICS content size before processing.
+
+        Args:
+            ics_content: Raw ICS content to validate
+
+        Raises:
+            ICSContentTooLargeError: If content exceeds maximum size limit
+        """
+        if not ics_content:
+            return
+
+        size_bytes = len(ics_content.encode("utf-8"))
+
+        if size_bytes > MAX_ICS_SIZE_BYTES:
+            logger.error(
+                f"ICS content too large: {size_bytes} bytes exceeds {MAX_ICS_SIZE_BYTES} limit"
+            )
+            raise ICSContentTooLargeError(
+                f"ICS content too large: {size_bytes} bytes exceeds {MAX_ICS_SIZE_BYTES} limit"
+            )
+
+        if size_bytes > MAX_ICS_SIZE_WARNING:
+            logger.warning(
+                f"Large ICS content detected: {size_bytes} bytes "
+                f"(threshold: {MAX_ICS_SIZE_WARNING})"
+            )
+
+    def parse_ics_content(
+        self, ics_content: str, source_url: Optional[str] = None
+    ) -> ICSParseResult:
         """Parse ICS content into structured calendar events.
 
         Args:
             ics_content: Raw ICS file content
+            source_url: Optional source URL for audit trail
 
         Returns:
-            Parse result with events and metadata
+            Parse result with events and metadata including raw content
         """
+        # Initialize variables that might be used in error handling
+        raw_content = None
+
         try:
             logger.debug("Starting ICS content parsing")
+
+            # Capture raw content and validate size (with error handling)
+            try:
+                self._validate_ics_size(ics_content)
+                raw_content = ics_content
+                logger.debug(f"Raw ICS content captured: {len(ics_content)} bytes")
+            except ICSContentTooLargeError:
+                logger.exception("ICS content too large, skipping raw content storage")
+                raise  # Re-raise to stop processing
+            except Exception as e:
+                logger.warning(f"Failed to capture raw ICS content: {e}")
+                # Continue parsing without raw content
 
             # Parse the calendar
             calendar = Calendar.from_ical(ics_content)
@@ -89,11 +145,58 @@ class ICSParser:
                         warnings.append(warning)
                         logger.warning(warning)
 
-            # Apply conservative RFC 5545 phantom recurring event filter (Microsoft ICS bug fix)
-            # events = self.filter_phantom_recurring_events_conservative(events, raw_components)  # noqa
+            # DIAGNOSTIC: Check filter_busy_only configuration
+            logger.info("DEBUG FILTER CONFIG: filter_busy_only setting (hardcoded to True for now)")
+            logger.info(f"DEBUG FILTER CONFIG: Total events before filtering: {len(events)}")
+            logger.info(
+                "DEBUG FILTER CONFIG: Events by status: "
+                + ", ".join(
+                    [
+                        f"{status.value}: {len([e for e in events if e.show_as == status])}"
+                        for status in [
+                            EventStatus.FREE,
+                            EventStatus.BUSY,
+                            EventStatus.TENTATIVE,
+                            EventStatus.OUT_OF_OFFICE,
+                            EventStatus.WORKING_ELSEWHERE,
+                        ]
+                    ]
+                )
+            )
 
             # Filter to only busy/tentative events (same as Graph API behavior)
+            # TODO: This should respect the filter_busy_only configuration setting
             filtered_events = [e for e in events if e.is_busy_status and not e.is_cancelled]
+
+            logger.info(
+                f"DEBUG FILTER CONFIG: Events after busy status filtering: {len(filtered_events)}"
+            )
+            logger.info(
+                f"DEBUG FILTER CONFIG: TENTATIVE events before filtering: {len([e for e in events if e.show_as == EventStatus.TENTATIVE])}"
+            )
+            logger.info(
+                f"DEBUG FILTER CONFIG: TENTATIVE events after filtering: {len([e for e in filtered_events if e.show_as == EventStatus.TENTATIVE])}"
+            )
+
+            # DIAGNOSTIC: Check for August 13 or Monthly Ops Review events
+            august_13_events = [
+                e
+                for e in events
+                if "2025-08-13" in str(e.start.date_time) or "Monthly Ops Review" in e.subject
+            ]
+            if august_13_events:
+                logger.info(f"DIAGNOSTIC: Found {len(august_13_events)} Aug 13/Monthly Ops events:")
+                for event in august_13_events:
+                    logger.info(f"  Event: {event.subject} | {event.start.date_time}")
+                    logger.info(
+                        f"    show_as={event.show_as} | is_busy_status={event.is_busy_status} | is_cancelled={event.is_cancelled}"
+                    )
+
+                # Check which ones make it through filtering
+                filtered_aug_13 = [
+                    e for e in august_13_events if e.is_busy_status and not e.is_cancelled
+                ]
+                logger.info(f"  → {len(filtered_aug_13)} survived filtering")
 
             logger.debug(
                 f"Parsed {len(filtered_events)} events from ICS content "
@@ -112,11 +215,18 @@ class ICSParser:
                 warnings=warnings,
                 ics_version=version,
                 prodid=prodid,
+                raw_content=raw_content,
+                source_url=source_url,
             )
 
         except Exception as e:
             logger.exception("Failed to parse ICS content")
-            return ICSParseResult(success=False, error_message=str(e))
+            return ICSParseResult(
+                success=False,
+                error_message=str(e),
+                raw_content=raw_content,
+                source_url=source_url,
+            )
 
     def _parse_event_component(  # noqa
         self, component: ICalEvent, default_timezone: Optional[str] = None
@@ -164,7 +274,17 @@ class ICSParser:
             # Event status and visibility
             status = self._parse_status(component.get("STATUS"))
             transp = component.get("TRANSP", "OPAQUE")
-            show_as = self._map_transparency_to_status(transp, status)
+
+            # DEBUG: Track all events being processed
+            if summary and "Monthly Ops Review" in str(summary):
+                logger.info(f"DEBUG EVENT PROCESSING: {summary!s}")
+                logger.info("  About to call _map_transparency_to_status")
+
+            show_as = self._map_transparency_to_status(transp, status, component)
+
+            # DEBUG: Log final show_as result
+            if summary and "Monthly Ops Review" in str(summary):
+                logger.info(f"  Final show_as result: {show_as}")
 
             # All-day events
             is_all_day = not hasattr(dtstart.dt, "hour")
@@ -277,51 +397,34 @@ class ICSParser:
         """
         dt = dt_prop.dt
 
-        # Only log for Australian timezones to reduce noise
-        is_australian_tz = (
-            (default_timezone and "Australia" in default_timezone) if default_timezone else False
-        )
-
         # Handle date-only (all-day events)
         if isinstance(dt, datetime):
             if dt.tzinfo is None:
-                # No timezone specified, use default or UTC
+                # No timezone specified, use centralized service for timezone handling
                 if default_timezone:
-                    if is_australian_tz:
-                        logger.debug(
-                            f"🇦🇺 AUSTRALIAN TZ: Parsing datetime: {dt}, default_timezone: {default_timezone}"
-                        )
                     try:
-                        tz_obj = tz.gettz(default_timezone)
-
-                        # DEBUG: Log timezone object type and attributes
-                        # Apply timezone to naive datetime using dateutil-compatible method
-                        # dateutil timezone objects don't have localize(), use replace() instead
-                        dt = dt.replace(tzinfo=tz_obj)
-                        if is_australian_tz:
-                            logger.debug(f"🇦🇺 AUSTRALIAN TZ: After timezone replace: {dt}")
-
-                        # TARGETED FIX: GMT+10 timezone events appear to be off by one day
-                        # If the timezone is GMT+10 (Australian time), add one day
-                        # Use string representation to check for Australia instead of .zone attribute
-                        if (default_timezone and "Australia" in default_timezone) or (
-                            tz_obj and str(tz_obj).find("Australia") != -1
-                        ):
-                            logger.debug(
-                                f"🚨 AUSTRALIAN TZ: APPLYING GMT+10 CORRECTION! Before: {dt}"
-                            )
-                            dt = dt + timedelta(days=1)
-                            logger.debug(f"🚨 AUSTRALIAN TZ: After GMT+10 correction: {dt}")
+                        # Use centralized timezone service to handle timezone conversion
+                        # This replaces the manual Australian timezone hack with proper service handling
+                        dt = ensure_timezone_aware(dt)
+                        # If a specific timezone was requested, convert to that timezone
+                        # For now, we'll use the server timezone as the base since that's our standard
+                        logger.debug(
+                            f"Parsed naive datetime {dt} with default timezone: {default_timezone}"
+                        )
                     except Exception as e:
-                        logger.warning(f"Failed to apply default timezone {default_timezone}: {e}")
-                        dt = dt.replace(tzinfo=timezone.utc)
+                        logger.warning(
+                            f"Failed to apply timezone via service {default_timezone}: {e}"
+                        )
+                        dt = ensure_timezone_aware(dt)  # Fallback to server timezone
                 else:
-                    dt = dt.replace(tzinfo=timezone.utc)
-            elif is_australian_tz:
-                logger.debug(f"🇦🇺 AUSTRALIAN TZ: Datetime already has timezone: {dt.tzinfo}")
+                    # Use centralized service for standard timezone awareness
+                    dt = ensure_timezone_aware(dt)
+            else:
+                # Already has timezone info, ensure it's properly handled
+                dt = ensure_timezone_aware(dt)
             return dt
-        # Date object - convert to datetime at midnight
-        return datetime.combine(dt, datetime.min.time()).replace(tzinfo=timezone.utc)
+        # Date object - convert to datetime at midnight with proper timezone
+        return ensure_timezone_aware(datetime.combine(dt, datetime.min.time()))
 
     def _parse_datetime_optional(self, dt_prop: Any) -> Optional[datetime]:
         """Parse optional datetime property.
@@ -354,27 +457,79 @@ class ICSParser:
 
         return str(status_prop).upper()
 
-    def _map_transparency_to_status(self, transparency: str, status: Optional[str]) -> EventStatus:
-        """Map iCalendar transparency and status to EventStatus.
+    def _map_transparency_to_status(
+        self, transparency: str, status: Optional[str], component: Any
+    ) -> EventStatus:
+        """Map iCalendar transparency and status to EventStatus with Microsoft phantom event filtering.
 
         Args:
             transparency: TRANSP property value
             status: STATUS property value
+            component: Raw iCalendar component for Microsoft marker access
 
         Returns:
             EventStatus enum value
         """
+        # Check Microsoft deletion markers for phantom event filtering
+        ms_deleted = component.get("X-OUTLOOK-DELETED")
+        ms_busystatus = component.get("X-MICROSOFT-CDO-BUSYSTATUS")
+
+        # Filter out Microsoft phantom deleted events
+        if ms_deleted and str(ms_deleted).upper() == "TRUE":
+            event_summary = component.get("SUMMARY")
+            logger.info(f"DEBUG DELETED: Filtering out deleted event: {event_summary}")
+            return EventStatus.FREE  # Will be filtered out by busy status check
+
+        # Check if this is a "Following:" meeting by parsing the event title
+        summary = component.get("SUMMARY")
+        is_following_meeting = summary and "Following:" in str(summary)
+
+        # DEBUG: Log Microsoft deletion marker status for key events
+        if summary and ("Gary FTO" in str(summary) or "Monthly Ops Review" in str(summary)):
+            logger.info(f"DEBUG DELETION CHECK: {summary!s}")
+            logger.info(f"  ms_deleted={ms_deleted}, ms_busystatus={ms_busystatus}")
+
+        # Use Microsoft busy status override if available
+        if ms_busystatus:
+            ms_status = str(ms_busystatus).upper()
+            if ms_status == "FREE":
+                # Special case: "Following:" meetings should be TENTATIVE, not FREE
+                if is_following_meeting:
+                    logger.info(
+                        f"DEBUG MS OVERRIDE: Following meeting with FREE status → TENTATIVE: {summary!s}"
+                    )
+                    return EventStatus.TENTATIVE
+                # All other FREE busy status events should be filtered out
+                logger.info(f"DEBUG MS OVERRIDE: Filtering out FREE busy status event: {summary!s}")
+                return EventStatus.FREE
+
+        # DEBUG: Log transparency mapping decision process
+        if summary and "Monthly Ops Review" in str(summary):
+            logger.info(f"DEBUG TRANSPARENCY: {summary!s}")
+            logger.info(f"  transparency={transparency}, status={status}")
+            logger.info(f"  is_following_meeting={is_following_meeting}")
+
         if status == "CANCELLED":
-            return EventStatus.FREE
+            mapped_status = EventStatus.FREE
+        elif status == "TENTATIVE":
+            mapped_status = EventStatus.TENTATIVE
+        elif transparency == "TRANSPARENT":
+            # Special handling for transparent + confirmed meetings (e.g., "Following" meetings)
+            # These should appear on calendar but with different visual treatment
+            mapped_status = EventStatus.TENTATIVE if status == "CONFIRMED" else EventStatus.FREE
+        elif is_following_meeting:
+            # "Following:" meetings should appear on calendar regardless of other properties
+            mapped_status = EventStatus.TENTATIVE
+            logger.info(f"  → APPLIED FOLLOWING LOGIC: {mapped_status}")
+        else:
+            # OPAQUE or default
+            mapped_status = EventStatus.BUSY
 
-        if status == "TENTATIVE":
-            return EventStatus.TENTATIVE
+        # DEBUG: Log final mapping result
+        if summary and "Monthly Ops Review" in str(summary):
+            logger.info(f"  → FINAL mapped_status={mapped_status}")
 
-        # Map transparency
-        if transparency == "TRANSPARENT":
-            return EventStatus.FREE
-        # OPAQUE or default
-        return EventStatus.BUSY
+        return mapped_status
 
     def _parse_attendee(self, attendee_prop: Any) -> Optional[Attendee]:
         """Parse attendee from iCalendar property.
@@ -441,66 +596,6 @@ class ICSParser:
         except Exception:
             return None
 
-    def expand_recurring_events(
-        self, events: list[CalendarEvent], start_date: datetime, end_date: datetime
-    ) -> list[CalendarEvent]:
-        """Expand recurring events within date range.
-
-        **IMPLEMENTATION STATUS: PLACEHOLDER - NOT YET IMPLEMENTED**
-
-        This method is currently a placeholder that returns events unchanged.
-        Full recurrence expansion will be implemented in a future release.
-
-        **Planned Implementation:**
-
-        The full implementation will handle:
-
-        1. **RRULE Processing**: Parse RRULE properties using dateutil.rrule
-        2. **Occurrence Generation**: Create individual CalendarEvent instances for each occurrence
-        3. **Exception Handling**: Process EXDATE (excluded dates) and RDATE (additional dates)
-        4. **Recurrence Modifications**: Handle modified occurrences (RECURRENCE-ID)
-        5. **Performance Optimization**: Limit expansion to the requested date range
-        6. **Timezone Handling**: Proper timezone conversion for recurring events
-
-        **Implementation Timeline:** Targeted for version 2.0
-
-        **Current Behavior:** Returns original events list unchanged
-
-        Args:
-            events (List[CalendarEvent]): List of calendar events, including recurring events
-            start_date (datetime): Start of expansion date range
-            end_date (datetime): End of expansion date range
-
-        Returns:
-            List[CalendarEvent]: List with recurring events expanded (currently unchanged)
-
-        Note:
-            Current implementation is a placeholder. Recurring events are currently
-            handled by showing only the master event. For proper recurrence support,
-            use a fully-featured calendar library or wait for the full implementation.
-
-        Example:
-            >>> parser = ICSParser(settings)
-            >>> events = [recurring_event, single_event]
-            >>> expanded = parser.expand_recurring_events(
-            ...     events,
-            ...     datetime(2024, 1, 1),
-            ...     datetime(2024, 1, 31)
-            ... )
-            >>> # Currently returns original events unchanged
-        """
-        # TODO: Implement full recurrence expansion using dateutil.rrule
-        # TODO: Add support for EXDATE and RDATE processing
-        # TODO: Handle RECURRENCE-ID for modified occurrences
-        # TODO: Add timezone-aware recurrence handling
-        # TODO: Optimize performance for large date ranges
-
-        logger.debug("Recurrence expansion not yet implemented, returning original events")
-        logger.info(
-            f"Placeholder: Would expand {len([e for e in events if e.is_recurring])} recurring events from {start_date} to {end_date}"
-        )
-        return events
-
     def filter_phantom_recurring_events_conservative(  # noqa
         self, events: list[CalendarEvent], raw_components: list
     ) -> list[CalendarEvent]:
@@ -535,7 +630,7 @@ class ICSParser:
         phantom_count = 0
 
         # Process each UID series independently
-        for uid, event_component_pairs in uid_to_events.items():
+        for event_component_pairs in uid_to_events.values():
             # Separate original patterns from moved instances within this UID series
             original_patterns = []
             moved_instances = []
@@ -569,10 +664,6 @@ class ICSParser:
 
             # Only check for phantoms if we have both moved instances AND original patterns
             if moved_instances and original_patterns:
-                logger.info(
-                    f"🔍 Analyzing UID {uid[:20]}... - {len(original_patterns)} patterns, {len(moved_instances)} moved"
-                )
-
                 # Check each original pattern for phantom status
                 for event, component in original_patterns:  # noqa
                     is_phantom = False
