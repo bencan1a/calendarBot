@@ -6,7 +6,7 @@ specific to Raspberry Pi Zero 2W deployment with 512MB RAM constraints.
 
 import asyncio
 import logging
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -119,7 +119,7 @@ class TestPiZero2WMemoryConstraints:
     )
     async def test_kiosk_startup_under_memory_constraints_then_appropriate_behavior(
         self,
-        memory_scenario: Dict[str, Any],
+        memory_scenario: dict[str, Any],
         pi_zero_2w_kiosk_settings: KioskSettings,
         mock_daemon_manager: MagicMock,
         mock_system_resources,
@@ -170,7 +170,7 @@ class TestPiZero2WPerformanceThresholds:
         pi_zero_2w_kiosk_settings: KioskSettings,
         mock_daemon_manager: MagicMock,
         performance_monitor,
-        performance_thresholds: Dict[str, Dict[str, float]],
+        performance_thresholds: dict[str, dict[str, float]],
     ) -> None:
         """Test kiosk startup performance meets Pi Zero 2W thresholds."""
         mock_settings = MagicMock()
@@ -467,7 +467,7 @@ class TestPiZero2WStressScenarios:
         self,
         pi_zero_2w_kiosk_settings: KioskSettings,
         mock_daemon_manager: MagicMock,
-        performance_thresholds: Dict[str, Dict[str, float]],
+        performance_thresholds: dict[str, dict[str, float]],
     ) -> None:
         """Test memory leak detection and recovery mechanisms."""
         mock_settings = MagicMock()
@@ -492,11 +492,11 @@ class TestPiZero2WStressScenarios:
         manager.browser_manager._get_memory_usage = mock_memory_usage
 
         # Test memory constraint detection
-        initial_healthy = manager.browser_manager.is_browser_healthy()
+        manager.browser_manager.is_browser_healthy()
 
         # After several checks, should detect high memory usage
         for i in range(3):
-            healthy = manager.browser_manager.is_browser_healthy()
+            manager.browser_manager.is_browser_healthy()
 
         # Final check should show unhealthy due to memory limit exceeded
         final_healthy = manager.browser_manager.is_browser_healthy()

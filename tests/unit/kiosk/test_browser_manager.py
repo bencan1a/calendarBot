@@ -294,14 +294,14 @@ class TestBrowserManager:
 
         with (
             patch.object(manager, "_stop_monitoring") as mock_stop_monitoring,
-            patch.object(manager, "_wait_for_process_exit") as mock_wait_exit,
+            patch.object(manager, "_wait_for_process_exit"),
             patch.object(manager, "_cleanup_process_state") as mock_cleanup,
         ):
             # Mock successful wait
             mock_wait_exit_task = AsyncMock()
             with (
                 patch("asyncio.create_task", return_value=mock_wait_exit_task),
-                patch("asyncio.wait_for") as mock_wait_for,
+                patch("asyncio.wait_for"),
             ):
                 result = await manager.stop_browser()
 

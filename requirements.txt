@@ -24,3 +24,6 @@ psutil>=5.8.0
 Pillow>=9.0.0
 numpy>=1.20.0
 html2image>=2.0.0
+
+# HTTP client for kiosk health checks
+aiohttp>=3.8.0

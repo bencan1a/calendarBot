@@ -11,7 +11,7 @@ work correctly, including:
 
 from collections import OrderedDict
 from collections.abc import Generator
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -91,7 +91,7 @@ def mock_display() -> MockDisplay:
 
 
 @pytest.fixture
-def mock_settings() -> Dict[str, Any]:
+def mock_settings() -> dict[str, Any]:
     """Fixture for mock settings."""
     return {"display": {"type": "epaper"}}
 
@@ -105,7 +105,7 @@ def mock_image_font() -> MagicMock:
 
 @pytest.fixture
 def mock_renderer(
-    mock_settings: Dict[str, Any], mock_display: MockDisplay
+    mock_settings: dict[str, Any], mock_display: MockDisplay
 ) -> Generator[EInkWhatsNextRenderer, None, None]:
     """Fixture for EInkWhatsNextRenderer with mocked dependencies."""
     with patch(
@@ -427,7 +427,7 @@ class TestEInkWhatsNextRendererOptimizations:
                         # Mock the logger to avoid f-string formatting issues
                         with patch(
                             "calendarbot.display.epaper.integration.eink_whats_next_renderer.logger"
-                        ) as mock_logger:
+                        ):
                             # Mock the end_operation to return a float instead of a MagicMock
                             mock_end.return_value = 10.5  # Return a float value for render_time
 

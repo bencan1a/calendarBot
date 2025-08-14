@@ -1,6 +1,6 @@
 """Tests for DisplayCapabilities class."""
 
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 
@@ -124,7 +124,7 @@ class TestDisplayCapabilities:
     def test_from_dict_when_missing_field_then_raises_value_error(self) -> None:
         """Test validation in from_dict for missing fields."""
         # Arrange
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "width": 800,
             "height": 600,
             "colors": 2,
@@ -143,7 +143,7 @@ class TestDisplayCapabilities:
     def test_from_dict_when_all_fields_missing_then_raises_value_error(self) -> None:
         """Test validation in from_dict for all missing fields."""
         # Arrange
-        data: Dict[str, Any] = {}
+        data: dict[str, Any] = {}
 
         # Act & Assert
         with pytest.raises(ValueError) as excinfo:

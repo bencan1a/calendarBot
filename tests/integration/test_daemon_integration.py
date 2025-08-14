@@ -334,7 +334,7 @@ class TestDaemonErrorHandling:
 
         with (
             patch("calendarbot.cli.modes.daemon.DaemonController") as mock_controller_class,
-            patch("calendarbot.cli.modes.daemon._configure_daemon_settings") as mock_config,
+            patch("calendarbot.cli.modes.daemon._configure_daemon_settings"),
             patch("builtins.print") as mock_print,
         ):
             mock_controller_class.side_effect = DaemonError("Test daemon error")
@@ -360,7 +360,7 @@ class TestDaemonErrorHandling:
 
         with (
             patch("calendarbot.cli.modes.daemon.DaemonController") as mock_controller_class,
-            patch("calendarbot.cli.modes.daemon._configure_daemon_settings") as mock_config,
+            patch("calendarbot.cli.modes.daemon._configure_daemon_settings"),
             patch("builtins.print") as mock_print,
         ):
             mock_controller_class.side_effect = DaemonAlreadyRunningError("Daemon already running")
@@ -408,7 +408,7 @@ class TestDaemonErrorHandling:
 
         with (
             patch("calendarbot.cli.modes.daemon.DaemonController") as mock_controller_class,
-            patch("calendarbot.cli.modes.daemon._configure_daemon_settings") as mock_config,
+            patch("calendarbot.cli.modes.daemon._configure_daemon_settings"),
             patch("builtins.print") as mock_print,
         ):
             mock_controller_class.side_effect = Exception("Unexpected error")

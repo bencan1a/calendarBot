@@ -18,7 +18,7 @@ import time
 from datetime import datetime, timezone
 from http.server import HTTPServer
 from threading import Thread
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -63,7 +63,7 @@ def mock_settings_service() -> SettingsService:
 
 
 @pytest.fixture(scope="session")
-def sample_events() -> List[CachedEvent]:
+def sample_events() -> list[CachedEvent]:
     """Create sample events for testing."""
     current_time = datetime.now(timezone.utc)
 
@@ -93,7 +93,7 @@ def sample_events() -> List[CachedEvent]:
 def test_web_server(
     web_server_port: int,
     mock_settings_service: SettingsService,
-    sample_events: List[CachedEvent],
+    sample_events: list[CachedEvent],
 ):
     """Create and start a test web server."""
     # Mock the web server dependencies
@@ -184,7 +184,7 @@ class TestWhatsNextJsonApiIntegration:
     """Integration test class for Phase 1 JSON API functionality."""
 
     def test_scenario_1_fetch_initial_data_structure(
-        self, api_client, sample_events: List[CachedEvent]
+        self, api_client, sample_events: list[CachedEvent]
     ):
         """Scenario 1: Fetch initial data via /api/whats-next/data, verify complete structure."""
         response = api_client.get_whats_next_data()
@@ -246,7 +246,7 @@ class TestWhatsNextJsonApiIntegration:
         # First, get initial data
         initial_response = api_client.get_whats_next_data()
         assert initial_response.status_code == 200
-        initial_data = initial_response.json()
+        initial_response.json()
 
         # Find an event to hide (use first available event or create test event)
         test_graph_id = "test-event-0"  # From our sample events
@@ -271,7 +271,7 @@ class TestWhatsNextJsonApiIntegration:
         # Get fresh data to verify the event is hidden
         fresh_response = api_client.get_whats_next_data()
         assert fresh_response.status_code == 200
-        fresh_data = fresh_response.json()
+        fresh_response.json()
 
         # Verify hidden events count increased
         hidden_response = api_client.get_hidden_events()
@@ -431,7 +431,7 @@ class TestWhatsNextJsonApiIntegration:
         initial_response = api_client.get_whats_next_data()
         assert initial_response.status_code == 200
         initial_data = initial_response.json()
-        initial_event_count = len(initial_data.get("events", []))
+        len(initial_data.get("events", []))
 
         # Step 2: Get initial hidden events count
         hidden_response = api_client.get_hidden_events()
@@ -519,7 +519,7 @@ class TestWhatsNextJsonApiIntegration:
         logger.info(f"  - Event hiding response time: {hide_response_time:.3f}s")
         logger.info(f"  - Hidden events query time: {hidden_response_time:.3f}s")
 
-    def test_data_model_serialization(self, sample_events: List[CachedEvent]):
+    def test_data_model_serialization(self, sample_events: list[CachedEvent]):
         """Test that WhatsNextViewModel and EventData properly serialize to JSON."""
         from dataclasses import asdict
 
@@ -627,7 +627,7 @@ def measure_response_size(response: requests.Response) -> int:
     return len(response.content)
 
 
-def validate_json_schema(data: Dict[str, Any], schema: Dict[str, type]) -> bool:
+def validate_json_schema(data: dict[str, Any], schema: dict[str, type]) -> bool:
     """Validate that JSON data matches expected schema."""
     for field, expected_type in schema.items():
         if field not in data:

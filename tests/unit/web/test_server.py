@@ -1129,7 +1129,7 @@ class TestWebServer:
 
     def test_refresh_data_exception(self, web_server):
         """Test data refresh exception handling."""
-        with patch("calendarbot.web.server.logger") as mock_logger:
+        with patch("calendarbot.web.server.logger"):
             # Force an exception in the method
             with patch.object(web_server, "refresh_data", side_effect=Exception("Refresh error")):
                 # We need to call the actual implementation, not the mock

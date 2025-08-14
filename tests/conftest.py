@@ -6,7 +6,7 @@ import tempfile
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -75,7 +75,7 @@ def test_settings() -> Any:
 
 # Lightweight event fixtures for testing
 @pytest.fixture
-def sample_events() -> List[Any]:
+def sample_events() -> list[Any]:
     """Create minimal test events without heavy processing."""
     from calendarbot.ics.models import CalendarEvent, DateTimeInfo, EventStatus
 
@@ -155,7 +155,7 @@ async def cache_manager(test_settings: Any) -> AsyncGenerator[Any, None]:
 
 # Alias for existing sample_events fixture
 @pytest.fixture
-def sample_calendar_events(sample_events: List[Any]) -> List[Any]:
+def sample_calendar_events(sample_events: list[Any]) -> list[Any]:
     """Alias for sample_events to match test expectations."""
     return sample_events
 
@@ -163,7 +163,7 @@ def sample_calendar_events(sample_events: List[Any]) -> List[Any]:
 # Test database with populated data
 @pytest_asyncio.fixture
 async def populated_test_database(
-    test_settings: Any, sample_events: List[Any]
+    test_settings: Any, sample_events: list[Any]
 ) -> AsyncGenerator[Any, None]:
     """Create test database with sample data."""
     from calendarbot.cache.manager import CacheManager
@@ -197,7 +197,7 @@ async def populated_test_database(
 # Stale cache database for freshness testing
 @pytest_asyncio.fixture
 async def stale_cache_database(
-    test_settings: Any, sample_events: List[Any]
+    test_settings: Any, sample_events: list[Any]
 ) -> AsyncGenerator[Any, None]:
     """Create test database with stale data."""
     from calendarbot.cache.manager import CacheManager
@@ -394,7 +394,7 @@ def performance_tracker() -> Any:
 
     class PerformanceTracker:
         def __init__(self) -> None:
-            self.metrics: Dict[str, Dict[str, float]] = {}
+            self.metrics: dict[str, dict[str, float]] = {}
 
         def start_timer(self, name: str) -> None:
             import time

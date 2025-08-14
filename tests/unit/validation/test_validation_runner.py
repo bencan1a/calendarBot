@@ -133,9 +133,7 @@ class TestValidationRunnerInitialization:
                 end_date = datetime(2024, 1, 16)
                 components = ["sources", "cache"]
 
-                runner = ValidationRunner(
-                    test_date=test_date, end_date=end_date, components=components
-                )
+                ValidationRunner(test_date=test_date, end_date=end_date, components=components)
 
                 # Verify logger calls
                 expected_calls = [
@@ -155,7 +153,7 @@ class TestValidationRunnerInitialization:
             with patch("calendarbot.validation.runner.settings", test_settings):
                 test_date = datetime(2024, 1, 15)
 
-                runner = ValidationRunner(test_date=test_date, end_date=test_date)
+                ValidationRunner(test_date=test_date, end_date=test_date)
 
                 # Should not log date range when end_date == test_date
                 assert mock_logger.info.call_count == 2  # Only init and components, not range
@@ -677,7 +675,6 @@ class TestValidationRunnerAsyncWorkflows:
                         with patch.object(
                             runner, "_cleanup_components", new_callable=AsyncMock
                         ) as mock_cleanup:
-
                             result = await runner.run_validation()
 
                             # Verify workflow execution order
@@ -712,7 +709,6 @@ class TestValidationRunnerAsyncWorkflows:
                                 with patch.object(
                                     runner, "_cleanup_components", new_callable=AsyncMock
                                 ):
-
                                     result = await runner.run_validation()
 
                                     # Only sources and cache should be validated
@@ -732,7 +728,6 @@ class TestValidationRunnerAsyncWorkflows:
             with patch.object(
                 runner, "_cleanup_components", new_callable=AsyncMock
             ) as mock_cleanup:
-
                 result = await runner.run_validation()
 
                 # Should still return results and cleanup
@@ -761,7 +756,6 @@ class TestValidationRunnerAsyncWorkflows:
                         runner, "_validate_display_functionality", new_callable=AsyncMock
                     ):
                         with patch.object(runner, "_cleanup_components", new_callable=AsyncMock):
-
                             result = await runner.run_validation()
 
                             # Should continue with other validations and return results
@@ -781,7 +775,6 @@ class TestValidationRunnerAsyncWorkflows:
                 with patch.object(
                     runner, "_cleanup_components", new_callable=AsyncMock
                 ) as mock_cleanup:
-
                     result = await runner.run_validation()
 
                     # Cleanup should always be called
@@ -797,7 +790,6 @@ class TestValidationRunnerAsyncWorkflows:
         with patch("calendarbot.sources.SourceManager") as MockSourceManager:
             with patch("calendarbot.cache.CacheManager") as MockCacheManager:
                 with patch("calendarbot.display.DisplayManager") as MockDisplayManager:
-
                     mock_source_instance = MagicMock()
                     mock_cache_instance = MagicMock()
                     mock_display_instance = MagicMock()
@@ -859,7 +851,6 @@ class TestValidationRunnerAsyncWorkflows:
                 runner, "_test_source_health_checks", new_callable=AsyncMock
             ) as mock_health:
                 with patch.object(runner, "_test_ics_fetch", new_callable=AsyncMock) as mock_fetch:
-
                     await runner._validate_source_connectivity()
 
                     # All source tests should be called
@@ -897,7 +888,6 @@ class TestValidationRunnerAsyncWorkflows:
                 with patch.object(
                     runner, "_test_cache_status", new_callable=AsyncMock
                 ) as mock_status:
-
                     await runner._validate_cache_operations()
 
                     # All cache tests should be called
@@ -934,7 +924,6 @@ class TestValidationRunnerAsyncWorkflows:
             with patch.object(
                 runner, "_test_display_rendering", new_callable=AsyncMock
             ) as mock_render:
-
                 await runner._validate_display_functionality()
 
                 # All display tests should be called
@@ -1504,9 +1493,9 @@ class TestValidationRunnerAsyncIntegration:
         mock_source.fetch_events = delayed_fetch
         runner.source_manager = mock_source
 
-        start_time = time.time()
+        time.time()
         await runner._test_ics_fetch()
-        end_time = time.time()
+        time.time()
 
         # Verify timing was captured
         successes = [

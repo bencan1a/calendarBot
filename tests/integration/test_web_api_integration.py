@@ -54,9 +54,9 @@ class TestWebAPIBackendIntegration:
 
         # Verify events are cached (events might be filtered by date)
         cached_events = await cache_manager.get_todays_cached_events()
-        assert (
-            len(cached_events) >= 1
-        ), f"Expected at least 1 cached event for today, got {len(cached_events)}"
+        assert len(cached_events) >= 1, (
+            f"Expected at least 1 cached event for today, got {len(cached_events)}"
+        )
 
         # Test refresh API
         success = web_server.refresh_data()
@@ -119,8 +119,6 @@ class TestWebAPIBackendIntegration:
             # Mock renderer with layout support
             display_manager.renderer = MagicMock()
             display_manager.renderer.layout = "4x8"
-
-            initial_layout = web_server.layout
 
             # Test layout setting
             success = web_server.set_layout("3x4")
@@ -186,9 +184,10 @@ class TestWebServerLifecycleIntegration:
         web_server, cache_manager = server_lifecycle_setup
 
         # Mock the HTTP server to avoid actual network binding
-        with patch("calendarbot.web.server.HTTPServer") as mock_http_server, patch(
-            "threading.Thread"
-        ) as mock_thread:
+        with (
+            patch("calendarbot.web.server.HTTPServer") as mock_http_server,
+            patch("threading.Thread") as mock_thread,
+        ):
             mock_server_instance = MagicMock()
             mock_http_server.return_value = mock_server_instance
             mock_thread_instance = MagicMock()
@@ -526,7 +525,6 @@ class TestWebAPIStateManagement:
         date_after_prev = navigation_state.selected_date
 
         web_server.handle_navigation("today")
-        date_after_today = navigation_state.selected_date
 
         # Verify state transitions
         assert date_after_next == initial_date + timedelta(days=1)
@@ -574,7 +572,7 @@ class TestWebAPIStateManagement:
         web_server.handle_navigation("next")
         status2 = web_server.get_status()
         web_server.set_layout("4x8")
-        status3 = web_server.get_status()
+        web_server.get_status()
 
         # Verify state changes are reflected correctly
         assert status1["current_date"] == initial_date.isoformat()

@@ -329,7 +329,7 @@ class TestBackgroundUpdateLoop:
         controller.navigation.update_today = Mock()
 
         # Mock logger to avoid test failure from unhandled exception
-        with patch("calendarbot.ui.interactive.logger") as mock_logger:
+        with patch("calendarbot.ui.interactive.logger"):
             # Call the method - should not raise exception
             with pytest.raises(Exception):
                 await controller._background_update_iteration()

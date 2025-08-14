@@ -8,7 +8,7 @@ These tests focus on the drawing utility aspects:
 - Font loading and fallbacks
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -133,7 +133,7 @@ def mock_display() -> MockDisplay:
 
 
 @pytest.fixture
-def mock_settings() -> Dict[str, Any]:
+def mock_settings() -> dict[str, Any]:
     """Fixture for mock settings.
 
     Returns:
@@ -157,7 +157,7 @@ def mock_draw() -> MagicMock:
 
 @pytest.fixture
 def mock_renderer(
-    mock_settings: Dict[str, Any], mock_display: MockDisplay
+    mock_settings: dict[str, Any], mock_display: MockDisplay
 ) -> EInkWhatsNextRenderer:
     """Fixture for mock renderer with patched drawing methods.
 
@@ -186,7 +186,7 @@ def mock_renderer(
 
 @pytest.fixture
 def renderer_with_real_drawing(
-    mock_settings: Dict[str, Any], mock_display: MockDisplay
+    mock_settings: dict[str, Any], mock_display: MockDisplay
 ) -> EInkWhatsNextRenderer:
     """Fixture for renderer with real drawing methods (not mocked).
 
@@ -514,7 +514,7 @@ class TestEInkWhatsNextRendererDrawing:
                 )
 
     def test_load_fonts_when_system_fonts_available_then_loads_truetype_fonts(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: dict[str, Any], mock_display: MockDisplay
     ) -> None:
         """Test _load_fonts when system fonts are available.
 
@@ -551,7 +551,7 @@ class TestEInkWhatsNextRendererDrawing:
                 assert font is mock_truetype, "All fonts should be truetype"
 
     def test_load_fonts_when_system_fonts_unavailable_then_falls_back_to_default(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: dict[str, Any], mock_display: MockDisplay
     ) -> None:
         """Test _load_fonts when system fonts are unavailable.
 
@@ -594,7 +594,7 @@ class TestEInkWhatsNextRendererDrawing:
                 assert font is mock_default, "All fonts should be default"
 
     def test_load_fonts_when_called_then_returns_empty_dictionary_for_lazy_loading(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: dict[str, Any], mock_display: MockDisplay
     ) -> None:
         """Test _load_fonts returns empty dictionary for lazy loading.
 

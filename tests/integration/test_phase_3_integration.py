@@ -405,14 +405,6 @@ class TestPhase3PerformanceValidation:
         # This would require file system access to measure actual JavaScript file size
         # For integration test, we validate the expectation of size reduction
 
-        deprecated_functions_removed = [
-            "parseMeetingDataFromHTML",  # ~50-75 lines
-            "updatePageContent",  # ~100-150 lines
-            "parseMeetingData",  # ~30-50 lines
-            "extractMeetingFromHTML",  # ~40-60 lines
-            "parseHTMLForMeetingData",  # ~25-40 lines
-        ]
-
         # Estimate lines saved (conservative estimate)
         estimated_lines_saved = sum(
             [
@@ -490,7 +482,7 @@ class TestPhase3ErrorHandling:
         with proper error messages and rollback of optimistic updates
         """
         # Simulate network error scenario
-        network_error = error_scenarios["network_error"]
+        error_scenarios["network_error"]
 
         def simulate_network_error_handling():
             try:

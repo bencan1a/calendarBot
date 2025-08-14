@@ -129,16 +129,6 @@ class TestPhase3BrowserIntegration:
             {"delay_ms": 2000, "success": False, "description": "Network timeout"},
         ]
 
-        optimistic_test_steps = [
-            "Navigate to whats-next-view",
-            "Set up network interception to add delays",
-            "Click event hide button",
-            "Verify immediate UI change (< 100ms)",
-            "Wait for API call completion",
-            "Verify final UI state matches API response",
-            "Test rollback behavior on API failure",
-        ]
-
         # Expected timing requirements
         expected_performance = {
             "immediate_feedback_ms": 100,  # Must be under 100ms
@@ -187,16 +177,6 @@ class TestPhase3BrowserIntegration:
             "extractMeetingFromHTML",
         ]
 
-        api_test_steps = [
-            "Navigate to whats-next-view",
-            "Intercept all network requests",
-            "Wait for initial data load",
-            "Verify JSON API calls made",
-            "Verify no HTML parsing function calls",
-            "Check browser console for deprecated function usage",
-            "Validate structured JSON data consumption",
-        ]
-
         # Validate API expectations
         for api_call in expected_api_calls:
             assert api_call["content_type"] == "application/json", "Should use JSON APIs"
@@ -224,16 +204,6 @@ class TestPhase3BrowserIntegration:
             {"type": "server_error", "status": 500, "message": "Server error"},
             {"type": "not_found", "status": 404, "message": "Event not found"},
             {"type": "timeout", "status": 408, "message": "Request timeout"},
-        ]
-
-        error_test_steps = [
-            "Navigate to whats-next-view",
-            "Set up network interception for error simulation",
-            "Attempt to hide event (trigger API error)",
-            "Verify optimistic update is rolled back",
-            "Verify error message displayed to user",
-            "Verify UI state remains consistent",
-            "Test error message dismissal",
         ]
 
         # Expected error handling behavior
@@ -270,15 +240,6 @@ class TestPhase3BrowserPerformance:
             "parsing_time_ms": 15,  # Target: 81% improvement from 80ms
             "memory_usage_mb": 5,  # Target: 38% reduction from 8MB
         }
-
-        browser_performance_steps = [
-            "Navigate to whats-next-view with performance monitoring",
-            "Measure page load completion time",
-            "Measure JSON data fetch and parse time",
-            "Measure memory usage during operation",
-            "Measure event hiding response time",
-            "Compare against Phase 3 performance targets",
-        ]
 
         # Validate performance targets are realistic
         assert performance_targets["page_load_time_ms"] <= 500, "Page load should be under 500ms"

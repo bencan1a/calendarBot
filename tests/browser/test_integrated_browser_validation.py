@@ -99,7 +99,7 @@ async def _setup_web_server(settings):
     cache_manager = CacheManager(settings)
     await cache_manager.initialize()
 
-    source_manager = SourceManager(settings, cache_manager)
+    SourceManager(settings, cache_manager)
     display_manager = DisplayManager(settings)
     navigation_state = NavigationState()
 
@@ -241,9 +241,9 @@ async def _test_browser_core_functionality(settings):
 
             # Test 3: Check navigation buttons are present
             nav_buttons = await page.querySelectorAll(".nav-btn")
-            assert (
-                len(nav_buttons) >= 2
-            ), f"Expected at least 2 navigation buttons, found {len(nav_buttons)}"
+            assert len(nav_buttons) >= 2, (
+                f"Expected at least 2 navigation buttons, found {len(nav_buttons)}"
+            )
 
             # Test 4: Check calendar content is displayed
             events_section = await page.querySelector(".events-section")

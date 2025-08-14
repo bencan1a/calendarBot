@@ -123,8 +123,8 @@ async def browser() -> AsyncGenerator[Optional[Browser], None]:
     if not PYPPETEER_AVAILABLE:
         pytest.skip("pyppeteer not available")
 
-    initial_memory = get_memory_usage()
-    initial_chrome = get_chrome_processes()
+    get_memory_usage()
+    get_chrome_processes()
     browser_instance = None
 
     try:

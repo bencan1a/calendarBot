@@ -69,7 +69,7 @@ class TestGetLocalNetworkInterface:
 
         with patch("calendarbot.utils.network.socket.gethostname", return_value="localhost"):
             with patch("calendarbot.utils.network.socket.gethostbyname", return_value="127.0.0.1"):
-                with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
+                with patch("calendarbot.utils.network.logging.getLogger"):
                     result = get_local_network_interface()
 
                     assert result == "127.0.0.1"
@@ -120,7 +120,7 @@ class TestGetLocalNetworkInterface:
             with patch(
                 "calendarbot.utils.network.socket.gethostbyname", return_value="203.0.113.1"
             ):  # Public IP
-                with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
+                with patch("calendarbot.utils.network.logging.getLogger"):
                     result = get_local_network_interface()
 
                     assert result == "127.0.0.1"
@@ -322,9 +322,9 @@ class TestNetworkModuleIntegration:
         ]
 
         for ip, expected in test_cases:
-            assert (
-                _is_private_ip(ip) == expected
-            ), f"IP {ip} should be {'private' if expected else 'public'}"
+            assert _is_private_ip(ip) == expected, (
+                f"IP {ip} should be {'private' if expected else 'public'}"
+            )
 
     def test_error_handling_robustness(self):
         """Test error handling robustness across module functions."""

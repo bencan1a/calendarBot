@@ -159,7 +159,7 @@ class TestPerformanceLogger:
 
         with patch("calendarbot.monitoring.performance.logging"):
             with patch("calendarbot.monitoring.performance.Path") as mock_path:
-                with patch("logging.handlers.RotatingFileHandler") as mock_handler:
+                with patch("logging.handlers.RotatingFileHandler"):
                     # Setup the mock path
                     mock_path_instance = Mock()
                     mock_path.return_value = mock_path_instance
@@ -168,7 +168,7 @@ class TestPerformanceLogger:
                     mock_path_instance.__truediv__ = Mock(return_value=mock_path_instance)
                     mock_path_instance.mkdir = Mock()
 
-                    logger = PerformanceLogger(settings=mock_settings)
+                    PerformanceLogger(settings=mock_settings)
 
                     # Check that the correct path was created
                     mock_path.assert_called_with("/test/data/dir")
@@ -178,14 +178,14 @@ class TestPerformanceLogger:
         """Test _setup_metrics_logger without settings."""
         with patch("calendarbot.monitoring.performance.logging"):
             with patch("calendarbot.monitoring.performance.Path") as mock_path:
-                with patch("logging.handlers.RotatingFileHandler") as mock_handler:
+                with patch("logging.handlers.RotatingFileHandler"):
                     # Setup the mock path
                     home_path = Mock()
                     mock_path.home.return_value = home_path
                     home_path.__truediv__ = Mock(return_value=home_path)
                     home_path.mkdir = Mock()
 
-                    logger = PerformanceLogger()
+                    PerformanceLogger()
 
                     # Check that the default path was created
                     mock_path.home.assert_called_once()
@@ -665,7 +665,7 @@ class TestPerformanceLoggerMixin:
     @pytest.fixture
     def mixin_instance(self) -> TestClass:
         """Create an instance of the test class with PerformanceLoggerMixin."""
-        with patch("calendarbot.monitoring.performance.get_performance_logger") as mock_get_logger:
+        with patch("calendarbot.monitoring.performance.get_performance_logger"):
             instance = self.TestClass()
             return instance
 
@@ -828,7 +828,7 @@ class TestContextManagers:
         """Test cache_monitor context manager with no requests."""
         mock_logger = MagicMock()
 
-        with cache_monitor("test_cache", logger=mock_logger) as monitor:
+        with cache_monitor("test_cache", logger=mock_logger):
             # Don't record any hits or misses
             pass
 

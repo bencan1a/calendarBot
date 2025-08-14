@@ -101,7 +101,7 @@ class TestHTTPClient:
         args, kwargs = mock_opener.open.call_args
 
         # Get the Request object
-        request = args[0]
+        args[0]
 
         # Check if headers were set correctly in the _prepare_headers method
         # This is an indirect test since we can't easily access the headers directly in the mock
@@ -382,7 +382,7 @@ async def test_wait_for_webserver_async():
     with (
         patch("asyncio.to_thread") as mock_to_thread,
         patch("asyncio.get_event_loop") as mock_get_event_loop,
-        patch("asyncio.sleep") as mock_sleep,
+        patch("asyncio.sleep"),
     ):
         # Configure mocks
         mock_loop = MagicMock()

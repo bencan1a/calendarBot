@@ -961,7 +961,7 @@ def main():
     analysis_parser.add_argument("--days", type=int, default=7, help="Days to analyze")
 
     # Changed files command
-    changed_parser = subparsers.add_parser("changed", help="Show changed files and related tests")
+    subparsers.add_parser("changed", help="Show changed files and related tests")
 
     args = parser.parse_args()
 

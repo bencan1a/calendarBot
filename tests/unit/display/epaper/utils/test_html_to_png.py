@@ -58,7 +58,7 @@ class TestHtmlToPngConverter:
         # Reset the singleton instance for testing
         HtmlToPngConverter._instance = None
 
-        converter = HtmlToPngConverter()
+        HtmlToPngConverter()
 
         # Check that Html2Image was called with expected defaults
         mock_html2image.assert_called_once()
@@ -77,7 +77,7 @@ class TestHtmlToPngConverter:
         custom_output_path = "/tmp/custom"
         custom_flags = ["--flag1", "--flag2"]
 
-        converter = HtmlToPngConverter(
+        HtmlToPngConverter(
             size=custom_size,
             output_path=custom_output_path,
             custom_flags=custom_flags,

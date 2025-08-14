@@ -39,7 +39,7 @@ class TestTimezoneServiceInitialization:
     def test_validate_timezone_support_when_zoneinfo_available_then_logs_info(self) -> None:
         """Test timezone support validation with zoneinfo available."""
         with patch("calendarbot.timezone.service.logger") as mock_logger:
-            service = TimezoneService()
+            TimezoneService()
 
             mock_logger.info.assert_called_with("Using zoneinfo for timezone handling")
 
@@ -47,7 +47,7 @@ class TestTimezoneServiceInitialization:
     def test_validate_timezone_support_when_pytz_fallback_then_logs_info(self) -> None:
         """Test timezone support validation with pytz fallback."""
         with patch("calendarbot.timezone.service.logger") as mock_logger:
-            service = TimezoneService()
+            TimezoneService()
 
             mock_logger.info.assert_called_with("Using pytz fallback for timezone handling")
 

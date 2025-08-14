@@ -3,7 +3,7 @@
 Tests cover mode registration, retrieval, execution, and error handling.
 """
 
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -18,7 +18,7 @@ from calendarbot.cli.modes import (
 
 
 @pytest.fixture
-def mock_mode_registry() -> Dict[str, Dict[str, Any]]:
+def mock_mode_registry() -> dict[str, dict[str, Any]]:
     """Create a mock mode registry for testing.
 
     Returns:
@@ -123,7 +123,7 @@ class TestGetModeHandler:
     """Tests for the get_mode_handler function."""
 
     def test_get_mode_handler_when_mode_exists_then_returns_handler(
-        self, mock_mode_registry: Dict[str, Dict[str, Any]]
+        self, mock_mode_registry: dict[str, dict[str, Any]]
     ) -> None:
         """Test handler retrieval for existing mode."""
         # Setup
@@ -135,7 +135,7 @@ class TestGetModeHandler:
             assert handler == mock_mode_registry["test_mode"]["handler"]
 
     def test_get_mode_handler_when_mode_does_not_exist_then_raises_key_error(
-        self, mock_mode_registry: Dict[str, Dict[str, Any]]
+        self, mock_mode_registry: dict[str, dict[str, Any]]
     ) -> None:
         """Test handler retrieval for non-existent mode."""
         # Setup
@@ -145,7 +145,7 @@ class TestGetModeHandler:
                 get_mode_handler("unknown_mode")
 
     def test_get_mode_handler_when_handler_is_none_then_raises_runtime_error(
-        self, mock_mode_registry: Dict[str, Dict[str, Any]]
+        self, mock_mode_registry: dict[str, dict[str, Any]]
     ) -> None:
         """Test handler retrieval when handler is None."""
         # Setup
@@ -170,7 +170,7 @@ class TestExecuteMode:
 
     @pytest.mark.asyncio
     async def test_execute_mode_when_async_mode_then_executes_async_handler(
-        self, mock_mode_registry: Dict[str, Dict[str, Any]], mock_args: MagicMock
+        self, mock_mode_registry: dict[str, dict[str, Any]], mock_args: MagicMock
     ) -> None:
         """Test execution of async mode."""
         # Setup
@@ -191,7 +191,7 @@ class TestExecuteMode:
 
     @pytest.mark.asyncio
     async def test_execute_mode_when_sync_mode_then_executes_sync_handler(
-        self, mock_mode_registry: Dict[str, Dict[str, Any]], mock_args: MagicMock
+        self, mock_mode_registry: dict[str, dict[str, Any]], mock_args: MagicMock
     ) -> None:
         """Test execution of sync mode."""
         # Setup
@@ -212,7 +212,7 @@ class TestExecuteMode:
 
     @pytest.mark.asyncio
     async def test_execute_mode_when_handler_returns_none_then_returns_zero(
-        self, mock_mode_registry: Dict[str, Dict[str, Any]], mock_args: MagicMock
+        self, mock_mode_registry: dict[str, dict[str, Any]], mock_args: MagicMock
     ) -> None:
         """Test execution when handler returns None."""
         # Setup
@@ -233,7 +233,7 @@ class TestExecuteMode:
 
     @pytest.mark.asyncio
     async def test_execute_mode_when_unknown_mode_then_returns_one(
-        self, mock_mode_registry: Dict[str, Dict[str, Any]], mock_args: MagicMock
+        self, mock_mode_registry: dict[str, dict[str, Any]], mock_args: MagicMock
     ) -> None:
         """Test execution with unknown mode."""
         # Setup
@@ -252,7 +252,7 @@ class TestExecuteMode:
 
     @pytest.mark.asyncio
     async def test_execute_mode_when_handler_not_migrated_then_returns_one(
-        self, mock_mode_registry: Dict[str, Dict[str, Any]], mock_args: MagicMock
+        self, mock_mode_registry: dict[str, dict[str, Any]], mock_args: MagicMock
     ) -> None:
         """Test execution when handler is not migrated."""
         # Setup
@@ -271,7 +271,7 @@ class TestExecuteMode:
 
     @pytest.mark.asyncio
     async def test_execute_mode_when_general_exception_then_returns_one(
-        self, mock_mode_registry: Dict[str, Dict[str, Any]], mock_args: MagicMock
+        self, mock_mode_registry: dict[str, dict[str, Any]], mock_args: MagicMock
     ) -> None:
         """Test execution with general exception."""
         # Setup
