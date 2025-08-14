@@ -41,6 +41,9 @@ xset -dpms
 xset s off
 xset s noblank
 
+# Start unclutter to hide the mouse pointer after 1 second of inactivity
+unclutter -idle 1 &
+
 # Start window manager (non-blocking)
 openbox &
 
