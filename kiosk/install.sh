@@ -304,36 +304,34 @@ test_calendarbot() {
 show_usage_instructions() {
     print_header "Installation Complete!"
     
-    cat << EOF
-
-${GREEN}CalendarBot Kiosk has been successfully installed!${NC}
-
-${BLUE}Service Management:${NC}
-• Start kiosk service:  ${YELLOW}sudo systemctl start calendarbot-kiosk@$CURRENT_USER.service${NC}
-• Stop kiosk service:   ${YELLOW}sudo systemctl stop calendarbot-kiosk@$CURRENT_USER.service${NC}
-• Service status:       ${YELLOW}sudo systemctl status calendarbot-kiosk@$CURRENT_USER.service${NC}
-• View service logs:    ${YELLOW}sudo journalctl -u calendarbot-kiosk@$CURRENT_USER.service -f${NC}
-
-${BLUE}Auto-Start Configuration:${NC}
-• The service is enabled and will start automatically on boot
-• User $CURRENT_USER will auto-login to X11 kiosk mode when logging into tty1
-
-${BLUE}Manual Kiosk Mode:${NC}
-• Start X11 manually:   ${YELLOW}startx${NC}
-• Run kiosk script:     ${YELLOW}~/bin/start-kiosk.sh${NC}
-
-${BLUE}Troubleshooting:${NC}
-• Installation log:     ${YELLOW}$LOG_FILE${NC}
-• Kiosk logs:          ${YELLOW}~/kiosk/kiosk.log${NC}
-• Check dependencies:   ${YELLOW}chromium-browser --version && openbox --version${NC}
-• Test CalendarBot:     ${YELLOW}calendarbot --web --port 8080${NC}
-
-${BLUE}Important Notes:${NC}
-• Ensure CalendarBot project is in: ${YELLOW}$PROJECT_DIR${NC}
-• The kiosk will display CalendarBot at: ${YELLOW}http://\$(hostname -I | awk '{print \$1}'):8080${NC}
-• To uninstall, run this script with: ${YELLOW}$0 --uninstall${NC}
-
-EOF
+    echo ""
+    echo -e "${GREEN}CalendarBot Kiosk has been successfully installed!${NC}"
+    echo ""
+    echo -e "${BLUE}Service Management:${NC}"
+    echo -e "• Start kiosk service:  ${YELLOW}sudo systemctl start calendarbot-kiosk@$CURRENT_USER.service${NC}"
+    echo -e "• Stop kiosk service:   ${YELLOW}sudo systemctl stop calendarbot-kiosk@$CURRENT_USER.service${NC}"
+    echo -e "• Service status:       ${YELLOW}sudo systemctl status calendarbot-kiosk@$CURRENT_USER.service${NC}"
+    echo -e "• View service logs:    ${YELLOW}sudo journalctl -u calendarbot-kiosk@$CURRENT_USER.service -f${NC}"
+    echo ""
+    echo -e "${BLUE}Auto-Start Configuration:${NC}"
+    echo "• The service is enabled and will start automatically on boot"
+    echo "• User $CURRENT_USER will auto-login to X11 kiosk mode when logging into tty1"
+    echo ""
+    echo -e "${BLUE}Manual Kiosk Mode:${NC}"
+    echo -e "• Start X11 manually:   ${YELLOW}startx${NC}"
+    echo -e "• Run kiosk script:     ${YELLOW}~/bin/start-kiosk.sh${NC}"
+    echo ""
+    echo -e "${BLUE}Troubleshooting:${NC}"
+    echo -e "• Installation log:     ${YELLOW}$LOG_FILE${NC}"
+    echo -e "• Kiosk logs:          ${YELLOW}~/kiosk/kiosk.log${NC}"
+    echo -e "• Check dependencies:   ${YELLOW}chromium-browser --version && openbox --version${NC}"
+    echo -e "• Test CalendarBot:     ${YELLOW}calendarbot --web --port 8080${NC}"
+    echo ""
+    echo -e "${BLUE}Important Notes:${NC}"
+    echo -e "• Ensure CalendarBot project is in: ${YELLOW}$PROJECT_DIR${NC}"
+    echo -e "• The kiosk will display CalendarBot at: ${YELLOW}http://\$(hostname -I | awk '{print \$1}'):8080${NC}"
+    echo -e "• To uninstall, run this script with: ${YELLOW}$0 --uninstall${NC}"
+    echo ""
 }
 
 # Uninstall function
