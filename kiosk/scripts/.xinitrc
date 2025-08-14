@@ -10,6 +10,12 @@ echo "[$(date)] Starting kiosk session"
 # Start Openbox window manager
 openbox &
 
+# Disable screen blanking and power management
+echo "[$(date)] Disabling screen blanking..."
+xset s off          # Disable screensaver
+xset -dpms          # Disable DPMS power management
+xset s noblank      # Prevent screen blanking
+
 # Wait for web server (max 60 seconds)
 echo "[$(date)] Waiting for CalendarBot..."
 for _ in {1..30}; do
