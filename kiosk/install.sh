@@ -222,9 +222,11 @@ install_kiosk_scripts() {
         # Check if our content is already there
         if ! grep -q "startx" "$bash_profile_dest"; then
             print_info "Appending kiosk configuration to existing .bash_profile"
-            echo "" >> "$bash_profile_dest"
-            echo "# CalendarBot Kiosk Configuration" >> "$bash_profile_dest"
-            cat "$bash_profile_src" >> "$bash_profile_dest"
+            {
+                echo ""
+                echo "# CalendarBot Kiosk Configuration"
+                cat "$bash_profile_src"
+            } >> "$bash_profile_dest"
         else
             print_warning ".bash_profile already contains kiosk configuration"
         fi
