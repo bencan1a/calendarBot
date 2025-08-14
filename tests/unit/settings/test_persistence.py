@@ -142,7 +142,7 @@ class TestSettingsPersistenceLoadSettings:
         backup_file = backup_dir / "settings_backup_2023-07-18_12_00_00.json"
         backup_file.write_text(sample_json_settings_data, encoding="utf-8")
 
-        settings = persistence.load_settings()
+        persistence.load_settings()
 
         # Primary file should now exist with the backup data
         settings_file = temp_config_dir / "settings.json"
@@ -247,7 +247,7 @@ class TestSettingsPersistenceSaveSettings:
         """Test save_settings cleans up old backups after successful save."""
         # Create many backup files beyond the limit
         for i in range(10):
-            timestamp = f"2023-07-{18-i:02d}_12_00_00"
+            timestamp = f"2023-07-{18 - i:02d}_12_00_00"
             backup_file = settings_persistence.backup_dir / f"settings_backup_{timestamp}.json"
             backup_file.parent.mkdir(exist_ok=True)
             backup_file.write_text('{"test": true}', encoding="utf-8")

@@ -117,10 +117,10 @@ class TestRunTestMode:
                 "calendarbot.cli.modes.test.apply_command_line_overrides"
             ) as mock_apply_cmd_overrides,
             patch("calendarbot.cli.modes.test.apply_cli_overrides") as mock_apply_cli_overrides,
-            patch("calendarbot.cli.modes.test.setup_enhanced_logging") as mock_setup_logging,
+            patch("calendarbot.cli.modes.test.setup_enhanced_logging"),
             patch("calendarbot.cli.modes.test.create_runtime_tracker") as mock_create_tracker,
-            patch("calendarbot.cli.modes.test.start_runtime_tracking") as mock_start_tracking,
-            patch("calendarbot.cli.modes.test.stop_runtime_tracking") as mock_stop_tracking,
+            patch("calendarbot.cli.modes.test.start_runtime_tracking"),
+            patch("calendarbot.cli.modes.test.stop_runtime_tracking"),
             patch("calendarbot.cli.modes.test.ValidationRunner") as mock_validation_runner,
             patch("calendarbot.cli.modes.test.settings", mock_settings),
         ):
@@ -160,10 +160,10 @@ class TestRunTestMode:
                 "calendarbot.cli.modes.test.apply_command_line_overrides"
             ) as mock_apply_cmd_overrides,
             patch("calendarbot.cli.modes.test.apply_cli_overrides") as mock_apply_cli_overrides,
-            patch("calendarbot.cli.modes.test.setup_enhanced_logging") as mock_setup_logging,
+            patch("calendarbot.cli.modes.test.setup_enhanced_logging"),
             patch("calendarbot.cli.modes.test.create_runtime_tracker") as mock_create_tracker,
-            patch("calendarbot.cli.modes.test.start_runtime_tracking") as mock_start_tracking,
-            patch("calendarbot.cli.modes.test.stop_runtime_tracking") as mock_stop_tracking,
+            patch("calendarbot.cli.modes.test.start_runtime_tracking"),
+            patch("calendarbot.cli.modes.test.stop_runtime_tracking"),
             patch("calendarbot.cli.modes.test.ValidationRunner") as mock_validation_runner,
             patch("calendarbot.cli.modes.test.settings", mock_settings),
         ):
@@ -203,7 +203,7 @@ class TestRunTestMode:
                 "calendarbot.cli.modes.test.apply_command_line_overrides"
             ) as mock_apply_cmd_overrides,
             patch("calendarbot.cli.modes.test.apply_cli_overrides") as mock_apply_cli_overrides,
-            patch("calendarbot.cli.modes.test.setup_enhanced_logging") as mock_setup_logging,
+            patch("calendarbot.cli.modes.test.setup_enhanced_logging"),
             patch("calendarbot.cli.modes.test.create_runtime_tracker") as mock_create_tracker,
             patch("calendarbot.cli.modes.test.start_runtime_tracking") as mock_start_tracking,
             patch("calendarbot.cli.modes.test.stop_runtime_tracking") as mock_stop_tracking,

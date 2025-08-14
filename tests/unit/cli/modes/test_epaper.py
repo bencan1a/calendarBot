@@ -264,11 +264,11 @@ class TestInitializeEpaperComponents:
             patch(
                 "calendarbot.cli.modes.epaper.apply_epaper_mode_overrides"
             ) as mock_apply_epaper_overrides,
-            patch("calendarbot.cli.modes.epaper.setup_enhanced_logging") as mock_setup_logging,
+            patch("calendarbot.cli.modes.epaper.setup_enhanced_logging"),
             patch("calendarbot.cli.modes.epaper.CalendarBot") as mock_calendar_bot,
             patch("calendarbot.cli.modes.epaper.EInkWhatsNextRenderer") as mock_renderer,
             patch("calendarbot.cli.modes.epaper.detect_epaper_hardware") as mock_detect_hardware,
-            patch("calendarbot.cli.modes.epaper.settings") as mock_settings,
+            patch("calendarbot.cli.modes.epaper.settings"),
         ):
             # Mock the chain of settings updates
             mock_apply_cmd_overrides.return_value = MagicMock()

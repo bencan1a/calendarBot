@@ -46,7 +46,7 @@ class TestLayoutRegistryInitialization:
     def test_init_calls_discover_layouts(self) -> None:
         """Test initialization calls discover_layouts method."""
         with patch.object(LayoutRegistry, "discover_layouts") as mock_discover:
-            registry = LayoutRegistry()
+            LayoutRegistry()
 
             mock_discover.assert_called_once()
 

@@ -307,7 +307,7 @@ class TestICSSourceHandlerEventFetching:
         mock_parser.parse_ics_content.return_value = mock_parse_result
 
         # Test fetch with caching
-        events = await handler.fetch_events(use_cache=True)
+        await handler.fetch_events(use_cache=True)
 
         # Verify conditional headers used
         mock_fetcher.get_conditional_headers.assert_called_once_with("old_etag", "old_modified")
@@ -856,7 +856,6 @@ class TestICSSourceHandlerCacheManagement:
     def test_update_config_different_url(self, handler):
         """Test updating configuration with different URL."""
         # Store original URL for comparison
-        original_url = handler.config.url
 
         # Create new config with different URL
         new_config = SourceConfig(

@@ -174,7 +174,7 @@ class TestLayoutSwitching:
                 mock_renderer = Mock()
                 mock_create.return_value = mock_renderer
 
-                display_manager = DisplayManager(mock_settings)
+                DisplayManager(mock_settings)
 
                 # Verify factory was used with old positional signature first
                 mock_create.assert_called_once_with("html", mock_settings)

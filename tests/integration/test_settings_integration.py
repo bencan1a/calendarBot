@@ -378,7 +378,7 @@ class TestSettingsErrorPropagation:
         """Test persistence errors propagate correctly through all layers."""
         # Create persistence layer with invalid directory
         invalid_dir = temp_settings_dir / "nonexistent" / "nested" / "path"
-        persistence = SettingsPersistence(invalid_dir)
+        SettingsPersistence(invalid_dir)
 
         # Make directory read-only to simulate permission error
         temp_settings_dir.chmod(0o444)
@@ -420,7 +420,7 @@ class TestSettingsErrorPropagation:
         self, temp_settings_dir: Path
     ) -> None:
         """Test service layer validation errors propagate with details."""
-        persistence = SettingsPersistence(config_dir=temp_settings_dir)
+        SettingsPersistence(config_dir=temp_settings_dir)
         service = SettingsService(config_dir=temp_settings_dir)
 
         handler = WebRequestHandler()
@@ -454,7 +454,7 @@ class TestSettingsErrorPropagation:
         self, temp_settings_dir: Path
     ) -> None:
         """Test API layer handles unexpected exceptions gracefully."""
-        persistence = SettingsPersistence(config_dir=temp_settings_dir)
+        SettingsPersistence(config_dir=temp_settings_dir)
         service = SettingsService(config_dir=temp_settings_dir)
 
         handler = WebRequestHandler()
@@ -488,7 +488,7 @@ class TestSettingsSystemIntegration:
         self, temp_settings_dir: Path
     ) -> None:
         """Test settings cache is properly invalidated on updates."""
-        persistence = SettingsPersistence(config_dir=temp_settings_dir)
+        SettingsPersistence(config_dir=temp_settings_dir)
         service = SettingsService(config_dir=temp_settings_dir)
 
         # 1. Get initial settings (loads cache)
@@ -517,7 +517,7 @@ class TestSettingsSystemIntegration:
         self, temp_settings_dir: Path
     ) -> None:
         """Test backup and recovery integration works correctly."""
-        persistence = SettingsPersistence(config_dir=temp_settings_dir)
+        SettingsPersistence(config_dir=temp_settings_dir)
         service = SettingsService(config_dir=temp_settings_dir)
 
         # 1. Create initial settings (this won't create backup)
@@ -568,7 +568,7 @@ class TestSettingsSystemIntegration:
             json.dump(old_format_data, f)
 
         # 2. Initialize service - should trigger migration
-        persistence = SettingsPersistence(config_dir=temp_settings_dir)
+        SettingsPersistence(config_dir=temp_settings_dir)
         service = SettingsService(config_dir=temp_settings_dir)
 
         # 3. Get settings - should return migrated format
@@ -584,7 +584,7 @@ class TestSettingsSystemIntegration:
         self, temp_settings_dir: Path
     ) -> None:
         """Test settings info integration returns data from all layers."""
-        persistence = SettingsPersistence(config_dir=temp_settings_dir)
+        SettingsPersistence(config_dir=temp_settings_dir)
         service = SettingsService(config_dir=temp_settings_dir)
 
         # Set up some test data

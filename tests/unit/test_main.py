@@ -371,7 +371,7 @@ class TestCalendarBot:
         """Test start with process cleanup warnings."""
         with (
             patch("calendarbot.main.kill_calendarbot_processes") as mock_kill,
-            patch.object(calendar_bot, "run_scheduler", new_callable=AsyncMock) as mock_scheduler,
+            patch.object(calendar_bot, "run_scheduler", new_callable=AsyncMock),
         ):
             mock_kill.return_value = (1, ["Warning: Process xyz"])
 
@@ -387,7 +387,7 @@ class TestCalendarBot:
 
         with (
             patch("calendarbot.main.kill_calendarbot_processes") as mock_kill,
-            patch.object(calendar_bot, "run_scheduler", new_callable=AsyncMock) as mock_scheduler,
+            patch.object(calendar_bot, "run_scheduler", new_callable=AsyncMock),
         ):
             result = await calendar_bot.start()
 

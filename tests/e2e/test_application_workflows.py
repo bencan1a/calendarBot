@@ -25,10 +25,12 @@ class TestCompleteApplicationWorkflows:
     async def full_application_setup(self, test_settings, populated_test_database):
         """Set up complete application stack for end-to-end testing."""
         # Create real CalendarBot instance
-        with patch("calendarbot.main.settings", test_settings), patch(
-            "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
-        ) as mock_test_conn, patch(
-            "calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True
+        with (
+            patch("calendarbot.main.settings", test_settings),
+            patch(
+                "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
+            ) as mock_test_conn,
+            patch("calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True),
         ):
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
@@ -67,11 +69,13 @@ class TestCompleteApplicationWorkflows:
     async def test_first_run_workflow(self, test_settings, populated_test_database):
         """Test first run workflow with initial configuration."""
         # Mock first run scenario - this test is about configuration detection, not setup wizard
-        with patch("calendarbot.main.check_first_run_configuration", return_value=True), patch(
-            "calendarbot.main.settings", test_settings
-        ), patch(
-            "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
-        ) as mock_test_conn:
+        with (
+            patch("calendarbot.main.check_first_run_configuration", return_value=True),
+            patch("calendarbot.main.settings", test_settings),
+            patch(
+                "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
+            ) as mock_test_conn,
+        ):
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
             mock_health_result.is_healthy = True
@@ -95,26 +99,30 @@ class TestCompleteApplicationWorkflows:
         # Mock external calendar data
         external_events = ICSTestData.create_mock_events(count=5, include_today=True)
 
-        with patch.object(
-            bot.source_manager, "fetch_and_cache_events", return_value=True
-        ), patch.object(
-            bot.cache_manager,
-            "get_todays_cached_events",
-            new_callable=AsyncMock,
-            return_value=external_events,
-        ), patch.object(
-            bot.cache_manager,
-            "get_cache_status",
-            new_callable=AsyncMock,
-            return_value=MagicMock(last_update=datetime.now(), is_stale=False),
-        ), patch.object(
-            bot.source_manager,
-            "get_source_info",
-            new_callable=AsyncMock,
-            return_value=MagicMock(status="healthy", url="test_url"),
-        ), patch.object(
-            bot.display_manager, "display_events", new_callable=AsyncMock, return_value=True
-        ) as mock_display:
+        with (
+            patch.object(bot.source_manager, "fetch_and_cache_events", return_value=True),
+            patch.object(
+                bot.cache_manager,
+                "get_todays_cached_events",
+                new_callable=AsyncMock,
+                return_value=external_events,
+            ),
+            patch.object(
+                bot.cache_manager,
+                "get_cache_status",
+                new_callable=AsyncMock,
+                return_value=MagicMock(last_update=datetime.now(), is_stale=False),
+            ),
+            patch.object(
+                bot.source_manager,
+                "get_source_info",
+                new_callable=AsyncMock,
+                return_value=MagicMock(status="healthy", url="test_url"),
+            ),
+            patch.object(
+                bot.display_manager, "display_events", new_callable=AsyncMock, return_value=True
+            ) as mock_display,
+        ):
             # Execute complete workflow
             # 1. Fetch and cache events
             fetch_success = await bot.fetch_and_cache_events()
@@ -145,17 +153,15 @@ class TestCompleteApplicationWorkflows:
         # Mock components
         external_events = ICSTestData.create_mock_events(count=3, include_today=True)
 
-        with patch.object(
-            bot.source_manager, "fetch_and_cache_events", return_value=True
-        ), patch.object(
-            bot.cache_manager, "get_todays_cached_events", return_value=external_events
-        ), patch.object(
-            bot.display_manager, "display_events", return_value=True
-        ), patch.object(
-            bot, "fetch_and_cache_events", return_value=True
-        ) as mock_fetch, patch.object(
-            bot, "update_display", return_value=True
-        ) as mock_update:
+        with (
+            patch.object(bot.source_manager, "fetch_and_cache_events", return_value=True),
+            patch.object(
+                bot.cache_manager, "get_todays_cached_events", return_value=external_events
+            ),
+            patch.object(bot.display_manager, "display_events", return_value=True),
+            patch.object(bot, "fetch_and_cache_events", return_value=True) as mock_fetch,
+            patch.object(bot, "update_display", return_value=True) as mock_update,
+        ):
             # Execute refresh cycle
             await bot.refresh_cycle()
 
@@ -169,18 +175,20 @@ class TestCompleteApplicationWorkflows:
         bot = full_application_setup
 
         # Simulate network failure
-        with patch.object(
-            bot.source_manager,
-            "fetch_and_cache_events",
-            side_effect=Exception("Network error"),
-        ), patch.object(
-            bot.cache_manager,
-            "is_cache_fresh",
-            new_callable=AsyncMock,
-            return_value=False,  # Force cache to be stale
-        ), patch.object(
-            bot, "handle_error_display", new_callable=AsyncMock
-        ) as mock_error_display:
+        with (
+            patch.object(
+                bot.source_manager,
+                "fetch_and_cache_events",
+                side_effect=Exception("Network error"),
+            ),
+            patch.object(
+                bot.cache_manager,
+                "is_cache_fresh",
+                new_callable=AsyncMock,
+                return_value=False,  # Force cache to be stale
+            ),
+            patch.object(bot, "handle_error_display", new_callable=AsyncMock) as mock_error_display,
+        ):
             # Attempt fetch (should fail)
             success = await bot.fetch_and_cache_events()
             assert success is False
@@ -247,9 +255,11 @@ class TestCompleteApplicationWorkflows:
         bot = full_application_setup
 
         # Mock components
-        with patch.object(bot, "fetch_and_cache_events", return_value=True), patch.object(
-            bot, "update_display", return_value=True
-        ), patch.object(bot, "refresh_cycle") as mock_refresh:
+        with (
+            patch.object(bot, "fetch_and_cache_events", return_value=True),
+            patch.object(bot, "update_display", return_value=True),
+            patch.object(bot, "refresh_cycle"),
+        ):
             # Run multiple operations concurrently
             tasks = [bot.refresh_cycle(), bot.fetch_and_cache_events(), bot.update_display()]
 
@@ -268,10 +278,11 @@ class TestWebInterfaceWorkflows:
     @pytest_asyncio.fixture
     async def web_application_setup(self, test_settings, populated_test_database):
         """Set up complete web application for end-to-end testing."""
-        with patch(
-            "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
-        ) as mock_test_conn, patch(
-            "calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True
+        with (
+            patch(
+                "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
+            ) as mock_test_conn,
+            patch("calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True),
         ):
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
@@ -315,8 +326,6 @@ class TestWebInterfaceWorkflows:
         """Test complete web navigation workflow."""
         web_server, bot, navigation_state = web_application_setup
 
-        initial_date = navigation_state.selected_date
-
         # Navigation sequence
         actions = ["next", "next", "prev", "today", "week-start", "week-end"]
 
@@ -335,10 +344,11 @@ class TestWebInterfaceWorkflows:
         # Mock external data
         external_events = ICSTestData.create_mock_events(count=4, include_today=True)
 
-        with patch.object(
-            bot.source_manager, "fetch_and_cache_events", return_value=True
-        ), patch.object(
-            bot.cache_manager, "get_events_by_date_range", return_value=external_events
+        with (
+            patch.object(bot.source_manager, "fetch_and_cache_events", return_value=True),
+            patch.object(
+                bot.cache_manager, "get_events_by_date_range", return_value=external_events
+            ),
         ):
             # Trigger refresh via web API
             success = web_server.refresh_data()
@@ -426,10 +436,11 @@ class TestWebInterfaceWorkflows:
         web_server.display_manager.renderer = MagicMock()
         web_server.display_manager.renderer.render_events.return_value = "<html>Calendar</html>"
 
-        with patch.object(
-            bot.source_manager, "fetch_and_cache_events", return_value=True
-        ), patch.object(
-            bot.cache_manager, "get_events_by_date_range", return_value=external_events
+        with (
+            patch.object(bot.source_manager, "fetch_and_cache_events", return_value=True),
+            patch.object(
+                bot.cache_manager, "get_events_by_date_range", return_value=external_events
+            ),
         ):
             # Simulate user session
             # 1. Initial load
@@ -468,10 +479,12 @@ class TestFailureRecoveryWorkflows:
     @pytest_asyncio.fixture
     async def failure_recovery_setup(self, test_settings, populated_test_database):
         """Set up for failure recovery testing."""
-        with patch("calendarbot.main.settings", test_settings), patch(
-            "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
-        ) as mock_test_conn, patch(
-            "calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True
+        with (
+            patch("calendarbot.main.settings", test_settings),
+            patch(
+                "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
+            ) as mock_test_conn,
+            patch("calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True),
         ):
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
@@ -496,9 +509,12 @@ class TestFailureRecoveryWorkflows:
 
         # Initial successful fetch
         initial_events = ICSTestData.create_mock_events(count=3)
-        with patch.object(
-            bot.source_manager, "fetch_and_cache_events", return_value=True
-        ), patch.object(bot.cache_manager, "get_events_by_date_range", return_value=initial_events):
+        with (
+            patch.object(bot.source_manager, "fetch_and_cache_events", return_value=True),
+            patch.object(
+                bot.cache_manager, "get_events_by_date_range", return_value=initial_events
+            ),
+        ):
             success = await bot.fetch_and_cache_events()
             assert success is True
             assert bot.consecutive_failures == 0
@@ -515,10 +531,11 @@ class TestFailureRecoveryWorkflows:
 
         # Recovery
         recovery_events = ICSTestData.create_mock_events(count=5)
-        with patch.object(
-            bot.source_manager, "fetch_and_cache_events", return_value=True
-        ), patch.object(
-            bot.cache_manager, "get_events_by_date_range", return_value=recovery_events
+        with (
+            patch.object(bot.source_manager, "fetch_and_cache_events", return_value=True),
+            patch.object(
+                bot.cache_manager, "get_events_by_date_range", return_value=recovery_events
+            ),
         ):
             success = await bot.fetch_and_cache_events()
             assert success is True
@@ -544,18 +561,21 @@ class TestFailureRecoveryWorkflows:
         bot = failure_recovery_setup
 
         # Multiple failures
-        with patch.object(
-            bot.source_manager, "fetch_and_cache_events", side_effect=Exception("Source error")
-        ), patch.object(
-            bot.cache_manager, "get_todays_cached_events", side_effect=Exception("Cache error")
-        ), patch.object(
-            bot.cache_manager,
-            "is_cache_fresh",
-            new_callable=AsyncMock,
-            return_value=False,  # Force cache to be stale
-        ), patch.object(
-            bot, "handle_error_display", new_callable=AsyncMock
-        ) as mock_error_display:
+        with (
+            patch.object(
+                bot.source_manager, "fetch_and_cache_events", side_effect=Exception("Source error")
+            ),
+            patch.object(
+                bot.cache_manager, "get_todays_cached_events", side_effect=Exception("Cache error")
+            ),
+            patch.object(
+                bot.cache_manager,
+                "is_cache_fresh",
+                new_callable=AsyncMock,
+                return_value=False,  # Force cache to be stale
+            ),
+            patch.object(bot, "handle_error_display", new_callable=AsyncMock) as mock_error_display,
+        ):
             # Execute refresh cycle
             await bot.refresh_cycle()
 
@@ -566,12 +586,13 @@ class TestFailureRecoveryWorkflows:
     async def test_startup_failure_recovery_workflow(self, test_settings, populated_test_database):
         """Test recovery from startup failures."""
         # Mock initialization failure
-        with patch("calendarbot.main.settings", test_settings), patch.object(
-            CacheManager, "initialize", return_value=False
-        ), patch(
-            "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
-        ) as mock_test_conn, patch(
-            "calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True
+        with (
+            patch("calendarbot.main.settings", test_settings),
+            patch.object(CacheManager, "initialize", return_value=False),
+            patch(
+                "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
+            ) as mock_test_conn,
+            patch("calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True),
         ):
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
@@ -627,10 +648,12 @@ class TestPerformanceWorkflows:
         self, test_settings, performance_test_database, performance_tracker
     ):
         """Set up for performance testing."""
-        with patch("calendarbot.main.settings", test_settings), patch(
-            "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
-        ) as mock_test_conn, patch(
-            "calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True
+        with (
+            patch("calendarbot.main.settings", test_settings),
+            patch(
+                "calendarbot.sources.ics_source.ICSSourceHandler.test_connection"
+            ) as mock_test_conn,
+            patch("calendarbot.sources.ics_source.ICSSourceHandler.is_healthy", return_value=True),
         ):
             # Mock successful connection test to prevent real HTTP calls
             mock_health_result = MagicMock()
@@ -656,12 +679,12 @@ class TestPerformanceWorkflows:
         # Create large dataset
         large_event_set = ICSTestData.create_mock_events(count=1000, include_today=True)
 
-        with patch.object(
-            bot.source_manager, "fetch_and_cache_events", return_value=True
-        ), patch.object(
-            bot.cache_manager, "get_events_by_date_range", return_value=large_event_set
-        ), patch.object(
-            bot.display_manager, "display_events", return_value=True
+        with (
+            patch.object(bot.source_manager, "fetch_and_cache_events", return_value=True),
+            patch.object(
+                bot.cache_manager, "get_events_by_date_range", return_value=large_event_set
+            ),
+            patch.object(bot.display_manager, "display_events", return_value=True),
         ):
             performance_tracker.start_timer("large_dataset_workflow")
 
@@ -683,12 +706,10 @@ class TestPerformanceWorkflows:
         bot, performance_tracker = performance_setup
 
         # Mock fast operations
-        with patch.object(
-            bot.source_manager, "fetch_and_cache_events", return_value=True
-        ), patch.object(
-            bot.cache_manager, "get_events_by_date_range", return_value=[]
-        ), patch.object(
-            bot.display_manager, "display_events", return_value=True
+        with (
+            patch.object(bot.source_manager, "fetch_and_cache_events", return_value=True),
+            patch.object(bot.cache_manager, "get_events_by_date_range", return_value=[]),
+            patch.object(bot.display_manager, "display_events", return_value=True),
         ):
             performance_tracker.start_timer("high_frequency_operations")
 
@@ -716,12 +737,10 @@ class TestPerformanceWorkflows:
         # Mock operations that might accumulate memory
         test_events = ICSTestData.create_mock_events(count=100)
 
-        with patch.object(
-            bot.source_manager, "fetch_and_cache_events", return_value=True
-        ), patch.object(
-            bot.cache_manager, "get_events_by_date_range", return_value=test_events
-        ), patch.object(
-            bot.display_manager, "display_events", return_value=True
+        with (
+            patch.object(bot.source_manager, "fetch_and_cache_events", return_value=True),
+            patch.object(bot.cache_manager, "get_events_by_date_range", return_value=test_events),
+            patch.object(bot.display_manager, "display_events", return_value=True),
         ):
             # Perform many cycles
             for _ in range(20):
@@ -745,12 +764,10 @@ class TestPerformanceWorkflows:
         bot, performance_tracker = performance_setup
 
         # Mock operations
-        with patch.object(
-            bot.source_manager, "fetch_and_cache_events", return_value=True
-        ), patch.object(
-            bot.cache_manager, "get_events_by_date_range", return_value=[]
-        ), patch.object(
-            bot.display_manager, "display_events", return_value=True
+        with (
+            patch.object(bot.source_manager, "fetch_and_cache_events", return_value=True),
+            patch.object(bot.cache_manager, "get_events_by_date_range", return_value=[]),
+            patch.object(bot.display_manager, "display_events", return_value=True),
         ):
             performance_tracker.start_timer("concurrent_workflow")
 

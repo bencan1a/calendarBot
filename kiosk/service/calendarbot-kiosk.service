@@ -1,0 +1,17 @@
+[Unit]
+Description=CalendarBot Python Web Server for %i
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+Environment=DISPLAY=:0
+WorkingDirectory=/home/%i/calendarbot
+ExecStart=/bin/bash -c '. venv/bin/activate && calendarbot --web --port 8080'
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,14 +1,14 @@
 """Mock ICS data and factory functions for testing."""
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any
 
 
 class ICSTestData:
     """Factory for creating test CalendarEvent objects for testing."""
 
     @staticmethod
-    def create_mock_events(count: int = 3, include_today: bool = False) -> List:
+    def create_mock_events(count: int = 3, include_today: bool = False) -> list:
         """Create mock Microsoft Graph API-like events for testing."""
         from types import SimpleNamespace
 
@@ -240,7 +240,7 @@ class MockHTTPResponses:
     """Factory for creating mock HTTP responses."""
 
     @staticmethod
-    def success_response(content: str, content_type: str = "text/calendar") -> Dict[str, Any]:
+    def success_response(content: str, content_type: str = "text/calendar") -> dict[str, Any]:
         """Create a successful HTTP response."""
         return {
             "status_code": 200,
@@ -254,7 +254,7 @@ class MockHTTPResponses:
         }
 
     @staticmethod
-    def not_modified_response() -> Dict[str, Any]:
+    def not_modified_response() -> dict[str, Any]:
         """Create a 304 Not Modified response."""
         return {
             "status_code": 304,
@@ -266,7 +266,7 @@ class MockHTTPResponses:
         }
 
     @staticmethod
-    def auth_error_response() -> Dict[str, Any]:
+    def auth_error_response() -> dict[str, Any]:
         """Create a 401 authentication error response."""
         return {
             "status_code": 401,
@@ -275,7 +275,7 @@ class MockHTTPResponses:
         }
 
     @staticmethod
-    def not_found_response() -> Dict[str, Any]:
+    def not_found_response() -> dict[str, Any]:
         """Create a 404 not found response."""
         return {
             "status_code": 404,
@@ -284,7 +284,7 @@ class MockHTTPResponses:
         }
 
     @staticmethod
-    def server_error_response() -> Dict[str, Any]:
+    def server_error_response() -> dict[str, Any]:
         """Create a 500 server error response."""
         return {
             "status_code": 500,
@@ -293,7 +293,7 @@ class MockHTTPResponses:
         }
 
     @staticmethod
-    def timeout_response() -> Dict[str, Any]:
+    def timeout_response() -> dict[str, Any]:
         """Create a timeout scenario (no response)."""
         return {"timeout": True}
 
@@ -339,7 +339,7 @@ class DatabaseTestData:
     """Factory for creating test database records."""
 
     @staticmethod
-    def create_cached_event_data(event_id: str = "test-1") -> Dict[str, Any]:
+    def create_cached_event_data(event_id: str = "test-1") -> dict[str, Any]:
         """Create cached event data for database testing."""
         now = datetime.now()
 
@@ -370,7 +370,7 @@ class DatabaseTestData:
     @staticmethod
     def create_cache_metadata(
         last_update: datetime = None, successful_fetch: datetime = None, failures: int = 0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create cache metadata for testing."""
         now = datetime.now()
 
@@ -388,17 +388,17 @@ class WebAPITestData:
     """Factory for creating web API test data."""
 
     @staticmethod
-    def navigation_request(action: str) -> Dict[str, Any]:
+    def navigation_request(action: str) -> dict[str, Any]:
         """Create navigation API request data."""
         return {"action": action}
 
     @staticmethod
-    def layout_request(layout: str) -> Dict[str, Any]:
+    def layout_request(layout: str) -> dict[str, Any]:
         """Create layout API request data."""
         return {"layout": layout}
 
     @staticmethod
-    def expected_navigation_response(success: bool = True) -> Dict[str, Any]:
+    def expected_navigation_response(success: bool = True) -> dict[str, Any]:
         """Create expected navigation API response."""
         return {
             "success": success,
@@ -406,7 +406,7 @@ class WebAPITestData:
         }
 
     @staticmethod
-    def expected_status_response() -> Dict[str, Any]:
+    def expected_status_response() -> dict[str, Any]:
         """Create expected status API response."""
         return {
             "running": True,
@@ -440,7 +440,7 @@ def create_performance_test_ics(size_mb: float) -> str:
     return large_ics
 
 
-def extract_events_from_ics(ics_content: str) -> List[Dict[str, str]]:
+def extract_events_from_ics(ics_content: str) -> list[dict[str, str]]:
     """Extract event data from ICS content for validation."""
     events = []
     lines = ics_content.split("\n")

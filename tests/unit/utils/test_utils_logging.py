@@ -262,7 +262,7 @@ class TestTimestampedFileHandler:
         with tempfile.TemporaryDirectory() as temp_dir:
             nested_dir = Path(temp_dir) / "nested" / "logs"
 
-            handler = TimestampedFileHandler(nested_dir)
+            TimestampedFileHandler(nested_dir)
 
             assert nested_dir.exists()
 
@@ -280,7 +280,7 @@ class TestTimestampedFileHandler:
             with patch("calendarbot.utils.logging.datetime") as mock_datetime:
                 mock_datetime.now.return_value.strftime.return_value = "current"
 
-                handler = TimestampedFileHandler(log_dir, prefix="test", max_files=3)
+                TimestampedFileHandler(log_dir, prefix="test", max_files=3)
 
             # Should keep only max_files (3) most recent files plus the new one
             remaining_files = list(log_dir.glob("test_*.log"))
@@ -301,7 +301,7 @@ class TestTimestampedFileHandler:
                     mock_datetime.now.return_value.strftime.return_value = "current"
 
                     # Should not raise exception
-                    handler = TimestampedFileHandler(log_dir, prefix="test", max_files=1)
+                    TimestampedFileHandler(log_dir, prefix="test", max_files=1)
 
     def test_pathlib_path_input(self) -> None:
         """Test handler accepts pathlib.Path input."""
@@ -735,7 +735,7 @@ class TestLoggingIntegration:
                 (log_dir / f"test_{i}.log").touch()
 
             # Create handler with max_files=2
-            handler = TimestampedFileHandler(log_dir, prefix="test", max_files=2)
+            TimestampedFileHandler(log_dir, prefix="test", max_files=2)
 
             # Should have kept only 2 old files + 1 new file
             log_files = list(log_dir.glob("test_*.log"))

@@ -354,7 +354,7 @@ class TestResourceManagerCombinedOperations:
                 Path("tests/fixtures/layouts/other/style.css")
             ]
 
-            result = resource_manager_combined.get_css_content("other")
+            resource_manager_combined.get_css_content("other")
 
             # Should call registry again for new layout
             assert mock_registry_combined.get_layout_css_paths.call_count >= 2

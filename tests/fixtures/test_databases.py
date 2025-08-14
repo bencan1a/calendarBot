@@ -3,7 +3,7 @@
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import aiosqlite
 import pytest_asyncio
@@ -58,7 +58,7 @@ class DatabaseTestManager:
 
             await db.commit()
 
-    async def insert_test_events(self, events: List[Dict[str, Any]]):
+    async def insert_test_events(self, events: list[dict[str, Any]]):
         """Insert test events into the database."""
         async with aiosqlite.connect(self.db_path) as db:
             for event in events:
@@ -72,7 +72,7 @@ class DatabaseTestManager:
 
             await db.commit()
 
-    async def insert_cache_metadata(self, metadata: Dict[str, Any]):
+    async def insert_cache_metadata(self, metadata: dict[str, Any]):
         """Insert cache metadata into the database as key-value pairs."""
         async with aiosqlite.connect(self.db_path) as db:
             for key, value in metadata.items():
@@ -91,7 +91,7 @@ class DatabaseTestManager:
             result = await cursor.fetchone()
             return result[0] if result else 0
 
-    async def get_events_by_date(self, target_date: datetime) -> List[Dict[str, Any]]:
+    async def get_events_by_date(self, target_date: datetime) -> list[dict[str, Any]]:
         """Get events for a specific date."""
         start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_day = start_of_day + timedelta(days=1)
@@ -128,7 +128,7 @@ class DatabaseTestManager:
             except Exception:
                 pass  # Expected to fail
 
-    async def get_database_info(self) -> Dict[str, Any]:
+    async def get_database_info(self) -> dict[str, Any]:
         """Get information about the database."""
         async with aiosqlite.connect(self.db_path) as db:
             # Get file size
@@ -149,7 +149,7 @@ class DatabaseScenarios:
     """Common database test scenarios."""
 
     @staticmethod
-    def fresh_cache_scenario() -> Dict[str, Any]:
+    def fresh_cache_scenario() -> dict[str, Any]:
         """Scenario: Fresh cache with recent successful fetch."""
         now = datetime.now()
         return {
@@ -188,7 +188,7 @@ class DatabaseScenarios:
         }
 
     @staticmethod
-    def stale_cache_scenario() -> Dict[str, Any]:
+    def stale_cache_scenario() -> dict[str, Any]:
         """Scenario: Stale cache that needs refresh."""
         now = datetime.now()
         old_time = now - timedelta(hours=2)  # 2 hours old
@@ -229,7 +229,7 @@ class DatabaseScenarios:
         }
 
     @staticmethod
-    def failed_cache_scenario() -> Dict[str, Any]:
+    def failed_cache_scenario() -> dict[str, Any]:
         """Scenario: Cache with recent failures."""
         now = datetime.now()
         error_time = now - timedelta(minutes=30)
@@ -246,7 +246,7 @@ class DatabaseScenarios:
         }
 
     @staticmethod
-    def empty_cache_scenario() -> Dict[str, Any]:
+    def empty_cache_scenario() -> dict[str, Any]:
         """Scenario: Empty cache (first run)."""
         return {
             "metadata": {
@@ -260,7 +260,7 @@ class DatabaseScenarios:
         }
 
     @staticmethod
-    def performance_test_scenario(event_count: int = 1000) -> Dict[str, Any]:
+    def performance_test_scenario(event_count: int = 1000) -> dict[str, Any]:
         """Scenario: Large number of events for performance testing."""
         now = datetime.now()
         events = []

@@ -291,7 +291,7 @@ class TestEnsureTimezoneAware:
 
             mock_import.side_effect = import_side_effect
 
-            result = ensure_timezone_aware(dt, "UTC")
+            ensure_timezone_aware(dt, "UTC")
 
             mock_pytz.timezone.assert_called_once_with("UTC")
             mock_tz.localize.assert_called_once_with(dt)

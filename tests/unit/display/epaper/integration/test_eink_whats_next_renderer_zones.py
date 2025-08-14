@@ -10,7 +10,7 @@ These tests focus on the zone-specific rendering aspects:
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -155,8 +155,8 @@ class MockViewModel:
 
     def __init__(
         self,
-        current_events: Optional[List[MockEventData]] = None,
-        next_events: Optional[List[MockEventData]] = None,
+        current_events: Optional[list[MockEventData]] = None,
+        next_events: Optional[list[MockEventData]] = None,
         display_date: str = "2025-08-01",
         is_cached: bool = False,
     ) -> None:
@@ -194,7 +194,7 @@ def mock_display() -> MockDisplay:
 
 
 @pytest.fixture
-def mock_settings() -> Dict[str, Any]:
+def mock_settings() -> dict[str, Any]:
     """Fixture for mock settings.
 
     Returns:
@@ -269,7 +269,7 @@ def mock_view_model_with_cached_data() -> MockViewModel:
 
 @pytest.fixture
 def mock_renderer(
-    mock_settings: Dict[str, Any], mock_display: MockDisplay
+    mock_settings: dict[str, Any], mock_display: MockDisplay
 ) -> EInkWhatsNextRenderer:
     """Fixture for mock renderer with patched drawing methods.
 
@@ -666,7 +666,7 @@ class TestEInkWhatsNextRendererZones:
         assert result_mixed == "2 HOURS 5 MINUTES"
 
     def test_render_zones_when_different_display_modes_then_uses_correct_color_mode(
-        self, mock_settings: Dict[str, Any]
+        self, mock_settings: dict[str, Any]
     ) -> None:
         """Test zone rendering with different display color modes.
 

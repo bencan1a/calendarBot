@@ -10,7 +10,7 @@ These tests focus on the special rendering functionality:
 
 import re
 from re import Pattern
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -145,7 +145,7 @@ def mock_display() -> MockDisplay:
 
 
 @pytest.fixture
-def mock_settings() -> Dict[str, Any]:
+def mock_settings() -> dict[str, Any]:
     """Fixture for mock settings.
 
     Returns:
@@ -155,7 +155,7 @@ def mock_settings() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def mock_cached_events() -> List[CachedEvent]:
+def mock_cached_events() -> list[CachedEvent]:
     """Fixture for mock cached events.
 
     Returns:
@@ -174,7 +174,7 @@ def mock_cached_events() -> List[CachedEvent]:
 
 @pytest.fixture
 def mock_renderer(
-    mock_settings: Dict[str, Any], mock_display: MockDisplay
+    mock_settings: dict[str, Any], mock_display: MockDisplay
 ) -> EInkWhatsNextRenderer:
     """Fixture for mock renderer with patched font loading.
 
@@ -194,7 +194,7 @@ def mock_renderer(
 
         # Create a real PIL Image for testing
         real_image = Image.new("L", (100, 100))
-        real_draw = ImageDraw.Draw(real_image)
+        ImageDraw.Draw(real_image)
 
         # Create the renderer
         renderer = EInkWhatsNextRenderer(mock_settings, display=mock_display)
@@ -289,7 +289,7 @@ class TestEInkWhatsNextRendererSpecial:
                     )
 
     def test_render_error_when_cached_events_provided_then_includes_events(
-        self, mock_renderer: EInkWhatsNextRenderer, mock_cached_events: List[CachedEvent]
+        self, mock_renderer: EInkWhatsNextRenderer, mock_cached_events: list[CachedEvent]
     ) -> None:
         """Test render_error method with cached events.
 
@@ -595,7 +595,7 @@ class TestEInkWhatsNextRendererSpecial:
             mock_renderer: Mock renderer
         """
         # Create a real image for the test
-        real_image = Image.new("L", (100, 100))
+        Image.new("L", (100, 100))
 
         # Set up the exception in Image.new
         with patch(
@@ -612,7 +612,7 @@ class TestEInkWhatsNextRendererSpecial:
             # We can't check the exact error message since we're using the real method
 
     def test_render_error_when_different_display_capabilities_then_adapts_rendering(
-        self, mock_settings: Dict[str, Any]
+        self, mock_settings: dict[str, Any]
     ) -> None:
         """Test render_error adapts to different display capabilities.
 
@@ -673,7 +673,7 @@ class TestEInkWhatsNextRendererSpecial:
                             )
 
     def test_render_authentication_prompt_when_different_display_capabilities_then_adapts_rendering(
-        self, mock_settings: Dict[str, Any]
+        self, mock_settings: dict[str, Any]
     ) -> None:
         """Test render_authentication_prompt adapts to different display capabilities.
 

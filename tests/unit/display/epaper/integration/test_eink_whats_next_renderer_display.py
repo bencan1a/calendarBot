@@ -8,7 +8,7 @@ These tests focus on the display integration aspects:
 - Image processing for display format
 """
 
-from typing import Any, Dict, Optional, cast
+from typing import Any, Optional, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -181,7 +181,7 @@ def mock_image_processor_fail() -> MagicMock:
 
 
 @pytest.fixture
-def mock_settings() -> Dict[str, Any]:
+def mock_settings() -> dict[str, Any]:
     """Fixture for mock settings.
 
     Returns:
@@ -208,7 +208,7 @@ class TestEInkWhatsNextRendererDisplay:
     """Test display integration functionality of EInkWhatsNextRenderer."""
 
     def test_update_display_when_valid_image_then_initializes_and_renders(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock, test_image: Image.Image
+        self, mock_settings: dict[str, Any], mock_display: MagicMock, test_image: Image.Image
     ) -> None:
         """Test update_display method with valid image.
 
@@ -232,7 +232,7 @@ class TestEInkWhatsNextRendererDisplay:
 
     def test_update_display_when_initialize_fails_then_returns_false(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display_init_fail: MagicMock,
         test_image: Image.Image,
     ) -> None:
@@ -253,7 +253,7 @@ class TestEInkWhatsNextRendererDisplay:
 
     def test_update_display_when_render_fails_then_returns_false(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display_render_fail: MagicMock,
         test_image: Image.Image,
     ) -> None:
@@ -277,7 +277,7 @@ class TestEInkWhatsNextRendererDisplay:
         assert renderer.image_processor.convert_called is True
 
     def test_update_display_when_image_processing_fails_then_returns_false(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock, test_image: Image.Image
+        self, mock_settings: dict[str, Any], mock_display: MagicMock, test_image: Image.Image
     ) -> None:
         """Test update_display method when image processing fails.
 
@@ -301,7 +301,7 @@ class TestEInkWhatsNextRendererDisplay:
         assert renderer.image_processor.convert_called is True
 
     def test_update_display_when_exception_occurs_then_returns_false_and_logs_error(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock, test_image: Image.Image
+        self, mock_settings: dict[str, Any], mock_display: MagicMock, test_image: Image.Image
     ) -> None:
         """Test update_display method with exception.
 
@@ -328,7 +328,7 @@ class TestEInkWhatsNextRendererDisplay:
             mock_logger.exception.assert_called_once_with("Error updating e-Paper display")
 
     def test_update_display_when_invalid_image_then_returns_false(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test update_display method with invalid image.
 
@@ -357,7 +357,7 @@ class TestEInkWhatsNextRendererDisplay:
             mock_logger.exception.assert_called_once_with("Error updating e-Paper display")
 
     def test_display_capabilities_when_different_display_types_then_handles_correctly(
-        self, mock_settings: Dict[str, Any], test_image: Image.Image
+        self, mock_settings: dict[str, Any], test_image: Image.Image
     ) -> None:
         """Test handling of different display capabilities.
 
@@ -396,7 +396,7 @@ class TestEInkWhatsNextRendererDisplay:
         assert mono_result is True
 
     def test_image_processor_integration_when_converting_image_then_uses_correct_parameters(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock, test_image: Image.Image
+        self, mock_settings: dict[str, Any], mock_display: MagicMock, test_image: Image.Image
     ) -> None:
         """Test integration with image processor for converting images.
 
@@ -419,7 +419,7 @@ class TestEInkWhatsNextRendererDisplay:
             assert mock_display.render_buffer == b"test_buffer"
 
     def test_display_abstraction_layer_integration_when_updating_display_then_follows_protocol(
-        self, mock_settings: Dict[str, Any], test_image: Image.Image
+        self, mock_settings: dict[str, Any], test_image: Image.Image
     ) -> None:
         """Test integration with display abstraction layer.
 

@@ -18,7 +18,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import psutil
 import pytest
@@ -68,7 +68,7 @@ class CalendarBotPerformanceBenchmark:
         self.base_url = base_url
         self.sample_events = self._create_sample_events()
 
-    def _create_sample_events(self, count: int = 20) -> List[CachedEvent]:
+    def _create_sample_events(self, count: int = 20) -> list[CachedEvent]:
         """Create sample events for performance testing."""
         current_time = datetime.now(timezone.utc)
         events = []
@@ -123,7 +123,7 @@ class CalendarBotPerformanceBenchmark:
 
             # Measure JSON parsing time
             parse_start = time.time()
-            data = response.json()
+            response.json()
             parsing_time = (time.time() - parse_start) * 1000  # Convert to milliseconds
 
             # Measure memory usage (approximate)
@@ -165,11 +165,10 @@ class CalendarBotPerformanceBenchmark:
 
             # Measure HTML parsing time (simulate frontend parsing)
             parse_start = time.time()
-            events = []
             if BeautifulSoup is not None:
                 soup = BeautifulSoup(response.text, "html.parser")
                 # Simulate extracting event data like frontend would do
-                events = soup.find_all("div", {"class": "meeting-card"})
+                soup.find_all("div", {"class": "meeting-card"})
             parsing_time = (time.time() - parse_start) * 1000  # Convert to milliseconds
 
             # Measure memory usage (approximate)
@@ -215,7 +214,7 @@ class CalendarBotPerformanceBenchmark:
             parsing_time_html=html_metrics.parsing_time_ms,
         )
 
-    def benchmark_event_hiding_performance(self) -> Dict[str, float]:
+    def benchmark_event_hiding_performance(self) -> dict[str, float]:
         """Benchmark event hiding operation performance.
 
         Returns:
@@ -249,7 +248,7 @@ class CalendarBotPerformanceBenchmark:
             "total_workflow_ms": hide_time + unhide_time,
         }
 
-    def benchmark_data_serialization_performance(self) -> Dict[str, float]:
+    def benchmark_data_serialization_performance(self) -> dict[str, float]:
         """Benchmark data model serialization performance.
 
         Returns:
@@ -276,7 +275,7 @@ class CalendarBotPerformanceBenchmark:
 
             # Measure JSON encoding time
             start_time = time.time()
-            json_str = json.dumps(serialized_data, default=str)
+            json.dumps(serialized_data, default=str)
             json_encoding_time = (time.time() - start_time) * 1000
         else:
             json_encoding_time = 0
@@ -289,7 +288,7 @@ class CalendarBotPerformanceBenchmark:
             "total_data_processing_ms": creation_time + serialization_time + json_encoding_time,
         }
 
-    def run_performance_suite(self) -> Dict[str, Any]:
+    def run_performance_suite(self) -> dict[str, Any]:
         """Run complete performance benchmark suite.
 
         Returns:
@@ -335,7 +334,7 @@ class CalendarBotPerformanceBenchmark:
 
         return results
 
-    def _validate_against_targets(self, results: Dict) -> Dict[str, Any]:
+    def _validate_against_targets(self, results: dict) -> dict[str, Any]:
         """Validate performance results against Phase 1 targets.
 
         Args:

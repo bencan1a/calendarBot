@@ -4,7 +4,7 @@ import json
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 
@@ -77,7 +77,7 @@ class MockICSServer:
     def __init__(self, host: str = "localhost", port: int = 8999):
         self.host = host
         self.port = port
-        self.responses: Dict[str, Dict[str, Any]] = {}
+        self.responses: dict[str, dict[str, Any]] = {}
         self.request_count = 0
         self.server: Optional[HTTPServer] = None
         self.thread: Optional[threading.Thread] = None
@@ -88,7 +88,7 @@ class MockICSServer:
         path: str,
         content: str,
         status_code: int = 200,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         delay: Optional[float] = None,
     ):
         """Set response for a specific path."""
@@ -170,8 +170,8 @@ class MockWebServer:
     def __init__(self, host: str = "localhost", port: int = 8998):
         self.host = host
         self.port = port
-        self.api_responses: Dict[str, Callable] = {}
-        self.request_log: List[Dict[str, Any]] = []
+        self.api_responses: dict[str, Callable] = {}
+        self.request_log: list[dict[str, Any]] = []
         self.server: Optional[HTTPServer] = None
         self.thread: Optional[threading.Thread] = None
         self.running = False
@@ -264,11 +264,11 @@ class MockWebServer:
         """Clear the request log."""
         self.request_log.clear()
 
-    def get_requests(self) -> List[Dict[str, Any]]:
+    def get_requests(self) -> list[dict[str, Any]]:
         """Get all logged requests."""
         return self.request_log.copy()
 
-    def get_requests_for_endpoint(self, endpoint: str) -> List[Dict[str, Any]]:
+    def get_requests_for_endpoint(self, endpoint: str) -> list[dict[str, Any]]:
         """Get requests for a specific endpoint."""
         return [req for req in self.request_log if req["path"] == endpoint]
 

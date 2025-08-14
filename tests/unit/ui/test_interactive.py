@@ -54,7 +54,7 @@ class TestInteractiveControllerInitialization:
 
         # Patch the _setup_keyboard_handlers method
         with patch.object(InteractiveController, "_setup_keyboard_handlers") as mock_setup:
-            controller = InteractiveController(mock_cache_manager, mock_display_manager)
+            InteractiveController(mock_cache_manager, mock_display_manager)
 
             # Verify _setup_keyboard_handlers was called
             mock_setup.assert_called_once()

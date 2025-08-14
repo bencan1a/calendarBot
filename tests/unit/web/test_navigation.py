@@ -35,7 +35,6 @@ class TestWebNavigationHandler:
         """Test handle_navigation_action with 'prev' action navigates backward."""
         # Arrange
         handler = WebNavigationHandler()
-        original_date = handler.navigation_state.selected_date
 
         with patch.object(handler.navigation_state, "navigate_backward") as mock_navigate:
             # Act

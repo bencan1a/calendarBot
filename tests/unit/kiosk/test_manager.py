@@ -60,7 +60,7 @@ class TestKioskManager:
             mock_browser = Mock()
             mock_browser_class.return_value = mock_browser
 
-            manager = KioskManager(
+            KioskManager(
                 settings=mock_settings,
                 kiosk_settings=kiosk_settings,
                 daemon_manager=mock_daemon_manager,

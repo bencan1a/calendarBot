@@ -12,7 +12,7 @@ Uses Playwright MCP server for browser automation.
 
 import asyncio
 import logging
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -30,7 +30,7 @@ class TestKioskUIBrowserAutomation:
     async def test_kiosk_ui_loads_when_browser_started_then_displays_calendar(
         self,
         pi_zero_2w_kiosk_settings: KioskSettings,
-        browser_automation_config: Dict[str, Any],
+        browser_automation_config: dict[str, Any],
         performance_monitor,
     ) -> None:
         """Test kiosk UI loads and displays calendar content correctly."""
@@ -63,7 +63,7 @@ class TestKioskUIBrowserAutomation:
         logger.info(f"Kiosk UI loaded in {ui_load_duration:.2f}s")
 
     async def test_kiosk_touch_interaction_when_elements_tapped_then_navigation_works(
-        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: Dict[str, Any]
+        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: dict[str, Any]
     ) -> None:
         """Test touch interaction and navigation in kiosk UI."""
         # Mock touch interaction simulation
@@ -90,7 +90,7 @@ class TestKioskUIBrowserAutomation:
         logger.info(f"Touch interactions validated: {len(mock_touch_events)} events")
 
     async def test_kiosk_display_scaling_when_pi_screen_then_appropriate_layout(
-        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: Dict[str, Any]
+        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: dict[str, Any]
     ) -> None:
         """Test display scaling and layout for Pi Zero 2W kiosk screens."""
         display_settings = pi_zero_2w_kiosk_settings.display
@@ -127,7 +127,7 @@ class TestKioskUIBrowserAutomation:
         )
 
     async def test_kiosk_error_handling_when_network_issue_then_graceful_fallback(
-        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: Dict[str, Any]
+        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: dict[str, Any]
     ) -> None:
         """Test kiosk UI error handling and fallback behavior."""
         # Mock network connectivity issues
@@ -156,9 +156,9 @@ class TestKioskUIBrowserAutomation:
     async def test_kiosk_performance_when_pi_hardware_then_smooth_rendering(
         self,
         pi_zero_2w_kiosk_settings: KioskSettings,
-        browser_automation_config: Dict[str, Any],
+        browser_automation_config: dict[str, Any],
         performance_monitor,
-        performance_thresholds: Dict[str, Dict[str, float]],
+        performance_thresholds: dict[str, dict[str, float]],
     ) -> None:
         """Test kiosk UI performance on Pi Zero 2W hardware constraints."""
         # Mock performance metrics collection
@@ -201,7 +201,7 @@ class TestKioskUIContentValidation:
     """Test kiosk UI content rendering and data display."""
 
     async def test_calendar_data_rendering_when_events_loaded_then_displays_correctly(
-        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: Dict[str, Any]
+        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: dict[str, Any]
     ) -> None:
         """Test calendar event data renders correctly in kiosk UI."""
         # Mock calendar data that would be displayed
@@ -246,7 +246,7 @@ class TestKioskUIContentValidation:
         logger.info(f"Calendar data validated: {len(mock_calendar_events)} events")
 
     async def test_time_display_when_kiosk_running_then_updates_correctly(
-        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: Dict[str, Any]
+        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: dict[str, Any]
     ) -> None:
         """Test time display updates correctly in kiosk UI."""
         # Mock time display validation
@@ -272,7 +272,7 @@ class TestKioskUIContentValidation:
         logger.info("Time display validation completed")
 
     async def test_ui_accessibility_when_kiosk_mode_then_appropriate_features(
-        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: Dict[str, Any]
+        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: dict[str, Any]
     ) -> None:
         """Test UI accessibility features appropriate for kiosk usage."""
         display_settings = pi_zero_2w_kiosk_settings.display
@@ -307,7 +307,7 @@ class TestKioskUIErrorRecovery:
         self,
         pi_zero_2w_kiosk_settings: KioskSettings,
         mock_daemon_manager: MagicMock,
-        browser_automation_config: Dict[str, Any],
+        browser_automation_config: dict[str, Any],
     ) -> None:
         """Test automatic recovery from browser crashes."""
         mock_settings = MagicMock()
@@ -340,7 +340,7 @@ class TestKioskUIErrorRecovery:
         logger.info("Browser crash recovery validated")
 
     async def test_ui_freeze_detection_when_unresponsive_then_recovery_triggered(
-        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: Dict[str, Any]
+        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: dict[str, Any]
     ) -> None:
         """Test detection and recovery from UI freeze/unresponsive state."""
         # Mock UI responsiveness detection
@@ -377,7 +377,7 @@ class TestKioskUIErrorRecovery:
         logger.info("UI freeze detection and recovery validated")
 
     async def test_memory_exhaustion_recovery_when_limit_exceeded_then_cache_cleared(
-        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: Dict[str, Any]
+        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: dict[str, Any]
     ) -> None:
         """Test recovery from memory exhaustion by clearing caches."""
         # Mock memory usage progression
@@ -428,7 +428,7 @@ class TestKioskUICustomization:
     """Test kiosk UI customization and configuration options."""
 
     async def test_display_brightness_when_configured_then_applied_correctly(
-        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: Dict[str, Any]
+        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: dict[str, Any]
     ) -> None:
         """Test display brightness configuration is applied correctly."""
         display_settings = pi_zero_2w_kiosk_settings.display
@@ -455,7 +455,7 @@ class TestKioskUICustomization:
         logger.info(f"Display brightness validated: {configured_brightness}%")
 
     async def test_layout_customization_when_target_set_then_correct_view_loaded(
-        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: Dict[str, Any]
+        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: dict[str, Any]
     ) -> None:
         """Test kiosk loads the correct layout based on target_layout setting."""
         target_layout = pi_zero_2w_kiosk_settings.target_layout
@@ -486,7 +486,7 @@ class TestKioskUICustomization:
         logger.info(f"Layout customization validated: {target_layout}")
 
     async def test_touch_calibration_when_configured_then_accurate_input(
-        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: Dict[str, Any]
+        self, pi_zero_2w_kiosk_settings: KioskSettings, browser_automation_config: dict[str, Any]
     ) -> None:
         """Test touch calibration settings provide accurate touch input."""
         display_settings = pi_zero_2w_kiosk_settings.display

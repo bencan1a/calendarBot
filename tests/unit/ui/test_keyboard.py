@@ -80,7 +80,7 @@ class TestKeyboardHandlerPlatformSetup:
             # Use patch.dict to add select to sys.modules
             with patch.dict("sys.modules", {"select": mock_select}):
                 # Mock sys.stdin
-                with patch("sys.stdin") as mock_stdin:
+                with patch("sys.stdin"):
                     handler = KeyboardHandler()
 
                     # Verify handler has the expected attributes
@@ -96,7 +96,7 @@ class TestKeyboardHandlerPlatformSetup:
             with patch.dict("sys.modules", {"msvcrt": None}):
                 with patch("builtins.__import__", side_effect=ImportError("Test error")):
                     with patch.object(KeyboardHandler, "_setup_fallback_input") as mock_fallback:
-                        handler = KeyboardHandler()
+                        KeyboardHandler()
 
                         # Verify fallback was called
                         mock_fallback.assert_called_once()

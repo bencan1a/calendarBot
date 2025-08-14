@@ -9,7 +9,7 @@ These tests focus on the helper functionality:
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -135,8 +135,8 @@ class MockViewModel:
 
     def __init__(
         self,
-        current_events: Optional[List[MockEvent]] = None,
-        next_events: Optional[List[MockEvent]] = None,
+        current_events: Optional[list[MockEvent]] = None,
+        next_events: Optional[list[MockEvent]] = None,
         display_date: str = "2025-08-01",
     ) -> None:
         """Initialize mock view model.
@@ -172,7 +172,7 @@ def mock_display() -> MockDisplay:
 
 
 @pytest.fixture
-def mock_settings() -> Dict[str, Any]:
+def mock_settings() -> dict[str, Any]:
     """Fixture for mock settings.
 
     Returns:
@@ -209,7 +209,7 @@ def mock_view_model_with_events() -> MockViewModel:
 
 @pytest.fixture
 def mock_renderer(
-    mock_settings: Dict[str, Any], mock_display: MockDisplay
+    mock_settings: dict[str, Any], mock_display: MockDisplay
 ) -> EInkWhatsNextRenderer:
     """Fixture for mock renderer with patched font loading.
 
@@ -316,7 +316,7 @@ class TestEInkWhatsNextRendererHelpers:
             assert result == expected_output
 
     def test_can_do_partial_update_when_display_doesnt_support_then_returns_false(
-        self, mock_settings: Dict[str, Any]
+        self, mock_settings: dict[str, Any]
     ) -> None:
         """Test _can_do_partial_update when display doesn't support partial updates.
 
@@ -459,7 +459,7 @@ class TestEInkWhatsNextRendererHelpers:
         assert result is True
 
     def test_load_fonts_when_system_fonts_available_then_loads_truetype_fonts(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: dict[str, Any], mock_display: MockDisplay
     ) -> None:
         """Test _load_fonts when system fonts are available.
 
@@ -492,7 +492,7 @@ class TestEInkWhatsNextRendererHelpers:
                     assert renderer._font_cache[key] == mock_truetype_font
 
     def test_load_fonts_when_system_fonts_not_available_then_falls_back_to_default(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: dict[str, Any], mock_display: MockDisplay
     ) -> None:
         """Test _load_fonts when system fonts are not available.
 
@@ -532,7 +532,7 @@ class TestEInkWhatsNextRendererHelpers:
                 assert font == mock_default_font
 
     def test_load_fonts_when_some_fonts_available_then_loads_mix_of_fonts(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: dict[str, Any], mock_display: MockDisplay
     ) -> None:
         """Test _load_fonts when some system fonts are available and others are not.
 
@@ -787,7 +787,7 @@ class TestEInkWhatsNextRendererHelpers:
             )
 
     def test_load_fonts_when_font_path_not_found_then_falls_back_to_default(
-        self, mock_settings: Dict[str, Any], mock_display: MockDisplay
+        self, mock_settings: dict[str, Any], mock_display: MockDisplay
     ) -> None:
         """Test _load_fonts with non-existent font paths.
 

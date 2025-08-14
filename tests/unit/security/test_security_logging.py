@@ -522,7 +522,7 @@ class TestSecurityEventLogger:
         mock_audit_dir.__truediv__ = Mock(return_value=mock_audit_dir)
 
         with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger(mock_settings)
+            SecurityEventLogger(mock_settings)
 
             # Verify audit logger configuration
             mock_get_logger.assert_called_with("calendarbot.security.audit")
@@ -550,7 +550,7 @@ class TestSecurityEventLogger:
         mock_audit_dir.__truediv__ = Mock(return_value=mock_audit_dir)
 
         with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
+            SecurityEventLogger()
 
             # Verify default path is used
             mock_path.home.assert_called_once()
@@ -1084,7 +1084,7 @@ class TestSecurityLoggingIntegration:
                 logger = SecurityEventLogger(mock_settings)
 
                 # Verify audit directory structure would be created
-                expected_path = Path(temp_dir) / "security" / "audit"
+                Path(temp_dir) / "security" / "audit"
                 # Note: We can't test actual directory creation due to mocking,
                 # but we verify the logger is set up without errors
                 assert logger.audit_logger is not None

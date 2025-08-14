@@ -245,7 +245,7 @@ class TestDaemonManager:
         mock_getpid.return_value = 1234
 
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "open", mock_open()) as mock_file,
         ):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
@@ -262,7 +262,7 @@ class TestDaemonManager:
     def test_create_pid_file_when_daemon_already_running_then_raises_error(self):
         """Test create_pid_file raises DaemonAlreadyRunningError when daemon running."""
         # Arrange
-        with patch.object(Path, "mkdir") as mock_mkdir:
+        with patch.object(Path, "mkdir"):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
 
             with (
@@ -279,7 +279,7 @@ class TestDaemonManager:
         """Test create_pid_file uses custom PID when specified."""
         # Arrange
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "open", mock_open()) as mock_file,
         ):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
@@ -296,7 +296,7 @@ class TestDaemonManager:
         """Test create_pid_file raises PIDFileError when file write fails."""
         # Arrange
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "open", side_effect=OSError("Permission denied")),
         ):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
@@ -312,7 +312,7 @@ class TestDaemonManager:
         """Test read_pid_file returns PID when file exists and contains valid PID."""
         # Arrange
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
             patch.object(Path, "open", mock_open(read_data="1234")),
         ):
@@ -328,7 +328,7 @@ class TestDaemonManager:
         """Test read_pid_file returns None when PID file doesn't exist."""
         # Arrange
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=False),
         ):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
@@ -344,7 +344,7 @@ class TestDaemonManager:
         """Test read_pid_file returns None when PID file is empty."""
         # Arrange
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
             patch.object(Path, "open", mock_open(read_data="")),
         ):
@@ -362,7 +362,7 @@ class TestDaemonManager:
         """Test read_pid_file returns None when PID is invalid."""
         # Arrange
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
             patch.object(Path, "open", mock_open(read_data="0")),
         ):
@@ -380,7 +380,7 @@ class TestDaemonManager:
         """Test read_pid_file returns None when PID file contains non-numeric content."""
         # Arrange
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
             patch.object(Path, "open", mock_open(read_data="not_a_number")),
         ):
@@ -398,7 +398,7 @@ class TestDaemonManager:
         """Test read_pid_file returns None when file read fails."""
         # Arrange
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
             patch.object(Path, "open", side_effect=OSError("Read error")),
         ):
@@ -415,7 +415,7 @@ class TestDaemonManager:
         """Test cleanup_pid_file removes PID file when it exists."""
         # Arrange
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
             patch.object(Path, "unlink") as mock_unlink,
         ):
@@ -432,7 +432,7 @@ class TestDaemonManager:
         """Test cleanup_pid_file returns True when file doesn't exist."""
         # Arrange
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=False),
         ):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
@@ -448,7 +448,7 @@ class TestDaemonManager:
         """Test cleanup_pid_file returns False when file removal fails."""
         # Arrange
         with (
-            patch.object(Path, "mkdir") as mock_mkdir,
+            patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
             patch.object(Path, "unlink", side_effect=OSError("Permission denied")),
         ):
@@ -475,7 +475,7 @@ class TestDaemonManager:
     ):
         """Test is_process_running with various psutil availability and results."""
         # Arrange
-        with patch.object(Path, "mkdir") as mock_mkdir:
+        with patch.object(Path, "mkdir"):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
 
             if psutil_available:
@@ -506,7 +506,7 @@ class TestDaemonManager:
     def test_is_daemon_running_when_no_pid_file_then_returns_false(self):
         """Test is_daemon_running returns False when no PID file exists."""
         # Arrange
-        with patch.object(Path, "mkdir") as mock_mkdir:
+        with patch.object(Path, "mkdir"):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
 
             with patch.object(manager, "read_pid_file", return_value=None):
@@ -519,7 +519,7 @@ class TestDaemonManager:
     def test_is_daemon_running_when_process_running_then_returns_true(self):
         """Test is_daemon_running returns True when process is running."""
         # Arrange
-        with patch.object(Path, "mkdir") as mock_mkdir:
+        with patch.object(Path, "mkdir"):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
 
             with (
@@ -538,7 +538,7 @@ class TestDaemonManager:
     ):
         """Test is_daemon_running cleans up stale PID file when process not running."""
         # Arrange
-        with patch.object(Path, "mkdir") as mock_mkdir:
+        with patch.object(Path, "mkdir"):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
 
             with (
@@ -557,7 +557,7 @@ class TestDaemonManager:
     def test_get_daemon_pid_when_daemon_running_then_returns_pid(self):
         """Test get_daemon_pid returns PID when daemon is running."""
         # Arrange
-        with patch.object(Path, "mkdir") as mock_mkdir:
+        with patch.object(Path, "mkdir"):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
 
             with (
@@ -573,7 +573,7 @@ class TestDaemonManager:
     def test_get_daemon_pid_when_daemon_not_running_then_returns_none(self):
         """Test get_daemon_pid returns None when daemon is not running."""
         # Arrange
-        with patch.object(Path, "mkdir") as mock_mkdir:
+        with patch.object(Path, "mkdir"):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
 
             with patch.object(manager, "is_daemon_running", return_value=False):
@@ -586,7 +586,7 @@ class TestDaemonManager:
     def test_get_process_info_when_process_not_running_then_returns_basic_info(self):
         """Test get_process_info returns basic info when process not running."""
         # Arrange
-        with patch.object(Path, "mkdir") as mock_mkdir:
+        with patch.object(Path, "mkdir"):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
 
             with patch.object(manager, "is_process_running", return_value=False):
@@ -603,7 +603,7 @@ class TestDaemonManager:
     ):
         """Test get_process_info returns detailed info when psutil available and process running."""
         # Arrange
-        with patch.object(Path, "mkdir") as mock_mkdir:
+        with patch.object(Path, "mkdir"):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
 
             mock_process = Mock()
@@ -630,7 +630,7 @@ class TestDaemonManager:
     def test_get_process_info_when_psutil_error_then_logs_warning(self):
         """Test get_process_info logs warning when psutil raises exception."""
         # Arrange
-        with patch.object(Path, "mkdir") as mock_mkdir:
+        with patch.object(Path, "mkdir"):
             manager = DaemonManager(pid_file_path=Path("/test/daemon.pid"))
 
             # Create proper exception classes that inherit from BaseException
@@ -671,7 +671,7 @@ class TestDaemonController:
         # Arrange & Act
         with (
             patch("calendarbot.utils.daemon.DaemonManager") as mock_manager_class,
-            patch("calendarbot.utils.daemon.get_logger") as mock_get_logger,
+            patch("calendarbot.utils.daemon.get_logger"),
         ):
             controller = DaemonController()
 

@@ -54,9 +54,7 @@ class TestCheckConfiguration:
             mock_intermediate = MagicMock()
             mock_intermediate.__truediv__.return_value = mock_project_config
             mock_path.return_value.parent.parent.__truediv__.return_value = mock_intermediate
-            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = (
-                mock_user_config
-            )
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_user_config
 
             is_configured, config_path = check_configuration()
 
@@ -73,9 +71,7 @@ class TestCheckConfiguration:
             mock_intermediate = MagicMock()
             mock_intermediate.__truediv__.return_value = mock_config
             mock_path.return_value.parent.parent.__truediv__.return_value = mock_intermediate
-            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = (
-                mock_config
-            )
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_config
 
             # Mock settings with ICS URL
             mock_settings = MagicMock()
@@ -99,9 +95,7 @@ class TestCheckConfiguration:
             mock_intermediate = MagicMock()
             mock_intermediate.__truediv__.return_value = mock_config
             mock_path.return_value.parent.parent.__truediv__.return_value = mock_intermediate
-            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = (
-                mock_config
-            )
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_config
 
             # Mock settings import failure
             with patch(
@@ -129,9 +123,7 @@ class TestCheckConfiguration:
             mock_path.return_value.parent.parent.__truediv__.return_value = mock_intermediate
 
             # Handle user config path: home() / ".config" / "calendarbot" / "config.yaml"
-            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = (
-                mock_user_config
-            )
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_user_config
 
             # Mock settings without ICS URL
             mock_settings = MagicMock()
@@ -203,7 +195,7 @@ class TestBackupConfiguration:
                 "calendarbot.cli.config.check_configuration", return_value=(True, config_file)
             ):
                 with patch("calendarbot.cli.config.Path.home") as mock_home:
-                    backup_dir = Path(temp_dir) / "backups"
+                    Path(temp_dir) / "backups"
                     mock_home.return_value = Path(temp_dir)
 
                     result = backup_configuration()

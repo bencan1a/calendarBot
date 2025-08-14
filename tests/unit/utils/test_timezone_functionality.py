@@ -237,7 +237,7 @@ class TestTimezoneCalculationFix:
         mock_pst = MagicMock()
         mock_timezone.return_value = mock_pst
 
-        utc_time = datetime(2023, 7, 19, 10, 0, 0, tzinfo=timezone.utc)
+        datetime(2023, 7, 19, 10, 0, 0, tzinfo=timezone.utc)
         pst_time = datetime(2023, 7, 19, 2, 0, 0)  # 2 AM PST = 10 AM UTC
 
         # Mock the timezone conversion chain

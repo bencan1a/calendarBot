@@ -6,7 +6,7 @@ the SharedStylingConstants component for the unified rendering pipeline.
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -115,8 +115,8 @@ def create_mock_event(
 
 
 def create_mock_view_model(
-    current_events: Optional[List[MagicMock]] = None,
-    next_events: Optional[List[MagicMock]] = None,
+    current_events: Optional[list[MagicMock]] = None,
+    next_events: Optional[list[MagicMock]] = None,
     display_date: str = "2025-08-01",
 ) -> MagicMock:
     """Create mock view model for testing.
@@ -154,7 +154,7 @@ def mock_display() -> MagicMock:
 
 
 @pytest.fixture
-def mock_settings() -> Dict[str, Any]:
+def mock_settings() -> dict[str, Any]:
     """Fixture for mock settings.
 
     Returns:
@@ -288,7 +288,7 @@ class TestEInkWhatsNextRendererSharedStyling:
 
     def test_init_when_shared_styling_available_then_uses_shared_styling(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
         mock_shared_styling: MagicMock,
     ) -> None:
@@ -324,7 +324,7 @@ class TestEInkWhatsNextRendererSharedStyling:
 
     def test_render_when_shared_styling_available_then_uses_shared_colors(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
         mock_view_model_with_events: MagicMock,
         mock_shared_styling: MagicMock,
@@ -374,7 +374,7 @@ class TestEInkWhatsNextRendererSharedStyling:
 
     def test_render_zone1_when_shared_styling_available_then_uses_shared_typography(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
         mock_shared_styling: MagicMock,
         mock_get_typography_for_renderer: MagicMock,
@@ -425,7 +425,7 @@ class TestEInkWhatsNextRendererSharedStyling:
 
     def test_render_zone2_when_shared_styling_available_then_uses_shared_colors_and_typography(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
         mock_shared_styling: MagicMock,
         mock_get_colors_for_renderer: MagicMock,
@@ -473,7 +473,7 @@ class TestEInkWhatsNextRendererSharedStyling:
 
     def test_render_zone4_when_shared_styling_available_then_uses_shared_colors_and_typography(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
         mock_view_model_with_events: MagicMock,
         mock_shared_styling: MagicMock,
@@ -522,7 +522,7 @@ class TestEInkWhatsNextRendererSharedStyling:
 
     def test_render_full_image_when_shared_styling_available_then_uses_shared_layout(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
         mock_view_model_with_events: MagicMock,
         mock_shared_styling: MagicMock,
@@ -573,7 +573,7 @@ class TestEInkWhatsNextRendererSharedStyling:
 
     def test_visual_consistency_when_compared_to_web_then_matches_styling(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
         mock_shared_styling: MagicMock,
     ) -> None:

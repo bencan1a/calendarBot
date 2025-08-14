@@ -270,7 +270,6 @@ class TestICSSourceHandlerStatusAndMetrics:
         mock_handler._last_modified = "Wed, 21 Oct 2015 07:28:00 GMT"
 
         # Save the original URL
-        original_url = mock_handler.config.url
 
         # Create a new config with a different URL
         new_config = SourceConfig(

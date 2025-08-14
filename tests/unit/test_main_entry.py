@@ -130,7 +130,7 @@ class TestMainEntryPoint:
         """Test that ImportError displays helpful message."""
         # Test the error handling logic directly rather than trying to trigger import error
         # Import errors happen at module load time, not during test execution
-        with patch("calendarbot.__main__.sys.exit") as mock_exit:
+        with patch("calendarbot.__main__.sys.exit"):
             # Simulate the import error handling code from __main__.py
             error_message = "No module named 'calendarbot.cli'"
             print(f"Error importing main entry point: {error_message}")

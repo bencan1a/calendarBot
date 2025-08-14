@@ -124,7 +124,7 @@ class TestStartDaemonProcess:
         mock_args = Mock(port=8080)
 
         with (
-            patch("calendarbot.cli.modes.daemon._configure_daemon_settings") as mock_config,
+            patch("calendarbot.cli.modes.daemon._configure_daemon_settings"),
             patch("calendarbot.cli.modes.daemon.DaemonController") as mock_controller_class,
             patch("builtins.print") as mock_print,
         ):
@@ -147,11 +147,11 @@ class TestStartDaemonProcess:
         mock_args = Mock(port=8080)
 
         with (
-            patch("calendarbot.cli.modes.daemon._configure_daemon_settings") as mock_config,
+            patch("calendarbot.cli.modes.daemon._configure_daemon_settings"),
             patch("calendarbot.cli.modes.daemon.DaemonController") as mock_controller_class,
             patch("calendarbot.cli.modes.daemon._setup_daemon_logging") as mock_logging,
             patch("calendarbot.cli.modes.daemon.run_web_mode") as mock_web_mode,
-            patch("builtins.print") as mock_print,
+            patch("builtins.print"),
         ):
             mock_controller = Mock()
             mock_controller.daemon_manager.is_daemon_running.return_value = False
@@ -180,7 +180,7 @@ class TestStartDaemonProcess:
         mock_args = Mock(port=8080)
 
         with (
-            patch("calendarbot.cli.modes.daemon._configure_daemon_settings") as mock_config,
+            patch("calendarbot.cli.modes.daemon._configure_daemon_settings"),
             patch("calendarbot.cli.modes.daemon.DaemonController") as mock_controller_class,
             patch("builtins.print") as mock_print,
         ):
@@ -200,7 +200,7 @@ class TestStartDaemonProcess:
         mock_args = Mock(port=8080)
 
         with (
-            patch("calendarbot.cli.modes.daemon._configure_daemon_settings") as mock_config,
+            patch("calendarbot.cli.modes.daemon._configure_daemon_settings"),
             patch("calendarbot.cli.modes.daemon.DaemonController") as mock_controller_class,
             patch("builtins.print") as mock_print,
         ):
@@ -220,7 +220,7 @@ class TestStartDaemonProcess:
         mock_args = Mock(port=8080)
 
         with (
-            patch("calendarbot.cli.modes.daemon._configure_daemon_settings") as mock_config,
+            patch("calendarbot.cli.modes.daemon._configure_daemon_settings"),
             patch("calendarbot.cli.modes.daemon.DaemonController") as mock_controller_class,
             patch("builtins.print") as mock_print,
         ):

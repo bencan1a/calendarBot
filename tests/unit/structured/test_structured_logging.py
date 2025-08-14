@@ -220,8 +220,9 @@ class TestLogContext:
         mock_frame.f_code.co_name = "custom_function"
         mock_frame.f_lineno = 456
 
-        with patch("threading.get_ident", return_value=54321), patch(
-            "os.getpid", return_value=6543
+        with (
+            patch("threading.get_ident", return_value=54321),
+            patch("os.getpid", return_value=6543),
         ):
             context = LogContext.from_frame(mock_frame)
 
@@ -569,7 +570,7 @@ class TestStructuredLogger:
         mock_logger.handlers = []
         mock_get_logger.return_value = mock_logger
 
-        structured_logger = StructuredLogger("test.logger")
+        StructuredLogger("test.logger")
 
         # Verify handler was added
         mock_logger.addHandler.assert_called_once()
@@ -584,7 +585,7 @@ class TestStructuredLogger:
         mock_logger.handlers = [mock_handler]
         mock_get_logger.return_value = mock_logger
 
-        structured_logger = StructuredLogger("test.logger")
+        StructuredLogger("test.logger")
 
         # Should not add another handler
         mock_logger.addHandler.assert_not_called()
@@ -838,7 +839,7 @@ class TestContextManagers:
         existing_context.set_current()
 
         try:
-            with correlation_context("new-correlation") as correlation_id:
+            with correlation_context("new-correlation"):
                 current_context = LogContext.get_current()
                 assert current_context.correlation_id.id == "new-correlation"
                 assert current_context.user_id == "existing-user"  # Should be preserved

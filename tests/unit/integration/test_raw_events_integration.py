@@ -508,7 +508,7 @@ class TestRawEventsCleanupIntegration:
         # Verify only recent events remain
         cached_events_after = await temp_cache_manager.get_cached_events(start_date, end_date)
         recent_raw_event = await temp_cache_manager.db.get_raw_event_by_id("raw_recent_event")
-        old_raw_event = await temp_cache_manager.db.get_raw_event_by_id("raw_old_event")
+        await temp_cache_manager.db.get_raw_event_by_id("raw_old_event")
 
         # Recent event should still exist, old event should be gone
         assert len(cached_events_after) >= 1  # Recent event should still be there
@@ -516,4 +516,4 @@ class TestRawEventsCleanupIntegration:
         assert recent_raw_event is not None
 
         # Perform comprehensive cleanup
-        cleanup_success = await temp_cache_manager.cleanup()
+        await temp_cache_manager.cleanup()

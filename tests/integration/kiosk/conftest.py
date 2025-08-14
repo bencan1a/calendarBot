@@ -10,7 +10,7 @@ import time
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -71,7 +71,7 @@ class PerformanceMonitor:
 
     def __init__(self):
         self.start_time: Optional[float] = None
-        self.metrics: Dict[str, Any] = {}
+        self.metrics: dict[str, Any] = {}
 
     def start_timing(self, operation: str) -> None:
         """Start timing an operation."""
@@ -89,7 +89,7 @@ class PerformanceMonitor:
 
         return duration
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get all collected metrics."""
         return self.metrics.copy()
 
@@ -415,7 +415,7 @@ async def kiosk_manager(
 
 
 @pytest.fixture
-def browser_automation_config() -> Dict[str, Any]:
+def browser_automation_config() -> dict[str, Any]:
     """Configuration for browser automation testing."""
     return {
         "headless": True,  # Run headless in CI
@@ -434,7 +434,7 @@ def browser_automation_config() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def memory_constraint_scenarios() -> Dict[str, Dict[str, Any]]:
+def memory_constraint_scenarios() -> dict[str, dict[str, Any]]:
     """Memory constraint scenarios for performance testing."""
     return {
         "optimal": {"available_memory_mb": 400, "expected_startup_time": 15},
@@ -445,7 +445,7 @@ def memory_constraint_scenarios() -> Dict[str, Dict[str, Any]]:
 
 
 @pytest.fixture
-def performance_thresholds() -> Dict[str, Dict[str, float]]:
+def performance_thresholds() -> dict[str, dict[str, float]]:
     """Performance thresholds for Pi Zero 2W testing."""
     return {
         "startup": {
@@ -470,7 +470,7 @@ def performance_thresholds() -> Dict[str, Dict[str, float]]:
 
 
 @pytest.fixture
-def mock_systemd_environment() -> Dict[str, Any]:
+def mock_systemd_environment() -> dict[str, Any]:
     """Mock systemd environment for deployment testing."""
     return {
         "service_files": {
@@ -490,7 +490,7 @@ def mock_systemd_environment() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def mock_x11_environment() -> Dict[str, str]:
+def mock_x11_environment() -> dict[str, str]:
     """Mock X11 environment for display testing."""
     return {
         "DISPLAY": ":0",
@@ -503,7 +503,7 @@ def mock_x11_environment() -> Dict[str, str]:
 
 
 @pytest.fixture
-def error_scenarios() -> Dict[str, Dict[str, Any]]:
+def error_scenarios() -> dict[str, dict[str, Any]]:
     """Error scenarios for testing recovery mechanisms."""
     return {
         "browser_crash": {

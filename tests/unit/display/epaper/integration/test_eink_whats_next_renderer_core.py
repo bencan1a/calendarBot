@@ -6,7 +6,7 @@ error handling, and integration with WhatsNextLogic.
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -152,9 +152,9 @@ def create_mock_status_info(
 
 
 def create_mock_view_model(
-    current_events: Optional[List[MagicMock]] = None,
-    next_events: Optional[List[MagicMock]] = None,
-    later_events: Optional[List[MagicMock]] = None,
+    current_events: Optional[list[MagicMock]] = None,
+    next_events: Optional[list[MagicMock]] = None,
+    later_events: Optional[list[MagicMock]] = None,
     display_date: str = "2025-08-01",
     current_time: Optional[datetime] = None,
     status_info: Optional[MagicMock] = None,
@@ -211,7 +211,7 @@ def mock_display() -> MagicMock:
 
 
 @pytest.fixture
-def mock_settings() -> Dict[str, Any]:
+def mock_settings() -> dict[str, Any]:
     """Fixture for mock settings.
 
     Returns:
@@ -267,7 +267,7 @@ def mock_view_model_with_events() -> MagicMock:
 
 
 @pytest.fixture
-def mock_cached_events() -> List[CachedEvent]:
+def mock_cached_events() -> list[CachedEvent]:
     """Fixture for mock cached events.
 
     Returns:
@@ -288,7 +288,7 @@ class TestEInkWhatsNextRendererCore:
     """Test core functionality of EInkWhatsNextRenderer."""
 
     def test_init_when_default_display_then_creates_eink_driver(
-        self, mock_settings: Dict[str, Any]
+        self, mock_settings: dict[str, Any]
     ) -> None:
         """Test initialization with default display.
 
@@ -311,7 +311,7 @@ class TestEInkWhatsNextRendererCore:
             mock_driver.assert_called_once()
 
     def test_init_when_custom_display_then_uses_provided_display(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test initialization with custom display.
 
@@ -328,7 +328,7 @@ class TestEInkWhatsNextRendererCore:
 
     def test_render_when_valid_view_model_then_returns_image(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
         mock_view_model_with_events: MagicMock,
     ) -> None:
@@ -357,7 +357,7 @@ class TestEInkWhatsNextRendererCore:
 
     def test_render_when_partial_update_possible_then_uses_partial_update(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
         mock_view_model_with_events: MagicMock,
     ) -> None:
@@ -384,7 +384,7 @@ class TestEInkWhatsNextRendererCore:
 
     def test_render_when_exception_occurs_then_returns_error_image(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
         mock_view_model_with_events: MagicMock,
     ) -> None:
@@ -411,7 +411,7 @@ class TestEInkWhatsNextRendererCore:
             assert "Test error" in renderer._render_error_image.call_args[0][0]
 
     def test_update_display_when_valid_image_then_returns_true(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test update_display method with valid image.
 
@@ -436,7 +436,7 @@ class TestEInkWhatsNextRendererCore:
         )
 
     def test_update_display_when_initialize_fails_then_returns_false(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test update_display method when initialize fails.
 
@@ -457,7 +457,7 @@ class TestEInkWhatsNextRendererCore:
         assert mock_display.render_called is False
 
     def test_update_display_when_exception_occurs_then_returns_false(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test update_display method with exception.
 
@@ -481,9 +481,9 @@ class TestEInkWhatsNextRendererCore:
 
     def test_render_from_events_when_valid_events_then_creates_view_model_and_renders(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
-        mock_cached_events: List[CachedEvent],
+        mock_cached_events: list[CachedEvent],
     ) -> None:
         """Test render_from_events method with valid events.
 
@@ -507,7 +507,7 @@ class TestEInkWhatsNextRendererCore:
         renderer.render.assert_called_once_with(mock_view_model)
 
     def test_can_do_partial_update_when_conditions_met_then_returns_true(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test _can_do_partial_update method when conditions are met.
 
@@ -538,7 +538,7 @@ class TestEInkWhatsNextRendererCore:
 
     def test_can_do_partial_update_when_no_last_view_model_then_returns_false(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
         mock_view_model_with_events: MagicMock,
     ) -> None:
@@ -559,7 +559,7 @@ class TestEInkWhatsNextRendererCore:
         assert result is False
 
     def test_can_do_partial_update_when_display_doesnt_support_partial_update_then_returns_false(
-        self, mock_settings: Dict[str, Any], mock_view_model_with_events: MagicMock
+        self, mock_settings: dict[str, Any], mock_view_model_with_events: MagicMock
     ) -> None:
         """Test _can_do_partial_update method when display doesn't support partial update.
 
@@ -581,7 +581,7 @@ class TestEInkWhatsNextRendererCore:
         assert result is False
 
     def test_render_error_when_valid_message_then_returns_image(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test render_error method with valid message.
 
@@ -598,9 +598,9 @@ class TestEInkWhatsNextRendererCore:
 
     def test_render_error_when_cached_events_provided_then_includes_events_in_image(
         self,
-        mock_settings: Dict[str, Any],
+        mock_settings: dict[str, Any],
         mock_display: MagicMock,
-        mock_cached_events: List[CachedEvent],
+        mock_cached_events: list[CachedEvent],
     ) -> None:
         """Test render_error method with cached events.
 
@@ -617,7 +617,7 @@ class TestEInkWhatsNextRendererCore:
         assert isinstance(result, Image.Image)
 
     def test_render_error_when_exception_occurs_then_returns_error_image(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test render_error method with exception.
 
@@ -644,7 +644,7 @@ class TestEInkWhatsNextRendererCore:
             assert "Critical error" in renderer._render_error_image.call_args[0][0]
 
     def test_render_authentication_prompt_when_valid_params_then_returns_image(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test render_authentication_prompt method with valid parameters.
 
@@ -661,7 +661,7 @@ class TestEInkWhatsNextRendererCore:
         assert isinstance(result, Image.Image)
 
     def test_render_authentication_prompt_when_exception_occurs_then_returns_error_image(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test render_authentication_prompt method with exception.
 
@@ -689,7 +689,7 @@ class TestEInkWhatsNextRendererCore:
             assert "Authentication prompt error" in renderer._render_error_image.call_args[0][0]
 
     def test_handle_interaction_when_refresh_event_then_clears_cache(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test handle_interaction method with refresh event.
 
@@ -711,7 +711,7 @@ class TestEInkWhatsNextRendererCore:
         assert renderer._last_view_model is None
 
     def test_handle_interaction_when_button_press_event_then_logs_button_id(
-        self, mock_settings: Dict[str, Any], mock_display: MagicMock
+        self, mock_settings: dict[str, Any], mock_display: MagicMock
     ) -> None:
         """Test handle_interaction method with button press event.
 
