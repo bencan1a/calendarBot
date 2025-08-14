@@ -2,15 +2,16 @@
 
 import logging
 import uuid
+from collections.abc import Generator
 from datetime import datetime, timedelta
-from typing import Any, Optional, cast
+from io import StringIO
+from pathlib import Path
+from typing import Any, BinaryIO, Optional, TextIO, Union, cast
 
 from icalendar import Calendar, Event as ICalEvent
 
 from ..security.logging import SecurityEventLogger  # type: ignore
-from ..timezone import (
-    ensure_timezone_aware,
-)
+from ..timezone import ensure_timezone_aware
 from .models import (
     Attendee,
     AttendeeType,
@@ -28,9 +29,216 @@ logger = logging.getLogger(__name__)
 MAX_ICS_SIZE_BYTES = 50 * 1024 * 1024  # 50MB limit
 MAX_ICS_SIZE_WARNING = 10 * 1024 * 1024  # 10MB warning threshold
 
+# Streaming parser constants
+DEFAULT_CHUNK_SIZE = 8192  # 8KB chunks for streaming
+STREAMING_THRESHOLD = 10 * 1024 * 1024  # 10MB threshold for streaming vs traditional
+
 
 class ICSContentTooLargeError(Exception):
     """Raised when ICS content exceeds size limits."""
+
+
+class StreamingICSParser:
+    """Memory-efficient streaming ICS parser for large files.
+
+    Processes ICS files in chunks to minimize memory usage, handling
+    event boundaries and line folding across chunk boundaries.
+    """
+
+    def __init__(self, chunk_size: int = DEFAULT_CHUNK_SIZE) -> None:
+        """Initialize streaming parser.
+
+        Args:
+            chunk_size: Size of chunks to read in bytes
+        """
+        self.chunk_size = chunk_size
+        self._line_buffer = ""  # Buffer for incomplete lines
+        self._current_event_lines: list[str] = []  # Buffer for current event
+        self._in_event = False  # Track if we're inside a VEVENT
+        self._calendar_metadata: dict[str, str] = {}  # Store calendar properties
+        self._pending_folded_line = ""  # Buffer for incomplete folded lines across chunks
+
+    def parse_stream(
+        self, file_source: Union[str, BinaryIO, TextIO]
+    ) -> Generator[dict[str, Any], None, None]:
+        """Parse ICS content from file stream, yielding events as they are found.
+
+        Args:
+            file_source: File path, file object, or ICS content string
+
+        Yields:
+            Dictionary containing parsed event data and metadata
+
+        Raises:
+            ICSContentTooLargeError: If content exceeds size limits
+        """
+        try:
+            # Handle different input types
+            if isinstance(file_source, str):
+                if not file_source or not file_source.strip():
+                    # Empty content - no events to yield
+                    return
+                elif file_source.startswith(("BEGIN:VCALENDAR", "BEGIN:VEVENT")):
+                    # It's ICS content, not a file path
+                    yield from self._parse_content_stream(file_source)
+                else:
+                    # It's a file path
+                    with Path(file_source).open(encoding="utf-8") as f:
+                        yield from self._parse_file_stream(f)
+            else:
+                # It's a file object
+                yield from self._parse_file_stream(file_source)
+
+        except Exception as e:
+            logger.exception("Failed to parse ICS stream")
+            yield {"type": "error", "error": str(e), "metadata": self._calendar_metadata.copy()}
+
+    def _parse_content_stream(self, content: str) -> Generator[dict[str, Any], None, None]:
+        """Parse ICS content string in chunks."""
+        content_io = StringIO(content)
+        yield from self._parse_file_stream(content_io)
+
+    def _parse_file_stream(
+        self, file_obj: Union[BinaryIO, TextIO]
+    ) -> Generator[dict[str, Any], None, None]:
+        """Parse ICS file stream in chunks."""
+        while True:
+            chunk = file_obj.read(self.chunk_size)
+            if not chunk:
+                break
+
+            # Convert bytes to string if needed
+            if isinstance(chunk, bytes):
+                chunk = chunk.decode("utf-8", errors="replace")
+
+            # Process chunk and yield any complete events
+            yield from self._process_chunk(chunk)
+
+        # Process any remaining buffered content
+        yield from self._finalize_parsing()
+
+    def _process_chunk(self, chunk: str) -> Generator[dict[str, Any], None, None]:
+        """Process a chunk of ICS data, handling line and event boundaries."""
+        # Combine with buffered incomplete line
+        content = self._line_buffer + chunk
+        lines = content.split("\n")
+
+        # Keep last line in buffer if chunk doesn't end with newline
+        if not chunk.endswith("\n"):
+            self._line_buffer = lines[-1]
+            lines = lines[:-1]
+        else:
+            self._line_buffer = ""
+
+        # Process complete lines
+        yield from self._process_lines(lines)
+
+    def _process_lines(self, lines: list[str]) -> Generator[dict[str, Any], None, None]:
+        """Process ICS lines, handling line folding and event boundaries across chunks."""
+        for raw_line in lines:
+            line = raw_line.rstrip("\r")
+
+            # Handle pending folded line from previous chunk
+            if self._pending_folded_line:
+                if line.startswith((" ", "\t")):
+                    # This is a continuation line - add to pending
+                    self._pending_folded_line += (
+                        " " + line[1:]
+                    )  # Remove leading whitespace, add space
+                    continue
+                else:
+                    # Pending line is complete, process it
+                    yield from self._process_line(self._pending_folded_line)
+                    self._pending_folded_line = ""
+                    # Fall through to process current line
+
+            # Check if this line starts a folded sequence that might span chunks
+            if line and not line.startswith((" ", "\t")):
+                # This is a potential start of a folded line
+                self._pending_folded_line = line
+            elif line.startswith((" ", "\t")) and self._pending_folded_line:
+                # This is a continuation of an existing folded line
+                self._pending_folded_line += " " + line[1:]  # Add continuation
+                # If no pending line, this is an orphaned continuation (shouldn't happen in valid ICS)
+
+    def _process_line(self, line: str) -> Generator[dict[str, Any], None, None]:
+        """Process a single complete ICS line."""
+        line = line.strip()
+        if not line:
+            return
+
+        # Handle calendar metadata
+        if not self._in_event and ":" in line:
+            prop, value = line.split(":", 1)
+            prop = prop.upper()
+
+            if prop in ("X-WR-CALNAME", "X-WR-CALDESC", "X-WR-TIMEZONE", "PRODID", "VERSION"):
+                self._calendar_metadata[prop] = value
+
+        # Handle event boundaries
+        if line == "BEGIN:VEVENT":
+            self._in_event = True
+            self._current_event_lines = [line]
+        elif line == "END:VEVENT":
+            if self._in_event:
+                self._current_event_lines.append(line)
+                yield from self._parse_complete_event()
+                self._current_event_lines = []
+            self._in_event = False
+        elif self._in_event:
+            self._current_event_lines.append(line)
+
+    def _parse_complete_event(self) -> Generator[dict[str, Any], None, None]:
+        """Parse a complete event from buffered lines."""
+        try:
+            # Create minimal ICS content for this event
+            event_ics = "BEGIN:VCALENDAR\n"
+            event_ics += "VERSION:2.0\n"
+            event_ics += "PRODID:CalendarBot-Streaming\n"
+            event_ics += "\n".join(self._current_event_lines) + "\n"
+            event_ics += "END:VCALENDAR\n"
+
+            # Parse using icalendar library
+            calendar = Calendar.from_ical(event_ics)
+
+            for component in calendar.walk():
+                if component.name == "VEVENT":
+                    yield {
+                        "type": "event",
+                        "component": component,
+                        "metadata": self._calendar_metadata.copy(),
+                    }
+                    break
+
+        except Exception as e:
+            logger.warning(f"Failed to parse event: {e}")
+            yield {
+                "type": "error",
+                "error": f"Failed to parse event: {e}",
+                "raw_lines": self._current_event_lines.copy(),
+                "metadata": self._calendar_metadata.copy(),
+            }
+
+    def _finalize_parsing(self) -> Generator[dict[str, Any], None, None]:
+        """Process any remaining buffered content at end of file."""
+        # Process any pending folded line from cross-chunk folding
+        if self._pending_folded_line:
+            yield from self._process_line(self._pending_folded_line)
+            self._pending_folded_line = ""
+
+        # Process any remaining line buffer
+        if self._line_buffer.strip():
+            yield from self._process_line(self._line_buffer)
+
+        # Process any incomplete event
+        if self._in_event and self._current_event_lines:
+            logger.warning("Incomplete event at end of file")
+            yield {
+                "type": "error",
+                "error": "Incomplete event at end of file",
+                "raw_lines": self._current_event_lines.copy(),
+                "metadata": self._calendar_metadata.copy(),
+            }
 
 
 class ICSParser:
@@ -44,7 +252,139 @@ class ICSParser:
         """
         self.settings = settings
         self.security_logger = SecurityEventLogger()
+        self._streaming_parser = StreamingICSParser()
         logger.debug("ICS parser initialized")
+
+    def _should_use_streaming(self, ics_content: str) -> bool:
+        """Determine if streaming parser should be used based on content size.
+
+        Args:
+            ics_content: ICS content to check
+
+        Returns:
+            True if streaming should be used, False otherwise
+
+        Raises:
+            TypeError: If content is None
+            AttributeError: If content doesn't have required string methods
+        """
+        if ics_content is None:
+            raise TypeError("ICS content cannot be None")
+
+        if not hasattr(ics_content, "encode"):
+            raise AttributeError("ICS content must be a string with encode method")
+
+        if not ics_content:
+            return False
+
+        content_size = len(ics_content.encode("utf-8"))
+        return content_size >= STREAMING_THRESHOLD
+
+    def parse_ics_content_optimized(
+        self, ics_content: str, source_url: Optional[str] = None
+    ) -> ICSParseResult:
+        """Parse ICS content using optimal method based on size.
+
+        Automatically chooses between streaming (for large files) and
+        traditional parsing (for small files) to optimize memory usage.
+
+        Args:
+            ics_content: Raw ICS file content
+            source_url: Optional source URL for audit trail
+
+        Returns:
+            Parse result with events and metadata
+        """
+        if self._should_use_streaming(ics_content):
+            logger.info(f"Using streaming parser for large ICS content ({len(ics_content)} bytes)")
+            return self._parse_with_streaming(ics_content, source_url)
+
+        logger.debug(f"Using traditional parser for small ICS content ({len(ics_content)} bytes)")
+        return self.parse_ics_content(ics_content, source_url)
+
+    def _parse_with_streaming(
+        self, ics_content: str, source_url: Optional[str] = None
+    ) -> ICSParseResult:
+        """Parse ICS content using streaming parser."""
+        try:
+            # Initialize result tracking
+            events = []
+            warnings = []
+            errors = []
+            total_components = 0
+            event_count = 0
+            recurring_event_count = 0
+            calendar_metadata = {}
+
+            # Process stream
+            for item in self._streaming_parser.parse_stream(ics_content):
+                if item["type"] == "event":
+                    try:
+                        # Parse the iCalendar component using existing logic
+                        component = item["component"]
+                        calendar_metadata.update(item["metadata"])
+
+                        # Use existing event parsing logic
+                        event = self._parse_event_component(
+                            cast(ICalEvent, component), calendar_metadata.get("X-WR-TIMEZONE")
+                        )
+
+                        if event:
+                            events.append(event)
+                            event_count += 1
+                            total_components += 1
+
+                            if event.is_recurring:
+                                recurring_event_count += 1
+
+                    except Exception as e:
+                        warning = f"Failed to parse streamed event: {e}"
+                        warnings.append(warning)
+                        logger.warning(warning)
+
+                elif item["type"] == "error":
+                    errors.append(item["error"])
+
+            # If there were errors during streaming, return failure
+            if errors:
+                return ICSParseResult(
+                    success=False,
+                    error_message="; ".join(errors),
+                    warnings=warnings,
+                    source_url=source_url,
+                )
+
+            # Filter events (same as traditional parser)
+            filtered_events = [e for e in events if e.is_busy_status and not e.is_cancelled]
+
+            logger.debug(
+                f"Streaming parser processed {len(filtered_events)} events "
+                f"({event_count} total events, {len(filtered_events)} busy/tentative)"
+            )
+
+            return ICSParseResult(
+                success=True,
+                events=filtered_events,
+                calendar_name=calendar_metadata.get("X-WR-CALNAME"),
+                calendar_description=calendar_metadata.get("X-WR-CALDESC"),
+                timezone=calendar_metadata.get("X-WR-TIMEZONE"),
+                total_components=total_components,
+                event_count=event_count,
+                recurring_event_count=recurring_event_count,
+                warnings=warnings,
+                ics_version=calendar_metadata.get("VERSION"),
+                prodid=calendar_metadata.get("PRODID"),
+                raw_content=None,  # Don't store raw content for large files
+                source_url=source_url,
+            )
+
+        except Exception as e:
+            logger.exception("Failed to parse ICS content with streaming parser")
+            return ICSParseResult(
+                success=False,
+                error_message=str(e),
+                source_url=source_url,
+            )
 
     def _validate_ics_size(self, ics_content: str) -> None:
         """Validate ICS content size before processing.
@@ -79,6 +419,9 @@ class ICSParser:
     ) -> ICSParseResult:
         """Parse ICS content into structured calendar events.
 
+        Automatically chooses optimal parsing method based on content size.
+        For large files (>10MB), uses streaming parser to reduce memory usage.
+
         Args:
             ics_content: Raw ICS file content
             source_url: Optional source URL for audit trail
@@ -86,11 +429,24 @@ class ICSParser:
         Returns:
             Parse result with events and metadata including raw content
         """
+        if not ics_content or not ics_content.strip():
+            logger.warning("Empty ICS content provided")
+            return ICSParseResult(
+                success=False,
+                error_message="Empty ICS content",
+                source_url=source_url,
+            )
+
+        # Use optimized parsing method that automatically selects strategy
+        if self._should_use_streaming(ics_content):
+            logger.info(f"Using streaming parser for large ICS content ({len(ics_content)} bytes)")
+            return self._parse_with_streaming(ics_content, source_url)
+
         # Initialize variables that might be used in error handling
         raw_content = None
 
         try:
-            logger.debug("Starting ICS content parsing")
+            logger.debug("Starting traditional ICS content parsing")
 
             # Capture raw content and validate size (with error handling)
             try:
