@@ -117,7 +117,7 @@ check_dependencies() {
     print_info "Checking required dependencies..."
     
     local missing_deps=()
-    local deps=("chromium-browser" "openbox" "xdpyinfo" "xset" "curl")
+    local deps=("chromium-browser" "openbox" "xdpyinfo" "xset" "curl" "unclutter")
     
     for dep in "${deps[@]}"; do
         if ! command -v "$dep" >/dev/null 2>&1; then

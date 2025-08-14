@@ -10,6 +10,9 @@ echo "[$(date)] Starting kiosk session"
 # Start Openbox window manager
 openbox &
 
+# Start unclutter to hide the mouse pointer after 1 second of inactivity
+unclutter -idle 1 &
+
 # Disable screen blanking and power management
 echo "[$(date)] Disabling screen blanking..."
 xset s off          # Disable screensaver
