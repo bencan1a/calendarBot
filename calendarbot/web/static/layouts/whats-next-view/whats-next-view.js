@@ -1233,7 +1233,7 @@ async function refresh() {
 }
 
 /**
- * Silent refresh for auto-refresh (following 3x4 pattern) - Phase 2: Uses state manager with incremental DOM updates
+ * Silent refresh for auto-refresh (following 3x4 pattern) - Uses state manager with incremental DOM updates
  */
 async function refreshSilent() {
     try {
