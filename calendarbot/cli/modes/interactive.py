@@ -1,8 +1,7 @@
 """Interactive mode handler for Calendar Bot CLI.
 
 This module provides the interactive console navigation mode with arrow key
-controls for Calendar Bot. This functionality will be migrated from root main.py
-during Phase 2 of the architectural refactoring.
+controls for Calendar Bot.
 """
 
 import asyncio
