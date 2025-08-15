@@ -154,7 +154,7 @@ except ImportError:
 
 
 from ..config.optimization import OptimizationConfig, get_optimization_config
-from ..monitoring.phase_2a_monitor import Phase2AMonitor, get_phase_2a_monitor
+from ..monitoring.connection_pool_monitor import ConnectionPoolMonitor, get_connection_pool_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -179,18 +179,18 @@ class CacheManager:
     def __init__(
         self,
         config: Optional[OptimizationConfig] = None,
-        monitor: Optional[Phase2AMonitor] = None,
+        monitor: Optional[ConnectionPoolMonitor] = None,
         cache_dir: Optional[Path] = None,
     ):
         """Initialize multi-level cache manager.
 
         Args:
             config: Optional optimization configuration
-            monitor: Optional Phase 2A performance monitor
+            monitor: Optional connection pool performance monitor
             cache_dir: Optional custom cache directory (defaults to /tmp/calendarbot_cache)
         """
         self.config = config or get_optimization_config()
-        self.monitor = monitor or get_phase_2a_monitor(self.config)
+        self.monitor = monitor or get_connection_pool_monitor(self.config)
         self.logger = logger
 
         # L1 Memory Cache - TTLCache with config-driven parameters
@@ -491,14 +491,14 @@ _cache_manager: Optional[CacheManager] = None
 
 def get_cache_manager(
     config: Optional[OptimizationConfig] = None,
-    monitor: Optional[Phase2AMonitor] = None,
+    monitor: Optional[ConnectionPoolMonitor] = None,
     cache_dir: Optional[Path] = None,
 ) -> CacheManager:
     """Get or create global cache manager instance.
 
     Args:
         config: Optional optimization configuration
-        monitor: Optional Phase 2A monitor
+        monitor: Optional connection pool monitor
         cache_dir: Optional custom cache directory
 
     Returns:
