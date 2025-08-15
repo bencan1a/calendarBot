@@ -24,7 +24,7 @@ class ResourceManager:
         static_asset_cache: Optional[Any] = None,
         enable_lazy_loading: bool = True,
     ) -> None:
-        """Initialize resource manager with Phase 2B optimization support.
+        """Initialize resource manager with layout optimization support.
 
         Args:
             layout_registry: Registry instance for layout discovery (LayoutRegistry or LazyLayoutRegistry).
