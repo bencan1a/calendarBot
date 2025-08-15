@@ -1,4 +1,4 @@
-"""Multi-level cache manager for Phase 2C Cache Strategy Implementation.
+"""Multi-level cache manager for optimized cache strategy implementation.
 
 Implements L1 memory (TTLCache) and L2 disk caching with automatic cleanup.
 Targets: +10MB cache overhead, -30MB from reduced recomputation (net -20MB savings)
