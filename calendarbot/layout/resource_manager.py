@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class ResourceManager:
-    """Manages dynamic loading of layout resources with Phase 2B optimization support."""
+    """Manages dynamic loading of layout resources with layout optimization support."""
 
     def __init__(
         self,
