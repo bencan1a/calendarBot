@@ -190,7 +190,7 @@ function setupMobileEnhancements() {
 
 // Navigation functions
 async function navigate(action) {
-    console.log(`Navigation action: ${action}`);
+    // Navigation action requested
 
     try {
         showLoadingIndicator();
