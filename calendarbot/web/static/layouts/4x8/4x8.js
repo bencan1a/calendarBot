@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeApp() {
-    console.log('Calendar Bot Web Interface loaded');
+    // Calendar Bot Web Interface loaded
 
     // Detect current theme from HTML class
     const htmlElement = document.documentElement;
