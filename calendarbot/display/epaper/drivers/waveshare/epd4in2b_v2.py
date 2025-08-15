@@ -109,7 +109,7 @@ class EPD4in2bV2(EInkDisplayDriver):
         """
         return GPIO.input(pin)  # type: ignore[no-any-return]
 
-    def _spi_transfer(self, data: List[int]) -> None:
+    def _spi_transfer(self, data: list[int]) -> None:
         """Transfer data over SPI.
 
         Args:
@@ -140,7 +140,7 @@ class EPD4in2bV2(EInkDisplayDriver):
         self._spi_transfer([data])
         self._digital_write(self.CS_PIN, 1)
 
-    def _send_data_bulk(self, data: List[int]) -> None:
+    def _send_data_bulk(self, data: list[int]) -> None:
         """Send multiple data bytes to display.
 
         Args:
