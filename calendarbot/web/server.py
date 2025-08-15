@@ -306,6 +306,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             elif path.startswith("/api/database"):
                 logger.debug("Routing to database API")
                 self._handle_database_api(path, params)
+            elif path == "/api/cache/clear":
+                logger.debug("Routing to cache clear API")
+                self._handle_cache_clear_api()
             else:
                 logger.warning(f"No route found for API path: {path}")
                 self._send_json_response(404, {"error": "API endpoint not found"})
