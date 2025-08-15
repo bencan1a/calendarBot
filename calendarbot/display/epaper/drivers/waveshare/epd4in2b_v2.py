@@ -1,25 +1,27 @@
 """Driver for Waveshare 4.2inch e-Paper Module (B) v2."""
 
 import logging
-import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional
 
 try:
-    import RPi.GPIO as GPIO  # type: ignore[import]
     import spidev  # type: ignore[import]
+    from RPi import GPIO  # type: ignore[import]
+
     _HAS_REAL_GPIO = True
 except ImportError:
     # Use mock implementations for development/testing environments
-    from . import mock_gpio as GPIO  # type: ignore[import]
-    from . import mock_spidev as spidev  # type: ignore[import]
+    from . import (
+        mock_gpio as GPIO,  # type: ignore[import]
+        mock_spidev as spidev,  # type: ignore[import]
+    )
+
     _HAS_REAL_GPIO = False
-    
+
 from ...capabilities import DisplayCapabilities
 from ...region import Region
 from ..eink_driver import EInkDisplayDriver
 from .utils import (
     delay_ms,
-    extract_region_buffer,
     split_color_buffer,
 )
 
@@ -236,9 +238,9 @@ class EPD4in2bV2(EInkDisplayDriver):
 
             # Initialize SPI
             self.spi = spidev.SpiDev()
-            self.spi.open(0, 0) # type: ignore
-            self.spi.max_speed_hz = 4000000 # type: ignore
-            self.spi.mode = 0b00 # type: ignore
+            self.spi.open(0, 0)  # type: ignore
+            self.spi.max_speed_hz = 4000000  # type: ignore
+            self.spi.mode = 0b00  # type: ignore
 
             # Reset display
             self._digital_write(self.RST_PIN, 1)
