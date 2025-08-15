@@ -1851,9 +1851,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             # Use static asset cache for O(1) path resolution (eliminates triple filesystem lookup)
             full_path = None
 
-            # DEBUG: Add comprehensive path tracing
-            logger.debug(f"STATIC_FILE_DEBUG: Processing request for file_path='{file_path}'")
-
             if (
                 self.web_server
                 and hasattr(self.web_server, "asset_cache")
@@ -1863,27 +1860,17 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 layout_name = None
                 cache_file_path = file_path  # Preserve original for fallback
 
-                logger.debug("STATIC_FILE_DEBUG: Asset cache is available and built")
-
                 if file_path.startswith("layouts/") and "/" in file_path[8:]:
                     # Extract layout name from "layouts/whats-next-view/whats-next-view.css" -> layout_name="whats-next-view"
                     layout_path_parts = file_path[8:].split("/", 1)
-                    logger.debug(
-                        f"STATIC_FILE_DEBUG: Layout path parsing - file_path[8:]='{file_path[8:]}', parts={layout_path_parts}"
-                    )
                     if len(layout_path_parts) >= 2:
                         layout_name = layout_path_parts[0]
                         cache_file_path = layout_path_parts[1]  # Use the actual filename for cache
-                        logger.debug(
-                            f"STATIC_FILE_DEBUG: Extracted layout_name='{layout_name}', cache_file_path='{cache_file_path}'"
-                        )
 
                 # Resolve asset path using cache (O(1) operation)
                 full_path = self.web_server.asset_cache.resolve_asset_path(
                     cache_file_path, layout_name
                 )
-
-                logger.debug(f"STATIC_FILE_DEBUG: Asset cache result - full_path={full_path}")
 
                 if full_path:
                     # Security validation - ensure resolved path is within allowed directories
@@ -1892,9 +1879,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     static_dir = Path(__file__).parent / "static"
 
                     allowed_dirs = [str(layouts_dir.resolve()), str(static_dir.resolve())]
-                    logger.debug(
-                        f"STATIC_FILE_DEBUG: Security check - resolved_str='{resolved_str}', allowed_dirs={allowed_dirs}"
-                    )
                     if not any(
                         resolved_str.startswith(allowed_dir) for allowed_dir in allowed_dirs
                     ):
