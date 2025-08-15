@@ -361,6 +361,8 @@ class RawEvent(BaseModel):
             web_link=cached_event.web_link,
             is_recurring=cached_event.is_recurring,
             series_master_id=cached_event.series_master_id,
+            recurrence_id=None,  # Will be set by caller if this is an instance
+            is_instance=False,  # Will be set by caller if this is an instance
             last_modified=cached_event.last_modified,
             source_url=source_url,
             raw_ics_content=ics_content,
