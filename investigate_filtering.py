@@ -167,14 +167,15 @@ async def investigate_filtering():
             # Calculate bi-weekly occurrences
             from datetime import timedelta
 
-            current = start_dt
-            target_date = datetime(2025, 8, 18)
+            # Convert to date-only for comparison to avoid timezone issues
+            current_date = start_dt.date()
+            target_date = datetime(2025, 8, 18).date()
 
             print(f"   Checking if bi-weekly pattern reaches {target_date.strftime('%Y-%m-%d')}:")
 
             count = 0
-            while current <= target_date and count < 50:  # Safety limit
-                if current.date() == target_date.date():
+            while current_date <= target_date and count < 50:  # Safety limit
+                if current_date == target_date:
                     print(
                         f"   ✅ MATCH FOUND: {current.strftime('%Y-%m-%d %H:%M')} ({current.strftime('%A')})"
                     )
