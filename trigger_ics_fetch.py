@@ -16,7 +16,7 @@ async def trigger_fetch():
     print("🔍 Triggering ICS fetch to capture raw content...")
 
     # Initialize settings
-    settings = Settings()
+    settings = CalendarBotSettings()
 
     # Initialize source manager
     source_manager = SourceManager(settings)
