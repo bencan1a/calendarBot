@@ -175,7 +175,8 @@ class TestWhatsNextLogic:
 
         assert isinstance(result, WhatsNextViewModel)
         assert result.current_time == current_time
-        assert len(result.current_events) == 1
+        # With new priority logic, upcoming meetings are prioritized over current meetings
+        assert len(result.current_events) == 0
         assert len(result.next_events) == 1
         assert result.status_info.is_cached is True
 
@@ -286,9 +287,10 @@ class TestWhatsNextLogic:
 
         result = logic.create_view_model(events, {})
 
-        # Should have only one current event (first one found)
-        assert len(result.current_events) == 1
-        assert result.current_events[0].subject == "Current 1"
+        # With new priority logic, upcoming meetings are prioritized over current meetings
+        assert len(result.current_events) == 0, (
+            "Should prioritize upcoming meetings over current meetings"
+        )
 
         # Should have first 3 upcoming events as next_events
         assert len(result.next_events) == 3
@@ -634,7 +636,7 @@ class TestWhatsNextLogic:
             "US001: Should not display current meeting when next meeting exists"
         )
         assert len(result.next_events) == 1, "US001: Should display next meeting"
-        assert result.next_events[0].title == "Next Client Call", (
+        assert result.next_events[0].subject == "Next Client Call", (
             "US001: Should prioritize the upcoming meeting"
         )
 
@@ -659,7 +661,7 @@ class TestWhatsNextLogic:
         # US002 assertion: Should calculate time to next meeting start
         assert len(result.next_events) == 1, "US002: Should have next meeting for countdown"
         next_event = result.next_events[0]
-        assert next_event.title == "Next Meeting", "US002: Should identify correct next meeting"
+        assert next_event.subject == "Next Meeting", "US002: Should identify correct next meeting"
 
         # Validate countdown calculation (time until meeting start)
         time_until_start = next_event.start_time - result.current_time
@@ -690,9 +692,9 @@ class TestWhatsNextLogic:
         # US003 assertion: Should populate display with next meeting details
         assert len(result.next_events) == 1, "US003: Should have next meeting data"
         next_event = result.next_events[0]
-        assert next_event.title == "Project Review Meeting", "US003: Should display meeting title"
+        assert next_event.subject == "Project Review Meeting", "US003: Should display meeting title"
         assert next_event.location == "Conference Room A", "US003: Should display meeting location"
-        assert next_event.formatted_time_range is not None, "US003: Should display formatted time"
+        assert next_event.format_time_range() is not None, "US003: Should display formatted time"
 
     @patch("calendarbot.display.whats_next_logic.get_timezone_aware_now")
     def test_us004_handle_consecutive_meetings_back_to_back_scenarios(
@@ -720,7 +722,7 @@ class TestWhatsNextLogic:
             "US004: Should prioritize consecutive meeting over ending meeting"
         )
         assert len(result.next_events) == 1, "US004: Should display consecutive meeting"
-        assert result.next_events[0].title == "Consecutive Meeting", (
+        assert result.next_events[0].subject == "Consecutive Meeting", (
             "US004: Should select the consecutive meeting"
         )
 
@@ -745,7 +747,7 @@ class TestWhatsNextLogic:
         # US005 assertion: Should gracefully handle no upcoming meetings
         assert len(result.next_events) == 0, "US005: Should have no upcoming meetings"
         assert len(result.current_events) == 1, "US005: Should fallback to showing current meeting"
-        assert result.current_events[0].title == "Current Meeting", (
+        assert result.current_events[0].subject == "Current Meeting", (
             "US005: Should display current meeting as fallback"
         )
 
