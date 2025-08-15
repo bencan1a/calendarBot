@@ -1783,9 +1783,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             if (
                 self.web_server
                 and hasattr(self.web_server, "asset_cache")
-                and hasattr(self.web_server.asset_cache, "clear")
+                and hasattr(self.web_server.asset_cache, "clear_cache")
             ):
-                self.web_server.asset_cache.clear()
+                self.web_server.asset_cache.clear_cache()
 
             logger.info("Static file cache cleared successfully")
             self._send_json_response(
