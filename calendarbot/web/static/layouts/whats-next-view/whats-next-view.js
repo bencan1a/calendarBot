@@ -69,7 +69,7 @@ function initializeWhatsNextView() {
     // Initialize settings panel
     initializeSettingsPanel();
 
-    // Initialize state manager (Phase 2)
+    // Initialize state manager
     initializeStateManager();
 
     // Initial data load
