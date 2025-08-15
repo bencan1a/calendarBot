@@ -292,8 +292,7 @@ async function setLayout(layout) {
             console.log(`Layout set to: ${data.layout}`);
             
             // Force full page reload to load new layout's CSS/JS
-            // window.location.reload(); // Disabled for testing - would reload in production
-            console.log('Layout set complete - page would reload in production');
+            window.location.reload();
         } else {
             console.error('Layout set failed:', data.error);
             showErrorMessage('Layout switch failed');
