@@ -6,7 +6,7 @@ from typing import Any, Optional
 import aiohttp
 
 from ..config.optimization import OptimizationConfig, get_optimization_config
-from ..monitoring.phase_2a_monitor import Phase2AMonitor, get_phase_2a_monitor
+from ..monitoring.connection_pool_monitor import ConnectionPoolMonitor, get_connection_pool_monitor
 from ..utils.logging import get_logger
 from .cache_keys import generate_http_cache_key
 from .cache_manager import CacheManager, get_cache_manager
@@ -31,18 +31,18 @@ class ConnectionManager:
     def __init__(
         self,
         config: Optional[OptimizationConfig] = None,
-        monitor: Optional[Phase2AMonitor] = None,
+        monitor: Optional[ConnectionPoolMonitor] = None,
         cache_manager: Optional[CacheManager] = None,
     ):
         """Initialize connection manager.
 
         Args:
             config: Optional optimization configuration
-            monitor: Optional Phase 2A performance monitor
+            monitor: Optional connection pool performance monitor
             cache_manager: Optional cache manager for HTTP response caching
         """
         self.config = config or get_optimization_config()
-        self.monitor = monitor or get_phase_2a_monitor(self.config)
+        self.monitor = monitor or get_connection_pool_monitor(self.config)
         self.cache_manager = cache_manager or get_cache_manager()
         self.logger = get_logger("connection_manager")
 
@@ -442,14 +442,14 @@ _connection_manager: Optional[ConnectionManager] = None
 
 def get_connection_manager(
     config: Optional[OptimizationConfig] = None,
-    monitor: Optional[Phase2AMonitor] = None,
+    monitor: Optional[ConnectionPoolMonitor] = None,
     cache_manager: Optional[CacheManager] = None,
 ) -> ConnectionManager:
     """Get or create global connection manager instance.
 
     Args:
         config: Optional optimization configuration
-        monitor: Optional Phase 2A monitor
+        monitor: Optional connection pool monitor
         cache_manager: Optional cache manager for HTTP response caching
 
     Returns:
