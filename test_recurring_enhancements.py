@@ -4,6 +4,7 @@
 import asyncio
 import os
 import tempfile
+from pathlib import Path
 
 from calendarbot.cache.database import DatabaseManager
 from calendarbot.cache.models import RawEvent
