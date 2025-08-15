@@ -220,8 +220,6 @@ class CalendarBot:
 
             assert self.cache_manager is not None
 
-            logger.debug("Starting refresh cycle")
-
             # Check if cache is fresh
             is_cache_fresh = await self.cache_manager.is_cache_fresh()
 
