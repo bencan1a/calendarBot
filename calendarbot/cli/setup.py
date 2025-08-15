@@ -47,55 +47,6 @@ async def run_setup_wizard() -> int:
         return 1
 
 
-async def run_async_setup_wizard() -> int:
-    """Run the asynchronous setup wizard.
-
-    Returns:
-        Exit code (0 for success, 1 for failure)
-    """
-    try:
-        # Import async wizard from existing module
-        from calendarbot.setup_wizard import run_setup_wizard as run_async_wizard  # noqa: PLC0415
-
-        # Execute the async setup wizard
-        success = await run_async_wizard()
-        return 0 if success else 1
-
-    except KeyboardInterrupt:
-        print("\n\nSetup cancelled by user.")
-        return 1
-    except Exception as e:
-        print(f"\n❌ Setup failed: {e}")
-        return 1
-
-
-def run_simple_setup_wizard() -> int:
-    """Run simplified synchronous setup wizard.
-
-    This function provides integration with the simple setup wizard
-    from the existing setup_wizard.py module.
-
-    Returns:
-        Exit code (0 for success, 1 for failure)
-    """
-    try:
-        # Import simple wizard from existing module
-        from calendarbot.setup_wizard import run_simple_wizard  # noqa: PLC0415
-
-        # Execute the simple setup wizard
-        success = run_simple_wizard()
-        return 0 if success else 1
-
-    except KeyboardInterrupt:
-        print("\n\nSetup cancelled by user.")
-        return 1
-    except Exception as e:
-        print(f"\n❌ Setup failed: {e}")
-        return 1
-
-
 __all__ = [
-    "run_async_setup_wizard",
     "run_setup_wizard",
-    "run_simple_setup_wizard",
 ]
