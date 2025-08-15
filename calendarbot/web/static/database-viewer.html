@@ -406,8 +406,11 @@
             </div>
             
             <div class="sample-queries">
+                <div class="sample-query" data-query="SELECT * FROM cached_events WHERE date(start_dt) = date('now', 'localtime') ORDER BY start_dt;">
+                    📅 Show today's events: SELECT * FROM cached_events WHERE date(start_dt) = date('now', 'localtime') ORDER BY start_dt;
+                </div>
                 <div class="sample-query" data-query="SELECT * FROM cached_events LIMIT 10;">
-                    📅 Show recent events: SELECT * FROM cached_events LIMIT 10;
+                    📋 Show recent events: SELECT * FROM cached_events LIMIT 10;
                 </div>
                 <div class="sample-query" data-query="SELECT COUNT(*) as total_events FROM cached_events;">
                     📊 Count total events: SELECT COUNT(*) as total_events FROM cached_events;
