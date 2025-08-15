@@ -10,27 +10,30 @@ module structure within the calendarbot package.
 from typing import Any, Callable
 
 from .daemon import run_daemon_mode
+from .epaper import run_epaper_mode
+from .interactive import run_interactive_mode
+from .web import run_web_mode
 
 # Mode registry for available execution modes
 MODE_REGISTRY: dict[str, dict[str, Any]] = {
     "interactive": {
         "name": "Interactive Mode",
         "description": "Interactive console navigation with arrow key controls",
-        "handler": None,  # Will be set during Phase 2 migration
+        "handler": run_interactive_mode,
         "requires_display": True,
         "async_mode": True,
     },
     "web": {
         "name": "Web Server Mode",
         "description": "Web-based calendar interface with browser viewing",
-        "handler": None,  # Will be set during Phase 2 migration
+        "handler": run_web_mode,
         "requires_display": False,
         "async_mode": True,
     },
     "epaper": {
         "name": "E-Paper Mode",
         "description": "E-paper display mode with hardware detection and PNG fallback",
-        "handler": None,  # Will be set during Phase 2 migration
+        "handler": run_epaper_mode,
         "requires_display": True,
         "async_mode": True,
     },
