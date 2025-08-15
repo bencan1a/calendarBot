@@ -771,85 +771,18 @@ body::before {
 
 
 
-/* ==========================================
-   STANDARD THEME
-   ========================================== */
-
-.theme-standard {
-    background: var(--gray-1);
-    color: var(--gray-8);
-}
-
-.theme-standard body {
-    background: var(--gray-1);
-    color: var(--gray-8);
-}
-
-.theme-standard .whats-next-header {
-    background: var(--gray-1);
-    border-bottom-color: var(--gray-4);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.theme-standard .refresh-btn,
-.theme-standard .nav-btn {
-    border-color: var(--gray-4);
-    color: var(--gray-6);
-    background: var(--gray-1);
-}
-
-.theme-standard .refresh-btn:hover,
-.theme-standard .nav-btn:hover {
-    background: var(--gray-2);
-    border-color: var(--gray-5);
-}
-
-.theme-standard .meeting-card {
-    border-color: var(--gray-3);
-    background: var(--gray-1);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.theme-standard .meeting-card.current {
-    border-color: var(--gray-6);
-    background: var(--gray-1);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-}
-
-.theme-standard .countdown-container {
-    background: var(--gray-2);
-    border-color: var(--gray-3);
-}
-
-.theme-standard .countdown-time.urgent {
-    color: var(--gray-7);
-}
-
-.theme-standard .next-meeting-item {
-    border-bottom-color: var(--gray-3);
-}
-
-.theme-standard .error-state {
-    border-color: var(--gray-5);
-    background: var(--gray-2);
-}
-
-.theme-standard .loading-spinner {
-    border-color: var(--gray-3);
-    border-top-color: var(--gray-6);
-}
 
 /* ==========================================
    RESPONSIVE CONSIDERATIONS
    ========================================== */
 
-/* Mobile device adjustments (for context outside 300x400) */
+/* Mobile device adjustments (for context outside 480x800) */
 @media (max-width: 480px) {
     .whats-next-header {
         padding: 0.5rem;
     }
     
-    .whats-next-content {
+    .calendar-content {
         padding: 0.75rem;
     }
     
