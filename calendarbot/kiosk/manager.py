@@ -218,7 +218,7 @@ class KioskManager:
             if not await self._start_web_server():
                 raise KioskError("Failed to start web server", "web_server", "STARTUP_FAILED")
 
-            # Phase 2: Wait for web server to be ready
+            # Wait for web server to be ready
             if not await self._wait_for_web_server_ready():
                 raise KioskError("Web server failed to become ready", "web_server", "READY_TIMEOUT")
 
