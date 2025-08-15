@@ -1,7 +1,8 @@
 """Mock implementation of spidev for development environments."""
 
 import logging
-from typing import List
+
+# No typing imports needed - using built-in types
 
 logger = logging.getLogger(__name__)
 
