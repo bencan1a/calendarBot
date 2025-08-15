@@ -11,15 +11,24 @@ This script combines multiple static analysis tools to identify:
 """
 
 import json
+import logging
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("dead_code_analysis.log")],
+)
+logger = logging.getLogger(__name__)
+
 try:
     from calendarbot.optimization.production import DebugStatementAnalyzer
 except ImportError:
-    print("Error: Unable to import DebugStatementAnalyzer")
+    logger.error("Unable to import DebugStatementAnalyzer")
     sys.exit(1)
 
 
