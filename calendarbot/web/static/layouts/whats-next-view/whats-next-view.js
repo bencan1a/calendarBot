@@ -728,7 +728,7 @@ function updateMeetingDisplayOptimized() {
 
     // Generate new values for change detection (no HTML escaping needed for textContent)
     const newMeetingTitle = currentMeeting.title;
-    const newMeetingTime = formatMeetingTime(currentMeeting.start_time, currentMeeting.end_time);
+    const newMeetingTime = formatMeetingTime(currentMeeting.start_time, currentMeeting.end_time, currentMeeting.formatted_time_range);
     const newMeetingLocation = currentMeeting.location || '';
     const newMeetingDescription = currentMeeting.description || '';
     const newContextMessage = getContextMessage(isCurrentMeeting);
@@ -1857,7 +1857,7 @@ class WhatsNextStateManager {
 
         // Update individual components with change detection
         this._updateElementIfChanged('.meeting-title', meeting.title);
-        this._updateElementIfChanged('.meeting-time', this._formatMeetingTime(meeting.start_time, meeting.end_time));
+        this._updateElementIfChanged('.meeting-time', this._formatMeetingTime(meeting.start_time, meeting.end_time, meeting.formatted_time_range));
         this._updateElementIfChanged('.meeting-location', meeting.location || '');
         this._updateElementIfChanged('.meeting-description', meeting.description || '');
         
@@ -2007,9 +2007,16 @@ class WhatsNextStateManager {
      * Format meeting time for display
      * @param {string} startTime - ISO string of start time
      * @param {string} endTime - ISO string of end time
+     * @param {string} formattedTimeRange - Backend-provided timezone-aware time range
      * @returns {string} Formatted time string
      */
-    _formatMeetingTime(startTime, endTime) {
+    _formatMeetingTime(startTime, endTime, formattedTimeRange) {
+        // Use the pre-formatted time range from backend if available (timezone-aware)
+        if (formattedTimeRange) {
+            return formattedTimeRange;
+        }
+        
+        // Fallback to original formatting for backwards compatibility
         const start = new Date(startTime);
         const end = new Date(endTime);
         
