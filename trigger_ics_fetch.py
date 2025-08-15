@@ -8,6 +8,7 @@ from pathlib import Path
 # Add the project root to Python path so we can import calendarbot
 sys.path.insert(0, str(Path(__file__).parent))
 
+from calendarbot.config.settings import CalendarBotSettings
 from calendarbot.sources.manager import SourceManager
 
 
