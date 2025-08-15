@@ -1776,7 +1776,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         """Handle cache clear API requests."""
         try:
             # Clear static file cache
-            self.static_cache.clear()
+            if self.web_server and hasattr(self.web_server, "static_cache"):
+                self.web_server.static_cache.clear()
 
             # Clear asset cache if available
             if (
