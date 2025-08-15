@@ -260,7 +260,7 @@ class KioskManager:
             # Phase 1: Stop health monitoring
             await self._stop_health_monitoring()
 
-            # Phase 2: Stop browser gracefully
+            # Stop browser gracefully
             if not await self.browser_manager.stop_browser(timeout=10):
                 self.logger.warning("Browser did not stop gracefully, forcing shutdown")
 
