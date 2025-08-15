@@ -369,7 +369,7 @@ function setupViewportResolutionDisplay() {
 }
 
 /**
- * Load meeting data from CalendarBot API (Phase 2: JSON consumption)
+ * Load meeting data from CalendarBot API (JSON consumption)
  * Uses WhatsNextStateManager instead of HTML parsing
  */
 async function loadMeetingData() {
