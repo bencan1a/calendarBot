@@ -51,7 +51,7 @@ function setupNavigationButtons() {
         }
     });
 
-    console.log('Navigation button handlers setup complete');
+    // Navigation button handlers setup complete
 }
 
 // Keyboard navigation
