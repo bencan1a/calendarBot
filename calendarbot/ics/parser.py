@@ -638,7 +638,7 @@ class ICSParser:
                         warnings.append(warning)
                         logger.warning(warning)
 
-            # NO FILTERING - return ALL events for raw storage
+            # NO FILTERING - return ALL events (raw storage only in development)
             logger.debug(
                 f"Parsed {len(events)} unfiltered events from ICS content "
                 f"({event_count} total events, no filtering applied)"
