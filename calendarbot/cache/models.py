@@ -393,8 +393,14 @@ class RawEvent(BaseModel):
         """
         content_hash = hashlib.sha256(ics_content.encode("utf-8")).hexdigest()
 
+        # For debugging purposes, make each raw event ID unique to preserve duplicates
+        # Include microseconds to ensure uniqueness even for rapid insertions
+        import uuid  # noqa: PLC0415
+
+        unique_suffix = str(uuid.uuid4())[:8]  # Short UUID for readability
+
         return cls(
-            id=f"raw_{graph_id}",
+            id=f"raw_{graph_id}_{unique_suffix}",
             graph_id=graph_id,
             subject=subject,
             start_datetime=start_datetime,
