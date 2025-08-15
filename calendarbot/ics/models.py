@@ -248,6 +248,9 @@ class CalendarEvent(BaseModel):
 
     # Recurrence
     is_recurring: bool = Field(default=False, description="Recurring event flag")
+    recurrence_id: Optional[str] = Field(
+        default=None, description="RECURRENCE-ID for recurrence instances"
+    )
 
     # Metadata
     created_date_time: Optional[datetime] = Field(default=None, description="Creation time")
