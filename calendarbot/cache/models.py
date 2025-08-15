@@ -334,8 +334,13 @@ class RawEvent(BaseModel):
         """
         content_hash = hashlib.sha256(ics_content.encode("utf-8")).hexdigest()
 
+        # For debugging purposes, make each raw event ID unique to preserve duplicates
+        import uuid  # noqa: PLC0415
+
+        unique_suffix = str(uuid.uuid4())[:8]  # Short UUID for readability
+
         return cls(
-            id=f"raw_{cached_event.graph_id}",
+            id=f"raw_{cached_event.graph_id}_{unique_suffix}",
             graph_id=cached_event.graph_id,
             subject=cached_event.subject,
             body_preview=cached_event.body_preview,
