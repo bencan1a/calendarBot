@@ -432,7 +432,7 @@ class ICSFetcher:
             raise ICSFetchError(f"Unexpected error: {e}") from e
 
     async def _make_request_with_retry(
-        self, url: str, headers: dict[str, str], timeout: int, verify_ssl: bool
+        self, url: str, headers: dict[str, str], timeout: int, _verify_ssl: bool
     ) -> httpx.Response:
         """Make HTTP request with retry logic.
 
