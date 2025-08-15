@@ -10,6 +10,7 @@ from typing import Any, BinaryIO, Optional, TextIO, Union, cast
 
 from icalendar import Calendar, Event as ICalEvent
 
+from ..config.build import is_production_mode
 from ..security.logging import SecurityEventLogger  # type: ignore
 from ..timezone import ensure_timezone_aware
 from .models import (
@@ -615,17 +616,19 @@ class ICSParser:
                             event_count += 1
 
                             # Extract individual event ICS content using component.to_ical()
-                            try:
-                                individual_ics = component.to_ical().decode("utf-8")
-                                event_raw_content_map[event.id] = individual_ics
-                            except Exception as e:
-                                logger.warning(
-                                    f"Failed to extract raw ICS for event {event.id}: {e}"
-                                )
-                                # Fallback to basic event identifier
-                                event_raw_content_map[event.id] = (
-                                    f"# Event {event.id} - Raw ICS extraction failed"
-                                )
+                            # Only store raw ICS content in development environment
+                            if not is_production_mode():
+                                try:
+                                    individual_ics = component.to_ical().decode("utf-8")
+                                    event_raw_content_map[event.id] = individual_ics
+                                except Exception as e:
+                                    logger.warning(
+                                        f"Failed to extract raw ICS for event {event.id}: {e}"
+                                    )
+                                    # Fallback to basic event identifier
+                                    event_raw_content_map[event.id] = (
+                                        f"# Event {event.id} - Raw ICS extraction failed"
+                                    )
 
                             if event.is_recurring:
                                 recurring_event_count += 1
