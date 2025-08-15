@@ -50,9 +50,6 @@ async def run_setup_wizard() -> int:
 async def run_async_setup_wizard() -> int:
     """Run the asynchronous setup wizard.
 
-    This function provides async wrapper for the setup wizard functionality
-    that will be integrated during Phase 2 migration.
-
     Returns:
         Exit code (0 for success, 1 for failure)
     """
@@ -60,8 +57,7 @@ async def run_async_setup_wizard() -> int:
         # Import async wizard from existing module
         from calendarbot.setup_wizard import run_setup_wizard as run_async_wizard  # noqa: PLC0415
 
-        # Placeholder for async wizard execution
-        print("Async setup wizard placeholder - will be integrated in Phase 2")
+        # Execute the async setup wizard
         success = await run_async_wizard()
         return 0 if success else 1
 
@@ -86,8 +82,7 @@ def run_simple_setup_wizard() -> int:
         # Import simple wizard from existing module
         from calendarbot.setup_wizard import run_simple_wizard  # noqa: PLC0415
 
-        # Placeholder for simple wizard execution
-        print("Simple setup wizard placeholder - will be integrated in Phase 2")
+        # Execute the simple setup wizard
         success = run_simple_wizard()
         return 0 if success else 1
 
