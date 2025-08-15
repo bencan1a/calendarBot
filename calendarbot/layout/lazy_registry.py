@@ -73,7 +73,7 @@ class LazyLayoutRegistry:
         self._loaded_layouts: dict[str, LayoutInfo] = {}
         self._fallback_layouts = ["4x8", "3x4", "console"]
 
-        # Phase 2C Cache Integration - Always enabled for maximum efficiency
+        # Cache Integration - Always enabled for maximum efficiency
         self._cache_manager = cache_manager or get_cache_manager()
         self._key_generator = CacheKeyGenerator()
         logger.debug("LazyLayoutRegistry cache integration enabled")
