@@ -176,9 +176,7 @@ class CalendarBot:
             # Update display
             success = await self.display_manager.display_events(cached_events, status_info)
 
-            if success:
-                logger.debug("Display updated successfully")
-            else:
+            if not success:
                 logger.warning("Display update failed")
 
             return success
