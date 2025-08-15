@@ -26,6 +26,61 @@ async def test_recurring_enhancements():
 
         print("✅ Database initialized with new schema")
 
+        # Create corresponding cached events first (required for foreign key constraint)
+        from datetime import datetime
+
+        from calendarbot.cache.models import CachedEvent
+
+        now_str = datetime.now().isoformat()
+
+        # Cached event for master pattern
+        master_cached_event = CachedEvent(
+            id="cached_recurring-meeting-master",
+            graph_id="recurring-meeting-master",
+            subject="Weekly Team Meeting",
+            start_datetime="2025-08-22T15:00:00",
+            end_datetime="2025-08-22T16:00:00",
+            start_timezone="Pacific Standard Time",
+            end_timezone="Pacific Standard Time",
+            is_recurring=True,
+            cached_at=now_str,
+        )
+
+        # Cached events for instances
+        instance1_cached_event = CachedEvent(
+            id="cached_recurring-meeting-instance-1",
+            graph_id="recurring-meeting-instance-1",
+            subject="Weekly Team Meeting",
+            start_datetime="2025-08-11T15:00:00",
+            end_datetime="2025-08-11T16:00:00",
+            start_timezone="Pacific Standard Time",
+            end_timezone="Pacific Standard Time",
+            is_recurring=False,
+            cached_at=now_str,
+        )
+
+        instance2_cached_event = CachedEvent(
+            id="cached_recurring-meeting-instance-2",
+            graph_id="recurring-meeting-instance-2",
+            subject="Weekly Team Meeting",
+            start_datetime="2025-08-16T15:00:00",
+            end_datetime="2025-08-16T16:00:00",
+            start_timezone="Pacific Standard Time",
+            end_timezone="Pacific Standard Time",
+            is_recurring=False,
+            cached_at=now_str,
+        )
+
+        # Store cached events first
+        cached_events = [master_cached_event, instance1_cached_event, instance2_cached_event]
+        cached_success = await db_manager.store_events(cached_events)
+
+        if not cached_success:
+            print("❌ Failed to store cached events")
+            return
+
+        print("✅ Successfully stored cached events")
+
         # Test 1: Create master recurring pattern
         master_raw_event = RawEvent.create_from_ics(
             graph_id="recurring-meeting-master",
