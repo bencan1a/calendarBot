@@ -815,6 +815,7 @@ class ICSParser:
                 location=location,
                 attendees=attendees if attendees else None,
                 is_recurring=is_recurring,
+                recurrence_id=str(recurrence_id) if recurrence_id else None,
                 created_date_time=created,
                 last_modified_date_time=last_modified,
                 is_online_meeting=is_online_meeting,
