@@ -75,6 +75,30 @@
             gap: 20px;
         }
         
+        .table-selector-container {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+        }
+        
+        .table-selector {
+            padding: 8px 12px;
+            border: 2px solid #e5e5e7;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'SF Mono', Monaco, monospace;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+            min-width: 200px;
+        }
+        
+        .table-selector:focus {
+            outline: none;
+            border-color: #007aff;
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+        
         .query-input {
             width: 100%;
             min-height: 120px;
