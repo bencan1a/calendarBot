@@ -1,6 +1,6 @@
 """Specialized event cache for calendar data with optimized caching strategies.
 
-Phase 2C Cache Strategy Implementation - EventCache component.
+Cache Strategy Implementation - EventCache component.
 Targets: 1-hour TTL for event data, layout computation result caching, ICS processing cache.
 """
 
