@@ -596,10 +596,10 @@ class DatabaseManager:
                         is_all_day, show_as, is_cancelled, is_organizer,
                         location_display_name, location_address,
                         is_online_meeting, online_meeting_url, web_link,
-                        is_recurring, series_master_id, last_modified,
-                        source_url, raw_ics_content, content_hash,
+                        is_recurring, series_master_id, recurrence_id, is_instance,
+                        last_modified, source_url, raw_ics_content, content_hash,
                         content_size_bytes, cached_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     [
                         (
