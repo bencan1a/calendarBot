@@ -118,6 +118,7 @@ class TestWhatsNextBackendFrontendConsistency:
         # This ensures frontend and backend select identical meetings consistently
 
         # First pass: Look for upcoming meetings (prioritized)
+        upcoming_meetings = []
         for event in visible_events:
             meeting_start = (
                 datetime.fromisoformat(event["start_time"].replace("Z", "+00:00"))
@@ -126,8 +127,13 @@ class TestWhatsNextBackendFrontendConsistency:
             )
 
             # Check if meeting is upcoming
-            if meeting_start > now:
-                return event
+            if meeting_start >= now:
+                upcoming_meetings.append((meeting_start, event))
+
+        # If upcoming meetings found, select the earliest one
+        if upcoming_meetings:
+            upcoming_meetings.sort(key=lambda x: x[0])  # Sort by start time
+            return upcoming_meetings[0][1]  # Return the earliest meeting
 
         # Second pass: If no upcoming meetings found, look for current meetings as fallback
         for event in visible_events:
