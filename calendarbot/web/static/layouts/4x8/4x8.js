@@ -1,7 +1,7 @@
 /* Calendar Bot Web Interface JavaScript */
 
 // Global state
-let currentTheme = 'eink';
+let currentTheme = 'standard';
 let autoRefreshInterval = null;
 let autoRefreshEnabled = true;
 let settingsPanel = null;
