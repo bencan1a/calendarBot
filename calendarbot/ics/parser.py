@@ -305,10 +305,10 @@ class ICSParser:
     def _parse_with_streaming(
         self, ics_content: str, source_url: Optional[str] = None
     ) -> ICSParseResult:
-        """Parse ICS content using streaming parser."""
+        """Parse ICS content using streaming parser with memory-bounded processing."""
         try:
-            # Initialize result tracking
-            events = []
+            # Initialize result tracking - NO event accumulation
+            filtered_events = []  # Only store final filtered results
             warnings = []
             errors = []
             total_components = 0
@@ -316,7 +316,12 @@ class ICSParser:
             recurring_event_count = 0
             calendar_metadata = {}
 
-            # Process stream
+            # Memory-bounded processing: limit stored events for typical calendar view usage
+            max_stored_events = (
+                50  # Cap at 50 events - sufficient for typical 1-20 event calendar views
+            )
+
+            # Process stream with immediate filtering to prevent memory accumulation
             for item in self._streaming_parser.parse_stream(ics_content):
                 if item["type"] == "event":
                     try:
@@ -330,12 +335,24 @@ class ICSParser:
                         )
 
                         if event:
-                            events.append(event)
                             event_count += 1
                             total_components += 1
 
                             if event.is_recurring:
                                 recurring_event_count += 1
+
+                            # Apply filtering immediately to prevent memory accumulation
+                            if event.is_busy_status and not event.is_cancelled:
+                                # Only store filtered events, and cap the total
+                                if len(filtered_events) < max_stored_events:
+                                    filtered_events.append(event)
+                                elif len(filtered_events) == max_stored_events:
+                                    warning = f"Event limit reached ({max_stored_events}), truncating results"
+                                    warnings.append(warning)
+                                    logger.warning(warning)
+
+                            # Explicitly release event object for garbage collection
+                            del event
 
                     except Exception as e:
                         warning = f"Failed to parse streamed event: {e}"
@@ -353,9 +370,6 @@ class ICSParser:
                     warnings=warnings,
                     source_url=source_url,
                 )
-
-            # Filter events (same as traditional parser)
-            filtered_events = [e for e in events if e.is_busy_status and not e.is_cancelled]
 
             logger.debug(
                 f"Streaming parser processed {len(filtered_events)} events "

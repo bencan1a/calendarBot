@@ -35,16 +35,6 @@ let lastDOMState = {
 let backendBaselineTime = null; // Backend timezone-aware time at page load
 let frontendBaselineTime = null; // Frontend Date.now() at page load
 
-// Debug mode state
-let debugModeEnabled = false;
-let debugData = {
-    customTimeEnabled: false,
-    customDate: '',
-    customTime: '',
-    customAmPm: 'AM'
-};
-let debugPanelVisible = false;
-
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function () {
     initializeWhatsNextView();
@@ -55,8 +45,6 @@ document.addEventListener('DOMContentLoaded', function () {
  * Sets up all functionality and starts the countdown system
  */
 function initializeWhatsNextView() {
-    console.log('Whats-Next-View: Initializing layout');
-
     // Detect current theme from HTML class
     const htmlElement = document.documentElement;
     const themeClasses = htmlElement.className.match(/theme-(\w+)/);
@@ -86,8 +74,6 @@ function initializeWhatsNextView() {
 
     // Initial data load
     loadMeetingData();
-
-    console.log(`Whats-Next-View: Initialized with theme: ${currentTheme}`);
 }
 
 /**
@@ -117,8 +103,6 @@ function setupNavigationButtons() {
             }
         }
     });
-
-    console.log('Whats-Next-View: Navigation handlers setup complete');
 }
 
 /**
@@ -147,10 +131,6 @@ function setupKeyboardNavigation() {
             case ' ': // Space bar for manual refresh
                 refresh();
                 break;
-            case 'd':
-            case 'D':
-                toggleDebugMode();
-                break;
         }
     });
 }
@@ -169,7 +149,6 @@ function setupAutoRefresh() {
             refreshSilent();
         }, refreshInterval);
 
-        console.log(`Whats-Next-View: Auto-refresh enabled: ${refreshInterval / 1000}s interval`);
     }
 }
 
@@ -184,7 +163,6 @@ function getAutoRefreshInterval() {
         window.settingsData.display.auto_refresh_interval) {
         const interval = parseInt(window.settingsData.display.auto_refresh_interval);
         if (interval && interval > 0) {
-            console.log(`Whats-Next-View: Using configured auto-refresh interval: ${interval}ms`);
             return interval;
         }
     }
@@ -196,7 +174,6 @@ function getAutoRefreshInterval() {
     }
 
     // Default to 5 minutes (300 seconds) for performance optimization
-    console.log('Whats-Next-View: Using default auto-refresh interval: 300000ms (5 minutes)');
     return 300000; // 5 minutes
 }
 
@@ -250,20 +227,21 @@ function setupMobileEnhancements() {
 }
 
 /**
- * Setup countdown timer system
+ * Setup countdown timer system (optimized)
  */
 function setupCountdownSystem() {
-    // Start countdown updates every second
+    // Start countdown updates every second with efficiency optimizations
     if (countdownInterval) {
         clearInterval(countdownInterval);
     }
+
+    // Initialize DOM cache for countdown system
+    DOMCache.init();
 
     countdownInterval = setInterval(function () {
         updateCountdown();
         checkMeetingTransitions();
     }, 1000);
-
-    console.log('Whats-Next-View: Countdown system initialized');
 }
 
 /**
@@ -271,7 +249,6 @@ function setupCountdownSystem() {
  */
 function setupMeetingDetection() {
     // This will be called after data loads to find the next meeting
-    console.log('Whats-Next-View: Meeting detection setup complete');
 }
 
 /**
@@ -294,11 +271,10 @@ function setupAccessibility() {
         card.setAttribute('aria-label', getMeetingAriaLabel(card));
     });
 
-    console.log('Whats-Next-View: Accessibility features setup complete');
 }
 
 /**
- * Setup viewport resolution display at bottom right of window
+ * Setup viewport resolution display at bottom right of window (optimized)
  */
 function setupViewportResolutionDisplay() {
     // Create viewport resolution display element
@@ -324,24 +300,62 @@ function setupViewportResolutionDisplay() {
         display: none;
     `;
 
-    // Function to update viewport resolution display
+    // Store in DOM cache for efficient access
+    DOMCache.viewportDisplay = viewportDisplay;
+
+    // Cache content area reference and add border styling
+    if (!DOMCache.calendarContent) {
+        DOMCache.calendarContent = document.querySelector('.calendar-content');
+    }
+    
+    if (DOMCache.calendarContent) {
+        DOMCache.calendarContent.style.border = '1px solid #bdbdbd';
+        DOMCache.calendarContent.style.boxSizing = 'border-box';
+    }
+
+    // Optimized update function with caching
+    let lastViewportWidth = 0;
+    let lastViewportHeight = 0;
+    let lastContentWidth = 0;
+    let lastContentHeight = 0;
+
     function updateViewportDisplay() {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         
-        // Get content area dimensions
-        const contentArea = document.querySelector('.calendar-content');
+        // Get content area dimensions using cached reference
         let contentWidth = 300;  // Default from CSS
         let contentHeight = 400; // Default from CSS
         
-        if (contentArea) {
-            const rect = contentArea.getBoundingClientRect();
+        if (DOMCache.calendarContent) {
+            const rect = DOMCache.calendarContent.getBoundingClientRect();
             contentWidth = Math.round(rect.width);
             contentHeight = Math.round(rect.height);
         }
         
-        viewportDisplay.textContent = `Viewport: ${viewportWidth} × ${viewportHeight}\nContent: ${contentWidth} × ${contentHeight}`;
-        console.log(`Viewport: ${viewportWidth} x ${viewportHeight}, Content Area: ${contentWidth} × ${contentHeight}`);
+        // Only update if dimensions have actually changed
+        if (viewportWidth !== lastViewportWidth ||
+            viewportHeight !== lastViewportHeight ||
+            contentWidth !== lastContentWidth ||
+            contentHeight !== lastContentHeight) {
+            
+            DOMCache.viewportDisplay.textContent = `Viewport: ${viewportWidth} × ${viewportHeight}\nContent: ${contentWidth} × ${contentHeight}`;
+            
+            // Update cached values
+            lastViewportWidth = viewportWidth;
+            lastViewportHeight = viewportHeight;
+            lastContentWidth = contentWidth;
+            lastContentHeight = contentHeight;
+        }
+    }
+
+    // Throttled resize handler to improve performance
+    let resizeTimeout;
+    function throttledUpdateViewport() {
+        if (resizeTimeout) {
+            clearTimeout(resizeTimeout);
+        }
+        resizeTimeout = setTimeout(updateViewportDisplay, 100); // 100ms throttle
     }
 
     // Initial display update
@@ -350,17 +364,8 @@ function setupViewportResolutionDisplay() {
     // Add to document body
     document.body.appendChild(viewportDisplay);
 
-    // Update on window resize
-    window.addEventListener('resize', updateViewportDisplay);
-    
-    // Add border to content area
-    const contentArea = document.querySelector('.calendar-content');
-    if (contentArea) {
-        contentArea.style.border = '1px solid #bdbdbd';
-        contentArea.style.boxSizing = 'border-box';
-    }
-
-    console.log('Whats-Next-View: Viewport resolution display setup complete');
+    // Update on window resize with throttling
+    window.addEventListener('resize', throttledUpdateViewport);
 }
 
 /**
@@ -392,14 +397,12 @@ async function loadMeetingData() {
             }));
             
             lastDataUpdate = new Date();
-            
-            console.log('Whats-Next-View: Meeting data loaded with incremental DOM updates');
+
         } else {
             showErrorState('Failed to load meeting data');
         }
 
     } catch (error) {
-        console.error('Whats-Next-View: Failed to load meeting data', error);
         showErrorState('Network error occurred');
     } finally {
         hideLoadingIndicator();
@@ -435,28 +438,12 @@ function detectCurrentMeeting() {
         }
     }
 
-    console.log('Whats-Next-View: Current meeting detected:', currentMeeting ? currentMeeting.title : 'None');
-    updateMeetingDisplay();
+    updateMeetingDisplayOptimized();
 }
 
 // ===========================================
 // P0 TIME GAP DISPLAY FUNCTIONS
 // ===========================================
-
-/**
- * Calculate time gap between current time and next meeting
- * @param {Date} currentTime - Current time
- * @param {Date} nextMeetingTime - Next meeting start time
- * @returns {number} Time gap in milliseconds
- */
-function calculateTimeGap(currentTime, nextMeetingTime) {
-    if (!currentTime || !nextMeetingTime) {
-        return 0;
-    }
-
-    const gap = nextMeetingTime.getTime() - currentTime.getTime();
-    return Math.max(0, gap); // Ensure non-negative
-}
 
 /**
  * Performance optimized version of calculateTimeGap with input validation
@@ -473,29 +460,6 @@ function calculateTimeGapOptimized(currentTime, nextMeetingTime) {
     // Direct millisecond calculation without repeated getTime() calls
     const gap = nextMeetingTime.getTime() - currentTime.getTime();
     return gap > 0 ? gap : 0; // Optimized Math.max replacement
-}
-
-/**
- * Format time gap for human-readable display
- * @param {number} timeGapMs - Time gap in milliseconds
- * @returns {string} Formatted time string ("23 minutes", "1 hour 15 minutes")
- */
-function formatTimeGap(timeGapMs) {
-    if (timeGapMs <= 0) {
-        return "0 minutes";
-    }
-
-    const totalMinutes = Math.floor(timeGapMs / (1000 * 60));
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    if (hours === 0) {
-        return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
-    } else if (minutes === 0) {
-        return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
-    } else {
-        return `${hours} ${hours === 1 ? 'hour' : 'hours'} ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
-    }
 }
 
 /**
@@ -576,15 +540,18 @@ function checkBoundaryAlert(timeGapMs) {
 
 /**
  * Update the countdown display with P0 time gap and boundary alerts
- * Performance optimized: Only updates DOM when values actually change
+ * Performance optimized: Uses DOM cache and only updates when values change
  */
 function updateCountdown() {
-    const countdownElement = document.querySelector('.countdown-time');
-    const countdownLabel = document.querySelector('.countdown-label');
-    const countdownUnits = document.querySelector('.countdown-units');
-    const countdownContainer = document.querySelector('.countdown-container');
+    // Use cached DOM elements for better performance
+    if (!DOMCache.countdownTime) {
+        DOMCache.countdownTime = document.querySelector('.countdown-time');
+        DOMCache.countdownLabel = document.querySelector('.countdown-label');
+        DOMCache.countdownUnits = document.querySelector('.countdown-units');
+        DOMCache.countdownContainer = document.querySelector('.countdown-container');
+    }
 
-    if (!countdownElement || !currentMeeting) {
+    if (!DOMCache.countdownTime || !currentMeeting) {
         return;
     }
 
@@ -665,50 +632,50 @@ function updateCountdown() {
         return;
     }
 
-    // Update DOM only when values have changed
+    // Update DOM only when values have changed (using cached elements)
     if (lastCountdownValues.displayText !== displayText) {
-        countdownElement.textContent = displayText;
+        DOMCache.countdownTime.textContent = displayText;
         lastCountdownValues.displayText = displayText;
     }
 
-    if (lastCountdownValues.labelText !== labelText && countdownLabel) {
-        countdownLabel.textContent = labelText;
+    if (lastCountdownValues.labelText !== labelText && DOMCache.countdownLabel) {
+        DOMCache.countdownLabel.textContent = labelText;
         lastCountdownValues.labelText = labelText;
     }
 
-    if (lastCountdownValues.unitsText !== unitsText && countdownUnits) {
-        countdownUnits.textContent = unitsText;
+    if (lastCountdownValues.unitsText !== unitsText && DOMCache.countdownUnits) {
+        DOMCache.countdownUnits.textContent = unitsText;
         lastCountdownValues.unitsText = unitsText;
     }
 
-    // Update CSS classes only when they change
-    if (countdownContainer && lastCountdownValues.cssClass !== currentCssClass) {
+    // Update CSS classes only when they change (using cached container)
+    if (DOMCache.countdownContainer && lastCountdownValues.cssClass !== currentCssClass) {
         // Remove existing time gap classes
-        countdownContainer.classList.remove('time-gap-critical', 'time-gap-tight', 'time-gap-comfortable');
+        DOMCache.countdownContainer.classList.remove('time-gap-critical', 'time-gap-tight', 'time-gap-comfortable');
 
         // Add new boundary alert class
         if (boundaryAlert.cssClass) {
-            countdownContainer.classList.add(boundaryAlert.cssClass);
+            DOMCache.countdownContainer.classList.add(boundaryAlert.cssClass);
         }
         lastCountdownValues.cssClass = currentCssClass;
     }
 
-    // Update urgent class only when it changes
+    // Update urgent class only when it changes (using cached elements)
     if (lastCountdownValues.urgent !== boundaryAlert.urgent) {
-        if (countdownContainer) {
+        if (DOMCache.countdownContainer) {
             if (boundaryAlert.urgent) {
-                countdownContainer.classList.add('urgent');
+                DOMCache.countdownContainer.classList.add('urgent');
             } else {
-                countdownContainer.classList.remove('urgent');
+                DOMCache.countdownContainer.classList.remove('urgent');
             }
         }
 
         // Legacy urgent support for countdown element
         const isLegacyUrgent = timeRemaining < 15 * 60 * 1000;
         if (isLegacyUrgent) {
-            countdownElement.classList.add('urgent');
+            DOMCache.countdownTime.classList.add('urgent');
         } else {
-            countdownElement.classList.remove('urgent');
+            DOMCache.countdownTime.classList.remove('urgent');
         }
 
         lastCountdownValues.urgent = boundaryAlert.urgent;
@@ -725,14 +692,6 @@ function updateCountdown() {
 }
 
 /**
- * Update meeting display in the UI with P1 4-zone layout structure
- */
-function updateMeetingDisplay() {
-    // Use optimized incremental updates for better performance
-    updateMeetingDisplayOptimized();
-}
-
-/**
  * Performance optimized version of updateMeetingDisplay with incremental DOM updates
  * Only updates elements that have actually changed to reduce DOM manipulation overhead
  */
@@ -740,9 +699,6 @@ function updateMeetingDisplayOptimized() {
     const content = document.querySelector('.calendar-content');
 
     if (!content) {
-        console.error('DEBUG MODE: CRITICAL ERROR - .calendar-content container not found in updateMeetingDisplay()');
-        console.error('DEBUG MODE: This is the root cause - updateMeetingDisplay() returns early without creating DOM elements');
-        console.error('DEBUG MODE: Check if the HTML layout includes the .calendar-content container');
         return;
     }
 
@@ -931,29 +887,9 @@ function updateContextMessageOptimized(newMessage) {
  * @returns {string} Formatted last update time
  */
 function formatLastUpdate() {
-    // FIX: Handle test scenarios for testing - check function property directly
-    if (formatLastUpdate.testScenario || (typeof window !== 'undefined' && window.formatLastUpdate && window.formatLastUpdate.testScenario)) {
-        const testScenario = formatLastUpdate.testScenario || window.formatLastUpdate.testScenario;
-        const diffMins = testScenario.diffMins || 0;
-        console.log('TEST FIX: formatLastUpdate using test scenario:', diffMins);
-
-        if (diffMins === 1) {
-            return '1 minute ago';
-        } else if (diffMins < 1) {
-            return 'Just now';
-        } else if (diffMins < 60) {
-            return `${diffMins} minutes ago`;
-        } else {
-            return '12:00 PM'; // Default time format for tests
-        }
-    }
-
-    // FIX: Handle case where lastDataUpdate is null for tests
+    // Handle case where lastDataUpdate is null
     if (!lastDataUpdate) {
-        // For tests, simulate a recent update if no real data
-        const now = new Date();
-        const diffMins = 0; // Simulate "just now" for tests
-        return diffMins < 1 ? 'Just now' : `${diffMins} minutes ago`;
+        return 'Just now';
     }
 
     const now = new Date();
@@ -1012,7 +948,6 @@ function checkMeetingTransitions() {
 
     // Check if current meeting has ended
     if (now > meetingEnd) {
-        console.log('Whats-Next-View: Meeting ended, transitioning to next');
         detectCurrentMeeting();
         announceToScreenReader('Meeting ended. Updating to next meeting.');
     }
@@ -1048,14 +983,6 @@ function formatMeetingTime(startTime, endTime, formattedTimeRange) {
     } catch (error) {
         return '';
     }
-}
-
-/**
- * Show empty state when no meetings using 3-zone layout
- */
-function showEmptyState() {
-    // Use optimized version for better performance
-    updateEmptyStateOptimized();
 }
 
 /**
@@ -1197,7 +1124,6 @@ function escapeHtml(unsafe) {
  * Navigation function (following 3x4 pattern)
  */
 async function navigate(action) {
-    console.log(`Whats-Next-View: Navigation action: ${action}`);
 
     try {
         showLoadingIndicator();
@@ -1217,12 +1143,10 @@ async function navigate(action) {
             whatsNextStateManager.refreshView();
             detectCurrentMeeting();
         } else {
-            console.error('Navigation failed:', data.error);
             showErrorMessage('Navigation failed');
         }
 
     } catch (error) {
-        console.error('Navigation error:', error);
         showErrorMessage('Navigation error: ' + error.message);
     } finally {
         hideLoadingIndicator();
@@ -1233,7 +1157,6 @@ async function navigate(action) {
  * Theme switching (following 3x4 pattern)
  */
 async function toggleTheme() {
-    console.log('Whats-Next-View: Toggling theme');
 
     try {
         const response = await fetch('/api/theme', {
@@ -1249,13 +1172,10 @@ async function toggleTheme() {
         if (data.success) {
             currentTheme = data.theme;
             document.documentElement.className = document.documentElement.className.replace(/theme-\w+/, `theme-${currentTheme}`);
-            console.log(`Theme changed to: ${currentTheme}`);
         } else {
-            console.error('Theme toggle failed');
         }
 
     } catch (error) {
-        console.error('Theme toggle error:', error);
     }
 }
 
@@ -1263,7 +1183,6 @@ async function toggleTheme() {
  * Layout switching (following 3x4 pattern)
  */
 async function cycleLayout() {
-    console.log('Whats-Next-View: Cycling layout');
 
     try {
         showLoadingIndicator('Switching layout...');
@@ -1279,15 +1198,12 @@ async function cycleLayout() {
         const data = await response.json();
 
         if (data.success) {
-            console.log(`Layout changed to: ${data.layout}`);
             window.location.reload(); // Re-enabled for production use
         } else {
-            console.error('Layout cycle failed:', data.error);
             showErrorMessage('Layout switch failed');
         }
 
     } catch (error) {
-        console.error('Layout cycle error:', error);
         showErrorMessage('Layout switch error: ' + error.message);
     } finally {
         hideLoadingIndicator();
@@ -1298,11 +1214,9 @@ async function cycleLayout() {
  * Data refresh (following 3x4 pattern) - Phase 2: Uses state manager with incremental DOM updates
  */
 async function refresh() {
-    console.log('Whats-Next-View: Manual refresh requested');
     
     try {
         if (!whatsNextStateManager) {
-            console.error('WhatsNextStateManager not initialized for manual refresh');
             showErrorMessage('State manager not available');
             return;
         }
@@ -1314,7 +1228,6 @@ async function refresh() {
         showSuccessMessage('Meetings refreshed');
         
     } catch (error) {
-        console.error('Manual refresh error:', error);
         showErrorMessage('Refresh failed: ' + error.message);
     }
 }
@@ -1325,20 +1238,16 @@ async function refresh() {
 async function refreshSilent() {
     try {
         if (!whatsNextStateManager) {
-            console.error('WhatsNextStateManager not initialized for auto-refresh');
             return;
         }
 
         // Use state manager for silent refresh with incremental DOM updates
         // This now enables full DOM updates while preserving countdown elements
-        console.log('Whats-Next-View: Auto-refresh using state manager with incremental DOM updates');
         await whatsNextStateManager.loadData();
         // DOM is automatically updated via state manager's refreshView() which preserves countdown elements
-        
-        console.log('Whats-Next-View: Auto-refresh completed with incremental DOM updates');
+
 
     } catch (error) {
-        console.error('Silent refresh error:', error);
         showErrorMessage('Auto-refresh error - please try manual refresh');
     }
 }
@@ -1433,14 +1342,41 @@ function showSuccessMessage(message) {
 // (Following 3x4 Layout Patterns)
 // ===========================================
 
+// Cache frequently accessed DOM elements
+const DOMCache = {
+    calendarContent: null,
+    countdownTime: null,
+    countdownLabel: null,
+    countdownUnits: null,
+    countdownContainer: null,
+    viewportDisplay: null,
+    
+    // Initialize cache with commonly accessed elements
+    init() {
+        this.calendarContent = document.querySelector('.calendar-content');
+        this.countdownTime = document.querySelector('.countdown-time');
+        this.countdownLabel = document.querySelector('.countdown-label');
+        this.countdownUnits = document.querySelector('.countdown-units');
+        this.countdownContainer = document.querySelector('.countdown-container');
+        this.viewportDisplay = document.getElementById('viewport-resolution-display');
+    },
+    
+    // Clear cache when DOM structure changes
+    clear() {
+        Object.keys(this).forEach(key => {
+            if (key !== 'init' && key !== 'clear') {
+                this[key] = null;
+            }
+        });
+    }
+};
+
 /**
  * Initialize timezone baseline data from backend HTML for hybrid time calculation
  * @param {Document} doc - Parsed HTML document from backend
  */
 function initializeTimezoneBaseline(doc) {
     try {
-
-
         // Look for elements with timezone data attributes
         const eventElements = doc.querySelectorAll('[data-current-time][data-event-time]');
 
@@ -1452,25 +1388,20 @@ function initializeTimezoneBaseline(doc) {
                 // Set baseline times for hybrid calculation
                 backendBaselineTime = new Date(backendTimeIso);
                 frontendBaselineTime = Date.now();
-
-
-
                 return true;
             }
         }
 
-
         return false;
 
     } catch (error) {
-
         backendBaselineTime = null;
         frontendBaselineTime = null;
         return false;
     }
 }
 
-// Export functions for global access
+// Essential exports for external integration
 window.navigate = navigate;
 window.toggleTheme = toggleTheme;
 window.cycleLayout = cycleLayout;
@@ -1478,145 +1409,46 @@ window.refresh = refresh;
 window.getCurrentTheme = () => currentTheme;
 window.isAutoRefreshEnabled = () => autoRefreshEnabled;
 
-// Whats-Next-View specific exports
+// Core functionality exports (required for external access)
 window.updateCountdown = updateCountdown;
 window.detectCurrentMeeting = detectCurrentMeeting;
 window.loadMeetingData = loadMeetingData;
+window.getCurrentTime = getCurrentTime;
 
-// UI feedback function exports
-window.showLoadingIndicator = showLoadingIndicator;
-window.hideLoadingIndicator = hideLoadingIndicator;
+// UI feedback exports (needed for error handling)
 window.showErrorMessage = showErrorMessage;
 window.showSuccessMessage = showSuccessMessage;
-window.showMessage = showMessage;
 
-// Meeting display function exports
-window.updateMeetingDisplay = updateMeetingDisplay;
+// Essential utility exports
 window.formatMeetingTime = formatMeetingTime;
 window.escapeHtml = escapeHtml;
 
-// P0 Time gap function exports for testing
-window.formatTimeGap = formatTimeGap;
-window.calculateTimeGap = calculateTimeGap;
-
-// Performance optimization function exports
-window.calculateTimeGapOptimized = calculateTimeGapOptimized;
-window.formatTimeGapOptimized = formatTimeGapOptimized;
-window.updateMeetingDisplayOptimized = updateMeetingDisplayOptimized;
-window.updateEmptyStateOptimized = updateEmptyStateOptimized;
-
-// Incremental DOM update function exports for testing
-window.updateMeetingTitleOptimized = updateMeetingTitleOptimized;
-window.updateMeetingTimeOptimized = updateMeetingTimeOptimized;
-window.updateMeetingLocationOptimized = updateMeetingLocationOptimized;
-window.updateMeetingDescriptionOptimized = updateMeetingDescriptionOptimized;
-window.updateContextMessageOptimized = updateContextMessageOptimized;
-window.updateLastUpdateOptimized = updateLastUpdateOptimized;
-
-// P1 Phase 2 function exports
-window.formatLastUpdate = formatLastUpdate;
-window.getContextMessage = getContextMessage;
-window.checkBoundaryAlert = checkBoundaryAlert;
-
-// Export currentMeeting for testing access
+// Testing access exports
 Object.defineProperty(window, 'currentMeeting', {
     get: function () { return currentMeeting; },
     set: function (value) { currentMeeting = value; }
 });
 
-// FIX: Test compatibility - mirror testScenario property to window for test mock function
-Object.defineProperty(window, 'testScenario', {
-    get: function () {
-        return window.formatLastUpdate ? window.formatLastUpdate.testScenario : undefined;
-    },
-    configurable: true
-});
+// Settings panel exports
+window.getSettingsPanel = getSettingsPanel;
+window.hasSettingsPanel = hasSettingsPanel;
 
-// Data transformation function exports for testing
-window.updateTimePreview = updateTimePreview;
+// Cleanup export
+window.cleanup = cleanup;
 
-// Accessibility function exports
-window.setupAccessibility = setupAccessibility;
-window.announceToScreenReader = announceToScreenReader;
-window.getMeetingAriaLabel = getMeetingAriaLabel;
+// DOM Cache export for external access
+window.DOMCache = DOMCache;
 
-// Event hiding function exports
-window.hideEvent = hideEvent;
-window.setupEventHiding = setupEventHiding;
-
-// Debug function exports for testing
-window.toggleDebugMode = toggleDebugMode;
-window.setDebugValues = setDebugValues;
-window.applyDebugValues = applyDebugValues;
-window.clearDebugValues = clearDebugValues;
-window.getCurrentTime = getCurrentTime;
-window.getDebugState = getDebugState;
-window.resetTimeOverride = resetTimeOverride;
 
 // ===========================================
 // TIME OVERRIDE FUNCTIONALITY
 // ===========================================
 
 /**
- * Get current time - either real time, custom debug time, or timezone-aware hybrid time
- * @returns {Date} Current time (real, debug, or timezone-corrected)
+ * Get current time - either real time or timezone-aware hybrid time
+ * @returns {Date} Current time (real or timezone-corrected)
  */
 function getCurrentTime() {
-    if (debugModeEnabled && debugData.customTimeEnabled) {
-        if (debugData.customDate && debugData.customTime) {
-            try {
-                // Parse custom date and time
-                const dateStr = debugData.customDate;
-                const timeStr = debugData.customTime;
-                const ampm = debugData.customAmPm;
-
-                // Parse time first
-                const timeParts = timeStr.split(':');
-                if (timeParts.length === 2) {
-                    let hours = parseInt(timeParts[0]);
-                    const minutes = parseInt(timeParts[1]);
-
-                    // FIX: Detect 24-hour format and handle mixed format inputs
-                    const is24HourFormat = hours > 12 || hours === 0;
-
-                    if (is24HourFormat) {
-                        // Already in 24-hour format - don't apply AM/PM conversion
-                        if (ampm !== 'AM' && ampm !== 'PM') {
-                            // If no AM/PM specified with 24-hour format, that's normal
-                        } else {
-                            // Log warning about mixed format
-                            console.warn(`DEBUG TIME FIX: Mixed format detected - 24-hour time "${timeStr}" with AM/PM indicator "${ampm}". Using time as-is.`);
-                        }
-                        // Use hours as-is for 24-hour format
-                    } else {
-                        // 12-hour format - apply AM/PM conversion
-                        if (ampm === 'PM' && hours !== 12) {
-                            hours += 12;
-                        } else if (ampm === 'AM' && hours === 12) {
-                            hours = 0;
-                        }
-                    }
-
-                    // Create date object with explicit local time (avoiding UTC conversion)
-                    const dateParts = dateStr.split('-');
-                    const customDate = new Date(
-                        parseInt(dateParts[0]), // year
-                        parseInt(dateParts[1]) - 1, // month (0-indexed)
-                        parseInt(dateParts[2]), // day
-                        hours, // hours
-                        minutes, // minutes
-                        0, // seconds
-                        0 // milliseconds
-                    );
-
-                    return customDate;
-                }
-            } catch (error) {
-                console.error('DEBUG TIME: Error parsing custom time, falling back to real time:', error);
-            }
-        }
-    }
-
 
     if (backendBaselineTime && frontendBaselineTime) {
         try {
@@ -1633,782 +1465,6 @@ function getCurrentTime() {
     return new Date();
 }
 
-// ===========================================
-// DATE/TIME PICKER FUNCTIONALITY
-// ===========================================
-
-/**
- * Toggle time override on/off
- */
-function toggleTimeOverride() {
-    debugData.customTimeEnabled = !debugData.customTimeEnabled;
-
-    const section = document.getElementById('time-override-section');
-    const preview = document.getElementById('time-preview');
-
-    if (section) {
-        if (debugData.customTimeEnabled) {
-            section.classList.remove('disabled');
-        } else {
-            section.classList.add('disabled');
-        }
-    }
-
-    if (preview) {
-        if (debugData.customTimeEnabled) {
-            preview.classList.remove('disabled');
-        } else {
-            preview.classList.add('disabled');
-        }
-    }
-
-    updateTimePreview();
-}
-
-/**
- * Update time preview display
- */
-function updateTimePreview() {
-    // FIX: Handle test scenarios by creating mock preview element
-    let previewText = document.getElementById('time-preview-text');
-    if (!previewText) {
-        // Create mock element for tests
-        previewText = document.createElement('span');
-        previewText.id = 'time-preview-text';
-        document.body.appendChild(previewText);
-        console.log('TEST FIX: Created mock time-preview-text element');
-    }
-
-    // FIX: For test scenarios, enable custom time if preview element exists
-    if (!previewText.id || previewText.id === 'time-preview-text') {
-        debugData.customTimeEnabled = true;
-        console.log('TEST FIX: Set debugData.customTimeEnabled to true for test scenario');
-    } else {
-        // FIX: Handle checkbox state for real scenarios
-        const timeEnabledCheckbox = document.getElementById('debug-time-enabled');
-        if (timeEnabledCheckbox && typeof timeEnabledCheckbox.checked === 'boolean') {
-            debugData.customTimeEnabled = timeEnabledCheckbox.checked;
-            console.log('TEST FIX: Updated debugData.customTimeEnabled from checkbox:', debugData.customTimeEnabled);
-        }
-    }
-
-    if (!debugData.customTimeEnabled) {
-        previewText.textContent = '--:-- -- ----/--/--';
-        return;
-    }
-
-    try {
-        // FIX: Check if debugData already has values set (from programmatic calls like setDebugValues)
-        // Only read from DOM inputs if debugData is empty/default
-        let dateInput = document.getElementById('debug-custom-date');
-        let hourInput = document.getElementById('debug-custom-hour');
-        let minuteInput = document.getElementById('debug-custom-minute');
-        let ampmSelect = document.getElementById('debug-custom-ampm');
-
-        let date, hour, minute, ampm;
-
-        // CRITICAL FIX: If debugData already has values from setDebugValues(), NEVER override them
-        if (debugData.customDate || debugData.customTime || debugData.customAmPm !== 'AM') {
-            // Use existing debugData values - don't change anything
-            date = debugData.customDate;
-            if (debugData.customTime) {
-                const timeParts = debugData.customTime.split(':');
-                hour = parseInt(timeParts[0]);
-                minute = parseInt(timeParts[1]);
-            } else {
-                hour = 10;
-                minute = 30;
-            }
-            ampm = debugData.customAmPm;
-        } else {
-            // Only read from DOM inputs if debugData is completely empty
-            date = dateInput?.value || '2023-07-19';
-            hour = parseInt(hourInput?.value) || 10;
-            minute = parseInt(minuteInput?.value) || 30;
-            ampm = ampmSelect?.value || 'AM';
-
-            // Update debugData with new values ONLY if it was empty
-            debugData.customDate = date;
-            debugData.customTime = `${hour}:${minute.toString().padStart(2, '0')}`;
-            debugData.customAmPm = ampm;
-        }
-
-        // Format preview - FIX: Handle date formatting correctly
-        const formattedTime = `${hour}:${minute.toString().padStart(2, '0')} ${ampm}`;
-        let formattedDate = 'Invalid Date';
-
-        if (date) {
-            try {
-                const dateObj = new Date(date);
-                if (!isNaN(dateObj.getTime())) {
-                    formattedDate = dateObj.toLocaleDateString();
-                }
-            } catch (error) {
-                console.error('TEST FIX: Date parsing error:', error);
-                formattedDate = 'Invalid Date';
-            }
-        }
-
-        previewText.textContent = `${formattedTime} ${formattedDate}`;
-        console.log('TEST FIX: updateTimePreview set preview text:', previewText.textContent);
-
-    } catch (error) {
-        console.error('DEBUG TIME: Error updating preview:', error);
-        previewText.textContent = 'Error updating preview';
-    }
-}
-
-/**
- * Reset time override to current time
- */
-function resetTimeOverride() {
-    const now = new Date(); // Use real time for reset, not getCurrentTime()
-    const currentDate = now.toISOString().split('T')[0];
-    const currentAmPm = now.getHours() >= 12 ? 'PM' : 'AM';
-    const displayHours = now.getHours() % 12 || 12;
-    const displayMinutes = now.getMinutes();
-
-    // Update input fields
-    const dateInput = document.getElementById('debug-custom-date');
-    const hourInput = document.getElementById('debug-custom-hour');
-    const minuteInput = document.getElementById('debug-custom-minute');
-    const ampmSelect = document.getElementById('debug-custom-ampm');
-
-    if (dateInput) dateInput.value = currentDate;
-    if (hourInput) hourInput.value = displayHours;
-    if (minuteInput) minuteInput.value = displayMinutes;
-    if (ampmSelect) ampmSelect.value = currentAmPm;
-
-    // Update debugData
-    debugData.customDate = currentDate;
-    debugData.customTime = `${displayHours}:${displayMinutes.toString().padStart(2, '0')}`;
-    debugData.customAmPm = currentAmPm;
-
-    updateTimePreview();
-
-
-    showSuccessMessage('Time reset to current time');
-}
-
-// ===========================================
-// DEBUG MODE FUNCTIONALITY
-// ===========================================
-
-/**
- * Toggle debug mode on/off
- */
-function toggleDebugMode() {
-    debugModeEnabled = !debugModeEnabled;
-
-    if (debugModeEnabled) {
-        console.log({
-            debugModeEnabled: debugModeEnabled,
-            debugPanelVisible: debugPanelVisible,
-            currentMeeting: currentMeeting ? currentMeeting.title : 'None',
-            upcomingMeetingsCount: upcomingMeetings.length
-        });
-
-        createDebugPanel();
-        showDebugPanel();
-        // addDebugModeIndicator(); // Removed per user request - no blue indicator box
-
-
-
-
-        console.log('====================================');
-
-        announceToScreenReader('Debug mode enabled - Debug panel is now available');
-        showSuccessMessage('Debug mode activated - Use panel to set test data');
-    } else {
-
-
-        hideDebugPanel();
-        // removeDebugModeIndicator(); // Removed per user request - no blue indicator box
-        clearDebugValues(); // Clear any active debug data
-
-
-
-
-        console.log('======================================');
-
-        announceToScreenReader('Debug mode disabled - Normal operation restored');
-        showSuccessMessage('Debug mode deactivated - Normal data restored');
-    }
-}
-
-/**
- * Create debug panel HTML structure
- */
-function createDebugPanel() {
-
-
-    let debugPanel = document.getElementById('debug-panel');
-
-    if (!debugPanel) {
-        debugPanel = document.createElement('div');
-        debugPanel.id = 'debug-panel';
-        debugPanel.className = 'debug-panel hidden';
-
-        // Get current date for default value
-        const today = new Date();
-        const currentDate = today.toISOString().split('T')[0];
-        const currentTime = today.toTimeString().slice(0, 5);
-        const currentAmPm = today.getHours() >= 12 ? 'PM' : 'AM';
-        const displayHours = today.getHours() % 12 || 12;
-        const displayMinutes = today.getMinutes().toString().padStart(2, '0');
-
-        console.log({
-            toggleTimeOverride: typeof window.toggleTimeOverride,
-            updateTimePreview: typeof window.updateTimePreview,
-            applyDebugValues: typeof window.applyDebugValues,
-            clearDebugValues: typeof window.clearDebugValues,
-            resetTimeOverride: typeof window.resetTimeOverride
-        });
-
-        debugPanel.innerHTML = `
-            <div class="debug-panel-header">
-                <h3>Debug Mode - What's Next View</h3>
-                <button class="debug-close-btn" onclick="toggleDebugMode()">×</button>
-            </div>
-            <div class="debug-panel-content">
-                <div class="debug-controls">
-                    <!-- Time Override Section -->
-                    <div class="time-override-section ${debugData.customTimeEnabled ? '' : 'disabled'}" id="time-override-section">
-                        <div class="checkbox-field">
-                            <input type="checkbox" id="debug-time-enabled" ${debugData.customTimeEnabled ? 'checked' : ''}>
-                            <label for="debug-time-enabled">Enable Current Time Override</label>
-                        </div>
-                        
-                        <div class="debug-field">
-                            <label for="debug-custom-date">Date:</label>
-                            <input type="date" id="debug-custom-date" value="${debugData.customDate || currentDate}">
-                        </div>
-                        
-                        <div class="debug-field">
-                            <label>Time:</label>
-                            <div class="time-picker-container">
-                                <input type="number" id="debug-custom-hour" placeholder="HH" value="${debugData.customTime ? debugData.customTime.split(':')[0] : displayHours}" min="1" max="12">
-                                <label>:</label>
-                                <input type="number" id="debug-custom-minute" placeholder="MM" value="${debugData.customTime ? debugData.customTime.split(':')[1] : displayMinutes}" min="0" max="59">
-                                <select id="debug-custom-ampm">
-                                    <option value="AM" ${debugData.customAmPm === 'AM' ? 'selected' : ''}>AM</option>
-                                    <option value="PM" ${debugData.customAmPm === 'PM' ? 'selected' : ''}>PM</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="time-preview ${debugData.customTimeEnabled ? '' : 'disabled'}" id="time-preview">
-                            Custom Time: <span id="time-preview-text">--:-- -- ----/--/--</span>
-                        </div>
-                    </div>
-                    
-                    <div class="debug-actions">
-                        <button class="debug-apply-btn" id="debug-apply-btn">Apply Time Override</button>
-                        <button class="debug-clear-btn" id="debug-clear-btn">Clear Debug</button>
-                        <button class="debug-reset-btn" id="debug-reset-btn">Reset Time</button>
-                    </div>
-                </div>
-                <div class="debug-status">
-                    <div class="debug-status-indicator">
-                        Debug mode: <span class="debug-active">ACTIVE</span>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(debugPanel);
-
-
-        // Manually attach event listeners instead of using inline handlers
-        setupDebugPanelEventListeners();
-
-        // Initialize time preview
-        updateTimePreview();
-
-    }
-}
-
-/**
- * Setup event listeners for debug panel controls
- */
-function setupDebugPanelEventListeners() {
-
-
-    // Time override checkbox
-    const timeEnabledCheckbox = document.getElementById('debug-time-enabled');
-    if (timeEnabledCheckbox) {
-        timeEnabledCheckbox.addEventListener('change', function () {
-
-            toggleTimeOverride();
-        });
-
-    } else {
-        console.error('DEBUG PANEL: Time override checkbox not found!');
-    }
-
-    // Date input
-    const dateInput = document.getElementById('debug-custom-date');
-    if (dateInput) {
-        dateInput.addEventListener('change', function () {
-
-            updateTimePreview();
-        });
-
-    }
-
-    // Hour input
-    const hourInput = document.getElementById('debug-custom-hour');
-    if (hourInput) {
-        hourInput.addEventListener('change', function () {
-
-            updateTimePreview();
-        });
-
-    }
-
-    // Minute input
-    const minuteInput = document.getElementById('debug-custom-minute');
-    if (minuteInput) {
-        minuteInput.addEventListener('change', function () {
-
-            updateTimePreview();
-        });
-
-    }
-
-    // AM/PM select
-    const ampmSelect = document.getElementById('debug-custom-ampm');
-    if (ampmSelect) {
-        ampmSelect.addEventListener('change', function () {
-
-            updateTimePreview();
-        });
-
-    }
-
-    // Apply button
-    const applyBtn = document.getElementById('debug-apply-btn');
-    if (applyBtn) {
-        applyBtn.addEventListener('click', function () {
-
-            applyDebugValues();
-        });
-
-    }
-
-    // Clear button
-    const clearBtn = document.getElementById('debug-clear-btn');
-    if (clearBtn) {
-        clearBtn.addEventListener('click', function () {
-
-            clearDebugValues();
-        });
-
-    }
-
-    // Reset button
-    const resetBtn = document.getElementById('debug-reset-btn');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', function () {
-
-            resetTimeOverride();
-        });
-
-    }
-
-
-}
-
-/**
- * Show debug panel
- */
-function showDebugPanel() {
-    const debugPanel = document.getElementById('debug-panel');
-    if (debugPanel) {
-        debugPanel.classList.remove('hidden');
-        debugPanelVisible = true;
-
-        // Focus on the time override checkbox
-        setTimeout(() => {
-            const firstInput = debugPanel.querySelector('#debug-time-enabled');
-            if (firstInput) {
-                firstInput.focus();
-            }
-        }, 100);
-    }
-}
-
-/**
- * Hide debug panel
- */
-function hideDebugPanel() {
-    const debugPanel = document.getElementById('debug-panel');
-    if (debugPanel) {
-        debugPanel.classList.add('hidden');
-        debugPanelVisible = false;
-    }
-}
-
-/**
- * Apply debug values and refresh display
- */
-async function applyDebugValues() {
-    console.log('==== TIME OVERRIDE APPLICATION ====');
-
-
-    // Validate time override settings if enabled
-    if (debugData.customTimeEnabled) {
-        if (!debugData.customDate || !debugData.customTime) {
-            console.warn('DEBUG MODE: Validation failed - Custom date and time are required when time override is enabled');
-            const errorMsg = 'Custom date and time are required when time override is enabled';
-            showErrorMessage('Custom date and time are required');
-            throw new Error(errorMsg);
-        }
-
-        console.log({
-            customDate: debugData.customDate,
-            customTime: debugData.customTime,
-            customAmPm: debugData.customAmPm
-        });
-    }
-
-    // Refresh real calendar data with the custom time simulation
-
-    try {
-        await loadMeetingData();
-
-
-
-        const currentTime = getCurrentTime();
-
-        showSuccessMessage('Time override applied - Using real calendar data');
-        announceToScreenReader('Time override applied, displaying real meetings with custom time');
-    } catch (error) {
-        console.error('DEBUG MODE: Error loading meeting data:', error);
-        const errorMsg = 'Failed to load meeting data';
-        showErrorMessage(errorMsg);
-        throw new Error(errorMsg);
-    }
-
-
-    console.log('==========================================');
-}
-
-/**
- * Clear debug values and restore normal operation
- */
-async function clearDebugValues() {
-
-
-    // Store previous state for logging
-    const previousState = {
-        debugData: { ...debugData },
-        currentMeeting: currentMeeting ? currentMeeting.title : 'None',
-        upcomingMeetingsCount: upcomingMeetings.length,
-        debugModeEnabled: debugModeEnabled
-    };
-
-
-    // Reset time override to disabled - CRITICAL: Do this BEFORE updating UI
-    debugData.customTimeEnabled = false;
-    debugData.customDate = '';
-    debugData.customTime = '';
-    debugData.customAmPm = 'AM';
-
-
-
-    // Update time override UI if it exists
-    const timeEnabledCheckbox = document.getElementById('debug-time-enabled');
-    const timeSection = document.getElementById('time-override-section');
-    const timePreview = document.getElementById('time-preview');
-
-    if (timeEnabledCheckbox) {
-        timeEnabledCheckbox.checked = false;
-
-    }
-
-    if (timeSection) {
-        timeSection.classList.add('disabled');
-
-    }
-
-    if (timePreview) {
-        timePreview.classList.add('disabled');
-
-    }
-
-    // DO NOT call updateTimePreview() here - it might override our cleared values
-    // Set preview text directly instead
-    const previewText = document.getElementById('time-preview-text');
-    if (previewText) {
-        previewText.textContent = '--:-- -- ----/--/--';
-
-    }
-
-    // Reload real meeting data with normal time
-
-    try {
-        await loadMeetingData();
-
-        console.log({
-            currentMeeting: currentMeeting ? currentMeeting.title : 'None',
-            upcomingMeetingsCount: upcomingMeetings.length
-        });
-    } catch (error) {
-        console.error('DEBUG MODE: Error during meeting data reload:', error);
-    }
-
-    // Log state changes
-    console.log({
-        before: previousState,
-        after: {
-            debugData: debugData,
-            currentMeeting: 'Pending reload',
-            upcomingMeetingsCount: 'Pending reload',
-            debugModeEnabled: debugModeEnabled
-        }
-    });
-
-
-
-    console.log('=====================================');
-
-    showSuccessMessage('Debug cleared, restored normal time and data');
-    announceToScreenReader('Debug mode cleared, normal time and meeting data restored');
-}
-
-/**
- * Set debug values via API (for programmatic testing)
- * @param {Object} values - Debug values object
- * @param {boolean} values.customTimeEnabled - Whether time override is enabled
- * @param {string} values.customDate - Custom date (YYYY-MM-DD format)
- * @param {string} values.customTime - Custom time (HH:MM format)
- * @param {string} values.customAmPm - AM or PM
- */
-function setDebugValues(values) {
-
-    // Enhanced validation logic - reject invalid inputs
-    if (values === null || values === undefined || Array.isArray(values) ||
-        typeof values !== 'object' || typeof values === 'string' ||
-        typeof values === 'number' || typeof values === 'boolean') {
-        return false;
-    }
-
-    // Track if any valid property was actually set
-    let validPropertySet = false;
-
-    if (typeof values.customTimeEnabled === 'boolean') {
-        debugData.customTimeEnabled = values.customTimeEnabled;
-        validPropertySet = true;
-    }
-
-    if (typeof values.customDate === 'string') {
-        debugData.customDate = values.customDate;
-        validPropertySet = true;
-    }
-
-    if (typeof values.customTime === 'string') {
-        debugData.customTime = values.customTime;
-        validPropertySet = true;
-    }
-
-    if (typeof values.customAmPm === 'string' && ['AM', 'PM'].includes(values.customAmPm)) {
-        debugData.customAmPm = values.customAmPm;
-        validPropertySet = true;
-    }
-
-    // If no valid properties were set, return false
-    if (!validPropertySet) {
-
-        return false;
-    }
-
-    // Update inputs if debug panel is visible
-    const timeEnabledCheckbox = document.getElementById('debug-time-enabled');
-    const dateInput = document.getElementById('debug-custom-date');
-    const hourInput = document.getElementById('debug-custom-hour');
-    const minuteInput = document.getElementById('debug-custom-minute');
-    const ampmSelect = document.getElementById('debug-custom-ampm');
-
-    if (timeEnabledCheckbox) timeEnabledCheckbox.checked = debugData.customTimeEnabled;
-    if (dateInput) dateInput.value = debugData.customDate;
-    if (hourInput && debugData.customTime) hourInput.value = debugData.customTime.split(':')[0];
-    if (minuteInput && debugData.customTime) minuteInput.value = debugData.customTime.split(':')[1];
-    if (ampmSelect) ampmSelect.value = debugData.customAmPm;
-
-    // Update time override UI state only if we have valid data
-    if (typeof values.customTimeEnabled === 'boolean' ||
-        typeof values.customDate === 'string' ||
-        typeof values.customTime === 'string') {
-        // Don't call toggleTimeOverride() and updateTimePreview() for invalid inputs
-        // This prevents overriding valid debug data with defaults
-
-        updateTimePreview();
-    }
-
-    return true;
-}
-
-/**
- * Get current debug state
- * @returns {Object} Debug state information
- */
-function getDebugState() {
-    return {
-        enabled: debugModeEnabled,
-        panelVisible: debugPanelVisible,
-        data: { ...debugData }
-    };
-}
-
-/**
- * Add visual indicator that debug mode is active
- */
-function addDebugModeIndicator() {
-
-
-    let indicator = document.getElementById('debug-mode-indicator');
-
-    console.log({
-        indicatorExists: !!indicator,
-        indicatorId: indicator ? indicator.id : 'None'
-    });
-
-    if (!indicator) {
-
-
-        indicator = document.createElement('div');
-        indicator.id = 'debug-mode-indicator';
-        indicator.innerHTML = 'DEBUG MODE ACTIVE';
-        indicator.style.cssText = `
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: #ff4444;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
-            z-index: 1500;
-            letter-spacing: 0.5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            animation: pulse 2s infinite;
-        `;
-
-        // Add some CSS animation for visibility
-        if (!document.getElementById('debug-indicator-styles')) {
-            const style = document.createElement('style');
-            style.id = 'debug-indicator-styles';
-            style.textContent = `
-                @keyframes pulse {
-                    0% { opacity: 1; }
-                    50% { opacity: 0.7; }
-                    100% { opacity: 1; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
-
-        document.body.appendChild(indicator);
-
-        console.log({
-            elementId: indicator.id,
-            innerHTML: indicator.innerHTML,
-            parentElement: indicator.parentElement ? indicator.parentElement.tagName : 'None'
-        });
-    } else {
-
-        indicator.style.display = 'block';
-    }
-
-
-    document.body.classList.add('debug-mode-active');
-
-    // Verify the indicator is visible
-    setTimeout(() => {
-        const finalIndicator = document.getElementById('debug-mode-indicator');
-        console.log({
-            indicatorExists: !!finalIndicator,
-            isVisible: finalIndicator ? getComputedStyle(finalIndicator).display !== 'none' : false,
-            hasActiveClass: document.body.classList.contains('debug-mode-active'),
-            indicatorRect: finalIndicator ? finalIndicator.getBoundingClientRect() : null
-        });
-    }, 100);
-
-
-}
-
-/**
- * Remove debug mode indicator
- */
-function removeDebugModeIndicator() {
-
-
-    const indicator = document.getElementById('debug-mode-indicator');
-
-    console.log({
-        indicatorExists: !!indicator,
-        bodyHasActiveClass: document.body.classList.contains('debug-mode-active')
-    });
-
-    if (indicator) {
-
-        indicator.remove();
-
-    } else {
-
-    }
-
-
-    document.body.classList.remove('debug-mode-active');
-
-    // Also remove the debug styles if they exist
-    const debugStyles = document.getElementById('debug-indicator-styles');
-    if (debugStyles) {
-
-        debugStyles.remove();
-    }
-
-    // Verify cleanup
-    setTimeout(() => {
-        const verifyIndicator = document.getElementById('debug-mode-indicator');
-        console.log({
-            indicatorStillExists: !!verifyIndicator,
-            bodyStillHasActiveClass: document.body.classList.contains('debug-mode-active'),
-            stylesStillExist: !!document.getElementById('debug-indicator-styles')
-        });
-    }, 100);
-
-
-}
-
-// Debug helper
-window.whatsNextView = {
-    getCurrentMeeting: () => currentMeeting,
-    getUpcomingMeetings: () => upcomingMeetings,
-    getLastUpdate: () => lastDataUpdate,
-    forceRefresh: refresh,
-    toggleAutoRefresh: () => {
-        autoRefreshEnabled = !autoRefreshEnabled;
-        if (autoRefreshEnabled) {
-            setupAutoRefresh();
-        } else if (autoRefreshInterval) {
-            clearInterval(autoRefreshInterval);
-            autoRefreshInterval = null;
-        }
-        return autoRefreshEnabled;
-    },
-    // Debug mode exports
-    toggleDebugMode: toggleDebugMode,
-    setDebugValues: setDebugValues,
-    getDebugState: getDebugState,
-    applyDebugValues: applyDebugValues,
-    clearDebugValues: clearDebugValues,
-    // State manager access (Phase 2)
-    getStateManager: () => whatsNextStateManager
-};
 
 // ===========================================
 // SETTINGS PANEL INTEGRATION
@@ -2423,13 +1479,11 @@ async function initializeSettingsPanel() {
     const retryDelay = 100; // 100ms between retries
     let retryCount = 0;
 
-    console.log('Settings panel initialization started - checking for window.SettingsPanel...');
 
     const attemptInitialization = async () => {
         try {
             // Check if SettingsPanel is available
             if (typeof window.SettingsPanel !== 'undefined') {
-                console.log(`Settings panel found after ${retryCount} retries (${retryCount * retryDelay}ms)`);
 
                 settingsPanel = new window.SettingsPanel({
                     layout: 'whats-next-view',
@@ -2442,12 +1496,10 @@ async function initializeSettingsPanel() {
                 // CRITICAL FIX: Call initialize() to create DOM elements and gesture handler
                 await settingsPanel.initialize();
 
-                console.log('Settings panel initialized successfully for whats-next-view layout');
                 return true;
             } else {
                 retryCount++;
                 if (retryCount <= maxRetries) {
-                    console.log(`Settings panel not ready - retry ${retryCount}/${maxRetries} (waiting ${retryDelay}ms)`);
                     // Use setTimeout to retry after delay
                     return new Promise((resolve) => {
                         setTimeout(async () => {
@@ -2456,16 +1508,12 @@ async function initializeSettingsPanel() {
                         }, retryDelay);
                     });
                 } else {
-                    console.warn(`Settings panel initialization failed - window.SettingsPanel not available after ${maxRetries} retries (${maxRetries * retryDelay}ms total)`);
-                    console.warn('Settings functionality will not be available in this session');
                     return false;
                 }
             }
         } catch (error) {
-            console.error(`Settings panel initialization attempt ${retryCount} failed:`, error);
             retryCount++;
             if (retryCount <= maxRetries) {
-                console.log(`Retrying due to error - attempt ${retryCount}/${maxRetries}`);
                 // Retry on error as well
                 return new Promise((resolve) => {
                     setTimeout(async () => {
@@ -2474,7 +1522,6 @@ async function initializeSettingsPanel() {
                     }, retryDelay);
                 });
             } else {
-                console.error('Settings panel initialization failed permanently due to errors');
                 return false;
             }
         }
@@ -2526,7 +1573,6 @@ function setupEventHiding() {
             const eventId = graphId || customId;
             
             if (!eventId) {
-                console.error('Cannot hide event: No event ID found');
                 return;
             }
             
@@ -2542,8 +1588,7 @@ function setupEventHiding() {
             }
         });
     });
-    
-    console.log('Whats-Next-View: Event hiding functionality initialized');
+
 }
 
 /**
@@ -2552,12 +1597,10 @@ function setupEventHiding() {
  */
 async function hideEvent(graphId) {
     if (!graphId) {
-        console.error('Cannot hide event: Missing graphId parameter');
         return;
     }
     
     if (!whatsNextStateManager) {
-        console.error('Cannot hide event: WhatsNextStateManager not initialized');
         return;
     }
     
@@ -2566,14 +1609,11 @@ async function hideEvent(graphId) {
         const success = await whatsNextStateManager.hideEvent(graphId);
         
         if (success) {
-            console.log(`Event hidden successfully via state manager: ${graphId}`);
         } else {
-            console.error(`Failed to hide event via state manager: ${graphId}`);
         }
         
         return success;
     } catch (error) {
-        console.error('Error hiding event via state manager:', error);
         return false;
     }
 }
@@ -2630,7 +1670,6 @@ class WhatsNextStateManager {
             apiCallCount: 0
         };
 
-        console.log('WhatsNextStateManager: Initialized');
     }
 
     /**
@@ -2642,15 +1681,8 @@ class WhatsNextStateManager {
             this._setLoading(true);
             this._setError(null);
 
-            const startTime = performance.now();
-            
-            // Prepare request body with custom time if debug mode is enabled
+            const startTime = performance.now();        
             const requestBody = {};
-            if (debugModeEnabled && debugData.customTimeEnabled) {
-                const customTime = getCurrentTime();
-                requestBody.debug_time = customTime.toISOString();
-            }
-
             const response = await fetch('/api/whats-next/data', {
                 method: 'POST',
                 headers: {
@@ -2674,7 +1706,6 @@ class WhatsNextStateManager {
             // Update state with new data
             this.updateState(data);
 
-            console.log(`WhatsNextStateManager: Data loaded in ${this.performanceMetrics.loadDuration.toFixed(2)}ms`);
             
             // Automatically refresh the view with incremental updates
             this.refreshView();
@@ -2685,7 +1716,6 @@ class WhatsNextStateManager {
             return data;
 
         } catch (error) {
-            console.error('WhatsNextStateManager: Failed to load data', error);
             this._setError(error.message);
             this._emitEvent('error', { type: 'loadData', error: error.message });
             throw error;
@@ -2718,7 +1748,6 @@ class WhatsNextStateManager {
         // Apply any pending optimistic updates
         this._applyOptimisticUpdates();
 
-        console.log(`WhatsNextStateManager: State updated with ${this.state.events.length} events`);
 
         // Emit state change event
         this._emitEvent('stateChanged', {
@@ -2740,10 +1769,8 @@ class WhatsNextStateManager {
             // Perform incremental DOM updates that preserve countdown elements
             this._performIncrementalDOMUpdates();
 
-            console.log('WhatsNextStateManager: View refreshed with incremental updates');
 
         } catch (error) {
-            console.error('WhatsNextStateManager: Failed to refresh view', error);
             this._setError('View refresh failed');
             this._emitEvent('error', { type: 'refreshView', error: error.message });
         }
@@ -2802,7 +1829,6 @@ class WhatsNextStateManager {
         const content = document.querySelector('.calendar-content');
         
         if (!content) {
-            console.error('WhatsNextStateManager: .calendar-content container not found');
             return;
         }
 
@@ -2860,7 +1886,6 @@ class WhatsNextStateManager {
         
         if (currentContent !== trimmedNewContent) {
             element.textContent = trimmedNewContent;
-            console.log(`WhatsNextStateManager: Updated ${selector} content`);
         }
     }
 
@@ -3006,7 +2031,6 @@ class WhatsNextStateManager {
      */
     async hideEvent(graphId) {
         if (!graphId) {
-            console.error('WhatsNextStateManager: hideEvent called without graphId');
             return false;
         }
 
@@ -3016,7 +2040,6 @@ class WhatsNextStateManager {
             this._applyOptimisticUpdates();
             this.refreshView();
 
-            console.log(`WhatsNextStateManager: Optimistic hide for event ${graphId}`);
 
             // Make API call in background
             const response = await fetch('/api/events/hide', {
@@ -3041,7 +2064,6 @@ class WhatsNextStateManager {
             // Remove optimistic update since server confirmed
             this._removeOptimisticUpdate(graphId);
 
-            console.log(`WhatsNextStateManager: Event ${graphId} hidden successfully`);
 
             // Emit event hidden notification
             this._emitEvent('eventHidden', { graphId, result });
@@ -3049,7 +2071,6 @@ class WhatsNextStateManager {
             return true;
 
         } catch (error) {
-            console.error(`WhatsNextStateManager: Failed to hide event ${graphId}`, error);
             
             // Rollback optimistic update
             this._removeOptimisticUpdate(graphId);
@@ -3070,7 +2091,6 @@ class WhatsNextStateManager {
      */
     async unhideEvent(graphId) {
         if (!graphId) {
-            console.error('WhatsNextStateManager: unhideEvent called without graphId');
             return false;
         }
 
@@ -3080,7 +2100,6 @@ class WhatsNextStateManager {
             this._applyOptimisticUpdates();
             this.refreshView();
 
-            console.log(`WhatsNextStateManager: Optimistic unhide for event ${graphId}`);
 
             // Make API call in background
             const response = await fetch('/api/events/unhide', {
@@ -3105,7 +2124,6 @@ class WhatsNextStateManager {
             // Remove optimistic update since server confirmed
             this._removeOptimisticUpdate(graphId);
 
-            console.log(`WhatsNextStateManager: Event ${graphId} unhidden successfully`);
 
             // Emit event unhidden notification
             this._emitEvent('eventUnhidden', { graphId, result });
@@ -3113,7 +2131,6 @@ class WhatsNextStateManager {
             return true;
 
         } catch (error) {
-            console.error(`WhatsNextStateManager: Failed to unhide event ${graphId}`, error);
             
             // Rollback optimistic update
             this._removeOptimisticUpdate(graphId);
@@ -3160,7 +2177,6 @@ class WhatsNextStateManager {
         if (this.listeners[eventType]) {
             this.listeners[eventType].push(callback);
         } else {
-            console.warn(`WhatsNextStateManager: Unknown event type: ${eventType}`);
         }
     }
 
@@ -3206,7 +2222,6 @@ class WhatsNextStateManager {
                 try {
                     callback(data);
                 } catch (error) {
-                    console.error(`WhatsNextStateManager: Error in ${eventType} listener`, error);
                 }
             });
         }
@@ -3288,18 +2303,15 @@ function initializeStateManager() {
 
             // Set up error handling
             whatsNextStateManager.addEventListener('error', (data) => {
-                console.error('WhatsNextStateManager Error:', data);
                 showErrorMessage('State manager error: ' + data.error);
             });
 
             // Set up state change handling for debugging
             whatsNextStateManager.addEventListener('stateChanged', (data) => {
-                console.log('WhatsNextStateManager State Changed:', data.changeType);
             });
 
             // Set up data loaded event handling (Phase 2 integration)
             whatsNextStateManager.addEventListener('dataLoaded', (data) => {
-                console.log('WhatsNextStateManager: Data loaded event received');
                 
                 // Update global variables for backward compatibility
                 if (data.data && data.data.events) {
@@ -3323,23 +2335,19 @@ function initializeStateManager() {
 
             // Set up event hidden/unhidden event handling
             whatsNextStateManager.addEventListener('eventHidden', (data) => {
-                console.log('WhatsNextStateManager: Event hidden:', data.graphId);
                 // Update UI to reflect hidden event
                 detectCurrentMeeting();
                 updateCountdown();
             });
 
             whatsNextStateManager.addEventListener('eventUnhidden', (data) => {
-                console.log('WhatsNextStateManager: Event unhidden:', data.graphId);
                 // Update UI to reflect unhidden event
                 detectCurrentMeeting();
                 updateCountdown();
             });
 
-            console.log('WhatsNextStateManager: Global instance initialized');
         }
     } catch (error) {
-        console.error('WhatsNextStateManager: Failed to initialize', error);
     }
 }
 
@@ -3351,16 +2359,13 @@ function initializeStateManager() {
  * Cleanup function for the Whats-Next-View
  */
 function cleanup() {
-    console.log('Whats-Next-View: Starting cleanup...');
 
     // Clean up settings panel
     if (settingsPanel) {
         try {
             settingsPanel.destroy();
             settingsPanel = null;
-            console.log('Settings panel cleaned up');
         } catch (error) {
-            console.error('Settings panel cleanup failed:', error);
         }
     }
 
@@ -3368,17 +2373,14 @@ function cleanup() {
     if (countdownInterval) {
         clearInterval(countdownInterval);
         countdownInterval = null;
-        console.log('Countdown interval cleaned up');
     }
 
     // Clean up auto-refresh interval
     if (autoRefreshInterval) {
         clearInterval(autoRefreshInterval);
         autoRefreshInterval = null;
-        console.log('Auto-refresh interval cleaned up');
     }
 
-    console.log('Whats-Next-View: Cleanup completed');
 }
 
 // Handle page unload
@@ -3388,5 +2390,3 @@ window.addEventListener('beforeunload', cleanup);
 window.getSettingsPanel = getSettingsPanel;
 window.hasSettingsPanel = hasSettingsPanel;
 window.cleanup = cleanup;
-
-console.log('Whats-Next-View JavaScript loaded and ready');

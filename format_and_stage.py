@@ -106,7 +106,7 @@ def get_staged_vs_working_differences(files: list[str]) -> list[str]:
                     f"    Found difference in {filepath}: working directory differs from staging area"
                 )
 
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError:  # noqa: PERF203
             # If git diff fails, assume the file needs staging
             different_files.append(filepath)
 

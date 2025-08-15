@@ -9,6 +9,7 @@ from typing import Any, Optional
 import pytz
 
 from ..cache.models import CachedEvent
+from ..config.build import is_production_mode
 from ..layout.exceptions import LayoutNotFoundError
 from ..layout.registry import LayoutRegistry
 from ..layout.resource_manager import ResourceManager
@@ -582,12 +583,18 @@ class HTMLRenderer:
         <div class="status-line">{status_line}</div>
     </header>"""
 
+        # Inject production mode for JavaScript
+        production_script = f"""    <script>
+        window.CALENDARBOT_PRODUCTION = {str(is_production_mode()).lower()};
+    </script>"""
+
         return f"""<!DOCTYPE html>
 <html lang="en" class="layout-{self.layout}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="{viewport_content}">
     <title>📅 Calendar Bot - {display_date}</title>
+{production_script}
 {css_links_html}
 </head>
 <body>{header_section}

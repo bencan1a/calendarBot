@@ -35,7 +35,7 @@ class SettingsPanel {
         // Event listeners cleanup
         this.boundEventListeners = [];
 
-        console.log('SettingsPanel: Initialized with layout:', this.currentLayout, 'screen size:', this.screenSize);
+        if (!window.CALENDARBOT_PRODUCTION) if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Initialized with layout:', this.currentLayout, 'screen size:', this.screenSize);
     }
 
     /**
@@ -44,7 +44,7 @@ class SettingsPanel {
      */
     async initialize() {
         if (this.isInitialized) {
-            console.warn('SettingsPanel: Already initialized');
+            if (!window.CALENDARBOT_PRODUCTION) console.warn('SettingsPanel: Already initialized');
             return;
         }
 
@@ -72,10 +72,10 @@ class SettingsPanel {
             this.setupKeyboardShortcuts();
 
             this.isInitialized = true;
-            console.log('SettingsPanel: Initialization complete');
+            if (!window.CALENDARBOT_PRODUCTION) if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Initialization complete');
 
         } catch (error) {
-            console.error('SettingsPanel: Initialization failed:', error);
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsPanel: Initialization failed:', error);
             this.showError('Failed to initialize settings panel: ' + error.message);
         }
     }
@@ -90,7 +90,7 @@ class SettingsPanel {
             existingPanel.remove();
         }
 
-        console.log('SettingsPanel: Creating panel HTML, isOpen should be false:', this.isOpen);
+        if (!window.CALENDARBOT_PRODUCTION) if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Creating panel HTML, isOpen should be false:', this.isOpen);
 
         const panelHTML = `
             <div id="settings-panel" class="settings-panel" role="dialog" aria-labelledby="settings-title" aria-hidden="true" style="display: none !important; visibility: hidden !important; opacity: 0 !important;">
@@ -228,7 +228,7 @@ class SettingsPanel {
         `;
 
         document.body.insertAdjacentHTML('beforeend', panelHTML);
-        console.log('SettingsPanel: Panel HTML created');
+        if (!window.CALENDARBOT_PRODUCTION) if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Panel HTML created');
     }
 
     /**
@@ -237,7 +237,7 @@ class SettingsPanel {
     setupFormEventListeners() {
         const panel = document.getElementById('settings-panel');
         if (!panel) {
-            console.error('SettingsPanel: Panel element not found during event setup');
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsPanel: Panel element not found during event setup');
             return;
         }
 
@@ -327,7 +327,7 @@ class SettingsPanel {
             this.addEventListenerWithCleanup(importBtn, 'click', () => this.importSettings());
         }
 
-        console.log('SettingsPanel: Form event listeners setup complete');
+        if (!window.CALENDARBOT_PRODUCTION) if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Form event listeners setup complete');
     }
 
     /**
@@ -404,7 +404,7 @@ class SettingsPanel {
                 this.localSettings = JSON.parse(JSON.stringify(settingsData)); // Deep copy
                 this.populateForm(this.localSettings);
                 this.hideStatus();
-                console.log('SettingsPanel: Settings loaded successfully');
+                if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Settings loaded successfully');
             } else {
                 throw new Error(result.error || 'Failed to load settings');
             }
@@ -455,7 +455,7 @@ class SettingsPanel {
         // Show/hide auto-refresh field based on current layout
         this.updateLayoutSpecificFields();
 
-        console.log('SettingsPanel: Form populated with settings');
+        if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Form populated with settings');
     }
 
     /**
@@ -562,7 +562,7 @@ class SettingsPanel {
                 }
 
                 this.updateSaveStatus('saved');
-                console.log('SettingsPanel: Settings saved successfully');
+                if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Settings saved successfully');
 
             } else {
                 throw new Error(result.error || 'Failed to save settings');
@@ -615,7 +615,7 @@ class SettingsPanel {
             this.isOpen = true;
             this.isTransitioning = false;
 
-            console.log('SettingsPanel: Panel opened successfully');
+            if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Panel opened successfully');
 
         } catch (error) {
             console.error('SettingsPanel: Failed to open panel:', error);
@@ -629,7 +629,7 @@ class SettingsPanel {
      */
     close() {
         if (!this.isOpen || this.isTransitioning) {
-            console.log('SettingsPanel: Close called but panel not open or transitioning');
+            if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Close called but panel not open or transitioning');
             return;
         }
 
@@ -637,18 +637,18 @@ class SettingsPanel {
 
         const panel = document.getElementById('settings-panel');
         if (panel) {
-            console.log('SettingsPanel: Starting close sequence');
+            if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Starting close sequence');
 
             // ACCESSIBILITY FIX: Enhanced focus management before setting aria-hidden
             const focusedElement = document.activeElement;
             const panelContainsFocus = panel.contains(focusedElement);
 
-            console.log('SettingsPanel: Focus management - focused element:', focusedElement?.tagName, focusedElement?.id);
-            console.log('SettingsPanel: Panel contains focus:', panelContainsFocus);
+            if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Focus management - focused element:', focusedElement?.tagName, focusedElement?.id);
+            if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Panel contains focus:', panelContainsFocus);
 
             // Always handle focus management properly to prevent accessibility violations
             if (panelContainsFocus && focusedElement) {
-                console.log('SettingsPanel: Removing focus from panel element:', focusedElement.id || focusedElement.tagName);
+                if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Removing focus from panel element:', focusedElement.id || focusedElement.tagName);
 
                 // Force blur and clear any active state
                 focusedElement.blur();
@@ -659,7 +659,7 @@ class SettingsPanel {
 
                 // Double-check that focus has actually moved
                 const newFocused = document.activeElement;
-                console.log('SettingsPanel: Focus moved to:', newFocused?.tagName, newFocused?.id);
+                if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Focus moved to:', newFocused?.tagName, newFocused?.id);
 
                 // Use a longer timeout to ensure focus change is fully processed
                 setTimeout(() => {
@@ -669,21 +669,21 @@ class SettingsPanel {
 
                     if (!stillInPanel) {
                         panel.setAttribute('aria-hidden', 'true');
-                        console.log('SettingsPanel: aria-hidden set after successful focus management');
+                        if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: aria-hidden set after successful focus management');
                     } else {
                         console.warn('SettingsPanel: Focus still inside panel, deferring aria-hidden');
                         // Force focus out one more time
                         document.body.focus();
                         setTimeout(() => {
                             panel.setAttribute('aria-hidden', 'true');
-                            console.log('SettingsPanel: aria-hidden set after forced focus removal');
+                            if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: aria-hidden set after forced focus removal');
                         }, 50);
                     }
                 }, 10);
             } else {
                 // No focus inside panel, safe to set aria-hidden immediately
                 panel.setAttribute('aria-hidden', 'true');
-                console.log('SettingsPanel: aria-hidden set (no focus inside panel)');
+                if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: aria-hidden set (no focus inside panel)');
             }
 
             // CRITICAL FIX: Remove all visibility-related classes
@@ -708,7 +708,7 @@ class SettingsPanel {
         this.isOpen = false;
         this.isTransitioning = false;
 
-        console.log('SettingsPanel: Panel closed successfully');
+        if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Panel closed successfully');
     }
 
     /**
@@ -797,7 +797,7 @@ class SettingsPanel {
         this.renderPatternList(this.localSettings.event_filters.title_patterns);
         this.onSettingChange();
 
-        console.log('SettingsPanel: Added title pattern:', pattern);
+        if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Added title pattern:', pattern);
     }
 
     /**
@@ -1033,7 +1033,7 @@ class SettingsPanel {
             else if (path.includes('4x8')) layout = '4x8';
         }
 
-        console.log('SettingsPanel: Layout detected:', layout, 'from HTML class:', html?.className);
+        if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Layout detected:', layout, 'from HTML class:', html?.className);
         return layout;
     }
 
@@ -1123,7 +1123,7 @@ class SettingsPanel {
             panel.setAttribute('data-content-aware', 'true');
         }
 
-        console.log('SettingsPanel: Applied content-based sizing for', isConstrainedLayout ? 'constrained' : 'normal', 'layout');
+        if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Applied content-based sizing for', isConstrainedLayout ? 'constrained' : 'normal', 'layout');
     }
 
     /**
@@ -1162,7 +1162,7 @@ class SettingsPanel {
             this.gestureHandler.updateGestureZoneHeight(zoneHeight);
         }
 
-        console.log('SettingsPanel: Updated responsive layout for screen size:', this.screenSize);
+        if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Updated responsive layout for screen size:', this.screenSize);
     }
 
     /**
@@ -1275,7 +1275,7 @@ class SettingsPanel {
         }
 
         this.isInitialized = false;
-        console.log('SettingsPanel: Cleanup completed');
+        if (!window.CALENDARBOT_PRODUCTION) console.log('SettingsPanel: Cleanup completed');
     }
 }
 

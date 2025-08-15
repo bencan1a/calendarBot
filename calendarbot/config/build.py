@@ -45,11 +45,8 @@ PRODUCTION_EXCLUDES = [
     r"development-.*\.js$",
     r"test-.*\.js$",
     r"mock-.*\.js$",
-    # Specific debug-heavy files identified during optimization analysis
-    # These files contain extensive console.log statements and debug infrastructure
-    r"settings-panel\.js$",  # 1287 lines, 38+ console.log statements
-    r"settings-api\.js$",  # 525 lines, console.error/warn for API debugging
-    r"gesture-handler\.js$",  # 549 lines, console.log/warn/error for gestures
+    # NOTE: Removed settings-panel.js, settings-api.js, and gesture-handler.js
+    # from exclusions as they contain essential functionality, not just debug code
     # Additional debug patterns
     r".*\.debug\.js$",
     r".*\.dev\.js$",

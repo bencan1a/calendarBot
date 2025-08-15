@@ -68,6 +68,10 @@ async def run_interactive_mode(args: Any) -> int:
         logger.info("Enhanced logging initialized for interactive mode")
 
         # Create interactive controller
+        if app.cache_manager is None or app.display_manager is None:
+            logger.error("App components not properly initialized")
+            return 1
+
         interactive = InteractiveController(app.cache_manager, app.display_manager)
 
         # Start background data fetching

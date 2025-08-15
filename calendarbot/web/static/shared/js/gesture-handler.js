@@ -24,7 +24,7 @@ class GestureHandler {
         this.gestureActive = false;
         this.panelTransitioning = false;
 
-        console.log('GestureHandler: Initialized with gesture zone height:', this.gestureZoneHeight);
+        if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Initialized with gesture zone height:', this.gestureZoneHeight);
     }
 
     /**
@@ -35,7 +35,7 @@ class GestureHandler {
         this.createGestureZone();
         this.createDragIndicator();
         this.setupEventListeners();
-        console.log('GestureHandler: Gesture recognition system initialized');
+        if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Gesture recognition system initialized');
     }
 
     /**
@@ -63,7 +63,7 @@ class GestureHandler {
             topPosition = `${rect.top}px`;
             leftPosition = `${rect.left}px`;
             zoneWidth = `${rect.width}px`;
-            console.log('GestureHandler: Positioning gesture zone over content area:', {
+            if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Positioning gesture zone over content area:', {
                 top: topPosition,
                 left: leftPosition,
                 width: zoneWidth
@@ -86,7 +86,7 @@ class GestureHandler {
         `;
 
         document.body.appendChild(gestureZone);
-        console.log('GestureHandler: Content-aware gesture zone created');
+        if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Content-aware gesture zone created');
     }
 
     /**
@@ -110,7 +110,7 @@ class GestureHandler {
             const rect = contentContainer.getBoundingClientRect();
             topPosition = `${rect.top + this.gestureZoneHeight}px`;
             leftPosition = `${rect.left + (rect.width / 2)}px`;
-            console.log('GestureHandler: Positioning drag indicator relative to content area:', {
+            if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Positioning drag indicator relative to content area:', {
                 top: topPosition,
                 left: leftPosition
             });
@@ -150,7 +150,7 @@ class GestureHandler {
         this.dragIndicator.appendChild(arrow);
 
         document.body.appendChild(this.dragIndicator);
-        console.log('GestureHandler: Content-aware drag indicator created');
+        if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Content-aware drag indicator created');
     }
 
     /**
@@ -182,7 +182,7 @@ class GestureHandler {
         // Prevent context menu in gesture zone
         gestureZone.addEventListener('contextmenu', (e) => e.preventDefault());
 
-        console.log('GestureHandler: Event listeners attached');
+        if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Event listeners attached');
     }
 
     /**
@@ -207,7 +207,7 @@ class GestureHandler {
             const zoneRect = gestureZone.getBoundingClientRect();
             const withinGestureZone = clientY >= zoneRect.top && clientY <= zoneRect.bottom;
 
-            console.log('GestureHandler: Touch at Y:', clientY, 'Zone:', zoneRect.top, '-', zoneRect.bottom, 'Within zone:', withinGestureZone);
+            if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Touch at Y:', clientY, 'Zone:', zoneRect.top, '-', zoneRect.bottom, 'Within zone:', withinGestureZone);
 
             if (!withinGestureZone) {
                 return;
@@ -234,7 +234,7 @@ class GestureHandler {
         // Show drag indicator immediately
         this.showDragIndicator();
 
-        console.log('GestureHandler: Gesture started at Y:', this.startY);
+        if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Gesture started at Y:', this.startY);
     }
 
     /**
@@ -261,7 +261,7 @@ class GestureHandler {
         if (!this.isDragging && dragDistance >= this.dragThreshold) {
             this.isDragging = true;
             this.startPanelReveal();
-            console.log('GestureHandler: Drag threshold reached, starting panel reveal');
+            if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Drag threshold reached, starting panel reveal');
         }
 
         // Update panel position if dragging
@@ -282,7 +282,7 @@ class GestureHandler {
         const touchDuration = Date.now() - this.touchStartTime;
         const dragDistance = this.currentY - this.startY;
 
-        console.log('GestureHandler: Gesture ended', {
+        if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Gesture ended', {
             dragDistance,
             touchDuration,
             isDragging: this.isDragging
@@ -304,7 +304,7 @@ class GestureHandler {
             if (touchDuration < 300 && dragDistance < 10) {
                 this.showGestureHint();
                 // Drag indicator stays visible - will be hidden by document click or next gesture
-                console.log('GestureHandler: Short tap detected, keeping drag indicator visible');
+                if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Short tap detected, keeping drag indicator visible');
             } else {
                 // Hide indicator for longer touches that didn't become drags
                 this.hideDragIndicator();
@@ -426,7 +426,7 @@ class GestureHandler {
             const rect = contentContainer.getBoundingClientRect();
             topPosition = `${rect.top + this.gestureZoneHeight + 10}px`;
             leftPosition = `${rect.left + (rect.width / 2)}px`;
-            console.log('GestureHandler: Positioning hint relative to content area:', {
+            if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Positioning hint relative to content area:', {
                 top: topPosition,
                 left: leftPosition
             });
@@ -489,7 +489,7 @@ class GestureHandler {
             this.dragIndicator.style.top = `${height}px`;
         }
 
-        console.log('GestureHandler: Gesture zone height updated to:', height);
+        if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Gesture zone height updated to:', height);
     }
 
     /**
@@ -501,7 +501,7 @@ class GestureHandler {
         if (gestureZone) {
             gestureZone.style.pointerEvents = 'auto';
         }
-        console.log('GestureHandler: Gesture recognition enabled');
+        if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Gesture recognition enabled');
     }
 
     /**
@@ -516,7 +516,7 @@ class GestureHandler {
         if (gestureZone) {
             gestureZone.style.pointerEvents = 'none';
         }
-        console.log('GestureHandler: Gesture recognition disabled');
+        if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Gesture recognition disabled');
     }
 
     /**
@@ -537,7 +537,7 @@ class GestureHandler {
         document.removeEventListener('click', this.onDocumentClick.bind(this));
         document.removeEventListener('keydown', this.onKeyDown.bind(this));
 
-        console.log('GestureHandler: Cleaned up and destroyed');
+        if (!window.CALENDARBOT_PRODUCTION) console.log('GestureHandler: Cleaned up and destroyed');
     }
 }
 

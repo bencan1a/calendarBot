@@ -2,36 +2,112 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
+from .asset_bundler import LayoutAssetBundler
 from .exceptions import LayoutNotFoundError, ResourceLoadingError
+from .lazy_registry import LazyLayoutRegistry
 from .registry import LayoutRegistry
 
 logger = logging.getLogger(__name__)
 
 
 class ResourceManager:
-    """Manages dynamic loading of layout resources."""
+    """Manages dynamic loading of layout resources with Phase 2B optimization support."""
 
     def __init__(
         self,
-        layout_registry: LayoutRegistry,
+        layout_registry: Union[LayoutRegistry, LazyLayoutRegistry],
         base_url: str = "/static",
         settings: Optional[Any] = None,
+        asset_bundler: Optional[LayoutAssetBundler] = None,
+        static_asset_cache: Optional[Any] = None,
+        enable_lazy_loading: bool = True,
     ) -> None:
-        """Initialize resource manager.
+        """Initialize resource manager with Phase 2B optimization support.
 
         Args:
-            layout_registry: Registry instance for layout discovery.
+            layout_registry: Registry instance for layout discovery (LayoutRegistry or LazyLayoutRegistry).
             base_url: Base URL path for serving static resources.
             settings: Application settings for conditional resource loading.
+            asset_bundler: Optional LayoutAssetBundler for asset optimization.
+            static_asset_cache: Optional StaticAssetCache for O(1) asset resolution.
+            enable_lazy_loading: Whether to use lazy loading features when available.
         """
         self.layout_registry = layout_registry
         self.base_url = base_url.rstrip("/")
         self.settings = settings
+        self.asset_bundler = asset_bundler
+        self.static_asset_cache = static_asset_cache
+        self.enable_lazy_loading = enable_lazy_loading
+
+        # Traditional caches
         self._resource_cache: dict[str, dict[str, list[str]]] = {}
         self._css_cache: dict[str, str] = {}
         self._js_cache: dict[str, str] = {}
+
+        # Performance tracking for lazy loading
+        self._lazy_load_hits = 0
+        self._lazy_load_misses = 0
+        self._bundle_hits = 0
+        self._bundle_misses = 0
+
+        logger.info(
+            "ResourceManager initialized - lazy_loading: %s, bundler: %s, static_cache: %s",
+            enable_lazy_loading and isinstance(layout_registry, LazyLayoutRegistry),
+            asset_bundler is not None,
+            static_asset_cache is not None,
+        )
+
+    def _get_layout_info(self, layout_name: str):
+        """Get layout info with registry type compatibility."""
+        if isinstance(self.layout_registry, LazyLayoutRegistry):
+            # LazyLayoutRegistry uses get_layout() method
+            return self.layout_registry.get_layout(layout_name)
+        # LayoutRegistry uses get_layout_with_fallback() method
+        return self.layout_registry.get_layout_with_fallback(layout_name)
+
+    def _get_layout_css_paths(self, layout_name: str) -> list[Path]:
+        """Get CSS paths with registry type compatibility."""
+        if isinstance(self.layout_registry, LazyLayoutRegistry):
+            # For LazyLayoutRegistry, extract paths from layout info
+            layout_info = self.layout_registry.get_layout(layout_name)
+            if not layout_info:
+                return []
+
+            css_files = layout_info.resources.get("css", [])
+            css_paths = []
+            layouts_dir = getattr(self.layout_registry, "layouts_dir", Path())
+
+            for css_file in css_files:
+                file_name = css_file.get("file", "") if isinstance(css_file, dict) else css_file
+                if file_name and isinstance(file_name, str) and not file_name.startswith("http"):
+                    css_paths.append(layouts_dir / layout_name / file_name)
+
+            return css_paths
+        # LayoutRegistry has dedicated method
+        return self.layout_registry.get_layout_css_paths(layout_name)
+
+    def _get_layout_js_paths(self, layout_name: str) -> list[Path]:
+        """Get JS paths with registry type compatibility."""
+        if isinstance(self.layout_registry, LazyLayoutRegistry):
+            # For LazyLayoutRegistry, extract paths from layout info
+            layout_info = self.layout_registry.get_layout(layout_name)
+            if not layout_info:
+                return []
+
+            js_files = layout_info.resources.get("js", [])
+            js_paths = []
+            layouts_dir = getattr(self.layout_registry, "layouts_dir", Path())
+
+            for js_file in js_files:
+                file_name = js_file.get("file", "") if isinstance(js_file, dict) else js_file
+                if file_name and isinstance(file_name, str) and not file_name.startswith("http"):
+                    js_paths.append(layouts_dir / layout_name / file_name)
+
+            return js_paths
+        # LayoutRegistry has dedicated method
+        return self.layout_registry.get_layout_js_paths(layout_name)
 
     def get_css_urls(self, layout_name: str) -> list[str]:
         """Get CSS file URLs for a layout.
@@ -46,7 +122,10 @@ class ResourceManager:
             ResourceLoadingError: If layout resources cannot be loaded.
         """
         try:
-            layout_info = self.layout_registry.get_layout_with_fallback(layout_name)
+            layout_info = self._get_layout_info(layout_name)
+            if not layout_info:
+                return []
+
             css_files = layout_info.resources.get("css", [])
 
             # Convert to URLs
@@ -105,7 +184,10 @@ class ResourceManager:
             ResourceLoadingError: If layout resources cannot be loaded.
         """
         try:
-            layout_info = self.layout_registry.get_layout_with_fallback(layout_name)
+            layout_info = self._get_layout_info(layout_name)
+            if not layout_info:
+                return []
+
             js_files = layout_info.resources.get("js", [])
 
             # Convert to URLs
@@ -241,7 +323,7 @@ class ResourceManager:
                 return ""
 
         try:
-            css_paths = self.layout_registry.get_layout_css_paths(layout_name)
+            css_paths = self._get_layout_css_paths(layout_name)
 
             css_content_parts = []
             for css_path in css_paths:
@@ -290,7 +372,7 @@ class ResourceManager:
                 return ""
 
         try:
-            js_paths = self.layout_registry.get_layout_js_paths(layout_name)
+            js_paths = self._get_layout_js_paths(layout_name)
 
             js_content_parts = []
             for js_path in js_paths:
@@ -318,7 +400,7 @@ class ResourceManager:
         Returns:
             List of Path objects for CSS files.
         """
-        css_paths: list[Path] = self.layout_registry.get_layout_css_paths(layout_name)
+        css_paths: list[Path] = self._get_layout_css_paths(layout_name)
         return css_paths
 
     def get_js_paths_for_layout(self, layout_name: str) -> list[Path]:
@@ -330,7 +412,7 @@ class ResourceManager:
         Returns:
             List of Path objects for JavaScript files.
         """
-        js_paths: list[Path] = self.layout_registry.get_layout_js_paths(layout_name)
+        js_paths: list[Path] = self._get_layout_js_paths(layout_name)
         return js_paths
 
     def get_css_path(self, layout_name: str) -> Optional[Path]:
@@ -344,7 +426,9 @@ class ResourceManager:
             or if the first file is an external URL.
         """
         try:
-            layout_info = self.layout_registry.get_layout_with_fallback(layout_name)
+            layout_info = self._get_layout_info(layout_name)
+            if layout_info is None:
+                return None
             css_files = layout_info.resources.get("css", [])
 
             if not css_files:
@@ -377,7 +461,9 @@ class ResourceManager:
             or if the first file is an external URL.
         """
         try:
-            layout_info = self.layout_registry.get_layout_with_fallback(layout_name)
+            layout_info = self._get_layout_info(layout_name)
+            if layout_info is None:
+                return None
             js_files = layout_info.resources.get("js", [])
 
             if not js_files:

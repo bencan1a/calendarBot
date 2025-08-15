@@ -100,6 +100,11 @@ async def _initialize_web_components(
         raise RuntimeError("Failed to initialize Calendar Bot")
     logger.info("Calendar Bot components initialized successfully")
 
+    # Type assertions for components after successful initialization
+    assert app.display_manager is not None
+    assert app.cache_manager is not None
+    assert app.source_manager is not None
+
     # Create web navigation handler
     logger.debug("Creating web navigation handler...")
     navigation_handler = WebNavigationHandler()
@@ -256,7 +261,7 @@ async def run_web_mode(args: Any) -> int:
     """
     shutdown_event = asyncio.Event()
 
-    def signal_handler(signum: int, _frame: Any) -> None:
+    def signal_handler(signum: int, frame: Any) -> None:  # noqa: ARG001
         """Handle shutdown signals gracefully."""
         print(f"\nReceived signal {signum}, initiating graceful shutdown...")
         shutdown_event.set()
@@ -270,7 +275,7 @@ async def run_web_mode(args: Any) -> int:
         updated_settings = _configure_web_settings(args, settings)
 
         # Initialize components
-        app, web_server, navigation_handler, logger = await _initialize_web_components(
+        app, web_server, _, logger = await _initialize_web_components(  # navigation_handler unused
             updated_settings
         )
 

@@ -28,8 +28,14 @@
   - First call `resolve-library-id` to get library ID
   - Then use `get-library-docs` with the ID and topic
 
+## PROJECT CONTEXT
+1. This is a single user stateless application
+2. Never worry about backward compatibility or migration
+3. Never build code as optional to preserve existing code paths
+4. Always replace existing code with new code when making improvements
+
 ## TESTING WORKFLOW
-1. **Smoke Test**: Run `calendarbot --web`, fix errors first
+1. **Smoke Test**: Run (with timeout for safety) `calendarbot --web`, fix errors first
 2. **Unit Tests**: Cover ALL new functions
 3. **Pre-Completion**: Run full test suite, fix all failures
 4. **Browser Tests**: Required for UX changes, use Playwright MCP
@@ -51,6 +57,7 @@
 - **Error Handling**: Explicit try/except, logging over print
 - **Dependencies**: Community-standard libraries, Path objects
 - **Structure**: Follow existing patterns, organized imports
+- **Linting**: ENsure no linter errors exist after code is written
 
 ## ERROR HANDLING
 - Validate inputs at function start

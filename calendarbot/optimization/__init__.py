@@ -1,36 +1,30 @@
-"""Production logging optimization and volume reduction for CalendarBot."""
+"""Performance optimization modules for CalendarBot."""
 
-from .production import (
-    DebugStatementAnalyzer,
-    LoggingOptimizer,
-    LogVolumeAnalyzer,
-    OptimizationRule,
-    OptimizationType,
-    ProductionLogFilter,
-    analyze_log_volume,
-    create_production_filter,
-    optimize_logging_config,
-)
+from typing import Any
 
-__all__ = [
-    "DebugStatementAnalyzer",
-    "LogVolumeAnalyzer",
-    "LoggingOptimizer",
-    "OptimizationRule",
-    "OptimizationType",
-    "ProductionLogFilter",
-    "analyze_log_volume",
-    "create_production_filter",
-    "optimize_logging_config",
-]
+from .static_asset_cache import StaticAssetCache
 
 
-# Convenience functions for quick access
-def get_optimizer() -> LoggingOptimizer:
-    """Get a logging optimizer instance."""
-    return LoggingOptimizer()
+# Placeholder classes for logging system compatibility
+class LoggingOptimizer:
+    """Placeholder logging optimizer for compatibility."""
+
+    def __init__(self, settings: Any) -> None:
+        """Initialize with empty rules."""
+        self.rules: list[Any] = []
 
 
-def get_volume_analyzer() -> LogVolumeAnalyzer:
-    """Get a log volume analyzer instance."""
-    return LogVolumeAnalyzer()
+class ProductionLogFilter:
+    """Placeholder log filter for compatibility."""
+
+    def __init__(self, rules: Any, settings: Any) -> None:
+        """Initialize filter."""
+        self.rules = rules
+        self.settings = settings
+
+    def filter(self, record: Any) -> bool:
+        """Allow all log records through."""
+        return True
+
+
+__all__ = ["LoggingOptimizer", "ProductionLogFilter", "StaticAssetCache"]

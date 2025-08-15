@@ -31,34 +31,54 @@ class CalendarBot:
         self.running = False
         self.shutdown_event = asyncio.Event()
 
-        # Initialize components
-        self.cache_manager = CacheManager(settings)
-        self.source_manager = SourceManager(settings, self.cache_manager)
-        self.display_manager = DisplayManager(settings)
+        # Initialize component references (lazy initialization)
+        self.cache_manager: Optional[CacheManager] = None
+        self.source_manager: Optional[SourceManager] = None
+        self.display_manager: Optional[DisplayManager] = None
 
         # Track last successful update
         self.last_successful_update: Optional[datetime] = None
         self.consecutive_failures = 0
 
-        logger.info("Calendar Bot initialized")
+        logger.info("Calendar Bot initialized (lazy components)")
 
     async def initialize(self) -> bool:
-        """Initialize all components and ensure readiness.
+        """Initialize all components and ensure readiness with parallel async loading.
 
         Returns:
             True if initialization successful, False otherwise
         """
         try:
-            logger.info("Initializing Calendar Bot components...")
+            logger.info("Initializing Calendar Bot components in parallel...")
 
-            # Initialize cache manager and database
-            if not await self.cache_manager.initialize():
-                logger.error("Failed to initialize cache manager")
+            # Create components (fast, no I/O)
+            self.cache_manager = CacheManager(self.settings)
+            self.source_manager = SourceManager(self.settings, self.cache_manager)
+            self.display_manager = DisplayManager(self.settings)
+
+            # Initialize components in parallel (async I/O operations)
+            cache_task = asyncio.create_task(self.cache_manager.initialize())
+            source_task = asyncio.create_task(self.source_manager.initialize())
+            # Display manager doesn't have async initialization, so we skip it
+
+            # Wait for both to complete
+            cache_result, source_result = await asyncio.gather(
+                cache_task, source_task, return_exceptions=True
+            )
+
+            # Check results
+            if isinstance(cache_result, Exception):
+                logger.error(f"Failed to initialize cache manager: {cache_result}")
+                return False
+            if not cache_result:
+                logger.error("Cache manager initialization returned False")
                 return False
 
-            # Initialize and validate source configuration
-            if not await self.source_manager.initialize():
-                logger.error("Failed to initialize source manager")
+            if isinstance(source_result, Exception):
+                logger.error(f"Failed to initialize source manager: {source_result}")
+                return False
+            if not source_result:
+                logger.error("Source manager initialization returned False")
                 return False
 
             logger.info("Calendar Bot initialization completed successfully")
@@ -68,6 +88,21 @@ class CalendarBot:
             logger.exception("Failed to initialize Calendar Bot")
             return False
 
+    def _ensure_components_initialized(self) -> bool:
+        """Ensure all components are initialized.
+
+        Returns:
+            True if components are available, False otherwise
+        """
+        if (
+            self.cache_manager is None
+            or self.source_manager is None
+            or self.display_manager is None
+        ):
+            logger.error("Components not initialized. Call initialize() first.")
+            return False
+        return True
+
     async def fetch_and_cache_events(self) -> bool:
         """Fetch events from ICS calendar feeds and cache them.
 
@@ -75,6 +110,11 @@ class CalendarBot:
             True if fetch was successful, False otherwise
         """
         try:
+            if not self._ensure_components_initialized():
+                return False
+
+            assert self.source_manager is not None
+
             logger.info("Fetching calendar events...")
 
             # Test source health first
@@ -107,6 +147,14 @@ class CalendarBot:
             True if display update successful, False otherwise
         """
         try:
+            if not self._ensure_components_initialized():
+                return False
+
+            # Type assertions for components after guard check
+            assert self.cache_manager is not None
+            assert self.source_manager is not None
+            assert self.display_manager is not None
+
             # Get cached events for today
             cached_events = await self.cache_manager.get_todays_cached_events()
 
@@ -146,6 +194,13 @@ class CalendarBot:
             error_message: Error message to display
         """
         try:
+            if not self._ensure_components_initialized():
+                logger.error(f"Cannot display error: {error_message}")
+                return
+
+            assert self.cache_manager is not None
+            assert self.display_manager is not None
+
             # Try to get cached events to show alongside error
             cached_events: list[Any] = (
                 await safe_async_call(
@@ -162,6 +217,11 @@ class CalendarBot:
     async def refresh_cycle(self) -> None:
         """Perform one refresh cycle - fetch data and update display."""
         try:
+            if not self._ensure_components_initialized():
+                return
+
+            assert self.cache_manager is not None
+
             logger.debug("Starting refresh cycle")
 
             # Check if cache is fresh
@@ -304,8 +364,11 @@ class CalendarBot:
             # Close any open connections
             # (SourceManager handles its own cleanup internally)
 
-            # Clear all events from database on app exit
-            await safe_async_call(self.cache_manager.clear_all_events, default=0, log_errors=False)
+            # Clear all events from database on app exit (only if components are initialized)
+            if self.cache_manager is not None:
+                await safe_async_call(
+                    self.cache_manager.clear_all_events, default=0, log_errors=False
+                )
 
             logger.info("Cleanup completed")
 
@@ -319,6 +382,21 @@ class CalendarBot:
             Dictionary with status information
         """
         try:
+            if not self._ensure_components_initialized():
+                return {
+                    "running": self.running,
+                    "error": "Components not initialized",
+                    "last_successful_update": (
+                        self.last_successful_update.isoformat()
+                        if self.last_successful_update
+                        else None
+                    ),
+                    "consecutive_failures": self.consecutive_failures,
+                }
+
+            assert self.source_manager is not None
+            assert self.cache_manager is not None
+
             source_info = await self.source_manager.get_source_info()
             cache_summary = await self.cache_manager.get_cache_summary()
         except Exception as e:
@@ -349,7 +427,7 @@ def setup_signal_handlers(app: CalendarBot) -> None:
 
     background_tasks = set()
 
-    def signal_handler(signum: int, _frame: Any) -> None:
+    def signal_handler(signum: int, frame: Any) -> None:  # noqa: ARG001
         logger.info(f"Received signal {signum}")
         task = asyncio.create_task(app.stop())
         background_tasks.add(task)

@@ -264,6 +264,11 @@ async def _run_epaper_main_loop(context: EpaperModeContext) -> None:  # noqa: PL
             logger.debug(f"Starting render cycle {render_count + 1}")
 
             # Get fresh calendar data using correct cache manager method
+            if context.app.cache_manager is None:
+                logger.error("Cache manager not available, skipping render cycle")
+                await asyncio.sleep(300)  # Default 5 minute interval
+                continue
+
             events = await context.app.cache_manager.get_todays_cached_events()
             logger.debug(f"Retrieved {len(events)} events for rendering")
 
@@ -431,7 +436,7 @@ async def run_epaper_mode(args: Any) -> int:
 
     try:
         # Initialize components
-        context, updated_settings = await _initialize_epaper_components(args)
+        context, _ = await _initialize_epaper_components(args)  # updated_settings unused
 
         # Start background data fetching
         if not context.app:

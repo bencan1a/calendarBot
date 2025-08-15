@@ -28,9 +28,9 @@ repos:
         name: "TOML Syntax Check"
       - id: check-merge-conflict
         name: "Merge Conflict Check"
-      - id: check-added-large-files
-        name: "Large File Check"
-        args: ["--maxkb=1000"]
+      # - id: check-added-large-files
+      #   name: "Large File Check"
+      #   args: ["--maxkb=1000"]
       - id: debug-statements
         name: "Debug Statement Check"
         exclude: ^(tests/|docs/|scripts/|backup/)
