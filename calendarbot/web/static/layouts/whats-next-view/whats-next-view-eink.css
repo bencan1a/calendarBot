@@ -1,0 +1,294 @@
+/* CalendarBot Whats-Next-View E-Ink Theme CSS */
+/* Optimized styles for e-ink/e-paper displays - load only when theme-eink is active */
+
+/* ==========================================
+   E-INK THEME BASE
+   ========================================== */
+
+.theme-eink {
+    /* Enhanced contrast variables for e-ink */
+    --eink-black: #000000;
+    --eink-dark-gray: #333333;
+    --eink-medium-gray: #666666;
+    --eink-light-gray: #cccccc;
+    --eink-white: #ffffff;
+
+    background: var(--eink-white);
+    color: var(--eink-black);
+    line-height: 1.4 !important;
+}
+
+.theme-eink body {
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+    font-size: 15px;
+    line-height: 1.3;
+    background: var(--eink-white);
+    color: var(--eink-black);
+}
+
+/* Disable all animations for e-ink */
+.theme-eink * {
+    transition: none !important;
+    animation: none !important;
+}
+
+/* ==========================================
+   E-INK LAYOUT ZONES
+   ========================================== */
+
+.theme-eink .layout-zone-1,
+.theme-eink .layout-zone-2,
+.theme-eink .layout-zone-4 {
+    background-color: var(--eink-white);
+    border-bottom: 2px solid var(--eink-black);
+    padding: 1rem;
+}
+
+.theme-eink .layout-zone-1 {
+    border-bottom: 3px solid var(--eink-black); /* Strongest separation for zone 1 */
+}
+
+.theme-eink .layout-zone-4 {
+    background-color: var(--gray-2);
+}
+
+/* ==========================================
+   E-INK HEADER & NAVIGATION
+   ========================================== */
+
+.theme-eink .whats-next-header {
+    background: var(--eink-white) !important;
+    border-bottom: 3px solid var(--eink-black) !important;
+    box-shadow: none !important;
+}
+
+.theme-eink .refresh-btn,
+.theme-eink .nav-btn {
+    border: 2px solid var(--eink-black) !important;
+    background: var(--eink-white) !important;
+    color: var(--eink-black) !important;
+    font-weight: 600 !important;
+    border-radius: 0 !important; /* Sharp edges for e-ink clarity */
+}
+
+.theme-eink .refresh-btn:hover,
+.theme-eink .nav-btn:hover {
+    background: var(--eink-light-gray) !important;
+    border-color: var(--eink-black) !important;
+}
+
+/* ==========================================
+   E-INK TYPOGRAPHY
+   ========================================== */
+
+.theme-eink .text-primary {
+    color: var(--eink-black) !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.5px;
+    line-height: 1.2 !important;
+}
+
+.theme-eink .text-secondary {
+    color: var(--eink-black) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.3px;
+    line-height: 1.3 !important;
+}
+
+.theme-eink .text-supporting {
+    color: var(--eink-dark-gray) !important;
+    font-weight: 600 !important;
+}
+
+.theme-eink .text-small {
+    color: var(--eink-dark-gray) !important;
+    font-weight: 500 !important;
+}
+
+.theme-eink .text-caption {
+    color: var(--eink-medium-gray) !important;
+    font-weight: 400 !important;
+}
+
+.theme-eink .text-supporting,
+.theme-eink .text-small,
+.theme-eink .text-caption {
+    line-height: 1.5 !important;
+}
+
+/* ==========================================
+   E-INK MEETING CARDS
+   ========================================== */
+
+.theme-eink .meeting-card {
+    border: 3px solid var(--eink-black) !important;
+    background: var(--eink-white) !important;
+    box-shadow: 2px 2px 0px var(--eink-dark-gray) !important;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    border-radius: 0 !important;
+}
+
+.theme-eink .meeting-card.current {
+    border-color: var(--eink-black);
+    background: var(--gray-2);
+}
+
+.theme-eink .meeting-title {
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+.theme-eink .meeting-time {
+    margin-bottom: 0.75rem;
+    font-weight: 600 !important;
+}
+
+.theme-eink .meeting-location,
+.theme-eink .meeting-description {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+}
+
+.theme-eink .meeting-close-box {
+    background-color: var(--eink-white);
+    border: 2px solid var(--eink-black);
+}
+
+.theme-eink .meeting-close-box::before,
+.theme-eink .meeting-close-box::after {
+    background-color: var(--eink-black);
+    height: 2px;
+}
+
+/* ==========================================
+   E-INK COUNTDOWN DISPLAY
+   ========================================== */
+
+.theme-eink .countdown-container {
+    border: 3px solid var(--eink-black) !important;
+    background: var(--eink-white) !important;
+    padding: 1.5rem;
+    border-radius: 0 !important;
+    box-shadow: 2px 2px 0px var(--eink-dark-gray);
+}
+
+.theme-eink .countdown-time {
+    font-weight: 900 !important;
+    color: var(--eink-black) !important;
+    letter-spacing: -0.5px;
+    text-shadow: none !important;
+}
+
+.theme-eink .countdown-label,
+.theme-eink .countdown-units {
+    font-weight: 600 !important;
+    color: var(--eink-black) !important;
+    letter-spacing: 0.5px;
+}
+
+/* Time gap states for e-ink */
+.theme-eink .countdown-container.time-gap-critical {
+    background-color: var(--eink-black);
+    color: var(--eink-white);
+    border: 4px solid var(--eink-black);
+    box-shadow: none;
+}
+
+.theme-eink .countdown-container.time-gap-critical .countdown-time {
+    color: var(--eink-white);
+    font-weight: 900;
+    text-shadow: none;
+}
+
+.theme-eink .countdown-container.time-gap-critical .countdown-label,
+.theme-eink .countdown-container.time-gap-critical .countdown-units {
+    color: var(--eink-white);
+    font-weight: 700;
+}
+
+.theme-eink .countdown-container.time-gap-tight {
+    background-color: var(--gray-7);
+    color: var(--eink-white);
+    border: 3px solid var(--eink-black);
+    box-shadow: none;
+}
+
+.theme-eink .countdown-container.time-gap-tight .countdown-time {
+    color: var(--eink-white);
+    font-weight: 800;
+}
+
+.theme-eink .countdown-container.time-gap-tight .countdown-label,
+.theme-eink .countdown-container.time-gap-tight .countdown-units {
+    color: var(--eink-white);
+    font-weight: 600;
+}
+
+.theme-eink .countdown-container.time-gap-comfortable {
+    background-color: var(--gray-3);
+    color: var(--eink-black);
+    border: 2px solid var(--eink-black);
+    box-shadow: none;
+}
+
+.theme-eink .countdown-container.time-gap-comfortable .countdown-time {
+    color: var(--eink-black);
+    font-weight: 700;
+}
+
+.theme-eink .countdown-container.time-gap-comfortable .countdown-label,
+.theme-eink .countdown-container.time-gap-comfortable .countdown-units {
+    color: var(--eink-black);
+    font-weight: 600;
+}
+
+/* ==========================================
+   E-INK STATES & FEEDBACK
+   ========================================== */
+
+.theme-eink .empty-state {
+    padding: 1.5rem;
+}
+
+.theme-eink .empty-state-title {
+    margin-bottom: 1rem;
+    font-weight: 700 !important;
+    color: var(--eink-black) !important;
+}
+
+.theme-eink .empty-state-message {
+    line-height: 1.6;
+    font-weight: 500 !important;
+    color: var(--eink-dark-gray) !important;
+}
+
+.theme-eink .error-state {
+    border: 3px solid var(--eink-black);
+    background: var(--gray-2);
+    border-radius: 0 !important;
+}
+
+.theme-eink .loading-spinner {
+    border-color: var(--gray-4);
+    border-top-color: var(--eink-black);
+}
+
+.theme-eink .next-meeting-item {
+    border-bottom-color: var(--gray-4);
+}
+
+/* ==========================================
+   E-INK STATUS & CONTEXT
+   ========================================== */
+
+.theme-eink .status-info,
+.theme-eink .context-info {
+    padding: 0.75rem;
+    line-height: 1.5;
+}
+
+.theme-eink .status-label,
+.theme-eink .status-value {
+    margin-bottom: 0.5rem;
+}
