@@ -421,23 +421,18 @@ class BenchmarkRunner:
         return result
 
     def run_benchmark_suite(
-        self, suite: Union[BenchmarkSuite, str], correlation_id: Optional[str] = None
+        self, suite: BenchmarkSuite, correlation_id: Optional[str] = None
     ) -> BenchmarkRun:
         """
         Run a complete benchmark suite.
 
         Args:
-            suite: BenchmarkSuite object or suite ID.
+            suite: BenchmarkSuite object.
             correlation_id: Optional correlation ID for tracking.
 
         Returns:
             BenchmarkRun with aggregated results.
         """
-        # Resolve suite
-        if isinstance(suite, str):
-            # In a full implementation, this would load from storage
-            raise NotImplementedError("Loading suites by ID not yet implemented")
-
         suite_obj = suite
         correlation_id = correlation_id or str(uuid.uuid4())
 
