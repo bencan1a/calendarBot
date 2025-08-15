@@ -65,18 +65,18 @@ class RequestPipelineMetrics:
         return self.batch_requests / self.total_requests
 
 
-class Phase2AMonitor:
-    """Specialized monitoring for Phase 2A connection pooling and request pipeline optimizations."""
+class ConnectionPoolMonitor:
+    """Specialized monitoring for connection pooling and request pipeline optimizations."""
 
     def __init__(self, optimization_config: Optional[OptimizationConfig] = None):
-        """Initialize Phase 2A monitor.
+        """Initialize connection pool monitor.
 
         Args:
             optimization_config: Optional optimization configuration
         """
         self.config = optimization_config or get_optimization_config()
         self.perf_logger = get_performance_logger()
-        self.logger = get_logger("phase_2a_monitor")
+        self.logger = get_logger("connection_pool_monitor")
 
         # Metrics tracking
         self.connection_pool_metrics = ConnectionPoolMetrics()
@@ -381,11 +381,11 @@ class Phase2AMonitor:
         )
         self.perf_logger.log_metric(metric)
 
-    def get_phase_2a_summary(self) -> dict[str, Any]:
-        """Get comprehensive Phase 2A performance summary.
+    def get_connection_pool_summary(self) -> dict[str, Any]:
+        """Get comprehensive connection pool performance summary.
 
         Returns:
-            Dictionary containing all Phase 2A metrics and derived statistics
+            Dictionary containing all connection pool metrics and derived statistics
         """
         uptime = time.time() - self._monitoring_start_time
 
@@ -452,25 +452,25 @@ class Phase2AMonitor:
         }
 
 
-# Global Phase 2A monitor instance
-_phase_2a_monitor: Optional[Phase2AMonitor] = None
+# Global connection pool monitor instance
+_connection_pool_monitor: Optional[ConnectionPoolMonitor] = None
 
 
-def get_phase_2a_monitor(
+def get_connection_pool_monitor(
     optimization_config: Optional[OptimizationConfig] = None,
-) -> Phase2AMonitor:
-    """Get or create global Phase 2A monitor instance.
+) -> ConnectionPoolMonitor:
+    """Get or create global connection pool monitor instance.
 
     Args:
         optimization_config: Optional optimization configuration
 
     Returns:
-        Phase2AMonitor instance
+        ConnectionPoolMonitor instance
     """
-    global _phase_2a_monitor  # noqa: PLW0603
-    if _phase_2a_monitor is None:
-        _phase_2a_monitor = Phase2AMonitor(optimization_config)
-    return _phase_2a_monitor
+    global _connection_pool_monitor  # noqa: PLW0603
+    if _connection_pool_monitor is None:
+        _connection_pool_monitor = ConnectionPoolMonitor(optimization_config)
+    return _connection_pool_monitor
 
 
 def reset_phase_2a_monitor() -> None:
