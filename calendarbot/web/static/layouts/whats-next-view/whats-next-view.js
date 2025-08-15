@@ -2310,7 +2310,7 @@ function initializeStateManager() {
             whatsNextStateManager.addEventListener('stateChanged', (data) => {
             });
 
-            // Set up data loaded event handling (Phase 2 integration)
+            // Set up data loaded event handling
             whatsNextStateManager.addEventListener('dataLoaded', (data) => {
                 
                 // Update global variables for backward compatibility
