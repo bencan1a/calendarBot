@@ -408,6 +408,10 @@ class RawEvent(BaseModel):
 
         unique_suffix = str(uuid.uuid4())[:8]  # Short UUID for readability
 
+        # Set default values for new fields, allow override via kwargs
+        recurrence_id = kwargs.pop("recurrence_id", None)
+        is_instance = kwargs.pop("is_instance", False)
+
         return cls(
             id=f"raw_{graph_id}_{unique_suffix}",
             graph_id=graph_id,
@@ -416,6 +420,8 @@ class RawEvent(BaseModel):
             end_datetime=end_datetime,
             start_timezone=start_timezone,
             end_timezone=end_timezone,
+            recurrence_id=recurrence_id,
+            is_instance=is_instance,
             source_url=source_url,
             raw_ics_content=ics_content,
             content_hash=content_hash,
