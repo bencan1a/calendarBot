@@ -625,9 +625,9 @@ function initializeSettingsPanel() {
                 autoSave: true,
                 autoSaveDelay: 2000
             });
-            console.log('Settings panel initialized for 4x8 layout');
+            // Settings panel initialized for 4x8 layout
         } else {
-            console.log('Settings panel not available - shared components not loaded');
+            // Settings panel not available - shared components not loaded
         }
     } catch (error) {
         console.error('Settings panel initialization failed:', error);
@@ -648,7 +648,7 @@ function cleanup() {
         try {
             settingsPanel.destroy();
             settingsPanel = null;
-            console.log('Settings panel cleaned up');
+            // Settings panel cleaned up
         } catch (error) {
             console.error('Settings panel cleanup failed:', error);
         }
@@ -669,4 +669,4 @@ window.getSettingsPanel = getSettingsPanel;
 window.hasSettingsPanel = hasSettingsPanel;
 window.cleanup = cleanup;
 
-console.log('Calendar Bot JavaScript loaded and ready');
+// Calendar Bot JavaScript loaded and ready
