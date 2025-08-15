@@ -726,6 +726,146 @@
                 div.textContent = text;
                 return div.innerHTML;
             }
+
+            async loadTables() {
+                try {
+                    const response = await fetch('/api/database/tables');
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        this.tables = data.data.rows.map(row => row.name);
+                        this.populateTableSelector();
+                        // Check raw_events after loading tables
+                        this.checkRawEventsTable();
+                    }
+                } catch (error) {
+                    console.error('Failed to load tables:', error);
+                    this.tableSelector.innerHTML = '<option value="">Failed to load tables</option>';
+                }
+            }
+
+            populateTableSelector() {
+                this.tableSelector.innerHTML = '';
+                
+                // Add default option
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = '-- Select a table --';
+                this.tableSelector.appendChild(defaultOption);
+                
+                // Add table options
+                this.tables.forEach(table => {
+                    const option = document.createElement('option');
+                    option.value = table;
+                    option.textContent = table;
+                    if (table === 'cached_events') {
+                        option.selected = true;
+                        this.currentTable = table;
+                    }
+                    this.tableSelector.appendChild(option);
+                });
+            }
+
+            async checkRawEventsTable() {
+                // Check if raw_events table exists and has data
+                if (!this.tables.includes('raw_events')) {
+                    return; // Table doesn't exist
+                }
+                
+                try {
+                    const response = await fetch('/api/database/query', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ query: 'SELECT COUNT(*) as count FROM raw_events' })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success && data.data && data.data.rows[0]) {
+                        const count = data.data.rows[0].count;
+                        if (count === 0) {
+                            this.showRawEventsEmptyNotification();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to check raw_events:', error);
+                }
+            }
+
+            showRawEventsEmptyNotification() {
+                // Create notification panel
+                const notificationDiv = document.createElement('div');
+                notificationDiv.className = 'panel';
+                notificationDiv.style.background = '#fff3cd';
+                notificationDiv.style.border = '1px solid #ffc107';
+                notificationDiv.innerHTML = `
+                    <div class="panel-title" style="color: #856404;">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                        </svg>
+                        Debug Tool: Raw Events Table Empty
+                    </div>
+                    <p style="margin: 10px 0;">The raw_events table is empty. Would you like to fetch and populate it with ICS data for debugging?</p>
+                    <button id="populate-raw-events-btn" class="btn btn-primary" style="margin-top: 10px;">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
+                        </svg>
+                        Fetch ICS Data
+                    </button>
+                    <div id="ics-fetch-status" style="margin-top: 15px; display: none;">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <span id="fetch-status-text">Fetching ICS data...</span>
+                        </div>
+                    </div>
+                `;
+                
+                // Insert after header, before first panel
+                const container = document.querySelector('.container');
+                const firstPanel = container.querySelector('.panel');
+                container.insertBefore(notificationDiv, firstPanel);
+                
+                // Bind populate button event
+                const populateBtn = document.getElementById('populate-raw-events-btn');
+                populateBtn.addEventListener('click', () => this.populateRawEvents(populateBtn));
+            }
+
+            async populateRawEvents(button) {
+                const statusDiv = document.getElementById('ics-fetch-status');
+                const statusText = document.getElementById('fetch-status-text');
+                
+                // Show loading state
+                button.disabled = true;
+                statusDiv.style.display = 'block';
+                statusText.textContent = 'Fetching ICS data from sources...';
+                
+                try {
+                    // Call backend endpoint to populate raw_events
+                    const response = await fetch('/api/database/populate-raw-events', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'}
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        statusText.textContent = `✅ Successfully populated ${data.count || 0} raw events`;
+                        statusDiv.querySelector('.spinner').style.display = 'none';
+                        
+                        // Refresh the page after 2 seconds
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } else {
+                        statusText.textContent = `❌ Failed: ${data.error || 'Unknown error'}`;
+                        statusDiv.querySelector('.spinner').style.display = 'none';
+                        button.disabled = false;
+                    }
+                } catch (error) {
+                    statusText.textContent = `❌ Error: ${error.message}`;
+                    statusDiv.querySelector('.spinner').style.display = 'none';
+                    button.disabled = false;
+                }
+            }
         }
 
         // Initialize the database viewer when page loads
