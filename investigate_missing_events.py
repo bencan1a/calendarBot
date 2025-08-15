@@ -11,7 +11,7 @@ import aiosqlite
 async def investigate_meeting():
     """Investigate the missing events and discrepancies."""
 
-    db_path = Path.home() / ".whatsnexter" / "calendarcache.db"
+    db_path = Path.home() / ".local" / "share" / "calendarbot" / "calendar_cache.db"
 
     print("🔍 Investigating 'Ani <> Ben- 1:1- Bi Weekly' Meeting Discrepancies")
     print("=" * 70)
