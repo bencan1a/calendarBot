@@ -622,6 +622,8 @@ class DatabaseManager:
                             event.web_link,
                             event.is_recurring,
                             event.series_master_id,
+                            event.recurrence_id,
+                            event.is_instance,
                             event.last_modified,
                             event.source_url,
                             event.raw_ics_content,
