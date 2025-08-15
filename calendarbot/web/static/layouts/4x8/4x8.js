@@ -223,7 +223,7 @@ async function navigate(action) {
 
 // Theme switching
 async function toggleTheme() {
-    console.log('Toggling theme');
+    // Toggling theme
 
     try {
         const response = await fetch('/api/theme', {
@@ -242,7 +242,7 @@ async function toggleTheme() {
             // Update HTML class
             document.documentElement.className = document.documentElement.className.replace(/theme-\w+/, `theme-${currentTheme}`);
 
-            console.log(`Theme changed to: ${currentTheme}`);
+            // Theme changed
 
             // Visual feedback
             flashThemeChange();
@@ -257,11 +257,11 @@ async function toggleTheme() {
 
 // Layout switching
 async function cycleLayout() {
-    console.log('DEBUG: cycleLayout() called - L key pressed');
+    // Layout cycling requested
 
     try {
         showLoadingIndicator('Switching layout...');
-        console.log('DEBUG: Sending layout change request to API');
+        // Sending layout change request to API
 
         const response = await fetch('/api/layout', {
             method: 'POST',
@@ -272,10 +272,10 @@ async function cycleLayout() {
         });
 
         const data = await response.json();
-        console.log('DEBUG: API response received:', data);
+        // API response received
 
         if (data.success) {
-            console.log(`Layout changed to: ${data.layout}`);
+            // Layout changed successfully
             // Force page reload to switch to new layout
             window.location.reload();
         } else {
@@ -292,7 +292,7 @@ async function cycleLayout() {
 }
 
 async function setLayout(layout) {
-    console.log(`Setting layout to: ${layout}`);
+    // Setting layout
 
     try {
         showLoadingIndicator('Switching layout...');
@@ -308,7 +308,7 @@ async function setLayout(layout) {
         const data = await response.json();
 
         if (data.success) {
-            console.log(`Layout set to: ${data.layout}`);
+            // Layout set successfully
             
             // Force full page reload to load new layout's CSS/JS
             window.location.reload();
@@ -327,7 +327,7 @@ async function setLayout(layout) {
 
 // Data refresh
 async function refresh() {
-    console.log('Manual refresh requested');
+    // Manual refresh requested
 
     try {
         showLoadingIndicator('Refreshing...');
@@ -370,7 +370,7 @@ async function refreshSilent() {
 
         if (data.success && data.html) {
             updatePageContent(data.html);
-            console.log('Auto-refresh completed');
+            // Auto-refresh completed
         }
 
     } catch (error) {
