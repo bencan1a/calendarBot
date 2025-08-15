@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from ..config.optimization import OptimizationConfig, get_optimization_config
-from ..monitoring.phase_2a_monitor import Phase2AMonitor, get_phase_2a_monitor
+from ..monitoring.connection_pool_monitor import ConnectionPoolMonitor, get_connection_pool_monitor
 from .cache_manager import CacheManager, get_cache_manager
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ class EventCache:
         ttl: int = 3600,  # 1 hour default
         cache_manager: Optional[CacheManager] = None,
         config: Optional[OptimizationConfig] = None,
-        monitor: Optional[Phase2AMonitor] = None,
+        monitor: Optional[ConnectionPoolMonitor] = None,
     ):
         """Initialize event cache with specialized TTL.
 
@@ -101,12 +101,12 @@ class EventCache:
             ttl: Time-to-live for cached events in seconds (default: 1 hour)
             cache_manager: Optional cache manager instance
             config: Optional optimization configuration
-            monitor: Optional Phase 2A monitor
+            monitor: Optional connection pool monitor
         """
         self.ttl = ttl
         self.cache_manager = cache_manager or get_cache_manager()
         self.config = config or get_optimization_config()
-        self.monitor = monitor or get_phase_2a_monitor(self.config)
+        self.monitor = monitor or get_connection_pool_monitor(self.config)
         self.logger = logger
 
         # Cache prefixes for different data types
@@ -485,7 +485,7 @@ def get_event_cache(
     ttl: int = 3600,
     cache_manager: Optional[CacheManager] = None,
     config: Optional[OptimizationConfig] = None,
-    monitor: Optional[Phase2AMonitor] = None,
+    monitor: Optional[ConnectionPoolMonitor] = None,
 ) -> EventCache:
     """Get or create global event cache instance.
 
@@ -493,7 +493,7 @@ def get_event_cache(
         ttl: Time-to-live for cached events in seconds
         cache_manager: Optional cache manager instance
         config: Optional optimization configuration
-        monitor: Optional Phase 2A monitor
+        monitor: Optional connection pool monitor
 
     Returns:
         EventCache: Global event cache instance
