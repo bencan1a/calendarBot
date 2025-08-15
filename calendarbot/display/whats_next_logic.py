@@ -112,7 +112,12 @@ class WhatsNextLogic:
             self.settings.event_filters, "hidden_events"
         ):
             hidden_events = self.settings.event_filters.hidden_events
-            logger.debug(f"WhatsNext filtering - hidden_events: {list(hidden_events)}")
+
+            # Get matching events to log their titles
+            matching_hidden = [e for e in events if e.graph_id in hidden_events]
+            hidden_titles = [e.subject[:50] if e.subject else "No title" for e in matching_hidden]
+            logger.debug(f"WhatsNext filtering - hidden event titles: {hidden_titles}")
+
             logger.debug(f"WhatsNext filtering - total events before filter: {len(events)}")
             visible_events = [e for e in events if e.graph_id not in hidden_events]
             filtered_count = len(events) - len(visible_events)
@@ -120,9 +125,12 @@ class WhatsNextLogic:
                 f"WhatsNext filtering - events filtered out: {filtered_count}, visible events: {len(visible_events)}"
             )
             if filtered_count > 0:
-                filtered_ids = [e.graph_id for e in events if e.graph_id in hidden_events]
+                # Log titles instead of IDs for better readability
+                filtered_titles = [
+                    e.subject[:50] if e.subject else "No title" for e in matching_hidden
+                ]
                 logger.info(
-                    f"WhatsNext filtered out {filtered_count} hidden events: {filtered_ids}"
+                    f"WhatsNext filtered out {filtered_count} hidden events: {filtered_titles}"
                 )
         else:
             logger.debug("WhatsNext filtering - no hidden_events found in settings")
