@@ -1619,7 +1619,7 @@ async function hideEvent(graphId) {
 }
 
 // ===========================================
-// WHATS-NEXT STATE MANAGER (Phase 2)
+// WHATS-NEXT STATE MANAGER
 // ===========================================
 
 /**
