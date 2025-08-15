@@ -176,16 +176,12 @@ async def investigate_filtering():
             count = 0
             while current_date <= target_date and count < 50:  # Safety limit
                 if current_date == target_date:
-                    print(
-                        f"   ✅ MATCH FOUND: {current.strftime('%Y-%m-%d %H:%M')} ({current.strftime('%A')})"
-                    )
+                    print(f"   ✅ MATCH FOUND: {current_date.strftime('%Y-%m-%d')}")
                     break
-                if abs((current.date() - target_date.date()).days) <= 1:
-                    print(
-                        f"   📅 Close match: {current.strftime('%Y-%m-%d %H:%M')} ({current.strftime('%A')})"
-                    )
+                if abs((current_date - target_date).days) <= 1:
+                    print(f"   📅 Close match: {current_date.strftime('%Y-%m-%d')}")
 
-                current += timedelta(weeks=2)  # Bi-weekly = every 2 weeks
+                current_date += timedelta(weeks=2)  # Bi-weekly = every 2 weeks
                 count += 1
             else:
                 print(
