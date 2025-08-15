@@ -1772,6 +1772,33 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.exception("Error getting database info")
             self._send_json_response(500, {"error": f"Failed to get database info: {e!s}"})
 
+    def _handle_cache_clear_api(self) -> None:
+        """Handle cache clear API requests."""
+        try:
+            # Clear static file cache
+            self.static_cache.clear()
+
+            # Clear asset cache if available
+            if (
+                self.web_server
+                and hasattr(self.web_server, "asset_cache")
+                and hasattr(self.web_server.asset_cache, "clear")
+            ):
+                self.web_server.asset_cache.clear()
+
+            logger.info("Static file cache cleared successfully")
+            self._send_json_response(
+                200,
+                {
+                    "success": True,
+                    "message": "Cache cleared successfully",
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Error clearing cache")
+            self._send_json_response(500, {"error": f"Failed to clear cache: {e!s}"})
+
     def _generate_etag(self, file_path: Path) -> str:
         """Generate ETag for file based on path and modification time.
 
