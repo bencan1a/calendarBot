@@ -268,9 +268,17 @@ class WhatsNextLogic:
                     self.settings.event_filters, "hidden_events"
                 ):
                     hidden_events = self.settings.event_filters.hidden_events
+
+                    # Get matching events to log their titles for fallback
+                    matching_events_fallback = [e for e in events if e.graph_id in hidden_events]
+                    hidden_titles_fallback = [
+                        e.subject[:50] if e.subject else "No title"
+                        for e in matching_events_fallback
+                    ]
                     logger.debug(
-                        f"find_next_upcoming_event filtering - fallback hidden_events: {list(hidden_events)}"
+                        f"find_next_upcoming_event filtering - fallback hidden event titles: {hidden_titles_fallback}"
                     )
+
                     visible_events = [e for e in events if e.graph_id not in hidden_events]
                     filtered_count = len(events) - len(visible_events)
                     logger.debug(
