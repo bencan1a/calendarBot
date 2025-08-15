@@ -107,7 +107,7 @@ class CacheManager:
 
     @performance_monitor("cache_events")
     @with_correlation_id()
-    async def cache_events(self, api_events: list[CalendarEvent] | ICSParseResult) -> bool:  # noqa: PLR0915
+    async def cache_events(self, api_events: list[CalendarEvent] | ICSParseResult) -> bool:
         """Cache events from API response with comprehensive data validation and error handling.
 
         Processes and stores calendar events from various sources (Microsoft Graph API, ICS feeds)
@@ -218,12 +218,6 @@ class CacheManager:
                 cached_events = [self._convert_api_event_to_cached(event) for event in events_list]
 
             logger.debug(f"Converted {len(cached_events)} API events to cached events")
-            if cached_events:
-                # Log sample event details (debug level)
-                sample_event = cached_events[0]
-                logger.debug(
-                    f"Sample cached event - {sample_event.subject} from {sample_event.start_datetime} to {sample_event.end_datetime}"
-                )
 
             # Prepare raw events if we have raw content
             raw_events = []
