@@ -20,7 +20,7 @@ async def test_recurring_enhancements():
 
     try:
         # Initialize database manager
-        db_manager = DatabaseManager(temp_db_path)
+        db_manager = DatabaseManager(Path(temp_db_path))
         await db_manager.initialize()
 
         print("✅ Database initialized with new schema")
