@@ -613,8 +613,6 @@ class BrowserManager:
                 }
             )
 
-            self.logger.debug(f"Launching: {' '.join(cmd_args)}")
-
             process = subprocess.Popen(
                 cmd_args,
                 env=env,
