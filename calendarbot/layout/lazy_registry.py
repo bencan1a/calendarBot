@@ -1,4 +1,4 @@
-"""Lazy loading layout registry for Phase 2B Layout System Optimization.
+"""Lazy loading layout registry for dynamic layout optimization.
 
 Replaces eager layout loading with on-demand pattern to achieve:
 - Memory: -20MB from unused layout elimination
