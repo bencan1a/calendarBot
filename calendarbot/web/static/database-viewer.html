@@ -497,6 +497,15 @@
                 this.clearBtn.addEventListener('click', () => this.clearQuery());
                 this.tablesBtn.addEventListener('click', () => this.showTables());
                 
+                // Table selector change event
+                this.tableSelector.addEventListener('change', (e) => {
+                    this.currentTable = e.target.value;
+                    if (this.currentTable) {
+                        // Update placeholder with selected table
+                        this.queryInput.placeholder = `Enter your SQL query here...\n\nExample: SELECT * FROM ${this.currentTable} LIMIT 10;`;
+                    }
+                });
+                
                 this.sampleQueries.forEach(query => {
                     query.addEventListener('click', () => {
                         const sql = query.getAttribute('data-query');
