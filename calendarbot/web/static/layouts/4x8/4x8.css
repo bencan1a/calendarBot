@@ -469,8 +469,10 @@ body {
 }
 
 /* Status indicators */
-.status-cached {
-    display: none; /* Hide cached data indicator in 4x8 layout */
+.status-cached,
+.theme-standard .status-cached,
+body .status-cached {
+    display: none !important; /* Hide cached data indicator in 4x8 layout */
 }
 
 .status-live {
