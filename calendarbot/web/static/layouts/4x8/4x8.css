@@ -470,7 +470,7 @@ body {
 
 /* Status indicators */
 .status-cached {
-    color: #ff6b35;
+    display: none; /* Hide cached data indicator in 4x8 layout */
 }
 
 .status-live {
