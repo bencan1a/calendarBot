@@ -92,6 +92,10 @@ class WhatsNextLogic:
     ) -> tuple[list[CachedEvent], list[CachedEvent], list[CachedEvent]]:
         """Group events into current, upcoming, and later categories.
 
+        Prioritizes upcoming meetings over current meetings - when both exist,
+        upcoming meetings are selected for display. Falls back to current
+        meetings only when no upcoming meetings are available.
+
         Args:
             events: List of cached events
             current_time: Current time reference
@@ -134,7 +138,24 @@ class WhatsNextLogic:
         # Remaining upcoming events are "later today"
         later_events = upcoming_events[3:] if len(upcoming_events) > 3 else []
 
-        return current_events[:1], upcoming_events, later_events
+        # CORE BUSINESS RULE: Prioritize upcoming meetings over current meetings
+        # When both current and upcoming meetings exist, select upcoming for display
+        if upcoming_events:
+            logger.debug(
+                f"Meeting selection: Prioritizing upcoming meetings - found {len(upcoming_events)} upcoming, "
+                f"{len(current_events)} current. Selecting upcoming."
+            )
+            # Return empty current_events to prioritize upcoming meetings
+            selected_current_events = []
+        else:
+            logger.debug(
+                f"Meeting selection: No upcoming meetings found ({len(upcoming_events)}), "
+                f"falling back to current meetings ({len(current_events)})."
+            )
+            # Fallback to current meetings when no upcoming meetings exist
+            selected_current_events = current_events[:1]
+
+        return selected_current_events, upcoming_events, later_events
 
     def _format_display_date(
         self, status_info: Optional[dict[str, Any]], current_time: datetime
