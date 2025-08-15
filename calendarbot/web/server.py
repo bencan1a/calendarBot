@@ -1,10 +1,12 @@
 """Simple HTTP server for web interface."""
 
 import asyncio
+import hashlib
 import json
 import logging
 import mimetypes
 import sqlite3
+from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -12,19 +14,109 @@ from threading import Thread
 from typing import Any, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
+from ..config.build import (
+    get_asset_exclusion_info,
+    is_debug_asset,
+    is_production_mode,
+    should_exclude_asset,
+)
 from ..display.whats_next_data_model import EventData, WhatsNextViewModel
+from ..layout.lazy_registry import LazyLayoutRegistry
 from ..layout.registry import LayoutRegistry
 from ..layout.resource_manager import ResourceManager
+from ..optimization.connection_manager import get_connection_manager
+from ..optimization.static_asset_cache import StaticAssetCache
 from ..security.logging import SecurityEventLogger
 from ..settings.exceptions import SettingsError, SettingsValidationError
 from ..settings.service import SettingsService
 from ..utils.process import auto_cleanup_before_start
+from ..utils.thread_pool import run_in_thread_pool
 
 logger = logging.getLogger(__name__)
 
 
 class WebServerError(Exception):
     """Custom exception for web server errors."""
+
+
+class StaticFileCache:
+    """LRU cache for static file content with size limit (~10MB)."""
+
+    def __init__(self, max_size_bytes: int = 10 * 1024 * 1024) -> None:
+        """Initialize cache with maximum size in bytes.
+
+        Args:
+            max_size_bytes: Maximum cache size in bytes (default: 10MB)
+        """
+        self.max_size_bytes = max_size_bytes
+        self.current_size = 0
+        self.cache: OrderedDict[str, tuple[bytes, int, str]] = (
+            OrderedDict()
+        )  # path -> (content, size, etag)
+
+    def _evict_lru(self) -> None:
+        """Remove least recently used items until cache size is acceptable."""
+        while self.current_size > self.max_size_bytes and self.cache:
+            _, (_, size, _) = self.cache.popitem(last=False)
+            self.current_size -= size
+
+    def get(self, file_path: str) -> Optional[tuple[bytes, str]]:
+        """Get cached file content and ETag.
+
+        Args:
+            file_path: File path to retrieve
+
+        Returns:
+            Tuple of (content, etag) if found, None otherwise
+        """
+        if file_path in self.cache:
+            # Move to end (mark as recently used)
+            content, size, etag = self.cache.pop(file_path)
+            self.cache[file_path] = (content, size, etag)
+            return content, etag
+        return None
+
+    def put(self, file_path: str, content: bytes, etag: str) -> None:
+        """Store file content in cache.
+
+        Args:
+            file_path: File path to store
+            content: File content bytes
+            etag: ETag for cache validation
+        """
+        content_size = len(content)
+
+        # Don't cache files larger than half the cache size
+        if content_size > self.max_size_bytes // 2:
+            return
+
+        # Remove existing entry if present
+        if file_path in self.cache:
+            _, old_size, _ = self.cache.pop(file_path)
+            self.current_size -= old_size
+
+        # Add new entry
+        self.cache[file_path] = (content, content_size, etag)
+        self.current_size += content_size
+
+        # Evict LRU items if needed
+        self._evict_lru()
+
+    def clear(self) -> None:
+        """Clear all cached content."""
+        self.cache.clear()
+        self.current_size = 0
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get cache statistics."""
+        return {
+            "cache_size_bytes": self.current_size,
+            "max_size_bytes": self.max_size_bytes,
+            "cached_files": len(self.cache),
+            "cache_utilization": self.current_size / self.max_size_bytes
+            if self.max_size_bytes > 0
+            else 0,
+        }
 
 
 class WebRequestHandler(BaseHTTPRequestHandler):
@@ -79,6 +171,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self._serve_database_viewer()
             elif path == "/health":
                 self._handle_health_check()
+            elif path == "/favicon.ico":
+                self._serve_static_file("/static/favicon.ico")
             elif path.startswith("/api/"):
                 self._handle_api_request(path, query_params)
             elif path.startswith("/static/"):
@@ -488,9 +582,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         try:
             # Try to get the running event loop
             asyncio.get_running_loop()
-            # If we're in an event loop, we can't use asyncio.run()
-            import concurrent.futures  # noqa: PLC0415
 
+            # If we're in an event loop, we can't use asyncio.run()
             def run_async_in_thread() -> Any:
                 import asyncio  # noqa: PLC0415
 
@@ -505,9 +598,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 finally:
                     new_loop.close()
 
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(run_async_in_thread)
-                return future.result(timeout=5.0)
+            return run_in_thread_pool(run_async_in_thread, timeout=5.0)
 
         except RuntimeError:
             # No running event loop, safe to use asyncio.run()
@@ -708,9 +799,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             try:
                 # Try to get the running event loop
                 loop = asyncio.get_running_loop()  # noqa: F841
-                # If we're in an event loop, we can't use asyncio.run()
-                import concurrent.futures  # noqa: PLC0415
 
+                # If we're in an event loop, we can't use asyncio.run()
                 def run_async_in_thread() -> Any:
                     import asyncio  # noqa: PLC0415
 
@@ -725,9 +815,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     finally:
                         new_loop.close()
 
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(run_async_in_thread)
-                    events = future.result(timeout=5.0)
+                events = run_in_thread_pool(run_async_in_thread, timeout=5.0)
 
             except RuntimeError:
                 # No running event loop, safe to use asyncio.run()
@@ -934,7 +1022,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         """Handle GET /api/settings/filters - get filter settings."""
         try:
             filters = settings_service.get_filter_settings()
-            self._send_json_response(200, {"success": True, "data": filters.dict()})
+            self._send_json_response(200, {"success": True, "data": filters.model_dump()})
         except SettingsError as e:
             self._send_json_response(
                 500, {"error": "Failed to get filter settings", "message": str(e)}
@@ -965,7 +1053,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 {
                     "success": True,
                     "message": "Filter settings updated successfully",
-                    "data": updated_filters.dict(),
+                    "data": updated_filters.model_dump(),
                 },
             )
         except SettingsValidationError as e:
@@ -981,7 +1069,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         """Handle GET /api/settings/display - get display settings."""
         try:
             display = settings_service.get_display_settings()
-            self._send_json_response(200, {"success": True, "data": display.dict()})
+            self._send_json_response(200, {"success": True, "data": display.model_dump()})
         except SettingsError as e:
             self._send_json_response(
                 500, {"error": "Failed to get display settings", "message": str(e)}
@@ -1012,7 +1100,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 {
                     "success": True,
                     "message": "Display settings updated successfully",
-                    "data": updated_display.dict(),
+                    "data": updated_display.model_dump(),
                 },
             )
         except SettingsValidationError as e:
@@ -1028,7 +1116,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         """Handle GET /api/settings/conflicts - get conflict resolution settings."""
         try:
             conflicts = settings_service.get_conflict_settings()
-            self._send_json_response(200, {"success": True, "data": conflicts.dict()})
+            self._send_json_response(200, {"success": True, "data": conflicts.model_dump()})
         except SettingsError as e:
             self._send_json_response(
                 500, {"error": "Failed to get conflict settings", "message": str(e)}
@@ -1059,7 +1147,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 {
                     "success": True,
                     "message": "Conflict settings updated successfully",
-                    "data": updated_conflicts.dict(),
+                    "data": updated_conflicts.model_dump(),
                 },
             )
         except SettingsValidationError as e:
@@ -1218,7 +1306,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 {
                     "success": True,
                     "message": "Filter pattern added successfully",
-                    "data": filter_pattern.dict(),
+                    "data": filter_pattern.model_dump(),
                 },
             )
         except SettingsValidationError as e:
@@ -1645,7 +1733,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             try:
                 # Try to get the running event loop
                 asyncio.get_running_loop()
-                import concurrent.futures  # noqa: PLC0415
 
                 def run_async_in_thread() -> Any:
                     import asyncio  # noqa: PLC0415
@@ -1657,9 +1744,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     finally:
                         new_loop.close()
 
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(run_async_in_thread)
-                    db_info = future.result(timeout=5.0)
+                db_info = run_in_thread_pool(run_async_in_thread, timeout=5.0)
 
             except RuntimeError:
                 # No running event loop, safe to use asyncio.run()
@@ -1677,51 +1762,122 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.exception("Error getting database info")
             self._send_json_response(500, {"error": f"Failed to get database info: {e!s}"})
 
-    def _serve_static_file(self, path: str) -> None:
+    def _generate_etag(self, file_path: Path) -> str:
+        """Generate ETag for file based on path and modification time.
+
+        Args:
+            file_path: Path to the file
+
+        Returns:
+            ETag string for cache validation
+        """
+        try:
+            stat_info = file_path.stat()
+            etag_data = f"{file_path}{stat_info.st_mtime}{stat_info.st_size}"
+            return hashlib.md5(
+                etag_data.encode(), usedforsecurity=False
+            ).hexdigest()  # Used for ETag generation, not security
+        except Exception:
+            # Fallback to path-only hash if stat fails
+            return hashlib.md5(
+                str(file_path).encode(), usedforsecurity=False
+            ).hexdigest()  # Used for ETag generation, not security
+
+    def _serve_static_file(self, path: str) -> None:  # noqa: PLR0912, PLR0915
         """Serve static files (CSS, JS, etc.)."""
         try:
             # Remove /static/ prefix
             file_path = path[8:]  # Remove '/static/'
 
-            # Try to find file in multiple locations
+            # Production asset filtering - check if asset should be excluded
+            if should_exclude_asset(file_path):
+                # DEBUG: Add comprehensive logging for asset exclusion diagnosis
+                prod_mode = is_production_mode()
+                is_debug = is_debug_asset(file_path)
+                exclusion_info = get_asset_exclusion_info()
+
+                logger.warning(f"ASSET_EXCLUSION: Blocking {file_path}")
+                logger.warning(f"ASSET_EXCLUSION: Production mode = {prod_mode}")
+                logger.warning(f"ASSET_EXCLUSION: Is debug asset = {is_debug}")
+                logger.warning(f"ASSET_EXCLUSION: Environment = {exclusion_info['environment']}")
+                logger.warning(
+                    "ASSET_EXCLUSION: This may be incorrectly excluding essential files!"
+                )
+
+                self._send_404()
+                return
+
+            # Use static asset cache for O(1) path resolution (eliminates triple filesystem lookup)
             full_path = None
 
-            # First check if this is a layout directory path (e.g., layouts/4x8/4x8.css)
-            if file_path.startswith("layouts/"):
-                # Handle layout directory paths directly
-                layouts_dir = Path(__file__).parent.parent / "layouts"
-                layout_file_path = file_path[8:]  # Remove 'layouts/' prefix
-                layout_path = layouts_dir / layout_file_path
+            # DEBUG: Add comprehensive path tracing
+            logger.debug(f"STATIC_FILE_DEBUG: Processing request for file_path='{file_path}'")
 
-                # Security check - ensure file exists, is a file, and is within layouts directory
-                if (
-                    layout_path.exists()
-                    and layout_path.is_file()
-                    and str(layout_path.resolve()).startswith(str(layouts_dir.resolve()))
-                ):
-                    full_path = layout_path
+            if (
+                self.web_server
+                and hasattr(self.web_server, "asset_cache")
+                and self.web_server.asset_cache.is_cache_built()
+            ):
+                # Extract layout context if this is a layout-specific request
+                layout_name = None
+                cache_file_path = file_path  # Preserve original for fallback
 
-            # If not found in layouts, try the legacy static directory (web/static)
-            if not full_path:
-                static_dir = Path(__file__).parent / "static"
-                legacy_path = static_dir / file_path
+                logger.debug("STATIC_FILE_DEBUG: Asset cache is available and built")
 
-                # Security check - ensure file exists, is a file, and is within static directory
-                if (
-                    legacy_path.exists()
-                    and legacy_path.is_file()
-                    and str(legacy_path.resolve()).startswith(str(static_dir.resolve()))
-                ):
-                    full_path = legacy_path
+                if file_path.startswith("layouts/") and "/" in file_path[8:]:
+                    # Extract layout name from "layouts/whats-next-view/whats-next-view.css" -> layout_name="whats-next-view"
+                    layout_path_parts = file_path[8:].split("/", 1)
+                    logger.debug(
+                        f"STATIC_FILE_DEBUG: Layout path parsing - file_path[8:]='{file_path[8:]}', parts={layout_path_parts}"
+                    )
+                    if len(layout_path_parts) >= 2:
+                        layout_name = layout_path_parts[0]
+                        cache_file_path = layout_path_parts[1]  # Use the actual filename for cache
+                        logger.debug(
+                            f"STATIC_FILE_DEBUG: Extracted layout_name='{layout_name}', cache_file_path='{cache_file_path}'"
+                        )
 
-            # If not found in legacy, try the layout directories with filename matching
-            if not full_path:
-                layouts_dir = Path(__file__).parent.parent / "layouts"
+                # Resolve asset path using cache (O(1) operation)
+                full_path = self.web_server.asset_cache.resolve_asset_path(
+                    cache_file_path, layout_name
+                )
 
-                # Check if file matches layout pattern (e.g., "4x8.css" -> "layouts/4x8/4x8.css")
-                if "." in file_path:
-                    name_part = file_path.split(".")[0]  # e.g., "4x8" from "4x8.css"
-                    layout_path = layouts_dir / name_part / file_path
+                logger.debug(f"STATIC_FILE_DEBUG: Asset cache result - full_path={full_path}")
+
+                if full_path:
+                    # Security validation - ensure resolved path is within allowed directories
+                    resolved_str = str(full_path.resolve())
+                    layouts_dir = Path(__file__).parent.parent / "layouts"
+                    static_dir = Path(__file__).parent / "static"
+
+                    allowed_dirs = [str(layouts_dir.resolve()), str(static_dir.resolve())]
+                    logger.debug(
+                        f"STATIC_FILE_DEBUG: Security check - resolved_str='{resolved_str}', allowed_dirs={allowed_dirs}"
+                    )
+                    if not any(
+                        resolved_str.startswith(allowed_dir) for allowed_dir in allowed_dirs
+                    ):
+                        logger.warning(
+                            f"Asset cache returned path outside allowed directories: {full_path}"
+                        )
+                        full_path = None
+                    else:
+                        logger.debug(
+                            f"STATIC_FILE_DEBUG: Security check passed, serving cached file: {full_path}"
+                        )
+                else:
+                    logger.debug(
+                        f"STATIC_FILE_DEBUG: Asset cache returned None for cache_file_path='{cache_file_path}', layout_name='{layout_name}'"
+                    )
+            else:
+                logger.warning("Asset cache not built, falling back to filesystem lookup")
+                # Fallback to original triple lookup pattern if cache failed to build
+                # First check if this is a layout directory path (e.g., layouts/4x8/4x8.css)
+                if file_path.startswith("layouts/"):
+                    # Handle layout directory paths directly
+                    layouts_dir = Path(__file__).parent.parent / "layouts"
+                    layout_file_path = file_path[8:]  # Remove 'layouts/' prefix
+                    layout_path = layouts_dir / layout_file_path
 
                     # Security check - ensure file exists, is a file, and is within layouts directory
                     if (
@@ -1730,6 +1886,36 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                         and str(layout_path.resolve()).startswith(str(layouts_dir.resolve()))
                     ):
                         full_path = layout_path
+
+                # If not found in layouts, try the legacy static directory (web/static)
+                if not full_path:
+                    static_dir = Path(__file__).parent / "static"
+                    legacy_path = static_dir / file_path
+
+                    # Security check - ensure file exists, is a file, and is within static directory
+                    if (
+                        legacy_path.exists()
+                        and legacy_path.is_file()
+                        and str(legacy_path.resolve()).startswith(str(static_dir.resolve()))
+                    ):
+                        full_path = legacy_path
+
+                # If not found in legacy, try the layout directories with filename matching
+                if not full_path:
+                    layouts_dir = Path(__file__).parent / "static" / "layouts"
+
+                    # Check if file matches layout pattern (e.g., "4x8.css" -> "layouts/4x8/4x8.css")
+                    if "." in file_path:
+                        name_part = file_path.split(".")[0]  # e.g., "4x8" from "4x8.css"
+                        layout_path = layouts_dir / name_part / file_path
+
+                        # Security check - ensure file exists, is a file, and is within layouts directory
+                        if (
+                            layout_path.exists()
+                            and layout_path.is_file()
+                            and str(layout_path.resolve()).startswith(str(layouts_dir.resolve()))
+                        ):
+                            full_path = layout_path
 
             if full_path and full_path.exists() and full_path.is_file():
                 # Determine content type
@@ -1744,7 +1930,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 # Send binary response directly
                 self.send_response(200)
                 self.send_header("Content-Type", content_type)
-                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Cache-Control", "max-age=3600, public")
                 self.send_header("Content-Length", str(len(content)))
                 self.end_headers()
                 self.wfile.write(content)
@@ -1762,7 +1948,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         """Send HTTP response."""
         self.send_response(status_code)
         self.send_header("Content-Type", content_type)
-        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Cache-Control", "max-age=3600, public")
 
         content_bytes = content.encode("utf-8") if isinstance(content, str) else content
 
@@ -1838,8 +2024,8 @@ class WebServer:
         self.cache_manager = cache_manager
         self.navigation_state = navigation_state
 
-        # Initialize layout management system
-        self.layout_registry = layout_registry or LayoutRegistry()
+        # Initialize layout management system - use lazy loading for performance
+        self.layout_registry = layout_registry or LazyLayoutRegistry()
         self.resource_manager = resource_manager or ResourceManager(
             self.layout_registry, settings=self.settings
         )
@@ -1866,6 +2052,21 @@ class WebServer:
         logger.debug(
             f"Layout registry initialized with {len(self.layout_registry.get_available_layouts())} available layouts"
         )
+        # Initialize static file cache for performance optimization
+        self.static_cache = StaticFileCache()
+
+        # Initialize static asset cache to eliminate triple filesystem lookups
+        static_dirs = [Path(__file__).parent / "static"]  # Legacy web/static directory
+        layouts_dir = Path(__file__).parent / "static" / "layouts"  # Correct path to layout files
+        self.asset_cache = StaticAssetCache(static_dirs, layouts_dir)
+
+        # Build cache at startup for O(1) path resolution
+        logger.info("Building static asset cache for performance optimization...")
+        self.asset_cache.build_cache()
+
+        # Initialize connection manager for HTTP client pooling
+        self.connection_manager = None
+        logger.debug("ConnectionManager will be initialized during server startup")
 
     def start(self) -> None:
         """Start the web server."""
@@ -1902,6 +2103,14 @@ class WebServer:
             self.server_thread = Thread(target=self._serve_with_cleanup, daemon=False)
             self.server_thread.start()
 
+            # Initialize connection manager for HTTP client pooling
+            try:
+                self.connection_manager = get_connection_manager()
+                logger.info("ConnectionManager initialized for HTTP client pooling")
+            except Exception as e:
+                logger.warning(f"Failed to initialize ConnectionManager: {e}")
+                self.connection_manager = None
+
             self.running = True
             logger.info(f"Web server started on http://{self.host}:{self.port}")
 
@@ -1922,7 +2131,7 @@ class WebServer:
         finally:
             logger.debug("Server thread cleanup completed")
 
-    def stop(self) -> None:
+    def stop(self) -> None:  # noqa
         """Stop the web server with proper shutdown sequence and improved error handling."""
         if not self.running:
             logger.debug("Web server already stopped or not running")
@@ -1930,6 +2139,21 @@ class WebServer:
 
         logger.info("Starting web server shutdown process...")
         self.running = False  # Set this early to prevent new operations
+
+        # Cleanup connection manager first
+        if self.connection_manager:
+            try:
+                logger.debug("Shutting down ConnectionManager...")
+                # ConnectionManager cleanup is handled by reset_connection_manager()
+                from ..optimization.connection_manager import (  # noqa
+                    reset_connection_manager,
+                )
+
+                reset_connection_manager()
+                self.connection_manager = None
+                logger.debug("ConnectionManager shutdown completed")
+            except Exception as e:
+                logger.warning(f"Error during ConnectionManager shutdown: {e}")
 
         try:
             if self.server:
@@ -2005,7 +2229,7 @@ class WebServer:
         # Always ensure running is False and server is cleaned up
         self.running = False
 
-    def get_calendar_html(self, days: int = 1, debug_time: Optional[datetime] = None) -> str:  # noqa: PLR0915
+    def get_calendar_html(self, days: int = 1, debug_time: Optional[datetime] = None) -> str:
         """Get current calendar HTML content.
 
         Args:
@@ -2030,10 +2254,9 @@ class WebServer:
                 try:
                     # Try to get the running event loop
                     loop = asyncio.get_running_loop()
+
                     # If we're in an event loop, we can't use asyncio.run()
                     # Create a task and run it synchronously (this is for web server context)
-                    import concurrent.futures  # noqa: PLC0415
-
                     # Run the async function in a separate thread to avoid event loop conflicts
                     def run_async_in_thread() -> Any:
                         import asyncio  # noqa: PLC0415
@@ -2049,9 +2272,7 @@ class WebServer:
                         finally:
                             new_loop.close()
 
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(run_async_in_thread)
-                        events = future.result(timeout=5.0)
+                    events = run_in_thread_pool(run_async_in_thread, timeout=5.0)
 
                 except RuntimeError:
                     # No running event loop, safe to use asyncio.run()
@@ -2085,10 +2306,9 @@ class WebServer:
                 try:
                     # Try to get the running event loop
                     loop = asyncio.get_running_loop()  # noqa: F841
+
                     # If we're in an event loop, we can't use asyncio.run()
                     # Run the async function in a separate thread to avoid event loop conflicts
-                    import concurrent.futures  # noqa: PLC0415
-
                     def run_async_in_thread() -> Any:
                         import asyncio  # noqa: PLC0415
 
@@ -2103,9 +2323,7 @@ class WebServer:
                         finally:
                             new_loop.close()
 
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(run_async_in_thread)
-                        events = future.result(timeout=5.0)
+                    events = run_in_thread_pool(run_async_in_thread, timeout=5.0)
 
                 except RuntimeError:
                     # No running event loop, safe to use asyncio.run()

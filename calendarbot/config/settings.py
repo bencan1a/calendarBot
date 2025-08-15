@@ -327,6 +327,9 @@ class CalendarBotSettings(BaseSettings):
 
     # Application Configuration
     app_name: str = Field(default="CalendarBot", description="Application name")
+    env: str = Field(
+        default="development", description="Environment mode: production, development, debug"
+    )
     refresh_interval: int = Field(
         default=300, description="Refresh interval in seconds (5 minutes)"
     )

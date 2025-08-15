@@ -38,7 +38,7 @@ class SettingsAPI {
             };
 
         } catch (error) {
-            console.error('SettingsAPI: Failed to get settings:', error);
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsAPI: Failed to get settings:', error);
             return {
                 success: false,
                 data: null,
@@ -81,7 +81,7 @@ class SettingsAPI {
             };
 
         } catch (error) {
-            console.error('SettingsAPI: Failed to update settings:', error);
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsAPI: Failed to update settings:', error);
             return {
                 success: false,
                 data: null,
@@ -116,7 +116,7 @@ class SettingsAPI {
             };
 
         } catch (error) {
-            console.error('SettingsAPI: Failed to get filter settings:', error);
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsAPI: Failed to get filter settings:', error);
             return {
                 success: false,
                 data: null,
@@ -153,7 +153,7 @@ class SettingsAPI {
             };
 
         } catch (error) {
-            console.error('SettingsAPI: Failed to update filter settings:', error);
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsAPI: Failed to update filter settings:', error);
             return {
                 success: false,
                 data: null,
@@ -188,7 +188,7 @@ class SettingsAPI {
             };
 
         } catch (error) {
-            console.error('SettingsAPI: Failed to get display settings:', error);
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsAPI: Failed to get display settings:', error);
             return {
                 success: false,
                 data: null,
@@ -225,7 +225,7 @@ class SettingsAPI {
             };
 
         } catch (error) {
-            console.error('SettingsAPI: Failed to update display settings:', error);
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsAPI: Failed to update display settings:', error);
             return {
                 success: false,
                 data: null,
@@ -262,7 +262,7 @@ class SettingsAPI {
             };
 
         } catch (error) {
-            console.error('SettingsAPI: Failed to preview filter effects:', error);
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsAPI: Failed to preview filter effects:', error);
             return {
                 success: false,
                 data: null,
@@ -389,10 +389,10 @@ class SettingsAPI {
                 lastError = error;
                 
                 if (attempt < this.retryAttempts) {
-                    console.warn(`SettingsAPI: Attempt ${attempt} failed, retrying in ${this.retryDelay}ms:`, error.message);
+                    if (!window.CALENDARBOT_PRODUCTION) console.warn(`SettingsAPI: Attempt ${attempt} failed, retrying in ${this.retryDelay}ms:`, error.message);
                     await this.delay(this.retryDelay * attempt); // Exponential backoff
                 } else {
-                    console.error(`SettingsAPI: All ${this.retryAttempts} attempts failed:`, error.message);
+                    if (!window.CALENDARBOT_PRODUCTION) console.error(`SettingsAPI: All ${this.retryAttempts} attempts failed:`, error.message);
                 }
             }
         }
@@ -435,7 +435,7 @@ class SettingsAPI {
             };
 
         } catch (error) {
-            console.error('SettingsAPI: Failed to reset settings:', error);
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsAPI: Failed to reset settings:', error);
             return {
                 success: false,
                 data: null,
@@ -470,7 +470,7 @@ class SettingsAPI {
             };
 
         } catch (error) {
-            console.error('SettingsAPI: Failed to export settings:', error);
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsAPI: Failed to export settings:', error);
             return {
                 success: false,
                 data: null,
@@ -507,7 +507,7 @@ class SettingsAPI {
             };
 
         } catch (error) {
-            console.error('SettingsAPI: Failed to import settings:', error);
+            if (!window.CALENDARBOT_PRODUCTION) console.error('SettingsAPI: Failed to import settings:', error);
             return {
                 success: false,
                 data: null,

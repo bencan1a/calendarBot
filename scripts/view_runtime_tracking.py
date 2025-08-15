@@ -20,7 +20,7 @@ def format_memory(mb: float) -> str:
     return f"{mb:.1f} MB"
 
 
-def view_runtime_tracking_data(hours: int = 24) -> None:
+def view_runtime_tracking_data(hours: int = 24) -> None:  # noqa: PLR0915
     """
     View runtime tracking data from the database.
 
@@ -103,7 +103,7 @@ def view_runtime_tracking_data(hours: int = 24) -> None:
 
             print()
 
-        except Exception as e:
+        except Exception as e:  # noqa: PERF203
             print(f"   ❌ Error parsing entry: {e}")
             print()
 

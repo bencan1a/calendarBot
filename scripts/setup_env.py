@@ -8,7 +8,6 @@ Creates and updates .env file with appropriate production/development settings.
 
 import sys
 from pathlib import Path
-from typing import Dict
 
 
 def get_project_root() -> Path:
@@ -16,7 +15,7 @@ def get_project_root() -> Path:
     return Path(__file__).parent.parent
 
 
-def read_existing_env(env_file: Path) -> Dict[str, str]:
+def read_existing_env(env_file: Path) -> dict[str, str]:
     """Read existing .env file and return as dictionary."""
     env_vars = {}
     if env_file.exists():
@@ -29,7 +28,7 @@ def read_existing_env(env_file: Path) -> Dict[str, str]:
     return env_vars
 
 
-def write_env_file(env_file: Path, env_vars: Dict[str, str]) -> None:
+def write_env_file(env_file: Path, env_vars: dict[str, str]) -> None:
     """Write environment variables to .env file."""
     with open(env_file, "w") as f:
         f.write("# CalendarBot Environment Configuration\n")
@@ -70,7 +69,7 @@ def write_env_file(env_file: Path, env_vars: Dict[str, str]) -> None:
             f.write("\n")
 
 
-def setup_production_env() -> Dict[str, str]:
+def setup_production_env() -> dict[str, str]:
     """Set up environment variables for production deployment."""
     return {
         "CALENDARBOT_ENV": "production",
@@ -86,7 +85,7 @@ def setup_production_env() -> Dict[str, str]:
     }
 
 
-def setup_development_env() -> Dict[str, str]:
+def setup_development_env() -> dict[str, str]:
     """Set up environment variables for development."""
     return {
         "CALENDARBOT_ENV": "development",

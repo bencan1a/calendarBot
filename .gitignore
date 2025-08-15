@@ -235,7 +235,6 @@ config/config.yaml
 *.db
 
 # Cache directories
-cache/
 .cache/
 
 # Temporary files

@@ -1,5 +1,6 @@
 """SQLite database operations for calendar event caching."""
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -23,14 +24,42 @@ class DatabaseManager:
         """
         self.database_path = database_path
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        self._initialized = False
+        self._initialization_lock = None
 
-        logger.info(f"Database manager initialized: {database_path}")
+        logger.info(f"Database manager initialized (lazy): {database_path}")
 
-    async def initialize(self) -> bool:
-        """Initialize database schema and settings.
+    async def _ensure_initialized(self) -> bool:
+        """Ensure database is initialized before operations.
 
         Returns:
-            True if initialization was successful, False otherwise
+            True if initialization successful, False otherwise
+        """
+        if self._initialized:
+            return True
+
+        # Use a lock to prevent concurrent initialization
+        if self._initialization_lock is None:
+            self._initialization_lock = asyncio.Lock()
+
+        async with self._initialization_lock:
+            # Double-check after acquiring lock
+            if self._initialized:
+                return True
+
+            try:
+                success = await self._initialize_database()
+                self._initialized = success
+                return success
+            except Exception:
+                logger.exception("Failed to initialize database")
+                return False
+
+    async def _initialize_database(self) -> bool:
+        """Internal database initialization.
+
+        Returns:
+            True if initialization successful, False otherwise
         """
         try:
             async with aiosqlite.connect(str(self.database_path)) as db:
@@ -202,6 +231,16 @@ class DatabaseManager:
             logger.exception("Failed to initialize database")
             return False
 
+    async def initialize(self) -> bool:
+        """Initialize database schema and settings (now lazy).
+
+        Returns:
+            True if initialization was successful, False otherwise
+        """
+        # Just return True immediately - actual initialization is deferred
+        logger.info("Database initialization deferred for faster startup")
+        return True
+
     async def store_events(self, events: list[CachedEvent]) -> bool:
         """Store calendar events in cache.
 
@@ -212,6 +251,9 @@ class DatabaseManager:
             True if storage was successful, False otherwise
         """
         try:
+            if not await self._ensure_initialized():
+                return False
+
             if not events:
                 logger.debug("No events to store")
                 return True
@@ -279,6 +321,9 @@ class DatabaseManager:
             list of cached events
         """
         try:
+            if not await self._ensure_initialized():
+                return []
+
             start_str = start_date.isoformat()
             end_str = end_date.isoformat()
 

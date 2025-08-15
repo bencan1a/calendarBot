@@ -661,14 +661,24 @@ _performance_logger: Optional[PerformanceLogger] = None
 
 def get_performance_logger(settings: Optional[Any] = None) -> PerformanceLogger:
     """Get or create global performance logger instance."""
+    from . import NoOpPerformanceLogger, _is_monitoring_enabled  # noqa: PLC0415
+
     # Access module-level variable directly without using 'global' keyword
     if globals()["_performance_logger"] is None:
-        globals()["_performance_logger"] = PerformanceLogger(settings)
+        if _is_monitoring_enabled():
+            globals()["_performance_logger"] = PerformanceLogger(settings)
+        else:
+            globals()["_performance_logger"] = NoOpPerformanceLogger()
     return globals()["_performance_logger"]
 
 
 def init_performance_logging(settings: Any) -> PerformanceLogger:
     """Initialize performance logging system with settings."""
+    from . import NoOpPerformanceLogger, _is_monitoring_enabled  # noqa: PLC0415
+
     # Access module-level variable directly without using 'global' keyword
-    globals()["_performance_logger"] = PerformanceLogger(settings)
+    if _is_monitoring_enabled():
+        globals()["_performance_logger"] = PerformanceLogger(settings)
+    else:
+        globals()["_performance_logger"] = NoOpPerformanceLogger()
     return globals()["_performance_logger"]
