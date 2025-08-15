@@ -818,7 +818,7 @@ body .status-cached {
 }
 
 .theme-standard .status-cached {
-    color: #fd7e14;
+    display: none !important; /* Ensure hidden regardless of theme */
 }
 
 .theme-standard .status-live {
