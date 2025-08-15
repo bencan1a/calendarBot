@@ -124,13 +124,7 @@ function getAutoRefreshInterval() {
         }
     }
 
-    // Fallback: Check for legacy configuration
-    if (typeof window.whatsNextViewSettings !== 'undefined' &&
-        window.whatsNextViewSettings.autoRefreshInterval) {
-        return window.whatsNextViewSettings.autoRefreshInterval;
-    }
-
-    // Default to 5 minutes (300 seconds) for performance optimization
+    // Default to 5 minutes for performance optimization
     return 300000; // 5 minutes
 }
 
