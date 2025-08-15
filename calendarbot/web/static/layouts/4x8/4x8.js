@@ -141,11 +141,11 @@ function toggleAutoRefresh() {
             autoRefreshInterval = null;
         }
         autoRefreshEnabled = false;
-        console.log('Auto-refresh disabled');
+        // Silent by default - consistent with whats-next-view
     } else {
         setupAutoRefresh();
         autoRefreshEnabled = true;
-        console.log('Auto-refresh enabled');
+        // Silent by default - consistent with whats-next-view
     }
 }
 
