@@ -1,6 +1,6 @@
 """Static Asset Cache for eliminating filesystem lookups during request serving.
 
-Phase 1A of CalendarBot Performance Optimization Project.
+CalendarBot static asset performance optimization.
 Targets 80% response time improvement (-8ms per static request) with net -13MB memory savings.
 """
 
