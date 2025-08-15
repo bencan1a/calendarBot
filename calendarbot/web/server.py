@@ -1779,15 +1779,18 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             if self.web_server and hasattr(self.web_server, "static_cache"):
                 self.web_server.static_cache.clear()
 
-            # Clear asset cache if available
+            # Clear and rebuild asset cache if available
             if (
                 self.web_server
                 and hasattr(self.web_server, "asset_cache")
                 and hasattr(self.web_server.asset_cache, "clear_cache")
             ):
                 self.web_server.asset_cache.clear_cache()
+                # Rebuild cache immediately to avoid fallback warnings
+                if hasattr(self.web_server.asset_cache, "build_cache"):
+                    self.web_server.asset_cache.build_cache()
 
-            logger.info("Static file cache cleared successfully")
+            logger.info("Static file cache cleared and rebuilt successfully")
             self._send_json_response(
                 200,
                 {
