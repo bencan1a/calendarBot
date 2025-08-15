@@ -34,7 +34,7 @@ except ImportError:
 
 def run_vulture_analysis(min_confidence: int = 80) -> list[str]:
     """Run vulture dead code detection."""
-    print(f"🔍 Running Vulture analysis (confidence >= {min_confidence}%)...")
+    logger.info(f"Running Vulture analysis (confidence >= {min_confidence}%)")
 
     try:
         result = subprocess.run(
@@ -49,7 +49,7 @@ def run_vulture_analysis(min_confidence: int = 80) -> list[str]:
             return result.stdout.strip().split("\n")
         return []
     except Exception as e:
-        print(f"Warning: Vulture analysis failed: {e}")
+        logger.warning(f"Vulture analysis failed: {e}")
         return []
 
 
