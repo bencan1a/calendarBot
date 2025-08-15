@@ -21,7 +21,7 @@
     "SharedWebServer at calendarbot/cli/modes/epaper.py:24"
   ],
   "debug_analysis": {
-    "analysis_time": "2025-08-15T05:32:37.428287+00:00",
+    "analysis_time": "2025-08-15T05:38:29.543338+00:00",
     "root_directory": "calendarbot",
     "total_files": 3283,
     "python_files": 130,
