@@ -473,7 +473,7 @@ def get_connection_pool_monitor(
     return _connection_pool_monitor
 
 
-def reset_phase_2a_monitor() -> None:
-    """Reset the global Phase 2A monitor (for testing)."""
-    global _phase_2a_monitor  # noqa: PLW0603
-    _phase_2a_monitor = None
+def reset_connection_pool_monitor() -> None:
+    """Reset the global connection pool monitor (for testing)."""
+    global _connection_pool_monitor  # noqa: PLW0603
+    _connection_pool_monitor = None
