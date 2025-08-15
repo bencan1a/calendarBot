@@ -97,16 +97,41 @@ function setupKeyboardNavigation() {
 
 // Auto-refresh functionality
 function setupAutoRefresh() {
-    // Get auto-refresh interval from server or default to 60 seconds
-    const refreshInterval = 60000; // 60 seconds
+    // Get configurable auto-refresh interval (following whats-next-view pattern)
+    const refreshInterval = getAutoRefreshInterval();
 
     if (autoRefreshEnabled) {
         autoRefreshInterval = setInterval(function() {
             refreshSilent();
         }, refreshInterval);
 
-        console.log(`Auto-refresh enabled: ${refreshInterval/1000}s interval`);
+        // Silent by default - consistent with whats-next-view
     }
+}
+
+/**
+ * Get auto-refresh interval with configuration support
+ * @returns {number} Refresh interval in milliseconds
+ */
+function getAutoRefreshInterval() {
+    // Check for user configuration from settings system
+    if (typeof window.settingsData !== 'undefined' &&
+        window.settingsData.display &&
+        window.settingsData.display.auto_refresh_interval) {
+        const interval = parseInt(window.settingsData.display.auto_refresh_interval);
+        if (interval && interval > 0) {
+            return interval;
+        }
+    }
+
+    // Fallback: Check for legacy configuration
+    if (typeof window.whatsNextViewSettings !== 'undefined' &&
+        window.whatsNextViewSettings.autoRefreshInterval) {
+        return window.whatsNextViewSettings.autoRefreshInterval;
+    }
+
+    // Default to 5 minutes (300 seconds) for performance optimization
+    return 300000; // 5 minutes
 }
 
 function toggleAutoRefresh() {
