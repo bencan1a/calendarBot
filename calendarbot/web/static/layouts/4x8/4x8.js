@@ -35,8 +35,6 @@ function initializeApp() {
 
     // Initialize settings panel
     initializeSettingsPanel();
-
-    console.log(`Initialized with theme: ${currentTheme}`);
 }
 
 // Navigation button click handlers
