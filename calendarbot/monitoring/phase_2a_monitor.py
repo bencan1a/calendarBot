@@ -1,4 +1,4 @@
-"""Phase 2A performance monitoring for connection pooling and request pipeline optimization."""
+"""Connection pool performance monitoring for request pipeline optimization."""
 
 import time
 from dataclasses import dataclass
