@@ -415,26 +415,37 @@ async function loadMeetingData() {
 
 /**
  * Detect the current/next meeting
+ * UPDATED: Now prioritizes upcoming meetings over current meetings to match backend logic
  */
 function detectCurrentMeeting() {
     const now = getCurrentTime();
     currentMeeting = null;
 
-    // Find the earliest remaining meeting
+    // Phase 2 Frontend Update: Prioritize upcoming meetings first, current meetings as fallback
+    // This ensures frontend and backend select identical meetings consistently
+    
+    // First pass: Look for upcoming meetings (prioritized)
     for (const meeting of upcomingMeetings) {
         const meetingStart = new Date(meeting.start_time);
-        const meetingEnd = new Date(meeting.end_time);
-
-        // Check if meeting is currently happening
-        if (now >= meetingStart && now <= meetingEnd) {
-            currentMeeting = meeting;
-            break;
-        }
-
+        
         // Check if meeting is upcoming
         if (meetingStart > now) {
             currentMeeting = meeting;
             break;
+        }
+    }
+    
+    // Second pass: If no upcoming meetings found, look for current meetings as fallback
+    if (!currentMeeting) {
+        for (const meeting of upcomingMeetings) {
+            const meetingStart = new Date(meeting.start_time);
+            const meetingEnd = new Date(meeting.end_time);
+            
+            // Check if meeting is currently happening
+            if (now >= meetingStart && now <= meetingEnd) {
+                currentMeeting = meeting;
+                break;
+            }
         }
     }
 
@@ -1787,22 +1798,31 @@ class WhatsNextStateManager {
         }
 
         // Find current meeting from state - filter out hidden events
+        // UPDATED: Now prioritizes upcoming meetings over current meetings to match backend logic
         const now = getCurrentTime();
         let currentMeeting = null;
         const visibleEvents = this.state.events.filter(event => !event.is_hidden);
         
+        // First pass: Look for upcoming meetings (prioritized)
         for (const event of visibleEvents) {
             const meetingStart = new Date(event.start_time);
-            const meetingEnd = new Date(event.end_time);
             
-            // Check if meeting is currently happening or upcoming
-            if (now >= meetingStart && now <= meetingEnd) {
-                currentMeeting = event;
-                break;
-            }
             if (meetingStart > now) {
                 currentMeeting = event;
                 break;
+            }
+        }
+        
+        // Second pass: If no upcoming meetings found, look for current meetings as fallback
+        if (!currentMeeting) {
+            for (const event of visibleEvents) {
+                const meetingStart = new Date(event.start_time);
+                const meetingEnd = new Date(event.end_time);
+                
+                if (now >= meetingStart && now <= meetingEnd) {
+                    currentMeeting = event;
+                    break;
+                }
             }
         }
 
@@ -2270,20 +2290,29 @@ class WhatsNextStateManager {
         const now = getCurrentTime();
         currentMeeting = null;
 
+        // UPDATED: Now prioritizes upcoming meetings over current meetings to match backend logic
+        // First pass: Look for upcoming meetings (prioritized)
         for (const meeting of upcomingMeetings) {
             const meetingStart = new Date(meeting.start_time);
-            const meetingEnd = new Date(meeting.end_time);
-
-            // Check if meeting is currently happening
-            if (now >= meetingStart && now <= meetingEnd) {
-                currentMeeting = meeting;
-                break;
-            }
 
             // Check if meeting is upcoming
             if (meetingStart > now) {
                 currentMeeting = meeting;
                 break;
+            }
+        }
+
+        // Second pass: If no upcoming meetings found, look for current meetings as fallback
+        if (!currentMeeting) {
+            for (const meeting of upcomingMeetings) {
+                const meetingStart = new Date(meeting.start_time);
+                const meetingEnd = new Date(meeting.end_time);
+
+                // Check if meeting is currently happening
+                if (now >= meetingStart && now <= meetingEnd) {
+                    currentMeeting = meeting;
+                    break;
+                }
             }
         }
     }
