@@ -1518,6 +1518,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "/api/database/info": {
                     "GET": lambda: self._handle_database_info(),
                 },
+                "/api/database/populate-raw-events": {
+                    "POST": lambda: self._handle_populate_raw_events(),
+                },
             }
 
             # Route request using lookup table
