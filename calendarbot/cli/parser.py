@@ -48,7 +48,7 @@ class LayoutAction(argparse.Action):
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
         values: Any,
-        option_string: Optional[str] = None,
+        _option_string: Optional[str] = None,
     ) -> None:
         """Validate and set layout value using Layout Registry.
 
