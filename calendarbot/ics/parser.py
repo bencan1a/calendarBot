@@ -769,8 +769,19 @@ class ICSParser:
 
             # RFC 5545 RECURRENCE-ID detection for Microsoft ICS bug
             # When a recurring instance is moved, the original slot should be excluded
-            recurrence_id = component.get("RECURRENCE-ID")
-            is_moved_instance = recurrence_id is not None  # noqa
+            recurrence_id_raw = component.get("RECURRENCE-ID")
+            is_moved_instance = recurrence_id_raw is not None  # noqa
+
+            # Convert RECURRENCE-ID to string properly (fix for icalendar object bug)
+            if recurrence_id_raw is not None:
+                if hasattr(recurrence_id_raw, "to_ical"):
+                    # icalendar object - convert to iCal format then decode
+                    recurrence_id = recurrence_id_raw.to_ical().decode("utf-8")
+                else:
+                    # Already a string or other type - convert to string
+                    recurrence_id = str(recurrence_id_raw)
+            else:
+                recurrence_id = None
 
             # Check if this event should be excluded due to EXDATE
             exdate_props = component.get("EXDATE", [])
