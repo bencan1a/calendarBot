@@ -15,7 +15,7 @@ from typing import Any, NoReturn, Optional
 
 from ..optimization.cache_keys import CacheKeyGenerator
 
-# Required cache manager integration for Phase 2C
+# Required cache manager integration for cache strategy
 from ..optimization.cache_manager import CacheManager, get_cache_manager
 from .exceptions import LayoutValidationError
 from .registry import LayoutInfo  # Reuse existing LayoutInfo
