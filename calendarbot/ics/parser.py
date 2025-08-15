@@ -618,9 +618,6 @@ class ICSParser:
                             try:
                                 individual_ics = component.to_ical().decode("utf-8")
                                 event_raw_content_map[event.id] = individual_ics
-                                logger.debug(
-                                    f"Captured raw ICS for event {event.id}: {len(individual_ics)} bytes"
-                                )
                             except Exception as e:
                                 logger.warning(
                                     f"Failed to extract raw ICS for event {event.id}: {e}"
