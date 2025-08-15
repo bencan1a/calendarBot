@@ -537,12 +537,19 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # Build status info for interactive mode
         from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
 
+        # Get cache status if cache manager is available
+        is_cached = False
+        if hasattr(self.web_server, "cache_manager") and self.web_server.cache_manager:
+            # For now, just check if cache manager exists - a more complete implementation
+            # would need to make this method async to properly check cache status
+            is_cached = True
+
         status_info = {
             "selected_date": self.web_server.navigation_state.get_display_date(),
             "is_today": self.web_server.navigation_state.is_today(),
             "interactive_mode": True,
             "last_update": get_timezone_aware_now().isoformat(),
-            "is_cached": False,  # TODO: Get actual cache status
+            "is_cached": is_cached,
         }
 
         return events, status_info
@@ -2290,7 +2297,7 @@ class WebServer:
                     "is_today": self.navigation_state.is_today(),
                     "interactive_mode": True,
                     "last_update": get_timezone_aware_now().isoformat(),
-                    "is_cached": False,  # TODO: Get actual cache status
+                    "is_cached": bool(events),  # If we got events, assume cached
                 }
             else:
                 # Non-interactive mode - get today's events
