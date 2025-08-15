@@ -168,6 +168,8 @@ class DatabaseManager:
                         web_link TEXT,
                         is_recurring INTEGER NOT NULL DEFAULT 0,
                         series_master_id TEXT,
+                        recurrence_id TEXT,
+                        is_instance INTEGER NOT NULL DEFAULT 0,
                         last_modified TEXT,
                         source_url TEXT,
                         raw_ics_content TEXT NOT NULL,
