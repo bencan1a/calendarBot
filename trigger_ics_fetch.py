@@ -22,6 +22,9 @@ async def trigger_fetch():
     # Initialize source manager
     source_manager = SourceManager(settings)
 
+    # Initialize source manager with default sources
+    await source_manager.initialize()
+
     try:
         # Fetch events from all sources
         print("📡 Fetching events from all ICS sources...")
