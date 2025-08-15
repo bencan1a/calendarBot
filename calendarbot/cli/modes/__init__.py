@@ -59,8 +59,7 @@ def get_available_modes() -> dict[str, dict[str, Any]]:
 def register_mode(name: str, handler: Callable[..., Any], **kwargs: Any) -> None:
     """Register a new execution mode.
 
-    This function allows dynamic registration of new modes during
-    Phase 2 migration when handlers are moved from root main.py.
+    This function allows dynamic registration of new modes.
 
     Args:
         name: Mode name identifier
@@ -103,9 +102,6 @@ def get_mode_handler(mode_name: str) -> Callable[..., Any]:
 async def execute_mode(mode_name: str, args: Any) -> int:
     """Execute the specified mode with given arguments.
 
-    This function will coordinate mode execution during Phase 2 migration
-    when mode handlers are moved from root main.py.
-
     Args:
         mode_name: Name of the mode to execute
         args: Parsed command line arguments
@@ -128,7 +124,6 @@ async def execute_mode(mode_name: str, args: Any) -> int:
         return 1
     except RuntimeError as e:
         print(f"Error: {e}")
-        print("Mode handlers will be available after Phase 2 migration")
         return 1
     except Exception as e:
         print(f"Mode execution error: {e}")
