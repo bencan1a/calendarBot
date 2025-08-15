@@ -1,5 +1,5 @@
 """
-Layout Asset Bundler for CalendarBot Phase 2B Optimization.
+Layout Asset Bundler for CalendarBot Layout Optimization.
 
 Provides smart asset grouping and bundling for layout system optimization,
 targeting Pi Zero 2W deployment with 512MB RAM constraints.
