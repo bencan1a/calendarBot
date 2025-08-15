@@ -626,9 +626,6 @@ class SettingsPersistence:
         Returns:
             Settings data in v1.0.0 format
         """
-        # This is a placeholder for actual migration logic
-        # In a real scenario, this would handle schema changes between versions
-
         # Ensure all required top-level sections exist
         if "event_filters" not in data:
             data["event_filters"] = {}
