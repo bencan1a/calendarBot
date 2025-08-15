@@ -473,9 +473,12 @@
     <script>
         class DatabaseViewer {
             constructor() {
+                this.currentTable = 'cached_events'; // Default table
+                this.tables = [];
                 this.initializeElements();
                 this.bindEvents();
                 this.loadDatabaseInfo();
+                this.loadTables();
             }
 
             initializeElements() {
@@ -486,6 +489,7 @@
                 this.resultsPanel = document.getElementById('results-panel');
                 this.resultsContainer = document.getElementById('results-container');
                 this.sampleQueries = document.querySelectorAll('.sample-query');
+                this.tableSelector = document.getElementById('table-selector');
             }
 
             bindEvents() {
