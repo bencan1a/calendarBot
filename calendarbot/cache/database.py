@@ -193,6 +193,20 @@ class DatabaseManager:
 
                 await db.execute(
                     """
+                    CREATE INDEX IF NOT EXISTS idx_raw_events_recurrence_id
+                    ON raw_events(recurrence_id)
+                """
+                )
+
+                await db.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_raw_events_is_instance
+                    ON raw_events(is_instance)
+                """
+                )
+
+                await db.execute(
+                    """
                     CREATE INDEX IF NOT EXISTS idx_raw_events_content_hash
                     ON raw_events(content_hash)
                 """
