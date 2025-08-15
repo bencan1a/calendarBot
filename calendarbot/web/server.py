@@ -1950,7 +1950,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_500(str(e))
 
     def _send_response(
-        self, status_code: int, content: Union[str, bytes], content_type: str, binary: bool = False
+        self, status_code: int, content: Union[str, bytes], content_type: str, _binary: bool = False
     ) -> None:
         """Send HTTP response."""
         self.send_response(status_code)
