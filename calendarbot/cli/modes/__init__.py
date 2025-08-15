@@ -137,4 +137,7 @@ __all__ = [
     "get_mode_handler",
     "register_mode",
     "run_daemon_mode",
+    "run_epaper_mode",
+    "run_interactive_mode",
+    "run_web_mode",
 ]
