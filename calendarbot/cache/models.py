@@ -296,6 +296,8 @@ class RawEvent(BaseModel):
     # Recurrence
     is_recurring: bool = False
     series_master_id: Optional[str] = None
+    recurrence_id: Optional[str] = None  # RECURRENCE-ID value for instances
+    is_instance: bool = False  # True if this is a recurrence instance, False if master pattern
 
     # Cache metadata
     last_modified: Optional[str] = None  # Last modified from Graph API
