@@ -574,16 +574,18 @@ class ICSParser:
             logger.debug("Starting unfiltered ICS content parsing for raw events")
 
             # Capture raw content and validate size (with error handling)
-            try:
-                self._validate_ics_size(ics_content)
-                raw_content = ics_content
-                logger.debug(f"Raw ICS content captured: {len(ics_content)} bytes")
-            except ICSContentTooLargeError:
-                logger.exception("ICS content too large, skipping raw content storage")
-                raise  # Re-raise to stop processing
-            except Exception as e:
-                logger.warning(f"Failed to capture raw ICS content: {e}")
-                # Continue parsing without raw content
+            # Only store full raw ICS content in development environment
+            if not is_production_mode():
+                try:
+                    self._validate_ics_size(ics_content)
+                    raw_content = ics_content
+                    logger.debug(f"Raw ICS content captured: {len(ics_content)} bytes")
+                except ICSContentTooLargeError:
+                    logger.exception("ICS content too large, skipping raw content storage")
+                    raise  # Re-raise to stop processing
+                except Exception as e:
+                    logger.warning(f"Failed to capture raw ICS content: {e}")
+                    # Continue parsing without raw content
 
             # Parse the calendar
             calendar = Calendar.from_ical(ics_content)
