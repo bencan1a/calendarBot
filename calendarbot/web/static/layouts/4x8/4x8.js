@@ -257,8 +257,8 @@ async function cycleLayout() {
 
         if (data.success) {
             console.log(`Layout changed to: ${data.layout}`);
-            // Use more reliable refresh approach instead of window.location.reload()
-            window.location.href = window.location.href;
+            // Force page reload to switch to new layout
+            window.location.reload();
         } else {
             console.error('Layout cycle failed:', data.error);
             showErrorMessage('Layout switch failed');
