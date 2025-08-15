@@ -549,7 +549,7 @@ class LazyLayoutRegistry:
                 if self._metadata_cache
                 else 0
             ),
-            # Phase 2C Cache Statistics
+            # Cache Statistics
             "layout_cache_enabled": self._cache_manager is not None,
             "layout_cache_hits": self._layout_cache_hits,
             "layout_cache_misses": self._layout_cache_misses,
