@@ -39,7 +39,7 @@ class LayoutMetadata:
 
 
 class LazyLayoutRegistry:
-    """Lazy loading layout registry - loads layouts on demand for Phase 2B optimization.
+    """Lazy loading layout registry - loads layouts on demand for layout optimization.
 
     Performance targets:
     - Memory: -20MB from unused layout elimination
