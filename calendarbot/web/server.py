@@ -1775,6 +1775,129 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.exception("Error getting database info")
             self._send_json_response(500, {"error": f"Failed to get database info: {e!s}"})
 
+    def _handle_populate_raw_events(self) -> None:
+        """Handle POST /api/database/populate-raw-events - temporarily enable raw content storage for debugging."""
+        try:
+            logger.info(
+                "API call to populate raw_events table for debugging (temporarily overriding production mode)"
+            )
+
+            if (
+                not self.web_server
+                or not hasattr(self.web_server, "cache_manager")
+                or not hasattr(self.web_server, "settings")
+            ):
+                self._send_json_response(500, {"error": "Cache manager or settings not available"})
+                return
+
+            cache_manager = self.web_server.cache_manager
+
+            # Use async call handling similar to other methods
+            import asyncio  # noqa: PLC0415
+
+            def run_async_operation() -> dict[str, Any]:
+                """Temporarily override production mode and call existing functionality."""
+
+                async def fetch_with_raw_content() -> dict[str, Any]:
+                    """Fetch events with raw content by temporarily overriding production mode."""
+                    result = {"success": False, "count": 0, "error": None}
+
+                    try:
+                        # Import required modules for temporary override
+                        from ..config import build  # noqa: PLC0415
+                        from ..sources.manager import SourceManager  # noqa: PLC0415
+
+                        # Save original production mode function
+                        original_is_production_mode = build.is_production_mode
+
+                        # Temporarily override to return False (non-production) to enable raw content
+                        build.is_production_mode = lambda: False
+                        logger.info(
+                            "Temporarily overriding production mode to enable raw content storage"
+                        )
+
+                        try:
+                            # Create source manager and initialize it
+                            source_manager = SourceManager(self.web_server.settings, cache_manager)
+                            await source_manager.initialize()
+
+                            # Call the existing method that will now store raw content
+                            success = await source_manager.fetch_and_cache_events()
+
+                            if success:
+                                # Check how many raw events were created
+                                db_manager = cache_manager.db
+                                count_result = await db_manager.execute_query(
+                                    "SELECT COUNT(*) as count FROM raw_events"
+                                )
+                                count = (
+                                    count_result.get("rows", [{}])[0].get("count", 0)
+                                    if count_result
+                                    else 0
+                                )
+
+                                result["success"] = True
+                                result["count"] = count
+                                logger.info(
+                                    f"Successfully populated raw_events table with {count} entries"
+                                )
+                            else:
+                                result["error"] = (
+                                    "fetch_and_cache_events returned False - check source health and network connectivity"
+                                )
+
+                        finally:
+                            # Always restore original production mode function
+                            build.is_production_mode = original_is_production_mode
+                            logger.info("Restored original production mode setting")
+
+                    except Exception as e:
+                        logger.exception("Error during raw events population")
+                        result["error"] = str(e)
+
+                    return result
+
+                # Create new event loop for async operation
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(fetch_with_raw_content())
+                finally:
+                    new_loop.close()
+
+            # Run the operation in thread pool
+            try:
+                # Try to get the running event loop
+                asyncio.get_running_loop()
+                # If we get here, there's a running loop, use thread pool
+                result = run_in_thread_pool(run_async_operation, timeout=30.0)
+            except RuntimeError:
+                # No running event loop, safe to use asyncio.run()
+                result = run_async_operation()
+
+            # Send response
+            if result["success"]:
+                self._send_json_response(
+                    200,
+                    {
+                        "success": True,
+                        "count": result["count"],
+                        "message": f"Successfully populated {result['count']} raw events for debugging",
+                    },
+                )
+            else:
+                self._send_json_response(
+                    500,
+                    {
+                        "success": False,
+                        "error": result["error"] or "Failed to populate raw events",
+                    },
+                )
+
+        except Exception as e:
+            logger.exception("Error handling populate raw events request")
+            self._send_json_response(500, {"error": f"Failed to populate raw events: {e!s}"})
+
     def _handle_cache_clear_api(self) -> None:
         """Handle cache clear API requests."""
         try:
