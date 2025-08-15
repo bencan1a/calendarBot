@@ -1,7 +1,7 @@
 """Driver for Waveshare 4.2inch e-Paper Module (B) v2."""
 
 import logging
-from typing import List, Optional
+from typing import Optional
 
 try:
     import spidev  # type: ignore[import]
