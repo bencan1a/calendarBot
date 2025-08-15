@@ -222,14 +222,23 @@ class WhatsNextLogic:
                         f"find_next_upcoming_event filtering - fresh hidden_events: {list(hidden_events)}"
                     )
 
+                    # Check for matches using the same ID system as frontend
+                    matching_events = [e for e in events if e.graph_id in hidden_events]
+
+                    # Log the first 50 characters of titles of hidden events
+                    hidden_titles = [
+                        e.subject[:50] if e.subject else "No title" for e in matching_events
+                    ]
+                    logger.debug(
+                        f"find_next_upcoming_event filtering - hidden event titles: {hidden_titles}"
+                    )
+
                     # Debug: show actual event IDs that we're using for filtering
                     event_ids = [e.graph_id for e in events[:5]]  # Show first 5 for debugging
                     logger.debug(
                         f"find_next_upcoming_event - sample event IDs being used for filtering: {event_ids}"
                     )
 
-                    # Check for matches using the same ID system as frontend
-                    matching_events = [e for e in events if e.graph_id in hidden_events]
                     logger.debug(
                         f"find_next_upcoming_event - found {len(matching_events)} events to hide: {[e.graph_id for e in matching_events]}"
                     )
