@@ -55,7 +55,7 @@ def run_vulture_analysis(min_confidence: int = 80) -> list[str]:
 
 def run_unimport_analysis() -> list[str]:
     """Run unimport to find unused imports."""
-    print("📦 Running unimport analysis...")
+    logger.info("Running unimport analysis")
 
     try:
         result = subprocess.run(
@@ -70,13 +70,13 @@ def run_unimport_analysis() -> list[str]:
             return result.stdout.strip().split("\n")
         return []
     except Exception as e:
-        print(f"Warning: Unimport analysis failed: {e}")
+        logger.warning(f"Unimport analysis failed: {e}")
         return []
 
 
 def run_debug_analyzer() -> dict[str, Any]:
     """Run the built-in debug statement analyzer."""
-    print("🐛 Running debug statement analysis...")
+    logger.info("Running debug statement analysis")
 
     analyzer = DebugStatementAnalyzer()
     return analyzer.analyze_codebase("calendarbot")
@@ -84,7 +84,7 @@ def run_debug_analyzer() -> dict[str, Any]:
 
 def run_ruff_unused_analysis() -> list[str]:
     """Run Ruff to find unused variables and imports."""
-    print("🦀 Running Ruff analysis for unused code...")
+    logger.info("Running Ruff analysis for unused code")
 
     try:
         result = subprocess.run(
@@ -107,7 +107,7 @@ def run_ruff_unused_analysis() -> list[str]:
             return result.stdout.strip().split("\n")
         return []
     except Exception as e:
-        print(f"Warning: Ruff analysis failed: {e}")
+        logger.warning(f"Ruff analysis failed: {e}")
         return []
 
 
