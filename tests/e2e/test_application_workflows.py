@@ -21,7 +21,7 @@ from tests.fixtures.mock_ics_data import ICSTestData
 class TestCompleteApplicationWorkflows:
     """Test suite for complete application workflows end-to-end."""
 
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def full_application_setup(self, test_settings, populated_test_database):
         """Set up complete application stack for end-to-end testing."""
         # Create real CalendarBot instance
