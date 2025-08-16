@@ -155,11 +155,11 @@ class TestConnectionPoolMonitor:
     def test_initialization(self, mock_optimization_config: OptimizationConfig) -> None:
         """Test ConnectionPoolMonitor initialization."""
         with patch(
-            "calendarbot.monitoring.phase_2a_monitor.get_optimization_config",
+            "calendarbot.monitoring.connection_pool_monitor.get_optimization_config",
             return_value=mock_optimization_config,
         ):
-            with patch("calendarbot.monitoring.phase_2a_monitor.get_performance_logger"):
-                with patch("calendarbot.monitoring.phase_2a_monitor.get_logger"):
+            with patch("calendarbot.monitoring.connection_pool_monitor.get_performance_logger"):
+                with patch("calendarbot.monitoring.connection_pool_monitor.get_logger"):
                     with patch("time.time", return_value=100.0):
                         monitor = ConnectionPoolMonitor()
 
@@ -177,18 +177,18 @@ class TestConnectionPoolMonitor:
         custom_config = OptimizationConfig()
         custom_config.memory_warning_threshold_mb = 512
 
-        with patch("calendarbot.monitoring.phase_2a_monitor.get_performance_logger"):
-            with patch("calendarbot.monitoring.phase_2a_monitor.get_logger"):
+        with patch("calendarbot.monitoring.connection_pool_monitor.get_performance_logger"):
+            with patch("calendarbot.monitoring.connection_pool_monitor.get_logger"):
                 monitor = ConnectionPoolMonitor(custom_config)
 
                 assert monitor.config == custom_config
                 assert monitor.memory_warning_threshold == 512
 
     def test_log_connection_pool_status(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
     ) -> None:
         """Test log_connection_pool_status method."""
-        phase_2a_monitor.log_connection_pool_status(
+        connection_pool_monitor.log_connection_pool_status(
             active=8,
             idle=2,
             max_connections=20,
@@ -197,11 +197,11 @@ class TestConnectionPoolMonitor:
         )
 
         # Check that metrics were updated
-        assert phase_2a_monitor.connection_pool_metrics.active_connections == 8
-        assert phase_2a_monitor.connection_pool_metrics.idle_connections == 2
-        assert phase_2a_monitor.connection_pool_metrics.total_connections == 10
-        assert phase_2a_monitor.connection_pool_metrics.max_connections == 20
-        assert phase_2a_monitor.connection_pool_metrics.pool_utilization == 50.0
+        assert connection_pool_monitor.connection_pool_metrics.active_connections == 8
+        assert connection_pool_monitor.connection_pool_metrics.idle_connections == 2
+        assert connection_pool_monitor.connection_pool_metrics.total_connections == 10
+        assert connection_pool_monitor.connection_pool_metrics.max_connections == 20
+        assert connection_pool_monitor.connection_pool_metrics.pool_utilization == 50.0
 
         # Check that performance logger was called for each metric
         assert mock_performance_logger.log_metric.call_count == 4
@@ -216,28 +216,28 @@ class TestConnectionPoolMonitor:
         assert "connection_pool_utilization" in metric_names
 
     def test_log_connection_pool_status_high_utilization_warning(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
     ) -> None:
         """Test log_connection_pool_status with high utilization warning."""
-        phase_2a_monitor.log_connection_pool_status(active=16, idle=0, max_connections=20)
+        connection_pool_monitor.log_connection_pool_status(active=16, idle=0, max_connections=20)
 
         mock_logger.warning.assert_called_once()
         assert "Connection pool utilization high: 80.0%" in mock_logger.warning.call_args[0][0]
 
     def test_log_connection_pool_status_critical_utilization_error(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
     ) -> None:
         """Test log_connection_pool_status with critical utilization error."""
-        phase_2a_monitor.log_connection_pool_status(active=19, idle=0, max_connections=20)
+        connection_pool_monitor.log_connection_pool_status(active=19, idle=0, max_connections=20)
 
         mock_logger.error.assert_called_once()
         assert "Connection pool utilization critical: 95.0%" in mock_logger.error.call_args[0][0]
 
     def test_log_connection_acquisition_success(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
     ) -> None:
         """Test log_connection_acquisition method with successful acquisition."""
-        phase_2a_monitor.log_connection_acquisition(
+        connection_pool_monitor.log_connection_acquisition(
             wait_time=0.5,
             success=True,
             component="test_pool",
@@ -245,9 +245,9 @@ class TestConnectionPoolMonitor:
         )
 
         # Check that metrics were updated
-        assert phase_2a_monitor.connection_pool_metrics.connection_acquisitions == 1
-        assert phase_2a_monitor.connection_pool_metrics.acquisition_wait_time == 0.5
-        assert phase_2a_monitor.connection_pool_metrics.failed_acquisitions == 0
+        assert connection_pool_monitor.connection_pool_metrics.connection_acquisitions == 1
+        assert connection_pool_monitor.connection_pool_metrics.acquisition_wait_time == 0.5
+        assert connection_pool_monitor.connection_pool_metrics.failed_acquisitions == 0
 
         # Check that performance logger was called
         mock_performance_logger.log_metric.assert_called_once()
@@ -258,14 +258,14 @@ class TestConnectionPoolMonitor:
         assert metric.metadata["success"] is True
 
     def test_log_connection_acquisition_failure(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
     ) -> None:
         """Test log_connection_acquisition method with failed acquisition."""
-        phase_2a_monitor.log_connection_acquisition(wait_time=2.0, success=False)
+        connection_pool_monitor.log_connection_acquisition(wait_time=2.0, success=False)
 
         # Check that metrics were updated
-        assert phase_2a_monitor.connection_pool_metrics.connection_acquisitions == 0
-        assert phase_2a_monitor.connection_pool_metrics.failed_acquisitions == 1
+        assert connection_pool_monitor.connection_pool_metrics.connection_acquisitions == 0
+        assert connection_pool_monitor.connection_pool_metrics.failed_acquisitions == 1
 
         # Check that performance logger was called
         mock_performance_logger.log_metric.assert_called_once()
@@ -274,25 +274,25 @@ class TestConnectionPoolMonitor:
         assert metric.metadata["success"] is False
 
     def test_log_connection_acquisition_slow_warning(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
     ) -> None:
         """Test log_connection_acquisition with slow acquisition warning."""
-        phase_2a_monitor.log_connection_acquisition(wait_time=1.5, success=True)
+        connection_pool_monitor.log_connection_acquisition(wait_time=1.5, success=True)
 
         mock_logger.warning.assert_called_once()
         assert "Connection acquisition slow: 1.50s" in mock_logger.warning.call_args[0][0]
 
     def test_log_connection_release(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
     ) -> None:
         """Test log_connection_release method."""
-        phase_2a_monitor.log_connection_release(
+        connection_pool_monitor.log_connection_release(
             component="test_pool",
             correlation_id="test-correlation-id",
         )
 
         # Check that metrics were updated
-        assert phase_2a_monitor.connection_pool_metrics.connection_releases == 1
+        assert connection_pool_monitor.connection_pool_metrics.connection_releases == 1
 
         # Check that performance logger was called
         mock_performance_logger.log_metric.assert_called_once()
@@ -301,22 +301,22 @@ class TestConnectionPoolMonitor:
         assert metric.name == "connection_release"
         assert metric.value == 1
 
-    def test_start_request_timer(self, phase_2a_monitor: ConnectionPoolMonitor) -> None:
+    def test_start_request_timer(self, connection_pool_monitor: ConnectionPoolMonitor) -> None:
         """Test start_request_timer method."""
         with patch("time.perf_counter", return_value=100.0):
-            phase_2a_monitor.start_request_timer("test-request-123", is_cached=True)
+            connection_pool_monitor.start_request_timer("test-request-123", is_cached=True)
 
-            assert phase_2a_monitor._request_timers["test-request-123"] == 100.0
+            assert connection_pool_monitor._request_timers["test-request-123"] == 100.0
 
     def test_log_request_completion_cache_hit(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
     ) -> None:
         """Test log_request_completion method with cache hit."""
         # Setup timer
-        phase_2a_monitor._request_timers["test-request-123"] = 100.0
+        connection_pool_monitor._request_timers["test-request-123"] = 100.0
 
         with patch("time.perf_counter", return_value=100.5):
-            duration = phase_2a_monitor.log_request_completion(
+            duration = connection_pool_monitor.log_request_completion(
                 request_id="test-request-123",
                 cache_hit=True,
                 was_batched=False,
@@ -326,15 +326,15 @@ class TestConnectionPoolMonitor:
             )
 
             assert duration == 0.5
-            assert "test-request-123" not in phase_2a_monitor._request_timers
+            assert "test-request-123" not in connection_pool_monitor._request_timers
 
             # Check that metrics were updated
-            assert phase_2a_monitor.request_pipeline_metrics.total_requests == 1
-            assert phase_2a_monitor.request_pipeline_metrics.cache_hits == 1
-            assert phase_2a_monitor.request_pipeline_metrics.cache_misses == 0
-            assert phase_2a_monitor.request_pipeline_metrics.cached_request_duration == 0.5
-            assert phase_2a_monitor.request_pipeline_metrics.single_requests == 1
-            assert phase_2a_monitor.request_pipeline_metrics.batch_requests == 0
+            assert connection_pool_monitor.request_pipeline_metrics.total_requests == 1
+            assert connection_pool_monitor.request_pipeline_metrics.cache_hits == 1
+            assert connection_pool_monitor.request_pipeline_metrics.cache_misses == 0
+            assert connection_pool_monitor.request_pipeline_metrics.cached_request_duration == 0.5
+            assert connection_pool_monitor.request_pipeline_metrics.single_requests == 1
+            assert connection_pool_monitor.request_pipeline_metrics.batch_requests == 0
 
             # Check that performance logger was called
             mock_performance_logger.log_metric.assert_called_once()
@@ -346,14 +346,14 @@ class TestConnectionPoolMonitor:
             assert metric.metadata["was_batched"] is False
 
     def test_log_request_completion_cache_miss_batched(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
     ) -> None:
         """Test log_request_completion method with cache miss and batched request."""
         # Setup timer
-        phase_2a_monitor._request_timers["test-request-456"] = 50.0
+        connection_pool_monitor._request_timers["test-request-456"] = 50.0
 
         with patch("time.perf_counter", return_value=52.0):
-            duration = phase_2a_monitor.log_request_completion(
+            duration = connection_pool_monitor.log_request_completion(
                 request_id="test-request-456",
                 cache_hit=False,
                 was_batched=True,
@@ -363,19 +363,19 @@ class TestConnectionPoolMonitor:
             assert duration == 2.0
 
             # Check that metrics were updated
-            assert phase_2a_monitor.request_pipeline_metrics.total_requests == 1
-            assert phase_2a_monitor.request_pipeline_metrics.cache_hits == 0
-            assert phase_2a_monitor.request_pipeline_metrics.cache_misses == 1
-            assert phase_2a_monitor.request_pipeline_metrics.uncached_request_duration == 2.0
-            assert phase_2a_monitor.request_pipeline_metrics.batch_requests == 1
-            assert phase_2a_monitor.request_pipeline_metrics.single_requests == 0
-            assert phase_2a_monitor.request_pipeline_metrics.average_batch_size == 5.0
+            assert connection_pool_monitor.request_pipeline_metrics.total_requests == 1
+            assert connection_pool_monitor.request_pipeline_metrics.cache_hits == 0
+            assert connection_pool_monitor.request_pipeline_metrics.cache_misses == 1
+            assert connection_pool_monitor.request_pipeline_metrics.uncached_request_duration == 2.0
+            assert connection_pool_monitor.request_pipeline_metrics.batch_requests == 1
+            assert connection_pool_monitor.request_pipeline_metrics.single_requests == 0
+            assert connection_pool_monitor.request_pipeline_metrics.average_batch_size == 5.0
 
     def test_log_request_completion_timer_not_found(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
     ) -> None:
         """Test log_request_completion method when timer is not found."""
-        duration = phase_2a_monitor.log_request_completion("nonexistent-request")
+        duration = connection_pool_monitor.log_request_completion("nonexistent-request")
 
         assert duration == 0.0
         mock_logger.warning.assert_called_once()
@@ -384,28 +384,28 @@ class TestConnectionPoolMonitor:
         )
 
     def test_log_request_completion_high_latency_warning(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
     ) -> None:
         """Test log_request_completion with high latency warning."""
         # Setup timer
-        phase_2a_monitor._request_timers["slow-request"] = 100.0
+        connection_pool_monitor._request_timers["slow-request"] = 100.0
 
         with patch("time.perf_counter", return_value=100.3):  # 300ms duration > 200ms threshold
-            phase_2a_monitor.log_request_completion("slow-request")
+            connection_pool_monitor.log_request_completion("slow-request")
 
             mock_logger.warning.assert_called_once()
             assert "Request latency high: 0.30s" in mock_logger.warning.call_args[0][0]
 
     def test_log_cache_performance(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
     ) -> None:
         """Test log_cache_performance method."""
         # Setup some requests first
-        phase_2a_monitor.request_pipeline_metrics.total_requests = 100
-        phase_2a_monitor.request_pipeline_metrics.cache_hits = 70
-        phase_2a_monitor.request_pipeline_metrics.cache_misses = 30
+        connection_pool_monitor.request_pipeline_metrics.total_requests = 100
+        connection_pool_monitor.request_pipeline_metrics.cache_hits = 70
+        connection_pool_monitor.request_pipeline_metrics.cache_misses = 30
 
-        phase_2a_monitor.log_cache_performance(
+        connection_pool_monitor.log_cache_performance(
             component="test_cache",
             correlation_id="test-correlation-id",
         )
@@ -423,40 +423,40 @@ class TestConnectionPoolMonitor:
         assert "cache_misses" in metric_names
 
     def test_log_cache_performance_no_requests(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
     ) -> None:
         """Test log_cache_performance method with no requests."""
-        phase_2a_monitor.log_cache_performance()
+        connection_pool_monitor.log_cache_performance()
 
         # Should not log anything if no requests
         mock_performance_logger.log_metric.assert_not_called()
 
     def test_log_cache_performance_low_hit_rate_warning(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_logger: MagicMock
     ) -> None:
         """Test log_cache_performance with low hit rate warning."""
         # Setup low hit rate
-        phase_2a_monitor.request_pipeline_metrics.total_requests = 100
-        phase_2a_monitor.request_pipeline_metrics.cache_hits = 30  # 30% < 50% threshold
-        phase_2a_monitor.request_pipeline_metrics.cache_misses = 70
+        connection_pool_monitor.request_pipeline_metrics.total_requests = 100
+        connection_pool_monitor.request_pipeline_metrics.cache_hits = 30  # 30% < 50% threshold
+        connection_pool_monitor.request_pipeline_metrics.cache_misses = 70
 
-        phase_2a_monitor.log_cache_performance()
+        connection_pool_monitor.log_cache_performance()
 
         mock_logger.warning.assert_called_once()
         assert "Cache hit rate low: 30.0%" in mock_logger.warning.call_args[0][0]
 
     def test_log_ttl_expiration(
-        self, phase_2a_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
+        self, connection_pool_monitor: ConnectionPoolMonitor, mock_performance_logger: MagicMock
     ) -> None:
         """Test log_ttl_expiration method."""
-        phase_2a_monitor.log_ttl_expiration(
+        connection_pool_monitor.log_ttl_expiration(
             expired_items=5,
             component="test_cache",
             correlation_id="test-correlation-id",
         )
 
         # Check that metrics were updated
-        assert phase_2a_monitor.request_pipeline_metrics.ttl_expirations == 5
+        assert connection_pool_monitor.request_pipeline_metrics.ttl_expirations == 5
 
         # Check that performance logger was called
         mock_performance_logger.log_metric.assert_called_once()
@@ -465,35 +465,35 @@ class TestConnectionPoolMonitor:
         assert metric.name == "ttl_expiration"
         assert metric.value == 5
 
-    def test_get_phase_2a_summary(self, phase_2a_monitor: ConnectionPoolMonitor) -> None:
+    def test_get_phase_2a_summary(self, connection_pool_monitor: ConnectionPoolMonitor) -> None:
         """Test get_phase_2a_summary method."""
         # Setup some test data
         start_time = time.time()
-        phase_2a_monitor._monitoring_start_time = start_time - 3600  # 1 hour ago
+        connection_pool_monitor._monitoring_start_time = start_time - 3600  # 1 hour ago
 
         # Connection pool metrics
-        phase_2a_monitor.connection_pool_metrics.active_connections = 8
-        phase_2a_monitor.connection_pool_metrics.idle_connections = 2
-        phase_2a_monitor.connection_pool_metrics.total_connections = 10
-        phase_2a_monitor.connection_pool_metrics.max_connections = 20
-        phase_2a_monitor.connection_pool_metrics.connection_acquisitions = 100
-        phase_2a_monitor.connection_pool_metrics.failed_acquisitions = 5
-        phase_2a_monitor.connection_pool_metrics.connection_releases = 95
-        phase_2a_monitor.connection_pool_metrics.acquisition_wait_time = 10.0
+        connection_pool_monitor.connection_pool_metrics.active_connections = 8
+        connection_pool_monitor.connection_pool_metrics.idle_connections = 2
+        connection_pool_monitor.connection_pool_metrics.total_connections = 10
+        connection_pool_monitor.connection_pool_metrics.max_connections = 20
+        connection_pool_monitor.connection_pool_metrics.connection_acquisitions = 100
+        connection_pool_monitor.connection_pool_metrics.failed_acquisitions = 5
+        connection_pool_monitor.connection_pool_metrics.connection_releases = 95
+        connection_pool_monitor.connection_pool_metrics.acquisition_wait_time = 10.0
 
         # Request pipeline metrics
-        phase_2a_monitor.request_pipeline_metrics.total_requests = 500
-        phase_2a_monitor.request_pipeline_metrics.cache_hits = 350
-        phase_2a_monitor.request_pipeline_metrics.cache_misses = 150
-        phase_2a_monitor.request_pipeline_metrics.cached_request_duration = 35.0
-        phase_2a_monitor.request_pipeline_metrics.uncached_request_duration = 300.0
-        phase_2a_monitor.request_pipeline_metrics.batch_requests = 200
-        phase_2a_monitor.request_pipeline_metrics.single_requests = 300
-        phase_2a_monitor.request_pipeline_metrics.average_batch_size = 3.5
-        phase_2a_monitor.request_pipeline_metrics.ttl_expirations = 25
+        connection_pool_monitor.request_pipeline_metrics.total_requests = 500
+        connection_pool_monitor.request_pipeline_metrics.cache_hits = 350
+        connection_pool_monitor.request_pipeline_metrics.cache_misses = 150
+        connection_pool_monitor.request_pipeline_metrics.cached_request_duration = 35.0
+        connection_pool_monitor.request_pipeline_metrics.uncached_request_duration = 300.0
+        connection_pool_monitor.request_pipeline_metrics.batch_requests = 200
+        connection_pool_monitor.request_pipeline_metrics.single_requests = 300
+        connection_pool_monitor.request_pipeline_metrics.average_batch_size = 3.5
+        connection_pool_monitor.request_pipeline_metrics.ttl_expirations = 25
 
         with patch("time.time", return_value=start_time):
-            summary = phase_2a_monitor.get_phase_2a_summary()
+            summary = connection_pool_monitor.get_phase_2a_summary()
 
             # Check basic structure
             assert "monitoring_uptime_seconds" in summary
@@ -524,10 +524,10 @@ class TestConnectionPoolMonitor:
             assert assessment["optimization_effective"] is True  # Good cache + pool
 
     def test_get_phase_2a_summary_with_zero_values(
-        self, phase_2a_monitor: ConnectionPoolMonitor
+        self, connection_pool_monitor: ConnectionPoolMonitor
     ) -> None:
         """Test get_phase_2a_summary method with zero values."""
-        summary = phase_2a_monitor.get_phase_2a_summary()
+        summary = connection_pool_monitor.get_phase_2a_summary()
 
         # Check that zero values are handled properly
         pipeline_summary = summary["request_pipeline"]
@@ -537,63 +537,63 @@ class TestConnectionPoolMonitor:
 
 
 class TestGlobalFunctions:
-    """Tests for global functions in the phase_2a_monitor module."""
+    """Tests for global functions in the connection_pool_monitor module."""
 
-    def test_get_phase_2a_monitor_creates_new_instance(self) -> None:
-        """Test get_phase_2a_monitor creates a new instance if none exists."""
+    def test_get_connection_pool_monitor_creates_new_instance(self) -> None:
+        """Test get_connection_pool_monitor creates a new instance if none exists."""
         # Reset global monitor to None
-        reset_phase_2a_monitor()
+        reset_connection_pool_monitor()
 
         with patch(
-            "calendarbot.monitoring.phase_2a_monitor.ConnectionPoolMonitor"
+            "calendarbot.monitoring.connection_pool_monitor.ConnectionPoolMonitor"
         ) as mock_monitor_class:
             mock_monitor = MagicMock()
             mock_monitor_class.return_value = mock_monitor
 
-            monitor = get_phase_2a_monitor()
+            monitor = get_connection_pool_monitor()
 
             assert monitor == mock_monitor
             mock_monitor_class.assert_called_once_with(None)
 
-    def test_get_phase_2a_monitor_returns_existing_instance(self) -> None:
-        """Test get_phase_2a_monitor returns existing instance if one exists."""
+    def test_get_connection_pool_monitor_returns_existing_instance(self) -> None:
+        """Test get_connection_pool_monitor returns existing instance if one exists."""
         # Create first instance
-        with patch("calendarbot.monitoring.phase_2a_monitor.ConnectionPoolMonitor"):
-            monitor1 = get_phase_2a_monitor()
+        with patch("calendarbot.monitoring.connection_pool_monitor.ConnectionPoolMonitor"):
+            monitor1 = get_connection_pool_monitor()
             # Get second instance
-            monitor2 = get_phase_2a_monitor()
+            monitor2 = get_connection_pool_monitor()
 
             # Should be the same instance
             assert monitor1 is monitor2
 
-    def test_get_phase_2a_monitor_with_custom_config(self) -> None:
-        """Test get_phase_2a_monitor with custom optimization config."""
-        reset_phase_2a_monitor()
+    def test_get_connection_pool_monitor_with_custom_config(self) -> None:
+        """Test get_connection_pool_monitor with custom optimization config."""
+        reset_connection_pool_monitor()
 
         custom_config = OptimizationConfig()
         custom_config.max_connections = 42
 
         with patch(
-            "calendarbot.monitoring.phase_2a_monitor.ConnectionPoolMonitor"
+            "calendarbot.monitoring.connection_pool_monitor.ConnectionPoolMonitor"
         ) as mock_monitor_class:
             mock_monitor = MagicMock()
             mock_monitor_class.return_value = mock_monitor
 
-            monitor = get_phase_2a_monitor(custom_config)
+            monitor = get_connection_pool_monitor(custom_config)
 
             assert monitor == mock_monitor
             mock_monitor_class.assert_called_once_with(custom_config)
 
-    def test_reset_phase_2a_monitor(self) -> None:
-        """Test reset_phase_2a_monitor clears the global instance."""
+    def test_reset_connection_pool_monitor(self) -> None:
+        """Test reset_connection_pool_monitor clears the global instance."""
         # Create an instance
-        with patch("calendarbot.monitoring.phase_2a_monitor.ConnectionPoolMonitor"):
-            monitor1 = get_phase_2a_monitor()
+        with patch("calendarbot.monitoring.connection_pool_monitor.ConnectionPoolMonitor"):
+            monitor1 = get_connection_pool_monitor()
             assert monitor1 is not None
 
             # Reset and create new instance
-            reset_phase_2a_monitor()
-            monitor2 = get_phase_2a_monitor()
+            reset_connection_pool_monitor()
+            monitor2 = get_connection_pool_monitor()
 
             # Should be different instances
             assert monitor1 is not monitor2
