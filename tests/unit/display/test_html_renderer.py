@@ -1464,15 +1464,15 @@ class TestHTMLRendererViewportConfiguration:
     @patch.object(HTMLRenderer, "_generate_viewport_meta_tag")
     def test_render_error_uses_viewport_meta_tag(self, mock_viewport: Any) -> None:
         """Test that render_error uses viewport meta tag generation."""
-        self.settings.web_layout = "3x4"
+        self.settings.web_layout = "whats-next-view"
         renderer = HTMLRenderer(self.settings)
 
-        mock_viewport.return_value = "width=300, initial-scale=1, user-scalable=no"
+        mock_viewport.return_value = "width=400, initial-scale=1, user-scalable=no"
 
         result = renderer.render_error("Test error")
 
         mock_viewport.assert_called_once()
-        assert 'content="width=300, initial-scale=1, user-scalable=no"' in result
+        assert 'content="width=400, initial-scale=1, user-scalable=no"' in result
 
     @patch.object(HTMLRenderer, "_generate_viewport_meta_tag")
     def test_render_authentication_prompt_uses_viewport_meta_tag(self, mock_viewport: Any) -> None:
@@ -1509,14 +1509,14 @@ class TestHTMLRendererViewportConfiguration:
             assert "user-scalable=no" in viewport
             assert "viewport-fit=cover" in viewport
 
-    def test_viewport_configuration_integration_3x4_layout(self) -> None:
-        """Test complete viewport configuration workflow for 3x4 layout."""
-        self.settings.web_layout = "3x4"
+    def test_viewport_configuration_integration_whats_next_layout(self) -> None:
+        """Test complete viewport configuration workflow for whats-next-view layout."""
+        self.settings.web_layout = "whats-next-view"
         renderer = HTMLRenderer(self.settings)
 
         # Mock the layout config to simulate fixed dimensions
         mock_config = {
-            "dimensions": {"fixed_dimensions": True, "optimal_width": 300, "optimal_height": 400}
+            "dimensions": {"fixed_dimensions": True, "optimal_width": 400, "optimal_height": 600}
         }
 
         with patch.object(renderer, "_get_layout_config", return_value=mock_config):
@@ -1526,7 +1526,7 @@ class TestHTMLRendererViewportConfiguration:
             viewport = renderer._generate_viewport_meta_tag()
 
             assert has_fixed is True
-            assert width == 300
-            assert height == 400
+            assert width == 400
+            assert height == 600
             assert "user-scalable=no" in viewport
             assert "viewport-fit=cover" in viewport
