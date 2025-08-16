@@ -261,10 +261,12 @@ async function toggleTheme() {
 
 // Layout switching
 async function cycleLayout() {
+    console.log('DEBUG: cycleLayout() called - L key pressed');
     // Layout cycling requested
 
     try {
         showLoadingIndicator('Switching layout...');
+        console.log('DEBUG: Sending layout change request to API');
         // Sending layout change request to API
 
         const response = await fetch('/api/layout', {
@@ -276,9 +278,11 @@ async function cycleLayout() {
         });
 
         const data = await response.json();
+        console.log('DEBUG: API response received:', data);
         // API response received
 
         if (data.success) {
+            console.log('Layout changed to:', data.layout);
             // Layout changed successfully
             // Force page reload to switch to new layout
             window.location.reload();
@@ -374,6 +378,7 @@ async function refreshSilent() {
 
         if (data.success && data.html) {
             updatePageContent(data.html);
+            console.log('Auto-refresh completed');
             // Auto-refresh completed
         }
 
