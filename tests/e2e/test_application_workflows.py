@@ -52,7 +52,6 @@ class TestCompleteApplicationWorkflows:
             await bot.cleanup()
 
     @pytest.mark.asyncio
-    @pytest.mark.asyncio
     async def test_complete_startup_sequence(self, full_application_setup):
         """Test complete application startup sequence."""
         bot = full_application_setup
