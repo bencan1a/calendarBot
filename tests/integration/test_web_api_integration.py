@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
 from calendarbot.cache.manager import CacheManager
 from calendarbot.display.manager import DisplayManager
@@ -20,7 +19,7 @@ from tests.fixtures.mock_ics_data import ICSTestData
 class TestWebAPIBackendIntegration:
     """Test suite for web API integration with backend components."""
 
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def web_api_setup(self, test_settings, populated_test_database):
         """Set up web server with real backend components for integration testing."""
         # Initialize real backend components
@@ -43,7 +42,9 @@ class TestWebAPIBackendIntegration:
     @pytest.mark.asyncio
     async def test_refresh_api_with_real_cache(self, web_api_setup):
         """Test refresh API endpoint with real cache operations."""
-        web_server, cache_manager, source_manager, display_manager, navigation_state = web_api_setup
+        web_server, cache_manager, source_manager, _display_manager, _navigation_state = (
+            web_api_setup
+        )
 
         # Populate cache with test data for today
         test_events = ICSTestData.create_mock_events(count=5, include_today=True)
@@ -69,7 +70,9 @@ class TestWebAPIBackendIntegration:
     @pytest.mark.asyncio
     async def test_navigation_api_with_real_state(self, web_api_setup):
         """Test navigation API with real navigation state."""
-        web_server, cache_manager, source_manager, display_manager, navigation_state = web_api_setup
+        web_server, _cache_manager, _source_manager, _display_manager, navigation_state = (
+            web_api_setup
+        )
 
         initial_date = navigation_state.selected_date
 
@@ -91,7 +94,9 @@ class TestWebAPIBackendIntegration:
     @pytest.mark.asyncio
     async def test_status_api_with_real_components(self, web_api_setup):
         """Test status API with real component states."""
-        web_server, cache_manager, source_manager, display_manager, navigation_state = web_api_setup
+        web_server, cache_manager, source_manager, _display_manager, navigation_state = (
+            web_api_setup
+        )
 
         # Populate some data
         test_events = ICSTestData.create_mock_events(count=3)
@@ -110,7 +115,9 @@ class TestWebAPIBackendIntegration:
     @pytest.mark.asyncio
     async def test_layout_api_with_display_manager(self, web_api_setup):
         """Test layout API integration with display manager."""
-        web_server, cache_manager, source_manager, display_manager, navigation_state = web_api_setup
+        web_server, _cache_manager, _source_manager, display_manager, _navigation_state = (
+            web_api_setup
+        )
 
         # Mock the layout registry to return predictable layouts for testing
         with patch.object(
@@ -135,7 +142,9 @@ class TestWebAPIBackendIntegration:
     @pytest.mark.asyncio
     async def test_calendar_html_with_real_data(self, web_api_setup):
         """Test calendar HTML generation with real cached data."""
-        web_server, cache_manager, source_manager, display_manager, navigation_state = web_api_setup
+        web_server, cache_manager, source_manager, display_manager, _navigation_state = (
+            web_api_setup
+        )
 
         # Populate cache with test events
         test_events = ICSTestData.create_mock_events(count=3, include_today=True)
@@ -160,7 +169,7 @@ class TestWebAPIBackendIntegration:
 class TestWebServerLifecycleIntegration:
     """Test suite for web server lifecycle with backend components."""
 
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def server_lifecycle_setup(self, test_settings, populated_test_database):
         """Set up for server lifecycle testing."""
         # Use different port for lifecycle tests
@@ -243,7 +252,7 @@ class TestWebServerLifecycleIntegration:
 class TestDataFlowIntegration:
     """Test suite for complete data flow through web API."""
 
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def data_flow_setup(self, test_settings, populated_test_database):
         """Set up complete data flow testing environment."""
         cache_manager = CacheManager(test_settings)
@@ -346,16 +355,16 @@ class TestDataFlowIntegration:
         display_manager.renderer.layout = "4x8"
 
         # Change layout
-        web_server.set_layout("3x4")
-        assert web_server.layout == "3x4"
+        web_server.set_layout("4x8")
+        assert web_server.layout == "4x8"
 
         # Perform other operations
         web_server.handle_navigation("next")
         web_server.refresh_data()
 
         # Theme should persist
-        assert web_server.layout == "3x4"
-        assert display_manager.renderer.layout == "3x4"
+        assert web_server.layout == "4x8"
+        assert display_manager.renderer.layout == "4x8"
 
     @pytest.mark.asyncio
     async def test_error_propagation_through_api(self, data_flow_setup):
@@ -422,7 +431,7 @@ class TestDataFlowIntegration:
 class TestSecurityIntegration:
     """Test suite for security aspects of web API integration."""
 
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def security_setup(self, test_settings, populated_test_database):
         """Set up for security testing."""
         cache_manager = CacheManager(test_settings)
@@ -496,7 +505,7 @@ class TestSecurityIntegration:
 class TestWebAPIStateManagement:
     """Test suite for state management across web API operations."""
 
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def state_management_setup(self, test_settings, populated_test_database):
         """Set up for state management testing."""
         cache_manager = CacheManager(test_settings)
