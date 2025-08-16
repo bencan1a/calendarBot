@@ -16,8 +16,8 @@ class TestLayoutSwitching:
     def mock_layout_registry(self) -> Mock:
         """Create mock layout registry."""
         registry = Mock(spec=LayoutRegistry)
-        registry.get_available_layouts.return_value = ["4x8", "3x4"]
-        registry.validate_layout.side_effect = lambda layout: layout in ["4x8", "3x4"]
+        registry.get_available_layouts.return_value = ["4x8", "whats-next-view"]
+        registry.validate_layout.side_effect = lambda layout: layout in ["4x8", "whats-next-view"]
         # Mock the actual LayoutInfo object that get_layout_info returns
         from calendarbot.layout.registry import LayoutInfo
 
@@ -41,8 +41,8 @@ class TestLayoutSwitching:
         settings = Mock()
         settings.display_type = "html"  # This is the renderer type
         settings.display_enabled = True
-        settings.layout_name = "3x4"  # This is the layout name
-        settings.web_layout = "3x4"  # For web server compatibility
+        settings.layout_name = "whats-next-view"  # This is the layout name
+        settings.web_layout = "whats-next-view"  # For web server compatibility
         settings.web_host = "localhost"
         settings.web_port = 8080
         return settings
@@ -62,7 +62,7 @@ class TestLayoutSwitching:
     def web_server(self, mock_settings: Mock, mock_layout_registry: Mock) -> WebServer:
         """Create web server with mock components and layout registry."""
         mock_display_manager = Mock()
-        mock_display_manager.get_display_type.return_value = "3x4"
+        mock_display_manager.get_display_type.return_value = "whats-next-view"
         mock_cache_manager = Mock()
         return WebServer(
             mock_settings,
@@ -77,11 +77,11 @@ class TestLayoutSwitching:
         assert result is True
         assert display_manager.get_current_layout() == "4x8"
 
-    def test_set_layout_3x4(self, display_manager: DisplayManager) -> None:
-        """Test setting layout to 3x4."""
-        result = display_manager.set_layout("3x4")
+    def test_set_layout_whats_next(self, display_manager: DisplayManager) -> None:
+        """Test setting layout to whats-next-view."""
+        result = display_manager.set_layout("whats-next-view")
         assert result is True
-        assert display_manager.get_current_layout() == "3x4"
+        assert display_manager.get_current_layout() == "whats-next-view"
 
     def test_set_layout_invalid(self, display_manager: DisplayManager) -> None:
         """Test setting invalid layout returns False."""
@@ -94,13 +94,13 @@ class TestLayoutSwitching:
 
     def test_set_layout_same_layout(self, display_manager: DisplayManager) -> None:
         """Test setting layout to the same layout."""
-        # First set to 3x4
-        display_manager.set_layout("3x4")
+        # First set to whats-next-view
+        display_manager.set_layout("whats-next-view")
 
         # Try to set to same layout - should still work
-        result = display_manager.set_layout("3x4")
+        result = display_manager.set_layout("whats-next-view")
         assert result is True
-        assert display_manager.get_current_layout() == "3x4"
+        assert display_manager.get_current_layout() == "whats-next-view"
 
     def test_get_available_layouts(self, display_manager: DisplayManager) -> None:
         """Test getting available layouts from registry."""
