@@ -1007,19 +1007,19 @@ class TestWebServer:
         web_server.layout_registry.validate_layout.return_value = True
         web_server.display_manager.set_layout.return_value = True
 
-        result = web_server.set_layout("3x4")
+        result = web_server.set_layout("whats-next-view")
 
         assert result is True
-        assert web_server.layout == "3x4"
-        web_server.layout_registry.validate_layout.assert_called_once_with("3x4")
-        web_server.display_manager.set_layout.assert_called_once_with("3x4")
+        assert web_server.layout == "whats-next-view"
+        web_server.layout_registry.validate_layout.assert_called_once_with("whats-next-view")
+        web_server.display_manager.set_layout.assert_called_once_with("whats-next-view")
 
     def test_set_layout_invalid(self, web_server):
         """Test setting invalid layout."""
         # Mock layout registry to return False for invalid layout
         web_server.layout_registry.validate_layout.return_value = False
         web_server.layout_registry.get_available_layouts.return_value = [
-            "3x4",
+            "whats-next-view",
             "4x8",
             "whats-next-view",
         ]
@@ -1035,11 +1035,11 @@ class TestWebServer:
         web_server.layout_registry.validate_layout.return_value = True
         web_server.display_manager.set_layout.return_value = False
 
-        result = web_server.set_layout("3x4")
+        result = web_server.set_layout("whats-next-view")
 
         assert result is False
-        web_server.layout_registry.validate_layout.assert_called_once_with("3x4")
-        web_server.display_manager.set_layout.assert_called_once_with("3x4")
+        web_server.layout_registry.validate_layout.assert_called_once_with("whats-next-view")
+        web_server.display_manager.set_layout.assert_called_once_with("whats-next-view")
 
     def test_toggle_layout_4x8_to_3x4(self, web_server):
         """Test toggling layout from 4x8 to 3x4 (calls cycle_layout)."""
