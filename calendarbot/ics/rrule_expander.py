@@ -253,16 +253,16 @@ class RRuleExpander:
         self,
         master_event: CalendarEvent,
         rrule_params: dict,
-        _start_date: datetime,
-        _end_date: datetime,
+        start_date: datetime,
+        end_date: datetime,
     ) -> list[datetime]:
         """Generate occurrence datetimes using dateutil.rrule.
 
         Args:
             master_event: Master event with start time
             rrule_params: Parsed RRULE parameters
-            start_date: Window start
-            end_date: Window end
+            start_date: Window start (unused in current implementation)
+            end_date: Window end (unused in current implementation)
 
         Returns:
             List of occurrence datetimes
