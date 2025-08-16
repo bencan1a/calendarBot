@@ -82,7 +82,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
 
         Args:
             events_content: Pre-rendered events HTML content
-            status_info: Status information dictionary
+            status_info: Status information dictionary (unused in this implementation)
             current_time: Current time
             display_date: Display date string
 
@@ -323,7 +323,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         """Update the display with rendered content.
 
         Args:
-            content: Rendered HTML content
+            content: Rendered HTML content (unused in web renderer)
 
         Returns:
             True if update was successful, False otherwise
