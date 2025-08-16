@@ -399,8 +399,8 @@ class TestHTMLRendererRenderEventsContent:
             assert "Upcoming Event HTML" in result
 
     def test_render_events_content_later_events(self) -> None:
-        """Test rendering events content with later events (4+ upcoming)."""
-        # Create 5 upcoming events to trigger "Later Today" section
+        """Test rendering events content with many upcoming events (all in Next Up after consolidation)."""
+        # Create 5 upcoming events - all should go in "Next Up" section after consolidation
         upcoming_events = []
         for i in range(5):
             event = Mock(spec=CachedEvent)
@@ -420,13 +420,14 @@ class TestHTMLRendererRenderEventsContent:
             result = self.renderer._render_events_content(upcoming_events, False)  # type: ignore
 
             assert "📋 Next Up" in result
-            assert "⏰ Later Today" in result
-            assert "Meeting 4" in result  # 4th event (index 3) should be in later section
-            assert "Meeting 5" in result  # 5th event should be in later section
+            # After consolidation, no separate "Later Today" section exists
+            assert "⏰ Later Today" not in result
+            assert "Meeting 4" in result  # All events should be in Next Up section
+            assert "Meeting 5" in result  # All events should be in Next Up section
 
     def test_render_events_content_later_events_with_location(self) -> None:
-        """Test rendering later events with location information."""
-        # Create 5 upcoming events to trigger later section
+        """Test rendering many events with location information (all in Next Up after consolidation)."""
+        # Create 5 upcoming events - all go in "Next Up" section after consolidation
         upcoming_events = []
         for i in range(5):
             event = Mock(spec=CachedEvent)
@@ -446,7 +447,8 @@ class TestHTMLRendererRenderEventsContent:
         ):
             result = self.renderer._render_events_content(upcoming_events, False)  # type: ignore
 
-            assert "⏰ Later Today" in result
+            # After consolidation, no separate "Later Today" section exists
+            assert "⏰ Later Today" not in result
             assert "📍 Room 4" in result  # 4th event has location
             # Online meeting indicators were removed
             assert "Meeting 5" in result  # 5th event should still be shown

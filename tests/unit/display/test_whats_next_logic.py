@@ -292,16 +292,16 @@ class TestWhatsNextLogic:
             "Should prioritize upcoming meetings over current meetings"
         )
 
-        # Should have first 3 upcoming events as next_events
-        assert len(result.next_events) == 3
+        # With 4x8 consolidation: all 5 upcoming events should go to next_events
+        assert len(result.next_events) == 5
         assert result.next_events[0].subject == "Upcoming 1"
         assert result.next_events[1].subject == "Upcoming 2"
         assert result.next_events[2].subject == "Upcoming 3"
+        assert result.next_events[3].subject == "Upcoming 4"
+        assert result.next_events[4].subject == "Upcoming 5"
 
-        # Should have next 2 upcoming events as later_events
-        assert len(result.later_events) == 2
-        assert result.later_events[0].subject == "Upcoming 4"
-        assert result.later_events[1].subject == "Upcoming 5"
+        # With 4x8 consolidation: no later_events section
+        assert len(result.later_events) == 0
 
     # ===========================================
     # NEXT MEETING PRIORITY TESTS

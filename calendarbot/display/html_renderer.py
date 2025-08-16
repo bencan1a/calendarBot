@@ -306,44 +306,16 @@ class HTMLRenderer:
 
             content_parts.append("</section>")
 
-        # Upcoming events section
+        # Upcoming events section - now shows all events
         if upcoming_events:
             content_parts.append('<section class="upcoming-events">')
             content_parts.append('<h2 class="section-title">📋 Next Up</h2>')
 
-            # Use list.extend with a list comprehension for upcoming events
+            # Show all upcoming events in the Next Up section
             content_parts.extend(
-                [self._format_upcoming_event_html(event) for event in upcoming_events[:3]]
+                [self._format_upcoming_event_html(event) for event in upcoming_events]
             )
 
-            content_parts.append("</section>")
-
-        # Later today section
-        later_events = upcoming_events[3:] if len(upcoming_events) > 3 else []
-        if later_events:
-            content_parts.append('<section class="later-events">')
-            content_parts.append('<h2 class="section-title">⏰ Later Today</h2>')
-            content_parts.append('<ul class="later-events-list">')
-
-            for event in later_events[:5]:  # Show up to 5 more events
-                # Location information - filter out Microsoft Teams Meeting text
-                location_text = ""
-                if (
-                    event.location_display_name
-                    and "Microsoft Teams Meeting" not in event.location_display_name
-                ):
-                    location_text = f" | 📍 {self._escape_html(event.location_display_name)}"
-
-                content_parts.append(
-                    f"""
-                <li class="later-event">
-                    <span class="event-title">{self._escape_html(event.subject)}</span>
-                    <span class="event-time">{event.format_time_range()}{location_text}</span>
-                </li>
-                """
-                )
-
-            content_parts.append("</ul>")
             content_parts.append("</section>")
 
         return "\n".join(content_parts)

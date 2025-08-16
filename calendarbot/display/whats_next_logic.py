@@ -64,12 +64,9 @@ class WhatsNextLogic:
 
         # Convert to EventData objects
         current_event_data = [EventData.from_cached_event(e, current_time) for e in current_events]
-        next_event_data = [
-            EventData.from_cached_event(e, current_time) for e in upcoming_events[:3]
-        ]
-        later_event_data = [
-            EventData.from_cached_event(e, current_time) for e in upcoming_events[3:8]
-        ]
+        # 4x8 view enhancement: consolidate all upcoming events into next_events, eliminate later_events
+        next_event_data = [EventData.from_cached_event(e, current_time) for e in upcoming_events]
+        later_event_data = []  # No longer used in 4x8 view - all events consolidated into next_events
 
         # Format display date
         display_date = self._format_display_date(status_info, current_time)

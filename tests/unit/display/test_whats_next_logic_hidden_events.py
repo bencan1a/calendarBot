@@ -66,16 +66,16 @@ def test_whats_next_logic_filters_hidden_events():
     # Group events
     current_events, upcoming_events, later_events = logic._group_events(events, current_time)
 
-    # Verify hidden events are filtered out
-    assert len(current_events) == 1
-    assert current_events[0].graph_id == "graph-id-1"
+    # With 4x8 consolidation: all visible events go to upcoming_events, none to current_events
+    assert len(current_events) == 0
+    assert len(upcoming_events) == 3  # Three visible events (graph-id-1, graph-id-3, graph-id-5)
 
-    assert len(upcoming_events) == 2
+    # Verify hidden events are filtered out
     assert "graph-id-2" not in [e.graph_id for e in upcoming_events]
     assert "graph-id-4" not in [e.graph_id for e in upcoming_events]
 
-    # Verify visible events are included
-    assert "graph-id-1" in [e.graph_id for e in current_events]
+    # Verify visible events are included in upcoming_events (consolidated "Next Up" section)
+    assert "graph-id-1" in [e.graph_id for e in upcoming_events]
     assert "graph-id-3" in [e.graph_id for e in upcoming_events]
     assert "graph-id-5" in [e.graph_id for e in upcoming_events]
 
