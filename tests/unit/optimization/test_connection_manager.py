@@ -6,7 +6,6 @@ import aiohttp
 import pytest
 
 from calendarbot.config.optimization import OptimizationConfig
-from calendarbot.monitoring.phase_2a_monitor import Phase2AMonitor
 from calendarbot.optimization.connection_manager import (
     ConnectionManager,
     ConnectionManagerError,
