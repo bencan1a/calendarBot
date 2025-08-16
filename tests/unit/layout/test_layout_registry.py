@@ -70,13 +70,13 @@ class TestLayoutRegistryDiscovery:
         # Use spec to properly mock Path's __truediv__ method
         layout_4x8.__truediv__ = Mock(return_value=layout_json_4x8)
 
-        # Mock 3x4 layout
-        layout_3x4 = Mock()
-        layout_3x4.name = "3x4"
-        layout_3x4.is_dir.return_value = True
-        layout_json_3x4 = Mock()
-        layout_json_3x4.exists.return_value = True
-        layout_3x4.__truediv__ = Mock(return_value=layout_json_3x4)
+        # Mock whats-next-view layout
+        layout_whats_next = Mock()
+        layout_whats_next.name = "whats-next-view"
+        layout_whats_next.is_dir.return_value = True
+        layout_json_whats_next = Mock()
+        layout_json_whats_next.exists.return_value = True
+        layout_whats_next.__truediv__ = Mock(return_value=layout_json_whats_next)
 
         # Mock invalid layout (no layout.json)
         invalid_layout = Mock()
@@ -86,13 +86,13 @@ class TestLayoutRegistryDiscovery:
         invalid_json.exists.return_value = False
         invalid_layout.__truediv__ = Mock(return_value=invalid_json)
 
-        layouts_dir.iterdir.return_value = [layout_4x8, layout_3x4, invalid_layout]
+        layouts_dir.iterdir.return_value = [layout_4x8, layout_whats_next, invalid_layout]
 
-        return layouts_dir, layout_4x8, layout_3x4, invalid_layout
+        return layouts_dir, layout_4x8, layout_whats_next, invalid_layout
 
     def test_discover_layouts_finds_valid_layouts(self, mock_layout_directory) -> None:
         """Test discovery finds valid layouts with layout.json files."""
-        layouts_dir, layout_4x8, layout_3x4, invalid_layout = mock_layout_directory
+        layouts_dir, layout_4x8, layout_whats_next, invalid_layout = mock_layout_directory
 
         # Mock valid layout.json content matching the actual schema
         valid_metadata = {
@@ -118,7 +118,7 @@ class TestLayoutRegistryDiscovery:
 
     def test_discover_layouts_handles_invalid_json(self, mock_layout_directory) -> None:
         """Test discovery handles invalid JSON gracefully."""
-        layouts_dir, layout_4x8, layout_3x4, invalid_layout = mock_layout_directory
+        layouts_dir, layout_4x8, layout_whats_next, invalid_layout = mock_layout_directory
 
         with patch.object(LayoutRegistry, "discover_layouts"):
             registry = LayoutRegistry(layouts_dir=layouts_dir)
@@ -134,7 +134,7 @@ class TestLayoutRegistryDiscovery:
 
     def test_discover_layouts_handles_file_read_errors(self, mock_layout_directory) -> None:
         """Test discovery handles file read errors gracefully."""
-        layouts_dir, layout_4x8, layout_3x4, invalid_layout = mock_layout_directory
+        layouts_dir, layout_4x8, layout_whats_next, invalid_layout = mock_layout_directory
 
         with patch.object(LayoutRegistry, "discover_layouts"):
             registry = LayoutRegistry(layouts_dir=layouts_dir)
