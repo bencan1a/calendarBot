@@ -1108,11 +1108,11 @@ class TestWebServer:
 
     def test_get_current_layout_from_web_server_property(self, web_server):
         """Test getting current layout from web server layout property."""
-        web_server.layout = "3x4"
+        web_server.layout = "whats-next-view"
 
         layout = web_server.get_current_layout()
 
-        assert layout == "3x4"
+        assert layout == "whats-next-view"
 
     def test_get_current_layout_default_value(self, web_server):
         """Test getting current layout returns default value."""
