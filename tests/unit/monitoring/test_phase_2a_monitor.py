@@ -1,4 +1,4 @@
-"""Unit tests for the Phase 2A monitoring module."""
+"""Unit tests for the connection pool monitoring module."""
 
 import time
 from unittest.mock import MagicMock, patch
@@ -6,12 +6,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from calendarbot.config.optimization import OptimizationConfig
-from calendarbot.monitoring.phase_2a_monitor import (
+from calendarbot.monitoring.connection_pool_monitor import (
     ConnectionPoolMetrics,
-    Phase2AMonitor,
     RequestPipelineMetrics,
-    get_phase_2a_monitor,
-    reset_phase_2a_monitor,
 )
 
 
