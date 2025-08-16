@@ -281,9 +281,9 @@ class TestResourceManagerPathMethods:
                 Path("calendarbot/web/static/layouts/4x8/4x8.js"),
             ),
             (
-                "3x4",
-                Path("calendarbot/web/static/layouts/3x4/3x4.css"),
-                Path("calendarbot/web/static/layouts/3x4/3x4.js"),
+                "whats-next-view",
+                Path("calendarbot/web/static/layouts/whats-next-view/whats-next-view.css"),
+                Path("calendarbot/web/static/layouts/whats-next-view/whats-next-view.js"),
             ),
         ],
     )
