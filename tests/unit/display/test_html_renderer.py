@@ -1009,7 +1009,7 @@ class TestHTMLRendererRenderAuthenticationPrompt:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_layout = "3x4"
+        self.settings.web_layout = "whats-next-view"
         self.renderer = HTMLRenderer(self.settings)
 
     def test_render_authentication_prompt_basic(self) -> None:
@@ -1043,7 +1043,7 @@ class TestHTMLRendererRenderAuthenticationPrompt:
 
     def test_render_authentication_prompt_layout_integration(self) -> None:
         """Test authentication prompt integrates with layout system."""
-        self.renderer.layout = "3x4"
+        self.renderer.layout = "whats-next-view"
 
         result = self.renderer.render_authentication_prompt("https://example.com", "CODE123")
 
@@ -1056,7 +1056,7 @@ class TestHTMLRendererIntegration:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_layout = "3x4"
+        self.settings.web_layout = "whats-next-view"
         self.renderer = HTMLRenderer(self.settings)
 
     @patch("calendarbot.display.html_renderer.datetime")
@@ -1149,7 +1149,7 @@ class TestHTMLRendererIntegration:
 
     def test_layout_consistency_across_methods(self) -> None:
         """Test layout consistency across different rendering methods."""
-        self.renderer.layout = "3x4"
+        self.renderer.layout = "whats-next-view"
 
         # Test main rendering
         events_result = self.renderer.render_events([])
