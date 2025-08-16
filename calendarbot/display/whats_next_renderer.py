@@ -66,7 +66,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         # This maintains compatibility with existing HTML structure and CSS
         return self._render_full_page_html(
             events_content=events_html,
-            status_info=status_info,
+            _status_info=status_info,
             current_time=view_model.current_time,
             display_date=view_model.display_date,
         )
