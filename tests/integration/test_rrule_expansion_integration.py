@@ -417,7 +417,8 @@ END:VCALENDAR"""
         memory_increase = final_memory - initial_memory
 
         assert result.success is True
-        assert len(result.events) == 1000
+        # Should have 52 events (1 year of weekly events, limited by expansion_window_days=365)
+        assert len(result.events) == 52
 
         # Memory increase should be reasonable (adjust threshold as needed)
         # Allow up to 100MB increase for 1000 events
