@@ -1371,10 +1371,10 @@ class TestWebServerIntegrationScenarios:
         web_server = WebServer(mock_settings, mock_display_manager, mock_cache_manager)
 
         # Test all major operations
-        assert web_server.set_layout("3x4") is True
-        assert web_server.toggle_layout() in ["3x4", "4x8", "whats-next-view"]
+        assert web_server.set_layout("whats-next-view") is True
+        assert web_server.toggle_layout() in ["whats-next-view", "4x8"]
         assert web_server.set_layout("4x8") is True
-        assert web_server.cycle_layout() in ["3x4", "4x8", "whats-next-view"]
+        assert web_server.cycle_layout() in ["whats-next-view", "4x8"]
         assert web_server.refresh_data() is True
 
         status = web_server.get_status()
