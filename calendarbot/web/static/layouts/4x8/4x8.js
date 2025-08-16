@@ -282,7 +282,7 @@ async function cycleLayout() {
         // API response received
 
         if (data.success) {
-            console.log('Layout changed to:', data.layout);
+            console.log('Layout changed to: ' + data.layout);
             // Layout changed successfully
             // Force page reload to switch to new layout
             window.location.reload();
