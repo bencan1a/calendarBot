@@ -208,9 +208,9 @@ class TestLayoutSwitching:
             assert display_manager.get_current_layout() == "4x8"
             assert display_manager.get_current_renderer_type() == "html"
 
-            # Test 3x4 layout with console renderer
-            display_manager.set_display_type("console", "3x4")
-            assert display_manager.get_current_layout() == "3x4"
+            # Test whats-next-view layout with console renderer
+            display_manager.set_display_type("console", "whats-next-view")
+            assert display_manager.get_current_layout() == "whats-next-view"
             assert display_manager.get_current_renderer_type() == "console"
 
     def test_web_server_get_status_includes_layout_info(self, web_server: WebServer) -> None:
@@ -281,7 +281,7 @@ class TestLayoutSwitching:
                 # Should still have emergency fallback layouts available
                 layouts = display_manager.get_available_display_types()
                 assert "4x8" in layouts
-                assert "3x4" in layouts
+                assert "whats-next-view" in layouts
 
     def test_error_handling_renderer_factory_failure(self, display_manager: DisplayManager) -> None:
         """Test error handling when renderer factory fails."""
