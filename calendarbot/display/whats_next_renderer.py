@@ -319,7 +319,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         # Web renderer doesn't need to handle interactions directly
         # as they are handled by JavaScript in the browser
 
-    def update_display(self, content: str) -> bool:
+    def update_display(self, _content: str) -> bool:
         """Update the display with rendered content.
 
         Args:
