@@ -1435,6 +1435,7 @@ window.formatMeetingTime = formatMeetingTime;
 window.escapeHtml = escapeHtml;
 window.checkBoundaryAlert = checkBoundaryAlert;
 window.getContextMessage = getContextMessage;
+window.formatLastUpdate = formatLastUpdate;
 
 // Testing access exports
 Object.defineProperty(window, 'currentMeeting', {
