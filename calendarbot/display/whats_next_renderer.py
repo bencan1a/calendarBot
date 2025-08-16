@@ -74,7 +74,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
     def _render_full_page_html(
         self,
         events_content: str,
-        status_info: dict[str, Any],
+        _status_info: dict[str, Any],
         current_time: datetime,
         display_date: str,
     ) -> str:
