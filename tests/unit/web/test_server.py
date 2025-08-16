@@ -35,9 +35,9 @@ class TestWebRequestHandler:
         web_server.get_calendar_html.return_value = "<html><body>Test Calendar</body></html>"
         web_server.handle_navigation.return_value = True
         web_server.set_layout.return_value = True
-        web_server.toggle_layout.return_value = "3x4"
+        web_server.toggle_layout.return_value = "whats-next-view"
         web_server.set_layout.return_value = True
-        web_server.cycle_layout.return_value = "3x4"
+        web_server.cycle_layout.return_value = "whats-next-view"
         web_server.refresh_data.return_value = True
         web_server.get_status.return_value = {"running": True}
         return web_server
@@ -226,8 +226,8 @@ class TestWebRequestHandler:
     def test_handle_api_layout(self, request_handler):
         """Test layout API handling."""
         with patch.object(request_handler, "_handle_layout_api") as mock_layout:
-            request_handler._handle_api_request("/api/layout", {"layout": "3x4"})
-            mock_layout.assert_called_once_with({"layout": "3x4"})
+            request_handler._handle_api_request("/api/layout", {"layout": "whats-next-view"})
+            mock_layout.assert_called_once_with({"layout": "whats-next-view"})
 
     def test_handle_api_refresh(self, request_handler):
         """Test refresh API handling."""
@@ -317,9 +317,9 @@ class TestWebRequestHandler:
     def test_handle_layout_api_specific_layout(self, request_handler):
         """Test layout API with specific layout."""
         with patch.object(request_handler, "_send_json_response") as mock_json:
-            request_handler._handle_layout_api({"layout": "3x4"})
+            request_handler._handle_layout_api({"layout": "whats-next-view"})
 
-            request_handler.web_server.set_layout.assert_called_once_with("3x4")
+            request_handler.web_server.set_layout.assert_called_once_with("whats-next-view")
             mock_json.assert_called_once_with(
                 200,
                 {
@@ -588,7 +588,7 @@ class TestWebServer:
         web_server.layout_registry = Mock()
         web_server.layout_registry.validate_layout = Mock()
         web_server.layout_registry.get_available_layouts = Mock(
-            return_value=["4x8", "3x4", "whats-next-view"]
+            return_value=["4x8", "whats-next-view"]
         )
 
         # Mock the display manager methods that the server expects
