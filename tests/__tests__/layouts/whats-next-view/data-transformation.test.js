@@ -1,13 +1,12 @@
 /**
- * @fileoverview Phase 1 Jest Tests - Data Transformation (Fixed)
- * Tests only functions that actually exist in the implementation
+ * @fileoverview Jest Tests - Data Transformation Functions
+ * Tests only functions that actually exist in whats-next-view.js implementation
  */
 
 // Import real whats-next-view.js source file
 require('../../../../calendarbot/web/static/layouts/whats-next-view/whats-next-view.js');
 
 describe('WhatsNextView Data Transformation', () => {
-  let mockDocument;
 
   beforeEach(() => {
     // Setup basic DOM
@@ -20,59 +19,76 @@ describe('WhatsNextView Data Transformation', () => {
   });
 
   describe('formatLastUpdate', () => {
-    describe('when formatting last update time', () => {
-      it('should return formatted time string', () => {
-        // Verify the function exists on window
-        expect(typeof window.formatLastUpdate).toBe('function');
-        
-        // Test the function
-        const result = window.formatLastUpdate();
-        expect(typeof result).toBe('string');
-        expect(result.length).toBeGreaterThan(0);
-      });
+    it('should return formatted time string', () => {
+      expect(typeof window.formatLastUpdate).toBe('function');
+      const result = window.formatLastUpdate();
+      expect(typeof result).toBe('string');
+      expect(result.length).toBeGreaterThan(0);
+    });
+    
+    it('should handle null lastDataUpdate', () => {
+      const originalLastDataUpdate = window.lastDataUpdate;
+      window.lastDataUpdate = null;
       
-      it('should handle null lastDataUpdate', () => {
-        // Clear lastDataUpdate and test
-        const originalLastDataUpdate = window.lastDataUpdate;
-        window.lastDataUpdate = null;
-        
-        const result = window.formatLastUpdate();
-        expect(result).toBe('Just now');
-        
-        // Restore
-        window.lastDataUpdate = originalLastDataUpdate;
-      });
+      const result = window.formatLastUpdate();
+      expect(result).toBe('Just now');
+      
+      window.lastDataUpdate = originalLastDataUpdate;
     });
   });
 
   describe('formatMeetingTime', () => {
-    describe('when formatting meeting times', () => {
-      it('should format meeting times correctly', () => {
-        // Verify the function exists
-        expect(typeof window.formatMeetingTime).toBe('function');
-        
-        const startTime = '2023-07-19T10:00:00';
-        const endTime = '2023-07-19T11:00:00';
-        
-        const result = window.formatMeetingTime(startTime, endTime);
-        expect(typeof result).toBe('string');
-        expect(result).toContain(' - ');
-      });
+    it('should format meeting times correctly', () => {
+      expect(typeof window.formatMeetingTime).toBe('function');
+      
+      const startTime = '2023-07-19T10:00:00';
+      const endTime = '2023-07-19T11:00:00';
+      
+      const result = window.formatMeetingTime(startTime, endTime);
+      expect(typeof result).toBe('string');
+      expect(result).toContain(' - ');
+    });
+
+    it('should use formatted time range when provided', () => {
+      const startTime = '2023-07-19T10:00:00';
+      const endTime = '2023-07-19T11:00:00';
+      const formattedTimeRange = '10:00 AM - 11:00 AM';
+      
+      const result = window.formatMeetingTime(startTime, endTime, formattedTimeRange);
+      expect(result).toBe(formattedTimeRange);
     });
   });
 
   describe('escapeHtml', () => {
-    describe('when escaping HTML content', () => {
-      it('should escape dangerous HTML characters', () => {
-        // Verify the function exists
-        expect(typeof window.escapeHtml).toBe('function');
-        
-        const dangerous = '<script>alert("xss")</script>';
-        const escaped = window.escapeHtml(dangerous);
-        
-        expect(escaped).not.toContain('<script>');
-        expect(escaped).toContain('&lt;script&gt;');
-      });
+    it('should escape dangerous HTML characters', () => {
+      expect(typeof window.escapeHtml).toBe('function');
+      
+      const dangerous = '<script>alert("xss")</script>';
+      const escaped = window.escapeHtml(dangerous);
+      
+      expect(escaped).not.toContain('<script>');
+      expect(escaped).toContain('&lt;script&gt;');
+    });
+
+    it('should handle various special characters', () => {
+      const input = `<>&"'`;
+      const expected = `&lt;&gt;&amp;&quot;&#039;`;
+      const result = window.escapeHtml(input);
+      
+      expect(result).toBe(expected);
+    });
+  });
+
+  describe('getCurrentTime', () => {
+    it('should return current time as Date object', () => {
+      expect(typeof window.getCurrentTime).toBe('function');
+      const result = window.getCurrentTime();
+      expect(result).toBeInstanceOf(Date);
+    });
+
+    it('should return valid date', () => {
+      const result = window.getCurrentTime();
+      expect(result.getTime()).toBeGreaterThan(0);
     });
   });
 });
