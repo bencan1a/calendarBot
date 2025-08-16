@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from dateutil.rrule import WEEKLY, rrule
+from dateutil.rrule import DAILY, HOURLY, MINUTELY, MONTHLY, SECONDLY, WEEKLY, YEARLY, rrule
 
 from ..config.settings import CalendarBotSettings
 from .models import CalendarEvent, DateTimeInfo
@@ -270,7 +270,13 @@ class RRuleExpander:
         try:
             # Map frequency to dateutil constants
             freq_map = {
+                "SECONDLY": SECONDLY,
+                "MINUTELY": MINUTELY,
+                "HOURLY": HOURLY,
+                "DAILY": DAILY,
                 "WEEKLY": WEEKLY,
+                "MONTHLY": MONTHLY,
+                "YEARLY": YEARLY,
             }
 
             freq = freq_map.get(rrule_params["freq"])
