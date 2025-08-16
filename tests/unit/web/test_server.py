@@ -324,7 +324,7 @@ class TestWebRequestHandler:
                 200,
                 {
                     "success": True,
-                    "layout": "3x4",
+                    "layout": "whats-next-view",
                     "html": request_handler.web_server.get_calendar_html.return_value,
                 },
             )
@@ -339,7 +339,7 @@ class TestWebRequestHandler:
                 200,
                 {
                     "success": True,
-                    "layout": "3x4",
+                    "layout": "whats-next-view",
                     "html": request_handler.web_server.get_calendar_html.return_value,
                 },
             )
@@ -378,7 +378,7 @@ class TestWebRequestHandler:
                 200,
                 {
                     "success": True,
-                    "layout": "3x4",
+                    "layout": "whats-next-view",
                     "html": request_handler.web_server.get_calendar_html.return_value,
                 },
             )
