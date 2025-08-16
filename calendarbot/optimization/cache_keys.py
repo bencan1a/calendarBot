@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +159,7 @@ class CacheKeyGenerator:
 
     def generate_file_key(
         self,
-        file_path: Union[str, Path],
+        file_path: str | Path,
         modification_time: Optional[datetime] = None,
         content_hash: Optional[str] = None,
     ) -> str:
@@ -257,7 +257,7 @@ class CacheKeyGenerator:
 
         return self.generate_simple_key(*components)
 
-    def generate_versioned_key(self, base_key: str, version: Union[str, int, datetime]) -> str:
+    def generate_versioned_key(self, base_key: str, version: str | int | datetime) -> str:
         """Generate versioned cache key.
 
         Args:
@@ -443,7 +443,7 @@ def generate_http_cache_key(
 
 
 def generate_file_cache_key(
-    file_path: Union[str, Path], modification_time: Optional[datetime] = None
+    file_path: str | Path, modification_time: Optional[datetime] = None
 ) -> str:
     """Generate cache key for file-based data."""
     return FILE_GENERATOR.generate_file_key(file_path, modification_time)

@@ -17,7 +17,10 @@ from calendarbot.utils.daemon import (
     DaemonNotRunningError,
     detach_process,
 )
-from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
+from calendarbot.utils.logging import (
+    apply_command_line_overrides,
+    setup_enhanced_logging,
+)
 
 from ..config import apply_cli_overrides
 from .web import run_web_mode

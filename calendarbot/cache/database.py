@@ -77,7 +77,7 @@ class DatabaseManager:
                     """
                     CREATE TABLE IF NOT EXISTS cached_events (
                         id TEXT PRIMARY KEY,
-                        graph_id TEXT UNIQUE NOT NULL,
+                        graph_id TEXT NOT NULL,
                         subject TEXT NOT NULL,
                         body_preview TEXT,
                         start_datetime TEXT NOT NULL,
@@ -315,6 +315,7 @@ class DatabaseManager:
                     ],
                 )
 
+                # Commit the transaction
                 await db.commit()
 
                 logger.debug(f"Stored {len(events)} events in cache")

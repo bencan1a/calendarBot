@@ -13,7 +13,10 @@ from typing import Any, Optional
 
 from calendarbot.config.settings import settings
 from calendarbot.main import CalendarBot
-from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
+from calendarbot.utils.logging import (
+    apply_command_line_overrides,
+    setup_enhanced_logging,
+)
 from calendarbot.utils.network import get_local_network_interface, validate_host_binding
 from calendarbot.web.navigation import WebNavigationHandler
 from calendarbot.web.server import WebServer
@@ -229,7 +232,7 @@ async def _cleanup_web_resources(
         logger.debug("Background fetch task completed normally")
     except asyncio.CancelledError:
         logger.debug("Background fetch task cancelled successfully")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning(
             "Background fetch task did not cancel within 10 seconds - this may indicate a hanging task"
         )
@@ -241,7 +244,7 @@ async def _cleanup_web_resources(
         logger.debug("Running application cleanup...")
         await asyncio.wait_for(app.cleanup(), timeout=10.0)
         logger.info("Application cleanup completed")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("Application cleanup timed out after 10 seconds")
     except Exception:
         logger.exception("Error during application cleanup")

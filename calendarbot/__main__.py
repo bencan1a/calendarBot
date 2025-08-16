@@ -34,7 +34,10 @@ def _handle_daemon_mode_early() -> bool:
     if hasattr(args, "daemon") and args.daemon:
         # Import here to avoid circular imports
         from calendarbot.cli.modes.daemon import _start_daemon_process  # noqa: PLC0415
-        from calendarbot.utils.daemon import DaemonError, detach_process  # noqa: PLC0415
+        from calendarbot.utils.daemon import (  # noqa: PLC0415
+            DaemonError,
+            detach_process,
+        )
 
         print("Starting CalendarBot daemon...")
 

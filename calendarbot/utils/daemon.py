@@ -17,7 +17,7 @@ import os
 import signal
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -289,7 +289,9 @@ class DaemonManager:
                 info.update(
                     {
                         "name": process.name(),
-                        "create_time": datetime.fromtimestamp(process.create_time()),
+                        "create_time": datetime.fromtimestamp(
+                            process.create_time(), tz=timezone.utc
+                        ),
                         "memory_info": process.memory_info()._asdict(),
                         "cpu_percent": process.cpu_percent(),
                         "status": process.status(),

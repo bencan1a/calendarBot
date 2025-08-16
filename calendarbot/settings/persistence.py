@@ -10,7 +10,7 @@ import contextlib
 import json
 import logging
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -447,7 +447,9 @@ class SettingsPersistence:
             if self.settings_file.exists():
                 stat = self.settings_file.stat()
                 info["settings_size"] = stat.st_size
-                info["last_modified"] = datetime.fromtimestamp(stat.st_mtime).isoformat()
+                info["last_modified"] = datetime.fromtimestamp(
+                    stat.st_mtime, tz=timezone.utc
+                ).isoformat()
 
             if self.backup_enabled:
                 backups = self.list_backups()

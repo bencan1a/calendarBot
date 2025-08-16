@@ -1,9 +1,10 @@
 """Navigation state management for interactive date browsing."""
 
 import logging
+from collections.abc import Callable
 from datetime import date, timedelta
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 

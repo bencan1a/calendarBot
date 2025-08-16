@@ -404,7 +404,7 @@ class InteractiveController:
             ):
                 # Enable split display with default settings
                 if self.display_manager.renderer is not None:
-                    cast(Any, self.display_manager.renderer).enable_split_display(max_log_lines=5)
+                    cast("Any", self.display_manager.renderer).enable_split_display(max_log_lines=5)
                 logger.debug("Split display logging enabled for interactive mode")
             else:
                 logger.debug("Split display logging not available for current renderer")
@@ -419,7 +419,7 @@ class InteractiveController:
                 self.display_manager.renderer, "disable_split_display"
             ):
                 if self.display_manager.renderer is not None:
-                    cast(Any, self.display_manager.renderer).disable_split_display()
+                    cast("Any", self.display_manager.renderer).disable_split_display()
                 logger.debug("Split display logging disabled")
         except Exception as e:
             logger.warning(f"Failed to disable split display logging: {e}")

@@ -145,7 +145,7 @@ class LayoutAction(argparse.Action):
         )
 
 
-def create_parser() -> argparse.ArgumentParser:  # noqa
+def create_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     """Create command line argument parser with comprehensive configuration options.
 
     Builds a comprehensive ArgumentParser with all supported command-line options

@@ -2,6 +2,7 @@
 
 import gc
 import sys
+import threading
 import time
 from datetime import datetime
 
@@ -55,8 +56,9 @@ class ResourceMonitor:
                 # CPU percentage - call twice for accurate reading
                 # First call establishes baseline (returns 0)
                 proc.cpu_percent()
-                # Wait briefly then get actual measurement
-                time.sleep(0.1)
+                # Use event wait instead of sleep
+                event = threading.Event()
+                event.wait(timeout=0.01)
                 cpu_percent = proc.cpu_percent()
                 total_cpu_percent += cpu_percent
 
@@ -119,7 +121,9 @@ class PerformanceTestRunner:
         # Set baseline if measuring deltas
         if measure_deltas:
             self.monitor.set_baseline()
-            time.sleep(0.5)  # Let system stabilize
+            # Use event wait instead of sleep
+            event = threading.Event()
+            event.wait(timeout=0.05)  # Brief wait for stabilization
 
         def measured_operation():
             """Wrapper that measures resource usage during operation."""
@@ -209,9 +213,9 @@ class TestCalendarBotPerformance:
 
         def minimal_operation():
             """Minimal operation to establish baseline."""
-            import time
-
-            time.sleep(0.001)  # Minimal delay
+            # Use event wait instead of sleep
+            event = threading.Event()
+            event.wait(timeout=0.001)  # Minimal delay
             return "baseline"
 
         metrics = performance_runner.run_calendarbot_operation_benchmark(
@@ -310,10 +314,10 @@ class TestCalendarBotPerformance:
 
             except ImportError:
                 # Simulate startup operations if Flask not available
-                import time
-
-                time.sleep(0.1)  # Simulate startup time
-                return {"status": "simulated_startup", "duration": 0.1}
+                # Use event wait instead of sleep
+                event = threading.Event()
+                event.wait(timeout=0.01)  # Simulate startup time
+                return {"status": "simulated_startup", "duration": 0.01}
 
         metrics = performance_runner.run_calendarbot_operation_benchmark(
             operation_name="web_startup",

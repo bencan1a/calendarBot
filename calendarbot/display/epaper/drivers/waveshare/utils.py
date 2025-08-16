@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import List, Optional, Tuple
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ def delay_ms(delaytime: int) -> None:
     time.sleep(delaytime / 1000.0)
 
 
-def bytes_to_list(data: bytes) -> List[int]:
+def bytes_to_list(data: bytes) -> list[int]:
     """Convert bytes to list of integers.
 
     Args:
@@ -28,7 +28,7 @@ def bytes_to_list(data: bytes) -> List[int]:
     return list(data)
 
 
-def list_to_bytes(data: List[int]) -> bytes:
+def list_to_bytes(data: list[int]) -> bytes:
     """Convert list of integers to bytes.
 
     Args:
@@ -56,7 +56,7 @@ def validate_buffer_size(buffer: bytes, expected_size: int) -> bool:
     return True
 
 
-def split_color_buffer(buffer: bytes, buffer_size: int) -> Optional[Tuple[bytes, bytes]]:
+def split_color_buffer(buffer: bytes, buffer_size: int) -> Optional[tuple[bytes, bytes]]:
     """Split buffer into black and red parts.
 
     Args:

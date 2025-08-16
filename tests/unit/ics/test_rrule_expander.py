@@ -297,10 +297,12 @@ class TestRRuleExpander:
 
             # Should only include events within the date range
             assert len(events) == 2
-            assert all(
-                datetime(2025, 5, 1) <= event.start.date_time <= datetime(2025, 8, 31)
-                for event in events
-            )
+
+            # Use timezone-aware datetime bounds for comparison
+            range_start = datetime(2025, 5, 1, tzinfo=timezone.utc)
+            range_end = datetime(2025, 8, 31, tzinfo=timezone.utc)
+
+            assert all(range_start <= event.start.date_time <= range_end for event in events)
 
     def test_expand_rrule_disabled(self, settings, master_event):
         """Test RRULE expansion when disabled."""
@@ -318,14 +320,13 @@ class TestRRuleExpander:
         with patch("calendarbot.ics.rrule_expander.rrule") as mock_rrule:
             # Mock a series with more than max occurrences
             mock_rrule_instance = Mock()
-            mock_rrule_instance.__iter__ = Mock(
-                return_value=iter(
-                    [
-                        datetime(2025, 5, 26 + i * 7, 10, 0, tzinfo=timezone.utc)
-                        for i in range(10)  # 10 occurrences
-                    ]
-                )
-            )
+            # Generate valid weekly occurrences starting from May 26, 2025
+            start_date = datetime(2025, 5, 26, 10, 0, tzinfo=timezone.utc)
+            from datetime import timedelta
+
+            occurrences = [start_date + timedelta(weeks=i) for i in range(10)]  # 10 occurrences
+
+            mock_rrule_instance.__iter__ = Mock(return_value=iter(occurrences))
             mock_rrule.return_value = mock_rrule_instance
 
             events = expander.expand_rrule(master_event, "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO")

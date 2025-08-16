@@ -66,7 +66,9 @@ class SettingsService:
             if calendarbot_settings is not None:
                 self.calendarbot_settings = calendarbot_settings
             else:
-                from ..config.settings import settings as default_settings  # noqa: PLC0415
+                from ..config.settings import (  # noqa: PLC0415
+                    settings as default_settings,
+                )
 
                 self.calendarbot_settings = default_settings
 

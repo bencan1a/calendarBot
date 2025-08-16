@@ -1,8 +1,9 @@
 """Performance monitoring and metrics collection for CalendarBot."""
 
 import os
+from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union  # noqa: F401
 
 from .performance import (
     MetricType,
@@ -150,7 +151,7 @@ class NoOpPerformanceLoggerMixin:
     def log_performance_metric(
         self,
         name: str,
-        value: Union[float, int],
+        value: float,
         metric_type: MetricType = MetricType.GAUGE,
         unit: str = "",
         operation: str = "",
@@ -223,6 +224,6 @@ __all__ = [
 
 
 # Convenience function for quick access
-def get_logger() -> Union[_PerformanceLogger, NoOpPerformanceLogger]:
+def get_logger() -> _PerformanceLogger | NoOpPerformanceLogger:
     """Get the global performance logger instance."""
     return get_performance_logger()

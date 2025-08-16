@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NoReturn, Optional, Union
+from typing import Any, NoReturn, Optional
 
 from .exceptions import LayoutNotFoundError, LayoutValidationError
 
@@ -27,7 +27,7 @@ class LayoutInfo:
     capabilities: dict[str, Any]
     renderer_type: str
     fallback_chain: list[str]
-    resources: dict[str, list[Union[str, dict[str, Any]]]]
+    resources: dict[str, list[str | dict[str, Any]]]
     requirements: dict[str, Any]
 
 

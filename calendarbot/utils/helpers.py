@@ -5,9 +5,9 @@ import functools
 import logging
 import os
 import subprocess
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Optional, TypeVar
 
 from ..timezone import ensure_timezone_aware as tz_ensure_timezone_aware, now_server_timezone
 from .exceptions import CircuitBreakerError, RetryError

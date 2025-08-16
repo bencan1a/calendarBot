@@ -17,19 +17,27 @@ import tempfile
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NoReturn, Optional, Union
+from typing import TYPE_CHECKING, Any, NoReturn, Optional
 
 from PIL import Image
 
 from calendarbot.cli.modes.shared_webserver import SharedWebServer
 from calendarbot.config.settings import settings
 from calendarbot.display.epaper.drivers.waveshare import EPD4in2bV2
-from calendarbot.display.epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer
-from calendarbot.display.epaper.utils.html_to_png import create_converter, is_html2image_available
+from calendarbot.display.epaper.integration.eink_whats_next_renderer import (
+    EInkWhatsNextRenderer,
+)
+from calendarbot.display.epaper.utils.html_to_png import (
+    create_converter,
+    is_html2image_available,
+)
 from calendarbot.display.shared_styling import get_layout_for_renderer
 from calendarbot.main import CalendarBot
 from calendarbot.utils.http_client import HTTPClient
-from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
+from calendarbot.utils.logging import (
+    apply_command_line_overrides,
+    setup_enhanced_logging,
+)
 
 from ..config import apply_cli_overrides
 
@@ -389,7 +397,7 @@ async def _cleanup_epaper_resources(context: EpaperModeContext) -> None:
             logger.debug("Background fetch task completed normally")
         except asyncio.CancelledError:
             logger.debug("Background fetch task cancelled successfully")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Background fetch task did not cancel within 10 seconds")
         except Exception:
             logger.exception("Unexpected error during background fetch task cancellation")
@@ -400,7 +408,7 @@ async def _cleanup_epaper_resources(context: EpaperModeContext) -> None:
             logger.debug("Running application cleanup...")
             await asyncio.wait_for(context.app.cleanup(), timeout=10.0)
             logger.info("Application cleanup completed")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Application cleanup timed out after 10 seconds")
         except Exception:
             logger.exception("Error during application cleanup")
@@ -537,7 +545,7 @@ def detect_epaper_hardware() -> bool:
         return False
 
 
-def save_png_emulation(image: Any, cycle_number: Union[int, str]) -> tuple[Path, Optional[Path]]:
+def save_png_emulation(image: Any, cycle_number: int | str) -> tuple[Path, Optional[Path]]:
     """Save rendered image as PNG for emulation mode and also save a processed version
     showing how it would appear on the e-paper display.
 

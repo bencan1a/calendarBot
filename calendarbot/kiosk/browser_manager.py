@@ -358,7 +358,7 @@ class BrowserManager:
                 )
                 self.logger.info("Browser stopped gracefully")
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Force kill if graceful shutdown fails
                 self.logger.warning("Browser did not stop gracefully, forcing shutdown")
                 self._process.kill()

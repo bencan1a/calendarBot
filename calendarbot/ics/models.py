@@ -252,6 +252,14 @@ class CalendarEvent(BaseModel):
         default=None, description="RECURRENCE-ID for recurrence instances"
     )
 
+    # RRULE expansion tracking
+    is_expanded_instance: bool = Field(
+        default=False, description="True if generated from RRULE expansion"
+    )
+    rrule_master_uid: Optional[str] = Field(
+        default=None, description="UID of master recurring event for expanded instances"
+    )
+
     # Metadata
     created_date_time: Optional[datetime] = Field(default=None, description="Creation time")
     last_modified_date_time: Optional[datetime] = Field(

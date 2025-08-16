@@ -1,7 +1,7 @@
 """Mock implementation of RPi.GPIO for development environments."""
 
 import logging
-from typing import Any, List, Optional, Tuple, Union, Literal
+from typing import Any, Literal, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +27,11 @@ RISING = 1
 FALLING = 2
 BOTH = 3
 
+
 # Create a class to mimic the RPi.GPIO module
 class GPIO:
     """Mock GPIO module for development environments."""
-    
+
     @staticmethod
     def setmode(mode: int) -> None:
         """Mock setting the GPIO mode."""
@@ -42,12 +43,14 @@ class GPIO:
         logger.debug(f"Mock GPIO: setwarnings({state})")
 
     @staticmethod
-    def setup(channel: int, direction: int, pull_up_down: int = PUD_OFF, initial: Optional[int] = None) -> None:
+    def setup(
+        channel: int, direction: int, pull_up_down: int = PUD_OFF, initial: Optional[int] = None
+    ) -> None:
         """Mock setup of a GPIO channel."""
         logger.debug(f"Mock GPIO: setup({channel}, {direction}, {pull_up_down}, {initial})")
 
     @staticmethod
-    def output(channel: int, value: Union[bool, List[bool], Tuple[bool, ...], Literal[0, 1]]) -> None:
+    def output(channel: int, value: bool | list[bool] | tuple[bool, ...] | Literal[0, 1]) -> None:
         """Mock output to a GPIO channel."""
         logger.debug(f"Mock GPIO: output({channel}, {value})")
 
@@ -58,12 +61,14 @@ class GPIO:
         return HIGH  # Always return HIGH to avoid blocking in wait_until_idle
 
     @staticmethod
-    def cleanup(channel: Optional[List[int]] = None) -> None:
+    def cleanup(channel: Optional[list[int]] = None) -> None:
         """Mock cleanup of GPIO channels."""
         logger.debug(f"Mock GPIO: cleanup({channel})")
 
     @staticmethod
-    def add_event_detect(channel: int, edge: int, callback: Optional[Any] = None, bouncetime: Optional[int] = None) -> None:
+    def add_event_detect(
+        channel: int, edge: int, callback: Optional[Any] = None, bouncetime: Optional[int] = None
+    ) -> None:
         """Mock adding event detection."""
         logger.debug(f"Mock GPIO: add_event_detect({channel}, {edge}, {callback}, {bouncetime})")
 
@@ -88,6 +93,7 @@ class GPIO:
         """Mock waiting for an edge."""
         logger.debug(f"Mock GPIO: wait_for_edge({channel}, {edge}, {timeout})")
         return None
+
 
 # Export the GPIO class as the module
 setmode = GPIO.setmode

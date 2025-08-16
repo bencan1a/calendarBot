@@ -267,7 +267,7 @@ class CalendarBot:
                     # If we get here, shutdown was signaled
                     break
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Timeout means it's time for next fetch
                     if self.running:
                         await self.fetch_and_cache_events()
@@ -295,7 +295,7 @@ class CalendarBot:
                     # If we get here, shutdown was signaled
                     break
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Timeout means it's time for next refresh
                     if self.running:
                         await self.refresh_cycle()

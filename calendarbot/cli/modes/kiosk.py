@@ -14,7 +14,10 @@ from typing import Any
 from calendarbot.config.settings import settings
 from calendarbot.kiosk.manager import KioskError, KioskManager, KioskStatus
 from calendarbot.settings.kiosk_models import KioskSettings
-from calendarbot.utils.logging import apply_command_line_overrides, setup_enhanced_logging
+from calendarbot.utils.logging import (
+    apply_command_line_overrides,
+    setup_enhanced_logging,
+)
 
 from ..config import apply_cli_overrides
 
@@ -393,7 +396,7 @@ async def _restart_kiosk_process(args: Any) -> int:
         return 1
 
 
-async def _run_kiosk_setup_wizard(args: Any) -> int:  # noqa
+async def _run_kiosk_setup_wizard(args: Any) -> int:  # noqa: PLR0915
     """Run interactive kiosk setup wizard for Pi Zero 2W deployment.
 
     Args:

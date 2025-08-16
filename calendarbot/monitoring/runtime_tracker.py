@@ -14,7 +14,12 @@ import psutil
 from ..benchmarking.models import BenchmarkResult, BenchmarkRun, BenchmarkStatus
 from ..benchmarking.storage import BenchmarkResultStorage
 from ..utils.logging import get_logger
-from .performance import MetricType, PerformanceLogger, PerformanceMetric, get_performance_logger
+from .performance import (
+    MetricType,
+    PerformanceLogger,
+    PerformanceMetric,
+    get_performance_logger,
+)
 
 
 @dataclass

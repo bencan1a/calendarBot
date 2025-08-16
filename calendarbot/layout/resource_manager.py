@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from .asset_bundler import LayoutAssetBundler
 from .exceptions import LayoutNotFoundError, ResourceLoadingError
@@ -17,7 +17,7 @@ class ResourceManager:
 
     def __init__(
         self,
-        layout_registry: Union[LayoutRegistry, LazyLayoutRegistry],
+        layout_registry: LayoutRegistry | LazyLayoutRegistry,
         base_url: str = "/static",
         settings: Optional[Any] = None,
         asset_bundler: Optional[LayoutAssetBundler] = None,

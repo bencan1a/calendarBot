@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from ..ics.models import CalendarEvent, ICSParseResult
 
@@ -77,8 +77,18 @@ class CacheManager:
             series_master_id = None  # ICS events don't have series_master_id
             location_address = api_event.location.address if api_event.location else None
 
+        # Generate deterministic ID for proper deduplication while supporting recurring instances
+        import hashlib  # noqa: PLC0415
+
+        # Create deterministic suffix based on graph_id + start_time for unique recurring instances
+        # This ensures: same event = same ID (fixes duplicates), different instances = different IDs
+        deterministic_content = f"{api_event.id}_{api_event.start.date_time.isoformat()}"
+        suffix_hash = hashlib.sha256(deterministic_content.encode()).hexdigest()[:8]
+
+        generated_id = f"cached_{api_event.id}_{suffix_hash}"
+
         return CachedEvent(
-            id=f"cached_{api_event.id}",
+            id=generated_id,
             graph_id=api_event.id,
             subject=api_event.subject,
             body_preview=api_event.body_preview,
@@ -107,7 +117,7 @@ class CacheManager:
 
     @performance_monitor("cache_events")
     @with_correlation_id()
-    async def cache_events(self, api_events: list[CalendarEvent] | ICSParseResult) -> bool:
+    async def cache_events(self, api_events: list[CalendarEvent] | ICSParseResult) -> bool:  # noqa: PLR0912, PLR0915
         """Cache events from API response with comprehensive data validation and error handling.
 
         Processes and stores calendar events from various sources (Microsoft Graph API, ICS feeds)
@@ -231,19 +241,39 @@ class CacheManager:
 
                     # Re-parse the raw content independently to get ALL unfiltered event data
                     independent_parse_result = parser.parse_ics_content_unfiltered(
-                        raw_content, source_url
+                        raw_content,
+                        source_url,
                     )
 
                     # Create raw events from the independent parsing using individual event ICS content
                     event_raw_content_map = getattr(
-                        independent_parse_result, "event_raw_content_map", {}
+                        independent_parse_result,
+                        "event_raw_content_map",
+                        {},
                     )
 
                     for event in independent_parse_result.events:
                         # Get individual event ICS content from the mapping
                         individual_ics_content = event_raw_content_map.get(
-                            event.id, f"# Event {event.id} - Individual ICS content not available"
+                            event.id,
+                            f"# Event {event.id} - Individual ICS content not available",
                         )
+
+                        # Determine if this is a recurrence instance or master pattern
+                        recurrence_id_raw = getattr(event, "recurrence_id", None)
+
+                        # Convert RECURRENCE-ID to string properly (safety conversion for any remaining objects)
+                        if recurrence_id_raw is not None:
+                            if hasattr(recurrence_id_raw, "to_ical"):
+                                # icalendar object - convert to iCal format then decode
+                                recurrence_id = recurrence_id_raw.to_ical().decode("utf-8")
+                            else:
+                                # Already a string or other type - convert to string
+                                recurrence_id = str(recurrence_id_raw)
+                        else:
+                            recurrence_id = None
+
+                        is_instance = recurrence_id is not None
 
                         raw_event = RawEvent.create_from_ics(
                             graph_id=event.id,
@@ -266,13 +296,15 @@ class CacheManager:
                             is_online_meeting=event.is_online_meeting,
                             online_meeting_url=event.online_meeting_url,
                             is_recurring=event.is_recurring,
+                            recurrence_id=recurrence_id,
+                            is_instance=is_instance,
                             last_modified=event.last_modified_date_time.isoformat()
                             if event.last_modified_date_time
                             else None,
                         )
                         raw_events.append(raw_event)
                     logger.debug(
-                        f"Created {len(raw_events)} raw events from independent ICS parsing"
+                        f"Created {len(raw_events)} raw events from independent ICS parsing",
                     )
                 except Exception as e:
                     logger.warning(f"Failed to create raw events: {e}")
@@ -291,7 +323,7 @@ class CacheManager:
                             logger.debug(f"Successfully stored {len(raw_events)} raw events")
                         else:
                             logger.warning(
-                                "Failed to store raw events, but cached events were stored"
+                                "Failed to store raw events, but cached events were stored",
                             )
 
                 except Exception:
@@ -324,7 +356,9 @@ class CacheManager:
     @performance_monitor("get_cached_events")
     @with_correlation_id()
     async def get_cached_events(
-        self, start_date: datetime, end_date: datetime
+        self,
+        start_date: datetime,
+        end_date: datetime,
     ) -> list[CachedEvent]:
         """Get cached events for date range.
 
@@ -346,7 +380,9 @@ class CacheManager:
             return []
 
     async def get_events_by_date_range(
-        self, start_date: datetime, end_date: datetime
+        self,
+        start_date: datetime,
+        end_date: datetime,
     ) -> list[CachedEvent]:
         """Get cached events for date range (alias for get_cached_events).
 
@@ -475,7 +511,7 @@ class CacheManager:
             logger.exception("Failed to clear cache")
             return False
 
-    async def _update_fetch_metadata(self, success: bool, error: Optional[str] = None) -> None:
+    async def _update_fetch_metadata(self, success: bool, error: str | None = None) -> None:
         """Update metadata after a fetch attempt.
 
         Args:
@@ -548,7 +584,7 @@ class CacheManager:
             # Clean up old cached events (default 7 days)
             removed_cached_count = await self.cleanup_old_events()
             logger.debug(
-                f"Cache cleanup completed, removed {removed_cached_count} old cached events"
+                f"Cache cleanup completed, removed {removed_cached_count} old cached events",
             )
 
             # Clean up old raw events (default 7 days)
@@ -556,7 +592,7 @@ class CacheManager:
             logger.debug(f"Cache cleanup completed, removed {removed_raw_count} old raw events")
 
             logger.debug(
-                f"Total cleanup: {removed_cached_count} cached + {removed_raw_count} raw events removed"
+                f"Total cleanup: {removed_cached_count} cached + {removed_raw_count} raw events removed",
             )
             return True
 

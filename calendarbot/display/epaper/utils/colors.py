@@ -5,8 +5,6 @@ Extracts the grayscale color palette from the WhatsNext web CSS
 to ensure consistency between web and e-Paper rendering.
 """
 
-from typing import Union
-
 
 # E-Paper color palette extracted from calendarbot/web/static/layouts/whats-next-view/whats-next-view.css
 class EPaperColors:
@@ -126,7 +124,7 @@ def get_rendering_colors() -> dict[str, str]:
     }
 
 
-def convert_to_pil_color(hex_color: str, mode: str = "L") -> Union[str, int, tuple[int, int, int]]:
+def convert_to_pil_color(hex_color: str, mode: str = "L") -> str | int | tuple[int, int, int]:
     """
     Convert hex color to PIL-compatible format based on image mode.
 

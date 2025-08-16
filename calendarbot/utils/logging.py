@@ -7,7 +7,7 @@ import sys
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 # Lazy imports moved to function level to avoid circular dependencies
 
@@ -217,7 +217,7 @@ class TimestampedFileHandler(logging.FileHandler):
     """Handler that creates timestamped log files per execution."""
 
     def __init__(
-        self, log_dir: Union[str, Path], prefix: str = "calendarbot", max_files: int = 5
+        self, log_dir: str | Path, prefix: str = "calendarbot", max_files: int = 5
     ) -> None:
         self.log_dir = Path(log_dir)
         self.prefix = prefix
@@ -280,9 +280,11 @@ class SplitDisplayHandler(logging.Handler):
             ):
                 from typing import cast  # noqa: PLC0415
 
-                from ..display.renderer_protocol import ConsoleRendererProtocol  # noqa: PLC0415
+                from ..display.renderer_protocol import (  # noqa: PLC0415
+                    ConsoleRendererProtocol,
+                )
 
-                cast(ConsoleRendererProtocol, self.display_manager.renderer).update_log_area(
+                cast("ConsoleRendererProtocol", self.display_manager.renderer).update_log_area(
                     list(self.log_buffer)
                 )
         except Exception:  # nosec

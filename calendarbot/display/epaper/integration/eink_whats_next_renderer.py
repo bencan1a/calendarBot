@@ -14,7 +14,7 @@ import tempfile
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 from PIL import Image, ImageDraw, ImageFont
 from PIL.ImageFont import FreeTypeFont, ImageFont as BuiltinFont
@@ -24,15 +24,24 @@ from calendarbot.utils.network import get_local_network_interface
 if TYPE_CHECKING:
     # Only import for type checking
     from calendarbot.cache.models import CachedEvent
-    from calendarbot.display.renderer_interface import InteractionEvent, RendererInterface
+    from calendarbot.display.renderer_interface import (
+        InteractionEvent,
+        RendererInterface,
+    )
     from calendarbot.display.whats_next_data_model import EventData, WhatsNextViewModel
     from calendarbot.display.whats_next_logic import WhatsNextLogic
 else:
     # Runtime imports with fallback
     try:
         from calendarbot.cache.models import CachedEvent
-        from calendarbot.display.renderer_interface import InteractionEvent, RendererInterface
-        from calendarbot.display.whats_next_data_model import EventData, WhatsNextViewModel
+        from calendarbot.display.renderer_interface import (
+            InteractionEvent,
+            RendererInterface,
+        )
+        from calendarbot.display.whats_next_data_model import (
+            EventData,
+            WhatsNextViewModel,
+        )
         from calendarbot.display.whats_next_logic import WhatsNextLogic
 
         CALENDARBOT_AVAILABLE = True
@@ -134,7 +143,7 @@ class EInkWhatsNextRenderer(RendererInterface):
         self.performance = PerformanceMetrics()
 
         # Font cache with LRU eviction (most recently used fonts stay in cache)
-        self._font_cache: OrderedDict[str, Union[FreeTypeFont, BuiltinFont]] = OrderedDict()
+        self._font_cache: OrderedDict[str, FreeTypeFont | BuiltinFont] = OrderedDict()
 
         # Text measurement cache to avoid repeated calculations
         self._text_measure_cache: OrderedDict[
@@ -148,7 +157,7 @@ class EInkWhatsNextRenderer(RendererInterface):
         self._html_render_cache: OrderedDict[str, tuple[str, datetime]] = OrderedDict()
 
         # Lazy-loaded fonts - will be populated on first use
-        self._fonts: dict[str, Union[FreeTypeFont, BuiltinFont]] = {}
+        self._fonts: dict[str, FreeTypeFont | BuiltinFont] = {}
 
         # Color configuration using SharedStylingConstants
         # Use "L" as default mode for grayscale e-paper displays
@@ -324,7 +333,7 @@ class EInkWhatsNextRenderer(RendererInterface):
         # Render using the view model
         return self.render(view_model)
 
-    def _load_fonts(self) -> dict[str, Union[FreeTypeFont, BuiltinFont]]:
+    def _load_fonts(self) -> dict[str, FreeTypeFont | BuiltinFont]:
         """Load fonts optimized for e-Paper display.
 
         Returns:
@@ -334,7 +343,7 @@ class EInkWhatsNextRenderer(RendererInterface):
         # Actual fonts will be loaded on first use via _get_font()
         return {}
 
-    def _get_font(self, font_key: str) -> Union[FreeTypeFont, BuiltinFont]:
+    def _get_font(self, font_key: str) -> FreeTypeFont | BuiltinFont:
         """Get a font from cache or load it if not cached.
 
         Implements LRU caching for fonts to minimize memory usage.

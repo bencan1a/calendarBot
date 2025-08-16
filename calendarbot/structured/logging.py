@@ -6,12 +6,13 @@ import logging
 import os
 import threading
 import uuid
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional
 
 
 class LogLevel(Enum):
@@ -154,9 +155,9 @@ class StructuredFormatter(logging.Formatter):
         """Format log record with structured output."""
         # Build structured log entry
         log_entry = {
-            "timestamp": datetime.fromtimestamp(record.created).strftime(self.timestamp_format)[
-                :-3
-            ],
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(
+                self.timestamp_format
+            )[:-3],
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -461,7 +462,7 @@ class ContextualLoggerMixin:
 
 
 @contextmanager
-def correlation_context(correlation_id: Optional[Union[str, CorrelationID]] = None) -> Any:
+def correlation_context(correlation_id: Optional[str | CorrelationID] = None) -> Any:
     """
     Context manager for correlation ID tracking.
 
@@ -498,7 +499,7 @@ def request_context(
     request_id: Optional[str] = None,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
-    correlation_id: Optional[Union[str, CorrelationID]] = None,
+    correlation_id: Optional[str | CorrelationID] = None,
 ) -> Any:
     """
     Context manager for HTTP request tracking.
@@ -536,7 +537,7 @@ def request_context(
 def operation_context(
     operation: str,
     component: Optional[str] = None,
-    correlation_id: Optional[Union[str, CorrelationID]] = None,
+    correlation_id: Optional[str | CorrelationID] = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -577,7 +578,7 @@ def operation_context(
 
 
 def with_correlation_id(
-    correlation_id: Optional[Union[str, CorrelationID]] = None
+    correlation_id: Optional[str | CorrelationID] = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator to automatically add correlation ID to function context.

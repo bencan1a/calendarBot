@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from ..utils.logging import get_logger
 
@@ -150,7 +150,7 @@ class LogVolumeAnalyzer:
         self.logger = get_logger("log_volume_analyzer")
         self.analysis_cache: dict[str, Any] = {}
 
-    def analyze_log_files(self, log_dir: Union[str, Path], hours: int = 24) -> dict[str, Any]:
+    def analyze_log_files(self, log_dir: str | Path, hours: int = 24) -> dict[str, Any]:
         """
         Analyze log files for volume patterns and optimization opportunities.
 
@@ -389,7 +389,7 @@ class DebugStatementAnalyzer:
     def __init__(self) -> None:
         self.logger = get_logger("debug_analyzer")
 
-    def analyze_codebase(self, root_dir: Union[str, Path]) -> dict[str, Any]:
+    def analyze_codebase(self, root_dir: str | Path) -> dict[str, Any]:
         """
         Analyze codebase for debug statements and optimization opportunities.
 
@@ -583,7 +583,6 @@ class PrintStatementFinder(ast.NodeVisitor):
         if (isinstance(node.func, ast.Name) and node.func.id == "print") or (
             isinstance(node.func, ast.Attribute) and node.func.attr == "print"
         ):
-
             self.print_statements.append(
                 {
                     "file": str(self.file_path),
@@ -693,10 +692,10 @@ class LoggingOptimizer:
                             and rule.target_level
                             and current_level == "DEBUG"
                         ):
-                                logger_config["level"] = logging.getLevelName(rule.target_level)
-                                self.logger.info(
-                                    f"Optimized {logger_name} level: {current_level} -> {logger_config['level']}"
-                                )
+                            logger_config["level"] = logging.getLevelName(rule.target_level)
+                            self.logger.info(
+                                f"Optimized {logger_name} level: {current_level} -> {logger_config['level']}"
+                            )
 
         # Add production filter to handlers
         if "handlers" in optimized_config:
@@ -719,9 +718,7 @@ class LoggingOptimizer:
 
         return optimized_config
 
-    def analyze_and_optimize(
-        self, log_dir: Union[str, Path], code_dir: Union[str, Path]
-    ) -> dict[str, Any]:
+    def analyze_and_optimize(self, log_dir: str | Path, code_dir: str | Path) -> dict[str, Any]:
         """
         Perform comprehensive analysis and optimization.
 
@@ -814,7 +811,7 @@ def optimize_logging_config(
 
 
 def analyze_log_volume(
-    log_dir: Union[str, Path], hours: int = 24, settings: Optional[Any] = None
+    log_dir: str | Path, hours: int = 24, settings: Optional[Any] = None
 ) -> dict[str, Any]:
     """Convenience function to analyze log volume."""
     analyzer = LogVolumeAnalyzer(settings)

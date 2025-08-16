@@ -1,13 +1,16 @@
 """Validation runner for coordinating component testing in test mode."""
 
-
 import time
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from calendarbot.config.settings import settings
 
-from .logging_setup import get_validation_logger, log_validation_result, log_validation_start
+from .logging_setup import (
+    get_validation_logger,
+    log_validation_result,
+    log_validation_start,
+)
 from .results import ValidationResults
 
 
@@ -20,8 +23,8 @@ class ValidationRunner:
 
     def __init__(
         self,
-        test_date: Optional[Union[datetime, str]] = None,
-        end_date: Optional[Union[datetime, str]] = None,
+        test_date: Optional[datetime | str] = None,
+        end_date: Optional[datetime | str] = None,
         components: Optional[list[str]] = None,
         use_cache: bool = True,
         output_format: str = "console",
