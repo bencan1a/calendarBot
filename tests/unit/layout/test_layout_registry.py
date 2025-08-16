@@ -167,19 +167,19 @@ class TestLayoutRegistryValidation:
                     version="1.0.0",
                     capabilities={"grid_dimensions": {"columns": 4, "rows": 8}},
                     renderer_type="html",
-                    fallback_chain=["3x4", "console"],
+                    fallback_chain=["whats-next-view", "console"],
                     resources={"css": ["4x8.css"], "js": ["4x8.js"]},
                     requirements={},
                 ),
-                "3x4": LayoutInfo(
-                    name="3x4",
-                    display_name="3x4 Layout",
-                    description="Compact 3x4 layout",
+                "whats-next-view": LayoutInfo(
+                    name="whats-next-view",
+                    display_name="What's Next View",
+                    description="Next upcoming event view",
                     version="1.0.0",
-                    capabilities={"grid_dimensions": {"columns": 3, "rows": 4}},
-                    renderer_type="compact",
-                    fallback_chain=["console"],
-                    resources={"css": ["3x4.css"], "js": ["3x4.js"]},
+                    capabilities={"view_type": "upcoming"},
+                    renderer_type="html",
+                    fallback_chain=["4x8", "console"],
+                    resources={"css": ["whats-next-view.css"], "js": ["whats-next-view.js"]},
                     requirements={},
                 ),
             }
@@ -188,7 +188,7 @@ class TestLayoutRegistryValidation:
     def test_validate_layout_valid_layout(self, registry_with_layouts) -> None:
         """Test validation of valid layout."""
         assert registry_with_layouts.validate_layout("4x8") is True
-        assert registry_with_layouts.validate_layout("3x4") is True
+        assert registry_with_layouts.validate_layout("whats-next-view") is True
 
     def test_validate_layout_invalid_layout(self, registry_with_layouts) -> None:
         """Test validation of invalid layout."""
@@ -215,7 +215,7 @@ class TestLayoutRegistryValidation:
         layouts = registry_with_layouts.get_available_layouts()
 
         assert "4x8" in layouts
-        assert "3x4" in layouts
+        assert "whats-next-view" in layouts
         assert len(layouts) == 2
 
     def test_get_default_layout(self, registry_with_layouts) -> None:
@@ -223,7 +223,7 @@ class TestLayoutRegistryValidation:
         # Should return first available layout when no default is specified
         default = registry_with_layouts.get_default_layout()
 
-        assert default in ["4x8", "3x4"]  # Could be either depending on dict ordering
+        assert default in ["4x8", "whats-next-view"]  # Could be either depending on dict ordering
 
     def test_get_default_layout_empty_registry(self) -> None:
         """Test getting default layout when no layouts are available."""
@@ -253,7 +253,7 @@ class TestLayoutRegistryAdvanced:
                     version="1.0.0",
                     capabilities={"grid_dimensions": {"columns": 4, "rows": 8}},
                     renderer_type="html",
-                    fallback_chain=["3x4", "console"],
+                    fallback_chain=["whats-next-view", "console"],
                     resources={"css": ["4x8.css", "common.css"], "js": ["4x8.js"]},
                     requirements={},
                 )
@@ -273,7 +273,7 @@ class TestLayoutRegistryAdvanced:
     def test_get_fallback_chain(self, registry_with_layouts) -> None:
         """Test getting fallback chain for layout."""
         fallback_chain = registry_with_layouts.get_fallback_chain("4x8")
-        assert fallback_chain == ["3x4", "console"]
+        assert fallback_chain == ["whats-next-view", "console"]
 
     def test_get_fallback_chain_invalid_layout(self, registry_with_layouts) -> None:
         """Test getting fallback chain for invalid layout raises exception."""
@@ -335,7 +335,7 @@ class TestLayoutRegistryErrorHandling:
                     version="1.0.0",
                     capabilities={"grid_dimensions": {"columns": 4, "rows": 8}},
                     renderer_type="html",
-                    fallback_chain=["3x4", "console"],
+                    fallback_chain=["whats-next-view", "console"],
                     resources={"css": ["4x8.css"], "js": ["4x8.js"]},
                     requirements={},
                 ),
