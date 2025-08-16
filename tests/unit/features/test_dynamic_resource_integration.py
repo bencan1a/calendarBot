@@ -23,17 +23,15 @@ class TestDynamicResourceIntegration:
         layout_4x8.name = "4x8"
         layout_4x8.resources = {"css": ["4x8.css", "common.css"], "js": ["4x8.js", "navigation.js"]}
 
-        # Mock layout info for 3x4
-        layout_3x4 = Mock()
-        layout_3x4.name = "3x4"
-        layout_3x4.resources = {"css": ["3x4.css"], "js": ["3x4.js"]}
+        # Mock layout info for whats-next-view
+        layout_whats_next = Mock()
+        layout_whats_next.name = "whats-next-view"
+        layout_whats_next.resources = {"css": ["whats-next-view.css"], "js": ["whats-next-view.js"]}
 
         registry.get_layout_with_fallback.side_effect = lambda name: {
             "4x8": layout_4x8,
-            "3x4": layout_3x4,
-        }.get(
-            name, layout_4x8
-        )  # Default to 4x8
+            "whats-next-view": layout_whats_next,
+        }.get(name, layout_4x8)  # Default to 4x8
 
         registry.layouts_dir = Path("/test/layouts")
 
@@ -112,7 +110,7 @@ class TestDynamicResourceIntegration:
         "layout_name,expected_css,expected_js",
         [
             ("4x8", "4x8.css", "4x8.js"),
-            ("3x4", "3x4.css", "3x4.js"),
+            ("whats-next-view", "whats-next-view.css", "whats-next-view.js"),
             ("unknown", "4x8.css", "4x8.js"),  # Should fallback to 4x8
         ],
     )
@@ -147,51 +145,51 @@ class TestLayoutRendererSeparation:
         return settings
 
     @pytest.fixture
-    def mock_settings_3x4(self) -> Mock:
-        """Mock settings with 3x4 layout."""
+    def mock_settings_whats_next(self) -> Mock:
+        """Mock settings with whats-next-view layout."""
         settings = Mock()
-        settings.web_layout = "3x4"
+        settings.web_layout = "whats-next-view"
         return settings
 
     def test_html_renderer_works_with_any_layout(
-        self, mock_settings_4x8: Mock, mock_settings_3x4: Mock
+        self, mock_settings_4x8: Mock, mock_settings_whats_next: Mock
     ) -> None:
         """Test that HTMLRenderer works with different layout configurations."""
         # Test with 4x8 layout
         renderer_4x8 = HTMLRenderer(mock_settings_4x8)
         assert renderer_4x8.layout == "4x8"
 
-        # Test with 3x4 layout
-        renderer_3x4 = HTMLRenderer(mock_settings_3x4)
-        assert renderer_3x4.layout == "3x4"
+        # Test with whats-next-view layout
+        renderer_whats_next = HTMLRenderer(mock_settings_whats_next)
+        assert renderer_whats_next.layout == "whats-next-view"
 
     def test_layout_specific_resources_are_loaded(
-        self, mock_settings_4x8: Mock, mock_settings_3x4: Mock
+        self, mock_settings_4x8: Mock, mock_settings_whats_next: Mock
     ) -> None:
         """Test that layout-specific resources are correctly loaded."""
         renderer_4x8 = HTMLRenderer(mock_settings_4x8)
-        renderer_3x4 = HTMLRenderer(mock_settings_3x4)
+        renderer_whats_next = HTMLRenderer(mock_settings_whats_next)
 
         # Test fallback CSS file selection
         css_4x8 = renderer_4x8._get_fallback_css_file()
-        css_3x4 = renderer_3x4._get_fallback_css_file()
+        css_whats_next = renderer_whats_next._get_fallback_css_file()
 
         assert css_4x8 == "4x8.css"
-        assert css_3x4 == "3x4.css"
+        assert css_whats_next == "4x8.css"  # whats-next-view falls back to 4x8.css
 
         # Test fallback JS file selection
         js_4x8 = renderer_4x8._get_fallback_js_file()
-        js_3x4 = renderer_3x4._get_fallback_js_file()
+        js_whats_next = renderer_whats_next._get_fallback_js_file()
 
         assert js_4x8 == "4x8.js"
-        assert js_3x4 == "3x4.js"
+        assert js_whats_next == "whats-next-view.js"
 
     def test_html_output_includes_layout_class(
-        self, mock_settings_4x8: Mock, mock_settings_3x4: Mock
+        self, mock_settings_4x8: Mock, mock_settings_whats_next: Mock
     ) -> None:
         """Test that HTML output includes correct layout CSS class."""
         renderer_4x8 = HTMLRenderer(mock_settings_4x8)
-        renderer_3x4 = HTMLRenderer(mock_settings_3x4)
+        renderer_whats_next = HTMLRenderer(mock_settings_whats_next)
 
         html_4x8 = renderer_4x8._build_html_template(
             display_date="Test",
@@ -201,7 +199,7 @@ class TestLayoutRendererSeparation:
             interactive_mode=False,
         )
 
-        html_3x4 = renderer_3x4._build_html_template(
+        html_whats_next = renderer_whats_next._build_html_template(
             display_date="Test",
             status_line="",
             events_content="<div>Content</div>",
@@ -210,7 +208,7 @@ class TestLayoutRendererSeparation:
         )
 
         assert 'class="layout-4x8"' in html_4x8
-        assert 'class="layout-3x4"' in html_3x4
+        assert 'class="layout-whats-next-view"' in html_whats_next
 
 
 class TestResourceManagerErrorHandling:
