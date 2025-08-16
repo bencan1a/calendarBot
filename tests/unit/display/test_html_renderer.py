@@ -1198,14 +1198,14 @@ class TestHTMLRendererViewportConfiguration:
         self, mock_path_open: Any, mock_json_load: Any, mock_exists: Any
     ) -> None:
         """Test fallback to direct file reading when LayoutRegistry fails."""
-        self.settings.web_layout = "3x4"
+        self.settings.web_layout = "whats-next-view"
         renderer = HTMLRenderer(self.settings)
         renderer.layout_registry = None  # Simulate registry failure
 
         # Mock file operations
         mock_exists.return_value = True
         mock_config = {
-            "dimensions": {"fixed_dimensions": True, "optimal_width": 300, "optimal_height": 400}
+            "dimensions": {"fixed_dimensions": True, "optimal_width": 400, "optimal_height": 600}
         }
         mock_json_load.return_value = mock_config
 
@@ -1216,7 +1216,7 @@ class TestHTMLRendererViewportConfiguration:
         result = renderer._get_layout_config()
 
         assert result is not None
-        assert result["dimensions"]["optimal_width"] == 300
+        assert result["dimensions"]["optimal_width"] == 400
         # Verify that file operations were called
         assert mock_exists.called
         assert mock_path_open.called
@@ -1318,19 +1318,19 @@ class TestHTMLRendererViewportConfiguration:
             assert width == 480
             assert height == 800
 
-    def test_get_layout_dimensions_3x4_layout(self) -> None:
-        """Test _get_layout_dimensions for 3x4 layout."""
-        self.settings.web_layout = "3x4"
+    def test_get_layout_dimensions_whats_next_layout(self) -> None:
+        """Test _get_layout_dimensions for whats-next-view layout."""
+        self.settings.web_layout = "whats-next-view"
         renderer = HTMLRenderer(self.settings)
 
         with patch.object(
             renderer,
             "_get_layout_config",
-            return_value={"dimensions": {"optimal_width": 300, "optimal_height": 400}},
+            return_value={"dimensions": {"optimal_width": 400, "optimal_height": 600}},
         ):
             width, height = renderer._get_layout_dimensions()
-            assert width == 300
-            assert height == 400
+            assert width == 400
+            assert height == 600
 
     def test_get_layout_dimensions_missing_config(self) -> None:
         """Test _get_layout_dimensions handles missing config."""
@@ -1378,14 +1378,14 @@ class TestHTMLRendererViewportConfiguration:
                 == "width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover"
             )
 
-    def test_generate_viewport_meta_tag_fixed_dimensions_3x4(self) -> None:
-        """Test viewport meta tag generation for fixed 3x4 layout."""
-        self.settings.web_layout = "3x4"
+    def test_generate_viewport_meta_tag_fixed_dimensions_whats_next(self) -> None:
+        """Test viewport meta tag generation for fixed whats-next-view layout."""
+        self.settings.web_layout = "whats-next-view"
         renderer = HTMLRenderer(self.settings)
 
         with (
             patch.object(renderer, "_has_fixed_dimensions", return_value=True),
-            patch.object(renderer, "_get_layout_dimensions", return_value=(300, 400)),
+            patch.object(renderer, "_get_layout_dimensions", return_value=(400, 600)),
         ):
             result = renderer._generate_viewport_meta_tag()
 
