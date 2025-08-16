@@ -74,7 +74,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
     def _render_full_page_html(
         self,
         events_content: str,
-        status_info: dict[str, Any],
+        _status_info: dict[str, Any],
         current_time: datetime,
         display_date: str,
     ) -> str:
@@ -101,13 +101,8 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
             </div>
             """
 
-            # Build status footer
-            status_html = f"""
-            <div class="status-footer">
-                <p>Last updated: {status_info.get("relative_description", "now")}</p>
-                {f"<p>Status: {status_info['connection_status']}</p>" if status_info.get("connection_status") else ""}
-            </div>
-            """
+            # Remove status footer for cleaner 4x8 layout as requested
+            status_html = ""
 
             # Combine and wrap in full HTML document
             body_content = main_content + status_html
@@ -230,7 +225,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         # Next events (upcoming)
         if view_model.next_events:
             content_parts.append('<section class="upcoming-events">')
-            content_parts.append('<h2 class="section-title">📋 What\'s Next</h2>')
+            # Remove the "What's Next" header as requested for 4x8 layout
             content_parts.extend(
                 [
                     self._format_event_data_html(event, is_current=False)
