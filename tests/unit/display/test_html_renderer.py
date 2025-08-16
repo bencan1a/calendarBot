@@ -27,15 +27,15 @@ class TestHTMLRendererInitialization:
         assert renderer.settings == settings
         assert renderer.layout == "4x8"  # Fixed: Default is 4x8, not 3x4
 
-    def test_init_with_3x4_layout(self) -> None:
-        """Test HTML renderer initialization with 3x4 layout."""
+    def test_init_with_whats_next_layout(self) -> None:
+        """Test HTML renderer initialization with whats-next-view layout."""
         settings = Mock()
-        settings.web_layout = "3x4"
+        settings.web_layout = "whats-next-view"
 
         renderer = HTMLRenderer(settings)
 
         assert renderer.settings == settings
-        assert renderer.layout == "3x4"
+        assert renderer.layout == "whats-next-view"
 
     def test_init_with_4x8_layout(self) -> None:
         """Test HTML renderer initialization with 4x8 layout."""
@@ -54,7 +54,7 @@ class TestHTMLRendererRenderEvents:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_layout = "3x4"
+        self.settings.web_layout = "whats-next-view"
         self.renderer = HTMLRenderer(self.settings)
 
     @patch("calendarbot.display.html_renderer.datetime")
@@ -789,7 +789,7 @@ class TestHTMLRendererHTMLTemplate:
     @patch.object(HTMLRenderer, "_get_dynamic_resources")
     def test_build_html_template_static_mode(self, mock_dynamic_resources: Any) -> None:
         """Test HTML template building in static mode."""
-        mock_dynamic_resources.return_value = (["3x4.css"], ["3x4.js"])
+        mock_dynamic_resources.return_value = (["whats-next-view.css"], ["whats-next-view.js"])
 
         result = self.renderer._build_html_template(
             display_date="Monday, December 18",
@@ -804,8 +804,8 @@ class TestHTMLRendererHTMLTemplate:
         assert "<div>Static Events</div>" in result
         assert 'onclick="navigate(' not in result  # No interactive navigation
         assert "<footer" not in result  # No footer in static mode
-        assert "3x4.css" in result
-        assert "3x4.js" in result
+        assert "whats-next-view.css" in result
+        assert "whats-next-view.js" in result
 
 
 class TestHTMLRendererThemeFiles:
