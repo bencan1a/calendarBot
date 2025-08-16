@@ -105,7 +105,7 @@ class TestLayoutSwitching:
     def test_get_available_layouts(self, display_manager: DisplayManager) -> None:
         """Test getting available layouts from registry."""
         layouts = display_manager.get_available_layouts()
-        assert layouts == ["4x8", "3x4"]
+        assert layouts == ["4x8", "whats-next-view"]
 
     def test_set_display_type_changes_renderer(self, display_manager: DisplayManager) -> None:
         """Test setting display type (renderer) separately from layout."""
@@ -122,24 +122,24 @@ class TestLayoutSwitching:
         # Mock the display manager's set_layout method (not set_display_type)
         web_server.display_manager.set_layout = Mock(return_value=True)
 
-        result = web_server.set_layout("3x4")
+        result = web_server.set_layout("whats-next-view")
         assert result is True
         # Web server calls set_layout with layout name
-        web_server.display_manager.set_layout.assert_called_once_with("3x4")
+        web_server.display_manager.set_layout.assert_called_once_with("whats-next-view")
 
     def test_web_server_set_layout_invalid(self, web_server: WebServer) -> None:
         """Test web server layout setting with invalid layout."""
         # Mock layout registry validation
         web_server.layout_registry.validate_layout.return_value = False
-        web_server.layout_registry.get_available_layouts.return_value = ["4x8", "3x4"]
+        web_server.layout_registry.get_available_layouts.return_value = ["4x8", "whats-next-view"]
 
         result = web_server.set_layout("invalid-layout")
         assert result is False
 
     def test_web_server_cycle_layout(self, web_server: WebServer) -> None:
-        """Test web server layout cycling from 3x4 to 4x8."""
+        """Test web server layout cycling from whats-next-view to 4x8."""
         # Set initial state - web server layout property is the source of truth for layout names
-        web_server.layout = "3x4"
+        web_server.layout = "whats-next-view"
         web_server.display_manager.set_layout = Mock(return_value=True)
 
         result = web_server.cycle_layout()
