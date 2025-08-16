@@ -815,13 +815,13 @@ class TestHTMLRendererThemeFiles:
         """Set up test fixtures."""
         self.settings = Mock()
 
-    def test_get_fallback_css_file_3x4(self) -> None:
-        """Test fallback CSS file selection for 3x4 layout."""
-        self.settings.web_layout = "3x4"
+    def test_get_fallback_css_file_whats_next(self) -> None:
+        """Test fallback CSS file selection for whats-next-view layout."""
+        self.settings.web_layout = "whats-next-view"
         renderer = HTMLRenderer(self.settings)
 
         result = renderer._get_fallback_css_file()
-        assert result == "3x4.css"
+        assert result == "4x8.css"  # whats-next-view falls back to 4x8.css
 
     def test_get_fallback_css_file_4x8(self) -> None:
         """Test fallback CSS file selection for 4x8 layout."""
@@ -839,13 +839,13 @@ class TestHTMLRendererThemeFiles:
         result = renderer._get_fallback_css_file()
         assert result == "4x8.css"
 
-    def test_get_fallback_js_file_3x4(self) -> None:
-        """Test fallback JS file selection for 3x4 layout."""
-        self.settings.web_layout = "3x4"
+    def test_get_fallback_js_file_whats_next(self) -> None:
+        """Test fallback JS file selection for whats-next-view layout."""
+        self.settings.web_layout = "whats-next-view"
         renderer = HTMLRenderer(self.settings)
 
         result = renderer._get_fallback_js_file()
-        assert result == "3x4.js"
+        assert result == "whats-next-view.js"
 
     def test_get_fallback_js_file_4x8(self) -> None:
         """Test fallback JS file selection for 4x8 layout."""
@@ -863,13 +863,13 @@ class TestHTMLRendererThemeFiles:
         result = renderer._get_fallback_js_file()
         assert result == "4x8.js"
 
-    def test_get_layout_icon_3x4(self) -> None:
-        """Test layout icon for 3x4 layout."""
-        self.settings.web_layout = "3x4"
+    def test_get_layout_icon_whats_next(self) -> None:
+        """Test layout icon for whats-next-view layout."""
+        self.settings.web_layout = "whats-next-view"
         renderer = HTMLRenderer(self.settings)
 
         result = renderer._get_layout_icon()
-        assert result == "⚙️"
+        assert result == "⚫"  # whats-next-view uses the standard icon
 
     def test_get_layout_icon_other(self) -> None:
         """Test layout icon for non-3x4 layouts."""
@@ -926,7 +926,7 @@ class TestHTMLRendererRenderError:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.settings = Mock()
-        self.settings.web_layout = "3x4"
+        self.settings.web_layout = "whats-next-view"
         self.renderer = HTMLRenderer(self.settings)
 
     @patch("calendarbot.display.html_renderer.datetime")
