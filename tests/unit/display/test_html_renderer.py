@@ -25,7 +25,7 @@ class TestHTMLRendererInitialization:
         print("DEBUG: Expected layout should be: 4x8 (based on HTMLRenderer line 24)")
 
         assert renderer.settings == settings
-        assert renderer.layout == "4x8"  # Fixed: Default is 4x8, not 3x4
+        assert renderer.layout == "4x8"  # Default is 4x8
 
     def test_init_with_whats_next_layout(self) -> None:
         """Test HTML renderer initialization with whats-next-view layout."""
@@ -872,7 +872,7 @@ class TestHTMLRendererThemeFiles:
         assert result == "⚫"  # whats-next-view uses the standard icon
 
     def test_get_layout_icon_other(self) -> None:
-        """Test layout icon for non-3x4 layouts."""
+        """Test layout icon for non-whats-next-view layouts."""
         self.settings.web_layout = "4x8"
         renderer = HTMLRenderer(self.settings)
 
