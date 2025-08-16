@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import aiosqlite
-import pytest_asyncio
+import pytest
 
 
 class DatabaseTestManager:
@@ -310,7 +310,7 @@ class DatabaseScenarios:
         }
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def test_database_manager(temp_database: Path) -> AsyncGenerator[DatabaseTestManager, None]:
     """Create a test database manager."""
     manager = DatabaseTestManager(temp_database)
@@ -319,7 +319,7 @@ async def test_database_manager(temp_database: Path) -> AsyncGenerator[DatabaseT
     await manager.clear_all_data()
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def populated_test_database(
     test_database_manager: DatabaseTestManager,
 ) -> DatabaseTestManager:
@@ -332,7 +332,7 @@ async def populated_test_database(
     return test_database_manager
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def stale_cache_database(test_database_manager: DatabaseTestManager) -> DatabaseTestManager:
     """Create a test database with stale cache data."""
     scenario = DatabaseScenarios.stale_cache_scenario()
@@ -343,7 +343,7 @@ async def stale_cache_database(test_database_manager: DatabaseTestManager) -> Da
     return test_database_manager
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def performance_test_database(
     test_database_manager: DatabaseTestManager,
 ) -> DatabaseTestManager:
