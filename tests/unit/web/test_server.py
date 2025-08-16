@@ -1041,24 +1041,24 @@ class TestWebServer:
         web_server.layout_registry.validate_layout.assert_called_once_with("whats-next-view")
         web_server.display_manager.set_layout.assert_called_once_with("whats-next-view")
 
-    def test_toggle_layout_4x8_to_3x4(self, web_server):
-        """Test toggling layout from 4x8 to 3x4 (calls cycle_layout)."""
+    def test_toggle_layout_4x8_to_whats_next(self, web_server):
+        """Test toggling layout from 4x8 to whats-next-view (calls cycle_layout)."""
         # Mock layout registry and current layout
-        web_server.layout_registry.get_available_layouts.return_value = ["4x8", "3x4"]
+        web_server.layout_registry.get_available_layouts.return_value = ["4x8", "whats-next-view"]
         web_server.layout = "4x8"  # Current layout
         web_server.layout_registry.validate_layout.return_value = True
         web_server.display_manager.set_layout.return_value = True
 
         new_layout = web_server.toggle_layout()
 
-        assert new_layout == "3x4"
-        assert web_server.layout == "3x4"
+        assert new_layout == "whats-next-view"
+        assert web_server.layout == "whats-next-view"
 
-    def test_toggle_layout_3x4_to_4x8(self, web_server):
-        """Test toggling layout from 3x4 to 4x8 (calls cycle_layout)."""
+    def test_toggle_layout_whats_next_to_4x8(self, web_server):
+        """Test toggling layout from whats-next-view to 4x8 (calls cycle_layout)."""
         # Mock layout registry and current layout
-        web_server.layout_registry.get_available_layouts.return_value = ["4x8", "3x4"]
-        web_server.layout = "3x4"  # Current layout
+        web_server.layout_registry.get_available_layouts.return_value = ["4x8", "whats-next-view"]
+        web_server.layout = "whats-next-view"  # Current layout
         web_server.layout_registry.validate_layout.return_value = True
         web_server.display_manager.set_layout.return_value = True
 
