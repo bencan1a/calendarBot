@@ -1,6 +1,6 @@
-"""Integration tests for ConnectionManager with Phase2AMonitor.
+"""Integration tests for ConnectionManager with ConnectionPoolMonitor.
 
-This module tests the integration between ConnectionManager and Phase2AMonitor
+This module tests the integration between ConnectionManager and ConnectionPoolMonitor
 to ensure proper metric collection, performance tracking, and monitoring
 during actual connection pool operations.
 """
@@ -12,7 +12,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from calendarbot.config.optimization import OptimizationConfig
-from calendarbot.monitoring.phase_2a_monitor import Phase2AMonitor
 from calendarbot.optimization.connection_manager import (
     ConnectionManager,
     get_connection_manager,
