@@ -20,7 +20,7 @@ from calendarbot.optimization.connection_manager import (
 
 
 class TestConnectionManagerPhase2AIntegration:
-    """Test ConnectionManager integration with Phase2AMonitor."""
+    """Test ConnectionManager integration with ConnectionPoolMonitor."""
 
     @pytest.fixture(autouse=True)
     def setup_and_teardown(self):
@@ -46,9 +46,9 @@ class TestConnectionManagerPhase2AIntegration:
         return config
 
     @pytest.fixture
-    def mock_phase2a_monitor(self) -> Phase2AMonitor:
-        """Create a mock Phase2AMonitor."""
-        monitor = MagicMock(spec=Phase2AMonitor)
+    def mock_phase2a_monitor(self) -> ConnectionPoolMonitor:
+        """Create a mock ConnectionPoolMonitor."""
+        monitor = MagicMock(spec=ConnectionPoolMonitor)
         monitor.log_connection_pool_status = MagicMock()
         monitor.log_connection_acquisition = MagicMock()
         monitor.log_connection_release = MagicMock()
@@ -58,9 +58,11 @@ class TestConnectionManagerPhase2AIntegration:
 
     @pytest.mark.asyncio
     async def test_connection_manager_monitor_integration_initialization(
-        self, mock_optimization_config: OptimizationConfig, mock_phase2a_monitor: Phase2AMonitor
+        self,
+        mock_optimization_config: OptimizationConfig,
+        mock_phase2a_monitor: ConnectionPoolMonitor,
     ):
-        """Test ConnectionManager initializes correctly with Phase2AMonitor."""
+        """Test ConnectionManager initializes correctly with ConnectionPoolMonitor."""
         with patch(
             "calendarbot.optimization.connection_manager.OptimizationConfig"
         ) as mock_config_class:
@@ -92,7 +94,9 @@ class TestConnectionManagerPhase2AIntegration:
 
     @pytest.mark.asyncio
     async def test_connection_acquisition_with_monitoring(
-        self, mock_optimization_config: OptimizationConfig, mock_phase2a_monitor: Phase2AMonitor
+        self,
+        mock_optimization_config: OptimizationConfig,
+        mock_phase2a_monitor: ConnectionPoolMonitor,
     ):
         """Test connection acquisition records proper metrics."""
         with patch(
@@ -124,7 +128,9 @@ class TestConnectionManagerPhase2AIntegration:
 
     @pytest.mark.asyncio
     async def test_connection_health_check_monitoring(
-        self, mock_optimization_config: OptimizationConfig, mock_phase2a_monitor: Phase2AMonitor
+        self,
+        mock_optimization_config: OptimizationConfig,
+        mock_phase2a_monitor: ConnectionPoolMonitor,
     ):
         """Test connection health checks record proper metrics."""
         with patch(
@@ -152,7 +158,9 @@ class TestConnectionManagerPhase2AIntegration:
 
     @pytest.mark.asyncio
     async def test_connection_statistics_monitoring(
-        self, mock_optimization_config: OptimizationConfig, mock_phase2a_monitor: Phase2AMonitor
+        self,
+        mock_optimization_config: OptimizationConfig,
+        mock_phase2a_monitor: ConnectionPoolMonitor,
     ):
         """Test connection statistics are properly monitored."""
         with patch(
@@ -182,7 +190,9 @@ class TestConnectionManagerPhase2AIntegration:
 
     @pytest.mark.asyncio
     async def test_error_condition_monitoring(
-        self, mock_optimization_config: OptimizationConfig, mock_phase2a_monitor: Phase2AMonitor
+        self,
+        mock_optimization_config: OptimizationConfig,
+        mock_phase2a_monitor: ConnectionPoolMonitor,
     ):
         """Test error conditions are properly monitored."""
         with patch(
@@ -203,7 +213,9 @@ class TestConnectionManagerPhase2AIntegration:
 
     @pytest.mark.asyncio
     async def test_performance_metrics_collection(
-        self, mock_optimization_config: OptimizationConfig, mock_phase2a_monitor: Phase2AMonitor
+        self,
+        mock_optimization_config: OptimizationConfig,
+        mock_phase2a_monitor: ConnectionPoolMonitor,
     ):
         """Test performance metrics are collected during operations."""
         with patch(
@@ -248,7 +260,9 @@ class TestConnectionManagerPhase2AIntegration:
             await connection_manager.shutdown()
 
     def test_global_connection_manager_monitoring(
-        self, mock_optimization_config: OptimizationConfig, mock_phase2a_monitor: Phase2AMonitor
+        self,
+        mock_optimization_config: OptimizationConfig,
+        mock_phase2a_monitor: ConnectionPoolMonitor,
     ):
         """Test global connection manager properly integrates with monitoring."""
         with patch(
@@ -258,7 +272,7 @@ class TestConnectionManagerPhase2AIntegration:
 
             # Test getting global connection manager with monitor
             with patch(
-                "calendarbot.optimization.connection_manager.Phase2AMonitor"
+                "calendarbot.optimization.connection_manager.ConnectionPoolMonitor"
             ) as mock_monitor_class:
                 mock_monitor_class.return_value = mock_phase2a_monitor
 
@@ -281,7 +295,9 @@ class TestConnectionManagerPhase2AIntegration:
 
     @pytest.mark.asyncio
     async def test_concurrent_operations_monitoring(
-        self, mock_optimization_config: OptimizationConfig, mock_phase2a_monitor: Phase2AMonitor
+        self,
+        mock_optimization_config: OptimizationConfig,
+        mock_phase2a_monitor: ConnectionPoolMonitor,
     ):
         """Test monitoring works correctly under concurrent operations."""
         with patch(
@@ -329,7 +345,7 @@ class TestConnectionManagerPhase2AIntegration:
         assert manager1.monitor is not None  # Should create default monitor
 
         # Test with custom monitor
-        custom_monitor = MagicMock(spec=Phase2AMonitor)
+        custom_monitor = MagicMock(spec=ConnectionPoolMonitor)
         manager2 = ConnectionManager(monitor=custom_monitor)
         assert manager2.monitor == custom_monitor
 
@@ -339,7 +355,9 @@ class TestConnectionManagerPhase2AIntegration:
 
     @pytest.mark.asyncio
     async def test_metric_data_accuracy(
-        self, mock_optimization_config: OptimizationConfig, mock_phase2a_monitor: Phase2AMonitor
+        self,
+        mock_optimization_config: OptimizationConfig,
+        mock_phase2a_monitor: ConnectionPoolMonitor,
     ):
         """Test that recorded metrics contain accurate data."""
         with patch(
