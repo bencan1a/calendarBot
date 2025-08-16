@@ -1,5 +1,34 @@
 /* Calendar Bot Web Interface CSS - 4x8 Layout (480x800 Fixed Viewport) */
 
+/* 4x8 view enhancement: WhatsNextView 8-shade grayscale palette for consistency */
+:root {
+    --gray-1: #ffffff;  /* Lightest - primary backgrounds */
+    --gray-2: #f8f9fa;  /* Very light - secondary backgrounds */
+    --gray-3: #e9ecef;  /* Light - subtle dividers, disabled states */
+    --gray-4: #dee2e6;  /* Light-medium - borders, inactive elements */
+    --gray-5: #adb5bd;  /* Medium - supporting text, icons */
+    --gray-6: #6c757d;  /* Medium-dark - secondary text */
+    --gray-7: #495057;  /* Dark - primary text */
+    --gray-8: #212529;  /* Darkest - headings, high emphasis */
+}
+
+/* 4x8 view enhancement: Semantic color assignments for design consistency */
+:root {
+    --text-primary: var(--gray-8);
+    --text-supporting: var(--gray-6);
+    --text-subtle: var(--gray-5);
+    --background-primary: var(--gray-1);
+    --background-secondary: var(--gray-2);
+    --surface-raised: var(--gray-1);
+    --border-light: var(--gray-3);
+    --border-medium: var(--gray-4);
+    --accent-primary: #007bff;
+    --accent-blue: #007bff;
+    --accent-success: #28a745;
+    --accent-warning: #ffc107;
+    --accent-danger: #dc3545;
+}
+
 /* Full viewport without centering - renders at top left */
 html, body {
     width: 100vw;
@@ -7,7 +36,7 @@ html, body {
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background-color: white;
+    background-color: var(--background-primary);
     box-sizing: border-box;
 }
 
@@ -19,7 +48,7 @@ body::before {
     left: 0;
     width: 480px;
     height: 800px;
-    background-color: white;
+    background-color: var(--background-primary);
     z-index: -1;
 }
 
@@ -30,7 +59,8 @@ body {
     max-width: 480px !important;
     max-height: 800px !important;
     min-height: 800px !important;
-    background-color: white;
+    background-color: var(--background-primary);
+    color: var(--text-primary);
     overflow: hidden;
     position: relative;
     box-sizing: border-box;
@@ -195,8 +225,7 @@ body {
 }
 
 .current-events,
-.upcoming-events,
-.later-events {
+.upcoming-events {
     margin-bottom: 2rem;
 }
 
@@ -263,40 +292,6 @@ body {
     animation: pulse 2s infinite;
 }
 
-/* Later events */
-.later-events-list {
-    list-style: none;
-}
-
-.later-event {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-}
-
-.later-event:last-child {
-    border-bottom: none;
-}
-
-.later-event .event-title {
-    font-weight: 500;
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: calc(100% - 80px); /* Reserve space for time */
-}
-
-.later-event .event-time {
-    font-size: 0.9rem;
-    opacity: 0.8;
-    text-align: right;
-    flex-shrink: 0;
-    min-width: 70px;
-}
 
 /* No events */
 .no-events {
@@ -430,11 +425,11 @@ body {
     position: sticky;
     bottom: 0;
     padding: 1rem;
-    border-top: 1px solid;
+    border-top: 1px solid var(--border-light);
     text-align: center;
     font-size: 0.9rem;
-    background: #ffffff;
-    border-top-color: #dee2e6;
+    background: var(--surface-raised);
+    color: var(--text-supporting);
 }
 
 /* Calendar status bar - ensure center alignment */
@@ -635,93 +630,93 @@ body .status-cached {
    E-INK THEME
    =========================================== */
 .theme-eink {
-    background: #ffffff;
-    color: #000000;
+    background: var(--background-primary);
+    color: var(--text-primary);
 }
 
 .theme-eink body {
     font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
     font-size: 16px;
     line-height: 1.4;
-    background: #ffffff;
-    color: #000000;
+    background: var(--background-primary);
+    color: var(--text-primary);
 }
 
 .theme-eink .calendar-header {
-    background: #ffffff;
-    border-bottom-color: #000000;
+    background: var(--background-primary);
+    border-bottom-color: var(--text-primary);
 }
 
 .theme-eink .nav-btn,
 .theme-eink .theme-toggle {
-    border-color: #000000;
-    color: #000000;
-    background: #ffffff;
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+    background: var(--background-primary);
 }
 
 .theme-eink .nav-btn:hover,
 .theme-eink .theme-toggle:hover {
-    background: #f0f0f0;
+    background: var(--background-secondary);
 }
 
 .theme-eink .current-event {
-    border-color: #000000;
-    background: #ffffff;
+    border-color: var(--text-primary);
+    background: var(--background-primary);
 }
 
 .theme-eink .upcoming-event {
-    border-color: #000000;
-    background: #ffffff;
+    border-color: var(--text-primary);
+    background: var(--background-primary);
 }
 
 .theme-eink .later-event {
-    border-bottom-color: #cccccc;
+    border-bottom-color: var(--border-medium);
 }
 
 .theme-eink .error-section {
-    border-color: #000000;
-    background: #ffffff;
+    border-color: var(--text-primary);
+    background: var(--background-primary);
 }
 
 .theme-eink .cached-event {
-    border-color: #000000;
-    background: #ffffff;
+    border-color: var(--text-primary);
+    background: var(--background-primary);
 }
 
 .theme-eink .footer {
-    background: #ffffff;
-    border-top-color: #000000;
+    background: var(--background-primary);
+    border-top-color: var(--text-primary);
 }
 
 .theme-eink .nav-key {
-    background: #e0e0e0;
-    color: #000000;
+    background: var(--background-secondary);
+    color: var(--text-primary);
 }
 
 .theme-eink .user-code {
-    background: #e0e0e0;
-    color: #000000;
+    background: var(--background-secondary);
+    color: var(--text-primary);
 }
 
 .theme-eink .step-number {
-    background: #000000;
-    color: #ffffff;
+    background: var(--text-primary);
+    color: var(--background-primary);
 }
 
 .theme-eink .navigation-popup {
-    background: #ffffff;
-    border-color: #000000;
+    background: var(--background-primary);
+    border-color: var(--text-primary);
     box-shadow: none;
 }
 
 .theme-eink .navigation-feedback {
-    background: #000000;
-    color: #ffffff;
+    background: var(--text-primary);
+    color: var(--background-primary);
 }
 
 .theme-eink .calendar-status {
-    background: #ffffff;
-    color: #000000;
+    background: var(--background-primary);
+    color: var(--text-primary);
 }
 
 /* E-ink specific: no animations, sharp edges */
@@ -742,79 +737,79 @@ body .status-cached {
    STANDARD THEME
    =========================================== */
 .theme-standard {
-    background: #f8f9fa;
-    color: #212529;
+    background: var(--background-secondary);
+    color: var(--text-primary);
 }
 
 .theme-standard body {
-    background: #f8f9fa;
-    color: #212529;
+    background: var(--background-secondary);
+    color: var(--text-primary);
 }
 
 .theme-standard .calendar-header {
-    background: #ffffff;
-    border-bottom-color: #dee2e6;
+    background: var(--background-primary);
+    border-bottom-color: var(--border-light);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .theme-standard .nav-btn,
 .theme-standard .theme-toggle {
-    border-color: #dee2e6;
-    color: #495057;
-    background: #ffffff;
+    border-color: var(--border-light);
+    color: var(--text-supporting);
+    background: var(--background-primary);
 }
 
 .theme-standard .nav-btn:hover,
 .theme-standard .theme-toggle:hover {
-    background: #e9ecef;
-    border-color: #adb5bd;
+    background: var(--border-light);
+    border-color: var(--text-subtle);
 }
 
 .theme-standard .current-event {
-    border-color: #007bff;
-    background: #ffffff;
+    border-color: var(--accent-primary);
+    background: var(--background-primary);
     box-shadow: 0 2px 8px rgba(0,123,255,0.1);
 }
 
 .theme-standard .upcoming-event {
-    border-color: #dee2e6;
-    background: #ffffff;
+    border-color: var(--border-light);
+    background: var(--background-primary);
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .theme-standard .later-event {
-    border-bottom-color: #dee2e6;
+    border-bottom-color: var(--border-light);
 }
 
 .theme-standard .error-section {
-    border-color: #dc3545;
+    border-color: var(--accent-danger);
     background: #f8d7da;
     color: #721c24;
 }
 
 .theme-standard .cached-event {
-    border-color: #ffc107;
+    border-color: var(--accent-warning);
     background: #fff3cd;
 }
 
 .theme-standard .footer {
-    background: #ffffff;
-    border-top-color: #dee2e6;
+    background: var(--background-primary);
+    border-top-color: var(--border-light);
 }
 
 .theme-standard .nav-key {
-    background: #e9ecef;
-    color: #495057;
+    background: var(--border-light);
+    color: var(--text-supporting);
 }
 
 .theme-standard .user-code {
-    background: #e9ecef;
-    color: #495057;
+    background: var(--border-light);
+    color: var(--text-supporting);
 }
 
 .theme-standard .step-number {
-    background: #007bff;
-    color: #ffffff;
+    background: var(--accent-primary);
+    color: var(--background-primary);
 }
 
 .theme-standard .status-cached {
