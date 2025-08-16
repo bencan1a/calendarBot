@@ -146,20 +146,20 @@ class TestLayoutSwitching:
         assert result == "4x8"
 
     def test_web_server_cycle_layout_from_4x8(self, web_server: WebServer) -> None:
-        """Test web server layout cycling from 4x8 to 3x4."""
+        """Test web server layout cycling from 4x8 to whats-next-view."""
         # Set initial state - web server layout property is the source of truth for layout names
         web_server.layout = "4x8"
         web_server.display_manager.set_layout = Mock(return_value=True)
 
         result = web_server.cycle_layout()
-        assert result == "3x4"
+        assert result == "whats-next-view"
 
     def test_web_server_get_current_layout(self, web_server: WebServer) -> None:
         """Test web server getting current layout."""
-        web_server.layout = "3x4"
+        web_server.layout = "whats-next-view"
 
         result = web_server.get_current_layout()
-        assert result == "3x4"
+        assert result == "whats-next-view"
 
     def test_display_manager_renderer_factory_creation(
         self, mock_settings: Mock, mock_layout_registry: Mock
@@ -219,14 +219,14 @@ class TestLayoutSwitching:
         web_server.running = True
         web_server.host = "localhost"
         web_server.port = 8080
-        web_server.display_manager.get_display_type.return_value = "3x4"
+        web_server.display_manager.get_display_type.return_value = "whats-next-view"
 
         # Get status
         status = web_server.get_status()
 
         # Verify layout info is included
         assert "layout" in status
-        assert status["layout"] == "3x4"
+        assert status["layout"] == "whats-next-view"
 
         # Verify other expected fields are present
         assert status["running"] is True
