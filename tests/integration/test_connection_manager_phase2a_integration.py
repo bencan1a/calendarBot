@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from calendarbot.config.optimization import OptimizationConfig
+from calendarbot.monitoring.connection_pool_monitor import ConnectionPoolMonitor
 from calendarbot.optimization.connection_manager import (
     ConnectionManager,
     get_connection_manager,
