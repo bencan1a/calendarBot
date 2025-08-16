@@ -275,7 +275,8 @@ END:VCALENDAR"""
         processing_time = end_time - start_time
 
         assert result.success is True
-        assert len(result.events) == 100
+        # Should have 52 events (1 year of weekly events, limited by expansion_window_days=365)
+        assert len(result.events) == 52
         # Should complete within reasonable time (adjust threshold as needed)
         assert processing_time < 5.0  # 5 seconds
 
