@@ -127,24 +127,25 @@ def mock_logger() -> MagicMock:
 
 
 @pytest.fixture
-def phase_2a_monitor(
+def connection_pool_monitor(
     mock_optimization_config: OptimizationConfig,
     mock_performance_logger: MagicMock,
     mock_logger: MagicMock,
-) -> Phase2AMonitor:
-    """Create a Phase2AMonitor with mocked dependencies for testing."""
+) -> ConnectionPoolMonitor:
+    """Create a ConnectionPoolMonitor with mocked dependencies for testing."""
     with patch(
-        "calendarbot.monitoring.phase_2a_monitor.get_optimization_config",
+        "calendarbot.monitoring.connection_pool_monitor.get_optimization_config",
         return_value=mock_optimization_config,
     ):
         with patch(
-            "calendarbot.monitoring.phase_2a_monitor.get_performance_logger",
+            "calendarbot.monitoring.connection_pool_monitor.get_performance_logger",
             return_value=mock_performance_logger,
         ):
             with patch(
-                "calendarbot.monitoring.phase_2a_monitor.get_logger", return_value=mock_logger
+                "calendarbot.monitoring.connection_pool_monitor.get_logger",
+                return_value=mock_logger,
             ):
-                monitor = Phase2AMonitor()
+                monitor = ConnectionPoolMonitor()
                 return monitor
 
 
