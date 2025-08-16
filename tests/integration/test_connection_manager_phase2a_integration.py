@@ -46,7 +46,7 @@ class TestConnectionManagerPhase2AIntegration:
         return config
 
     @pytest.fixture
-    def mock_phase2a_monitor(self) -> ConnectionPoolMonitor:
+    def mock_connection_pool_monitor(self) -> ConnectionPoolMonitor:
         """Create a mock ConnectionPoolMonitor."""
         monitor = MagicMock(spec=ConnectionPoolMonitor)
         monitor.log_connection_pool_status = MagicMock()
@@ -60,7 +60,7 @@ class TestConnectionManagerPhase2AIntegration:
     async def test_connection_manager_monitor_integration_initialization(
         self,
         mock_optimization_config: OptimizationConfig,
-        mock_phase2a_monitor: ConnectionPoolMonitor,
+        mock_connection_pool_monitor: ConnectionPoolMonitor,
     ):
         """Test ConnectionManager initializes correctly with ConnectionPoolMonitor."""
         with patch(
@@ -68,20 +68,20 @@ class TestConnectionManagerPhase2AIntegration:
         ) as mock_config_class:
             mock_config_class.return_value = mock_optimization_config
 
-            connection_manager = ConnectionManager(monitor=mock_phase2a_monitor)
+            connection_manager = ConnectionManager(monitor=mock_connection_pool_monitor)
 
             # Verify monitor is properly assigned
-            assert connection_manager.monitor == mock_phase2a_monitor
+            assert connection_manager.monitor == mock_connection_pool_monitor
 
             # Initialize the connection manager
             await connection_manager.startup()
 
             # Verify monitor received connection pool status logs
-            cast(MagicMock, mock_phase2a_monitor.log_connection_pool_status).assert_called()
+            cast(MagicMock, mock_connection_pool_monitor.log_connection_pool_status).assert_called()
 
             # Check that connection pool status was logged during initialization
             call_args_list = cast(
-                MagicMock, mock_phase2a_monitor.log_connection_pool_status
+                MagicMock, mock_connection_pool_monitor.log_connection_pool_status
             ).call_args_list
             assert len(call_args_list) > 0, "No connection pool status logged during initialization"
 
@@ -96,7 +96,7 @@ class TestConnectionManagerPhase2AIntegration:
     async def test_connection_acquisition_with_monitoring(
         self,
         mock_optimization_config: OptimizationConfig,
-        mock_phase2a_monitor: ConnectionPoolMonitor,
+        mock_connection_pool_monitor: ConnectionPoolMonitor,
     ):
         """Test connection acquisition records proper metrics."""
         with patch(
@@ -104,7 +104,7 @@ class TestConnectionManagerPhase2AIntegration:
         ) as mock_config_class:
             mock_config_class.return_value = mock_optimization_config
 
-            connection_manager = ConnectionManager(monitor=mock_phase2a_monitor)
+            connection_manager = ConnectionManager(monitor=mock_connection_pool_monitor)
             await connection_manager.startup()
 
             # Mock aiohttp session for testing
@@ -116,11 +116,11 @@ class TestConnectionManagerPhase2AIntegration:
             assert session == mock_session
 
             # Verify metrics were recorded
-            cast(MagicMock, mock_phase2a_monitor.log_connection_acquisition).assert_called()
+            cast(MagicMock, mock_connection_pool_monitor.log_connection_acquisition).assert_called()
 
             # Check for connection acquisition metrics
             call_args_list = cast(
-                MagicMock, mock_phase2a_monitor.log_connection_acquisition
+                MagicMock, mock_connection_pool_monitor.log_connection_acquisition
             ).call_args_list
             assert len(call_args_list) > 0, "No connection acquisition metrics recorded"
 
@@ -130,7 +130,7 @@ class TestConnectionManagerPhase2AIntegration:
     async def test_connection_health_check_monitoring(
         self,
         mock_optimization_config: OptimizationConfig,
-        mock_phase2a_monitor: ConnectionPoolMonitor,
+        mock_connection_pool_monitor: ConnectionPoolMonitor,
     ):
         """Test connection health checks record proper metrics."""
         with patch(
@@ -138,7 +138,7 @@ class TestConnectionManagerPhase2AIntegration:
         ) as mock_config_class:
             mock_config_class.return_value = mock_optimization_config
 
-            connection_manager = ConnectionManager(monitor=mock_phase2a_monitor)
+            connection_manager = ConnectionManager(monitor=mock_connection_pool_monitor)
             await connection_manager.startup()
 
             # Perform health check
@@ -150,7 +150,7 @@ class TestConnectionManagerPhase2AIntegration:
 
             # Verify health check metrics were recorded via connection pool status
             call_args_list = cast(
-                MagicMock, mock_phase2a_monitor.log_connection_pool_status
+                MagicMock, mock_connection_pool_monitor.log_connection_pool_status
             ).call_args_list
             assert len(call_args_list) > 0, "No health check metrics recorded"
 
@@ -160,7 +160,7 @@ class TestConnectionManagerPhase2AIntegration:
     async def test_connection_statistics_monitoring(
         self,
         mock_optimization_config: OptimizationConfig,
-        mock_phase2a_monitor: ConnectionPoolMonitor,
+        mock_connection_pool_monitor: ConnectionPoolMonitor,
     ):
         """Test connection statistics are properly monitored."""
         with patch(
@@ -168,7 +168,7 @@ class TestConnectionManagerPhase2AIntegration:
         ) as mock_config_class:
             mock_config_class.return_value = mock_optimization_config
 
-            connection_manager = ConnectionManager(monitor=mock_phase2a_monitor)
+            connection_manager = ConnectionManager(monitor=mock_connection_pool_monitor)
             await connection_manager.startup()
 
             # Get connection statistics (sync method, not async)
@@ -182,7 +182,7 @@ class TestConnectionManagerPhase2AIntegration:
 
             # Verify statistics monitoring via connection pool status
             call_args_list = cast(
-                MagicMock, mock_phase2a_monitor.log_connection_pool_status
+                MagicMock, mock_connection_pool_monitor.log_connection_pool_status
             ).call_args_list
             assert len(call_args_list) > 0, "No statistics metrics recorded"
 
@@ -192,7 +192,7 @@ class TestConnectionManagerPhase2AIntegration:
     async def test_error_condition_monitoring(
         self,
         mock_optimization_config: OptimizationConfig,
-        mock_phase2a_monitor: ConnectionPoolMonitor,
+        mock_connection_pool_monitor: ConnectionPoolMonitor,
     ):
         """Test error conditions are properly monitored."""
         with patch(
@@ -200,7 +200,7 @@ class TestConnectionManagerPhase2AIntegration:
         ) as mock_config_class:
             mock_config_class.return_value = mock_optimization_config
 
-            connection_manager = ConnectionManager(monitor=mock_phase2a_monitor)
+            connection_manager = ConnectionManager(monitor=mock_connection_pool_monitor)
 
             # Test error during startup by patching aiohttp components
             with patch("aiohttp.TCPConnector", side_effect=Exception("Test error")):
@@ -215,7 +215,7 @@ class TestConnectionManagerPhase2AIntegration:
     async def test_performance_metrics_collection(
         self,
         mock_optimization_config: OptimizationConfig,
-        mock_phase2a_monitor: ConnectionPoolMonitor,
+        mock_connection_pool_monitor: ConnectionPoolMonitor,
     ):
         """Test performance metrics are collected during operations."""
         with patch(
@@ -223,7 +223,7 @@ class TestConnectionManagerPhase2AIntegration:
         ) as mock_config_class:
             mock_config_class.return_value = mock_optimization_config
 
-            connection_manager = ConnectionManager(monitor=mock_phase2a_monitor)
+            connection_manager = ConnectionManager(monitor=mock_connection_pool_monitor)
             await connection_manager.startup()
 
             # Simulate multiple connection operations
@@ -242,10 +242,10 @@ class TestConnectionManagerPhase2AIntegration:
 
             # Verify comprehensive metrics were collected
             acquisition_calls = cast(
-                MagicMock, mock_phase2a_monitor.log_connection_acquisition
+                MagicMock, mock_connection_pool_monitor.log_connection_acquisition
             ).call_args_list
             pool_status_calls = cast(
-                MagicMock, mock_phase2a_monitor.log_connection_pool_status
+                MagicMock, mock_connection_pool_monitor.log_connection_pool_status
             ).call_args_list
 
             # Should have metrics for initialization, operations, and health checks
@@ -262,7 +262,7 @@ class TestConnectionManagerPhase2AIntegration:
     def test_global_connection_manager_monitoring(
         self,
         mock_optimization_config: OptimizationConfig,
-        mock_phase2a_monitor: ConnectionPoolMonitor,
+        mock_connection_pool_monitor: ConnectionPoolMonitor,
     ):
         """Test global connection manager properly integrates with monitoring."""
         with patch(
@@ -274,7 +274,7 @@ class TestConnectionManagerPhase2AIntegration:
             with patch(
                 "calendarbot.optimization.connection_manager.ConnectionPoolMonitor"
             ) as mock_monitor_class:
-                mock_monitor_class.return_value = mock_phase2a_monitor
+                mock_monitor_class.return_value = mock_connection_pool_monitor
 
                 manager = get_connection_manager()
 
@@ -297,7 +297,7 @@ class TestConnectionManagerPhase2AIntegration:
     async def test_concurrent_operations_monitoring(
         self,
         mock_optimization_config: OptimizationConfig,
-        mock_phase2a_monitor: ConnectionPoolMonitor,
+        mock_connection_pool_monitor: ConnectionPoolMonitor,
     ):
         """Test monitoring works correctly under concurrent operations."""
         with patch(
@@ -305,7 +305,7 @@ class TestConnectionManagerPhase2AIntegration:
         ) as mock_config_class:
             mock_config_class.return_value = mock_optimization_config
 
-            connection_manager = ConnectionManager(monitor=mock_phase2a_monitor)
+            connection_manager = ConnectionManager(monitor=mock_connection_pool_monitor)
             await connection_manager.startup()
 
             # Mock session for concurrent testing
@@ -328,7 +328,7 @@ class TestConnectionManagerPhase2AIntegration:
 
             # Verify metrics were recorded for concurrent operations
             acquisition_calls = cast(
-                MagicMock, mock_phase2a_monitor.log_connection_acquisition
+                MagicMock, mock_connection_pool_monitor.log_connection_acquisition
             ).call_args_list
 
             # Should have metrics from multiple concurrent operations
@@ -357,7 +357,7 @@ class TestConnectionManagerPhase2AIntegration:
     async def test_metric_data_accuracy(
         self,
         mock_optimization_config: OptimizationConfig,
-        mock_phase2a_monitor: ConnectionPoolMonitor,
+        mock_connection_pool_monitor: ConnectionPoolMonitor,
     ):
         """Test that recorded metrics contain accurate data."""
         with patch(
@@ -365,7 +365,7 @@ class TestConnectionManagerPhase2AIntegration:
         ) as mock_config_class:
             mock_config_class.return_value = mock_optimization_config
 
-            connection_manager = ConnectionManager(monitor=mock_phase2a_monitor)
+            connection_manager = ConnectionManager(monitor=mock_connection_pool_monitor)
             await connection_manager.startup()
 
             # Perform operations and check metric data
@@ -374,7 +374,7 @@ class TestConnectionManagerPhase2AIntegration:
 
             # Verify metric calls have proper structure
             pool_status_calls = cast(
-                MagicMock, mock_phase2a_monitor.log_connection_pool_status
+                MagicMock, mock_connection_pool_monitor.log_connection_pool_status
             ).call_args_list
 
             # At least one call should have been made during startup
