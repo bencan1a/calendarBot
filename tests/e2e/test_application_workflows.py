@@ -451,7 +451,7 @@ class TestWebInterfaceWorkflows:
             html2 = web_server.get_calendar_html()
 
             # 3. Change layout
-            web_server.set_layout("3x4")
+            web_server.set_layout("whats-next-view")
 
             # 4. Refresh data
             web_server.refresh_data()
@@ -464,7 +464,7 @@ class TestWebInterfaceWorkflows:
             # Verify session progression
             assert status1["current_date"] != status2["current_date"]  # Navigation worked
             assert status3["current_date"] == status1["current_date"]  # Back to start
-            assert web_server.layout == "3x4"  # Theme persisted
+            assert web_server.layout == "whats-next-view"  # Theme persisted
 
             # All HTML generations should succeed
             assert all("Calendar" in html for html in [html1, html2, html3])
