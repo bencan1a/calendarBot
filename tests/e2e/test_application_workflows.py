@@ -5,7 +5,6 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
 from calendarbot.cache.manager import CacheManager
 from calendarbot.display.manager import DisplayManager
@@ -274,7 +273,7 @@ class TestCompleteApplicationWorkflows:
 class TestWebInterfaceWorkflows:
     """Test suite for web interface end-to-end workflows."""
 
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def web_application_setup(self, test_settings, populated_test_database):
         """Set up complete web application for end-to-end testing."""
         with (
@@ -381,7 +380,7 @@ class TestWebInterfaceWorkflows:
                 mock_get_layout.side_effect = mock_get_current_layout_side_effect
 
                 # Layout switching sequence
-                layouts = ["3x4", "4x8"]
+                layouts = ["4x8", "whats-next-view"]
 
                 for layout in layouts:
                     success = web_server.set_layout(layout)
@@ -394,7 +393,7 @@ class TestWebInterfaceWorkflows:
 
                 # Test layout toggle
                 new_layout = web_server.cycle_layout()
-                assert new_layout in ["4x8", "3x4", "whats-next-view"]
+                assert new_layout in ["4x8", "whats-next-view"]
                 # Verify the layout was actually set in display manager
                 assert web_server.display_manager.get_current_layout() == new_layout
 
@@ -475,7 +474,7 @@ class TestWebInterfaceWorkflows:
 class TestFailureRecoveryWorkflows:
     """Test suite for failure recovery end-to-end workflows."""
 
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def failure_recovery_setup(self, test_settings, populated_test_database):
         """Set up for failure recovery testing."""
         with (
@@ -642,7 +641,7 @@ class TestFailureRecoveryWorkflows:
 class TestPerformanceWorkflows:
     """Test suite for performance-related end-to-end workflows."""
 
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def performance_setup(
         self, test_settings, performance_test_database, performance_tracker
     ):
