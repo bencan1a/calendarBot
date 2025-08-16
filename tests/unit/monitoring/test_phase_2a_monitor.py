@@ -8,7 +8,10 @@ import pytest
 from calendarbot.config.optimization import OptimizationConfig
 from calendarbot.monitoring.connection_pool_monitor import (
     ConnectionPoolMetrics,
+    ConnectionPoolMonitor,
     RequestPipelineMetrics,
+    get_connection_pool_monitor,
+    reset_connection_pool_monitor,
 )
 
 
