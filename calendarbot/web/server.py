@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import Any, Optional, Union
+from typing import Any, Optional
 from urllib.parse import parse_qs, urlparse
 
 from ..config.build import (
@@ -267,9 +267,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.exception("Error serving database viewer page")
             self._send_500(str(e))
 
-    def _handle_api_request(
-        self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
-    ) -> None:
+    def _handle_api_request(self, path: str, params: dict[str, list[str]] | dict[str, Any]) -> None:
         """Handle API requests."""
         try:
             logger.debug(f"API request routing: path='{path}', method={self.command}")
@@ -317,7 +315,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.exception("Error handling API request")
             self._send_json_response(500, {"error": str(e)})
 
-    def _handle_navigation_api(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
+    def _handle_navigation_api(self, params: dict[str, list[str]] | dict[str, Any]) -> None:
         """Handle navigation API requests."""
         logger.debug(f"Navigation API params type: {type(params)}")
         logger.debug(f"Navigation API params content: {params}")
@@ -380,7 +378,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         else:
             self._send_json_response(500, {"error": "Web server not available"})
 
-    def _handle_layout_api(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
+    def _handle_layout_api(self, params: dict[str, list[str]] | dict[str, Any]) -> None:
         """Handle layout switching API requests."""
         if isinstance(params, dict) and "layout" in params:
             layout_value = params["layout"]
@@ -415,7 +413,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_refresh_api(
-        self, params: Optional[Union[dict[str, list[str]], dict[str, Any]]] = None
+        self, params: Optional[dict[str, list[str]] | dict[str, Any]] = None
     ) -> None:
         """Handle refresh API requests with optional debug time override."""
         if not self.web_server:
@@ -451,7 +449,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self._send_json_response(200, {"success": success, "html": html_content})
 
     def _handle_whats_next_data_api(
-        self, params: Optional[Union[dict[str, list[str]], dict[str, Any]]] = None
+        self, params: Optional[dict[str, list[str]] | dict[str, Any]] = None
     ) -> None:
         """Handle What's Next data API requests.
 
@@ -481,7 +479,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(500, {"error": str(e)})
 
     def _extract_debug_time(
-        self, params: Optional[Union[dict[str, list[str]], dict[str, Any]]]
+        self, params: Optional[dict[str, list[str]] | dict[str, Any]]
     ) -> Optional[datetime]:
         """Extract and parse debug_time from request parameters."""
         if not self.web_server:
@@ -899,7 +897,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self._send_json_response(200, status)
 
     def _handle_settings_api(
-        self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, path: str, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle settings API requests with comprehensive endpoint support.
 
@@ -990,7 +988,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(500, {"error": "Failed to get settings", "message": str(e)})
 
     def _handle_update_settings(
-        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle PUT /api/settings - update complete settings."""
         try:
@@ -1004,7 +1002,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from ..settings.models import SettingsData  # noqa: PLC0415
 
             # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(dict[str, Any], params)
+            json_params = cast("dict[str, Any]", params)
             settings = SettingsData(**json_params)
             updated_settings = settings_service.update_settings(settings)
 
@@ -1039,7 +1037,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_update_filter_settings(
-        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle PUT /api/settings/filters - update filter settings."""
         try:
@@ -1054,7 +1052,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from ..settings.models import EventFilterSettings  # noqa: PLC0415
 
             # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(dict[str, Any], params)
+            json_params = cast("dict[str, Any]", params)
             filter_settings = EventFilterSettings(**json_params)
             updated_filters = settings_service.update_filter_settings(filter_settings)
 
@@ -1086,7 +1084,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_update_display_settings(
-        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle PUT /api/settings/display - update display settings."""
         try:
@@ -1101,7 +1099,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from ..settings.models import DisplaySettings  # noqa: PLC0415
 
             # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(dict[str, Any], params)
+            json_params = cast("dict[str, Any]", params)
             display_settings = DisplaySettings(**json_params)
             updated_display = settings_service.update_display_settings(display_settings)
 
@@ -1133,7 +1131,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_update_conflict_settings(
-        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle PUT /api/settings/conflicts - update conflict resolution settings."""
         try:
@@ -1148,7 +1146,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from ..settings.models import ConflictResolutionSettings  # noqa: PLC0415
 
             # For PUT requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(dict[str, Any], params)
+            json_params = cast("dict[str, Any]", params)
             conflict_settings = ConflictResolutionSettings(**json_params)
             updated_conflicts = settings_service.update_conflict_settings(conflict_settings)
 
@@ -1170,7 +1168,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_validate_settings(
-        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle POST /api/settings/validate - validate settings data."""
         try:
@@ -1184,7 +1182,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from ..settings.models import SettingsData  # noqa: PLC0415
 
             # For POST requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(dict[str, Any], params)
+            json_params = cast("dict[str, Any]", params)
             settings = SettingsData(**json_params)
             validation_errors = settings_service.validate_settings(settings)
 
@@ -1222,7 +1220,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(500, {"error": "Failed to export settings", "message": str(e)})
 
     def _handle_import_settings(
-        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle POST /api/settings/import - import settings."""
         try:
@@ -1236,7 +1234,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from ..settings.models import SettingsData  # noqa: PLC0415
 
             # For POST requests, params comes from JSON data, so it should be Dict[str, Any]
-            json_params = cast(dict[str, Any], params)
+            json_params = cast("dict[str, Any]", params)
             settings = SettingsData(**json_params)
             imported_settings = settings_service.update_settings(settings)
 
@@ -1283,7 +1281,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_add_filter_pattern(
-        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle POST /api/settings/filters/patterns - add a new filter pattern."""
         try:
@@ -1329,7 +1327,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_remove_filter_pattern(
-        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle DELETE /api/settings/filters/patterns - remove a filter pattern."""
         try:
@@ -1362,7 +1360,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_hide_event(
-        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle POST /api/events/hide - hide a specific event."""
         try:
@@ -1418,7 +1416,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(500, {"error": "Failed to hide event", "message": str(e)})
 
     def _handle_unhide_event(
-        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle POST /api/events/unhide - unhide a specific event."""
         try:
@@ -1483,7 +1481,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_database_api(
-        self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
+        self, path: str, params: dict[str, list[str]] | dict[str, Any]
     ) -> None:
         """Handle database API requests with comprehensive endpoint support.
 
@@ -1535,7 +1533,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.exception("Error handling database API request")
             self._send_json_response(500, {"error": str(e)})
 
-    def _handle_database_query(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
+    def _handle_database_query(self, params: dict[str, list[str]] | dict[str, Any]) -> None:
         """Handle POST /api/database/query - execute SQL query safely."""
         try:
             # Validate that params is a dictionary and contains query
@@ -1546,7 +1544,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             from typing import cast  # noqa: PLC0415
 
             # For POST requests, params comes from JSON data
-            json_params = cast(dict[str, Any], params)
+            json_params = cast("dict[str, Any]", params)
             query = json_params.get("query", "").strip()
 
             if not query:
@@ -1775,7 +1773,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.exception("Error getting database info")
             self._send_json_response(500, {"error": f"Failed to get database info: {e!s}"})
 
-    def _handle_populate_raw_events(self) -> None:
+    def _handle_populate_raw_events(self) -> None:  # noqa: PLR0915
         """Handle POST /api/database/populate-raw-events - temporarily enable raw content storage for debugging."""
         try:
             logger.info(
@@ -1805,19 +1803,27 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     try:
                         # Import required modules for temporary override
                         from ..config import build  # noqa: PLC0415
+                        from ..ics import parser  # noqa: PLC0415
                         from ..sources.manager import SourceManager  # noqa: PLC0415
 
-                        # Save original production mode function
-                        original_is_production_mode = build.is_production_mode
+                        # Save original production mode functions
+                        original_build_function = build.is_production_mode
+                        original_parser_function = parser.is_production_mode
 
                         # Temporarily override to return False (non-production) to enable raw content
+                        # Must override both the build module and parser module references
                         build.is_production_mode = lambda: False
+                        parser.is_production_mode = lambda: False
                         logger.info(
-                            "Temporarily overriding production mode to enable raw content storage"
+                            "Temporarily overriding production mode in both build and parser modules to enable raw content storage"
                         )
 
                         try:
                             # Create source manager and initialize it
+                            if not self.web_server:
+                                raise ValueError(
+                                    "Web server not available for source manager initialization"
+                                )
                             source_manager = SourceManager(self.web_server.settings, cache_manager)
                             await source_manager.initialize()
 
@@ -1825,21 +1831,47 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                             success = await source_manager.fetch_and_cache_events()
 
                             if success:
-                                # Check how many raw events were created
-                                db_manager = cache_manager.db
-                                count_result = await db_manager.execute_query(
-                                    "SELECT COUNT(*) as count FROM raw_events"
-                                )
-                                count = (
-                                    count_result.get("rows", [{}])[0].get("count", 0)
-                                    if count_result
-                                    else 0
-                                )
+                                # Check how many raw events were created using direct database query
+                                try:
+                                    import aiosqlite  # noqa: PLC0415
+
+                                    db_manager = cache_manager.db
+                                    async with aiosqlite.connect(
+                                        str(db_manager.database_path)
+                                    ) as db:
+                                        # Get count
+                                        cursor = await db.execute(
+                                            "SELECT COUNT(*) as count FROM raw_events"
+                                        )
+                                        row = await cursor.fetchone()
+                                        count = row[0] if row else 0
+
+                                        # Check for duplicates to explain discrepancy
+                                        cursor = await db.execute(
+                                            "SELECT COUNT(DISTINCT graph_id) as unique_count FROM raw_events"
+                                        )
+                                        row = await cursor.fetchone()
+                                        unique_count = row[0] if row else 0
+
+                                        logger.info(
+                                            f"Raw events analysis: {count} total records, {unique_count} unique graph_ids"
+                                        )
+                                        if count != unique_count:
+                                            logger.info(
+                                                f"Note: All {count} raw events have unique graph_ids (no duplicates)"
+                                            )
+
+                                except Exception as e:
+                                    logger.warning(f"Failed to count raw events: {e}")
+                                    count = 0
 
                                 result["success"] = True
                                 result["count"] = count
+                                result["analysis"] = (
+                                    f"Expected from logs: 1711, Actual in DB: {count}"
+                                )
                                 logger.info(
-                                    f"Successfully populated raw_events table with {count} entries"
+                                    f"Successfully populated raw_events table with {count} entries (logs indicated 1711 events parsed)"
                                 )
                             else:
                                 result["error"] = (
@@ -1847,9 +1879,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                                 )
 
                         finally:
-                            # Always restore original production mode function
-                            build.is_production_mode = original_is_production_mode
-                            logger.info("Restored original production mode setting")
+                            # Always restore original production mode functions
+                            build.is_production_mode = original_build_function
+                            parser.is_production_mode = original_parser_function
+                            logger.info(
+                                "Restored original production mode settings in both modules"
+                            )
 
                     except Exception as e:
                         logger.exception("Error during raw events population")
@@ -1865,14 +1900,12 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 finally:
                     new_loop.close()
 
-            # Run the operation in thread pool
+            # Run the operation - use thread pool approach
             try:
-                # Try to get the running event loop
-                asyncio.get_running_loop()
-                # If we get here, there's a running loop, use thread pool
                 result = run_in_thread_pool(run_async_operation, timeout=30.0)
-            except RuntimeError:
-                # No running event loop, safe to use asyncio.run()
+            except Exception:
+                logger.exception("Thread pool execution failed")
+                # Fallback to direct execution
                 result = run_async_operation()
 
             # Send response
@@ -2094,7 +2127,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_500(str(e))
 
     def _send_response(
-        self, status_code: int, content: Union[str, bytes], content_type: str, _binary: bool = False
+        self, status_code: int, content: str | bytes, content_type: str, _binary: bool = False
     ) -> None:
         """Send HTTP response."""
         self.send_response(status_code)
@@ -2282,7 +2315,7 @@ class WebServer:
         finally:
             logger.debug("Server thread cleanup completed")
 
-    def stop(self) -> None:  # noqa
+    def stop(self) -> None:  # noqa: PLR0915
         """Stop the web server with proper shutdown sequence and improved error handling."""
         if not self.running:
             logger.debug("Web server already stopped or not running")

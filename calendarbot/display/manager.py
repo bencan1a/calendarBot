@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, cast
 
 from ..cache.models import CachedEvent
 from ..layout.registry import LayoutRegistry
@@ -29,9 +29,9 @@ class DisplayManager:
             layout_name: Optional layout name override
         """
         self.settings = settings
-        self.renderer: Optional[
-            Union[RendererProtocol, ConsoleRendererProtocol, RendererInterface]
-        ] = None
+        self.renderer: Optional[RendererProtocol | ConsoleRendererProtocol | RendererInterface] = (
+            None
+        )
         self._current_layout_name: Optional[str] = layout_name
         self._current_renderer_type: Optional[str] = renderer_type
 
@@ -267,7 +267,7 @@ class DisplayManager:
             # Render events - handle both RendererProtocol and RendererInterface
             if hasattr(self.renderer, "render_events"):
                 # RendererProtocol interface
-                content = cast(RendererProtocol, self.renderer).render_events(
+                content = cast("RendererProtocol", self.renderer).render_events(
                     events, display_status
                 )
             elif hasattr(self.renderer, "render"):
@@ -276,14 +276,14 @@ class DisplayManager:
                 view_model = logic.create_view_model(events, display_status)
                 # Explicit runtime type check for RendererInterface
                 self._validate_renderer_interface(self.renderer)
-                content = cast(RendererInterface, self.renderer).render(view_model)
+                content = cast("RendererInterface", self.renderer).render(view_model)
             else:
                 logger.error("Renderer does not support any known rendering interface")
                 return False
 
             # Display content
             if clear_screen and hasattr(self.renderer, "display_with_clear"):
-                cast(ConsoleRendererProtocol, self.renderer).display_with_clear(content)
+                cast("ConsoleRendererProtocol", self.renderer).display_with_clear(content)
             else:
                 print(content)
 
@@ -324,10 +324,10 @@ class DisplayManager:
             # Display content - handle both new RendererInterface and legacy methods
             if clear_screen and hasattr(self.renderer, "update_display"):
                 # New RendererInterface method for e-Paper displays
-                cast(RendererInterface, self.renderer).update_display(content)
+                cast("RendererInterface", self.renderer).update_display(content)
             elif clear_screen and hasattr(self.renderer, "display_with_clear"):
                 # Legacy renderer method
-                cast(ConsoleRendererProtocol, self.renderer).display_with_clear(content)
+                cast("ConsoleRendererProtocol", self.renderer).display_with_clear(content)
             else:
                 print(content)
 
@@ -364,7 +364,7 @@ class DisplayManager:
 
             # Display content
             if clear_screen and hasattr(self.renderer, "display_with_clear"):
-                cast(ConsoleRendererProtocol, self.renderer).display_with_clear(content)
+                cast("ConsoleRendererProtocol", self.renderer).display_with_clear(content)
             else:
                 print(content)
 
@@ -412,7 +412,7 @@ class DisplayManager:
                 and self.renderer is not None
                 and hasattr(self.renderer, "display_with_clear")
             ):
-                cast(ConsoleRendererProtocol, self.renderer).display_with_clear(content)
+                cast("ConsoleRendererProtocol", self.renderer).display_with_clear(content)
             else:
                 print(content)
 
@@ -431,7 +431,7 @@ class DisplayManager:
         """
         try:
             if self.renderer is not None and hasattr(self.renderer, "clear_screen"):
-                cast(ConsoleRendererProtocol, self.renderer).clear_screen()
+                cast("ConsoleRendererProtocol", self.renderer).clear_screen()
                 return True
             return secure_clear_screen()
 
@@ -511,7 +511,7 @@ class DisplayManager:
 
                 # For regular layout changes, just update renderer's layout attribute if it has one
                 elif self.renderer and hasattr(self.renderer, "layout"):
-                    cast(Any, self.renderer).layout = layout_name
+                    cast("Any", self.renderer).layout = layout_name
 
             # Update settings
             self.settings.layout_name = layout_name

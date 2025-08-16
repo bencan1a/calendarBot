@@ -154,7 +154,10 @@ except ImportError:
 
 
 from ..config.optimization import OptimizationConfig, get_optimization_config
-from ..monitoring.connection_pool_monitor import ConnectionPoolMonitor, get_connection_pool_monitor
+from ..monitoring.connection_pool_monitor import (
+    ConnectionPoolMonitor,
+    get_connection_pool_monitor,
+)
 
 logger = logging.getLogger(__name__)
 

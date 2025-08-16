@@ -7,7 +7,8 @@ This is part of the architectural refactoring to establish proper CLI
 module structure within the calendarbot package.
 """
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from .daemon import run_daemon_mode
 from .epaper import run_epaper_mode

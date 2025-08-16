@@ -290,6 +290,15 @@ class WhatsNextLogic:
                     )
                     visible_events = events
 
+            # DEBUG: Log recurring event properties for duplicate investigation
+            for event in visible_events:
+                if "Product Strategy" in event.subject:
+                    logger.debug(
+                        f"DUPLICATE DEBUG - Event: {event.subject}, ID: {event.id}, "
+                        f"graph_id: {event.graph_id}, is_recurring: {event.is_recurring}, "
+                        f"series_master_id: {event.series_master_id}, start: {event.start_dt}"
+                    )
+
             # Filter to only upcoming events (not current)
             upcoming_events = [e for e in visible_events if e.start_dt > now]
 

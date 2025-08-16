@@ -107,7 +107,7 @@ class RendererFactory:
             actual_renderer_type: Optional[str] = renderer_type
         elif settings_or_unused is not None:
             # Old positional style: create_renderer(renderer_type, settings)
-            actual_renderer_type = cast(Optional[str], settings_or_renderer_type)
+            actual_renderer_type = cast("Optional[str]", settings_or_renderer_type)
             actual_settings = settings_or_unused
         elif settings_or_renderer_type is not None:
             # Mixed style: create_renderer(settings, renderer_type=..., layout_name=...)
@@ -308,5 +308,5 @@ def _create_renderer_instance(
     }  # WhatsNextRenderer inherits from HTMLRenderer
 
     if renderer_type in html_based_renderers and layout_registry is not None:
-        return cast(RendererProtocol, renderer_class(settings, layout_registry=layout_registry))
-    return cast(RendererProtocol, renderer_class(settings))
+        return cast("RendererProtocol", renderer_class(settings, layout_registry=layout_registry))
+    return cast("RendererProtocol", renderer_class(settings))

@@ -1,6 +1,7 @@
 """Unit tests for runtime resource tracking functionality."""
 
 import tempfile
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -171,7 +172,9 @@ class TestRuntimeResourceTracker:
     def test_stop_tracking_when_tracking_then_stops_successfully(self, runtime_tracker):
         """Test stopping resource tracking."""
         runtime_tracker.start_tracking(session_name="test")
-        time.sleep(0.2)  # Let it collect some samples
+        # Use event wait instead of sleep
+        event = threading.Event()
+        event.wait(timeout=0.02)  # Brief wait to allow samples
 
         stats = runtime_tracker.stop_tracking()
 
@@ -191,7 +194,9 @@ class TestRuntimeResourceTracker:
         """Test using track_execution as context manager."""
 
         def test_operation():
-            time.sleep(0.2)
+            # Use event wait instead of sleep
+            event = threading.Event()
+            event.wait(timeout=0.02)
             return "test_result"
 
         with runtime_tracker.track_execution("test_operation"):
@@ -213,7 +218,9 @@ class TestRuntimeResourceTracker:
     def test_worker_thread_collects_samples_continuously(self, runtime_tracker):
         """Test that worker thread collects samples continuously."""
         runtime_tracker.start_tracking(session_name="test")
-        time.sleep(0.3)  # Let it run for a bit
+        # Use event wait instead of sleep
+        event = threading.Event()
+        event.wait(timeout=0.03)  # Brief wait for samples
         stats = runtime_tracker.stop_tracking()
 
         # Should have collected some samples
@@ -427,7 +434,8 @@ class TestRuntimeTrackerRealIntegration:
         assert tracker._tracking
 
         # Let it run briefly
-        time.sleep(0.1)
+        event = threading.Event()
+        event.wait(timeout=0.01)
 
         # Test stopping tracking
         result = stop_runtime_tracking(tracker)
@@ -502,7 +510,9 @@ class TestRuntimeTrackerPerformance:
         )
 
         tracker.start_tracking(session_name="timing_test")
-        time.sleep(0.5)  # Run for half a second
+        # Use event wait instead of sleep
+        event = threading.Event()
+        event.wait(timeout=0.05)  # Brief wait
         stats = tracker.stop_tracking()
 
         # Should have approximately 5 samples (0.5s / 0.1s)

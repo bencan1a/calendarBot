@@ -5,7 +5,7 @@ backup and restore functionality, and integration with the setup wizard.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -180,7 +180,7 @@ def list_backups() -> int:
         for backup_file in backup_files:
             stat = backup_file.stat()
             size_kb = stat.st_size / 1024
-            mtime = datetime.fromtimestamp(stat.st_mtime)
+            mtime = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
 
             print(f"  📄 {backup_file.name}")
             print(f"     Size: {size_kb:.1f} KB")

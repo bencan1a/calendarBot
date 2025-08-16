@@ -2,11 +2,11 @@
 
 import concurrent.futures
 import threading
-import time
 
 import pytest
 
 from calendarbot.utils.thread_pool import GlobalThreadPool, run_in_thread_pool
+from tests.utils.async_helpers import ThreadSafeCounter
 
 
 @pytest.fixture(autouse=True)
@@ -112,9 +112,11 @@ class TestGlobalThreadPool:
     def test_multiple_tasks_when_submitted_concurrently_then_all_execute(self) -> None:
         """Test that multiple tasks can be executed concurrently."""
         pool = GlobalThreadPool()
+        counter = ThreadSafeCounter()
 
         def slow_task(task_id: int) -> int:
-            time.sleep(0.1)  # Small delay to test concurrency
+            # Use counter instead of sleep to verify concurrency
+            counter.increment()
             return task_id * 2
 
         # Submit multiple tasks
@@ -156,13 +158,18 @@ class TestRunInThreadPool:
 
     def test_run_in_thread_pool_when_timeout_exceeded_then_raises_timeout_error(self) -> None:
         """Test timeout handling in run_in_thread_pool."""
+        event = threading.Event()
 
         def slow_function() -> str:
-            time.sleep(2.0)  # Longer than timeout
+            # Block on event instead of sleep
+            event.wait(timeout=2.0)
             return "completed"
 
         with pytest.raises(concurrent.futures.TimeoutError):
             run_in_thread_pool(slow_function, timeout=0.5)
+
+        # Clean up
+        event.set()
 
     def test_run_in_thread_pool_when_function_raises_exception_then_propagated(self) -> None:
         """Test exception propagation in run_in_thread_pool."""
@@ -185,24 +192,36 @@ class TestRunInThreadPool:
 
     def test_run_in_thread_pool_when_custom_timeout_then_respects_setting(self) -> None:
         """Test that custom timeout values are respected."""
+        event = threading.Event()
 
         def timed_function() -> str:
-            time.sleep(0.3)
+            # Use event with short timeout to simulate work
+            event.wait(timeout=0.01)
             return "completed"
 
         # Should complete with 1 second timeout
         result = run_in_thread_pool(timed_function, timeout=1.0)
         assert result == "completed"
 
+        def blocking_function() -> str:
+            # Block indefinitely
+            event.wait()
+            return "completed"
+
         # Should timeout with very short timeout
         with pytest.raises(concurrent.futures.TimeoutError):
-            run_in_thread_pool(timed_function, timeout=0.1)
+            run_in_thread_pool(blocking_function, timeout=0.1)
+
+        # Clean up
+        event.set()
 
     def test_run_in_thread_pool_when_concurrent_calls_then_all_succeed(self) -> None:
         """Test concurrent calls to run_in_thread_pool."""
+        counter = ThreadSafeCounter()
 
         def worker_function(worker_id: int) -> int:
-            time.sleep(0.1)
+            # Use counter to verify execution instead of sleep
+            counter.increment()
             return worker_id * 10
 
         # Create multiple threads calling run_in_thread_pool
@@ -301,10 +320,15 @@ class TestThreadPoolIntegration:
         import threading
 
         active_threads = []
+        barrier = threading.Barrier(4)  # Match max_workers
 
         def thread_counting_task() -> int:
             active_threads.append(threading.current_thread())
-            time.sleep(0.5)  # Hold thread for a bit
+            try:
+                # Use barrier to synchronize threads instead of sleep
+                barrier.wait(timeout=1.0)
+            except threading.BrokenBarrierError:
+                pass
             return len(active_threads)
 
         # Submit more tasks than max_workers

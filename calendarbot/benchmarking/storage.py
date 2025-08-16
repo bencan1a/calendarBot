@@ -5,7 +5,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from ..utils.logging import get_logger
 from .models import (
@@ -21,7 +21,7 @@ class BenchmarkResultStorage:
     """Handles persistence of benchmark results and metadata to SQLite database."""
 
     def __init__(
-        self, database_path: Optional[Union[str, Path]] = None, settings: Optional[Any] = None
+        self, database_path: Optional[str | Path] = None, settings: Optional[Any] = None
     ) -> None:
         """
         Initialize the benchmark result storage.

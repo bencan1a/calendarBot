@@ -16,7 +16,8 @@ Key Features:
 import concurrent.futures
 import logging
 import threading
-from typing import Any, Callable, Optional, TypeVar
+from collections.abc import Callable
+from typing import Any, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 

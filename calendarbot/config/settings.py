@@ -33,7 +33,9 @@ SettingsBase = BaseSettings
 def _get_safe_web_host() -> str:
     """Get a safe default web host, preferring local network interface over 0.0.0.0."""
     try:
-        from calendarbot.utils.network import get_local_network_interface  # noqa: PLC0415
+        from calendarbot.utils.network import (  # noqa: PLC0415
+            get_local_network_interface,
+        )
 
         return get_local_network_interface()
     except ImportError:
@@ -324,6 +326,17 @@ class CalendarBotSettings(BaseSettings):
     ics_validate_ssl: bool = Field(default=True, description="Validate SSL certificates")
     ics_enable_caching: bool = Field(default=True, description="Enable HTTP caching")
     ics_filter_busy_only: bool = Field(default=True, description="Only show busy/tentative events")
+
+    # RRULE Expansion Settings
+    enable_rrule_expansion: bool = Field(
+        default=True, description="Enable client-side RRULE expansion"
+    )
+    rrule_expansion_days: int = Field(
+        default=365, description="Days to expand recurring events (default: 1 year)"
+    )
+    rrule_max_occurrences: int = Field(
+        default=1000, description="Maximum occurrences per recurring series"
+    )
 
     # Application Configuration
     app_name: str = Field(default="CalendarBot", description="Application name")
@@ -1015,4 +1028,4 @@ class _SettingsProxy:
 
 # Global settings instance (backward compatible)
 # Type cast to CalendarBotSettings for type checking compatibility
-settings = cast(CalendarBotSettings, _SettingsProxy())
+settings = cast("CalendarBotSettings", _SettingsProxy())

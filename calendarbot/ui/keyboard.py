@@ -3,9 +3,9 @@
 import asyncio
 import logging
 import sys
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from enum import Enum
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +31,7 @@ class KeyboardHandler:
     def __init__(self) -> None:
         """Initialize keyboard handler."""
         self._running = False
-        self._key_callbacks: dict[
-            KeyCode, Union[Callable[[], None], Callable[[], Awaitable[None]]]
-        ] = {}
+        self._key_callbacks: dict[KeyCode, Callable[[], None] | Callable[[], Awaitable[None]]] = {}
         self._raw_key_callback: Optional[Callable[[str], None]] = None
 
         # Platform-specific setup
@@ -237,7 +235,7 @@ class KeyboardHandler:
 
         return escape_mappings.get(sequence, KeyCode.UNKNOWN)
 
-    def _parse_windows_sequence(self, key_data: Union[str, bytes]) -> KeyCode:
+    def _parse_windows_sequence(self, key_data: str | bytes) -> KeyCode:
         """Parse Windows-specific key sequences.
 
         Args:
@@ -268,7 +266,7 @@ class KeyboardHandler:
         return windows_mappings.get(key_data, KeyCode.UNKNOWN)
 
     def register_key_handler(
-        self, key_code: KeyCode, callback: Union[Callable[[], None], Callable[[], Awaitable[None]]]
+        self, key_code: KeyCode, callback: Callable[[], None] | Callable[[], Awaitable[None]]
     ) -> None:
         """Register a callback for a specific key.
 

@@ -6,7 +6,7 @@ from collections.abc import Generator
 from datetime import datetime, timedelta
 from io import StringIO
 from pathlib import Path
-from typing import Any, BinaryIO, Optional, TextIO, Union, cast
+from typing import Any, BinaryIO, TextIO, cast
 
 from icalendar import Calendar, Event as ICalEvent
 
@@ -23,6 +23,7 @@ from .models import (
     Location,
     ResponseStatus,
 )
+from .rrule_expander import RRuleExpander
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,8 @@ class StreamingICSParser:
         self._pending_folded_line = ""  # Buffer for incomplete folded lines across chunks
 
     def parse_stream(
-        self, file_source: Union[str, BinaryIO, TextIO]
+        self,
+        file_source: str | BinaryIO | TextIO,
     ) -> Generator[dict[str, Any], None, None]:
         """Parse ICS content from file stream, yielding events as they are found.
 
@@ -100,7 +102,8 @@ class StreamingICSParser:
         yield from self._parse_file_stream(content_io)
 
     def _parse_file_stream(
-        self, file_obj: Union[BinaryIO, TextIO]
+        self,
+        file_obj: BinaryIO | TextIO,
     ) -> Generator[dict[str, Any], None, None]:
         """Parse ICS file stream in chunks."""
         while True:
@@ -253,6 +256,7 @@ class ICSParser:
         """
         self.settings = settings
         self.security_logger = SecurityEventLogger()
+        self.rrule_expander = RRuleExpander(settings)
         self._streaming_parser = StreamingICSParser()
         logger.debug("ICS parser initialized")
 
@@ -282,7 +286,9 @@ class ICSParser:
         return content_size >= STREAMING_THRESHOLD
 
     def parse_ics_content_optimized(
-        self, ics_content: str, source_url: Optional[str] = None
+        self,
+        ics_content: str,
+        source_url: str | None = None,
     ) -> ICSParseResult:
         """Parse ICS content using optimal method based on size.
 
@@ -304,7 +310,9 @@ class ICSParser:
         return self.parse_ics_content(ics_content, source_url)
 
     def _parse_with_streaming(
-        self, ics_content: str, source_url: Optional[str] = None
+        self,
+        ics_content: str,
+        source_url: str | None = None,
     ) -> ICSParseResult:
         """Parse ICS content using streaming parser with memory-bounded processing."""
         try:
@@ -332,7 +340,8 @@ class ICSParser:
 
                         # Use existing event parsing logic
                         event = self._parse_event_component(
-                            cast(ICalEvent, component), calendar_metadata.get("X-WR-TIMEZONE")
+                            cast("ICalEvent", component),
+                            calendar_metadata.get("X-WR-TIMEZONE"),
                         )
 
                         if event:
@@ -374,7 +383,7 @@ class ICSParser:
 
             logger.debug(
                 f"Streaming parser processed {len(filtered_events)} events "
-                f"({event_count} total events, {len(filtered_events)} busy/tentative)"
+                f"({event_count} total events, {len(filtered_events)} busy/tentative)",
             )
 
             return ICSParseResult(
@@ -417,20 +426,22 @@ class ICSParser:
 
         if size_bytes > MAX_ICS_SIZE_BYTES:
             logger.error(
-                f"ICS content too large: {size_bytes} bytes exceeds {MAX_ICS_SIZE_BYTES} limit"
+                f"ICS content too large: {size_bytes} bytes exceeds {MAX_ICS_SIZE_BYTES} limit",
             )
             raise ICSContentTooLargeError(
-                f"ICS content too large: {size_bytes} bytes exceeds {MAX_ICS_SIZE_BYTES} limit"
+                f"ICS content too large: {size_bytes} bytes exceeds {MAX_ICS_SIZE_BYTES} limit",
             )
 
         if size_bytes > MAX_ICS_SIZE_WARNING:
             logger.warning(
                 f"Large ICS content detected: {size_bytes} bytes "
-                f"(threshold: {MAX_ICS_SIZE_WARNING})"
+                f"(threshold: {MAX_ICS_SIZE_WARNING})",
             )
 
     def parse_ics_content(
-        self, ics_content: str, source_url: Optional[str] = None
+        self,
+        ics_content: str,
+        source_url: str | None = None,
     ) -> ICSParseResult:
         """Parse ICS content into structured calendar events.
 
@@ -481,13 +492,14 @@ class ICSParser:
             calendar = Calendar.from_ical(ics_content)
 
             # Extract calendar metadata
-            calendar_name = self._get_calendar_property(cast(Calendar, calendar), "X-WR-CALNAME")
+            calendar_name = self._get_calendar_property(cast("Calendar", calendar), "X-WR-CALNAME")
             calendar_description = self._get_calendar_property(
-                cast(Calendar, calendar), "X-WR-CALDESC"
+                cast("Calendar", calendar),
+                "X-WR-CALDESC",
             )
-            timezone_str = self._get_calendar_property(cast(Calendar, calendar), "X-WR-TIMEZONE")
-            prodid = self._get_calendar_property(cast(Calendar, calendar), "PRODID")
-            version = self._get_calendar_property(cast(Calendar, calendar), "VERSION")
+            timezone_str = self._get_calendar_property(cast("Calendar", calendar), "X-WR-TIMEZONE")
+            prodid = self._get_calendar_property(cast("Calendar", calendar), "PRODID")
+            version = self._get_calendar_property(cast("Calendar", calendar), "VERSION")
 
             # Parse events
             events = []
@@ -503,7 +515,8 @@ class ICSParser:
                 if component.name == "VEVENT":
                     try:
                         event = self._parse_event_component(
-                            cast(ICalEvent, component), timezone_str
+                            cast("ICalEvent", component),
+                            timezone_str,
                         )
                         if event:
                             events.append(event)
@@ -518,13 +531,29 @@ class ICSParser:
                         warnings.append(warning)
                         logger.warning(warning)
 
+            # Apply RRULE expansion if enabled
+            expanded_events = []
+            if getattr(self.settings, "enable_rrule_expansion", True):
+                try:
+                    expanded_events = self._expand_recurring_events(events, raw_components)
+                    if expanded_events:
+                        # Merge expanded events with original events and deduplicate
+                        events = self._merge_expanded_events(events, expanded_events)
+                        events = self._deduplicate_events(events)
+                        logger.debug(
+                            f"Added {len(expanded_events)} expanded recurring event instances"
+                        )
+                except Exception as e:
+                    logger.warning(f"RRULE expansion failed, continuing without expansion: {e}")
+                    # Continue with original events only
+
             # Filter to only busy/tentative events (same as Graph API behavior)
             # TODO: This should respect the filter_busy_only configuration setting
             filtered_events = [e for e in events if e.is_busy_status and not e.is_cancelled]
 
             logger.debug(
                 f"Parsed {len(filtered_events)} events from ICS content "
-                f"({event_count} total events, {len(filtered_events)} busy/tentative)"
+                f"({event_count} total events, {len(filtered_events)} busy/tentative)",
             )
 
             return ICSParseResult(
@@ -553,7 +582,9 @@ class ICSParser:
             )
 
     def parse_ics_content_unfiltered(
-        self, ics_content: str, source_url: Optional[str] = None
+        self,
+        ics_content: str,
+        source_url: str | None = None,
     ) -> ICSParseResult:
         """Parse ICS content into ALL events without filtering for raw event storage.
 
@@ -591,13 +622,14 @@ class ICSParser:
             calendar = Calendar.from_ical(ics_content)
 
             # Extract calendar metadata
-            calendar_name = self._get_calendar_property(cast(Calendar, calendar), "X-WR-CALNAME")
+            calendar_name = self._get_calendar_property(cast("Calendar", calendar), "X-WR-CALNAME")
             calendar_description = self._get_calendar_property(
-                cast(Calendar, calendar), "X-WR-CALDESC"
+                cast("Calendar", calendar),
+                "X-WR-CALDESC",
             )
-            timezone_str = self._get_calendar_property(cast(Calendar, calendar), "X-WR-TIMEZONE")
-            prodid = self._get_calendar_property(cast(Calendar, calendar), "PRODID")
-            version = self._get_calendar_property(cast(Calendar, calendar), "VERSION")
+            timezone_str = self._get_calendar_property(cast("Calendar", calendar), "X-WR-TIMEZONE")
+            prodid = self._get_calendar_property(cast("Calendar", calendar), "PRODID")
+            version = self._get_calendar_property(cast("Calendar", calendar), "VERSION")
 
             # Parse events and capture individual event raw content
             events = []
@@ -613,7 +645,8 @@ class ICSParser:
                 if component.name == "VEVENT":
                     try:
                         event = self._parse_event_component(
-                            cast(ICalEvent, component), timezone_str
+                            cast("ICalEvent", component),
+                            timezone_str,
                         )
                         if event:
                             events.append(event)
@@ -627,7 +660,7 @@ class ICSParser:
                                     event_raw_content_map[event.id] = individual_ics
                                 except Exception as e:
                                     logger.warning(
-                                        f"Failed to extract raw ICS for event {event.id}: {e}"
+                                        f"Failed to extract raw ICS for event {event.id}: {e}",
                                     )
                                     # Fallback to basic event identifier
                                     event_raw_content_map[event.id] = (
@@ -645,7 +678,7 @@ class ICSParser:
             # NO FILTERING - return ALL events (raw storage only in development)
             logger.debug(
                 f"Parsed {len(events)} unfiltered events from ICS content "
-                f"({event_count} total events, no filtering applied)"
+                f"({event_count} total events, no filtering applied)",
             )
 
             # Create enhanced result with individual event raw content mapping
@@ -679,9 +712,11 @@ class ICSParser:
                 source_url=source_url,
             )
 
-    def _parse_event_component(  # noqa
-        self, component: ICalEvent, default_timezone: Optional[str] = None
-    ) -> Optional[CalendarEvent]:
+    def _parse_event_component(  # noqa: PLR0912, PLR0915
+        self,
+        component: ICalEvent,
+        default_timezone: str | None = None,
+    ) -> CalendarEvent | None:
         """Parse a single VEVENT component into CalendarEvent.
 
         Args:
@@ -707,7 +742,8 @@ class ICSParser:
             # Parse start time
             start_dt = self._parse_datetime(dtstart, default_timezone)
             start_info = DateTimeInfo(
-                date_time=start_dt, time_zone=str(start_dt.tzinfo) if start_dt.tzinfo else "UTC"
+                date_time=start_dt,
+                time_zone=str(start_dt.tzinfo) if start_dt.tzinfo else "UTC",
             )
 
             # Parse end time
@@ -719,7 +755,8 @@ class ICSParser:
                 end_dt = start_dt + duration.dt if duration else start_dt + timedelta(hours=1)
 
             end_info = DateTimeInfo(
-                date_time=end_dt, time_zone=str(end_dt.tzinfo) if end_dt.tzinfo else "UTC"
+                date_time=end_dt,
+                time_zone=str(end_dt.tzinfo) if end_dt.tzinfo else "UTC",
             )
 
             # Event status and visibility
@@ -839,7 +876,7 @@ class ICSParser:
         else:
             return calendar_event
 
-    def _parse_datetime(self, dt_prop: Any, default_timezone: Optional[str] = None) -> datetime:
+    def _parse_datetime(self, dt_prop: Any, default_timezone: str | None = None) -> datetime:
         """Parse iCalendar datetime property.
 
         Args:
@@ -863,11 +900,11 @@ class ICSParser:
                         # If a specific timezone was requested, convert to that timezone
                         # For now, we'll use the server timezone as the base since that's our standard
                         logger.debug(
-                            f"Parsed naive datetime {dt} with default timezone: {default_timezone}"
+                            f"Parsed naive datetime {dt} with default timezone: {default_timezone}",
                         )
                     except Exception as e:
                         logger.warning(
-                            f"Failed to apply timezone via service {default_timezone}: {e}"
+                            f"Failed to apply timezone via service {default_timezone}: {e}",
                         )
                         dt = ensure_timezone_aware(dt)  # Fallback to server timezone
                 else:
@@ -880,7 +917,7 @@ class ICSParser:
         # Date object - convert to datetime at midnight with proper timezone
         return ensure_timezone_aware(datetime.combine(dt, datetime.min.time()))
 
-    def _parse_datetime_optional(self, dt_prop: Any) -> Optional[datetime]:
+    def _parse_datetime_optional(self, dt_prop: Any) -> datetime | None:
         """Parse optional datetime property.
 
         Args:
@@ -897,7 +934,7 @@ class ICSParser:
         except Exception:
             return None
 
-    def _parse_status(self, status_prop: Any) -> Optional[str]:
+    def _parse_status(self, status_prop: Any) -> str | None:
         """Parse event status.
 
         Args:
@@ -912,7 +949,10 @@ class ICSParser:
         return str(status_prop).upper()
 
     def _map_transparency_to_status(
-        self, transparency: str, status: Optional[str], component: Any
+        self,
+        transparency: str,
+        status: str | None,
+        component: Any,
     ) -> EventStatus:
         """Map iCalendar transparency and status to EventStatus with Microsoft phantom event filtering.
 
@@ -964,7 +1004,7 @@ class ICSParser:
 
         return mapped_status
 
-    def _parse_attendee(self, attendee_prop: Any) -> Optional[Attendee]:
+    def _parse_attendee(self, attendee_prop: Any) -> Attendee | None:
         """Parse attendee from iCalendar property.
 
         Args:
@@ -1006,14 +1046,17 @@ class ICSParser:
             response_status = status_map.get(partstat, ResponseStatus.NOT_RESPONDED)
 
             return Attendee(
-                name=name, email=email, type=attendee_type, response_status=response_status
+                name=name,
+                email=email,
+                type=attendee_type,
+                response_status=response_status,
             )
 
         except Exception as e:
             logger.debug(f"Failed to parse attendee: {e}")
             return None
 
-    def _get_calendar_property(self, calendar: Calendar, prop_name: str) -> Optional[str]:
+    def _get_calendar_property(self, calendar: Calendar, prop_name: str) -> str | None:
         """Get calendar-level property.
 
         Args:
@@ -1029,8 +1072,10 @@ class ICSParser:
         except Exception:
             return None
 
-    def filter_phantom_recurring_events_conservative(  # noqa
-        self, events: list[CalendarEvent], raw_components: list
+    def filter_phantom_recurring_events_conservative(  # noqa: PLR0912
+        self,
+        events: list[CalendarEvent],
+        raw_components: list,
     ) -> list[CalendarEvent]:
         """Conservative filter for phantom recurring events caused by Microsoft ICS RFC 5545 bug.
 
@@ -1053,7 +1098,7 @@ class ICSParser:
         # Build UID-based mapping for precise targeting
         uid_to_events = {}  # UID -> list of (event, component) tuples
 
-        for event, component in zip(events, raw_components):
+        for event, component in zip(events, raw_components, strict=False):
             uid = str(component.get("UID", ""))
             if uid not in uid_to_events:
                 uid_to_events[uid] = []
@@ -1128,10 +1173,10 @@ class ICSParser:
                                     if not is_properly_excluded:
                                         # This is a phantom - moved instance exists but no EXDATE exclusion
                                         logger.debug(
-                                            f"🚨 Found phantom recurring event: {event.subject} at {event_start}"
+                                            f"🚨 Found phantom recurring event: {event.subject} at {event_start}",
                                         )
                                         logger.debug(
-                                            f"   - Moved instance exists with RECURRENCE-ID: {recurrence_id}"
+                                            f"   - Moved instance exists with RECURRENCE-ID: {recurrence_id}",
                                         )
                                         logger.debug("   - No proper EXDATE exclusion found")
                                         is_phantom = True
@@ -1154,7 +1199,7 @@ class ICSParser:
 
         if phantom_count > 0:
             logger.info(
-                f"🎯 Conservative phantom filter: removed {phantom_count} confirmed phantom events"
+                f"🎯 Conservative phantom filter: removed {phantom_count} confirmed phantom events",
             )
         else:
             logger.info("✅ Conservative phantom filter: no phantom events detected")
@@ -1247,3 +1292,161 @@ class ICSParser:
             )
             logger.debug(f"ICS validation failed: {e}")
             return False
+
+    def _expand_recurring_events(  # noqa: PLR0912
+        self,
+        events: list[CalendarEvent],
+        raw_components: list[ICalEvent],
+    ) -> list[CalendarEvent]:
+        """Expand recurring events using RRuleExpander.
+
+        Args:
+            events: List of parsed calendar events
+            raw_components: List of raw iCalendar components for RRULE extraction
+
+        Returns:
+            List of expanded event instances
+        """
+        expanded_events = []
+
+        # Create a mapping of event UIDs to their raw components
+        component_map = {}
+        for i, component in enumerate(raw_components):
+            if i < len(events):
+                uid = events[i].id
+                component_map[uid] = component
+
+        for event in events:
+            if not event.is_recurring:
+                continue
+
+            # Get the raw component for this event
+            component = component_map.get(event.id)
+            if not component:
+                logger.warning(f"No raw component found for recurring event {event.id}")
+                continue
+
+            # Extract RRULE and EXDATE
+            rrule_prop = component.get("RRULE")
+            exdate_props = component.get("EXDATE", [])
+
+            if rrule_prop:
+                try:
+                    # Convert RRULE to proper iCalendar format
+                    if hasattr(rrule_prop, "to_ical"):
+                        rrule_string = rrule_prop.to_ical().decode("utf-8")
+                    else:
+                        rrule_string = str(rrule_prop)
+
+                    # Convert EXDATE to list of strings
+                    exdates = []
+                    if exdate_props:
+                        if not isinstance(exdate_props, list):
+                            exdate_props = [exdate_props]
+                        for exdate in exdate_props:
+                            if hasattr(exdate, "to_ical"):
+                                exdate_str = exdate.to_ical().decode("utf-8")
+                            else:
+                                exdate_str = str(exdate)
+
+                            # Handle comma-separated EXDATE values
+                            if "," in exdate_str:
+                                # Split comma-separated values and add each one
+                                exdates.extend(
+                                    single_exdate.strip() for single_exdate in exdate_str.split(",")
+                                )
+                            else:
+                                exdates.append(exdate_str)
+
+                    # Expand using RRuleExpander
+                    instances = self.rrule_expander.expand_rrule(
+                        event,
+                        rrule_string,
+                        exdates=exdates if exdates else None,
+                    )
+
+                    expanded_events.extend(instances)
+                    logger.debug(
+                        f"Expanded {len(instances)} instances for recurring event {event.subject}",
+                    )
+
+                except Exception as e:
+                    logger.warning(f"Failed to expand RRULE for event {event.id}: {e}")
+                    continue
+
+        return expanded_events
+
+    def _merge_expanded_events(
+        self,
+        original_events: list[CalendarEvent],
+        expanded_events: list[CalendarEvent],
+    ) -> list[CalendarEvent]:
+        """Merge expanded events with original events.
+
+        Args:
+            original_events: Original parsed events
+            expanded_events: Expanded recurring event instances
+
+        Returns:
+            Combined list of events
+        """
+        # Start with all expanded events
+        merged_events = expanded_events.copy()
+
+        # Create a set of master UIDs that were successfully expanded
+        expanded_master_uids = {
+            getattr(event, "rrule_master_uid", None)
+            for event in expanded_events
+            if getattr(event, "rrule_master_uid", None)
+        }
+
+        # Add original events, but skip recurring masters that were successfully expanded
+        for event in original_events:
+            if event.is_recurring:
+                # Keep recurring masters that weren't expanded (e.g., due to unsupported RRULE)
+                if event.id not in expanded_master_uids:
+                    merged_events.append(event)
+                    logger.debug(f"Keeping unexpanded recurring master: {event.subject}")
+            else:
+                # Always keep non-recurring events
+                merged_events.append(event)
+
+        logger.debug(
+            f"Merged {len(original_events)} original + {len(expanded_events)} expanded = {len(merged_events)} total events"
+        )
+        return merged_events
+
+    def _deduplicate_events(self, events: list[CalendarEvent]) -> list[CalendarEvent]:
+        """Remove duplicate events based on UID and start time.
+
+        Args:
+            events: List of calendar events to deduplicate
+
+        Returns:
+            Deduplicated list of events
+        """
+        seen = set()
+        deduplicated = []
+
+        for event in events:
+            # Create a unique key based on subject, start time, and basic properties
+            # Use start time as string to avoid timezone comparison issues
+            key = (
+                event.subject,
+                event.start.date_time.isoformat(),
+                event.end.date_time.isoformat(),
+                event.is_all_day,
+            )
+
+            if key not in seen:
+                seen.add(key)
+                deduplicated.append(event)
+            else:
+                logger.debug(
+                    f"Skipping duplicate event: {event.subject} at {event.start.date_time}"
+                )
+
+        if len(events) != len(deduplicated):
+            logger.debug(f"Removed {len(events) - len(deduplicated)} duplicate events")
+
+        return deduplicated

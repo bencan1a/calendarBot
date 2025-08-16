@@ -32,7 +32,7 @@ class DatabaseMigration:
                 row = await cursor.fetchone()
                 if row:
                     # Cast to int to satisfy mypy - PRAGMA user_version always returns integer
-                    return cast(int, row[0])
+                    return cast("int", row[0])
                 return 0
         except Exception:
             logger.exception("Failed to get database version")

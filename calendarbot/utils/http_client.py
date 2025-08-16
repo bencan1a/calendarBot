@@ -113,7 +113,7 @@ class HTTPClient:
 
             except urllib.error.URLError as e:
                 self._handle_url_error(e, attempt)
-            except socket.timeout as e:
+            except TimeoutError as e:
                 self._handle_socket_timeout(e, attempt)
             except Exception as e:
                 self._handle_unexpected_error(e, attempt)
@@ -324,7 +324,7 @@ def is_webserver_running(host: str = "127.0.0.1", port: int = 8080, timeout: flo
         with socket.create_connection((host, port), timeout=timeout):
             logger.debug(f"Webserver is running at {host}:{port}")
             return True
-    except (socket.timeout, ConnectionRefusedError, OSError):
+    except (TimeoutError, ConnectionRefusedError, OSError):
         logger.debug(f"Webserver is not running at {host}:{port}")
         return False
 

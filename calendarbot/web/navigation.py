@@ -1,8 +1,9 @@
 """Web navigation handler integrating with existing navigation system."""
 
 import logging
+from collections.abc import Callable
 from datetime import date
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from ..ui.navigation import NavigationState
 
@@ -151,8 +152,12 @@ class WebNavigationHandler:
         for callback in self._navigation_callbacks:
             self._safe_callback_execution(callback, new_date, nav_info)
 
-    def _safe_callback_execution(self, callback: Callable[[date, dict[str, Any]], None],
-                                new_date: date, nav_info: dict[str, Any]) -> None:
+    def _safe_callback_execution(
+        self,
+        callback: Callable[[date, dict[str, Any]], None],
+        new_date: date,
+        nav_info: dict[str, Any],
+    ) -> None:
         """Safely execute callback without try-except in loop."""
         try:
             callback(new_date, nav_info)

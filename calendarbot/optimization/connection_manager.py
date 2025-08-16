@@ -6,7 +6,10 @@ from typing import Any, Optional
 import aiohttp
 
 from ..config.optimization import OptimizationConfig, get_optimization_config
-from ..monitoring.connection_pool_monitor import ConnectionPoolMonitor, get_connection_pool_monitor
+from ..monitoring.connection_pool_monitor import (
+    ConnectionPoolMonitor,
+    get_connection_pool_monitor,
+)
 from ..utils.logging import get_logger
 from .cache_keys import generate_http_cache_key
 from .cache_manager import CacheManager, get_cache_manager
