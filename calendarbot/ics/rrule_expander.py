@@ -253,8 +253,8 @@ class RRuleExpander:
         self,
         master_event: CalendarEvent,
         rrule_params: dict,
-        start_date: datetime,
-        end_date: datetime,
+        _start_date: datetime,
+        _end_date: datetime,
     ) -> list[datetime]:
         """Generate occurrence datetimes using dateutil.rrule.
 
