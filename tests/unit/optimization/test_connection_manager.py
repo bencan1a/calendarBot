@@ -24,7 +24,7 @@ class TestConnectionManager:
             max_connections_per_host=25,
             connection_ttl=300,
         )
-        self.monitor = Mock(spec=Phase2AMonitor)
+        self.monitor = Mock(spec=ConnectionPoolMonitor)
         self.manager = ConnectionManager(self.config, self.monitor)
 
     def teardown_method(self):
@@ -350,7 +350,7 @@ class TestConnectionManagerGlobal:
     def test_get_connection_manager_with_config(self):
         """Test get_connection_manager with custom config."""
         config = OptimizationConfig(max_connections=100)
-        monitor = Mock(spec=Phase2AMonitor)
+        monitor = Mock(spec=ConnectionPoolMonitor)
 
         manager = get_connection_manager(config, monitor)
 
@@ -376,7 +376,7 @@ class TestConnectionManagerIntegration:
             max_connections_per_host=3,
             connection_ttl=60,
         )
-        self.monitor = Mock(spec=Phase2AMonitor)
+        self.monitor = Mock(spec=ConnectionPoolMonitor)
         self.manager = ConnectionManager(self.config, self.monitor)
 
     async def cleanup_manager(self):
@@ -462,7 +462,7 @@ class TestConnectionManagerIntegration:
 
     @pytest.mark.asyncio
     async def test_monitoring_integration(self):
-        """Test integration with Phase2AMonitor."""
+        """Test integration with ConnectionPoolMonitor."""
         try:
             await self.manager.startup()
             await self.manager.get_http_session()
