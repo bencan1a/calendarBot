@@ -465,8 +465,10 @@ class TestConnectionPoolMonitor:
         assert metric.name == "ttl_expiration"
         assert metric.value == 5
 
-    def test_get_phase_2a_summary(self, connection_pool_monitor: ConnectionPoolMonitor) -> None:
-        """Test get_phase_2a_summary method."""
+    def test_get_connection_pool_summary(
+        self, connection_pool_monitor: ConnectionPoolMonitor
+    ) -> None:
+        """Test get_connection_pool_summary method."""
         # Setup some test data
         start_time = time.time()
         connection_pool_monitor._monitoring_start_time = start_time - 3600  # 1 hour ago
@@ -493,7 +495,7 @@ class TestConnectionPoolMonitor:
         connection_pool_monitor.request_pipeline_metrics.ttl_expirations = 25
 
         with patch("time.time", return_value=start_time):
-            summary = connection_pool_monitor.get_phase_2a_summary()
+            summary = connection_pool_monitor.get_connection_pool_summary()
 
             # Check basic structure
             assert "monitoring_uptime_seconds" in summary
@@ -523,11 +525,11 @@ class TestConnectionPoolMonitor:
             assert assessment["latency_acceptable"] is False  # 2.0 >= 0.2
             assert assessment["optimization_effective"] is True  # Good cache + pool
 
-    def test_get_phase_2a_summary_with_zero_values(
+    def test_get_connection_pool_summary_with_zero_values(
         self, connection_pool_monitor: ConnectionPoolMonitor
     ) -> None:
-        """Test get_phase_2a_summary method with zero values."""
-        summary = connection_pool_monitor.get_phase_2a_summary()
+        """Test get_connection_pool_summary method with zero values."""
+        summary = connection_pool_monitor.get_connection_pool_summary()
 
         # Check that zero values are handled properly
         pipeline_summary = summary["request_pipeline"]
