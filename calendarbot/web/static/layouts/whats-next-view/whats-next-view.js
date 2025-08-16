@@ -1433,6 +1433,8 @@ window.showSuccessMessage = showSuccessMessage;
 // Essential utility exports
 window.formatMeetingTime = formatMeetingTime;
 window.escapeHtml = escapeHtml;
+window.checkBoundaryAlert = checkBoundaryAlert;
+window.getContextMessage = getContextMessage;
 
 // Testing access exports
 Object.defineProperty(window, 'currentMeeting', {
@@ -1692,8 +1694,15 @@ class WhatsNextStateManager {
             this._setLoading(true);
             this._setError(null);
 
-            const startTime = performance.now();        
+            const startTime = performance.now();
             const requestBody = {};
+            
+            // DEBUG: Log current time and request details to diagnose state pollution
+            const currentFrontendTime = getCurrentTime();
+            console.log('[DEBUG] WhatsNext loadData() - Frontend current time:', currentFrontendTime.toISOString());
+            console.log('[DEBUG] WhatsNext loadData() - Request body:', JSON.stringify(requestBody));
+            console.log('[DEBUG] WhatsNext loadData() - Browser time vs getCurrentTime():', new Date().toISOString(), 'vs', currentFrontendTime.toISOString());
+            
             const response = await fetch('/api/whats-next/data', {
                 method: 'POST',
                 headers: {
