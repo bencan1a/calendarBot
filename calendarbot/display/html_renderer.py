@@ -13,6 +13,7 @@ from ..config.build import is_production_mode
 from ..layout.exceptions import LayoutNotFoundError
 from ..layout.registry import LayoutRegistry
 from ..layout.resource_manager import ResourceManager
+from ..timezone.service import convert_to_server_timezone
 from ..utils.helpers import get_timezone_aware_now
 
 logger = logging.getLogger(__name__)
@@ -242,40 +243,20 @@ class HTMLRenderer:
         """Generate timestamp HTML for navigation area.
 
         Args:
-            status_info: Status information dictionary
+            status_info: Status information dictionary (unused in current implementation)
 
         Returns:
             HTML timestamp string
         """
-        if not status_info or not status_info.get("last_update"):
-            return ""
-
-        try:
-            if isinstance(status_info["last_update"], str):
-                update_time = datetime.fromisoformat(
-                    status_info["last_update"].replace("Z", "+00:00")
-                )
-            else:
-                update_time = status_info["last_update"]
-
-            # Convert to Pacific timezone (GMT-8/PDT)
-            pacific_tz = pytz.timezone("US/Pacific")
-            if update_time.tzinfo is None:
-                update_time_utc = pytz.utc.localize(update_time)
-            else:
-                update_time_utc = update_time.astimezone(pytz.utc)
-
-            update_time_pacific = update_time_utc.astimezone(pacific_tz)
-            return f"Updated: {update_time_pacific.strftime('%I:%M %p')}"
-        except Exception:
-            return ""
+        # Return empty string to hide "Updated:" timestamp for 4x8 layout
+        return ""
 
     def _render_events_content(self, events: list[CachedEvent], interactive_mode: bool) -> str:
         """Render the main events content.
 
         Args:
             events: List of events to render
-            interactive_mode: Whether in interactive mode
+            interactive_mode: Whether in interactive mode (unused in current implementation)
 
         Returns:
             HTML content for events
@@ -295,6 +276,22 @@ class HTMLRenderer:
         current_events = [e for e in events if e.is_current()]
         upcoming_events = [e for e in events if e.is_upcoming()]
 
+        def get_local_time_for_sorting(event: CachedEvent) -> datetime:
+            """Convert event time to server timezone for proper sorting."""
+            try:
+                return convert_to_server_timezone(event.start_dt)
+            except Exception as e:
+                logger.warning(f"Timezone conversion failed for event '{event.subject}': {e}")
+                return (
+                    event.start_dt.replace(tzinfo=pytz.UTC)
+                    if event.start_dt.tzinfo is None
+                    else event.start_dt
+                )
+
+        # Sort events by timezone-aware time within each group
+        current_events.sort(key=get_local_time_for_sorting)
+        upcoming_events.sort(key=get_local_time_for_sorting)
+
         # Current event section
         if current_events:
             content_parts.append('<section class="current-events">')
@@ -309,7 +306,6 @@ class HTMLRenderer:
         # Upcoming events section - now shows all events
         if upcoming_events:
             content_parts.append('<section class="upcoming-events">')
-            content_parts.append('<h2 class="section-title">📋 Next Up</h2>')
 
             # Show all upcoming events in the Next Up section
             content_parts.extend(
