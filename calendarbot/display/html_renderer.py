@@ -490,7 +490,7 @@ class HTMLRenderer:
             events_content: Main events content HTML
             nav_help: Navigation help HTML
             interactive_mode: Whether in interactive mode
-            status_info: Optional status information
+            status_info: Optional status information (unused in current implementation)
 
         Returns:
             Complete HTML document
