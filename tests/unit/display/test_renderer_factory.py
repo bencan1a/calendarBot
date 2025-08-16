@@ -212,11 +212,11 @@ class TestRendererFactory:
             mock_html.return_value = mock_renderer
 
             result = RendererFactory.create_renderer(
-                mock_settings, renderer_type="html", layout_name="3x4"
+                mock_settings, renderer_type="html", layout_name="whats-next-view"
             )
 
             assert result == mock_renderer
-            assert mock_settings.web_layout == "3x4"
+            assert mock_settings.web_layout == "whats-next-view"
             mock_html.assert_called_once_with(mock_settings)
 
     def test_create_renderer_auto_detection(self, mock_settings) -> None:
