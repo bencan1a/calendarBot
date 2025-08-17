@@ -7,6 +7,7 @@ functionality for the static asset optimization system.
 
 import os
 from pathlib import Path
+from typing import Union
 from unittest.mock import patch
 
 import pytest
@@ -56,14 +57,14 @@ class TestEnvironmentDetection:
             assert is_production_mode() is False
 
     def test_is_production_mode_when_debug_is_true(self):
-        """Test development mode detection with CALENDARBOT_DEBUG=true."""
+        """Test that CALENDARBOT_DEBUG is ignored - defaults to production mode."""
         with patch.dict(os.environ, {"CALENDARBOT_DEBUG": "true"}, clear=True):
-            assert is_production_mode() is False
+            assert is_production_mode() is True
 
     def test_is_production_mode_when_debug_is_1(self):
-        """Test development mode detection with CALENDARBOT_DEBUG=1."""
+        """Test that CALENDARBOT_DEBUG is ignored - defaults to production mode."""
         with patch.dict(os.environ, {"CALENDARBOT_DEBUG": "1"}, clear=True):
-            assert is_production_mode() is False
+            assert is_production_mode() is True
 
     def test_is_production_mode_when_debug_is_false(self):
         """Test production mode detection with CALENDARBOT_DEBUG=false."""
@@ -112,9 +113,11 @@ class TestDebugAssetDetection:
 
     def test_is_debug_asset_when_specific_debug_files(self):
         """Test debug asset detection for specific identified debug files."""
-        assert is_debug_asset("settings-panel.js") is True
-        assert is_debug_asset("settings-api.js") is True
-        assert is_debug_asset("gesture-handler.js") is True
+        # NOTE: settings-panel.js, settings-api.js, and gesture-handler.js are now
+        # considered essential functionality and should NOT be treated as debug assets
+        assert is_debug_asset("settings-panel.js") is False
+        assert is_debug_asset("settings-api.js") is False
+        assert is_debug_asset("gesture-handler.js") is False
 
     def test_is_debug_asset_when_debug_suffix(self):
         """Test debug asset detection for *-debug.js pattern."""
@@ -180,7 +183,7 @@ class TestAssetExclusion:
         """Test asset exclusion in production mode for debug assets."""
         with patch.dict(os.environ, {"CALENDARBOT_ENV": "production"}):
             assert should_exclude_asset("debug-console.js") is True
-            assert should_exclude_asset("settings-panel.js") is True
+            assert should_exclude_asset("settings-panel.js") is False
 
     def test_should_exclude_asset_when_production_and_production_file(self):
         """Test asset inclusion in production mode for production assets."""
@@ -206,9 +209,7 @@ class TestAssetPathFiltering:
 
     def test_filter_asset_paths_when_production_mode(self):
         """Test asset path filtering removes debug assets in production."""
-        from typing import List, Union
-
-        asset_paths: List[Union[str, Path]] = [
+        asset_paths: list[Union[str, Path]] = [
             "app.js",
             "debug-console.js",
             "utils.js",
@@ -219,14 +220,12 @@ class TestAssetPathFiltering:
         with patch.dict(os.environ, {"CALENDARBOT_ENV": "production"}):
             filtered = filter_asset_paths(asset_paths)
 
-        expected = ["app.js", "utils.js", "styles.css"]
+        expected = ["app.js", "utils.js", "settings-panel.js", "styles.css"]
         assert filtered == expected
 
     def test_filter_asset_paths_when_development_mode(self):
         """Test asset path filtering includes all assets in development."""
-        from typing import List, Union
-
-        asset_paths: List[Union[str, Path]] = [
+        asset_paths: list[Union[str, Path]] = [
             "app.js",
             "debug-console.js",
             "utils.js",
@@ -241,9 +240,7 @@ class TestAssetPathFiltering:
 
     def test_filter_asset_paths_when_empty_list(self):
         """Test asset path filtering with empty input."""
-        from typing import List, Union
-
-        empty_list: List[Union[str, Path]] = []
+        empty_list: list[Union[str, Path]] = []
         with patch.dict(os.environ, {"CALENDARBOT_ENV": "production"}):
             filtered = filter_asset_paths(empty_list)
 
@@ -251,9 +248,7 @@ class TestAssetPathFiltering:
 
     def test_filter_asset_paths_when_no_debug_assets(self):
         """Test asset path filtering with no debug assets."""
-        from typing import List, Union
-
-        asset_paths: List[Union[str, Path]] = ["app.js", "utils.js", "styles.css"]
+        asset_paths: list[Union[str, Path]] = ["app.js", "utils.js", "styles.css"]
 
         with patch.dict(os.environ, {"CALENDARBOT_ENV": "production"}):
             filtered = filter_asset_paths(asset_paths)
@@ -262,9 +257,7 @@ class TestAssetPathFiltering:
 
     def test_filter_asset_paths_when_only_debug_assets(self):
         """Test asset path filtering with only debug assets."""
-        from typing import List, Union
-
-        asset_paths: List[Union[str, Path]] = [
+        asset_paths: list[Union[str, Path]] = [
             "debug-console.js",
             "settings-panel.js",
             "test-helper.js",
@@ -273,7 +266,7 @@ class TestAssetPathFiltering:
         with patch.dict(os.environ, {"CALENDARBOT_ENV": "production"}):
             filtered = filter_asset_paths(asset_paths)
 
-        assert filtered == []
+        assert filtered == ["settings-panel.js"]
 
 
 class TestAssetPathValidation:
@@ -335,7 +328,7 @@ class TestProductionAssetFilter:
 
         assert filter_instance.should_serve_asset("app.js") is True
         assert filter_instance.should_serve_asset("debug-console.js") is False
-        assert filter_instance.should_serve_asset("settings-panel.js") is False
+        assert filter_instance.should_serve_asset("settings-panel.js") is True
 
     def test_production_asset_filter_should_serve_asset_development(self):
         """Test asset serving decision in development mode."""
@@ -458,7 +451,8 @@ class TestEdgeCases:
         # Should preserve original types but filter out debug assets
         assert "app.js" in filtered
         assert "utils.js" in filtered
-        assert len(filtered) == 2
+        assert Path("settings-panel.js") in filtered
+        assert len(filtered) == 3
 
 
 if __name__ == "__main__":

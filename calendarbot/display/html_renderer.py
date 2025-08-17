@@ -30,7 +30,15 @@ class HTMLRenderer:
             layout_registry: Optional existing LayoutRegistry instance to reuse
         """
         self.settings = settings
-        self.layout = getattr(settings, "web_layout", "4x8")
+        # Use dynamic default from layout registry if available
+        default_layout = "4x8"  # Fallback default
+        if layout_registry is not None:
+            try:
+                default_layout = layout_registry.get_default_layout()
+            except Exception as e:
+                logger.debug(f"Failed to get default layout from registry: {e}, using fallback")
+
+        self.layout = getattr(settings, "web_layout", default_layout)
 
         # Initialize layout management components
         try:
@@ -619,31 +627,53 @@ class HTMLRenderer:
         """Get fallback CSS URL path for the current layout.
 
         Returns:
-            CSS URL path (e.g., 'layouts/3x4/3x4.css', 'layouts/4x8/4x8.css', 'layouts/whats-next-view/whats-next-view.css')
+            CSS URL path using dynamic layout discovery when possible
         """
-        if self.layout == "3x4":
-            return "layouts/3x4/3x4.css"
-        if self.layout == "4x8":
-            return "layouts/4x8/4x8.css"
-        if self.layout == "whats-next-view":
-            return "layouts/whats-next-view/whats-next-view.css"
-        # Default fallback
-        return "layouts/4x8/4x8.css"
+        # Try to use layout registry to get resource information
+        if self.layout_registry is not None:
+            try:
+                layout_info = self.layout_registry.get_layout_info(self.layout)
+                if layout_info and layout_info.resources.get("css"):
+                    # Use first CSS file from layout resources
+                    css_files = layout_info.resources["css"]
+                    if css_files:
+                        css_file = css_files[0]
+                        file_name = (
+                            css_file.get("file", "") if isinstance(css_file, dict) else css_file
+                        )
+                        if file_name and isinstance(file_name, str):
+                            return f"layouts/{self.layout}/{file_name}"
+            except Exception as e:
+                logger.debug(f"Failed to get CSS from layout registry: {e}")
+
+        # Dynamic fallback based on layout name pattern
+        return f"layouts/{self.layout}/{self.layout}.css"
 
     def _get_fallback_js_url(self) -> str:
         """Get fallback JavaScript URL path for the current layout.
 
         Returns:
-            JavaScript URL path (e.g., 'layouts/3x4/3x4.js', 'layouts/4x8/4x8.js', 'layouts/whats-next-view/whats-next-view.js')
+            JavaScript URL path using dynamic layout discovery when possible
         """
-        if self.layout == "3x4":
-            return "layouts/3x4/3x4.js"
-        if self.layout == "4x8":
-            return "layouts/4x8/4x8.js"
-        if self.layout == "whats-next-view":
-            return "layouts/whats-next-view/whats-next-view.js"
-        # Default fallback
-        return "layouts/4x8/4x8.js"
+        # Try to use layout registry to get resource information
+        if self.layout_registry is not None:
+            try:
+                layout_info = self.layout_registry.get_layout_info(self.layout)
+                if layout_info and layout_info.resources.get("js"):
+                    # Use first JS file from layout resources
+                    js_files = layout_info.resources["js"]
+                    if js_files:
+                        js_file = js_files[0]
+                        file_name = (
+                            js_file.get("file", "") if isinstance(js_file, dict) else js_file
+                        )
+                        if file_name and isinstance(file_name, str):
+                            return f"layouts/{self.layout}/{file_name}"
+            except Exception as e:
+                logger.debug(f"Failed to get JS from layout registry: {e}")
+
+        # Dynamic fallback based on layout name pattern
+        return f"layouts/{self.layout}/{self.layout}.js"
 
     def _get_fallback_css_file(self) -> str:
         """Get fallback CSS file name for the current layout.
@@ -651,14 +681,10 @@ class HTMLRenderer:
         DEPRECATED: Use _get_fallback_css_url() instead.
 
         Returns:
-            CSS filename (e.g., '4x8.css', '3x4.css')
+            CSS filename using dynamic pattern
         """
-        if self.layout == "3x4":
-            return "3x4.css"
-        if self.layout == "4x8":
-            return "4x8.css"
-        # Default fallback
-        return "4x8.css"
+        # Dynamic fallback based on layout name pattern
+        return f"{self.layout}.css"
 
     def _get_fallback_js_file(self) -> str:
         """Get fallback JavaScript file name for the current layout.
@@ -666,14 +692,10 @@ class HTMLRenderer:
         DEPRECATED: Use _get_fallback_js_url() instead.
 
         Returns:
-            JavaScript filename (e.g., '4x8.js', '3x4.js')
+            JavaScript filename using dynamic pattern
         """
-        if self.layout == "3x4":
-            return "3x4.js"
-        if self.layout == "4x8":
-            return "4x8.js"
-        # Default fallback
-        return "4x8.js"
+        # Dynamic fallback based on layout name pattern
+        return f"{self.layout}.js"
 
     def _get_theme_css_file(self) -> str:
         """Get the CSS file name for the current theme.
@@ -697,7 +719,17 @@ class HTMLRenderer:
 
     def _get_layout_icon(self) -> str:
         """Get appropriate icon for current layout."""
-        return "⚙️" if self.layout == "3x4" else "⚫"
+        # Use layout registry to get icon if available
+        if self.layout_registry is not None:
+            try:
+                layout_info = self.layout_registry.get_layout_info(self.layout)
+                if layout_info and "icon" in layout_info.capabilities:
+                    return layout_info.capabilities["icon"]
+            except Exception as e:
+                logger.debug(f"Failed to get icon from layout registry: {e}")
+
+        # Default icon fallback
+        return "⚫"
 
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters.

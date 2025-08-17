@@ -221,9 +221,9 @@ class DisplayManager:
             except Exception as e:
                 logger.warning(f"Failed to get layouts from registry: {e}, using fallback")
 
-        # Fallback to hardcoded list for compatibility
+        # Fallback to hardcoded list for compatibility - remove old "3x4" reference
         logger.debug("Using fallback layout list")
-        return ["4x8", "3x4"]
+        return ["4x8", "whats-next-view"]
 
     @property
     def current_display_type(self) -> str:
@@ -563,6 +563,13 @@ class DisplayManager:
         web_layout = getattr(self.settings, "web_layout", None)
         if web_layout and isinstance(web_layout, str):
             return str(web_layout)
+
+        # Use dynamic default from layout registry if available
+        if self.layout_registry is not None:
+            try:
+                return self.layout_registry.get_default_layout()
+            except Exception as e:
+                logger.warning(f"Failed to get default layout from registry: {e}, using fallback")
 
         return "4x8"  # Default fallback
 

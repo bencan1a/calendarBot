@@ -60,10 +60,36 @@ class LayoutRegistry:
         logger.debug(f"LayoutRegistry initialized with layouts_dir: {self.layouts_dir}")
 
         self._layouts: dict[str, LayoutInfo] = {}
-        self._fallback_layouts = ["4x8", "3x4", "console"]  # Emergency fallback
+        self._fallback_layouts: list[str] = []  # Will be populated dynamically
 
         # Discover layouts on initialization
         self.discover_layouts()
+
+    def _generate_dynamic_fallbacks(self) -> list[str]:
+        """Generate dynamic fallback chain based on available layouts.
+
+        Returns:
+            List of layout names in fallback priority order, always ending with "console".
+        """
+        fallbacks = []
+
+        # Preferred fallback order based on layout reliability and compatibility
+        preferred_order = ["4x8", "whats-next-view"]
+
+        # Add available layouts in preferred order
+        fallbacks.extend(
+            [layout_name for layout_name in preferred_order if layout_name in self._layouts]
+        )
+
+        # Add any other available layouts not in preferred list
+        for layout_name in self._layouts:
+            if layout_name not in fallbacks and layout_name != "console":
+                fallbacks.append(layout_name)
+
+        # Always add console as final fallback
+        fallbacks.append("console")
+
+        return fallbacks
 
     def discover_layouts(self) -> None:
         """Scan filesystem and rebuild layout registry.
@@ -100,6 +126,10 @@ class LayoutRegistry:
             logger.exception("Error discovering layouts")
             # Use emergency fallback
             self._create_emergency_layouts()
+
+        # Generate dynamic fallback chain after layout discovery
+        self._fallback_layouts = self._generate_dynamic_fallbacks()
+        logger.debug(f"Dynamic fallback chain: {self._fallback_layouts}")
 
     def _load_layout_config(self, config_file: Path) -> LayoutInfo:
         """Load layout configuration from JSON file.
@@ -148,7 +178,7 @@ class LayoutRegistry:
         """Create emergency fallback layouts when filesystem discovery fails."""
         logger.warning("Creating emergency fallback layouts")
 
-        # 4x8 emergency layout
+        # 4x8 emergency layout (only if available layouts support it)
         self._layouts["4x8"] = LayoutInfo(
             name="4x8",
             display_name="4x8 Grid Layout (Emergency)",
@@ -156,27 +186,13 @@ class LayoutRegistry:
             description="Emergency fallback 4x8 layout",
             capabilities={"grid_dimensions": {"columns": 4, "rows": 8}, "renderer_type": "html"},
             renderer_type="html",
-            fallback_chain=["3x4", "console"],
+            fallback_chain=["console"],
             resources={"css": ["4x8.css"], "js": ["4x8.js"]},
             requirements={},
         )
         logger.warning("Created emergency 4x8 layout")
 
-        # 3x4 emergency layout
-        self._layouts["3x4"] = LayoutInfo(
-            name="3x4",
-            display_name="3x4 Compact Layout (Emergency)",
-            version="1.0.0",
-            description="Emergency fallback 3x4 layout",
-            capabilities={"grid_dimensions": {"columns": 3, "rows": 4}, "renderer_type": "3x4"},
-            renderer_type="3x4",
-            fallback_chain=["console"],
-            resources={"css": ["3x4.css"], "js": []},
-            requirements={},
-        )
-        logger.warning("Created emergency 3x4 layout")
-
-        # Console emergency layout
+        # Console emergency layout (always available)
         self._layouts["console"] = LayoutInfo(
             name="console",
             display_name="Console Layout (Emergency)",
@@ -288,8 +304,9 @@ class LayoutRegistry:
                 )
                 return layout_info
 
-        # Emergency fallback
-        for emergency_layout in self._fallback_layouts:
+        # Emergency fallback - only use layouts that actually exist
+        available_fallbacks = [name for name in self._fallback_layouts if name in self._layouts]
+        for emergency_layout in available_fallbacks:
             layout_info = self.get_layout_info(emergency_layout)
             if layout_info is not None:
                 logger.error(f"Using emergency layout '{emergency_layout}'")
@@ -311,10 +328,9 @@ class LayoutRegistry:
                 return "whats-next-view"
             if "4x8" in self._layouts:
                 return "4x8"
-            if "3x4" in self._layouts:
-                return "3x4"
+            # Return first available layout if no preferred layouts found
             return next(iter(self._layouts.keys()))
-        return "whats-next-view"  # Emergency fallback
+        return "console"  # Emergency fallback
 
     def get_layout_metadata(self, layout_name: str) -> Optional[dict[str, Any]]:
         """Get metadata for a specific layout.

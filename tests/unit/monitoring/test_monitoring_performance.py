@@ -1,11 +1,13 @@
 """Unit tests for the performance monitoring module."""
 
+import contextlib
 import logging
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from calendarbot.monitoring import NoOpPerformanceLogger
 from calendarbot.monitoring.performance import (
     MetricType,
     PerformanceLogger,
@@ -138,58 +140,64 @@ class TestPerformanceLogger:
 
     def test_initialization(self) -> None:
         """Test PerformanceLogger initialization."""
-        with patch("calendarbot.monitoring.performance.get_logger") as mock_get_logger:
-            with patch.object(PerformanceLogger, "_setup_metrics_logger") as mock_setup:
-                logger = PerformanceLogger()
+        with (
+            patch("calendarbot.monitoring.performance.get_logger") as mock_get_logger,
+            patch.object(PerformanceLogger, "_setup_metrics_logger") as mock_setup,
+        ):
+            logger = PerformanceLogger()
 
-                mock_get_logger.assert_called_once_with("performance")
-                mock_setup.assert_called_once()
-                assert logger._metrics_cache == []
-                assert logger._operation_timers == {}
-                assert logger.cache_size == 2000
-                # Check that _lock is a lock object (not checking the exact type)
-                assert hasattr(logger._lock, "acquire")
-                assert hasattr(logger._lock, "release")
-                assert isinstance(logger.thresholds, dict)
+            mock_get_logger.assert_called_once_with("performance")
+            mock_setup.assert_called_once()
+            assert logger._metrics_cache == []
+            assert logger._operation_timers == {}
+            assert logger.cache_size == 2000
+            # Check that _lock is a lock object (not checking the exact type)
+            assert hasattr(logger._lock, "acquire")
+            assert hasattr(logger._lock, "release")
+            assert isinstance(logger.thresholds, dict)
 
     def test_setup_metrics_logger_with_settings(self) -> None:
         """Test _setup_metrics_logger with settings."""
         mock_settings = MagicMock()
         mock_settings.data_dir = "/test/data/dir"
 
-        with patch("calendarbot.monitoring.performance.logging"):
-            with patch("calendarbot.monitoring.performance.Path") as mock_path:
-                with patch("logging.handlers.RotatingFileHandler"):
-                    # Setup the mock path
-                    mock_path_instance = Mock()
-                    mock_path.return_value = mock_path_instance
+        with (
+            patch("calendarbot.monitoring.performance.logging"),
+            patch("calendarbot.monitoring.performance.Path") as mock_path,
+            patch("logging.handlers.RotatingFileHandler"),
+        ):
+            # Setup the mock path
+            mock_path_instance = Mock()
+            mock_path.return_value = mock_path_instance
 
-                    # Mock the / operator for Path objects
-                    mock_path_instance.__truediv__ = Mock(return_value=mock_path_instance)
-                    mock_path_instance.mkdir = Mock()
+            # Mock the / operator for Path objects
+            mock_path_instance.__truediv__ = Mock(return_value=mock_path_instance)
+            mock_path_instance.mkdir = Mock()
 
-                    PerformanceLogger(settings=mock_settings)
+            PerformanceLogger(settings=mock_settings)
 
-                    # Check that the correct path was created
-                    mock_path.assert_called_with("/test/data/dir")
-                    mock_path_instance.mkdir.assert_called_with(parents=True, exist_ok=True)
+            # Check that the correct path was created
+            mock_path.assert_called_with("/test/data/dir")
+            mock_path_instance.mkdir.assert_called_with(parents=True, exist_ok=True)
 
     def test_setup_metrics_logger_without_settings(self) -> None:
         """Test _setup_metrics_logger without settings."""
-        with patch("calendarbot.monitoring.performance.logging"):
-            with patch("calendarbot.monitoring.performance.Path") as mock_path:
-                with patch("logging.handlers.RotatingFileHandler"):
-                    # Setup the mock path
-                    home_path = Mock()
-                    mock_path.home.return_value = home_path
-                    home_path.__truediv__ = Mock(return_value=home_path)
-                    home_path.mkdir = Mock()
+        with (
+            patch("calendarbot.monitoring.performance.logging"),
+            patch("calendarbot.monitoring.performance.Path") as mock_path,
+            patch("logging.handlers.RotatingFileHandler"),
+        ):
+            # Setup the mock path
+            home_path = Mock()
+            mock_path.home.return_value = home_path
+            home_path.__truediv__ = Mock(return_value=home_path)
+            home_path.mkdir = Mock()
 
-                    PerformanceLogger()
+            PerformanceLogger()
 
-                    # Check that the default path was created
-                    mock_path.home.assert_called_once()
-                    home_path.mkdir.assert_called_with(parents=True, exist_ok=True)
+            # Check that the default path was created
+            mock_path.home.assert_called_once()
+            home_path.mkdir.assert_called_with(parents=True, exist_ok=True)
 
     def test_log_metric(
         self, performance_logger: PerformanceLogger, mock_metrics_logger: MagicMock
@@ -199,13 +207,15 @@ class TestPerformanceLogger:
             name="test_metric", metric_type=MetricType.GAUGE, value=42, unit="count"
         )
 
-        with patch.object(performance_logger, "_add_to_cache") as mock_add_to_cache:
-            with patch.object(performance_logger, "_check_thresholds") as mock_check_thresholds:
-                performance_logger.log_metric(metric)
+        with (
+            patch.object(performance_logger, "_add_to_cache") as mock_add_to_cache,
+            patch.object(performance_logger, "_check_thresholds") as mock_check_thresholds,
+        ):
+            performance_logger.log_metric(metric)
 
-                mock_add_to_cache.assert_called_once_with(metric)
-                mock_metrics_logger.info.assert_called_once()
-                mock_check_thresholds.assert_called_once_with(metric)
+            mock_add_to_cache.assert_called_once_with(metric)
+            mock_metrics_logger.info.assert_called_once()
+            mock_check_thresholds.assert_called_once_with(metric)
 
     def test_log_metric_exception(
         self, performance_logger: PerformanceLogger, mock_logger: MagicMock
@@ -222,26 +232,28 @@ class TestPerformanceLogger:
         """Test start_timer method."""
         with patch("calendarbot.monitoring.performance.uuid.uuid4") as mock_uuid:
             mock_uuid.return_value.hex = "12345678" * 2
-            with patch("calendarbot.monitoring.performance.time.perf_counter", return_value=100.0):
-                with patch.object(performance_logger, "log_metric") as mock_log_metric:
-                    timer_id = performance_logger.start_timer(
-                        "test_operation", "test_component", "test-correlation-id"
-                    )
+            with (
+                patch("calendarbot.monitoring.performance.time.perf_counter", return_value=100.0),
+                patch.object(performance_logger, "log_metric") as mock_log_metric,
+            ):
+                timer_id = performance_logger.start_timer(
+                    "test_operation", "test_component", "test-correlation-id"
+                )
 
-                    assert timer_id == "test_operation_12345678"
-                    assert performance_logger._operation_timers[timer_id] == 100.0
-                    mock_log_metric.assert_called_once()
+                assert timer_id == "test_operation_12345678"
+                assert performance_logger._operation_timers[timer_id] == 100.0
+                mock_log_metric.assert_called_once()
 
-                    # Check the metric that was logged
-                    metric = mock_log_metric.call_args[0][0]
-                    assert metric.name == "test_operation_start"
-                    assert metric.metric_type == MetricType.TIMER
-                    assert metric.value == 100.0
-                    assert metric.component == "test_component"
-                    assert metric.operation == "test_operation"
-                    assert metric.correlation_id == "test-correlation-id"
-                    assert metric.metadata["timer_id"] == timer_id
-                    assert metric.metadata["action"] == "start"
+                # Check the metric that was logged
+                metric = mock_log_metric.call_args[0][0]
+                assert metric.name == "test_operation_start"
+                assert metric.metric_type == MetricType.TIMER
+                assert metric.value == 100.0
+                assert metric.component == "test_component"
+                assert metric.operation == "test_operation"
+                assert metric.correlation_id == "test-correlation-id"
+                assert metric.metadata["timer_id"] == timer_id
+                assert metric.metadata["action"] == "start"
 
     def test_stop_timer(self, performance_logger: PerformanceLogger) -> None:
         """Test stop_timer method."""
@@ -249,33 +261,35 @@ class TestPerformanceLogger:
         timer_id = "test_operation_12345678"
         performance_logger._operation_timers[timer_id] = 100.0
 
-        with patch("calendarbot.monitoring.performance.time.perf_counter", return_value=105.5):
-            with patch.object(performance_logger, "log_metric") as mock_log_metric:
-                duration = performance_logger.stop_timer(
-                    timer_id,
-                    "test_component",
-                    "test_operation",
-                    "test-correlation-id",
-                    {"extra": "metadata"},
-                )
+        with (
+            patch("calendarbot.monitoring.performance.time.perf_counter", return_value=105.5),
+            patch.object(performance_logger, "log_metric") as mock_log_metric,
+        ):
+            duration = performance_logger.stop_timer(
+                timer_id,
+                "test_component",
+                "test_operation",
+                "test-correlation-id",
+                {"extra": "metadata"},
+            )
 
-                assert duration == 5.5
-                assert timer_id not in performance_logger._operation_timers
-                mock_log_metric.assert_called_once()
+            assert duration == 5.5
+            assert timer_id not in performance_logger._operation_timers
+            mock_log_metric.assert_called_once()
 
-                # Check the metric that was logged
-                metric = mock_log_metric.call_args[0][0]
-                assert metric.name == "test_operation_duration"
-                assert metric.metric_type == MetricType.TIMER
-                assert metric.value == 5.5
-                assert metric.component == "test_component"
-                assert metric.operation == "test_operation"
-                assert metric.correlation_id == "test-correlation-id"
-                assert metric.metadata["timer_id"] == timer_id
-                assert metric.metadata["action"] == "complete"
-                assert metric.metadata["start_time"] == 100.0
-                assert metric.metadata["end_time"] == 105.5
-                assert metric.metadata["extra"] == "metadata"
+            # Check the metric that was logged
+            metric = mock_log_metric.call_args[0][0]
+            assert metric.name == "test_operation_duration"
+            assert metric.metric_type == MetricType.TIMER
+            assert metric.value == 5.5
+            assert metric.component == "test_component"
+            assert metric.operation == "test_operation"
+            assert metric.correlation_id == "test-correlation-id"
+            assert metric.metadata["timer_id"] == timer_id
+            assert metric.metadata["action"] == "complete"
+            assert metric.metadata["start_time"] == 100.0
+            assert metric.metadata["end_time"] == 105.5
+            assert metric.metadata["extra"] == "metadata"
 
     def test_stop_timer_not_found(
         self, performance_logger: PerformanceLogger, mock_logger: MagicMock
@@ -333,45 +347,47 @@ class TestPerformanceLogger:
         mock_system_memory.used = 4294967296  # 4 GB
         mock_system_memory.percent = 50.0
 
-        with patch("calendarbot.monitoring.performance.psutil.Process", return_value=mock_process):
-            with patch(
+        with (
+            patch("calendarbot.monitoring.performance.psutil.Process", return_value=mock_process),
+            patch(
                 "calendarbot.monitoring.performance.psutil.virtual_memory",
                 return_value=mock_system_memory,
-            ):
-                with patch.object(performance_logger, "log_metric") as mock_log_metric:
-                    performance_logger.log_memory_usage(
-                        component="test_component",
-                        operation="test_operation",
-                        correlation_id="test-correlation-id",
-                    )
+            ),
+            patch.object(performance_logger, "log_metric") as mock_log_metric,
+        ):
+            performance_logger.log_memory_usage(
+                component="test_component",
+                operation="test_operation",
+                correlation_id="test-correlation-id",
+            )
 
-                    assert mock_log_metric.call_count == 2
+            assert mock_log_metric.call_count == 2
 
-                    # Check the first metric (RSS)
-                    rss_metric = mock_log_metric.call_args_list[0][0][0]
-                    assert rss_metric.name == "memory_rss"
-                    assert rss_metric.metric_type == MetricType.MEMORY
-                    assert rss_metric.value == 100.0  # 100 MB
-                    assert rss_metric.unit == "MB"
-                    assert rss_metric.component == "test_component"
-                    assert rss_metric.operation == "test_operation"
-                    assert rss_metric.correlation_id == "test-correlation-id"
-                    assert rss_metric.metadata["memory_type"] == "rss"
-                    assert rss_metric.metadata["vms"] == 200.0  # 200 MB
-                    assert rss_metric.metadata["pid"] == 12345
+            # Check the first metric (RSS)
+            rss_metric = mock_log_metric.call_args_list[0][0][0]
+            assert rss_metric.name == "memory_rss"
+            assert rss_metric.metric_type == MetricType.MEMORY
+            assert rss_metric.value == 100.0  # 100 MB
+            assert rss_metric.unit == "MB"
+            assert rss_metric.component == "test_component"
+            assert rss_metric.operation == "test_operation"
+            assert rss_metric.correlation_id == "test-correlation-id"
+            assert rss_metric.metadata["memory_type"] == "rss"
+            assert rss_metric.metadata["vms"] == 200.0  # 200 MB
+            assert rss_metric.metadata["pid"] == 12345
 
-                    # Check the second metric (System memory)
-                    sys_metric = mock_log_metric.call_args_list[1][0][0]
-                    assert sys_metric.name == "system_memory_usage"
-                    assert sys_metric.metric_type == MetricType.SYSTEM
-                    assert sys_metric.value == 50.0  # 50%
-                    assert sys_metric.unit == "percent"
-                    assert sys_metric.component == "test_component"
-                    assert sys_metric.operation == "test_operation"
-                    assert sys_metric.correlation_id == "test-correlation-id"
-                    assert sys_metric.metadata["total_mb"] == 8192.0  # 8 GB
-                    assert sys_metric.metadata["available_mb"] == 4096.0  # 4 GB
-                    assert sys_metric.metadata["used_mb"] == 4096.0  # 4 GB
+            # Check the second metric (System memory)
+            sys_metric = mock_log_metric.call_args_list[1][0][0]
+            assert sys_metric.name == "system_memory_usage"
+            assert sys_metric.metric_type == MetricType.SYSTEM
+            assert sys_metric.value == 50.0  # 50%
+            assert sys_metric.unit == "percent"
+            assert sys_metric.component == "test_component"
+            assert sys_metric.operation == "test_operation"
+            assert sys_metric.correlation_id == "test-correlation-id"
+            assert sys_metric.metadata["total_mb"] == 8192.0  # 8 GB
+            assert sys_metric.metadata["available_mb"] == 4096.0  # 4 GB
+            assert sys_metric.metadata["used_mb"] == 4096.0  # 4 GB
 
     def test_log_memory_usage_exception(
         self, performance_logger: PerformanceLogger, mock_logger: MagicMock
@@ -621,7 +637,7 @@ class TestPerformanceLogger:
         )
 
         # Add metrics to cache
-        performance_logger._metrics_cache = recent_metrics + [old_metric]
+        performance_logger._metrics_cache = [*recent_metrics, old_metric]
 
         # Get summary for the last hour
         summary = performance_logger.get_performance_summary(hours=1)
@@ -666,8 +682,7 @@ class TestPerformanceLoggerMixin:
     def mixin_instance(self) -> TestClass:
         """Create an instance of the test class with PerformanceLoggerMixin."""
         with patch("calendarbot.monitoring.performance.get_performance_logger"):
-            instance = self.TestClass()
-            return instance
+            return self.TestClass()
 
     def test_initialization(self, mixin_instance: TestClass) -> None:
         """Test PerformanceLoggerMixin initialization."""
@@ -756,9 +771,12 @@ class TestContextManagers:
         mock_logger = MagicMock()
         mock_logger.start_timer.return_value = "timer-123"
 
+        def _raise_test_exception():
+            raise ValueError("Test exception")
+
         try:
             with performance_timer("test_operation", logger=mock_logger):
-                raise ValueError("Test exception")
+                _raise_test_exception()
         except ValueError:
             pass
 
@@ -790,9 +808,12 @@ class TestContextManagers:
         """Test memory_monitor context manager with exception."""
         mock_logger = MagicMock()
 
+        def _raise_test_exception():
+            raise ValueError("Test exception")
+
         try:
             with memory_monitor(logger=mock_logger):
-                raise ValueError("Test exception")
+                _raise_test_exception()
         except ValueError:
             pass
 
@@ -839,10 +860,13 @@ class TestContextManagers:
         """Test cache_monitor context manager with exception."""
         mock_logger = MagicMock()
 
+        def _raise_test_exception():
+            raise ValueError("Test exception")
+
         try:
             with cache_monitor("test_cache", logger=mock_logger) as monitor:
                 monitor.record_hit()
-                raise ValueError("Test exception")
+                _raise_test_exception()
         except ValueError:
             pass
 
@@ -909,10 +933,8 @@ class TestPerformanceMonitorDecorator:
             def test_function():
                 raise ValueError("Test exception")
 
-            try:
+            with contextlib.suppress(ValueError):
                 test_function()
-            except ValueError:
-                pass
 
             # Memory tracking should still happen at the start, but not at the end due to exception
             assert mock_logger.log_memory_usage.call_count == 1
@@ -922,16 +944,11 @@ class TestGlobalFunctions:
     """Tests for the global functions in the performance module."""
 
     def test_get_performance_logger_creates_new_instance(self) -> None:
-        """Test get_performance_logger creates a new instance if none exists."""
-        with patch("calendarbot.monitoring.performance._performance_logger", None):
-            with patch("calendarbot.monitoring.performance.PerformanceLogger") as mock_logger_class:
-                mock_logger = MagicMock()
-                mock_logger_class.return_value = mock_logger
+        """Test get_performance_logger returns NoOpPerformanceLogger when monitoring disabled."""
+        logger = get_performance_logger()
 
-                logger = get_performance_logger()
-
-                assert logger == mock_logger
-                mock_logger_class.assert_called_once()
+        # When monitoring is disabled (default), should return NoOpPerformanceLogger
+        assert isinstance(logger, NoOpPerformanceLogger)
 
     def test_get_performance_logger_returns_existing_instance(self) -> None:
         """Test get_performance_logger returns existing instance if one exists."""
@@ -943,14 +960,9 @@ class TestGlobalFunctions:
             assert logger == mock_logger
 
     def test_init_performance_logging(self) -> None:
-        """Test init_performance_logging function."""
+        """Test init_performance_logging function returns NoOpPerformanceLogger when monitoring disabled."""
         mock_settings = MagicMock()
-        mock_logger = MagicMock()
+        logger = init_performance_logging(mock_settings)
 
-        with patch(
-            "calendarbot.monitoring.performance.PerformanceLogger", return_value=mock_logger
-        ) as mock_logger_class:
-            logger = init_performance_logging(mock_settings)
-
-            assert logger == mock_logger
-            mock_logger_class.assert_called_once_with(mock_settings)
+        # When monitoring is disabled (default), should return NoOpPerformanceLogger
+        assert isinstance(logger, NoOpPerformanceLogger)

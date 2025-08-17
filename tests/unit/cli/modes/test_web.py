@@ -60,29 +60,28 @@ class TestRunWebMode:
     @pytest.fixture
     def mock_settings(self):
         """Create mock settings object."""
-        settings = MagicMock()
-        return settings
+        return MagicMock()
 
     def test_signal_handler(self):
         """Test signal handler functionality."""
         # This is tested implicitly in run_web_mode, but we can test the setup
-        with patch("signal.signal") as mock_signal:
-            with patch("calendarbot.cli.modes.web.asyncio.Event") as mock_event_class:
-                mock_event = MagicMock()
-                mock_event_class.return_value = mock_event
+        with (
+            patch("signal.signal") as mock_signal,
+            patch("calendarbot.cli.modes.web.asyncio.Event") as mock_event_class,
+        ):
+            mock_event = MagicMock()
+            mock_event_class.return_value = mock_event
 
-                # Test that signal handlers are registered
-                # This would be called in run_web_mode
-                mock_signal.assert_not_called()  # Not called yet without running the function
+            # Test that signal handlers are registered
+            # This would be called in run_web_mode
+            mock_signal.assert_not_called()  # Not called yet without running the function
 
     @patch("calendarbot.cli.modes.web.apply_command_line_overrides")
     @patch("calendarbot.cli.modes.web.apply_cli_overrides")
     @patch("calendarbot.cli.modes.web.get_local_network_interface")
     @patch("calendarbot.cli.modes.web.validate_host_binding")
-    @patch("calendarbot.cli.modes.web.LayoutRegistry")
     def test_configure_web_settings_when_rpi_false_and_layout_not_whats_next_then_uses_html_renderer(
         self,
-        mock_layout_registry_class,
         mock_validate_host,
         mock_get_interface,
         mock_apply_cli_overrides,
@@ -93,7 +92,7 @@ class TestRunWebMode:
         """Test _configure_web_settings with rpi=False and layout not whats-next-view."""
         # Setup
         mock_args.rpi = False
-        mock_args.layout = "3x4"
+        mock_args.layout = "4x8"
         mock_args.host = None
         mock_args.port = 8080
 
@@ -101,17 +100,13 @@ class TestRunWebMode:
         mock_apply_cli_overrides.return_value = mock_settings
         mock_get_interface.return_value = "192.168.1.100"
 
-        mock_layout_registry = MagicMock()
-        mock_layout_registry.get_default_layout.return_value = "3x4"
-        mock_layout_registry_class.return_value = mock_layout_registry
-
         # Execute
         result = web._configure_web_settings(mock_args, mock_settings)
 
         # Assert
         assert result == mock_settings
         assert result.display_type == "html"
-        assert result.web_layout == "3x4"
+        assert result.web_layout == "default"
         assert result.web_host == "192.168.1.100"
         assert result.web_port == 8080
         mock_validate_host.assert_called_once_with("192.168.1.100", warn_on_all_interfaces=False)
@@ -204,7 +199,7 @@ class TestWebModeIntegration:
             ("General error", Exception("General failure")),
         ]
 
-        for scenario_name, exception in error_scenarios:
+        for _scenario_name, exception in error_scenarios:
             with (
                 patch("calendarbot.cli.modes.web.CalendarBot", side_effect=exception),
                 patch("builtins.print") as mock_print,
@@ -227,8 +222,7 @@ class TestWebComponents:
     @pytest.fixture
     def mock_logger(self):
         """Create mock logger."""
-        logger = MagicMock()
-        return logger
+        return MagicMock()
 
     @pytest.fixture
     def mock_settings(self):
@@ -319,6 +313,7 @@ class TestWebComponents:
             display_manager=mock_app.display_manager,
             cache_manager=mock_app.cache_manager,
             navigation_state=mock_nav_handler.navigation_state,
+            layout_registry=mock_app.display_manager.layout_registry,
         )
 
     @pytest.mark.asyncio

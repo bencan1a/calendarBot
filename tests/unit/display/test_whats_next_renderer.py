@@ -1,6 +1,6 @@
 """Tests for WhatsNextRenderer."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from unittest.mock import MagicMock, patch
 
@@ -24,8 +24,9 @@ class TestWhatsNextRenderer:
     @pytest.fixture
     def renderer(self, mock_settings):
         """Create WhatsNextRenderer instance for testing."""
-        with patch("calendarbot.display.html_renderer.LayoutRegistry"), patch(
-            "calendarbot.display.html_renderer.ResourceManager"
+        with (
+            patch("calendarbot.display.html_renderer.LayoutRegistry"),
+            patch("calendarbot.display.html_renderer.ResourceManager"),
         ):
             return WhatsNextRenderer(mock_settings)
 
@@ -47,8 +48,6 @@ class TestWhatsNextRenderer:
         Returns:
             Mock CachedEvent instance
         """
-        from datetime import timezone
-
         base_time = datetime(2025, 7, 14, 12, 0, 0, tzinfo=timezone.utc)  # noon UTC
         start_dt = base_time + timedelta(hours=start_hours_offset)
         end_dt = base_time + timedelta(hours=end_hours_offset or (start_hours_offset + 1))
@@ -58,6 +57,9 @@ class TestWhatsNextRenderer:
         event.start_dt = start_dt
         event.end_dt = end_dt
         event.location_display_name = None
+        event.graph_id = (
+            f"event_{subject.lower().replace(' ', '_')}"  # Add graph_id for hidden events filtering
+        )
         event.format_time_range.return_value = (
             f"{start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')}"
         )
@@ -75,8 +77,9 @@ class TestWhatsNextRenderer:
 
     def test_init_when_called_then_initializes_successfully(self, mock_settings):
         """Test WhatsNextRenderer initialization."""
-        with patch("calendarbot.display.html_renderer.LayoutRegistry"), patch(
-            "calendarbot.display.html_renderer.ResourceManager"
+        with (
+            patch("calendarbot.display.html_renderer.LayoutRegistry"),
+            patch("calendarbot.display.html_renderer.ResourceManager"),
         ):
             renderer = WhatsNextRenderer(mock_settings)
             assert renderer is not None
@@ -86,8 +89,6 @@ class TestWhatsNextRenderer:
         self, renderer
     ):
         """Test finding next upcoming event with multiple upcoming events."""
-        from datetime import timezone
-
         # Use built-in debug time mechanism instead of mocking
         debug_time = datetime(2025, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
         renderer.logic.set_debug_time(debug_time)
@@ -107,8 +108,6 @@ class TestWhatsNextRenderer:
 
     def test_find_next_upcoming_event_when_no_upcoming_events_then_returns_none(self, renderer):
         """Test finding next upcoming event when no upcoming events exist."""
-        from datetime import timezone
-
         # Use built-in debug time mechanism instead of mocking
         debug_time = datetime(2025, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
         renderer.logic.set_debug_time(debug_time)
@@ -125,8 +124,6 @@ class TestWhatsNextRenderer:
 
     def test_find_next_upcoming_event_when_empty_list_then_returns_none(self, renderer):
         """Test finding next upcoming event with empty event list."""
-        from datetime import timezone
-
         # Use built-in debug time mechanism instead of mocking
         debug_time = datetime(2025, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
         renderer.logic.set_debug_time(debug_time)

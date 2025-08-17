@@ -107,7 +107,7 @@ class TestDynamicResourceIntegration:
         assert js_urls == expected_js_urls
 
     @pytest.mark.parametrize(
-        "layout_name,expected_css,expected_js",
+        ("layout_name", "expected_css", "expected_js"),
         [
             ("4x8", "4x8.css", "4x8.js"),
             ("whats-next-view", "whats-next-view.css", "whats-next-view.js"),
@@ -175,7 +175,7 @@ class TestLayoutRendererSeparation:
         css_whats_next = renderer_whats_next._get_fallback_css_file()
 
         assert css_4x8 == "4x8.css"
-        assert css_whats_next == "4x8.css"  # whats-next-view falls back to 4x8.css
+        assert css_whats_next == "whats-next-view.css"  # whats-next-view uses its own CSS file
 
         # Test fallback JS file selection
         js_4x8 = renderer_4x8._get_fallback_js_file()

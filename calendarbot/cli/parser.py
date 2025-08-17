@@ -86,18 +86,18 @@ class LayoutAction(argparse.Action):
 
         except LayoutError as e:
             logger.warning(f"Layout registry error during CLI validation: {e}")
-            # Fallback to legacy validation for backward compatibility
-            legacy_layouts = ["4x8", "3x4"]
-            if layout_name not in legacy_layouts:
-                self._raise_fallback_error(layout_name, legacy_layouts, "registry error")
+            # Fallback to filesystem-based validation for backward compatibility
+            fallback_layouts = self._get_fallback_layouts()
+            if layout_name not in fallback_layouts:
+                self._raise_fallback_error(layout_name, fallback_layouts, "registry error")
             setattr(namespace, self.dest, layout_name)
 
         except Exception:
             logger.exception("Unexpected error during layout validation")
-            # Fallback to legacy validation for robustness
-            legacy_layouts = ["4x8", "3x4"]
-            if layout_name not in legacy_layouts:
-                self._raise_fallback_error(layout_name, legacy_layouts, "error")
+            # Fallback to filesystem-based validation for robustness
+            fallback_layouts = self._get_fallback_layouts()
+            if layout_name not in fallback_layouts:
+                self._raise_fallback_error(layout_name, fallback_layouts, "error")
             setattr(namespace, self.dest, layout_name)
 
     def _raise_invalid_layout_error(self, layout_name: str, available_layouts: list[str]) -> None:
@@ -124,6 +124,28 @@ class LayoutAction(argparse.Action):
             argparse.ArgumentTypeError: With formatted error message
         """
         raise argparse.ArgumentTypeError(f"Invalid layout '{layout_name}'. No layouts available.")
+
+    def _get_fallback_layouts(self) -> list[str]:
+        """Get fallback layouts using filesystem discovery.
+
+        Returns:
+            List of layout names available in the filesystem.
+        """
+        try:
+            layouts_dir = Path(__file__).parent.parent / "layouts"
+            if layouts_dir.exists():
+                available_layouts = [
+                    layout_dir.name
+                    for layout_dir in layouts_dir.iterdir()
+                    if layout_dir.is_dir() and (layout_dir / "layout.json").exists()
+                ]
+                if available_layouts:
+                    return available_layouts
+        except Exception:
+            logger.exception("Filesystem layout discovery failed")
+
+        # Ultimate fallback - only layouts known to exist
+        return ["4x8", "whats-next-view"]
 
     def _raise_fallback_error(
         self, layout_name: str, legacy_layouts: list[str], reason: str

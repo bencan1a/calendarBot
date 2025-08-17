@@ -71,7 +71,7 @@ class LazyLayoutRegistry:
         self.layouts_dir = layouts_dir
         self._metadata_cache: dict[str, LayoutMetadata] = {}
         self._loaded_layouts: dict[str, LayoutInfo] = {}
-        self._fallback_layouts = ["4x8", "3x4", "console"]
+        self._fallback_layouts: list[str] = []  # Will be populated dynamically
 
         # Cache Integration - Always enabled for maximum efficiency
         self._cache_manager = cache_manager or get_cache_manager()
@@ -90,6 +90,32 @@ class LazyLayoutRegistry:
 
         # Build lightweight metadata cache only
         self._build_metadata_cache()
+
+    def _generate_dynamic_fallbacks(self) -> list[str]:
+        """Generate dynamic fallback chain based on available layouts.
+
+        Returns:
+            List of layout names in fallback priority order, always ending with "console".
+        """
+        fallbacks = []
+
+        # Preferred fallback order based on layout reliability and compatibility
+        preferred_order = ["4x8", "whats-next-view"]
+
+        # Add available layouts in preferred order
+        fallbacks.extend(
+            [layout_name for layout_name in preferred_order if layout_name in self._metadata_cache]
+        )
+
+        # Add any other available layouts not in preferred list
+        for layout_name in self._metadata_cache:
+            if layout_name not in fallbacks and layout_name != "console":
+                fallbacks.append(layout_name)
+
+        # Always add console as final fallback
+        fallbacks.append("console")
+
+        return fallbacks
 
     def _build_metadata_cache(self) -> None:
         """Build lightweight metadata cache without loading layout configurations."""
@@ -135,12 +161,17 @@ class LazyLayoutRegistry:
             logger.exception("Failed to build layout metadata cache")
             self._create_emergency_metadata()
 
+        # Generate dynamic fallback chain after metadata discovery
+        self._fallback_layouts = self._generate_dynamic_fallbacks()
+        logger.debug(f"Dynamic fallback chain: {self._fallback_layouts}")
+
     def _create_emergency_metadata(self) -> None:
         """Create emergency fallback metadata when filesystem discovery fails."""
         logger.warning("Creating emergency fallback layout metadata")
 
-        # Create basic metadata for emergency layouts
-        for layout_name in self._fallback_layouts:
+        # Create basic metadata for essential emergency layouts
+        essential_layouts = ["4x8", "console"]
+        for layout_name in essential_layouts:
             emergency_path = self.layouts_dir / layout_name / "layout.json"
             metadata = LayoutMetadata(
                 name=layout_name, config_path=emergency_path, last_modified=time.time()
@@ -274,20 +305,8 @@ class LazyLayoutRegistry:
                     "renderer_type": "html",
                 },
                 renderer_type="html",
-                fallback_chain=["3x4", "console"],
-                resources={"css": ["4x8.css"], "js": ["4x8.js"]},
-                requirements={},
-            )
-        elif layout_name == "3x4":
-            layout_info = LayoutInfo(
-                name="3x4",
-                display_name="3x4 Compact Layout (Emergency)",
-                version="1.0.0",
-                description="Emergency fallback 3x4 layout",
-                capabilities={"grid_dimensions": {"columns": 3, "rows": 4}, "renderer_type": "3x4"},
-                renderer_type="3x4",
                 fallback_chain=["console"],
-                resources={"css": ["3x4.css"], "js": []},
+                resources={"css": ["4x8.css"], "js": ["4x8.js"]},
                 requirements={},
             )
         elif layout_name == "console":

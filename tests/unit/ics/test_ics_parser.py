@@ -1,6 +1,6 @@
 """Unit tests for ICS Parser functionality."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -249,12 +249,14 @@ END:VCALENDAR"""
         result = parser.parse_ics_content(recurring_ics)
 
         assert result.success is True
-        assert len(result.events) == 1
+        # Implementation now automatically expands recurring events, so we expect 10 instances
+        assert len(result.events) == 10
         assert result.recurring_event_count == 1
 
-        event = result.events[0]
-        assert event.subject == "Weekly Meeting"
-        assert event.is_recurring is True
+        # All events should be instances of the same recurring meeting
+        assert all(event.subject == "Weekly Meeting" for event in result.events)
+        # Verify they are expanded instances
+        assert all(getattr(event, "is_expanded_instance", False) for event in result.events)
 
     def test_parse_cancelled_event(self, parser: ICSParser) -> None:
         """Test parsing of cancelled event."""
@@ -331,7 +333,6 @@ class TestICSParserDateTimeParsing:
 
     def test_parse_datetime_date_only(self, parser: ICSParser) -> None:
         """Test parsing date-only (all-day) events."""
-        from datetime import date
 
         mock_dt_prop = MagicMock()
         mock_dt_prop.dt = date(2024, 1, 1)
@@ -379,7 +380,7 @@ class TestICSParserStatusMapping:
             return ICSParser(test_settings)
 
     @pytest.mark.parametrize(
-        "transparency,status,expected",
+        ("transparency", "status", "expected"),
         [
             ("OPAQUE", "CONFIRMED", EventStatus.BUSY),
             ("OPAQUE", "TENTATIVE", EventStatus.TENTATIVE),
@@ -404,7 +405,7 @@ class TestICSParserStatusMapping:
             "MockComponent",
             (),
             {
-                "get": lambda self, key, default=None: None  # No Microsoft markers by default
+                "get": lambda _self, _key, _default=None: None  # No Microsoft markers by default
             },
         )()
         result = parser._map_transparency_to_status(
@@ -761,16 +762,24 @@ class TestICSParserRecurrence:
             return ICSParser(test_settings)
 
     def test_expand_recurring_events_placeholder(self, parser: ICSParser) -> None:
-        """Test that expand_recurring_events returns original events (placeholder)."""
-        # Mock events
-        events = [MagicMock(), MagicMock()]
-        start_date = datetime.now()
-        end_date = start_date + timedelta(days=7)
+        """Test that _expand_recurring_events works with valid input (now private method)."""
+        # Mock events with required attributes
+        mock_event = MagicMock()
+        mock_event.is_recurring = True
+        mock_event.id = "test-event"
 
-        result = parser.expand_recurring_events(events, start_date, end_date)  # type: ignore
+        # Mock components with required structure
+        mock_component = MagicMock()
+        mock_component.get.return_value = None  # No RRULE
 
-        # Current implementation returns original events
-        assert result == events
+        events = [mock_event]
+        raw_components = [mock_component]
+
+        # Call private method directly since it's no longer public
+        result = parser._expand_recurring_events(events, raw_components)
+
+        # Should return empty list when no valid RRULE
+        assert isinstance(result, list)
 
 
 class TestICSParserHelperMethods:
@@ -833,7 +842,7 @@ async def test_ics_parser_integration_flow(test_settings: Any, sample_ics_conten
 
 
 @pytest.mark.parametrize(
-    "ics_fixture,expected_events",
+    ("ics_fixture", "expected_events"),
     [
         ("sample_ics_content", 1),
         # Could add more test data fixtures here

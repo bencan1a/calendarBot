@@ -172,8 +172,7 @@ def settings_service(temp_config_dir: Path, mock_calendarbot_settings: Mock) -> 
 @pytest.fixture
 def mock_settings_service() -> Mock:
     """Create a mock settings service for API testing."""
-    mock = Mock(spec=SettingsService)
-    return mock
+    return Mock(spec=SettingsService)
 
 
 @pytest.fixture
@@ -325,7 +324,7 @@ class MockCalendarBotSettings:
 def test_layout_registry() -> Mock:
     """Create a mock layout registry for testing."""
     mock = Mock()
-    mock.get_available_layouts.return_value = ["3x4", "4x8", "whats-next-view"]
+    mock.get_available_layouts.return_value = ["4x8", "whats-next-view"]
     mock.validate_layout.return_value = True
     return mock
 

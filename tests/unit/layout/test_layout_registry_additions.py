@@ -77,12 +77,14 @@ class TestLayoutRegistryAdditionalCoverage:
 
         # Mock the file opening
         m = mock_open()
-        with patch("builtins.open", m):
-            with patch("json.load", return_value=config_data):
-                # Mock Path.open to return our mock file
-                config_file.open.return_value = m()
+        with (
+            patch("builtins.open", m),
+            patch("json.load", return_value=config_data),
+        ):
+            # Mock Path.open to return our mock file
+            config_file.open.return_value = m()
 
-                layout_info = registry._load_layout_config(config_file)
+            layout_info = registry._load_layout_config(config_file)
 
         # Verify LayoutInfo was created correctly
         assert layout_info.name == "test_layout"
@@ -112,13 +114,15 @@ class TestLayoutRegistryAdditionalCoverage:
 
         # Mock the file opening
         m = mock_open()
-        with patch("builtins.open", m):
-            with patch("json.load", return_value=config_data):
-                # Mock Path.open to return our mock file
-                config_file.open.return_value = m()
+        with (
+            patch("builtins.open", m),
+            patch("json.load", return_value=config_data),
+        ):
+            # Mock Path.open to return our mock file
+            config_file.open.return_value = m()
 
-                with pytest.raises(LayoutValidationError) as excinfo:
-                    registry._load_layout_config(config_file)
+            with pytest.raises(LayoutValidationError) as excinfo:
+                registry._load_layout_config(config_file)
 
         assert "Missing required field: name" in str(excinfo.value)
 
@@ -131,13 +135,15 @@ class TestLayoutRegistryAdditionalCoverage:
 
         # Mock the file opening
         m = mock_open()
-        with patch("builtins.open", m):
-            with patch("json.load", side_effect=json.JSONDecodeError("Test error", "", 0)):
-                # Mock Path.open to return our mock file
-                config_file.open.return_value = m()
+        with (
+            patch("builtins.open", m),
+            patch("json.load", side_effect=json.JSONDecodeError("Test error", "", 0)),
+        ):
+            # Mock Path.open to return our mock file
+            config_file.open.return_value = m()
 
-                with pytest.raises(LayoutValidationError) as excinfo:
-                    registry._load_layout_config(config_file)
+            with pytest.raises(LayoutValidationError) as excinfo:
+                registry._load_layout_config(config_file)
 
         assert "Invalid JSON" in str(excinfo.value)
 
@@ -150,13 +156,15 @@ class TestLayoutRegistryAdditionalCoverage:
 
         # Mock open and json.load raising general exception
         m = mock_open()
-        with patch("builtins.open", m):
-            with patch("json.load", side_effect=Exception("Test error")):
-                # Mock Path.open to return our mock file
-                config_file.open.return_value = m()
+        with (
+            patch("builtins.open", m),
+            patch("json.load", side_effect=Exception("Test error")),
+        ):
+            # Mock Path.open to return our mock file
+            config_file.open.return_value = m()
 
-                with pytest.raises(LayoutValidationError) as excinfo:
-                    registry._load_layout_config(config_file)
+            with pytest.raises(LayoutValidationError) as excinfo:
+                registry._load_layout_config(config_file)
 
         assert "Error loading" in str(excinfo.value)
 
@@ -169,20 +177,16 @@ class TestLayoutRegistryAdditionalCoverage:
             # Call _create_emergency_layouts
             registry._create_emergency_layouts()
 
-            # Verify emergency layouts were created
+            # Verify emergency layouts were created (no longer includes 3x4)
             assert "4x8" in registry._layouts
-            assert "3x4" in registry._layouts
             assert "console" in registry._layouts
+            # 3x4 is no longer created as emergency layout
+            assert "3x4" not in registry._layouts
 
             # Verify 4x8 layout properties
             assert registry._layouts["4x8"].name == "4x8"
             assert "Emergency" in registry._layouts["4x8"].display_name
-            assert registry._layouts["4x8"].fallback_chain == ["3x4", "console"]
-
-            # Verify 3x4 layout properties
-            assert registry._layouts["3x4"].name == "3x4"
-            assert "Emergency" in registry._layouts["3x4"].display_name
-            assert registry._layouts["3x4"].fallback_chain == ["console"]
+            assert registry._layouts["4x8"].fallback_chain == ["console"]
 
             # Verify console layout properties
             assert registry._layouts["console"].name == "console"
@@ -261,14 +265,15 @@ class TestLayoutRegistryAdditionalCoverage:
                 return None
 
             # Patch get_layout_info with our custom implementation
-            with patch.object(registry, "get_layout_info", side_effect=mock_get_layout_info):
-                # Also patch get_fallback_chain to return the fallback chain
-                with patch.object(registry, "get_fallback_chain", return_value=["fallback1"]):
-                    # Call get_layout_with_fallback
-                    result = registry.get_layout_with_fallback("primary")
+            with (
+                patch.object(registry, "get_layout_info", side_effect=mock_get_layout_info),
+                patch.object(registry, "get_fallback_chain", return_value=["fallback1"]),
+            ):
+                # Call get_layout_with_fallback
+                result = registry.get_layout_with_fallback("primary")
 
-                    # Verify result is fallback layout
-                    assert result.name == "fallback1"
+                # Verify result is fallback layout
+                assert result.name == "fallback1"
 
     def test_get_layout_with_fallback_when_layout_not_in_registry_then_uses_emergency_fallback(
         self,

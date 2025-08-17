@@ -4,6 +4,7 @@ This configuration prevents hanging tests and ensures proper cleanup.
 """
 
 import asyncio
+import contextlib
 import os
 import signal
 from collections.abc import AsyncGenerator
@@ -12,7 +13,6 @@ from typing import Optional
 
 import psutil
 import pytest
-import pytest_asyncio
 
 # Apply warning filters for websockets deprecation warnings
 try:
@@ -40,8 +40,6 @@ except ImportError:
     class Page:
         pass
 
-    Browser = None
-    Page = None
 
 # Skip all tests if pyppeteer is not available
 pytestmark = pytest.mark.skipif(
@@ -62,19 +60,17 @@ def get_chrome_processes():
     """Count Chrome processes currently running."""
     chrome_count = 0
     for proc in psutil.process_iter(["pid", "name"]):
-        try:
+        with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
             if proc.info["name"] and "chrome" in proc.info["name"].lower():
                 chrome_count += 1
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
     return chrome_count
 
 
 async def force_cleanup_chrome():
     """Force cleanup of any remaining Chrome processes."""
-    try:
+    with contextlib.suppress(Exception):
         for proc in psutil.process_iter(["pid", "name", "cmdline"]):
-            try:
+            with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
                 if (
                     proc.info["name"]
                     and "chrome" in proc.info["name"].lower()
@@ -85,10 +81,6 @@ async def force_cleanup_chrome():
                     await asyncio.sleep(0.1)
                     if proc.is_running():
                         proc.kill()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-    except Exception:
-        pass  # Ignore cleanup errors
 
 
 def get_chrome_executable():
@@ -109,7 +101,7 @@ def get_chrome_executable():
     return None
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest.fixture
 async def browser() -> AsyncGenerator[Optional[Browser], None]:
     """
     Optimized browser test fixtures with improved reliability and timeout handling.
@@ -186,10 +178,8 @@ async def browser() -> AsyncGenerator[Optional[Browser], None]:
     except Exception as e:
         print(f"❌ Browser test error: {e}")
         if browser_instance:
-            try:
+            with contextlib.suppress(Exception):
                 await asyncio.wait_for(browser_instance.close(), timeout=5.0)
-            except:
-                pass
         await force_cleanup_chrome()
         pytest.skip(f"Browser test failed: {e}")
 
@@ -204,10 +194,8 @@ async def browser() -> AsyncGenerator[Optional[Browser], None]:
                 try:
                     pages = await asyncio.wait_for(pages_task, timeout=3.0)
                     for page in pages:
-                        try:
+                        with contextlib.suppress(Exception):
                             await asyncio.wait_for(page.close(), timeout=2.0)
-                        except:
-                            pass
                 except asyncio.TimeoutError:
                     pages_task.cancel()
 
@@ -228,7 +216,7 @@ async def browser() -> AsyncGenerator[Optional[Browser], None]:
         print(f"🟢 Browser cleaned up - Memory: {final_memory:.1f} MB, Chrome: {final_chrome}")
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest.fixture
 async def page(browser: Optional[Browser]) -> AsyncGenerator[Optional[Page], None]:
     """
     Create a browser page with timeout protection and simplified event handling.
@@ -254,10 +242,8 @@ async def page(browser: Optional[Browser]) -> AsyncGenerator[Optional[Page], Non
 
         # Handle dialogs with timeout
         async def handle_dialog(dialog):
-            try:
+            with contextlib.suppress(Exception):
                 await asyncio.wait_for(dialog.accept(), timeout=2.0)
-            except:
-                pass
 
         page_instance.on("dialog", lambda dialog: asyncio.create_task(handle_dialog(dialog)))
 
@@ -266,10 +252,8 @@ async def page(browser: Optional[Browser]) -> AsyncGenerator[Optional[Page], Non
     except Exception as e:
         print(f"❌ Page creation error: {e}")
         if page_instance:
-            try:
+            with contextlib.suppress(Exception):
                 await asyncio.wait_for(page_instance.close(), timeout=3.0)
-            except:
-                pass
         pytest.skip(f"Page creation failed: {e}")
 
     finally:
@@ -300,14 +284,13 @@ class BrowserTestUtils:
         try:
             element = await asyncio.wait_for(page.querySelector(selector), timeout=2.0)
             if element:
-                is_visible = await asyncio.wait_for(
+                return await asyncio.wait_for(
                     page.evaluate(
                         "el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length)",
                         element,
                     ),
                     timeout=2.0,
                 )
-                return is_visible
             return False
         except Exception:
             return False

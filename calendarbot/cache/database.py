@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 import aiosqlite
 
@@ -16,13 +16,15 @@ logger = logging.getLogger(__name__)
 class DatabaseManager:
     """Manages SQLite database operations for calendar event caching."""
 
-    def __init__(self, database_path: Path):
+    def __init__(self, database_path: Union[Path, str]):
         """Initialize database manager.
 
         Args:
             database_path: Path to SQLite database file
         """
-        self.database_path = database_path
+        self.database_path = (
+            Path(database_path) if isinstance(database_path, str) else database_path
+        )
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialized = False
         self._initialization_lock = None
@@ -36,6 +38,7 @@ class DatabaseManager:
             True if initialization successful, False otherwise
         """
         if self._initialized:
+            logger.debug(f"Database already initialized for {self.database_path}")
             return True
 
         # Use a lock to prevent concurrent initialization
@@ -247,6 +250,199 @@ class DatabaseManager:
             logger.exception("Failed to initialize database")
             return False
 
+    async def _create_schema_in_connection(self, db) -> None:
+        """Create database schema in an existing connection.
+
+        This is used for in-memory databases where each connection
+        needs its own copy of the schema.
+
+        Args:
+            db: Active database connection
+        """
+        # Enable WAL mode for better concurrent access and less SD card wear
+        await db.execute("PRAGMA journal_mode=WAL")
+
+        # Set synchronous mode to NORMAL for better performance
+        await db.execute("PRAGMA synchronous=NORMAL")
+
+        # Enable foreign key constraints
+        await db.execute("PRAGMA foreign_keys=ON")
+
+        # Create events table
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cached_events (
+                id TEXT PRIMARY KEY,
+                graph_id TEXT UNIQUE,
+                subject TEXT NOT NULL,
+                body_preview TEXT,
+                start_datetime TEXT NOT NULL,
+                start_timezone TEXT NOT NULL,
+                end_datetime TEXT NOT NULL,
+                end_timezone TEXT NOT NULL,
+                is_all_day INTEGER NOT NULL DEFAULT 0,
+                show_as TEXT NOT NULL DEFAULT 'busy',
+                is_cancelled INTEGER NOT NULL DEFAULT 0,
+                is_organizer INTEGER NOT NULL DEFAULT 0,
+                location_display_name TEXT,
+                location_address TEXT,
+                is_online_meeting INTEGER NOT NULL DEFAULT 0,
+                online_meeting_url TEXT,
+                web_link TEXT,
+                is_recurring INTEGER NOT NULL DEFAULT 0,
+                series_master_id TEXT,
+                recurrence_id TEXT,
+                is_instance INTEGER NOT NULL DEFAULT 0,
+                last_modified TEXT,
+                source_url TEXT,
+                cached_at TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """
+        )
+
+        # Create metadata table
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cache_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """
+        )
+
+        # Create raw_events table
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS raw_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                graph_id TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                body_content TEXT,
+                body_content_type TEXT,
+                start_datetime TEXT NOT NULL,
+                start_timezone TEXT NOT NULL,
+                end_datetime TEXT NOT NULL,
+                end_timezone TEXT NOT NULL,
+                is_all_day INTEGER NOT NULL DEFAULT 0,
+                show_as TEXT NOT NULL DEFAULT 'busy',
+                is_cancelled INTEGER NOT NULL DEFAULT 0,
+                is_organizer INTEGER NOT NULL DEFAULT 0,
+                location_display_name TEXT,
+                location_address TEXT,
+                is_online_meeting INTEGER NOT NULL DEFAULT 0,
+                online_meeting_url TEXT,
+                web_link TEXT,
+                is_recurring INTEGER NOT NULL DEFAULT 0,
+                series_master_id TEXT,
+                recurrence_id TEXT,
+                is_instance INTEGER NOT NULL DEFAULT 0,
+                last_modified TEXT,
+                source_url TEXT,
+                raw_ics_content TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                content_size_bytes INTEGER NOT NULL,
+                cached_at TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (graph_id) REFERENCES cached_events(graph_id) ON DELETE CASCADE
+            )
+        """
+        )
+
+        # Create indexes for cached_events table
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_cached_events_start_datetime
+            ON cached_events(start_datetime)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_cached_events_end_datetime
+            ON cached_events(end_datetime)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_cached_events_graph_id
+            ON cached_events(graph_id)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_cached_events_recurrence_id
+            ON cached_events(recurrence_id)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_cached_events_series_master_id
+            ON cached_events(series_master_id)
+        """
+        )
+
+        # Create indexes for raw_events table
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_raw_events_graph_id
+            ON raw_events(graph_id)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_raw_events_recurrence_id
+            ON raw_events(recurrence_id)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_raw_events_hash_cached
+            ON raw_events(content_hash, cached_at)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_raw_events_size_cached
+            ON raw_events(content_size_bytes, cached_at)
+        """
+        )
+
+        # Create trigger to update updated_at timestamp for cached_events
+        await db.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS update_cached_events_timestamp
+            AFTER UPDATE ON cached_events
+            BEGIN
+                UPDATE cached_events SET updated_at = CURRENT_TIMESTAMP
+                WHERE id = NEW.id;
+            END
+        """
+        )
+
+        # Create trigger to update updated_at timestamp for raw_events
+        await db.execute(
+            """
+            CREATE TRIGGER IF NOT EXISTS update_raw_events_timestamp
+            AFTER UPDATE ON raw_events
+            BEGIN
+                UPDATE raw_events SET updated_at = CURRENT_TIMESTAMP
+                WHERE id = NEW.id;
+            END
+        """
+        )
+
+        await db.commit()
+
     async def initialize(self) -> bool:
         """Initialize database schema and settings (now lazy).
 
@@ -275,6 +471,9 @@ class DatabaseManager:
                 return True
 
             async with aiosqlite.connect(str(self.database_path)) as db:
+                # For in-memory databases, ensure schema exists in this connection
+                if str(self.database_path) == ":memory:":
+                    await self._create_schema_in_connection(db)
                 # Insert or replace events
                 await db.executemany(
                     """
@@ -350,6 +549,9 @@ class DatabaseManager:
             )
 
             async with aiosqlite.connect(str(self.database_path)) as db:
+                # For in-memory databases, ensure schema exists in this connection
+                if str(self.database_path) == ":memory:":
+                    await self._create_schema_in_connection(db)
                 db.row_factory = aiosqlite.Row
 
                 # First check total events in database
@@ -422,10 +624,14 @@ class DatabaseManager:
             Number of events removed
         """
         try:
+            await self._ensure_initialized()
             cutoff_date = datetime.now() - timedelta(days=days_old)
             cutoff_str = cutoff_date.isoformat()
 
             async with aiosqlite.connect(str(self.database_path)) as db:
+                # For in-memory databases, ensure schema exists in this connection
+                if str(self.database_path) == ":memory:":
+                    await self._create_schema_in_connection(db)
                 cursor = await db.execute(
                     """
                     DELETE FROM cached_events
@@ -452,6 +658,9 @@ class DatabaseManager:
         """
         try:
             async with aiosqlite.connect(str(self.database_path)) as db:
+                # For in-memory databases, ensure schema exists in this connection
+                if str(self.database_path) == ":memory:":
+                    await self._create_schema_in_connection(db)
                 cursor = await db.execute("DELETE FROM cached_events")
                 deleted_count = cursor.rowcount
                 await db.commit()
@@ -470,7 +679,11 @@ class DatabaseManager:
             Cache metadata object
         """
         try:
+            await self._ensure_initialized()
             async with aiosqlite.connect(str(self.database_path)) as db:
+                # For in-memory databases, ensure schema exists in this connection
+                if str(self.database_path) == ":memory:":
+                    await self._create_schema_in_connection(db)
                 db.row_factory = aiosqlite.Row
 
                 # Get event count
@@ -510,6 +723,9 @@ class DatabaseManager:
         """
         try:
             async with aiosqlite.connect(str(self.database_path)) as db:
+                # For in-memory databases, ensure schema exists in this connection
+                if str(self.database_path) == ":memory:":
+                    await self._create_schema_in_connection(db)
                 for key, value in kwargs.items():
                     await db.execute(
                         """
@@ -536,6 +752,9 @@ class DatabaseManager:
         """
         try:
             async with aiosqlite.connect(str(self.database_path)) as db:
+                # For in-memory databases, ensure schema exists in this connection
+                if str(self.database_path) == ":memory:":
+                    await self._create_schema_in_connection(db)
                 db.row_factory = aiosqlite.Row
 
                 info: dict[str, Any] = {}

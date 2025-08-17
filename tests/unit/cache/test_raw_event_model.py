@@ -1,7 +1,7 @@
 """Unit tests for RawEvent model functionality."""
 
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
@@ -44,7 +44,7 @@ END:VCALENDAR"""
             )
 
         # Verify basic fields
-        assert raw_event.id == f"raw_{graph_id}"
+        assert raw_event.id.startswith(f"raw_{graph_id}_")
         assert raw_event.graph_id == graph_id
         assert raw_event.source_url == source_url
         assert raw_event.raw_ics_content == ics_content
@@ -97,7 +97,7 @@ END:VCALENDAR"""
         assert raw_event.subject == "Empty Event"
 
     @pytest.mark.parametrize(
-        "content,expected_size",
+        ("content", "expected_size"),
         [
             ("Hello", 5),
             ("Hello 世界", 12),  # UTF-8 encoding test
@@ -230,14 +230,12 @@ END:VCALENDAR"""
         )
 
         # Z suffix creates UTC timezone-aware datetime
-        from datetime import timezone
-
         expected_dt = datetime(2025, 8, 13, 15, 30, 45, tzinfo=timezone.utc)
         assert raw_event.cached_dt == expected_dt
 
     def test_model_validation_when_required_fields_missing_then_raises_error(self) -> None:
         """Test that model validation fails when required fields are missing."""
-        with pytest.raises(Exception):  # Pydantic validation error
+        with pytest.raises(ValueError, match="validation error"):
             RawEvent()  # type: ignore
 
     def test_model_validation_when_all_fields_provided_then_creates_successfully(self) -> None:

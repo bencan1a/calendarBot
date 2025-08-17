@@ -645,8 +645,24 @@ class SettingsService:
             return registry.get_available_layouts()
         except Exception as e:
             logger.warning(f"Could not get available layouts: {e}")
-            # Return common default layouts as fallback
-            return ["3x4", "4x8", "whats-next-view"]
+            # Return emergency fallback with available layouts only
+            # Use filesystem discovery as last resort
+            try:
+                layouts_dir = Path(__file__).parent.parent / "layouts"
+                if layouts_dir.exists():
+                    available_layouts = [
+                        layout_dir.name
+                        for layout_dir in layouts_dir.iterdir()
+                        if layout_dir.is_dir() and (layout_dir / "layout.json").exists()
+                    ]
+                    if available_layouts:
+                        logger.debug(f"Filesystem fallback found layouts: {available_layouts}")
+                        return available_layouts
+            except Exception:
+                logger.exception("Filesystem fallback failed")
+
+            # Ultimate fallback - only layouts known to exist
+            return ["4x8", "whats-next-view"]
 
     def _raise_if_validation_failed(self, validation_errors: list[str]) -> None:
         """Raise SettingsValidationError if validation errors exist.

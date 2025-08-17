@@ -136,8 +136,8 @@ class TestCreateParser:
         """Test that parser includes layout arguments."""
         parser = create_parser()
 
-        args = parser.parse_args(["--layout", "3x4"])
-        assert args.display_type == "3x4"  # --layout sets display_type
+        args = parser.parse_args(["--layout", "4x8"])
+        assert args.display_type == "4x8"  # --layout sets display_type
 
     def test_parser_rpi_arguments(self):
         """Test that parser includes Raspberry Pi arguments."""
@@ -359,7 +359,7 @@ class TestParseDateFunction:
             parse_date(invalid_date)
 
     @pytest.mark.parametrize(
-        "flexible_date,expected",
+        ("flexible_date", "expected"),
         [
             ("2024-1-15", datetime(2024, 1, 15)),  # Single digit month works
             ("2024-01-1", datetime(2024, 1, 1)),  # Single digit day works
@@ -442,7 +442,7 @@ class TestParseComponentsFunction:
         assert "invalid2" in error_msg
 
     @pytest.mark.parametrize(
-        "component_string,expected",
+        ("component_string", "expected"),
         [
             ("sources", ["sources"]),
             ("sources,cache", ["sources", "cache"]),

@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 # Remove unused import of 'main' async function to test if it causes RuntimeWarning
-from calendarbot.main import CalendarBot, check_first_run_configuration, setup_signal_handlers
+from calendarbot.main import CalendarBot, check_first_run_configuration, main, setup_signal_handlers
 
 
 class TestCalendarBot:
@@ -30,6 +30,15 @@ class TestCalendarBot:
         settings.log_level = "INFO"
         settings.log_file = None
         settings.config_dir = "/tmp/config"
+        # Add missing fields for SourceConfig validation
+        settings.ics_auth_type = "none"
+        settings.ics_username = None
+        settings.ics_password = None
+        settings.ics_bearer_token = None
+        settings.ics_refresh_interval = 300
+        settings.ics_timeout = 10
+        settings.max_retries = 3
+        settings.retry_backoff_factor = 1.5
         return settings
 
     @pytest.fixture
@@ -44,6 +53,12 @@ class TestCalendarBot:
         cache_manager.get_cache_summary.return_value = {"total_events": 5, "is_fresh": True}
         cache_manager.is_cache_fresh.return_value = True
         cache_manager.clear_all_events.return_value = 3
+        cache_manager.cleanup_old_events.return_value = True
+        # Mock the database manager to prevent actual database operations
+        cache_manager.db = AsyncMock()
+        cache_manager.db.initialize.return_value = True
+        cache_manager.db.cleanup_old_events.return_value = 3
+        cache_manager.db.clear_all_events.return_value = 3
         return cache_manager
 
     @pytest.fixture
@@ -73,18 +88,14 @@ class TestCalendarBot:
         self, mock_settings, mock_cache_manager, mock_source_manager, mock_display_manager
     ):
         """Create CalendarBot instance with mocked dependencies."""
-        with (
-            patch("calendarbot.main.settings", mock_settings),
-            patch("calendarbot.main.CacheManager", return_value=mock_cache_manager),
-            patch("calendarbot.main.SourceManager", return_value=mock_source_manager),
-            patch("calendarbot.main.DisplayManager", return_value=mock_display_manager),
-            patch("calendarbot.main.setup_logging"),
-        ):
-            bot = CalendarBot()
-            bot.cache_manager = mock_cache_manager
-            bot.source_manager = mock_source_manager
-            bot.display_manager = mock_display_manager
-            return bot
+        bot = CalendarBot()
+        # Directly assign the mocked components to avoid real constructor calls
+        bot.cache_manager = mock_cache_manager
+        bot.source_manager = mock_source_manager
+        bot.display_manager = mock_display_manager
+        # Mock the settings to avoid real config access
+        bot.settings = mock_settings
+        return bot
 
     @pytest.mark.asyncio
     async def test_calendar_bot_initialization(self, calendar_bot):
@@ -100,7 +111,13 @@ class TestCalendarBot:
     @pytest.mark.asyncio
     async def test_initialize_success(self, calendar_bot):
         """Test successful initialization of all components."""
-        result = await calendar_bot.initialize()
+        # Mock the component constructors to return our mocks
+        with (
+            patch("calendarbot.main.CacheManager", return_value=calendar_bot.cache_manager),
+            patch("calendarbot.main.SourceManager", return_value=calendar_bot.source_manager),
+            patch("calendarbot.main.DisplayManager", return_value=calendar_bot.display_manager),
+        ):
+            result = await calendar_bot.initialize()
 
         assert result is True
         calendar_bot.cache_manager.initialize.assert_called_once()
@@ -111,7 +128,13 @@ class TestCalendarBot:
         """Test initialization failure when cache manager fails."""
         calendar_bot.cache_manager.initialize.return_value = False
 
-        result = await calendar_bot.initialize()
+        # Mock the component constructors to return our mocks
+        with (
+            patch("calendarbot.main.CacheManager", return_value=calendar_bot.cache_manager),
+            patch("calendarbot.main.SourceManager", return_value=calendar_bot.source_manager),
+            patch("calendarbot.main.DisplayManager", return_value=calendar_bot.display_manager),
+        ):
+            result = await calendar_bot.initialize()
 
         assert result is False
         calendar_bot.cache_manager.initialize.assert_called_once()
@@ -121,7 +144,13 @@ class TestCalendarBot:
         """Test initialization failure when source manager fails."""
         calendar_bot.source_manager.initialize.return_value = False
 
-        result = await calendar_bot.initialize()
+        # Mock the component constructors to return our mocks
+        with (
+            patch("calendarbot.main.CacheManager", return_value=calendar_bot.cache_manager),
+            patch("calendarbot.main.SourceManager", return_value=calendar_bot.source_manager),
+            patch("calendarbot.main.DisplayManager", return_value=calendar_bot.display_manager),
+        ):
+            result = await calendar_bot.initialize()
 
         assert result is False
         calendar_bot.source_manager.initialize.assert_called_once()
@@ -131,7 +160,13 @@ class TestCalendarBot:
         """Test initialization handles exceptions gracefully."""
         calendar_bot.cache_manager.initialize.side_effect = Exception("Init error")
 
-        result = await calendar_bot.initialize()
+        # Mock the component constructors to return our mocks
+        with (
+            patch("calendarbot.main.CacheManager", return_value=calendar_bot.cache_manager),
+            patch("calendarbot.main.SourceManager", return_value=calendar_bot.source_manager),
+            patch("calendarbot.main.DisplayManager", return_value=calendar_bot.display_manager),
+        ):
+            result = await calendar_bot.initialize()
 
         assert result is False
 
@@ -397,12 +432,16 @@ class TestCalendarBot:
     @pytest.mark.asyncio
     async def test_start_initialization_failure(self, calendar_bot):
         """Test start with initialization failure."""
-        calendar_bot.cache_manager.initialize.return_value = False
-
-        with patch.object(calendar_bot, "run_scheduler", new_callable=AsyncMock) as mock_scheduler:
+        with (
+            patch.object(
+                calendar_bot, "initialize", new_callable=AsyncMock, return_value=False
+            ) as mock_init,
+            patch.object(calendar_bot, "run_scheduler", new_callable=AsyncMock) as mock_scheduler,
+        ):
             result = await calendar_bot.start()
 
             assert result is False
+            mock_init.assert_called_once()
             mock_scheduler.assert_not_called()
 
     @pytest.mark.asyncio
@@ -690,8 +729,6 @@ class TestMainEntryPoint:
     async def test_main_success(self):
         """Test successful main execution."""
         # Import main only when needed to avoid unused import warnings
-        from calendarbot.main import main
-
         with (
             patch("calendarbot.main.check_first_run_configuration", return_value=True),
             patch("calendarbot.main.settings") as mock_settings,
@@ -712,8 +749,6 @@ class TestMainEntryPoint:
     async def test_main_no_configuration(self):
         """Test main with missing configuration."""
         # Import main only when needed to avoid unused import warnings
-        from calendarbot.main import main
-
         with (
             patch("calendarbot.main.check_first_run_configuration", return_value=False),
             patch("builtins.print") as mock_print,
@@ -727,8 +762,6 @@ class TestMainEntryPoint:
     async def test_main_no_ics_url(self):
         """Test main with missing ICS URL."""
         # Import main only when needed to avoid unused import warnings
-        from calendarbot.main import main
-
         with (
             patch("calendarbot.main.check_first_run_configuration", return_value=True),
             patch("calendarbot.main.settings") as mock_settings,
@@ -743,8 +776,6 @@ class TestMainEntryPoint:
     async def test_main_app_start_failure(self):
         """Test main when app start fails."""
         # Import main only when needed to avoid unused import warnings
-        from calendarbot.main import main
-
         with (
             patch("calendarbot.main.check_first_run_configuration", return_value=True),
             patch("calendarbot.main.settings") as mock_settings,
@@ -764,8 +795,6 @@ class TestMainEntryPoint:
     async def test_main_exception(self):
         """Test main handles exceptions."""
         # Import main only when needed to avoid unused import warnings
-        from calendarbot.main import main
-
         with patch(
             "calendarbot.main.check_first_run_configuration", side_effect=Exception("Test error")
         ):

@@ -66,16 +66,16 @@ def test_whats_next_logic_filters_hidden_events():
     # Group events
     current_events, upcoming_events, later_events = logic._group_events(events, current_time)
 
-    # With 4x8 consolidation: all visible events go to upcoming_events, none to current_events
-    assert len(current_events) == 0
-    assert len(upcoming_events) == 3  # Three visible events (graph-id-1, graph-id-3, graph-id-5)
+    # Business rule: When upcoming events exist, prioritize them over current events
+    assert len(current_events) == 0  # Current events deprioritized when upcoming events exist
+    assert len(upcoming_events) == 2  # Two upcoming visible events (graph-id-3, graph-id-5)
 
     # Verify hidden events are filtered out
     assert "graph-id-2" not in [e.graph_id for e in upcoming_events]
     assert "graph-id-4" not in [e.graph_id for e in upcoming_events]
 
-    # Verify visible events are included in upcoming_events (consolidated "Next Up" section)
-    assert "graph-id-1" in [e.graph_id for e in upcoming_events]
+    # Verify only upcoming visible events are included (current events are deprioritized)
+    assert "graph-id-1" not in [e.graph_id for e in upcoming_events]  # Current event deprioritized
     assert "graph-id-3" in [e.graph_id for e in upcoming_events]
     assert "graph-id-5" in [e.graph_id for e in upcoming_events]
 
@@ -101,10 +101,9 @@ def test_whats_next_logic_handles_missing_settings():
     # Group events - should not raise an exception
     current_events, upcoming_events, later_events = logic._group_events(events, current_time)
 
-    # Verify all events are included (no filtering)
-    assert len(current_events) == 1
+    # Verify all events are included (no filtering), but business rule applies: prioritize upcoming over current
+    assert len(current_events) == 0  # Current events deprioritized when upcoming events exist
     assert len(upcoming_events) == 1
-    assert current_events[0].graph_id == "graph-id-1"
     assert upcoming_events[0].graph_id == "graph-id-2"
 
 
@@ -130,8 +129,7 @@ def test_whats_next_logic_handles_missing_hidden_events():
     # Group events - should not raise an exception
     current_events, upcoming_events, later_events = logic._group_events(events, current_time)
 
-    # Verify all events are included (no filtering)
-    assert len(current_events) == 1
+    # Verify all events are included (no filtering), but business rule applies: prioritize upcoming over current
+    assert len(current_events) == 0  # Current events deprioritized when upcoming events exist
     assert len(upcoming_events) == 1
-    assert current_events[0].graph_id == "graph-id-1"
     assert upcoming_events[0].graph_id == "graph-id-2"
