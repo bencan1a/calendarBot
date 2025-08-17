@@ -4,6 +4,8 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
+import pytz
+
 from ..cache.models import CachedEvent
 from ..utils.helpers import get_timezone_aware_now
 from .whats_next_data_model import EventData, StatusInfo, WhatsNextViewModel
@@ -138,7 +140,24 @@ class WhatsNextLogic:
 
         # Find upcoming events (not started yet)
         upcoming_events = [e for e in visible_events if e.start_dt > current_time]
-        upcoming_events.sort(key=lambda e: e.start_dt)  # Sort by start time
+
+        # Sort by timezone-aware local time instead of raw UTC
+        from ..timezone.service import convert_to_server_timezone  # noqa
+
+        def get_local_time_for_sorting(event):
+            """Convert event time to server timezone for proper sorting."""
+            try:
+                return convert_to_server_timezone(event.start_dt)
+            except Exception as e:
+                logger.warning(f"Timezone conversion failed for event '{event.subject}': {e}")
+                # Fallback to UTC if conversion fails
+                return (
+                    event.start_dt.replace(tzinfo=pytz.UTC)
+                    if event.start_dt.tzinfo is None
+                    else event.start_dt
+                )
+
+        upcoming_events.sort(key=get_local_time_for_sorting)
 
         # Remaining upcoming events are "later today"
         later_events = upcoming_events[3:] if len(upcoming_events) > 3 else []
@@ -302,8 +321,23 @@ class WhatsNextLogic:
             if not upcoming_events:
                 return None
 
-            # Sort by start time and return the first (earliest)
-            upcoming_events.sort(key=lambda e: e.start_dt)
+            # Sort by timezone-aware local time instead of raw UTC
+            from ..timezone.service import convert_to_server_timezone  # noqa
+
+            def get_local_time_for_sorting(event):
+                """Convert event time to server timezone for proper sorting."""
+                try:
+                    return convert_to_server_timezone(event.start_dt)
+                except Exception as e:
+                    logger.warning(f"Timezone conversion failed for event '{event.subject}': {e}")
+                    # Fallback to UTC if conversion fails
+                    return (
+                        event.start_dt.replace(tzinfo=pytz.UTC)
+                        if event.start_dt.tzinfo is None
+                        else event.start_dt
+                    )
+
+            upcoming_events.sort(key=get_local_time_for_sorting)
             next_event = upcoming_events[0]
 
             logger.debug(

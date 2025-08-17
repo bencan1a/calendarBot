@@ -5,6 +5,7 @@ including Pi Zero 2W resource constraints, component orchestration, and system v
 """
 
 import logging
+import shutil
 import tempfile
 import time
 from collections.abc import AsyncGenerator, Generator
@@ -14,10 +15,15 @@ from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import pytest_asyncio
 
 # Import only what's needed to avoid circular imports
-from calendarbot.kiosk.browser_manager import BrowserConfig, BrowserState, BrowserStatus
+from calendarbot.kiosk.browser_manager import (
+    BrowserConfig,
+    BrowserManager,
+    BrowserState,
+    BrowserStatus,
+)
+from calendarbot.kiosk.manager import KioskManager
 from calendarbot.settings.kiosk_models import (
     KioskBrowserSettings,
     KioskDisplaySettings,
@@ -27,11 +33,9 @@ from calendarbot.settings.kiosk_models import (
     KioskSettings,
     KioskSystemSettings,
 )
+from calendarbot.utils.daemon import DaemonManager
 
 # Import these in fixtures to avoid circular import at module level
-# from calendarbot.kiosk.browser_manager import BrowserManager
-# from calendarbot.kiosk.manager import KioskManager, KioskStatus
-# from calendarbot.utils.daemon import DaemonManager
 
 logger = logging.getLogger(__name__)
 
@@ -121,8 +125,6 @@ class KioskIntegrationTestBase:
     def cleanup_test_environment(self) -> None:
         """Clean up test environment."""
         if self.temp_dir and self.temp_dir.exists():
-            import shutil
-
             shutil.rmtree(self.temp_dir)
 
     def assert_pi_zero_2w_constraints(self, kiosk_settings: KioskSettings) -> None:
@@ -309,9 +311,6 @@ def resource_constrained_settings() -> KioskSettings:
 @pytest.fixture
 def mock_daemon_manager() -> MagicMock:
     """Mock daemon manager for testing."""
-    # Import here to avoid circular import
-    from calendarbot.utils.daemon import DaemonManager
-
     daemon = MagicMock(spec=DaemonManager)
     daemon.is_daemon_running.return_value = False
     daemon.get_daemon_pid.return_value = None
@@ -324,9 +323,6 @@ def mock_daemon_manager() -> MagicMock:
 @pytest.fixture
 def mock_browser_manager() -> MagicMock:
     """Mock browser manager for integration testing."""
-    # Import here to avoid circular import
-    from calendarbot.kiosk.browser_manager import BrowserManager
-
     browser = MagicMock(spec=BrowserManager)
 
     # Default healthy state
@@ -356,14 +352,11 @@ def mock_browser_manager() -> MagicMock:
     return browser
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def real_browser_manager(
     pi_zero_2w_kiosk_settings: KioskSettings,
 ) -> AsyncGenerator[Any, None]:
     """Provide real browser manager for integration tests requiring actual browser interaction."""
-    # Import here to avoid circular import
-    from calendarbot.kiosk.browser_manager import BrowserManager
-
     config = BrowserConfig(
         memory_limit_mb=pi_zero_2w_kiosk_settings.browser.memory_limit_mb,
         startup_delay=0,  # No delay in tests
@@ -383,14 +376,11 @@ async def real_browser_manager(
         logger.warning(f"Error stopping browser manager in fixture cleanup: {e}")
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def kiosk_manager(
     pi_zero_2w_kiosk_settings: KioskSettings, mock_daemon_manager: MagicMock
 ) -> AsyncGenerator[Any, None]:
     """Provide real kiosk manager for integration testing."""
-    # Import here to avoid circular import
-    from calendarbot.kiosk.manager import KioskManager
-
     # Mock settings object
     mock_settings = MagicMock()
     mock_settings.web_port = 8080

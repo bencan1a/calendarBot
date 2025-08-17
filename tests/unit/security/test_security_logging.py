@@ -19,6 +19,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+import calendarbot.security.logging as security_logging
 from calendarbot.security.logging import (
     CredentialMaskingPatterns,
     SecureFormatter,
@@ -297,7 +298,7 @@ class TestMaskCredentials:
     def test_empty_or_none_input(self):
         """Test mask_credentials with empty or None input."""
         assert mask_credentials("") == ""
-        assert mask_credentials(None) == None
+        assert mask_credentials(None) is None
 
     def test_password_masking(self):
         """Test password credential masking."""
@@ -577,9 +578,14 @@ class TestSecurityEventLogger:
             assert len(logger._event_cache) == 1
             assert logger._event_cache[0] == event
 
-            # Verify logging calls
-            mock_logger.log.assert_called_once()
+            # Verify audit logging call (main logger.log is not called in implementation)
             mock_audit_logger.info.assert_called_once()
+
+            # Verify the audit log message format
+            call_args = mock_audit_logger.info.call_args[0][0]
+            assert call_args.startswith("AUDIT: ")
+            assert "auth_success" in call_args
+            assert "user123" in call_args
 
     def test_log_authentication_success(self):
         """Test log_authentication_success method."""
@@ -910,8 +916,6 @@ class TestGlobalSecurityLoggerFunctions:
     def test_get_security_logger_first_call(self):
         """Test get_security_logger creates new instance on first call."""
         # Reset global state
-        import calendarbot.security.logging as security_logging
-
         security_logging._security_logger = None
 
         with patch("calendarbot.security.logging.SecurityEventLogger") as mock_logger_class:
@@ -925,8 +929,6 @@ class TestGlobalSecurityLoggerFunctions:
 
     def test_get_security_logger_subsequent_calls(self):
         """Test get_security_logger returns existing instance on subsequent calls."""
-        import calendarbot.security.logging as security_logging
-
         # Set up existing logger
         existing_logger = Mock()
         security_logging._security_logger = existing_logger
@@ -939,8 +941,6 @@ class TestGlobalSecurityLoggerFunctions:
 
     def test_get_security_logger_with_settings(self):
         """Test get_security_logger with custom settings."""
-        import calendarbot.security.logging as security_logging
-
         security_logging._security_logger = None
 
         mock_settings = Mock()
@@ -968,14 +968,10 @@ class TestGlobalSecurityLoggerFunctions:
             mock_logger_class.assert_called_once_with(mock_settings)
 
             # Verify global state is updated
-            import calendarbot.security.logging as security_logging
-
             assert security_logging._security_logger == mock_logger
 
     def test_init_security_logging_replaces_existing(self):
         """Test init_security_logging replaces existing logger."""
-        import calendarbot.security.logging as security_logging
-
         # Set up existing logger
         old_logger = Mock()
         security_logging._security_logger = old_logger

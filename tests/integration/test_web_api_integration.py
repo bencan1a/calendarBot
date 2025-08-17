@@ -26,6 +26,12 @@ class TestWebAPIBackendIntegration:
         cache_manager = CacheManager(test_settings)
         await cache_manager.initialize()
 
+        # CRITICAL FIX: Trigger database lazy initialization by performing a database operation
+        # This ensures the cached_events table exists before any cleanup operations
+        await cache_manager.cache_events(
+            []
+        )  # Empty list triggers table creation via _ensure_initialized()
+
         source_manager = SourceManager(test_settings, cache_manager)
         await source_manager.initialize()
 
@@ -119,25 +125,42 @@ class TestWebAPIBackendIntegration:
             web_api_setup
         )
 
-        # Mock the layout registry to return predictable layouts for testing
-        with patch.object(
-            web_server.layout_registry, "get_available_layouts", return_value=["3x4", "4x8"]
-        ):
-            # Mock renderer with layout support
-            display_manager.renderer = MagicMock()
-            display_manager.renderer.layout = "4x8"
+        # Get actual available layouts dynamically - no hardcoding
+        available_layouts = web_server.layout_registry.get_available_layouts()
+        assert len(available_layouts) >= 2, (
+            f"Need at least 2 layouts for toggle test, got {available_layouts}"
+        )
 
-            # Test layout setting
-            success = web_server.set_layout("3x4")
-            assert success is True
-            assert web_server.layout == "3x4"
-            assert display_manager.renderer.layout == "3x4"
+        # Use actual default layout (whats-next-view) and first alternative
+        default_layout = "whats-next-view"  # Known default from user feedback
+        assert default_layout in available_layouts, (
+            f"Default layout '{default_layout}' not in available layouts: {available_layouts}"
+        )
 
-            # Test layout toggle
-            new_layout = web_server.toggle_layout()
-            assert new_layout == "4x8"
-            assert web_server.layout == "4x8"
-            assert display_manager.renderer.layout == "4x8"
+        # Find an alternative layout for testing toggle
+        alternative_layout = next(
+            layout for layout in available_layouts if layout != default_layout
+        )
+
+        # Mock renderer with dynamic layout support
+        display_manager.renderer = MagicMock()
+        display_manager.renderer.layout = default_layout
+
+        # Test layout setting to alternative
+        success = web_server.set_layout(alternative_layout)
+        assert success is True
+        assert web_server.layout == alternative_layout
+        assert display_manager.renderer.layout == alternative_layout
+
+        # Test layout toggle - should cycle through available layouts
+        initial_layout = web_server.layout
+        new_layout = web_server.toggle_layout()
+
+        # Verify toggle worked and returned a different layout
+        assert new_layout != initial_layout
+        assert new_layout in available_layouts
+        assert web_server.layout == new_layout
+        assert display_manager.renderer.layout == new_layout
 
     @pytest.mark.asyncio
     async def test_calendar_html_with_real_data(self, web_api_setup):
@@ -177,6 +200,12 @@ class TestWebServerLifecycleIntegration:
 
         cache_manager = CacheManager(test_settings)
         await cache_manager.initialize()
+
+        # CRITICAL FIX: Trigger database lazy initialization by performing a database operation
+        # This ensures the cached_events table exists before any cleanup operations
+        await cache_manager.cache_events(
+            []
+        )  # Empty list triggers table creation via _ensure_initialized()
 
         display_manager = DisplayManager(test_settings)
         web_server = WebServer(test_settings, display_manager, cache_manager)
@@ -257,6 +286,12 @@ class TestDataFlowIntegration:
         """Set up complete data flow testing environment."""
         cache_manager = CacheManager(test_settings)
         await cache_manager.initialize()
+
+        # CRITICAL FIX: Trigger database lazy initialization by performing a database operation
+        # This ensures the cached_events table exists before any cleanup operations
+        await cache_manager.cache_events(
+            []
+        )  # Empty list triggers table creation via _ensure_initialized()
 
         source_manager = SourceManager(test_settings, cache_manager)
         await source_manager.initialize()
@@ -437,6 +472,12 @@ class TestSecurityIntegration:
         cache_manager = CacheManager(test_settings)
         await cache_manager.initialize()
 
+        # CRITICAL FIX: Trigger database lazy initialization by performing a database operation
+        # This ensures the cached_events table exists before any cleanup operations
+        await cache_manager.cache_events(
+            []
+        )  # Empty list triggers table creation via _ensure_initialized()
+
         display_manager = DisplayManager(test_settings)
         navigation_state = NavigationState()
 
@@ -470,8 +511,10 @@ class TestSecurityIntegration:
         # Mock renderer
         web_server.display_manager.renderer = MagicMock()
 
-        # Test valid layouts
-        valid_layouts = ["4x8", "3x4"]
+        # Test valid layouts dynamically - no hardcoding
+        valid_layouts = web_server.layout_registry.get_available_layouts()
+        assert len(valid_layouts) > 0, "Should have at least one available layout"
+
         for layout in valid_layouts:
             success = web_server.set_layout(layout)
             assert success is True
@@ -511,6 +554,12 @@ class TestWebAPIStateManagement:
         cache_manager = CacheManager(test_settings)
         await cache_manager.initialize()
 
+        # CRITICAL FIX: Trigger database lazy initialization by performing a database operation
+        # This ensures the cached_events table exists before any cleanup operations
+        await cache_manager.cache_events(
+            []
+        )  # Empty list triggers table creation via _ensure_initialized()
+
         display_manager = DisplayManager(test_settings)
         navigation_state = NavigationState()
 
@@ -544,24 +593,33 @@ class TestWebAPIStateManagement:
         """Test layout state consistency across operations."""
         web_server, navigation_state, cache_manager = state_management_setup
 
-        # Mock the layout registry to return predictable layouts for testing
-        with patch.object(
-            web_server.layout_registry, "get_available_layouts", return_value=["3x4", "4x8"]
+        # Mock the layout registry to return available layouts (no more 3x4)
+        with (
+            patch.object(
+                web_server.layout_registry,
+                "get_available_layouts",
+                return_value=["4x8", "whats-next-view"],
+            ),
+            patch.object(
+                web_server.layout_registry,
+                "validate_layout",
+                side_effect=lambda x: x in ["4x8", "whats-next-view"],
+            ),
         ):
             # Mock renderer
             web_server.display_manager.renderer = MagicMock()
             web_server.display_manager.renderer.layout = "4x8"
 
             # Change layout and verify persistence
-            web_server.set_layout("3x4")
-            assert web_server.layout == "3x4"
+            web_server.set_layout("whats-next-view")
+            assert web_server.layout == "whats-next-view"
 
             # Perform other operations
             web_server.refresh_data()
-            assert web_server.layout == "3x4"
+            assert web_server.layout == "whats-next-view"
 
             web_server.handle_navigation("next")
-            assert web_server.layout == "3x4"
+            assert web_server.layout == "whats-next-view"
 
             # Toggle layout
             new_layout = web_server.toggle_layout()
@@ -574,7 +632,7 @@ class TestWebAPIStateManagement:
 
         # Set initial state
         initial_date = navigation_state.selected_date
-        web_server.layout = "3x4"
+        web_server.layout = "4x8"  # Use available layout instead of removed 3x4
 
         # Perform concurrent-like operations
         status1 = web_server.get_status()

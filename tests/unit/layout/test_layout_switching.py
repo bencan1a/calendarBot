@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from calendarbot.display.manager import DisplayManager
-from calendarbot.layout.registry import LayoutRegistry
+from calendarbot.layout.registry import LayoutInfo, LayoutRegistry
 from calendarbot.web.server import WebServer
 
 
@@ -19,8 +19,6 @@ class TestLayoutSwitching:
         registry.get_available_layouts.return_value = ["4x8", "whats-next-view"]
         registry.validate_layout.side_effect = lambda layout: layout in ["4x8", "whats-next-view"]
         # Mock the actual LayoutInfo object that get_layout_info returns
-        from calendarbot.layout.registry import LayoutInfo
-
         mock_layout_info = LayoutInfo(
             name="test",
             display_name="Test Layout",
@@ -50,13 +48,13 @@ class TestLayoutSwitching:
     @pytest.fixture
     def display_manager(self, mock_settings: Mock, mock_layout_registry: Mock) -> DisplayManager:
         """Create display manager with mock settings and layout registry."""
-        with patch("calendarbot.display.manager.LayoutRegistry", return_value=mock_layout_registry):
-            with patch(
-                "calendarbot.display.manager.RendererFactory.create_renderer"
-            ) as mock_create:
-                mock_renderer = Mock()
-                mock_create.return_value = mock_renderer
-                return DisplayManager(mock_settings)
+        with (
+            patch("calendarbot.display.manager.LayoutRegistry", return_value=mock_layout_registry),
+            patch("calendarbot.display.manager.RendererFactory.create_renderer") as mock_create,
+        ):
+            mock_renderer = Mock()
+            mock_create.return_value = mock_renderer
+            return DisplayManager(mock_settings)
 
     @pytest.fixture
     def web_server(self, mock_settings: Mock, mock_layout_registry: Mock) -> WebServer:
@@ -167,17 +165,22 @@ class TestLayoutSwitching:
         """Test renderer creation using factory pattern."""
         mock_settings.display_type = "html"
 
-        with patch("calendarbot.display.manager.LayoutRegistry", return_value=mock_layout_registry):
-            with patch(
-                "calendarbot.display.manager.RendererFactory.create_renderer"
-            ) as mock_create:
-                mock_renderer = Mock()
-                mock_create.return_value = mock_renderer
+        with (
+            patch("calendarbot.display.manager.LayoutRegistry", return_value=mock_layout_registry),
+            patch("calendarbot.display.manager.RendererFactory.create_renderer") as mock_create,
+        ):
+            mock_renderer = Mock()
+            mock_create.return_value = mock_renderer
 
-                DisplayManager(mock_settings)
+            DisplayManager(mock_settings)
 
-                # Verify factory was used with old positional signature first
-                mock_create.assert_called_once_with("html", mock_settings)
+            # Verify factory was used with new keyword signature including layout_registry
+            mock_create.assert_called_once_with(
+                settings=mock_settings,
+                renderer_type="eink-whats-next",
+                layout_name=None,
+                layout_registry=mock_layout_registry,
+            )
 
     def test_display_manager_layout_renderer_separation(
         self, display_manager: DisplayManager
@@ -257,9 +260,12 @@ class TestLayoutSwitching:
             result = display_manager.set_display_type("console")
             assert result is True
 
-            # Verify factory was used with new keyword signature
+            # Verify factory was used with new keyword signature including layout_registry
             mock_create.assert_called_with(
-                settings=display_manager.settings, renderer_type="console", layout_name=None
+                settings=display_manager.settings,
+                renderer_type="console",
+                layout_name=None,
+                layout_registry=display_manager.layout_registry,
             )
 
     def test_fallback_to_emergency_layouts(self, mock_settings: Mock) -> None:

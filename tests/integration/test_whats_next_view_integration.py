@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from calendarbot.layout.registry import LayoutRegistry
-from calendarbot.web.server import WebServer
+from calendarbot.web.server import WebRequestHandler, WebServer
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +34,9 @@ class TestWhatsNextViewLayoutDiscovery:
 
         # Verify whats-next-view is discovered
         available_layouts = registry.get_available_layouts()
-        assert (
-            "whats-next-view" in available_layouts
-        ), f"whats-next-view not found in {available_layouts}"
+        assert "whats-next-view" in available_layouts, (
+            f"whats-next-view not found in {available_layouts}"
+        )
 
         # Verify layout validation
         assert registry.validate_layout("whats-next-view"), "whats-next-view layout should be valid"
@@ -217,8 +217,13 @@ class TestWhatsNextViewWebServerIntegration:
 
         # If whats-next-view is available, cycling should eventually reach it
         if "whats-next-view" in available_layouts:
-            # Start from a different layout
-            web_server.set_layout("3x4")  # Assume 3x4 exists as fallback
+            # Start from a different layout (use first available layout that isn't whats-next-view)
+            other_layouts = [layout for layout in available_layouts if layout != "whats-next-view"]
+            if other_layouts:
+                web_server.set_layout(other_layouts[0])
+            else:
+                # If only whats-next-view is available, start with it
+                web_server.set_layout("whats-next-view")
 
             # Cycle through layouts until we reach whats-next-view or complete a full cycle
             max_cycles = len(available_layouts) + 1
@@ -280,8 +285,6 @@ class TestWhatsNextViewAPIEndpointIntegration:
 
     def test_api_layout_endpoint_switches_to_whats_next_view(self, mock_web_server: Mock) -> None:
         """Test /api/layout endpoint can switch to whats-next-view."""
-        from calendarbot.web.server import WebRequestHandler
-
         # Create mock request handler
         handler = Mock(spec=WebRequestHandler)
         handler.web_server = mock_web_server
@@ -301,8 +304,6 @@ class TestWhatsNextViewAPIEndpointIntegration:
 
     def test_api_refresh_endpoint_works_with_whats_next_view(self, mock_web_server: Mock) -> None:
         """Test /api/refresh endpoint works with whats-next-view layout."""
-        from calendarbot.web.server import WebRequestHandler
-
         # Create mock request handler
         web_handler = WebRequestHandler.__new__(WebRequestHandler)
         web_handler.web_server = mock_web_server
@@ -317,8 +318,6 @@ class TestWhatsNextViewAPIEndpointIntegration:
 
     def test_api_navigation_endpoint_compatibility(self, mock_web_server: Mock) -> None:
         """Test /api/navigate endpoint compatibility with whats-next-view."""
-        from calendarbot.web.server import WebRequestHandler
-
         # Create mock request handler
         web_handler = WebRequestHandler.__new__(WebRequestHandler)
         web_handler.web_server = mock_web_server
@@ -354,9 +353,9 @@ class TestWhatsNextViewPerformanceIntegration:
         discovery_time = end_time - start_time
 
         # Layout discovery should complete quickly (< 1 second for normal cases)
-        assert (
-            discovery_time < 1.0
-        ), f"Layout discovery took {discovery_time:.2f}s, should be < 1.0s"
+        assert discovery_time < 1.0, (
+            f"Layout discovery took {discovery_time:.2f}s, should be < 1.0s"
+        )
         assert "whats-next-view" in available_layouts
 
     def test_layout_switching_performance(self) -> None:
@@ -365,7 +364,7 @@ class TestWhatsNextViewPerformanceIntegration:
         settings = Mock()
         settings.web_host = "localhost"
         settings.web_port = 8080
-        settings.web_layout = "3x4"
+        settings.web_layout = "4x8"  # Use available layout instead of removed 3x4
         settings.auto_kill_existing = False
 
         display_manager = Mock()
@@ -421,7 +420,7 @@ class TestWhatsNextViewErrorHandling:
         settings = Mock()
         settings.web_host = "localhost"
         settings.web_port = 8080
-        settings.web_layout = "3x4"
+        settings.web_layout = "4x8"  # Use available layout instead of removed 3x4
         settings.auto_kill_existing = False
 
         display_manager = Mock()
@@ -534,8 +533,8 @@ def run_whats_next_view_integration_tests() -> dict[str, Any]:
             test_results["overall_integration"] = True
             logger.info("✓ Overall integration: whats-next-view successfully integrated")
 
-    except Exception as e:
-        logger.error(f"✗ Integration test failed: {e}")
+    except Exception:
+        logger.exception("✗ Integration test failed")
 
     return test_results
 

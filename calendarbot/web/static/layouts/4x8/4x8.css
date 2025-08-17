@@ -226,7 +226,8 @@ body {
 
 .current-events,
 .upcoming-events {
-    margin-bottom: 2rem;
+    margin-bottom: 3rem; /* Increased from 2rem to 3rem for better spacing at bottom */
+    padding-bottom: 1rem; /* Additional padding for last meeting tile breathing room */
 }
 
 /* Current event */

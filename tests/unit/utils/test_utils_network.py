@@ -16,7 +16,7 @@ class TestGetLocalNetworkInterface:
 
     @patch("calendarbot.utils.network.socket.socket")
     def test_successful_detection_private_ip(self, mock_socket):
-        """Test successful detection of private IP."""
+        """Test function returns 0.0.0.0 and logs network IP detection."""
         mock_sock = MagicMock()
         mock_sock.getsockname.return_value = ("192.168.1.100", 80)
         mock_socket.return_value.__enter__.return_value = mock_sock
@@ -24,14 +24,20 @@ class TestGetLocalNetworkInterface:
         with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
             result = get_local_network_interface()
 
-            assert result == "192.168.1.100"
-            mock_logger.return_value.info.assert_called_with(
-                "Auto-detected local network interface: 192.168.1.100"
+            # Always returns 0.0.0.0 for binding to all interfaces
+            assert result == "0.0.0.0"
+            # Logs that it's binding to all interfaces
+            mock_logger.return_value.info.assert_any_call(
+                "Binding to all interfaces (0.0.0.0) for localhost and network access"
+            )
+            # Logs the detected network IP
+            mock_logger.return_value.info.assert_any_call(
+                "Server will be accessible at: http://localhost and http://192.168.1.100"
             )
 
     @patch("calendarbot.utils.network.socket.socket")
     def test_public_ip_fallback_to_localhost(self, mock_socket):
-        """Test fallback to localhost when public IP detected."""
+        """Test function returns 0.0.0.0 when public IP detected (no special handling)."""
         mock_sock = MagicMock()
         mock_sock.getsockname.return_value = ("8.8.8.8", 80)  # Public IP
         mock_socket.return_value.__enter__.return_value = mock_sock
@@ -39,91 +45,88 @@ class TestGetLocalNetworkInterface:
         with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
             result = get_local_network_interface()
 
-            assert result == "127.0.0.1"
-            mock_logger.return_value.warning.assert_called_with(
-                "Detected public IP 8.8.8.8, falling back to localhost"
+            # Always returns 0.0.0.0 regardless of detected IP
+            assert result == "0.0.0.0"
+            # Logs that it's binding to all interfaces
+            mock_logger.return_value.info.assert_any_call(
+                "Binding to all interfaces (0.0.0.0) for localhost and network access"
             )
+            # Public IP is not private, so no additional logging about accessibility
 
     @patch("calendarbot.utils.network.socket.socket")
     def test_socket_exception_hostname_fallback(self, mock_socket):
-        """Test fallback to hostname method when socket fails."""
+        """Test function returns 0.0.0.0 even when socket detection fails."""
         mock_socket.side_effect = Exception("Connection failed")
 
-        with patch("calendarbot.utils.network.socket.gethostname", return_value="test-host"):
-            with patch("calendarbot.utils.network.socket.gethostbyname", return_value="10.0.0.50"):
-                with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
-                    result = get_local_network_interface()
+        with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
+            result = get_local_network_interface()
 
-                    assert result == "10.0.0.50"
-                    mock_logger.return_value.warning.assert_called_with(
-                        "Failed to auto-detect network interface: Connection failed"
-                    )
-                    mock_logger.return_value.info.assert_called_with(
-                        "Detected network interface via hostname: 10.0.0.50"
-                    )
+            # Always returns 0.0.0.0 regardless of socket failures
+            assert result == "0.0.0.0"
+            # Logs that it's binding to all interfaces
+            mock_logger.return_value.info.assert_called_with(
+                "Binding to all interfaces (0.0.0.0) for localhost and network access"
+            )
 
     @patch("calendarbot.utils.network.socket.socket")
     def test_hostname_localhost_fallback(self, mock_socket):
-        """Test fallback when hostname returns localhost."""
+        """Test function returns 0.0.0.0 regardless of hostname resolution."""
         mock_socket.side_effect = Exception("Connection failed")
 
-        with patch("calendarbot.utils.network.socket.gethostname", return_value="localhost"):
-            with patch("calendarbot.utils.network.socket.gethostbyname", return_value="127.0.0.1"):
-                with patch("calendarbot.utils.network.logging.getLogger"):
-                    result = get_local_network_interface()
+        with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
+            result = get_local_network_interface()
 
-                    assert result == "127.0.0.1"
-                    # Should continue to final fallback since 127.0.0.1 is not preferred
+            # Always returns 0.0.0.0 regardless of fallback scenarios
+            assert result == "0.0.0.0"
+            # Logs that it's binding to all interfaces
+            mock_logger.return_value.info.assert_called_with(
+                "Binding to all interfaces (0.0.0.0) for localhost and network access"
+            )
 
     @patch("calendarbot.utils.network.socket.socket")
     def test_all_methods_fail_final_fallback(self, mock_socket):
-        """Test final fallback when all methods fail."""
+        """Test function returns 0.0.0.0 even when all detection methods fail."""
         mock_socket.side_effect = Exception("Socket failed")
 
-        with patch(
-            "calendarbot.utils.network.socket.gethostname", side_effect=Exception("Hostname failed")
-        ):
-            with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
-                result = get_local_network_interface()
+        with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
+            result = get_local_network_interface()
 
-                assert result == "127.0.0.1"
-                mock_logger.return_value.warning.assert_called_with(
-                    "Could not auto-detect local network interface. Using localhost (127.0.0.1). "
-                    "Use --host 0.0.0.0 explicitly for network access."
-                )
+            # Always returns 0.0.0.0 regardless of failures
+            assert result == "0.0.0.0"
+            # Logs that it's binding to all interfaces
+            mock_logger.return_value.info.assert_called_with(
+                "Binding to all interfaces (0.0.0.0) for localhost and network access"
+            )
 
     @patch("calendarbot.utils.network.socket.socket")
     def test_hostname_exception_final_fallback(self, mock_socket):
-        """Test final fallback when hostname method raises exception."""
+        """Test function returns 0.0.0.0 even when hostname method raises exception."""
         mock_socket.side_effect = Exception("Socket failed")
 
-        with patch("calendarbot.utils.network.socket.gethostname", return_value="test-host"):
-            with patch(
-                "calendarbot.utils.network.socket.gethostbyname",
-                side_effect=Exception("DNS failed"),
-            ):
-                with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
-                    result = get_local_network_interface()
+        with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
+            result = get_local_network_interface()
 
-                    assert result == "127.0.0.1"
-                    # The final fallback message should be called
-                    mock_logger.return_value.warning.assert_called_with(
-                        "Could not auto-detect local network interface. Using localhost (127.0.0.1). Use --host 0.0.0.0 explicitly for network access."
-                    )
+            # Always returns 0.0.0.0 regardless of DNS failures
+            assert result == "0.0.0.0"
+            # Logs that it's binding to all interfaces
+            mock_logger.return_value.info.assert_called_with(
+                "Binding to all interfaces (0.0.0.0) for localhost and network access"
+            )
 
     @patch("calendarbot.utils.network.socket.socket")
     def test_non_private_hostname_ip_fallback(self, mock_socket):
-        """Test fallback when hostname IP is not private."""
+        """Test function returns 0.0.0.0 regardless of hostname IP type."""
         mock_socket.side_effect = Exception("Socket failed")
 
-        with patch("calendarbot.utils.network.socket.gethostname", return_value="test-host"):
-            with patch(
-                "calendarbot.utils.network.socket.gethostbyname", return_value="203.0.113.1"
-            ):  # Public IP
-                with patch("calendarbot.utils.network.logging.getLogger"):
-                    result = get_local_network_interface()
+        with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
+            result = get_local_network_interface()
 
-                    assert result == "127.0.0.1"
+            # Always returns 0.0.0.0 regardless of IP type detected
+            assert result == "0.0.0.0"
+            # Logs that it's binding to all interfaces
+            mock_logger.return_value.info.assert_called_with(
+                "Binding to all interfaces (0.0.0.0) for localhost and network access"
+            )
 
 
 class TestIsPrivateIp:
@@ -205,18 +208,15 @@ class TestValidateHostBinding:
     """Test validate_host_binding function."""
 
     def test_all_interfaces_warning_enabled(self):
-        """Test warning when binding to all interfaces with warning enabled."""
+        """Test info logging when binding to all interfaces with warning enabled."""
         with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
             result = validate_host_binding("0.0.0.0", warn_on_all_interfaces=True)
 
             assert result == "0.0.0.0"
-            mock_logger.return_value.warning.assert_called_with(
-                "⚠️  SECURITY WARNING: Binding to all interfaces (0.0.0.0). "
-                "This exposes the web server to your entire network. "
-                "Consider using a specific IP address or localhost for better security."
-            )
-            mock_logger.return_value.info.assert_called_with(
-                "💡 Tip: Use 'calendarbot --web' without --host to auto-detect your local network interface"
+            # Now logs info message about dual access instead of warning
+            mock_logger.return_value.info.assert_any_call(
+                "Server binding to all interfaces (0.0.0.0) for dual access. "
+                "The server will be accessible via both localhost and your network IP address."
             )
 
     def test_all_interfaces_warning_disabled(self):
@@ -286,15 +286,20 @@ class TestNetworkModuleIntegration:
             mock_sock.getsockname.return_value = ("192.168.1.100", 80)
             mock_socket.return_value.__enter__.return_value = mock_sock
 
-            # Get interface
+            # Get interface (always returns 0.0.0.0)
             interface = get_local_network_interface()
+            assert interface == "0.0.0.0"
 
-            # Validate it (should not warn)
+            # Validate it (should log info when binding to all interfaces)
             with patch("calendarbot.utils.network.logging.getLogger") as mock_logger:
                 result = validate_host_binding(interface, warn_on_all_interfaces=True)
 
-                assert result == "192.168.1.100"
-                mock_logger.return_value.warning.assert_not_called()
+                assert result == "0.0.0.0"
+                # Should log the dual access message
+                mock_logger.return_value.info.assert_any_call(
+                    "Server binding to all interfaces (0.0.0.0) for dual access. "
+                    "The server will be accessible via both localhost and your network IP address."
+                )
 
     def test_private_ip_detection_comprehensive(self):
         """Comprehensive test of private IP detection across ranges."""
@@ -331,11 +336,14 @@ class TestNetworkModuleIntegration:
         # Test _is_private_ip with malformed inputs
         malformed_inputs = [None, 123, [], {}, object()]
 
-        for bad_input in malformed_inputs:
-            try:
-                result = _is_private_ip(str(bad_input))
-                # Should return False for any malformed input
-                assert result is False
-            except Exception:
-                # Should not raise exceptions for any input
-                pytest.fail(f"_is_private_ip raised exception for input: {bad_input}")
+        # Test all malformed inputs by pre-converting to strings and validating behavior
+        # This avoids exception handling within the loop for better performance
+        string_inputs = [(bad_input, str(bad_input)) for bad_input in malformed_inputs]
+
+        # Test each converted input - _is_private_ip should handle malformed strings gracefully
+        for original_input, str_input in string_inputs:
+            result = _is_private_ip(str_input)
+            # Should return False for any malformed input and not raise exceptions
+            assert result is False, (
+                f"Expected False for malformed input {original_input} (str: {str_input}), got {result}"
+            )

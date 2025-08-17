@@ -147,18 +147,20 @@ class TestSettingsServiceGetSettings:
         self, settings_service: SettingsService, sample_settings_data: SettingsData
     ) -> None:
         """Test get_settings raises SettingsError when validation fails."""
-        with patch.object(
-            settings_service.persistence, "load_settings", return_value=sample_settings_data
-        ):
-            with patch.object(
+        with (
+            patch.object(
+                settings_service.persistence, "load_settings", return_value=sample_settings_data
+            ),
+            patch.object(
                 settings_service,
                 "_validate_settings_consistency",
                 side_effect=SettingsValidationError("Invalid"),
-            ):
-                with pytest.raises(SettingsError) as exc_info:
-                    settings_service.get_settings()
+            ),
+        ):
+            with pytest.raises(SettingsError) as exc_info:
+                settings_service.get_settings()
 
-                assert "Failed to get settings" in str(exc_info.value)
+            assert "Failed to get settings" in str(exc_info.value)
 
 
 class TestSettingsServiceUpdateSettings:
@@ -168,14 +170,16 @@ class TestSettingsServiceUpdateSettings:
         self, settings_service: SettingsService, sample_settings_data: SettingsData
     ) -> None:
         """Test update_settings saves valid settings successfully."""
-        with patch.object(settings_service, "validate_settings", return_value=[]):
-            with patch.object(settings_service, "_validate_settings_consistency"):
-                with patch.object(settings_service.persistence, "save_settings", return_value=True):
-                    result = settings_service.update_settings(sample_settings_data)
+        with (
+            patch.object(settings_service, "validate_settings", return_value=[]),
+            patch.object(settings_service, "_validate_settings_consistency"),
+            patch.object(settings_service.persistence, "save_settings", return_value=True),
+        ):
+            result = settings_service.update_settings(sample_settings_data)
 
-                    assert result == sample_settings_data
-                    assert result.metadata.last_modified_by == "settings_service"
-                    assert settings_service._current_settings == sample_settings_data
+            assert result == sample_settings_data
+            assert result.metadata.last_modified_by == "settings_service"
+            assert settings_service._current_settings == sample_settings_data
 
     def test_update_settings_when_validation_errors_then_raises_validation_error(
         self, settings_service: SettingsService, sample_settings_data: SettingsData
@@ -194,16 +198,16 @@ class TestSettingsServiceUpdateSettings:
         self, settings_service: SettingsService, sample_settings_data: SettingsData
     ) -> None:
         """Test update_settings raises PersistenceError when save returns False."""
-        with patch.object(settings_service, "validate_settings", return_value=[]):
-            with patch.object(settings_service, "_validate_settings_consistency"):
-                with patch.object(
-                    settings_service.persistence, "save_settings", return_value=False
-                ):
-                    with pytest.raises(SettingsPersistenceError) as exc_info:
-                        settings_service.update_settings(sample_settings_data)
+        with (
+            patch.object(settings_service, "validate_settings", return_value=[]),
+            patch.object(settings_service, "_validate_settings_consistency"),
+            patch.object(settings_service.persistence, "save_settings", return_value=False),
+        ):
+            with pytest.raises(SettingsPersistenceError) as exc_info:
+                settings_service.update_settings(sample_settings_data)
 
-                    assert "Settings save operation returned false" in str(exc_info.value)
-                    assert exc_info.value.operation == "save"
+            assert "Settings save operation returned false" in str(exc_info.value)
+            assert exc_info.value.operation == "save"
 
     def test_update_settings_when_consistency_validation_fails_then_re_raises_validation_error(
         self, settings_service: SettingsService, sample_settings_data: SettingsData
@@ -211,14 +215,16 @@ class TestSettingsServiceUpdateSettings:
         """Test update_settings re-raises consistency validation errors."""
         validation_error = SettingsValidationError("Consistency error")
 
-        with patch.object(settings_service, "validate_settings", return_value=[]):
-            with patch.object(
+        with (
+            patch.object(settings_service, "validate_settings", return_value=[]),
+            patch.object(
                 settings_service, "_validate_settings_consistency", side_effect=validation_error
-            ):
-                with pytest.raises(SettingsValidationError) as exc_info:
-                    settings_service.update_settings(sample_settings_data)
+            ),
+        ):
+            with pytest.raises(SettingsValidationError) as exc_info:
+                settings_service.update_settings(sample_settings_data)
 
-                assert exc_info.value == validation_error
+            assert exc_info.value == validation_error
 
     def test_update_settings_when_general_error_then_raises_settings_error(
         self, settings_service: SettingsService, sample_settings_data: SettingsData
@@ -280,33 +286,37 @@ class TestSettingsServiceSpecificSettingsUpdaters:
         """Test update_filter_settings updates only filter settings."""
         new_filters = EventFilterSettings(hide_all_day_events=False)
 
-        with patch.object(settings_service, "get_settings", return_value=sample_settings_data):
-            with patch.object(settings_service, "update_settings") as mock_update:
-                mock_update.return_value = sample_settings_data
+        with (
+            patch.object(settings_service, "get_settings", return_value=sample_settings_data),
+            patch.object(settings_service, "update_settings") as mock_update,
+        ):
+            mock_update.return_value = sample_settings_data
 
-                result = settings_service.update_filter_settings(new_filters)
+            result = settings_service.update_filter_settings(new_filters)
 
-                mock_update.assert_called_once()
-                updated_settings = mock_update.call_args[0][0]
-                assert updated_settings.event_filters == new_filters
-                assert result == sample_settings_data.event_filters
+            mock_update.assert_called_once()
+            updated_settings = mock_update.call_args[0][0]
+            assert updated_settings.event_filters == new_filters
+            assert result == sample_settings_data.event_filters
 
     def test_update_display_settings_when_called_then_updates_display_settings(
         self, settings_service: SettingsService, sample_settings_data: SettingsData
     ) -> None:
         """Test update_display_settings updates only display settings."""
-        new_display = DisplaySettings(default_layout="3x4")
+        new_display = DisplaySettings(default_layout="4x8")
 
-        with patch.object(settings_service, "get_settings", return_value=sample_settings_data):
-            with patch.object(settings_service, "update_settings") as mock_update:
-                mock_update.return_value = sample_settings_data
+        with (
+            patch.object(settings_service, "get_settings", return_value=sample_settings_data),
+            patch.object(settings_service, "update_settings") as mock_update,
+        ):
+            mock_update.return_value = sample_settings_data
 
-                result = settings_service.update_display_settings(new_display)
+            result = settings_service.update_display_settings(new_display)
 
-                mock_update.assert_called_once()
-                updated_settings = mock_update.call_args[0][0]
-                assert updated_settings.display == new_display
-                assert result == sample_settings_data.display
+            mock_update.assert_called_once()
+            updated_settings = mock_update.call_args[0][0]
+            assert updated_settings.display == new_display
+            assert result == sample_settings_data.display
 
     def test_update_conflict_settings_when_called_then_updates_conflict_settings(
         self, settings_service: SettingsService, sample_settings_data: SettingsData
@@ -314,16 +324,18 @@ class TestSettingsServiceSpecificSettingsUpdaters:
         """Test update_conflict_settings updates only conflict resolution settings."""
         new_conflicts = ConflictResolutionSettings(conflict_display_mode="all")
 
-        with patch.object(settings_service, "get_settings", return_value=sample_settings_data):
-            with patch.object(settings_service, "update_settings") as mock_update:
-                mock_update.return_value = sample_settings_data
+        with (
+            patch.object(settings_service, "get_settings", return_value=sample_settings_data),
+            patch.object(settings_service, "update_settings") as mock_update,
+        ):
+            mock_update.return_value = sample_settings_data
 
-                result = settings_service.update_conflict_settings(new_conflicts)
+            result = settings_service.update_conflict_settings(new_conflicts)
 
-                mock_update.assert_called_once()
-                updated_settings = mock_update.call_args[0][0]
-                assert updated_settings.conflict_resolution == new_conflicts
-                assert result == sample_settings_data.conflict_resolution
+            mock_update.assert_called_once()
+            updated_settings = mock_update.call_args[0][0]
+            assert updated_settings.conflict_resolution == new_conflicts
+            assert result == sample_settings_data.conflict_resolution
 
     def test_update_filter_settings_when_update_fails_then_raises_settings_error(
         self, settings_service: SettingsService, sample_settings_data: SettingsData
@@ -331,15 +343,17 @@ class TestSettingsServiceSpecificSettingsUpdaters:
         """Test update_filter_settings raises SettingsError when update fails."""
         new_filters = EventFilterSettings()
 
-        with patch.object(settings_service, "get_settings", return_value=sample_settings_data):
-            with patch.object(
+        with (
+            patch.object(settings_service, "get_settings", return_value=sample_settings_data),
+            patch.object(
                 settings_service, "update_settings", side_effect=Exception("Update failed")
-            ):
-                with pytest.raises(SettingsError) as exc_info:
-                    settings_service.update_filter_settings(new_filters)
+            ),
+        ):
+            with pytest.raises(SettingsError) as exc_info:
+                settings_service.update_filter_settings(new_filters)
 
-                assert "Failed to update filter settings" in str(exc_info.value)
-                assert "Update failed" in exc_info.value.details["error"]
+            assert "Failed to update filter settings" in str(exc_info.value)
+            assert "Update failed" in exc_info.value.details["error"]
 
 
 class TestSettingsServiceFilterPatternManagement:
@@ -349,23 +363,25 @@ class TestSettingsServiceFilterPatternManagement:
         self, settings_service: SettingsService, sample_settings_data: SettingsData
     ) -> None:
         """Test add_filter_pattern adds new filter pattern successfully."""
-        with patch.object(settings_service, "get_settings", return_value=sample_settings_data):
-            with patch.object(settings_service, "update_settings") as mock_update:
-                pattern = settings_service.add_filter_pattern(
-                    pattern="New Pattern",
-                    is_regex=True,
-                    case_sensitive=True,
-                    description="Test pattern",
-                )
+        with (
+            patch.object(settings_service, "get_settings", return_value=sample_settings_data),
+            patch.object(settings_service, "update_settings") as mock_update,
+        ):
+            pattern = settings_service.add_filter_pattern(
+                pattern="New Pattern",
+                is_regex=True,
+                case_sensitive=True,
+                description="Test pattern",
+            )
 
-                assert pattern.pattern == "New Pattern"
-                assert pattern.is_regex is True
-                assert pattern.case_sensitive is True
-                assert pattern.description == "Test pattern"
+            assert pattern.pattern == "New Pattern"
+            assert pattern.is_regex is True
+            assert pattern.case_sensitive is True
+            assert pattern.description == "Test pattern"
 
-                mock_update.assert_called_once()
-                updated_settings = mock_update.call_args[0][0]
-                assert pattern in updated_settings.event_filters.title_patterns
+            mock_update.assert_called_once()
+            updated_settings = mock_update.call_args[0][0]
+            assert pattern in updated_settings.event_filters.title_patterns
 
     def test_add_filter_pattern_when_invalid_pattern_then_raises_settings_error(
         self, settings_service: SettingsService
@@ -389,12 +405,14 @@ class TestSettingsServiceFilterPatternManagement:
         target_pattern = FilterPattern(pattern="To Remove", is_regex=False)
         sample_settings_data.event_filters.title_patterns.append(target_pattern)
 
-        with patch.object(settings_service, "get_settings", return_value=sample_settings_data):
-            with patch.object(settings_service, "update_settings") as mock_update:
-                result = settings_service.remove_filter_pattern("To Remove", is_regex=False)
+        with (
+            patch.object(settings_service, "get_settings", return_value=sample_settings_data),
+            patch.object(settings_service, "update_settings") as mock_update,
+        ):
+            result = settings_service.remove_filter_pattern("To Remove", is_regex=False)
 
-                assert result is True
-                mock_update.assert_called_once()
+            assert result is True
+            mock_update.assert_called_once()
 
     def test_remove_filter_pattern_when_pattern_not_found_then_returns_false(
         self, settings_service: SettingsService, sample_settings_data: SettingsData
@@ -413,12 +431,14 @@ class TestSettingsServiceFilterPatternManagement:
         target_pattern = FilterPattern(pattern="To Toggle", is_regex=False, is_active=True)
         sample_settings_data.event_filters.title_patterns.append(target_pattern)
 
-        with patch.object(settings_service, "get_settings", return_value=sample_settings_data):
-            with patch.object(settings_service, "update_settings") as mock_update:
-                result = settings_service.toggle_filter_pattern("To Toggle", is_regex=False)
+        with (
+            patch.object(settings_service, "get_settings", return_value=sample_settings_data),
+            patch.object(settings_service, "update_settings") as mock_update,
+        ):
+            result = settings_service.toggle_filter_pattern("To Toggle", is_regex=False)
 
-                assert result is False  # Should be toggled to False
-                mock_update.assert_called_once()
+            assert result is False  # Should be toggled to False
+            mock_update.assert_called_once()
 
     def test_toggle_filter_pattern_when_pattern_not_found_then_returns_none(
         self, settings_service: SettingsService, sample_settings_data: SettingsData
@@ -441,7 +461,7 @@ class TestSettingsServiceValidation:
         sample_settings_data: SettingsData,
     ) -> None:
         """Test validate_settings returns empty list for valid settings."""
-        mock_get_layouts.return_value = ["whats-next-view", "4x8", "3x4"]
+        mock_get_layouts.return_value = ["whats-next-view", "4x8", "4x8"]
 
         errors = settings_service.validate_settings(sample_settings_data)
 
@@ -455,13 +475,13 @@ class TestSettingsServiceValidation:
         sample_settings_data: SettingsData,
     ) -> None:
         """Test validate_settings returns error for invalid layout."""
-        mock_get_layouts.return_value = ["4x8", "3x4"]  # whats-next-view not available
+        mock_get_layouts.return_value = ["4x8"]  # whats-next-view not available
 
         errors = settings_service.validate_settings(sample_settings_data)
 
         assert len(errors) == 1
         assert "Invalid default layout 'whats-next-view'" in errors[0]
-        assert "Available layouts: 4x8, 3x4" in errors[0]
+        assert "Available layouts: 4x8" in errors[0]
 
     def test_validate_settings_when_too_many_active_patterns_then_returns_performance_warning(
         self, settings_service: SettingsService, sample_settings_data: SettingsData
@@ -526,12 +546,12 @@ class TestSettingsServiceValidation:
         """Test _get_available_layouts returns layouts from registry."""
         with patch("calendarbot.layout.registry.LayoutRegistry") as mock_registry_class:
             mock_registry = Mock()
-            mock_registry.get_available_layouts.return_value = ["4x8", "3x4", "whats-next-view"]
+            mock_registry.get_available_layouts.return_value = ["4x8", "4x8", "whats-next-view"]
             mock_registry_class.return_value = mock_registry
 
             layouts = settings_service._get_available_layouts()
 
-            assert layouts == ["4x8", "3x4", "whats-next-view"]
+            assert layouts == ["4x8", "4x8", "whats-next-view"]
 
     def test_get_available_layouts_when_registry_fails_then_returns_fallback(
         self, settings_service: SettingsService, caplog: pytest.LogCaptureFixture
@@ -542,7 +562,7 @@ class TestSettingsServiceValidation:
         ):
             layouts = settings_service._get_available_layouts()
 
-            assert layouts == ["3x4", "4x8", "whats-next-view"]
+            assert layouts == ["4x8", "whats-next-view"]
             assert "Could not get available layouts" in caplog.text
 
 
@@ -553,20 +573,22 @@ class TestSettingsServiceUtilityMethods:
         self, settings_service: SettingsService
     ) -> None:
         """Test reset_to_defaults creates backup and resets to default settings."""
-        with patch.object(settings_service.persistence, "create_backup") as mock_backup:
-            with patch.object(settings_service, "update_settings") as mock_update:
-                default_settings = SettingsData()
-                mock_update.return_value = default_settings
+        with (
+            patch.object(settings_service.persistence, "create_backup") as mock_backup,
+            patch.object(settings_service, "update_settings") as mock_update,
+        ):
+            default_settings = SettingsData()
+            mock_update.return_value = default_settings
 
-                result = settings_service.reset_to_defaults()
+            result = settings_service.reset_to_defaults()
 
-                mock_backup.assert_called_once_with("pre_reset")
-                mock_update.assert_called_once()
+            mock_backup.assert_called_once_with("pre_reset")
+            mock_update.assert_called_once()
 
-                # Check that defaults were passed to update_settings
-                updated_settings = mock_update.call_args[0][0]
-                assert updated_settings.metadata.last_modified_by == "reset_operation"
-                assert result == default_settings
+            # Check that defaults were passed to update_settings
+            updated_settings = mock_update.call_args[0][0]
+            assert updated_settings.metadata.last_modified_by == "reset_operation"
+            assert result == default_settings
 
     def test_reset_to_defaults_when_operation_fails_then_raises_settings_error(
         self, settings_service: SettingsService
@@ -649,26 +671,28 @@ class TestSettingsServiceUtilityMethods:
         # Set cache to simulate loaded settings
         settings_service._current_settings = sample_settings_data
 
-        with patch.object(settings_service, "get_settings", return_value=sample_settings_data):
-            with patch.object(
+        with (
+            patch.object(settings_service, "get_settings", return_value=sample_settings_data),
+            patch.object(
                 settings_service.persistence, "get_settings_info", return_value=persistence_info
-            ):
-                info = settings_service.get_settings_info()
+            ),
+        ):
+            info = settings_service.get_settings_info()
 
-                assert "settings_data" in info
-                assert "persistence_info" in info
-                assert "service_info" in info
+            assert "settings_data" in info
+            assert "persistence_info" in info
+            assert "service_info" in info
 
-                # Check settings data info
-                settings_info = info["settings_data"]
-                assert "active_filters" in settings_info
-                assert "default_layout" in settings_info
-                assert "schema_version" in settings_info
+            # Check settings data info
+            settings_info = info["settings_data"]
+            assert "active_filters" in settings_info
+            assert "default_layout" in settings_info
+            assert "schema_version" in settings_info
 
-                # Check service info
-                service_info = info["service_info"]
-                assert service_info["calendarbot_integration"] is True
-                assert service_info["cache_status"] == "loaded"
+            # Check service info
+            service_info = info["service_info"]
+            assert service_info["calendarbot_integration"] is True
+            assert service_info["cache_status"] == "loaded"
 
     def test_get_settings_info_when_error_occurs_then_returns_error_info(
         self, settings_service: SettingsService, caplog: pytest.LogCaptureFixture
@@ -766,13 +790,15 @@ class TestSettingsServiceCachingBehavior:
         self, settings_service: SettingsService, sample_settings_data: SettingsData
     ) -> None:
         """Test update_settings updates the cache after successful save."""
-        with patch.object(settings_service, "validate_settings", return_value=[]):
-            with patch.object(settings_service, "_validate_settings_consistency"):
-                with patch.object(settings_service.persistence, "save_settings", return_value=True):
-                    settings_service.update_settings(sample_settings_data)
+        with (
+            patch.object(settings_service, "validate_settings", return_value=[]),
+            patch.object(settings_service, "_validate_settings_consistency"),
+            patch.object(settings_service.persistence, "save_settings", return_value=True),
+        ):
+            settings_service.update_settings(sample_settings_data)
 
-                    # Cache should be updated
-                    assert settings_service._current_settings == sample_settings_data
+            # Cache should be updated
+            assert settings_service._current_settings == sample_settings_data
 
     def test_import_settings_when_successful_then_updates_cache(
         self, settings_service: SettingsService, sample_settings_data: SettingsData
@@ -798,15 +824,17 @@ class TestSettingsServiceErrorHandling:
         """Test service propagates PersistenceError from persistence layer."""
         persistence_error = SettingsPersistenceError("Persistence failed", operation="save")
 
-        with patch.object(settings_service, "validate_settings", return_value=[]):
-            with patch.object(settings_service, "_validate_settings_consistency"):
-                with patch.object(
-                    settings_service.persistence, "save_settings", side_effect=persistence_error
-                ):
-                    with pytest.raises(SettingsPersistenceError) as exc_info:
-                        settings_service.update_settings(sample_settings_data)
+        with (
+            patch.object(settings_service, "validate_settings", return_value=[]),
+            patch.object(settings_service, "_validate_settings_consistency"),
+            patch.object(
+                settings_service.persistence, "save_settings", side_effect=persistence_error
+            ),
+        ):
+            with pytest.raises(SettingsPersistenceError) as exc_info:
+                settings_service.update_settings(sample_settings_data)
 
-                    assert exc_info.value == persistence_error
+            assert exc_info.value == persistence_error
 
     def test_service_when_validation_errors_occur_then_propagates_validation_errors(
         self, settings_service: SettingsService, sample_settings_data: SettingsData
@@ -860,12 +888,12 @@ class TestSettingsServiceIntegrationScenarios:
         assert updated_settings.event_filters.title_patterns[0].pattern == "Test Pattern"
 
         # Update display settings
-        new_display = DisplaySettings(default_layout="3x4", display_density="compact")
+        new_display = DisplaySettings(default_layout="4x8", display_density="compact")
         settings_service.update_display_settings(new_display)
 
         # Verify display settings were updated
         final_settings = settings_service.get_settings()
-        assert final_settings.display.default_layout == "3x4"
+        assert final_settings.display.default_layout == "4x8"
         assert final_settings.display.display_density == "compact"
 
         # Verify pattern is still there

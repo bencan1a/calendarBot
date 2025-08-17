@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
 from calendarbot.cache.manager import CacheManager
 from calendarbot.config.settings import CalendarBotSettings
@@ -54,7 +53,7 @@ def compatibility_test_settings():
 class TestLayoutRendererCompatibility:
     """Comprehensive test suite for layout-renderer compatibility validation."""
 
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def compatibility_setup(self, compatibility_test_settings):
         """Set up environment for compatibility testing."""
         cache_manager = CacheManager(compatibility_test_settings)
@@ -102,8 +101,8 @@ class TestLayoutRendererCompatibility:
                 assert result["info_available"], f"Layout info missing for {layout_name}"
                 assert result["validation_passed"], f"Layout validation failed for {layout_name}"
 
-        except Exception as e:
-            logger.error(f"DIAGNOSTIC ERROR: Layout registry test failed: {e}")
+        except Exception:
+            logger.exception("DIAGNOSTIC ERROR: Layout registry test failed")
             raise
 
     @pytest.mark.asyncio
@@ -175,8 +174,8 @@ class TestLayoutRendererCompatibility:
 
             return creation_results
 
-        except Exception as e:
-            logger.error(f"DIAGNOSTIC ERROR: Renderer factory test failed: {e}")
+        except Exception:
+            logger.exception("DIAGNOSTIC ERROR: Renderer factory test failed")
             raise
 
     @pytest.mark.asyncio
@@ -247,8 +246,8 @@ class TestLayoutRendererCompatibility:
 
             return display_manager_results
 
-        except Exception as e:
-            logger.error(f"DIAGNOSTIC ERROR: DisplayManager compatibility test failed: {e}")
+        except Exception:
+            logger.exception("DIAGNOSTIC ERROR: DisplayManager compatibility test failed")
             raise
 
     @pytest.mark.asyncio
@@ -336,8 +335,8 @@ class TestLayoutRendererCompatibility:
 
             return switching_results, toggle_result
 
-        except Exception as e:
-            logger.error(f"DIAGNOSTIC ERROR: Web server layout switching test failed: {e}")
+        except Exception:
+            logger.exception("DIAGNOSTIC ERROR: Web server layout switching test failed")
             raise
 
     @pytest.mark.asyncio
@@ -413,9 +412,7 @@ class TestLayoutRendererCompatibility:
                             "error": str(e),
                         }
 
-                        logger.warning(
-                            f"DIAGNOSTIC: {combination_key} FULL STACK FAILED - {e!s}"
-                        )
+                        logger.warning(f"DIAGNOSTIC: {combination_key} FULL STACK FAILED - {e!s}")
 
             # Generate compatibility report
             total_combinations = len(compatibility_matrix)
@@ -449,8 +446,8 @@ class TestLayoutRendererCompatibility:
 
             return compatibility_matrix
 
-        except Exception as e:
-            logger.error(f"DIAGNOSTIC ERROR: End-to-end compatibility test failed: {e}")
+        except Exception:
+            logger.exception("DIAGNOSTIC ERROR: End-to-end compatibility test failed")
             raise
 
 

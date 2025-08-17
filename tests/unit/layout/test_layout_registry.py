@@ -35,13 +35,14 @@ class TestLayoutRegistryInitialization:
         """Test initialization handles nonexistent directory gracefully."""
         custom_dir = Path("/custom/layouts")
 
-        with patch.object(LayoutRegistry, "discover_layouts"):
-            # Mock directory existence at the Path class level
-            with patch("pathlib.Path.exists", return_value=False):
-                registry = LayoutRegistry(layouts_dir=custom_dir)
+        with (
+            patch.object(LayoutRegistry, "discover_layouts"),
+            patch("pathlib.Path.exists", return_value=False),
+        ):
+            registry = LayoutRegistry(layouts_dir=custom_dir)
 
-                # Registry should still be created successfully
-                assert registry.layouts_dir == custom_dir
+            # Registry should still be created successfully
+            assert registry.layouts_dir == custom_dir
 
     def test_init_calls_discover_layouts(self) -> None:
         """Test initialization calls discover_layouts method."""
@@ -108,13 +109,15 @@ class TestLayoutRegistryDiscovery:
         with patch.object(LayoutRegistry, "discover_layouts"):
             registry = LayoutRegistry(layouts_dir=layouts_dir)
             # Manually call discover_layouts with mocked filesystem
-            with patch("builtins.open", create=True):
-                with patch("json.load", return_value=valid_metadata):
-                    registry.discover_layouts()
+            with (
+                patch("builtins.open", create=True),
+                patch("json.load", return_value=valid_metadata),
+            ):
+                registry.discover_layouts()
 
-                    # Should have loaded valid layouts
-                    available_layouts = registry.get_available_layouts()
-                    assert len(available_layouts) >= 0  # Emergency fallbacks at minimum
+                # Should have loaded valid layouts
+                available_layouts = registry.get_available_layouts()
+                assert len(available_layouts) >= 0  # Emergency fallbacks at minimum
 
     def test_discover_layouts_handles_invalid_json(self, mock_layout_directory) -> None:
         """Test discovery handles invalid JSON gracefully."""
@@ -123,14 +126,16 @@ class TestLayoutRegistryDiscovery:
         with patch.object(LayoutRegistry, "discover_layouts"):
             registry = LayoutRegistry(layouts_dir=layouts_dir)
             # Manually call discover_layouts with mocked invalid JSON
-            with patch("builtins.open", create=True):
-                with patch("json.load", side_effect=json.JSONDecodeError("Invalid JSON", "", 0)):
-                    # Should not raise exception, should continue discovery
-                    registry.discover_layouts()
+            with (
+                patch("builtins.open", create=True),
+                patch("json.load", side_effect=json.JSONDecodeError("Invalid JSON", "", 0)),
+            ):
+                # Should not raise exception, should continue discovery
+                registry.discover_layouts()
 
-                    # Should have fallback layouts due to JSON errors
-                    available_layouts = registry.get_available_layouts()
-                    assert len(available_layouts) >= 0  # May have emergency fallbacks
+                # Should have fallback layouts due to JSON errors
+                available_layouts = registry.get_available_layouts()
+                assert len(available_layouts) >= 0  # May have emergency fallbacks
 
     def test_discover_layouts_handles_file_read_errors(self, mock_layout_directory) -> None:
         """Test discovery handles file read errors gracefully."""
@@ -157,8 +162,6 @@ class TestLayoutRegistryValidation:
         with patch.object(LayoutRegistry, "discover_layouts"):
             registry = LayoutRegistry()
             # Manually populate the internal _layouts dict to match actual implementation
-            from calendarbot.layout.registry import LayoutInfo
-
             registry._layouts = {
                 "4x8": LayoutInfo(
                     name="4x8",
@@ -233,7 +236,7 @@ class TestLayoutRegistryValidation:
 
             # Should return fallback default even with empty registry
             default = registry.get_default_layout()
-            assert default == "whats-next-view"  # Emergency fallback
+            assert default == "console"  # Emergency fallback
 
 
 class TestLayoutRegistryAdvanced:
@@ -315,12 +318,14 @@ class TestLayoutRegistryErrorHandling:
             corrupted_metadata = {"name": "Test"}  # Missing required fields
 
             registry.layouts_dir = layouts_dir
-            with patch("builtins.open", create=True):
-                with patch("json.load", return_value=corrupted_metadata):
-                    registry.discover_layouts()
+            with (
+                patch("builtins.open", create=True),
+                patch("json.load", return_value=corrupted_metadata),
+            ):
+                registry.discover_layouts()
 
-                    # Should skip layouts with corrupted metadata
-                    assert "test_layout" not in registry._layouts
+                # Should skip layouts with corrupted metadata
+                assert "test_layout" not in registry._layouts
 
     def test_get_layout_with_fallback(self) -> None:
         """Test layout fallback chain functionality."""
@@ -351,6 +356,8 @@ class TestLayoutRegistryErrorHandling:
                     requirements={},
                 ),
             }
+            # Generate dynamic fallback chain after setting layouts
+            registry._fallback_layouts = registry._generate_dynamic_fallbacks()
 
             # Test successful fallback - should return first available from fallback chain
             layout = registry.get_layout_with_fallback("nonexistent")

@@ -5,7 +5,7 @@ fetching and caching across multiple sources.
 
 Test Coverage:
 - Source manager initialization and configuration
-- ICS source addition with various authentication types  
+- ICS source addition with various authentication types
 - Source removal and lifecycle management
 - Event fetching and caching operations
 - Today's events and date range filtering
@@ -365,13 +365,22 @@ class TestSourceManagerEventFetching:
         )
 
         # Mock source handlers
+        # Create mock parse results with .events attribute
+        mock_result1 = Mock()
+        mock_result1.events = [event1]
+        mock_result1.raw_content = None  # No raw content to force events list caching
+
+        mock_result2 = Mock()
+        mock_result2.events = [event2]
+        mock_result2.raw_content = None  # No raw content to force events list caching
+
         mock_handler1 = Mock(spec=ICSSourceHandler)
         mock_handler1.is_healthy.return_value = True
-        mock_handler1.fetch_events.return_value = [event1]
+        mock_handler1.fetch_events.return_value = mock_result1
 
         mock_handler2 = Mock(spec=ICSSourceHandler)
         mock_handler2.is_healthy.return_value = True
-        mock_handler2.fetch_events.return_value = [event2]
+        mock_handler2.fetch_events.return_value = mock_result2
 
         manager._sources = {"source1": mock_handler1, "source2": mock_handler2}
 

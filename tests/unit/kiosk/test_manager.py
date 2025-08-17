@@ -274,9 +274,11 @@ class TestKioskManager:
     @pytest.mark.asyncio
     async def test_wait_for_web_server_ready_no_aiohttp(self, manager):
         """Test waiting for web server ready when aiohttp not available."""
-        with patch("calendarbot.kiosk.manager.aiohttp", None):
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await manager._wait_for_web_server_ready()
+        with (
+            patch("calendarbot.kiosk.manager.aiohttp", None),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            result = await manager._wait_for_web_server_ready()
 
         assert result is True  # Should return True with fallback
 
@@ -437,12 +439,7 @@ class TestKioskManager:
 
     def test_get_system_memory_usage_without_psutil(self, manager):
         """Test getting system memory usage without psutil."""
-        with patch(
-            "builtins.__import__",
-            side_effect=lambda name, *args: ImportError()
-            if name == "psutil"
-            else __import__(name, *args),
-        ):
+        with patch("calendarbot.kiosk.manager.psutil", None):
             result = manager._get_system_memory_usage()
 
             assert result == 0
@@ -458,12 +455,7 @@ class TestKioskManager:
 
     def test_get_system_cpu_usage_without_psutil(self, manager):
         """Test getting system CPU usage without psutil."""
-        with patch(
-            "builtins.__import__",
-            side_effect=lambda name, *args: ImportError()
-            if name == "psutil"
-            else __import__(name, *args),
-        ):
+        with patch("calendarbot.kiosk.manager.psutil", None):
             result = manager._get_system_cpu_usage()
 
             assert result == 0.0

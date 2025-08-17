@@ -56,8 +56,7 @@ class TestICSSourceHandlerInitialization:
     @pytest.fixture
     def mock_settings(self):
         """Create mock settings object."""
-        settings = Mock()
-        return settings
+        return Mock()
 
     def test_ics_source_handler_init_basic(self, basic_source_config, mock_settings):
         """Test basic ICS source handler initialization."""
@@ -266,12 +265,14 @@ class TestICSSourceHandlerEventFetching:
 
         # Test fetch
         with patch("calendarbot.sources.ics_source.time.time", return_value=1000.0):
-            events = await handler.fetch_events(use_cache=False)
+            result = await handler.fetch_events(use_cache=False)
 
-        # Verify results
-        assert len(events) == 2
-        assert events[0].id == "event1"
-        assert events[1].id == "event2"
+        # Verify results - fetch_events returns ICSParseResult, not events list
+        assert isinstance(result, ICSParseResult)
+        assert result.success is True
+        assert len(result.events) == 2
+        assert result.events[0].id == "event1"
+        assert result.events[1].id == "event2"
         assert handler._last_etag == "etag123"
         assert handler._last_modified == "Wed, 21 Oct 2015 07:28:00 GMT"
 
@@ -332,10 +333,12 @@ class TestICSSourceHandlerEventFetching:
         mock_fetcher.fetch_ics.return_value = mock_response
 
         # Test fetch
-        events = await handler.fetch_events()
+        result = await handler.fetch_events()
 
-        # Should return empty list for not modified
-        assert len(events) == 0
+        # Should return empty ICSParseResult for not modified
+        assert isinstance(result, ICSParseResult)
+        assert result.success is True
+        assert len(result.events) == 0
 
         # Parser should not be called
         mock_parser.parse_ics_content.assert_not_called()
@@ -503,9 +506,11 @@ class TestICSSourceHandlerConnectionTesting:
         mock_fetcher.__aenter__.return_value = mock_fetcher
         mock_fetcher.__aexit__.return_value = None
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
-            with patch("calendarbot.sources.ics_source.time.time", return_value=1000.0):
-                health_check = await handler.test_connection()
+        with (
+            patch("aiohttp.ClientSession", return_value=mock_session),
+            patch("calendarbot.sources.ics_source.time.time", return_value=1000.0),
+        ):
+            health_check = await handler.test_connection()
 
         # Verify success
         assert health_check.is_healthy is True
@@ -606,12 +611,18 @@ class TestICSSourceHandlerEventQueries:
         """Test successful retrieval of today's events."""
         handler, events, now = handler_with_events
 
-        # Mock fetch_events to return all events
-        with patch.object(handler, "fetch_events", return_value=events):
-            with patch("calendarbot.utils.helpers.get_timezone_aware_now") as mock_now:
-                mock_now.return_value = now
+        # Mock fetch_events to return ICSParseResult with events
+        mock_result = Mock(spec=ICSParseResult)
+        mock_result.success = True
+        mock_result.events = events
 
-                todays_events = await handler.get_todays_events()
+        with (
+            patch.object(handler, "fetch_events", return_value=mock_result),
+            patch("calendarbot.utils.helpers.get_timezone_aware_now") as mock_now,
+        ):
+            mock_now.return_value = now
+
+            todays_events = await handler.get_todays_events()
 
         # Should only return today's event
         assert len(todays_events) == 1
@@ -622,12 +633,18 @@ class TestICSSourceHandlerEventQueries:
         """Test today's events with timezone parameter."""
         handler, events, now = handler_with_events
 
-        # Mock fetch_events to return all events
-        with patch.object(handler, "fetch_events", return_value=events):
-            with patch("calendarbot.utils.helpers.get_timezone_aware_now") as mock_now:
-                mock_now.return_value = now
+        # Mock fetch_events to return ICSParseResult with all events
+        mock_result = Mock(spec=ICSParseResult)
+        mock_result.success = True
+        mock_result.events = events
 
-                todays_events = await handler.get_todays_events("America/New_York")
+        with (
+            patch.object(handler, "fetch_events", return_value=mock_result),
+            patch("calendarbot.utils.helpers.get_timezone_aware_now") as mock_now,
+        ):
+            mock_now.return_value = now
+
+            todays_events = await handler.get_todays_events("America/New_York")
 
         # Timezone parameter is passed but currently not used in filtering
         # Implementation filters by date regardless of timezone parameter
@@ -649,12 +666,18 @@ class TestICSSourceHandlerEventQueries:
             )
         ]
 
-        # Mock fetch_events to return future events
-        with patch.object(handler, "fetch_events", return_value=future_events):
-            with patch("calendarbot.utils.helpers.get_timezone_aware_now") as mock_now:
-                mock_now.return_value = now
+        # Mock fetch_events to return ICSParseResult with future events
+        mock_result = Mock(spec=ICSParseResult)
+        mock_result.success = True
+        mock_result.events = future_events
 
-                todays_events = await handler.get_todays_events()
+        with (
+            patch.object(handler, "fetch_events", return_value=mock_result),
+            patch("calendarbot.utils.helpers.get_timezone_aware_now") as mock_now,
+        ):
+            mock_now.return_value = now
+
+            todays_events = await handler.get_todays_events()
 
         # Should return empty list
         assert len(todays_events) == 0
@@ -668,8 +691,12 @@ class TestICSSourceHandlerEventQueries:
         start_date = now - timedelta(hours=1)
         end_date = now + timedelta(days=2)
 
-        # Mock fetch_events to return all events
-        with patch.object(handler, "fetch_events", return_value=events):
+        # Mock fetch_events to return ICSParseResult with all events
+        mock_result = Mock(spec=ICSParseResult)
+        mock_result.success = True
+        mock_result.events = events
+
+        with patch.object(handler, "fetch_events", return_value=mock_result):
             range_events = await handler.get_events_for_date_range(start_date, end_date)
 
         # Should return both events
@@ -684,8 +711,12 @@ class TestICSSourceHandlerEventQueries:
         start_date = now - timedelta(hours=1)
         end_date = now + timedelta(hours=2)
 
-        # Mock fetch_events to return all events
-        with patch.object(handler, "fetch_events", return_value=events):
+        # Mock fetch_events to return ICSParseResult with all events
+        mock_result = Mock(spec=ICSParseResult)
+        mock_result.success = True
+        mock_result.events = events
+
+        with patch.object(handler, "fetch_events", return_value=mock_result):
             range_events = await handler.get_events_for_date_range(start_date, end_date)
 
         # Should only return today's event
@@ -701,8 +732,12 @@ class TestICSSourceHandlerEventQueries:
         start_date = now + timedelta(days=5)
         end_date = now + timedelta(days=6)
 
-        # Mock fetch_events to return all events
-        with patch.object(handler, "fetch_events", return_value=events):
+        # Mock fetch_events to return ICSParseResult with all events
+        mock_result = Mock(spec=ICSParseResult)
+        mock_result.success = True
+        mock_result.events = events
+
+        with patch.object(handler, "fetch_events", return_value=mock_result):
             range_events = await handler.get_events_for_date_range(start_date, end_date)
 
         # Should return empty list
@@ -1031,8 +1066,8 @@ class TestICSSourceHandlerIntegration:
         with patch("calendarbot.sources.ics_source.time.time", return_value=1000.0):
             first_events = await handler.fetch_events()
 
-        # Verify first fetch
-        assert len(first_events) == 1
+        # Verify first fetch - fetch_events returns ICSParseResult
+        assert len(first_events.events) == 1
         assert handler._last_etag == "etag123"
         assert handler._last_modified == "Wed, 21 Oct 2015 07:28:00 GMT"
 
@@ -1049,7 +1084,7 @@ class TestICSSourceHandlerIntegration:
         second_events = await handler.fetch_events()
 
         # Verify second fetch (304 Not Modified)
-        assert len(second_events) == 0  # Empty for not modified
+        assert len(second_events.events) == 0  # Empty for not modified
         mock_fetcher.get_conditional_headers.assert_called_with(
             "etag123", "Wed, 21 Oct 2015 07:28:00 GMT"
         )
@@ -1102,8 +1137,8 @@ class TestICSSourceHandlerIntegration:
         with patch("calendarbot.sources.ics_source.time.time", return_value=2000.0):
             recovered_events = await handler.fetch_events()
 
-        # Verify recovery
-        assert len(recovered_events) == 1
+        # Verify recovery - fetch_events returns ICSParseResult
+        assert len(recovered_events.events) == 1
         assert handler.metrics.consecutive_failures == 0  # Reset on success
         assert handler.health.status == SourceStatus.HEALTHY
 
@@ -1130,12 +1165,18 @@ class TestICSSourceHandlerIntegration:
 
         events = [midnight_event, late_night_event]
 
-        # Mock fetch_events to return boundary events
-        with patch.object(handler, "fetch_events", return_value=events):
-            with patch("calendarbot.utils.helpers.get_timezone_aware_now") as mock_now:
-                mock_now.return_value = now
+        # Mock fetch_events to return ICSParseResult with boundary events
+        mock_result = Mock(spec=ICSParseResult)
+        mock_result.success = True
+        mock_result.events = events
 
-                todays_events = await handler.get_todays_events()
+        with (
+            patch.object(handler, "fetch_events", return_value=mock_result),
+            patch("calendarbot.utils.helpers.get_timezone_aware_now") as mock_now,
+        ):
+            mock_now.return_value = now
+
+            todays_events = await handler.get_todays_events()
 
         # Both events should be included (same date)
         assert len(todays_events) == 2

@@ -515,6 +515,14 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         days = 7 if current_layout == "whats-next-view" else 1
 
+        # BUGFIX: WhatsNextView should always use today's date, not navigation state
+        # WhatsNextView is conceptually about "what's next from NOW"
+        if current_layout == "whats-next-view":
+            logger.debug(
+                "[BUGFIX] WhatsNextView detected - forcing today's date instead of navigation state"
+            )
+            return self._get_non_interactive_mode_events(days)
+
         if self.web_server.navigation_state:
             return self._get_interactive_mode_events(days)
         return self._get_non_interactive_mode_events(days)
@@ -2664,7 +2672,7 @@ class WebServer:
             Current layout name
         """
         # Use the web server's layout property which correctly tracks layout names
-        # The display manager tracks renderer type ('html') not layout name ('3x4', '4x8')
+        # The display manager tracks renderer type ('html') not layout name ('4x8', 'whats-next-view')
         current_layout = self.layout
 
         logger.debug(
