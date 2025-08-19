@@ -20,6 +20,35 @@ from calendarbot.utils.logging import (
 )
 
 
+class MockArgs:
+    """Mock arguments object with controlled attributes to prevent MagicMock directory creation."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize mock args with specified attributes."""
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class MockSettings:
+    """Mock settings object with controlled logging attributes."""
+
+    def __init__(self) -> None:
+        """Initialize mock settings with logging configuration."""
+        self.logging = MockLoggingConfig()
+
+
+class MockLoggingConfig:
+    """Mock logging configuration with controlled attributes."""
+
+    def __init__(self) -> None:
+        """Initialize with default logging configuration."""
+        self.console_level = "INFO"
+        self.file_level = "INFO"
+        self.file_directory = "/default/path"
+        self.console_colors = True
+        self.max_log_files = 5
+
+
 class TestVerboseLogging:
     """Test VERBOSE custom log level functionality."""
 
@@ -598,11 +627,10 @@ class TestApplyCommandLineOverrides:
 
     def test_quiet_override(self) -> None:
         """Test quiet command line override."""
-        mock_settings = MagicMock()
+        mock_settings = MockSettings()
         mock_settings.logging.console_level = "INFO"
 
-        mock_args = MagicMock()
-        mock_args.quiet = True
+        mock_args = MockArgs(quiet=True)
 
         result = apply_command_line_overrides(mock_settings, mock_args)
 
@@ -610,11 +638,10 @@ class TestApplyCommandLineOverrides:
 
     def test_log_dir_override(self) -> None:
         """Test log directory command line override."""
-        mock_settings = MagicMock()
+        mock_settings = MockSettings()
         mock_settings.logging.file_directory = "/old/path"
 
-        mock_args = MagicMock()
-        mock_args.log_dir = "/new/path"
+        mock_args = MockArgs(log_dir="/new/path")
 
         result = apply_command_line_overrides(mock_settings, mock_args)
 
@@ -622,11 +649,10 @@ class TestApplyCommandLineOverrides:
 
     def test_no_log_colors_override(self) -> None:
         """Test no log colors command line override."""
-        mock_settings = MagicMock()
+        mock_settings = MockSettings()
         mock_settings.logging.console_colors = True
 
-        mock_args = MagicMock()
-        mock_args.no_log_colors = True
+        mock_args = MockArgs(no_log_colors=True)
 
         result = apply_command_line_overrides(mock_settings, mock_args)
 
@@ -646,14 +672,11 @@ class TestApplyCommandLineOverrides:
 
     def test_missing_attributes_ignored(self) -> None:
         """Test missing command line attributes are ignored."""
-        mock_settings = MagicMock()
+        mock_settings = MockSettings()
         original_level = mock_settings.logging.console_level
 
-        mock_args = MagicMock()
-        # Simulate missing attributes
-        del mock_args.log_level
-        del mock_args.verbose
-        del mock_args.quiet
+        # Create args object without the attributes we're testing for
+        mock_args = MockArgs()
 
         result = apply_command_line_overrides(mock_settings, mock_args)
 
@@ -662,13 +685,14 @@ class TestApplyCommandLineOverrides:
 
     def test_none_values_ignored(self) -> None:
         """Test None values are ignored."""
-        mock_settings = MagicMock()
+        mock_settings = MockSettings()
         original_level = mock_settings.logging.console_level
 
-        mock_args = MagicMock()
-        mock_args.log_level = None
-        mock_args.verbose = False  # False, not True
-        mock_args.quiet = False
+        mock_args = MockArgs(
+            log_level=None,
+            verbose=False,  # False, not True
+            quiet=False,
+        )
 
         result = apply_command_line_overrides(mock_settings, mock_args)
 
@@ -677,20 +701,21 @@ class TestApplyCommandLineOverrides:
 
     def test_all_overrides_combined(self) -> None:
         """Test multiple overrides applied together."""
-        mock_settings = MagicMock()
+        mock_settings = MockSettings()
         mock_settings.logging.console_level = "INFO"
         mock_settings.logging.file_level = "INFO"
         mock_settings.logging.file_directory = "/old/path"
         mock_settings.logging.console_colors = True
         mock_settings.logging.max_log_files = 5
 
-        mock_args = MagicMock()
-        mock_args.log_level = "DEBUG"
-        mock_args.verbose = False  # Should be overridden by log_level
-        mock_args.quiet = False
-        mock_args.log_dir = "/new/path"
-        mock_args.no_log_colors = True
-        mock_args.max_log_files = 10
+        mock_args = MockArgs(
+            log_level="DEBUG",
+            verbose=False,  # Should be overridden by log_level
+            quiet=False,
+            log_dir="/new/path",
+            no_log_colors=True,
+            max_log_files=10,
+        )
 
         result = apply_command_line_overrides(mock_settings, mock_args)
 
