@@ -170,6 +170,11 @@ class BrowserConfig:
     disable_session_restore: bool = True
     disable_first_run: bool = True
 
+    # Cursor hiding (unclutter integration)
+    hide_cursor: bool = True
+    unclutter_idle_seconds: float = 0.1
+    unclutter_executable: str = "unclutter"
+
 
 class BrowserError(Exception):
     """Exception raised for browser-related errors.
@@ -239,6 +244,7 @@ class BrowserManager:
 
         # Process management
         self._process: Optional[subprocess.Popen] = None
+        self._unclutter_process: Optional[subprocess.Popen] = None
         self._state = BrowserState.STOPPED
         self._current_url: Optional[str] = None
 
@@ -311,6 +317,10 @@ class BrowserManager:
                 # Start background monitoring
                 await self._start_monitoring()
 
+                # Start unclutter for cursor hiding if enabled
+                if self.config.hide_cursor:
+                    await self._start_unclutter()
+
                 # Wait for browser to be responsive
                 if await self._wait_for_responsive(timeout=self.config.startup_timeout):
                     self.logger.info(f"Browser started successfully (PID: {self._process.pid})")
@@ -345,6 +355,9 @@ class BrowserManager:
 
             # Stop monitoring tasks first
             await self._stop_monitoring()
+
+            # Stop unclutter if running
+            await self._stop_unclutter()
 
             if not self._process:
                 self._state = BrowserState.STOPPED
@@ -778,6 +791,100 @@ class BrowserManager:
         # Cap maximum delay at 60 seconds
         return min(int(delay), 60)
 
+    async def _start_unclutter(self) -> bool:
+        """Start unclutter process to hide mouse cursor.
+
+        Returns:
+            True if unclutter started successfully, False otherwise
+        """
+        try:
+            if not self.config.hide_cursor:
+                return True
+
+            # Check if unclutter is available
+            try:
+                subprocess.run(
+                    ["which", self.config.unclutter_executable],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            except subprocess.CalledProcessError:
+                self.logger.warning(
+                    f"unclutter not found at {self.config.unclutter_executable}, skipping cursor hiding"
+                )
+                return False
+
+            # Set environment for unclutter
+            env = os.environ.copy()
+            env.update(
+                {
+                    "DISPLAY": ":0",
+                }
+            )
+
+            # Start unclutter process
+            cmd_args = [
+                self.config.unclutter_executable,
+                "-idle",
+                str(self.config.unclutter_idle_seconds),
+                "-root",
+            ]
+
+            self._unclutter_process = subprocess.Popen(
+                cmd_args,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True,
+            )
+
+            # Give process time to start
+            await asyncio.sleep(0.5)
+
+            # Check if process started successfully
+            if self._unclutter_process.poll() is None:
+                self.logger.info(
+                    f"unclutter started successfully (PID: {self._unclutter_process.pid})"
+                )
+                return True
+            self.logger.warning("unclutter process exited immediately")
+            self._unclutter_process = None
+            return False
+
+        except Exception:
+            self.logger.exception("Failed to start unclutter")
+            self._unclutter_process = None
+            return False
+
+    async def _stop_unclutter(self) -> None:
+        """Stop unclutter process gracefully."""
+        try:
+            if not self._unclutter_process:
+                return
+
+            self.logger.info("Stopping unclutter process")
+
+            # Try graceful termination first
+            try:
+                self._unclutter_process.terminate()
+                await asyncio.sleep(1)
+
+                if self._unclutter_process.poll() is None:
+                    # Force kill if still running
+                    self._unclutter_process.kill()
+                    await asyncio.sleep(0.5)
+
+                self.logger.info("unclutter process stopped")
+
+            except Exception as e:
+                self.logger.warning(f"Error stopping unclutter: {e}")
+
+        except Exception:
+            self.logger.exception("Error in _stop_unclutter")
+        finally:
+            self._unclutter_process = None
+
     async def _wait_for_process_exit(self) -> None:
         """Wait for browser process to exit completely."""
         if self._process:
@@ -787,7 +894,10 @@ class BrowserManager:
     def _cleanup_process_state(self) -> None:
         """Clean up process state after shutdown or crash."""
         self._process = None
-        self._state = BrowserState.STOPPED
+        self._unclutter_process = None
+        # Only set to STOPPED if not already in FAILED state
+        if self._state != BrowserState.FAILED:
+            self._state = BrowserState.STOPPED
         self._start_time = None
 
     async def _handle_startup_failure(self, error_msg: str) -> None:
@@ -802,4 +912,5 @@ class BrowserManager:
         self._state = BrowserState.FAILED
 
         await self._stop_monitoring()
+        await self._stop_unclutter()
         self._cleanup_process_state()
