@@ -21,65 +21,53 @@ class TestMainEntry:
 
     @pytest.fixture
     def mock_parser_args(self):
-        """Create mock parser arguments."""
-        args = MagicMock()
-        # Set default values for all possible arguments to prevent MagicMock contamination
+        """Create mock parser arguments with minimal required attributes."""
+        # Use spec to limit available attributes and improve performance
+        args = MagicMock(
+            spec=[
+                "setup",
+                "backup",
+                "restore",
+                "list_backups",
+                "verbose",
+                "test_mode",
+                "interactive",
+                "web",
+                "epaper",
+                "daemon",
+                "daemon_status",
+                "daemon_stop",
+                "kiosk",
+                "kiosk_status",
+                "kiosk_stop",
+                "kiosk_restart",
+                "kiosk_setup",
+                "rpi",
+                "port",
+                "host",
+            ]
+        )
 
-        # Basic CLI arguments
+        # Only set the most commonly used attributes
         args.setup = False
         args.backup = False
         args.restore = None
         args.list_backups = False
-        args.verbose = False
-
-        # Mode arguments
         args.test_mode = False
         args.interactive = False
         args.web = False
-        args.epaper = False  # Add missing epaper mode argument
-
-        # Daemon mode arguments (newly added CLI options)
+        args.epaper = False
         args.daemon = False
         args.daemon_status = False
         args.daemon_stop = False
-
-        # Kiosk mode arguments (newly added CLI options)
         args.kiosk = False
         args.kiosk_status = False
         args.kiosk_stop = False
         args.kiosk_restart = False
         args.kiosk_setup = False
-
-        # Test mode arguments
-        args.date = None
-        args.end_date = None
-        args.no_cache = False
-        args.components = ["sources", "cache", "display"]
-        args.output_format = "console"
-
-        # Web mode arguments
+        args.rpi = False
         args.port = 8080
         args.host = None
-        args.auto_open = False
-
-        # RPI arguments (critical - these were causing the MagicMock comparison errors)
-        args.rpi = False
-        args.rpi_width = 800
-        args.rpi_height = 480
-        args.rpi_refresh_mode = "partial"
-
-        # Logging arguments
-        args.log_level = None
-        args.console_level = None
-        args.file_level = None
-        args.quiet = False
-        args.log_dir = None
-        args.no_file_logging = False
-        args.max_log_files = None
-        args.no_console_logging = False
-        args.no_log_colors = False
-        args.no_split_display = False
-        args.log_lines = None
 
         return args
 

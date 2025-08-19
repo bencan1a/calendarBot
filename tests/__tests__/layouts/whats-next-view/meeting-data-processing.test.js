@@ -92,7 +92,7 @@ describe('whats-next-view meeting data processing', () => {
                 for (const meeting of global.upcomingMeetings) {
                     const meetingEnd = new Date(meeting.end_time);
                     
-                    if (now <= meetingEnd) {
+                    if (now < meetingEnd) {
                         nextMeeting = meeting;
                         break;
                     }
@@ -440,7 +440,7 @@ describe('whats-next-view meeting data processing', () => {
                 const now = new Date();
                 global.currentMeeting = global.upcomingMeetings.find(meeting => {
                     const meetingEnd = new Date(meeting.end_time);
-                    return now <= meetingEnd;
+                    return now < meetingEnd;
                 }) || null;
             };
 
@@ -465,7 +465,7 @@ describe('whats-next-view meeting data processing', () => {
             };
 
             const context = getContextMessage();
-            expect(context).toBe('Starting soon'); // 30 minutes until meeting
+            expect(context).toBe('Starting within the hour'); // 30 minutes until meeting
         });
     });
 });

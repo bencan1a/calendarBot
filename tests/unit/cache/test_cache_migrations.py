@@ -1,6 +1,5 @@
 """Unit tests for calendarbot.cache.migrations module."""
 
-import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -16,13 +15,22 @@ class TestDatabaseMigration:
     @pytest.fixture
     def temp_db_path(self):
         """Create a temporary database path for testing."""
-        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
-            yield Path(tmp.name)
+        return Path("/tmp/test_db.db")
 
     @pytest.fixture
     def migration_handler(self, temp_db_path):
         """Create a DatabaseMigration instance for testing."""
         return migrations.DatabaseMigration(temp_db_path)
+
+    @pytest.fixture
+    def mock_db_connect(self):
+        """Create a mock database connection for reuse across tests."""
+        with patch("aiosqlite.connect") as mock_connect:
+            mock_db = AsyncMock()
+            mock_cursor = AsyncMock()
+            mock_db.execute.return_value = mock_cursor
+            mock_connect.return_value.__aenter__.return_value = mock_db
+            yield mock_connect, mock_db, mock_cursor
 
     @pytest.mark.asyncio
     async def test_database_migration_initialization(self, temp_db_path):
@@ -31,130 +39,114 @@ class TestDatabaseMigration:
         assert handler.database_path == temp_db_path
 
     @pytest.mark.asyncio
-    async def test_get_current_version_no_database(self, migration_handler):
+    async def test_get_current_version_no_database(self, migration_handler, mock_db_connect):
         """Test getting version when database doesn't exist."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_connect.side_effect = Exception("Database not found")
+        mock_connect, mock_db, mock_cursor = mock_db_connect
+        mock_connect.side_effect = Exception("Database not found")
 
-            version = await migration_handler.get_current_version()
-            assert version == 0
+        version = await migration_handler.get_current_version()
+        assert version == 0
 
     @pytest.mark.asyncio
-    async def test_get_current_version_success(self, migration_handler):
+    async def test_get_current_version_success(self, migration_handler, mock_db_connect):
         """Test successful version retrieval."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_db = AsyncMock()
-            mock_cursor = AsyncMock()
-            mock_cursor.fetchone.return_value = [2]
-            mock_db.execute.return_value = mock_cursor
-            mock_connect.return_value.__aenter__.return_value = mock_db
+        mock_connect, mock_db, mock_cursor = mock_db_connect
+        mock_cursor.fetchone.return_value = [2]
 
-            version = await migration_handler.get_current_version()
-            assert version == 2
-            mock_db.execute.assert_called_once_with("PRAGMA user_version")
+        version = await migration_handler.get_current_version()
+        assert version == 2
+        mock_db.execute.assert_called_once_with("PRAGMA user_version")
 
     @pytest.mark.asyncio
-    async def test_get_current_version_no_row(self, migration_handler):
+    async def test_get_current_version_no_row(self, migration_handler, mock_db_connect):
         """Test version retrieval when no row is returned."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_db = AsyncMock()
-            mock_cursor = AsyncMock()
-            mock_cursor.fetchone.return_value = None
-            mock_db.execute.return_value = mock_cursor
-            mock_connect.return_value.__aenter__.return_value = mock_db
+        mock_connect, mock_db, mock_cursor = mock_db_connect
+        mock_cursor.fetchone.return_value = None
 
-            version = await migration_handler.get_current_version()
-            assert version == 0
+        version = await migration_handler.get_current_version()
+        assert version == 0
 
     @pytest.mark.asyncio
-    async def test_set_version_success(self, migration_handler):
+    async def test_set_version_success(self, migration_handler, mock_db_connect):
         """Test successful version setting."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_db = AsyncMock()
-            mock_connect.return_value.__aenter__.return_value = mock_db
+        mock_connect, mock_db, mock_cursor = mock_db_connect
 
-            result = await migration_handler.set_version(2)
-            assert result is True
-            mock_db.execute.assert_called_once_with("PRAGMA user_version = 2")
-            mock_db.commit.assert_called_once()
+        result = await migration_handler.set_version(2)
+        assert result is True
+        mock_db.execute.assert_called_once_with("PRAGMA user_version = 2")
+        mock_db.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_set_version_failure(self, migration_handler):
+    async def test_set_version_failure(self, migration_handler, mock_db_connect):
         """Test version setting failure."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_connect.side_effect = Exception("Database error")
+        mock_connect, mock_db, mock_cursor = mock_db_connect
+        mock_connect.side_effect = Exception("Database error")
 
-            result = await migration_handler.set_version(2)
-            assert result is False
+        result = await migration_handler.set_version(2)
+        assert result is False
 
     @pytest.mark.asyncio
-    async def test_apply_migration_v1_to_v2_success(self, migration_handler):
+    async def test_apply_migration_v1_to_v2_success(self, migration_handler, mock_db_connect):
         """Test successful v1 to v2 migration."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_db = AsyncMock()
-            mock_connect.return_value.__aenter__.return_value = mock_db
+        mock_connect, mock_db, mock_cursor = mock_db_connect
 
-            result = await migration_handler.apply_migration_v1_to_v2()
-            assert result is True
+        result = await migration_handler.apply_migration_v1_to_v2()
+        assert result is True
 
-            # Verify all migration SQL statements were executed
-            assert mock_db.execute.call_count >= 7  # 5 ALTER TABLE + 2 CREATE INDEX
-            mock_db.commit.assert_called_once()
+        # Verify all migration SQL statements were executed
+        assert mock_db.execute.call_count >= 7  # 5 ALTER TABLE + 2 CREATE INDEX
+        mock_db.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_apply_migration_v1_to_v2_failure(self, migration_handler):
+    async def test_apply_migration_v1_to_v2_failure(self, migration_handler, mock_db_connect):
         """Test v1 to v2 migration failure."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_connect.side_effect = Exception("Migration failed")
+        mock_connect, mock_db, mock_cursor = mock_db_connect
+        mock_connect.side_effect = Exception("Migration failed")
 
-            result = await migration_handler.apply_migration_v1_to_v2()
-            assert result is False
+        result = await migration_handler.apply_migration_v1_to_v2()
+        assert result is False
 
     @pytest.mark.asyncio
-    async def test_create_focus_sessions_table_success(self, migration_handler):
+    async def test_create_focus_sessions_table_success(self, migration_handler, mock_db_connect):
         """Test successful focus_sessions table creation."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_db = AsyncMock()
-            mock_connect.return_value.__aenter__.return_value = mock_db
+        mock_connect, mock_db, mock_cursor = mock_db_connect
 
-            result = await migration_handler.create_focus_sessions_table()
-            assert result is True
+        result = await migration_handler.create_focus_sessions_table()
+        assert result is True
 
-            # Verify table creation and index creation
-            assert mock_db.execute.call_count == 3  # CREATE TABLE + 2 CREATE INDEX
-            mock_db.commit.assert_called_once()
+        # Verify table creation and index creation
+        assert mock_db.execute.call_count == 3  # CREATE TABLE + 2 CREATE INDEX
+        mock_db.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_focus_sessions_table_failure(self, migration_handler):
+    async def test_create_focus_sessions_table_failure(self, migration_handler, mock_db_connect):
         """Test focus_sessions table creation failure."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_connect.side_effect = Exception("Table creation failed")
+        mock_connect, mock_db, mock_cursor = mock_db_connect
+        mock_connect.side_effect = Exception("Table creation failed")
 
-            result = await migration_handler.create_focus_sessions_table()
-            assert result is False
+        result = await migration_handler.create_focus_sessions_table()
+        assert result is False
 
     @pytest.mark.asyncio
-    async def test_create_sync_reliability_table_success(self, migration_handler):
+    async def test_create_sync_reliability_table_success(self, migration_handler, mock_db_connect):
         """Test successful sync_reliability table creation."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_db = AsyncMock()
-            mock_connect.return_value.__aenter__.return_value = mock_db
+        mock_connect, mock_db, mock_cursor = mock_db_connect
 
-            result = await migration_handler.create_sync_reliability_table()
-            assert result is True
+        result = await migration_handler.create_sync_reliability_table()
+        assert result is True
 
-            # Verify table creation and index creation
-            assert mock_db.execute.call_count == 3  # CREATE TABLE + 2 CREATE INDEX
-            mock_db.commit.assert_called_once()
+        # Verify table creation and index creation
+        assert mock_db.execute.call_count == 3  # CREATE TABLE + 2 CREATE INDEX
+        mock_db.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_sync_reliability_table_failure(self, migration_handler):
+    async def test_create_sync_reliability_table_failure(self, migration_handler, mock_db_connect):
         """Test sync_reliability table creation failure."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_connect.side_effect = Exception("Table creation failed")
+        mock_connect, mock_db, mock_cursor = mock_db_connect
+        mock_connect.side_effect = Exception("Table creation failed")
 
-            result = await migration_handler.create_sync_reliability_table()
-            assert result is False
+        result = await migration_handler.create_sync_reliability_table()
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_migrate_to_latest_already_current(self, migration_handler):
@@ -204,84 +196,80 @@ class TestDatabaseMigration:
                     assert result is False
 
     @pytest.mark.asyncio
-    async def test_get_migration_status_success(self, migration_handler):
+    async def test_get_migration_status_success(self, migration_handler, mock_db_connect):
         """Test successful migration status retrieval."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_db = AsyncMock()
-            mock_db.row_factory = aiosqlite.Row
+        mock_connect, mock_db, _ = mock_db_connect
+        mock_db.row_factory = aiosqlite.Row
 
-            # Mock cursor for table queries
-            mock_cursor = AsyncMock()
-            mock_cursor.fetchall.return_value = [
-                {"name": "focus_sessions"},
-                {"name": "sync_reliability"},
-            ]
+        # Mock cursor for table queries
+        mock_cursor = AsyncMock()
+        mock_cursor.fetchall.return_value = [
+            {"name": "focus_sessions"},
+            {"name": "sync_reliability"},
+        ]
 
-            # Mock cursor for column queries
-            mock_column_cursor = AsyncMock()
-            mock_column_cursor.fetchall.return_value = [
-                {"name": "id"},
-                {"name": "time_remaining_minutes"},
-                {"name": "confidence_score"},
-                {"name": "focus_protection_level"},
-                {"name": "last_time_calculation"},
-                {"name": "is_time_sensitive"},
-            ]
+        # Mock cursor for column queries
+        mock_column_cursor = AsyncMock()
+        mock_column_cursor.fetchall.return_value = [
+            {"name": "id"},
+            {"name": "time_remaining_minutes"},
+            {"name": "confidence_score"},
+            {"name": "focus_protection_level"},
+            {"name": "last_time_calculation"},
+            {"name": "is_time_sensitive"},
+        ]
 
-            mock_db.execute.side_effect = [mock_cursor, mock_column_cursor]
-            mock_connect.return_value.__aenter__.return_value = mock_db
+        mock_db.execute.side_effect = [mock_cursor, mock_column_cursor]
 
-            with patch.object(migration_handler, "get_current_version") as mock_get_version:
-                mock_get_version.return_value = 2
-
-                status = await migration_handler.get_migration_status()
-
-                assert status["current_version"] == 2
-                assert status["target_version"] == 2
-                assert status["has_focus_sessions_table"] is True
-                assert status["has_sync_reliability_table"] is True
-                assert status["has_time_awareness_columns"] is True
-                assert status["needs_migration"] is False
-
-    @pytest.mark.asyncio
-    async def test_get_migration_status_failure(self, migration_handler):
-        """Test migration status retrieval failure."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_connect.side_effect = Exception("Database error")
+        with patch.object(migration_handler, "get_current_version") as mock_get_version:
+            mock_get_version.return_value = 2
 
             status = await migration_handler.get_migration_status()
-            assert "error" in status
-            assert status["error"] == "Database error"
+
+            assert status["current_version"] == 2
+            assert status["target_version"] == 2
+            assert status["has_focus_sessions_table"] is True
+            assert status["has_sync_reliability_table"] is True
+            assert status["has_time_awareness_columns"] is True
+            assert status["needs_migration"] is False
 
     @pytest.mark.asyncio
-    async def test_get_migration_status_needs_migration(self, migration_handler):
+    async def test_get_migration_status_failure(self, migration_handler, mock_db_connect):
+        """Test migration status retrieval failure."""
+        mock_connect, mock_db, mock_cursor = mock_db_connect
+        mock_connect.side_effect = Exception("Database error")
+
+        status = await migration_handler.get_migration_status()
+        assert "error" in status
+        assert status["error"] == "Database error"
+
+    @pytest.mark.asyncio
+    async def test_get_migration_status_needs_migration(self, migration_handler, mock_db_connect):
         """Test migration status when migration is needed."""
-        with patch("aiosqlite.connect") as mock_connect:
-            mock_db = AsyncMock()
-            mock_db.row_factory = aiosqlite.Row
+        mock_connect, mock_db, _ = mock_db_connect
+        mock_db.row_factory = aiosqlite.Row
 
-            # Mock cursor for table queries (no new tables)
-            mock_cursor = AsyncMock()
-            mock_cursor.fetchall.return_value = []
+        # Mock cursor for table queries (no new tables)
+        mock_cursor = AsyncMock()
+        mock_cursor.fetchall.return_value = []
 
-            # Mock cursor for column queries (missing time awareness columns)
-            mock_column_cursor = AsyncMock()
-            mock_column_cursor.fetchall.return_value = [
-                {"name": "id"},
-                {"name": "title"},  # Basic columns only
-            ]
+        # Mock cursor for column queries (missing time awareness columns)
+        mock_column_cursor = AsyncMock()
+        mock_column_cursor.fetchall.return_value = [
+            {"name": "id"},
+            {"name": "title"},  # Basic columns only
+        ]
 
-            mock_db.execute.side_effect = [mock_cursor, mock_column_cursor]
-            mock_connect.return_value.__aenter__.return_value = mock_db
+        mock_db.execute.side_effect = [mock_cursor, mock_column_cursor]
 
-            with patch.object(migration_handler, "get_current_version") as mock_get_version:
-                mock_get_version.return_value = 1
+        with patch.object(migration_handler, "get_current_version") as mock_get_version:
+            mock_get_version.return_value = 1
 
-                status = await migration_handler.get_migration_status()
+            status = await migration_handler.get_migration_status()
 
-                assert status["current_version"] == 1
-                assert status["target_version"] == 2
-                assert status["has_focus_sessions_table"] is False
-                assert status["has_sync_reliability_table"] is False
-                assert status["has_time_awareness_columns"] is False
-                assert status["needs_migration"] is True
+            assert status["current_version"] == 1
+            assert status["target_version"] == 2
+            assert status["has_focus_sessions_table"] is False
+            assert status["has_sync_reliability_table"] is False
+            assert status["has_time_awareness_columns"] is False
+            assert status["needs_migration"] is True

@@ -1,6 +1,5 @@
 """Comprehensive tests for calendarbot.utils.helpers module."""
 
-import asyncio
 import subprocess
 import time
 from datetime import datetime, timedelta, timezone
@@ -573,8 +572,9 @@ class TestCircuitBreaker:
 
         assert cb.state == "OPEN"
 
-        # Wait for recovery timeout (longer than the 1 second timeout)
-        await asyncio.sleep(1.1)  # Wait slightly longer than recovery_timeout
+        # Mock time to simulate timeout without actual wait
+        original_last_failure_time = cb.last_failure_time
+        cb.last_failure_time = original_last_failure_time - 2  # Simulate 2 seconds passed
 
         # Next call should set state to HALF_OPEN
         mock_func.side_effect = None

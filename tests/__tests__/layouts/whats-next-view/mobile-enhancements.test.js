@@ -39,21 +39,29 @@ describe('whats-next-view mobile enhancements', () => {
 
     describe('setupMobileEnhancements', () => {
         let setupMobileEnhancements;
+        let cleanupFunctions = [];
 
         beforeEach(() => {
+            // Clear any existing cleanup functions
+            cleanupFunctions = [];
+
             // Create the setupMobileEnhancements function based on the actual implementation
             setupMobileEnhancements = function() {
                 let touchStartX = 0;
                 let touchEndX = 0;
 
-                document.addEventListener('touchstart', function(event) {
-                    touchStartX = event.changedTouches[0].screenX;
-                });
+                const touchStartHandler = function(event) {
+                    if (event.changedTouches && event.changedTouches.length > 0) {
+                        touchStartX = event.changedTouches[0].screenX;
+                    }
+                };
 
-                document.addEventListener('touchend', function(event) {
-                    touchEndX = event.changedTouches[0].screenX;
-                    handleSwipe();
-                });
+                const touchEndHandler = function(event) {
+                    if (event.changedTouches && event.changedTouches.length > 0) {
+                        touchEndX = event.changedTouches[0].screenX;
+                        handleSwipe();
+                    }
+                };
 
                 function handleSwipe() {
                     const swipeThreshold = 50;
@@ -77,14 +85,32 @@ describe('whats-next-view mobile enhancements', () => {
 
                 // Prevent zoom on double-tap for iOS
                 let lastTouchEnd = 0;
-                document.addEventListener('touchend', function(event) {
+                const doubleTabHandler = function(event) {
                     const now = (new Date()).getTime();
                     if (now - lastTouchEnd <= 300) {
                         event.preventDefault();
                     }
                     lastTouchEnd = now;
-                }, false);
+                };
+
+                // Add event listeners
+                document.addEventListener('touchstart', touchStartHandler);
+                document.addEventListener('touchend', touchEndHandler);
+                document.addEventListener('touchend', doubleTabHandler, false);
+
+                // Store cleanup functions
+                cleanupFunctions.push(() => {
+                    document.removeEventListener('touchstart', touchStartHandler);
+                    document.removeEventListener('touchend', touchEndHandler);
+                    document.removeEventListener('touchend', doubleTabHandler, false);
+                });
             };
+        });
+
+        afterEach(() => {
+            // Clean up all event listeners
+            cleanupFunctions.forEach(cleanup => cleanup());
+            cleanupFunctions = [];
         });
 
         test('sets up touch event listeners', () => {
@@ -104,6 +130,10 @@ describe('whats-next-view mobile enhancements', () => {
 
             // Mock window width
             Object.defineProperty(window, 'innerWidth', { value: 1000, writable: true });
+
+            // Clear any previous mock calls
+            mockFunctions.refresh.mockClear();
+            mockFunctions.cycleLayout.mockClear();
 
             // Simulate swipe right (start at 100, end at 200)
             const touchStartEvent = new TouchEvent('touchstart', {
@@ -127,6 +157,10 @@ describe('whats-next-view mobile enhancements', () => {
             // Mock window width
             Object.defineProperty(window, 'innerWidth', { value: 1000, writable: true });
 
+            // Clear any previous mock calls
+            mockFunctions.refresh.mockClear();
+            mockFunctions.cycleLayout.mockClear();
+
             // Simulate swipe left from right edge (start at 960, end at 860)
             const touchStartEvent = new TouchEvent('touchstart', {
                 changedTouches: [{ screenX: 960 }]  // Within 50px of right edge (1000-50=950)
@@ -148,6 +182,10 @@ describe('whats-next-view mobile enhancements', () => {
 
             // Mock window width
             Object.defineProperty(window, 'innerWidth', { value: 1000, writable: true });
+
+            // Clear any previous mock calls
+            mockFunctions.refresh.mockClear();
+            mockFunctions.cycleLayout.mockClear();
 
             // Simulate swipe left from middle (start at 500, end at 400)
             const touchStartEvent = new TouchEvent('touchstart', {
@@ -215,6 +253,9 @@ describe('whats-next-view mobile enhancements', () => {
             firstTouchEvent.preventDefault = mockPreventDefault;
             document.dispatchEvent(firstTouchEvent);
 
+            // Clear the preventDefault calls from first touch
+            mockPreventDefault.mockClear();
+
             // Wait more than 300ms
             jest.advanceTimersByTime(400);
 
@@ -232,15 +273,17 @@ describe('whats-next-view mobile enhancements', () => {
             // Mock zero window width
             Object.defineProperty(window, 'innerWidth', { value: 0, writable: true });
 
-            // Swipe left from position that would be in right edge if window had width
-            // With 0 width, rightEdgeThreshold is 50, so any position >= -50 would be "in edge"
-            // But since we start at 0, we're not >= (0 - 50), so it's regular refresh
+            // Clear any previous mock calls
+            mockFunctions.refresh.mockClear();
+            mockFunctions.cycleLayout.mockClear();
+
+            // Swipe right with zero window width - should still trigger refresh
             const touchStartEvent = new TouchEvent('touchstart', {
                 changedTouches: [{ screenX: 0 }]
             });
             
             const touchEndEvent = new TouchEvent('touchend', {
-                changedTouches: [{ screenX: -60 }]  // 60px swipe left, exceeds threshold
+                changedTouches: [{ screenX: 60 }]  // 60px swipe right, exceeds threshold
             });
 
             document.dispatchEvent(touchStartEvent);

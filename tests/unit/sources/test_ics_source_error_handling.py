@@ -13,154 +13,90 @@ from calendarbot.sources.models import SourceConfig, SourceHealthCheck, SourceMe
 class TestICSSourceHandlerErrorHandling:
     """Test suite for ICSSourceHandler error handling methods."""
 
-    @pytest.fixture
-    def mock_handler(self) -> ICSSourceHandler:
-        """Create a mock ICSSourceHandler for testing."""
-        config = SourceConfig(
-            name="Test Source",
-            type="ics",
-            url="https://example.com/calendar.ics",
-        )
-        settings = Mock()
-
-        with (
-            patch("calendarbot.sources.ics_source.ICSFetcher"),
-            patch("calendarbot.sources.ics_source.ICSParser"),
-            patch.object(ICSSourceHandler, "_create_ics_source"),
-        ):
-            handler = ICSSourceHandler(config, settings)
-            return handler
-
     def test_record_success_when_called_then_updates_metrics_and_health(
-        self, mock_handler: ICSSourceHandler
+        self, mock_ics_handler: ICSSourceHandler
     ) -> None:
         """Test _record_success updates metrics and health."""
         # Arrange
-        mock_handler.metrics = Mock(spec=SourceMetrics)
-        mock_handler.health = Mock(spec=SourceHealthCheck)
+        mock_ics_handler.metrics = Mock(spec=SourceMetrics)
+        mock_ics_handler.health = Mock(spec=SourceHealthCheck)
 
         # Act
-        mock_handler._record_success(150.5, 10)
+        mock_ics_handler._record_success(150.5, 10)
 
         # Assert
-        mock_handler.metrics.record_success.assert_called_once_with(150.5, 10)
-        mock_handler.health.update_success.assert_called_once_with(150.5, 10)
+        mock_ics_handler.metrics.record_success.assert_called_once_with(150.5, 10)
+        mock_ics_handler.health.update_success.assert_called_once_with(150.5, 10)
 
     def test_record_failure_when_called_then_updates_metrics_and_health(
-        self, mock_handler: ICSSourceHandler
+        self, mock_ics_handler: ICSSourceHandler
     ) -> None:
         """Test _record_failure updates metrics and health."""
         # Arrange
-        mock_handler.metrics = Mock(spec=SourceMetrics)
-        mock_handler.health = Mock(spec=SourceHealthCheck)
+        mock_ics_handler.metrics = Mock(spec=SourceMetrics)
+        mock_ics_handler.health = Mock(spec=SourceHealthCheck)
 
         # Act
-        mock_handler._record_failure("Test error")
+        mock_ics_handler._record_failure("Test error")
 
         # Assert
-        mock_handler.metrics.record_failure.assert_called_once_with("Test error")
-        mock_handler.health.update_error.assert_called_once_with("Test error")
+        mock_ics_handler.metrics.record_failure.assert_called_once_with("Test error")
+        mock_ics_handler.health.update_error.assert_called_once_with("Test error")
 
-    def test_raise_connection_error_when_called_then_records_failure_and_raises(
-        self, mock_handler: ICSSourceHandler
+    @pytest.mark.parametrize(
+        "error_type,exception_class",
+        [
+            ("connection", SourceConnectionError),
+            ("data", SourceDataError),
+            ("source", SourceError),
+        ],
+    )
+    def test_raise_error_methods_when_called_then_records_failure_and_raises(
+        self, mock_ics_handler: ICSSourceHandler, error_type: str, exception_class
     ) -> None:
-        """Test _raise_connection_error records failure and raises error."""
+        """Test error raising methods record failure and raise correct exceptions."""
         # Arrange
-        mock_handler._record_failure = Mock()
+        mock_ics_handler._record_failure = Mock()
+        error_message = f"{error_type.title()} error for {mock_ics_handler.config.name}"
+
+        # Get the appropriate method
+        method = getattr(mock_ics_handler, f"_raise_{error_type}_error")
 
         # Act & Assert
-        with pytest.raises(SourceConnectionError) as excinfo:
-            mock_handler._raise_connection_error(f"Connection error for {mock_handler.config.name}")
+        with pytest.raises(exception_class) as excinfo:
+            method(error_message)
 
         # Verify error message and source name
-        assert mock_handler.config.name in str(excinfo.value)
-        mock_handler._record_failure.assert_called_once()
+        assert mock_ics_handler.config.name in str(excinfo.value)
+        mock_ics_handler._record_failure.assert_called_once()
 
-    def test_raise_connection_error_when_exception_provided_then_chains_exception(
-        self, mock_handler: ICSSourceHandler
+    @pytest.mark.parametrize(
+        "error_type,exception_class",
+        [
+            ("connection", SourceConnectionError),
+            ("data", SourceDataError),
+            ("source", SourceError),
+        ],
+    )
+    def test_raise_error_methods_when_exception_provided_then_chains_exception(
+        self, mock_ics_handler: ICSSourceHandler, error_type: str, exception_class
     ) -> None:
-        """Test _raise_connection_error chains original exception."""
+        """Test error raising methods chain original exceptions."""
         # Arrange
-        mock_handler._record_failure = Mock()
+        mock_ics_handler._record_failure = Mock()
         original_exception = ValueError("Original error")
+        error_message = f"{error_type.title()} error for {mock_ics_handler.config.name}"
+
+        # Get the appropriate method
+        method = getattr(mock_ics_handler, f"_raise_{error_type}_error")
 
         # Act & Assert
-        with pytest.raises(SourceConnectionError) as excinfo:
-            mock_handler._raise_connection_error(
-                f"Connection error for {mock_handler.config.name}", original_exception
-            )
+        with pytest.raises(exception_class) as excinfo:
+            method(error_message, original_exception)
 
-        # Verify error message and source name
-        assert mock_handler.config.name in str(excinfo.value)
-        mock_handler._record_failure.assert_called_once()
-        assert excinfo.value.__cause__ == original_exception
-
-    def test_raise_data_error_when_called_then_records_failure_and_raises(
-        self, mock_handler: ICSSourceHandler
-    ) -> None:
-        """Test _raise_data_error records failure and raises error."""
-        # Arrange
-        mock_handler._record_failure = Mock()
-
-        # Act & Assert
-        with pytest.raises(SourceDataError) as excinfo:
-            mock_handler._raise_data_error(f"Data error for {mock_handler.config.name}")
-
-        # Verify error message and source name
-        assert mock_handler.config.name in str(excinfo.value)
-        mock_handler._record_failure.assert_called_once()
-
-    def test_raise_data_error_when_exception_provided_then_chains_exception(
-        self, mock_handler: ICSSourceHandler
-    ) -> None:
-        """Test _raise_data_error chains original exception."""
-        # Arrange
-        mock_handler._record_failure = Mock()
-        original_exception = ValueError("Original error")
-
-        # Act & Assert
-        with pytest.raises(SourceDataError) as excinfo:
-            mock_handler._raise_data_error(
-                f"Data error for {mock_handler.config.name}", original_exception
-            )
-
-        # Verify error message and source name
-        assert mock_handler.config.name in str(excinfo.value)
-        mock_handler._record_failure.assert_called_once()
-        assert excinfo.value.__cause__ == original_exception
-
-    def test_raise_source_error_when_called_then_records_failure_and_raises(
-        self, mock_handler: ICSSourceHandler
-    ) -> None:
-        """Test _raise_source_error records failure and raises error."""
-        # Arrange
-        mock_handler._record_failure = Mock()
-
-        # Act & Assert
-        with pytest.raises(SourceError) as excinfo:
-            mock_handler._raise_source_error(f"Source error for {mock_handler.config.name}")
-
-        # Verify error message and source name
-        assert mock_handler.config.name in str(excinfo.value)
-        mock_handler._record_failure.assert_called_once()
-
-    def test_raise_source_error_when_exception_provided_then_chains_exception(
-        self, mock_handler: ICSSourceHandler
-    ) -> None:
-        """Test _raise_source_error chains original exception."""
-        # Arrange
-        mock_handler._record_failure = Mock()
-        original_exception = ValueError("Original error")
-
-        # Act & Assert
-        with pytest.raises(SourceError) as excinfo:
-            mock_handler._raise_source_error(
-                f"Source error for {mock_handler.config.name}", original_exception
-            )
-
-        # Verify error message and source name
-        assert mock_handler.config.name in str(excinfo.value)
-        mock_handler._record_failure.assert_called_once()
+        # Verify error message and exception chaining
+        assert mock_ics_handler.config.name in str(excinfo.value)
+        mock_ics_handler._record_failure.assert_called_once()
         assert excinfo.value.__cause__ == original_exception
 
 

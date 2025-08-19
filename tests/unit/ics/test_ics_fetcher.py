@@ -10,27 +10,74 @@ from calendarbot.ics.fetcher import ICSFetcher
 from calendarbot.ics.models import AuthType, ICSAuth, ICSSource
 
 
+@pytest.fixture
+def fetcher_instance(test_settings):
+    """Create ICSFetcher instance with mocked SecurityEventLogger."""
+    with patch("calendarbot.ics.fetcher.SecurityEventLogger"):
+        return ICSFetcher(test_settings)
+
+
+@pytest.fixture
+def fetcher_with_mock_client(test_settings):
+    """Create ICSFetcher with mocked client for testing."""
+    with patch("calendarbot.ics.fetcher.SecurityEventLogger"):
+        fetcher = ICSFetcher(test_settings)
+        mock_client = AsyncMock()
+        mock_client.is_closed = False
+        fetcher.client = mock_client
+        return fetcher
+
+
+@pytest.fixture
+def sample_ics_source():
+    """Create sample ICS source for testing."""
+    auth = ICSAuth(type=AuthType.NONE)
+    return ICSSource(
+        name="Test Source",
+        url="https://example.com/calendar.ics",
+        auth=auth,
+        timeout=30,
+        validate_ssl=True,
+    )
+
+
+@pytest.fixture
+def sample_ics_source_with_auth():
+    """Create sample ICS source with authentication."""
+    auth = ICSAuth(type=AuthType.BASIC, username="user", password="pass")
+    return ICSSource(
+        name="Test Source", url="https://example.com/calendar.ics", auth=auth, timeout=30
+    )
+
+
+@pytest.fixture
+def mock_http_response():
+    """Create mock HTTP response for testing."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {
+        "content-type": "text/calendar",
+        "etag": '"12345"',
+        "last-modified": "Wed, 01 Jan 2024 12:00:00 GMT",
+    }
+    mock_response.raise_for_status = MagicMock()
+    return mock_response
+
+
 class TestICSFetcherInitialization:
     """Test ICSFetcher initialization and setup."""
 
-    def test_init_creates_fetcher(self, test_settings):
+    def test_init_creates_fetcher(self, fetcher_instance, test_settings):
         """Test that ICSFetcher.__init__ creates fetcher correctly."""
-        with patch("calendarbot.ics.fetcher.SecurityEventLogger"):
-            fetcher = ICSFetcher(test_settings)
-
-            assert fetcher.settings == test_settings
-            assert fetcher.client is None
-            assert fetcher.security_logger is not None
+        assert fetcher_instance.settings == test_settings
+        assert fetcher_instance.client is None
+        assert fetcher_instance.security_logger is not None
 
     @pytest.mark.asyncio
-    async def test_ensure_client_creates_http_client(self, test_settings):
+    async def test_ensure_client_creates_http_client(self, fetcher_instance, test_settings):
         """Test that _ensure_client creates httpx.AsyncClient with correct config."""
-        with patch("calendarbot.ics.fetcher.SecurityEventLogger"), patch(
-            "httpx.AsyncClient"
-        ) as mock_client:
-
-            fetcher = ICSFetcher(test_settings)
-            await fetcher._ensure_client()
+        with patch("httpx.AsyncClient") as mock_client:
+            await fetcher_instance._ensure_client()
 
             # Verify client was created with correct settings
             mock_client.assert_called_once()
@@ -47,51 +94,43 @@ class TestICSFetcherInitialization:
             assert "text/calendar" in headers["Accept"]
 
     @pytest.mark.asyncio
-    async def test_ensure_client_reuses_existing_client(self, test_settings):
+    async def test_ensure_client_reuses_existing_client(self, fetcher_instance):
         """Test that _ensure_client reuses existing client if not closed."""
-        with patch("calendarbot.ics.fetcher.SecurityEventLogger"), patch(
-            "httpx.AsyncClient"
-        ) as mock_client:
-
-            fetcher = ICSFetcher(test_settings)
-
+        with patch("httpx.AsyncClient") as mock_client:
             # Create mock client instance
             mock_client_instance = MagicMock()
             mock_client_instance.is_closed = False
             mock_client.return_value = mock_client_instance
 
             # First call should create client
-            await fetcher._ensure_client()
-            fetcher.client = mock_client_instance
+            await fetcher_instance._ensure_client()
+            fetcher_instance.client = mock_client_instance
 
             # Second call should reuse
-            await fetcher._ensure_client()
+            await fetcher_instance._ensure_client()
 
             # Should only be called once
             mock_client.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_close_client_closes_http_client(self, test_settings):
+    async def test_close_client_closes_http_client(self, fetcher_instance):
         """Test that _close_client properly closes httpx client."""
-        with patch("calendarbot.ics.fetcher.SecurityEventLogger"):
-            fetcher = ICSFetcher(test_settings)
+        # Mock client
+        mock_client = AsyncMock()
+        mock_client.is_closed = False
+        fetcher_instance.client = mock_client
 
-            # Mock client
-            mock_client = AsyncMock()
-            mock_client.is_closed = False
-            fetcher.client = mock_client
+        await fetcher_instance._close_client()
 
-            await fetcher._close_client()
-
-            mock_client.aclose.assert_called_once()
+        mock_client.aclose.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_context_manager_lifecycle(self, test_settings):
         """Test async context manager properly manages client lifecycle."""
-        with patch("calendarbot.ics.fetcher.SecurityEventLogger"), patch(
-            "httpx.AsyncClient"
-        ) as mock_client:
-
+        with (
+            patch("calendarbot.ics.fetcher.SecurityEventLogger"),
+            patch("httpx.AsyncClient") as mock_client,
+        ):
             mock_client_instance = AsyncMock()
             mock_client_instance.is_closed = False  # Ensure close method gets called
             mock_client.return_value = mock_client_instance
@@ -106,12 +145,6 @@ class TestICSFetcherInitialization:
 
 class TestICSFetcherSSRFProtection:
     """Test ICS Fetcher SSRF protection validation."""
-
-    @pytest.fixture
-    def fetcher(self, test_settings):
-        """Create ICSFetcher instance for testing."""
-        with patch("calendarbot.ics.fetcher.SecurityEventLogger"):
-            return ICSFetcher(test_settings)
 
     @pytest.mark.parametrize(
         "malicious_url",
@@ -680,10 +713,10 @@ class TestICSFetcherConditionalHeaders:
 @pytest.mark.asyncio
 async def test_ics_fetcher_integration_flow(test_settings, sample_ics_content):
     """Integration test of ICSFetcher complete workflow."""
-    with patch("calendarbot.ics.fetcher.SecurityEventLogger"), patch(
-        "httpx.AsyncClient"
-    ) as mock_client_class:
-
+    with (
+        patch("calendarbot.ics.fetcher.SecurityEventLogger"),
+        patch("httpx.AsyncClient") as mock_client_class,
+    ):
         # Mock HTTP client
         mock_client = AsyncMock()
         mock_client_class.return_value = mock_client

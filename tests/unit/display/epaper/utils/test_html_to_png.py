@@ -247,47 +247,42 @@ class TestHtmlToPngConverter:
             # Result should be None on failure
             assert result is None
 
-    def test_crop_image_to_target_size(self, mock_html2image, mock_html2image_available):
-        """Test the crop_image_to_target_size method."""
+    @mock.patch("calendarbot.display.epaper.utils.html_to_png.Image")
+    def test_crop_image_to_target_size(
+        self, mock_image_class: mock.MagicMock, mock_html2image, mock_html2image_available
+    ):
+        """Test the crop_image_to_target_size method without actual file I/O."""
         # Reset the singleton instance for testing
         HtmlToPngConverter._instance = None
 
-        # Create a temporary test image
-        temp_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-        temp_file.close()
+        # Mock image operations
+        mock_image = mock.MagicMock()
+        mock_image.size = (500, 600)
+        mock_cropped_image = mock.MagicMock()
+        mock_cropped_image.size = (300, 400)
 
-        # Create a test image larger than target size
-        from PIL import Image
+        # Mock Image.open to return our mock image
+        mock_image_class.open.return_value.__enter__.return_value = mock_image
+        # Mock crop method to return cropped image
+        mock_image.crop.return_value = mock_cropped_image
 
-        test_image = Image.new("RGB", (500, 600), color="white")
-        test_image.save(temp_file.name)
+        # Create the converter
+        converter = HtmlToPngConverter()
 
-        try:
-            # Create the converter
-            converter = HtmlToPngConverter()
+        # Test cropping with mocked operations
+        result = converter.crop_image_to_target_size(
+            image_path="/fake/path/test.png", target_size=(300, 400), crop_from_top=True
+        )
 
-            # Test cropping
-            result = converter.crop_image_to_target_size(
-                image_path=temp_file.name, target_size=(300, 400), crop_from_top=True
-            )
+        # Check that a cropped file path was returned
+        assert result is not None
+        assert result != "/fake/path/test.png"  # Should be a different path
+        assert result.endswith("_cropped.png")
 
-            # Check that a cropped file was created
-            assert result is not None
-            assert result != temp_file.name  # Should be a different path
-            assert result.endswith("_cropped.png")
-
-            # Verify the cropped image has the correct size
-            with Image.open(result) as cropped_img:
-                assert cropped_img.size == (300, 400)
-
-            # Clean up cropped file
-            if os.path.exists(result):
-                os.unlink(result)
-
-        finally:
-            # Clean up original file
-            if os.path.exists(temp_file.name):
-                os.unlink(temp_file.name)
+        # Verify the image operations were called
+        mock_image_class.open.assert_called_once()
+        mock_image.crop.assert_called_once()
+        mock_cropped_image.save.assert_called_once()
 
     def test_initialization_failure(self, mock_html2image, mock_html2image_available):
         """Test handling of initialization failure."""

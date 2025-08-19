@@ -12,316 +12,185 @@ from calendarbot.web.server import WebRequestHandler
 def mock_settings_service():
     """Create a mock settings service for testing."""
     mock_service = MagicMock()
-
-    # Set up filter settings with some hidden events
     filter_settings = EventFilterSettings()
     filter_settings.hidden_events = {"existing-id-1", "existing-id-2"}
-
-    # Configure the mock to return our filter settings
     mock_service.get_filter_settings.return_value = filter_settings
-
-    # Configure update_filter_settings to return the updated settings
     mock_service.update_filter_settings.side_effect = lambda x: x
-
     return mock_service
 
 
 @pytest.fixture
-def mock_web_server():
-    """Create a mock web server for testing."""
-    mock_server = MagicMock()
-    return mock_server
-
-
-@pytest.fixture
-def request_handler(mock_web_server, mock_settings_service):
+def request_handler(mock_settings_service):
     """Create a request handler for testing."""
+    mock_web_server = MagicMock()
+    mock_web_server.settings_service = mock_settings_service
     handler = WebRequestHandler(web_server=mock_web_server)
     handler._send_json_response = MagicMock()
-
-    # Set up the mock web server to return our mock settings service
-    mock_web_server.settings_service = mock_settings_service
-
+    handler._get_updated_whats_next_data = MagicMock(
+        return_value={
+            "layout_name": "whats-next-view",
+            "current_events": [],
+            "next_events": [],
+            "status_info": {"last_update": "2023-01-01T00:00:00"},
+        }
+    )
     return handler
 
 
-def test_handle_hide_event_success(request_handler, mock_settings_service):
-    """Test successful event hiding - verify actual state changes."""
-    # Set up test data
-    params = {"graph_id": "test-graph-id"}
+@pytest.fixture
+def mock_whats_next_data():
+    """Mock data for whats next updates."""
+    return {
+        "layout_name": "whats-next-view",
+        "current_events": [],
+        "next_events": [],
+        "status_info": {"last_update": "2023-01-01T00:00:00"},
+    }
 
-    # Get initial state
-    initial_settings = mock_settings_service.get_filter_settings()
-    initial_hidden_count = len(initial_settings.hidden_events)
 
-    # Mock _get_updated_whats_next_data to return sample data
-    request_handler._get_updated_whats_next_data = MagicMock(
-        return_value={
-            "layout_name": "whats-next-view",
-            "current_events": [],
-            "next_events": [],
-            "status_info": {"last_update": "2023-01-01T00:00:00"},
-        }
+class TestEventHidingAPI:
+    """Test event hiding API endpoints."""
+
+    def test_hide_event_success(self, request_handler, mock_settings_service):
+        """Test successful event hiding with state verification."""
+        params = {"graph_id": "test-graph-id"}
+        initial_settings = mock_settings_service.get_filter_settings()
+        initial_count = len(initial_settings.hidden_events)
+
+        request_handler._handle_hide_event(mock_settings_service, params)
+
+        # Verify state changes
+        updated_settings = mock_settings_service.update_filter_settings.call_args[0][0]
+        assert "test-graph-id" in updated_settings.hidden_events
+        assert len(updated_settings.hidden_events) == initial_count + 1
+
+        # Verify response
+        args = request_handler._send_json_response.call_args[0]
+        assert args[0] == 200
+        assert args[1]["success"] is True
+        assert args[1]["count"] == initial_count + 1
+
+    def test_unhide_event_success(self, request_handler, mock_settings_service):
+        """Test successful event unhiding with state verification."""
+        params = {"graph_id": "existing-id-1"}
+        initial_settings = mock_settings_service.get_filter_settings()
+        initial_count = len(initial_settings.hidden_events)
+
+        request_handler._handle_unhide_event(mock_settings_service, params)
+
+        # Verify state changes
+        updated_settings = mock_settings_service.update_filter_settings.call_args[0][0]
+        assert "existing-id-1" not in updated_settings.hidden_events
+        assert len(updated_settings.hidden_events) == initial_count - 1
+
+        # Verify response
+        args = request_handler._send_json_response.call_args[0]
+        assert args[0] == 200
+        assert args[1]["success"] is True
+        assert args[1]["count"] == initial_count - 1
+
+    @pytest.mark.parametrize(
+        ("handler_method", "params", "expected_error"),
+        [
+            ("_handle_hide_event", {}, "Missing graph_id"),
+            ("_handle_unhide_event", {}, "Missing graph_id"),
+        ],
     )
+    def test_missing_graph_id_error(
+        self, request_handler, mock_settings_service, handler_method, params, expected_error
+    ):
+        """Test error handling for missing graph_id parameter."""
+        getattr(request_handler, handler_method)(mock_settings_service, params)
 
-    # Call the handler
-    request_handler._handle_hide_event(mock_settings_service, params)
+        args = request_handler._send_json_response.call_args[0]
+        assert args[0] == 400
+        assert expected_error in args[1]["error"]
+        mock_settings_service.update_filter_settings.assert_not_called()
 
-    # Verify the event was actually added to hidden events
-    updated_settings_call = mock_settings_service.update_filter_settings.call_args[0][0]
-    assert "test-graph-id" in updated_settings_call.hidden_events
-    assert len(updated_settings_call.hidden_events) == initial_hidden_count + 1
+    def test_get_hidden_events(self, request_handler, mock_settings_service):
+        """Test getting hidden events list."""
+        request_handler._handle_get_hidden_events(mock_settings_service)
 
-    # Verify the response reflects the actual state
-    request_handler._send_json_response.assert_called_once()
-    args = request_handler._send_json_response.call_args[0]
-    assert args[0] == 200
-    assert args[1]["success"] is True
-    assert args[1]["count"] == initial_hidden_count + 1  # Verify actual count
-    assert "data" in args[1]
-    assert args[1]["data"]["layout_name"] == "whats-next-view"
+        mock_settings_service.get_filter_settings.assert_called_once()
+        args = request_handler._send_json_response.call_args[0]
+        assert args[0] == 200
+        assert args[1]["success"] is True
+        assert args[1]["count"] == 2
+        assert set(args[1]["hidden_events"]) == {"existing-id-1", "existing-id-2"}
 
-
-def test_handle_hide_event_missing_graph_id(request_handler, mock_settings_service):
-    """Test event hiding with missing graph_id."""
-    # Set up test data with missing graph_id
-    params = {}
-
-    # Call the handler
-    request_handler._handle_hide_event(mock_settings_service, params)
-
-    # Verify error response
-    request_handler._send_json_response.assert_called_once()
-    args = request_handler._send_json_response.call_args[0]
-    assert args[0] == 400
-    assert "error" in args[1]
-    assert "Missing graph_id" in args[1]["error"]
-
-    # Verify settings service was not called
-    mock_settings_service.update_filter_settings.assert_not_called()
-
-
-def test_handle_unhide_event_success(request_handler, mock_settings_service):
-    """Test successful event unhiding - verify actual state changes."""
-    # Set up test data for an existing hidden event
-    params = {"graph_id": "existing-id-1"}
-
-    # Get initial state
-    initial_settings = mock_settings_service.get_filter_settings()
-    initial_hidden_count = len(initial_settings.hidden_events)
-    assert "existing-id-1" in initial_settings.hidden_events  # Verify it's initially hidden
-
-    # Mock _get_updated_whats_next_data to return sample data
-    request_handler._get_updated_whats_next_data = MagicMock(
-        return_value={
-            "layout_name": "whats-next-view",
-            "current_events": [],
-            "next_events": [],
-            "status_info": {"last_update": "2023-01-01T00:00:00"},
-        }
+    @pytest.mark.parametrize(
+        ("handler_method", "graph_id", "expected_hidden"),
+        [
+            ("_handle_hide_event", "test-graph-id", True),
+            ("_handle_unhide_event", "existing-id-1", False),
+        ],
     )
+    def test_data_fallback_handling(
+        self, request_handler, mock_settings_service, handler_method, graph_id, expected_hidden
+    ):
+        """Test fallback response when data retrieval fails."""
+        request_handler._get_updated_whats_next_data = MagicMock(
+            side_effect=Exception("Data retrieval failed")
+        )
+        params = {"graph_id": graph_id}
 
-    # Call the handler
-    request_handler._handle_unhide_event(mock_settings_service, params)
+        getattr(request_handler, handler_method)(mock_settings_service, params)
 
-    # Verify the event was actually removed from hidden events
-    updated_settings_call = mock_settings_service.update_filter_settings.call_args[0][0]
-    assert "existing-id-1" not in updated_settings_call.hidden_events
-    assert len(updated_settings_call.hidden_events) == initial_hidden_count - 1
+        args = request_handler._send_json_response.call_args[0]
+        assert args[0] == 200
+        assert args[1]["success"] is True
+        assert args[1]["data"]["graph_id"] == graph_id
+        assert args[1]["data"]["hidden"] is expected_hidden
 
-    # Verify the response reflects the actual state
-    request_handler._send_json_response.assert_called_once()
-    args = request_handler._send_json_response.call_args[0]
-    assert args[0] == 200
-    assert args[1]["success"] is True
-    assert args[1]["count"] == initial_hidden_count - 1  # Verify actual count
-    assert "data" in args[1]
-    assert args[1]["data"]["layout_name"] == "whats-next-view"
-
-
-def test_handle_unhide_event_not_hidden(request_handler, mock_settings_service):
-    """Test unhiding an event that wasn't hidden."""
-    # Set up test data for a non-hidden event
-    params = {"graph_id": "non-hidden-id"}
-
-    # Call the handler
-    request_handler._handle_unhide_event(mock_settings_service, params)
-
-    # Verify the settings were still updated
-    mock_settings_service.get_filter_settings.assert_called_once()
-    mock_settings_service.update_filter_settings.assert_called_once()
-
-    # Verify the response
-    request_handler._send_json_response.assert_called_once()
-    args = request_handler._send_json_response.call_args[0]
-    assert args[0] == 200
-    assert args[1]["success"] is True
-    assert "message" in args[1]
-    assert "not hidden" in args[1]["message"]
-    assert args[1]["count"] == 2  # No change to count
-
-
-def test_handle_unhide_event_missing_graph_id(request_handler, mock_settings_service):
-    """Test event unhiding with missing graph_id."""
-    # Set up test data with missing graph_id
-    params = {}
-
-    # Call the handler
-    request_handler._handle_unhide_event(mock_settings_service, params)
-
-    # Verify error response
-    request_handler._send_json_response.assert_called_once()
-    args = request_handler._send_json_response.call_args[0]
-    assert args[0] == 400
-    assert "error" in args[1]
-    assert "Missing graph_id" in args[1]["error"]
-
-    # Verify settings service was not called
-    mock_settings_service.update_filter_settings.assert_not_called()
-
-
-def test_handle_get_hidden_events(request_handler, mock_settings_service):
-    """Test getting hidden events."""
-    # Call the handler
-    request_handler._handle_get_hidden_events(mock_settings_service)
-
-    # Verify the settings service was called
-    mock_settings_service.get_filter_settings.assert_called_once()
-
-    # Verify the response
-    request_handler._send_json_response.assert_called_once()
-    args = request_handler._send_json_response.call_args[0]
-    assert args[0] == 200
-    assert args[1]["success"] is True
-    assert "hidden_events" in args[1]
-    assert "count" in args[1]
-    assert args[1]["count"] == 2
-    assert set(args[1]["hidden_events"]) == {"existing-id-1", "existing-id-2"}
-
-
-def test_handle_settings_api_routing(request_handler):
-    """Test API routing for event hiding endpoints."""
-    # Mock the handler methods
-
-
-def test_handle_hide_event_data_fallback(request_handler, mock_settings_service):
-    """Test event hiding with data retrieval fallback."""
-    # Set up test data
-    params = {"graph_id": "test-graph-id"}
-
-    # Mock _get_updated_whats_next_data to raise an exception
-    request_handler._get_updated_whats_next_data = MagicMock(
-        side_effect=Exception("Data retrieval failed")
+    @pytest.mark.parametrize(
+        ("handler_method", "expected_error_prefix"),
+        [
+            ("_handle_hide_event", "Failed to hide event"),
+            ("_handle_unhide_event", "Failed to unhide event"),
+        ],
     )
+    def test_settings_error_handling(
+        self, request_handler, mock_settings_service, handler_method, expected_error_prefix
+    ):
+        """Test error handling when settings service fails."""
+        from calendarbot.settings.exceptions import SettingsError
 
-    # Call the handler
-    request_handler._handle_hide_event(mock_settings_service, params)
+        mock_settings_service.get_filter_settings.side_effect = SettingsError(
+            "Settings unavailable"
+        )
+        params = {"graph_id": "test-graph-id"}
 
-    # Verify the event was still hidden
-    mock_settings_service.get_filter_settings.assert_called_once()
-    mock_settings_service.update_filter_settings.assert_called_once()
+        getattr(request_handler, handler_method)(mock_settings_service, params)
 
-    # Verify the fallback response
-    request_handler._send_json_response.assert_called_once()
-    args = request_handler._send_json_response.call_args[0]
-    assert args[0] == 200
-    assert args[1]["success"] is True
-    assert "count" in args[1]
-    assert "data" in args[1]
-    assert args[1]["data"]["graph_id"] == "test-graph-id"
-    assert args[1]["data"]["hidden"] is True
+        args = request_handler._send_json_response.call_args[0]
+        assert args[0] == 500
+        assert expected_error_prefix in args[1]["error"]
+        assert "Settings unavailable" in args[1]["message"]
 
+    def test_unhide_non_hidden_event(self, request_handler, mock_settings_service):
+        """Test unhiding an event that wasn't hidden."""
+        params = {"graph_id": "non-hidden-id"}
+        request_handler._handle_unhide_event(mock_settings_service, params)
 
-def test_handle_unhide_event_data_fallback(request_handler, mock_settings_service):
-    """Test event unhiding with data retrieval fallback."""
-    # Set up test data for an existing hidden event
-    params = {"graph_id": "existing-id-1"}
+        args = request_handler._send_json_response.call_args[0]
+        assert args[0] == 200
+        assert args[1]["success"] is True
+        assert "not hidden" in args[1]["message"]
+        assert args[1]["count"] == 2  # No change to count
 
-    # Mock _get_updated_whats_next_data to raise an exception
-    request_handler._get_updated_whats_next_data = MagicMock(
-        side_effect=Exception("Data retrieval failed")
-    )
+    def test_api_routing(self, request_handler):
+        """Test API routing for event hiding endpoints."""
+        request_handler._handle_hide_event = MagicMock()
+        request_handler._handle_unhide_event = MagicMock()
+        request_handler._handle_get_hidden_events = MagicMock()
 
-    # Call the handler
-    request_handler._handle_unhide_event(mock_settings_service, params)
+        test_cases = [
+            ("POST", "/api/events/hide", {"graph_id": "test-id"}, "_handle_hide_event"),
+            ("POST", "/api/events/unhide", {"graph_id": "test-id"}, "_handle_unhide_event"),
+            ("GET", "/api/events/hidden", {}, "_handle_get_hidden_events"),
+        ]
 
-    # Verify the event was still unhidden
-    mock_settings_service.get_filter_settings.assert_called_once()
-    mock_settings_service.update_filter_settings.assert_called_once()
-
-    # Verify the fallback response
-    request_handler._send_json_response.assert_called_once()
-    args = request_handler._send_json_response.call_args[0]
-    assert args[0] == 200
-    assert args[1]["success"] is True
-    assert "count" in args[1]
-    assert "data" in args[1]
-    assert args[1]["data"]["graph_id"] == "existing-id-1"
-    assert args[1]["data"]["hidden"] is False
-
-
-def test_handle_hide_event_settings_error_json_response(request_handler, mock_settings_service):
-    """Test event hiding with settings error returns proper JSON."""
-    from calendarbot.settings.exceptions import SettingsError
-
-    # Set up test data
-    params = {"graph_id": "test-graph-id"}
-
-    # Mock settings service to raise an error
-    mock_settings_service.get_filter_settings.side_effect = SettingsError("Settings unavailable")
-
-    # Call the handler
-    request_handler._handle_hide_event(mock_settings_service, params)
-
-    # Verify error response is JSON
-    request_handler._send_json_response.assert_called_once()
-    args = request_handler._send_json_response.call_args[0]
-    assert args[0] == 500
-    assert "error" in args[1]
-    assert "Failed to hide event" in args[1]["error"]
-    assert "message" in args[1]
-    assert "Settings unavailable" in args[1]["message"]
-
-
-def test_handle_unhide_event_settings_error_json_response(request_handler, mock_settings_service):
-    """Test event unhiding with settings error returns proper JSON."""
-    from calendarbot.settings.exceptions import SettingsError
-
-    # Set up test data
-    params = {"graph_id": "test-graph-id"}
-
-    # Mock settings service to raise an error
-    mock_settings_service.get_filter_settings.side_effect = SettingsError("Settings unavailable")
-
-    # Call the handler
-    request_handler._handle_unhide_event(mock_settings_service, params)
-
-    # Verify error response is JSON
-    request_handler._send_json_response.assert_called_once()
-    args = request_handler._send_json_response.call_args[0]
-    assert args[0] == 500
-    assert "error" in args[1]
-    assert "Failed to unhide event" in args[1]["error"]
-    assert "message" in args[1]
-    assert "Settings unavailable" in args[1]["message"]
-    request_handler._handle_hide_event = MagicMock()
-    request_handler._handle_unhide_event = MagicMock()
-    request_handler._handle_get_hidden_events = MagicMock()
-
-    # Create a mock settings service
-    mock_settings_service = MagicMock()
-
-    # Test hide event endpoint
-    with patch.object(request_handler, "command", "POST"):
-        request_handler._handle_settings_api("/api/events/hide", {"graph_id": "test-id"})
-        request_handler._handle_hide_event.assert_called_once()
-
-    # Test unhide event endpoint
-    with patch.object(request_handler, "command", "POST"):
-        request_handler._handle_settings_api("/api/events/unhide", {"graph_id": "test-id"})
-        request_handler._handle_unhide_event.assert_called_once()
-
-    # Test get hidden events endpoint
-    with patch.object(request_handler, "command", "GET"):
-        request_handler._handle_settings_api("/api/events/hidden", {})
-        request_handler._handle_get_hidden_events.assert_called_once()
+        for method, path, params, expected_handler in test_cases:
+            with patch.object(request_handler, "command", method):
+                request_handler._handle_settings_api(path, params)
+                getattr(request_handler, expected_handler).assert_called()

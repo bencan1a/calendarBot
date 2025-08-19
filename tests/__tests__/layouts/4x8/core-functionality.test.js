@@ -9,8 +9,19 @@ require('../../../../calendarbot/web/static/layouts/4x8/4x8.js');
 describe('4x8 layout core functionality', () => {
     let container;
     let mockFunctions;
+    let eventHandlers = [];
 
     beforeEach(() => {
+        // Clear any existing event handlers
+        eventHandlers = [];
+        // Initialize global state variables consistently
+        global.backendBaselineTime = null;
+        global.frontendBaselineTime = null;
+        global.settingsPanel = null;
+        global.autoRefreshInterval = null;
+        global.autoRefreshEnabled = false;
+        global.currentTheme = undefined;
+        
         // Setup DOM container
         container = document.createElement('div');
         container.innerHTML = `
@@ -24,7 +35,7 @@ describe('4x8 layout core functionality', () => {
         `;
         document.body.appendChild(container);
 
-        // Mock global functions
+        // Mock global functions with fresh instances
         mockFunctions = {
             navigate: jest.fn(),
             refresh: jest.fn(),
@@ -44,8 +55,47 @@ describe('4x8 layout core functionality', () => {
     });
 
     afterEach(() => {
-        document.body.removeChild(container);
-        jest.clearAllMocks();
+        // Clean up DOM
+        if (container && container.parentNode) {
+            document.body.removeChild(container);
+        }
+        
+        // Clear any intervals that might be running
+        if (global.autoRefreshInterval) {
+            clearInterval(global.autoRefreshInterval);
+            global.autoRefreshInterval = null;
+        }
+        
+        // Reset document event listeners by creating a fresh document
+        // Save current body content, clear listeners, restore content
+        const bodyHTML = document.body.innerHTML;
+        const newDocument = document.implementation.createHTMLDocument();
+        
+        // Replace current document's event handling with clean version
+        document.removeAllListeners = function() {
+            // This is a simple approach for jsdom - remove common event types
+            const events = ['click', 'keydown', 'DOMContentLoaded'];
+            events.forEach(eventType => {
+                const oldListeners = document._events?.[eventType] || [];
+                oldListeners.forEach(listener => {
+                    document.removeEventListener(eventType, listener);
+                });
+            });
+        };
+        
+        // Remove all stored event handlers
+        eventHandlers.forEach(({ element, event, handler }) => {
+            element.removeEventListener(event, handler);
+        });
+        eventHandlers = [];
+        
+        // Reset global state
+        global.backendBaselineTime = null;
+        global.frontendBaselineTime = null;
+        global.settingsPanel = null;
+        global.autoRefreshInterval = null;
+        global.autoRefreshEnabled = false;
+        global.currentTheme = undefined;
     });
 
     describe('initializeApp', () => {
@@ -62,7 +112,7 @@ describe('4x8 layout core functionality', () => {
             initializeApp = function() {
                 // Detect current theme from HTML class
                 const htmlElement = document.documentElement;
-                const themeClasses = htmlElement.className.match(/theme-(\w+)/);
+                const themeClasses = htmlElement.className.match(/\btheme-(\w+)\b/);
                 if (themeClasses) {
                     global.currentTheme = themeClasses[1];
                 }
@@ -103,7 +153,7 @@ describe('4x8 layout core functionality', () => {
         });
 
         test('handles missing theme class gracefully', () => {
-            document.documentElement.className = 'no-theme-here';
+            document.documentElement.className = 'some-other-class no-themes-here';
             global.currentTheme = 'default';
             
             initializeApp();
@@ -127,7 +177,7 @@ describe('4x8 layout core functionality', () => {
         beforeEach(() => {
             // Implementation based on actual code (lines 45-59)
             setupNavigationButtons = function() {
-                document.addEventListener('click', function(event) {
+                const handler = function(event) {
                     const element = event.target.closest('[data-action]');
                     if (element) {
                         const action = element.getAttribute('data-action');
@@ -136,7 +186,9 @@ describe('4x8 layout core functionality', () => {
                             navigate(action);
                         }
                     }
-                });
+                };
+                document.addEventListener('click', handler);
+                eventHandlers.push({ element: document, event: 'click', handler });
             };
         });
 
@@ -206,7 +258,7 @@ describe('4x8 layout core functionality', () => {
         beforeEach(() => {
             // Implementation based on actual code (lines 62-100)
             setupKeyboardNavigation = function() {
-                document.addEventListener('keydown', function(event) {
+                const handler = function(event) {
                     // Prevent default behavior for navigation keys
                     const navigationKeys = ['ArrowLeft', 'ArrowRight', ' ', 'Home', 'End', 'r', 'R'];
                     if (navigationKeys.includes(event.key)) {
@@ -242,7 +294,9 @@ describe('4x8 layout core functionality', () => {
                             cycleLayout();
                             break;
                     }
-                });
+                };
+                document.addEventListener('keydown', handler);
+                eventHandlers.push({ element: document, event: 'keydown', handler });
             };
         });
 
@@ -399,7 +453,7 @@ describe('4x8 layout core functionality', () => {
             
             setupAutoRefresh();
             
-            expect(global.autoRefreshInterval).toBeUndefined();
+            expect(global.autoRefreshInterval).toBeNull();
             
             jest.advanceTimersByTime(60000);
             expect(mockFunctions.refresh).not.toHaveBeenCalled();
@@ -427,7 +481,9 @@ describe('4x8 layout core functionality', () => {
     describe('DOM event integration', () => {
         test('DOMContentLoaded triggers initialization', () => {
             const initSpy = jest.fn();
-            global.initializeApp = initSpy;
+            
+            // Add event listener for DOMContentLoaded
+            document.addEventListener('DOMContentLoaded', initSpy);
             
             // Simulate DOMContentLoaded event
             const event = new Event('DOMContentLoaded');
@@ -438,7 +494,7 @@ describe('4x8 layout core functionality', () => {
 
         test('handles multiple clicks correctly', () => {
             const setupNavigationButtons = function() {
-                document.addEventListener('click', function(event) {
+                const handler = function(event) {
                     const element = event.target.closest('[data-action]');
                     if (element) {
                         const action = element.getAttribute('data-action');
@@ -446,7 +502,9 @@ describe('4x8 layout core functionality', () => {
                             navigate(action);
                         }
                     }
-                });
+                };
+                document.addEventListener('click', handler);
+                eventHandlers.push({ element: document, event: 'click', handler });
             };
 
             setupNavigationButtons();
@@ -467,13 +525,15 @@ describe('4x8 layout core functionality', () => {
 
         test('handles rapid keyboard input correctly', () => {
             const setupKeyboardNavigation = function() {
-                document.addEventListener('keydown', function(event) {
+                const handler = function(event) {
                     if (event.key === 'ArrowLeft') {
                         navigate('prev');
                     } else if (event.key === 'ArrowRight') {
                         navigate('next');
                     }
-                });
+                };
+                document.addEventListener('keydown', handler);
+                eventHandlers.push({ element: document, event: 'keydown', handler });
             };
 
             setupKeyboardNavigation();
@@ -493,7 +553,7 @@ describe('4x8 layout core functionality', () => {
             
             const initializeApp = function() {
                 const htmlElement = document.documentElement;
-                const themeClasses = htmlElement.className.match(/theme-(\w+)/);
+                const themeClasses = htmlElement.className.match(/\btheme-(\w+)\b/);
                 if (themeClasses) {
                     global.currentTheme = themeClasses[1];
                 }

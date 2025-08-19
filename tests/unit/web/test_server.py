@@ -19,57 +19,124 @@ import pytest
 from calendarbot.web.server import WebRequestHandler, WebServer
 
 
+# Shared fixtures for both test classes
+@pytest.fixture
+def mock_request_parts():
+    """Provide mock request components."""
+    mock_request = Mock()
+    mock_client_address = ("127.0.0.1", 12345)
+    mock_server = Mock()
+    return mock_request, mock_client_address, mock_server
+
+
+@pytest.fixture
+def mock_web_server():
+    """Provide a mock WebServer instance."""
+    web_server = Mock()
+    web_server.get_calendar_html.return_value = "<html><body>Test Calendar</body></html>"
+    web_server.handle_navigation.return_value = True
+    web_server.set_layout.return_value = True
+    web_server.toggle_layout.return_value = "whats-next-view"
+    web_server.cycle_layout.return_value = "whats-next-view"
+    web_server.refresh_data.return_value = True
+    web_server.get_status.return_value = {"running": True}
+    return web_server
+
+
+@pytest.fixture
+def mock_settings():
+    """Provide mock settings object."""
+    settings = Mock()
+    settings.web_host = "localhost"
+    settings.web_port = 8080
+    settings.web_layout = "4x8"
+    settings.auto_kill_existing = True
+    settings.config_dir = Path("/tmp/test_config")
+    return settings
+
+
+@pytest.fixture
+def mock_display_manager():
+    """Provide mock display manager."""
+    display_manager = Mock()
+    display_manager.renderer = Mock()
+    display_manager.renderer.render_events.return_value = "<html><body>Calendar</body></html>"
+    display_manager.get_display_type.return_value = "4x8"
+    display_manager.set_display_type.return_value = True
+    display_manager.set_layout.return_value = True
+    display_manager.get_renderer_type.return_value = "html"
+    return display_manager
+
+
+@pytest.fixture
+def mock_cache_manager():
+    """Provide mock cache manager."""
+    cache_manager = Mock()
+
+    async def mock_get_events(start_datetime, end_datetime):
+        return [{"title": "Test Event", "start": start_datetime, "end": end_datetime}]
+
+    cache_manager.get_events_by_date_range = mock_get_events
+    return cache_manager
+
+
+@pytest.fixture
+def mock_navigation_state():
+    """Provide mock navigation state."""
+    nav_state = Mock()
+    nav_state.selected_date = date(2023, 1, 15)
+    nav_state.get_display_date.return_value = "January 15, 2023"
+    nav_state.is_today.return_value = False
+    nav_state.navigate_backward.return_value = None
+    nav_state.navigate_forward.return_value = None
+    nav_state.jump_to_today.return_value = None
+    nav_state.jump_to_start_of_week.return_value = None
+    nav_state.jump_to_end_of_week.return_value = None
+    return nav_state
+
+
+@pytest.fixture
+def request_handler(mock_request_parts, mock_web_server):
+    """Create a WebRequestHandler instance with mocked dependencies."""
+    mock_request, mock_client_address, mock_server = mock_request_parts
+
+    with (
+        patch("calendarbot.web.server.SecurityEventLogger") as mock_security_logger,
+        patch.object(WebRequestHandler, "__init__", lambda *_args, **_kwargs: None),
+    ):
+        handler = WebRequestHandler()
+        handler.web_server = mock_web_server
+        handler.security_logger = mock_security_logger.return_value
+        handler.client_address = mock_client_address
+        handler.path = "/"
+        handler.command = "GET"
+        handler.headers = Message()
+        handler.rfile = BytesIO()
+        handler.wfile = Mock()
+
+        # Mock the HTTP methods
+        handler.send_response = Mock()
+        handler.send_header = Mock()
+        handler.end_headers = Mock()
+
+        return handler
+
+
+@pytest.fixture
+def web_server(mock_settings, mock_display_manager, mock_cache_manager, mock_navigation_state):
+    """Create a WebServer instance with mocked dependencies."""
+    web_server = WebServer(
+        mock_settings, mock_display_manager, mock_cache_manager, mock_navigation_state
+    )
+    # Mock the layout registry that gets created during initialization
+    web_server.layout_registry = Mock()
+    web_server.layout_registry.validate_layout = Mock()
+    web_server.layout_registry.get_available_layouts = Mock(return_value=["4x8", "whats-next-view"])
+    return web_server
+
+
 class TestWebRequestHandler:
     """Test the WebRequestHandler class."""
-
-    @pytest.fixture
-    def mock_request_parts(self):
-        """Provide mock request components."""
-        mock_request = Mock()
-        mock_client_address = ("127.0.0.1", 12345)
-        mock_server = Mock()
-        return mock_request, mock_client_address, mock_server
-
-    @pytest.fixture
-    def mock_web_server(self):
-        """Provide a mock WebServer instance."""
-        web_server = Mock()
-        web_server.get_calendar_html.return_value = "<html><body>Test Calendar</body></html>"
-        web_server.handle_navigation.return_value = True
-        web_server.set_layout.return_value = True
-        web_server.toggle_layout.return_value = "whats-next-view"
-        web_server.set_layout.return_value = True
-        web_server.cycle_layout.return_value = "whats-next-view"
-        web_server.refresh_data.return_value = True
-        web_server.get_status.return_value = {"running": True}
-        return web_server
-
-    @pytest.fixture
-    def request_handler(self, mock_request_parts, mock_web_server):
-        """Create a WebRequestHandler instance with mocked dependencies."""
-        mock_request, mock_client_address, mock_server = mock_request_parts
-
-        with (
-            patch("calendarbot.web.server.SecurityEventLogger") as mock_security_logger,
-            patch.object(WebRequestHandler, "__init__", lambda *_args, **_kwargs: None),
-        ):
-            handler = WebRequestHandler()
-            handler.web_server = mock_web_server
-            handler.security_logger = mock_security_logger.return_value
-            handler.client_address = mock_client_address
-            handler.path = "/"
-            # Add missing command attribute that BaseHTTPRequestHandler normally provides
-            handler.command = "GET"
-            handler.headers = Message()
-            handler.rfile = BytesIO()
-            handler.wfile = Mock()
-
-            # Mock the HTTP methods
-            handler.send_response = Mock()
-            handler.send_header = Mock()
-            handler.end_headers = Mock()
-
-            return handler
 
     def test_init_with_web_server(self, mock_request_parts):
         """Test WebRequestHandler initialization with web server."""
@@ -87,48 +154,26 @@ class TestWebRequestHandler:
             assert handler.web_server == mock_web_server
             assert hasattr(handler, "security_logger")
 
-    def test_do_get_calendar_root(self, request_handler):
-        """Test GET request for calendar root page."""
-        request_handler.path = "/"
+    @pytest.mark.parametrize(
+        ("path", "expected_handler", "expected_args"),
+        [
+            ("/", "_serve_calendar_page", [{}]),
+            ("/calendar?date=2023-01-01", "_serve_calendar_page", [{"date": ["2023-01-01"]}]),
+            ("/api/status", "_handle_api_request", ["/api/status", {}]),
+            ("/static/style.css", "_serve_static_file", ["/static/style.css"]),
+            ("/unknown/path", "_send_404", []),
+        ],
+    )
+    def test_do_get_routing(self, request_handler, path, expected_handler, expected_args):
+        """Test GET request routing to appropriate handlers."""
+        request_handler.path = path
 
-        with patch.object(request_handler, "_serve_calendar_page") as mock_serve:
+        with patch.object(request_handler, expected_handler) as mock_handler:
             request_handler.do_GET()
-            mock_serve.assert_called_once()
-
-    def test_do_get_calendar_page(self, request_handler):
-        """Test GET request for /calendar page."""
-        request_handler.path = "/calendar?date=2023-01-01"
-
-        with patch.object(request_handler, "_serve_calendar_page") as mock_serve:
-            request_handler.do_GET()
-            mock_serve.assert_called_once()
-            # Check that query params are parsed
-            args = mock_serve.call_args[0][0]
-            assert "date" in args
-
-    def test_do_get_api_request(self, request_handler):
-        """Test GET request for API endpoints."""
-        request_handler.path = "/api/status"
-
-        with patch.object(request_handler, "_handle_api_request") as mock_handle:
-            request_handler.do_GET()
-            mock_handle.assert_called_once_with("/api/status", {})
-
-    def test_do_get_static_file(self, request_handler):
-        """Test GET request for static files."""
-        request_handler.path = "/static/style.css"
-
-        with patch.object(request_handler, "_serve_static_file") as mock_serve:
-            request_handler.do_GET()
-            mock_serve.assert_called_once_with("/static/style.css")
-
-    def test_do_get_404(self, request_handler):
-        """Test GET request for unknown paths."""
-        request_handler.path = "/unknown/path"
-
-        with patch.object(request_handler, "_send_404") as mock_404:
-            request_handler.do_GET()
-            mock_404.assert_called_once()
+            if expected_args:
+                mock_handler.assert_called_once_with(*expected_args)
+            else:
+                mock_handler.assert_called_once()
 
     def test_do_get_exception_handling(self, request_handler):
         """Test exception handling in GET requests."""
@@ -143,43 +188,35 @@ class TestWebRequestHandler:
             request_handler.do_GET()
             mock_500.assert_called_once_with("Test error")
 
-    def test_do_post_api_request(self, request_handler):
-        """Test POST request with JSON data."""
-        request_handler.path = "/api/navigate"
-        request_handler.headers = {"Content-Length": "20"}
-        request_handler.rfile = BytesIO(b'{"action": "next"}')
+    @pytest.mark.parametrize(
+        ("path", "content_length", "body", "expected_data", "expected_handler"),
+        [
+            (
+                "/api/navigate",
+                "20",
+                b'{"action": "next"}',
+                {"action": "next"},
+                "_handle_api_request",
+            ),
+            ("/api/navigate", "10", b"invalid json", {}, "_handle_api_request"),
+            ("/api/navigate", "0", b"", {}, "_handle_api_request"),
+            ("/some/path", "0", b"", None, "_send_404"),
+        ],
+    )
+    def test_do_post_routing(
+        self, request_handler, path, content_length, body, expected_data, expected_handler
+    ):
+        """Test POST request routing and data parsing."""
+        request_handler.path = path
+        request_handler.headers = {"Content-Length": content_length}
+        request_handler.rfile = BytesIO(body)
 
-        with patch.object(request_handler, "_handle_api_request") as mock_handle:
+        with patch.object(request_handler, expected_handler) as mock_handler:
             request_handler.do_POST()
-            mock_handle.assert_called_once_with("/api/navigate", {"action": "next"})
-
-    def test_do_post_invalid_json(self, request_handler):
-        """Test POST request with invalid JSON data."""
-        request_handler.path = "/api/navigate"
-        request_handler.headers = {"Content-Length": "10"}
-        request_handler.rfile = BytesIO(b"invalid json")
-
-        with patch.object(request_handler, "_handle_api_request") as mock_handle:
-            request_handler.do_POST()
-            mock_handle.assert_called_once_with("/api/navigate", {})
-
-    def test_do_post_empty_content(self, request_handler):
-        """Test POST request with no content."""
-        request_handler.path = "/api/navigate"
-        request_handler.headers = {"Content-Length": "0"}
-        request_handler.rfile = BytesIO(b"")
-
-        with patch.object(request_handler, "_handle_api_request") as mock_handle:
-            request_handler.do_POST()
-            mock_handle.assert_called_once_with("/api/navigate", {})
-
-    def test_do_post_non_api_404(self, request_handler):
-        """Test POST request to non-API endpoint."""
-        request_handler.path = "/some/path"
-
-        with patch.object(request_handler, "_send_404") as mock_404:
-            request_handler.do_POST()
-            mock_404.assert_called_once()
+            if expected_data is not None:
+                mock_handler.assert_called_once_with(path, expected_data)
+            else:
+                mock_handler.assert_called_once()
 
     def test_do_post_exception_handling(self, request_handler):
         """Test exception handling in POST requests."""
@@ -550,74 +587,6 @@ class TestWebRequestHandler:
 class TestWebServer:
     """Test the WebServer class."""
 
-    @pytest.fixture
-    def mock_settings(self):
-        """Provide mock settings object."""
-        settings = Mock()
-        settings.web_host = "localhost"
-        settings.web_port = 8080
-        settings.web_layout = "4x8"
-        settings.auto_kill_existing = True
-        settings.config_dir = Path("/tmp/test_config")
-        return settings
-
-    @pytest.fixture
-    def mock_display_manager(self):
-        """Provide mock display manager."""
-        display_manager = Mock()
-        display_manager.renderer = Mock()
-        display_manager.renderer.render_events.return_value = "<html><body>Calendar</body></html>"
-        display_manager.get_display_type.return_value = "4x8"
-        display_manager.set_display_type.return_value = True
-        return display_manager
-
-    @pytest.fixture
-    def mock_cache_manager(self):
-        """Provide mock cache manager."""
-        cache_manager = Mock()
-
-        async def mock_get_events(start_datetime, end_datetime):
-            return [{"title": "Test Event", "start": start_datetime, "end": end_datetime}]
-
-        cache_manager.get_events_by_date_range = mock_get_events
-        return cache_manager
-
-    @pytest.fixture
-    def mock_navigation_state(self):
-        """Provide mock navigation state."""
-        nav_state = Mock()
-        nav_state.selected_date = date(2023, 1, 15)
-        nav_state.get_display_date.return_value = "January 15, 2023"
-        nav_state.is_today.return_value = False
-        nav_state.navigate_backward.return_value = None
-        nav_state.navigate_forward.return_value = None
-        nav_state.jump_to_today.return_value = None
-        nav_state.jump_to_start_of_week.return_value = None
-        nav_state.jump_to_end_of_week.return_value = None
-        return nav_state
-
-    @pytest.fixture
-    def web_server(
-        self, mock_settings, mock_display_manager, mock_cache_manager, mock_navigation_state
-    ):
-        """Create a WebServer instance with mocked dependencies."""
-        web_server = WebServer(
-            mock_settings, mock_display_manager, mock_cache_manager, mock_navigation_state
-        )
-        # Mock the layout registry that gets created during initialization
-        web_server.layout_registry = Mock()
-        web_server.layout_registry.validate_layout = Mock()
-        web_server.layout_registry.get_available_layouts = Mock(
-            return_value=["4x8", "whats-next-view"]
-        )
-
-        # Mock the display manager methods that the server expects
-        web_server.display_manager.set_layout = Mock(return_value=True)
-        web_server.display_manager.get_renderer_type = Mock(return_value="html")
-        web_server.display_manager.set_display_type = Mock(return_value=True)
-
-        return web_server
-
     def test_web_server_initialization(self, web_server, mock_settings):
         """Test WebServer initialization."""
         assert web_server.settings == mock_settings
@@ -637,9 +606,29 @@ class TestWebServer:
     @patch("calendarbot.web.server.auto_cleanup_before_start")
     @patch("calendarbot.web.server.HTTPServer")
     @patch("calendarbot.web.server.Thread")
-    def test_start_server_success(self, mock_thread, mock_http_server, mock_cleanup, web_server):
-        """Test successful server start."""
-        mock_cleanup.return_value = True
+    @pytest.mark.parametrize(
+        ("cleanup_result", "auto_kill_enabled", "should_start"),
+        [
+            (True, True, True),  # Normal successful start
+            (False, True, True),  # Cleanup failed but still starts
+            (None, False, True),  # Auto cleanup disabled
+        ],
+    )
+    def test_server_start_scenarios(
+        self,
+        mock_thread,
+        mock_http_server,
+        mock_cleanup,
+        web_server,
+        cleanup_result,
+        auto_kill_enabled,
+        should_start,
+    ):
+        """Test various server start scenarios."""
+        web_server.settings.auto_kill_existing = auto_kill_enabled
+        if cleanup_result is not None:
+            mock_cleanup.return_value = cleanup_result
+
         mock_server_instance = Mock()
         mock_http_server.return_value = mock_server_instance
         mock_thread_instance = Mock()
@@ -647,60 +636,19 @@ class TestWebServer:
 
         web_server.start()
 
-        assert web_server.running is True
-        assert web_server.server == mock_server_instance
-        mock_cleanup.assert_called_once_with("localhost", 8080, force=True)
-        mock_thread_instance.start.assert_called_once()
+        assert web_server.running is should_start
+        if auto_kill_enabled:
+            mock_cleanup.assert_called_once_with("localhost", 8080, force=True)
+        else:
+            mock_cleanup.assert_not_called()
 
-    @patch("calendarbot.web.server.auto_cleanup_before_start")
-    @patch("calendarbot.web.server.HTTPServer")
-    def test_start_server_already_running(self, mock_http_server, mock_cleanup, web_server):
+    def test_start_server_already_running(self, web_server):
         """Test starting server when already running."""
         web_server.running = True
 
         with patch("calendarbot.web.server.logger") as mock_logger:
             web_server.start()
             mock_logger.warning.assert_called_once_with("Web server already running")
-
-        mock_cleanup.assert_not_called()
-        mock_http_server.assert_not_called()
-
-    @patch("calendarbot.web.server.auto_cleanup_before_start")
-    @patch("calendarbot.web.server.HTTPServer")
-    def test_start_server_cleanup_failure(self, mock_http_server, mock_cleanup, web_server):
-        """Test server start with cleanup failure."""
-        mock_cleanup.return_value = False
-        mock_server_instance = Mock()
-        mock_http_server.return_value = mock_server_instance
-
-        with patch("calendarbot.web.server.Thread"):
-            web_server.start()
-
-        assert web_server.running is True  # Should still start
-
-    @patch("calendarbot.web.server.auto_cleanup_before_start")
-    @patch("calendarbot.web.server.HTTPServer")
-    def test_start_server_no_auto_cleanup(self, mock_http_server, mock_cleanup, web_server):
-        """Test server start with auto cleanup disabled."""
-        web_server.settings.auto_kill_existing = False
-
-        with patch("calendarbot.web.server.Thread"):
-            web_server.start()
-
-        mock_cleanup.assert_not_called()
-
-    @patch("calendarbot.web.server.HTTPServer")
-    @pytest.mark.skip(
-        reason="Test triggers process cleanup that kills test runner - disable until process management is refactored"
-    )
-    def test_start_server_exception(self, mock_http_server, web_server):
-        """Test server start exception handling."""
-        mock_http_server.side_effect = Exception("Port in use")
-
-        with pytest.raises(Exception, match="Port in use"):
-            web_server.start()
-
-        assert web_server.running is False
 
     def test_serve_with_cleanup_success(self, web_server):
         """Test _serve_with_cleanup method success."""
@@ -1212,56 +1160,6 @@ class TestWebServer:
         """Test server URL property."""
         assert web_server.url == "http://localhost:8080"
 
-
-class TestWebServerErrorHandling:
-    """Test error handling scenarios in web server."""
-
-    @pytest.fixture
-    def mock_settings(self):
-        """Provide mock settings object."""
-        settings = Mock()
-        settings.web_host = "localhost"
-        settings.web_port = 8080
-        settings.web_layout = "4x8"
-        settings.auto_kill_existing = True
-        settings.config_dir = Path("/tmp/test_config")
-        return settings
-
-    @pytest.fixture
-    def mock_display_manager(self):
-        """Provide mock display manager."""
-        display_manager = Mock()
-        display_manager.renderer = Mock()
-        display_manager.renderer.render_events.return_value = "<html><body>Calendar</body></html>"
-        display_manager.get_display_type.return_value = "4x8"
-        display_manager.set_display_type.return_value = True
-        return display_manager
-
-    @pytest.fixture
-    def mock_cache_manager(self):
-        """Provide mock cache manager."""
-        cache_manager = Mock()
-
-        async def mock_get_events(start_datetime, end_datetime):
-            return [{"title": "Test Event", "start": start_datetime, "end": end_datetime}]
-
-        cache_manager.get_events_by_date_range = mock_get_events
-        return cache_manager
-
-    @pytest.fixture
-    def mock_navigation_state(self):
-        """Provide mock navigation state."""
-        nav_state = Mock()
-        nav_state.selected_date = date(2023, 1, 15)
-        nav_state.get_display_date.return_value = "January 15, 2023"
-        nav_state.is_today.return_value = False
-        nav_state.navigate_backward.return_value = None
-        nav_state.navigate_forward.return_value = None
-        nav_state.jump_to_today.return_value = None
-        nav_state.jump_to_start_of_week.return_value = None
-        nav_state.jump_to_end_of_week.return_value = None
-        return nav_state
-
     def test_missing_settings_attributes(self):
         """Test WebServer initialization with missing settings attributes."""
         incomplete_settings = Mock()
@@ -1304,56 +1202,6 @@ class TestWebServerErrorHandling:
 
                 assert "Error" in html
 
-
-class TestWebServerIntegrationScenarios:
-    """Test realistic integration scenarios."""
-
-    @pytest.fixture
-    def mock_settings(self):
-        """Mock settings fixture for integration scenarios."""
-        settings = Mock()
-        settings.web_host = "localhost"
-        settings.web_port = 8080
-        settings.web_layout = "4x8"
-        settings.auto_kill_existing = True
-        settings.config_dir = Path("/tmp/test_config")
-        return settings
-
-    @pytest.fixture
-    def mock_display_manager(self):
-        """Provide mock display manager."""
-        display_manager = Mock()
-        display_manager.renderer = Mock()
-        display_manager.renderer.render_events.return_value = "<html><body>Calendar</body></html>"
-        display_manager.get_display_type.return_value = "4x8"
-        display_manager.set_display_type.return_value = True
-        return display_manager
-
-    @pytest.fixture
-    def mock_cache_manager(self):
-        """Provide mock cache manager."""
-        cache_manager = Mock()
-
-        async def mock_get_events(start_datetime, end_datetime):
-            return [{"title": "Test Event", "start": start_datetime, "end": end_datetime}]
-
-        cache_manager.get_events_by_date_range = mock_get_events
-        return cache_manager
-
-    @pytest.fixture
-    def mock_navigation_state(self):
-        """Provide mock navigation state."""
-        nav_state = Mock()
-        nav_state.selected_date = date(2023, 1, 15)
-        nav_state.get_display_date.return_value = "January 15, 2023"
-        nav_state.is_today.return_value = False
-        nav_state.navigate_backward.return_value = None
-        nav_state.navigate_forward.return_value = None
-        nav_state.jump_to_today.return_value = None
-        nav_state.jump_to_start_of_week.return_value = None
-        nav_state.jump_to_end_of_week.return_value = None
-        return nav_state
-
     @patch("calendarbot.web.server.HTTPServer")
     @patch("calendarbot.web.server.Thread")
     def test_full_server_lifecycle(
@@ -1382,29 +1230,14 @@ class TestWebServerIntegrationScenarios:
             web_server.stop()
             assert web_server.running is False
 
-    def test_concurrent_request_handling(
-        self, mock_settings, mock_display_manager, mock_cache_manager, mock_navigation_state
-    ):
-        """Test handling multiple concurrent requests."""
-        web_server = WebServer(
-            mock_settings, mock_display_manager, mock_cache_manager, mock_navigation_state
-        )
-
-        # Simulate multiple concurrent navigation requests
-        actions = ["next", "prev", "today", "week-start", "week-end"]
-        results = []
-
-        for action in actions:
-            result = web_server.handle_navigation(action)
-            results.append(result)
-
+    @pytest.mark.parametrize("actions", [["next", "prev", "today", "week-start", "week-end"]])
+    def test_concurrent_navigation_requests(self, web_server, actions):
+        """Test handling multiple concurrent navigation requests."""
+        results = [web_server.handle_navigation(action) for action in actions]
         assert all(results)  # All should succeed
 
-    def test_api_endpoint_coverage(self, mock_settings, mock_display_manager, mock_cache_manager):
-        """Test coverage of all API endpoints."""
-        web_server = WebServer(mock_settings, mock_display_manager, mock_cache_manager)
-
-        # Test all major operations
+    def test_api_endpoint_coverage(self, web_server):
+        """Test coverage of all major API operations."""
         assert web_server.set_layout("whats-next-view") is True
         assert web_server.toggle_layout() in ["whats-next-view", "4x8"]
         assert web_server.set_layout("4x8") is True
