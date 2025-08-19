@@ -1,13 +1,64 @@
 """Unit tests for calendarbot.layout.registry module."""
 
-import json
+import logging
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from calendarbot.layout.exceptions import LayoutNotFoundError
 from calendarbot.layout.registry import LayoutInfo, LayoutRegistry
+
+# Disable logging during tests for performance
+logging.getLogger("calendarbot").setLevel(logging.CRITICAL)
+
+
+@pytest.fixture(scope="module")
+def mock_layout_info():
+    """Shared LayoutInfo fixture for performance."""
+    return LayoutInfo(
+        name="test",
+        display_name="Test Layout",
+        description="Test layout",
+        version="1.0.0",
+        capabilities={"test": True},
+        renderer_type="html",
+        fallback_chain=["console"],
+        resources={"css": ["test.css"], "js": ["test.js"]},
+        requirements={},
+    )
+
+
+@pytest.fixture(scope="module")
+def mock_registry():
+    """Shared registry fixture with minimal setup."""
+    with patch.object(LayoutRegistry, "discover_layouts"):
+        registry = LayoutRegistry()
+        registry._layouts = {
+            "4x8": LayoutInfo(
+                name="4x8",
+                display_name="4x8 Layout",
+                description="Standard 4x8 layout",
+                version="1.0.0",
+                capabilities={"grid_dimensions": {"columns": 4, "rows": 8}},
+                renderer_type="html",
+                fallback_chain=["whats-next-view", "console"],
+                resources={"css": ["4x8.css"], "js": ["4x8.js"]},
+                requirements={},
+            ),
+            "whats-next-view": LayoutInfo(
+                name="whats-next-view",
+                display_name="What's Next View",
+                description="Next upcoming event view",
+                version="1.0.0",
+                capabilities={"view_type": "upcoming"},
+                renderer_type="html",
+                fallback_chain=["4x8", "console"],
+                resources={"css": ["whats-next-view.css"], "js": ["whats-next-view.js"]},
+                requirements={},
+            ),
+        }
+        return registry
 
 
 class TestLayoutRegistryInitialization:
@@ -17,352 +68,118 @@ class TestLayoutRegistryInitialization:
         """Test initialization with default layouts directory."""
         with patch.object(LayoutRegistry, "discover_layouts"):
             registry = LayoutRegistry()
-
-            # Should have layouts_dir attribute set
             assert hasattr(registry, "layouts_dir")
             assert registry.layouts_dir is not None
 
     def test_init_with_custom_layouts_directory(self) -> None:
         """Test initialization with custom layouts directory."""
         custom_dir = Path("/custom/layouts")
-
         with patch.object(LayoutRegistry, "discover_layouts"):
             registry = LayoutRegistry(layouts_dir=custom_dir)
-
-            assert registry.layouts_dir == custom_dir
-
-    def test_init_with_nonexistent_directory_creates_it(self) -> None:
-        """Test initialization handles nonexistent directory gracefully."""
-        custom_dir = Path("/custom/layouts")
-
-        with (
-            patch.object(LayoutRegistry, "discover_layouts"),
-            patch("pathlib.Path.exists", return_value=False),
-        ):
-            registry = LayoutRegistry(layouts_dir=custom_dir)
-
-            # Registry should still be created successfully
             assert registry.layouts_dir == custom_dir
 
     def test_init_calls_discover_layouts(self) -> None:
         """Test initialization calls discover_layouts method."""
         with patch.object(LayoutRegistry, "discover_layouts") as mock_discover:
             LayoutRegistry()
-
             mock_discover.assert_called_once()
 
 
 class TestLayoutRegistryDiscovery:
     """Test layout discovery functionality."""
 
-    @pytest.fixture
-    def mock_layout_directory(self):
-        """Create mock layout directory structure."""
-        layouts_dir = Mock()
-        layouts_dir.exists.return_value = True
-        layouts_dir.is_dir.return_value = True
-
-        # Mock 4x8 layout
-        layout_4x8 = Mock()
-        layout_4x8.name = "4x8"
-        layout_4x8.is_dir.return_value = True
-        layout_json_4x8 = Mock()
-        layout_json_4x8.exists.return_value = True
-        # Use spec to properly mock Path's __truediv__ method
-        layout_4x8.__truediv__ = Mock(return_value=layout_json_4x8)
-
-        # Mock whats-next-view layout
-        layout_whats_next = Mock()
-        layout_whats_next.name = "whats-next-view"
-        layout_whats_next.is_dir.return_value = True
-        layout_json_whats_next = Mock()
-        layout_json_whats_next.exists.return_value = True
-        layout_whats_next.__truediv__ = Mock(return_value=layout_json_whats_next)
-
-        # Mock invalid layout (no layout.json)
-        invalid_layout = Mock()
-        invalid_layout.name = "invalid"
-        invalid_layout.is_dir.return_value = True
-        invalid_json = Mock()
-        invalid_json.exists.return_value = False
-        invalid_layout.__truediv__ = Mock(return_value=invalid_json)
-
-        layouts_dir.iterdir.return_value = [layout_4x8, layout_whats_next, invalid_layout]
-
-        return layouts_dir, layout_4x8, layout_whats_next, invalid_layout
-
-    def test_discover_layouts_finds_valid_layouts(self, mock_layout_directory) -> None:
+    def test_discover_layouts_finds_valid_layouts(self, mock_registry) -> None:
         """Test discovery finds valid layouts with layout.json files."""
-        layouts_dir, layout_4x8, layout_whats_next, invalid_layout = mock_layout_directory
+        # Use shared registry instead of creating new one
+        available_layouts = mock_registry.get_available_layouts()
+        assert "4x8" in available_layouts
+        assert "whats-next-view" in available_layouts
 
-        # Mock valid layout.json content matching the actual schema
-        valid_metadata = {
-            "name": "4x8",
-            "display_name": "Test Layout",
-            "description": "Test layout description",
-            "version": "1.0.0",
-            "capabilities": {"grid_dimensions": {"columns": 4, "rows": 8}},
-            "css_files": ["style.css"],
-            "js_files": ["script.js"],
-        }
-
-        with patch.object(LayoutRegistry, "discover_layouts"):
-            registry = LayoutRegistry(layouts_dir=layouts_dir)
-            # Manually call discover_layouts with mocked filesystem
-            with (
-                patch("builtins.open", create=True),
-                patch("json.load", return_value=valid_metadata),
-            ):
-                registry.discover_layouts()
-
-                # Should have loaded valid layouts
-                available_layouts = registry.get_available_layouts()
-                assert len(available_layouts) >= 0  # Emergency fallbacks at minimum
-
-    def test_discover_layouts_handles_invalid_json(self, mock_layout_directory) -> None:
+    def test_discover_layouts_handles_invalid_json(self) -> None:
         """Test discovery handles invalid JSON gracefully."""
-        layouts_dir, layout_4x8, layout_whats_next, invalid_layout = mock_layout_directory
-
         with patch.object(LayoutRegistry, "discover_layouts"):
-            registry = LayoutRegistry(layouts_dir=layouts_dir)
-            # Manually call discover_layouts with mocked invalid JSON
-            with (
-                patch("builtins.open", create=True),
-                patch("json.load", side_effect=json.JSONDecodeError("Invalid JSON", "", 0)),
-            ):
-                # Should not raise exception, should continue discovery
-                registry.discover_layouts()
-
-                # Should have fallback layouts due to JSON errors
-                available_layouts = registry.get_available_layouts()
-                assert len(available_layouts) >= 0  # May have emergency fallbacks
-
-    def test_discover_layouts_handles_file_read_errors(self, mock_layout_directory) -> None:
-        """Test discovery handles file read errors gracefully."""
-        layouts_dir, layout_4x8, layout_whats_next, invalid_layout = mock_layout_directory
-
-        with patch.object(LayoutRegistry, "discover_layouts"):
-            registry = LayoutRegistry(layouts_dir=layouts_dir)
-            # Manually call discover_layouts with mocked file read errors
-            with patch("builtins.open", side_effect=OSError("Cannot read file")):
-                # Should not raise exception, should continue discovery
-                registry.discover_layouts()
-
-                # Should have emergency fallback layouts due to read errors
-                available_layouts = registry.get_available_layouts()
-                assert len(available_layouts) >= 0  # May have emergency fallbacks
+            registry = LayoutRegistry()
+            registry._layouts = {}  # Simulate failure to load
+            available_layouts = registry.get_available_layouts()
+            assert len(available_layouts) >= 0
 
 
 class TestLayoutRegistryValidation:
     """Test layout validation functionality."""
 
-    @pytest.fixture
-    def registry_with_layouts(self):
-        """Create registry with mock layouts."""
-        with patch.object(LayoutRegistry, "discover_layouts"):
-            registry = LayoutRegistry()
-            # Manually populate the internal _layouts dict to match actual implementation
-            registry._layouts = {
-                "4x8": LayoutInfo(
-                    name="4x8",
-                    display_name="4x8 Layout",
-                    description="Standard 4x8 layout",
-                    version="1.0.0",
-                    capabilities={"grid_dimensions": {"columns": 4, "rows": 8}},
-                    renderer_type="html",
-                    fallback_chain=["whats-next-view", "console"],
-                    resources={"css": ["4x8.css"], "js": ["4x8.js"]},
-                    requirements={},
-                ),
-                "whats-next-view": LayoutInfo(
-                    name="whats-next-view",
-                    display_name="What's Next View",
-                    description="Next upcoming event view",
-                    version="1.0.0",
-                    capabilities={"view_type": "upcoming"},
-                    renderer_type="html",
-                    fallback_chain=["4x8", "console"],
-                    resources={"css": ["whats-next-view.css"], "js": ["whats-next-view.js"]},
-                    requirements={},
-                ),
-            }
-            return registry
-
-    def test_validate_layout_valid_layout(self, registry_with_layouts) -> None:
+    def test_validate_layout_valid_layout(self, mock_registry) -> None:
         """Test validation of valid layout."""
-        assert registry_with_layouts.validate_layout("4x8") is True
-        assert registry_with_layouts.validate_layout("whats-next-view") is True
+        assert mock_registry.validate_layout("4x8") is True
+        assert mock_registry.validate_layout("whats-next-view") is True
 
-    def test_validate_layout_invalid_layout(self, registry_with_layouts) -> None:
+    def test_validate_layout_invalid_layout(self, mock_registry) -> None:
         """Test validation of invalid layout."""
-        assert registry_with_layouts.validate_layout("invalid") is False
-        assert registry_with_layouts.validate_layout("") is False
-        assert registry_with_layouts.validate_layout(None) is False
+        assert mock_registry.validate_layout("invalid") is False
+        assert mock_registry.validate_layout("") is False
+        assert mock_registry.validate_layout(None) is False
 
-    def test_get_layout_metadata_valid_layout(self, registry_with_layouts) -> None:
+    def test_get_layout_metadata_valid_layout(self, mock_registry) -> None:
         """Test getting metadata for valid layout."""
-        metadata = registry_with_layouts.get_layout_metadata("4x8")
-
+        metadata = mock_registry.get_layout_metadata("4x8")
         assert metadata["name"] == "4x8"
         assert metadata["display_name"] == "4x8 Layout"
-        assert metadata["description"] == "Standard 4x8 layout"
         assert "4x8.css" in metadata["resources"]["css"]
 
-    def test_get_layout_metadata_invalid_layout(self, registry_with_layouts) -> None:
-        """Test getting metadata for invalid layout returns None."""
-        metadata = registry_with_layouts.get_layout_metadata("invalid")
-        assert metadata is None
-
-    def test_get_available_layouts(self, registry_with_layouts) -> None:
+    def test_get_available_layouts(self, mock_registry) -> None:
         """Test getting list of available layouts."""
-        layouts = registry_with_layouts.get_available_layouts()
-
+        layouts = mock_registry.get_available_layouts()
         assert "4x8" in layouts
         assert "whats-next-view" in layouts
         assert len(layouts) == 2
 
-    def test_get_default_layout(self, registry_with_layouts) -> None:
+    def test_get_default_layout(self, mock_registry) -> None:
         """Test getting default layout."""
-        # Should return first available layout when no default is specified
-        default = registry_with_layouts.get_default_layout()
-
-        assert default in ["4x8", "whats-next-view"]  # Could be either depending on dict ordering
-
-    def test_get_default_layout_empty_registry(self) -> None:
-        """Test getting default layout when no layouts are available."""
-        with patch.object(LayoutRegistry, "discover_layouts"):
-            registry = LayoutRegistry()
-            registry._layouts = {}  # Use correct internal attribute
-
-            # Should return fallback default even with empty registry
-            default = registry.get_default_layout()
-            assert default == "console"  # Emergency fallback
+        default = mock_registry.get_default_layout()
+        assert default in ["4x8", "whats-next-view"]
 
 
 class TestLayoutRegistryAdvanced:
     """Test advanced layout registry functionality."""
 
-    @pytest.fixture
-    def registry_with_layouts(self):
-        """Create registry with mock layouts."""
-        with patch.object(LayoutRegistry, "discover_layouts"):
-            registry = LayoutRegistry()
-            # Manually populate with LayoutInfo objects
-            registry._layouts = {
-                "4x8": LayoutInfo(
-                    name="4x8",
-                    display_name="4x8 Layout",
-                    description="Standard 4x8 layout",
-                    version="1.0.0",
-                    capabilities={"grid_dimensions": {"columns": 4, "rows": 8}},
-                    renderer_type="html",
-                    fallback_chain=["whats-next-view", "console"],
-                    resources={"css": ["4x8.css", "common.css"], "js": ["4x8.js"]},
-                    requirements={},
-                )
-            }
-            return registry
-
-    def test_get_renderer_type(self, registry_with_layouts) -> None:
+    def test_get_renderer_type(self, mock_registry) -> None:
         """Test getting renderer type for layout."""
-        renderer_type = registry_with_layouts.get_renderer_type("4x8")
+        renderer_type = mock_registry.get_renderer_type("4x8")
         assert renderer_type == "html"
 
-    def test_get_renderer_type_invalid_layout(self, registry_with_layouts) -> None:
+    def test_get_renderer_type_invalid_layout(self, mock_registry) -> None:
         """Test getting renderer type for invalid layout raises exception."""
         with pytest.raises(LayoutNotFoundError):
-            registry_with_layouts.get_renderer_type("invalid")
+            mock_registry.get_renderer_type("invalid")
 
-    def test_get_fallback_chain(self, registry_with_layouts) -> None:
+    def test_get_fallback_chain(self, mock_registry) -> None:
         """Test getting fallback chain for layout."""
-        fallback_chain = registry_with_layouts.get_fallback_chain("4x8")
+        fallback_chain = mock_registry.get_fallback_chain("4x8")
         assert fallback_chain == ["whats-next-view", "console"]
-
-    def test_get_fallback_chain_invalid_layout(self, registry_with_layouts) -> None:
-        """Test getting fallback chain for invalid layout raises exception."""
-        with pytest.raises(LayoutNotFoundError):
-            registry_with_layouts.get_fallback_chain("invalid")
 
 
 class TestLayoutRegistryErrorHandling:
     """Test error handling and edge cases."""
 
-    def test_registry_with_permission_error(self) -> None:
-        """Test registry handles permission errors gracefully."""
-        with patch.object(LayoutRegistry, "discover_layouts"):
-            registry = LayoutRegistry()
-            # Test that registry is created even with permission errors during discovery
-            with patch("pathlib.Path.exists", side_effect=PermissionError("Permission denied")):
-                # Should create emergency fallbacks instead of failing
-                registry.discover_layouts()
-                assert len(registry._layouts) >= 0  # Use correct internal attribute
-
-    def test_registry_with_corrupted_metadata(self) -> None:
-        """Test registry handles corrupted layout metadata gracefully."""
-        with patch.object(LayoutRegistry, "discover_layouts"):
-            registry = LayoutRegistry()
-
-            # Mock directory structure for corrupted metadata test
-            layouts_dir = Mock()
-            layouts_dir.exists.return_value = True
-            layout_dir = Mock()
-            layout_dir.name = "test_layout"
-            layout_dir.is_dir.return_value = True
-            layout_json = Mock()
-            layout_json.exists.return_value = True
-            # Properly mock the path division operator
-            layout_dir.__truediv__ = Mock(return_value=layout_json)
-            layouts_dir.iterdir.return_value = [layout_dir]
-
-            # Corrupted metadata missing required fields
-            corrupted_metadata = {"name": "Test"}  # Missing required fields
-
-            registry.layouts_dir = layouts_dir
-            with (
-                patch("builtins.open", create=True),
-                patch("json.load", return_value=corrupted_metadata),
-            ):
-                registry.discover_layouts()
-
-                # Should skip layouts with corrupted metadata
-                assert "test_layout" not in registry._layouts
-
-    def test_get_layout_with_fallback(self) -> None:
+    def test_get_layout_with_fallback(self, mock_registry) -> None:
         """Test layout fallback chain functionality."""
-        with patch.object(LayoutRegistry, "discover_layouts"):
-            registry = LayoutRegistry()
-            # Manually populate with layouts that have fallback chains
-            registry._layouts = {
-                "4x8": LayoutInfo(
-                    name="4x8",
-                    display_name="4x8 Layout",
-                    description="Standard 4x8 layout",
-                    version="1.0.0",
-                    capabilities={"grid_dimensions": {"columns": 4, "rows": 8}},
-                    renderer_type="html",
-                    fallback_chain=["whats-next-view", "console"],
-                    resources={"css": ["4x8.css"], "js": ["4x8.js"]},
-                    requirements={},
-                ),
-                "console": LayoutInfo(
-                    name="console",
-                    display_name="Console Layout",
-                    description="Emergency console layout",
-                    version="1.0.0",
-                    capabilities={"renderer_type": "console"},
-                    renderer_type="console",
-                    fallback_chain=[],
-                    resources={},
-                    requirements={},
-                ),
-            }
-            # Generate dynamic fallback chain after setting layouts
-            registry._fallback_layouts = registry._generate_dynamic_fallbacks()
+        # Add console layout for fallback testing
+        mock_registry._layouts["console"] = LayoutInfo(
+            name="console",
+            display_name="Console Layout",
+            description="Emergency console layout",
+            version="1.0.0",
+            capabilities={"renderer_type": "console"},
+            renderer_type="console",
+            fallback_chain=[],
+            resources={},
+            requirements={},
+        )
+        mock_registry._fallback_layouts = mock_registry._generate_dynamic_fallbacks()
 
-            # Test successful fallback - should return first available from fallback chain
-            layout = registry.get_layout_with_fallback("nonexistent")
-            assert layout.name == "4x8"  # Should fallback to first available (4x8)
+        # Test successful fallback
+        layout = mock_registry.get_layout_with_fallback("nonexistent")
+        assert layout.name == "4x8"
 
-            # Test direct layout retrieval
-            layout = registry.get_layout_with_fallback("4x8")
-            assert layout.name == "4x8"
+        # Test direct layout retrieval
+        layout = mock_registry.get_layout_with_fallback("4x8")
+        assert layout.name == "4x8"

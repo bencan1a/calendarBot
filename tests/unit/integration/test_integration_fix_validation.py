@@ -65,54 +65,62 @@ def sample_source_config():
     )
 
 
+@pytest.fixture
+def mock_settings():
+    """Create mock settings object."""
+    return Mock()
+
+
+@pytest.fixture
+def mock_cache_manager():
+    """Create mock cache manager with async methods."""
+    cache_manager = Mock()
+    cache_manager.cache_events = AsyncMock(return_value=True)
+    cache_manager.clear_cache = AsyncMock(return_value=None)
+    return cache_manager
+
+
+@pytest.fixture
+def mock_ics_components():
+    """Create pre-configured ICS fetcher and parser mocks."""
+    mock_fetcher = AsyncMock()
+    mock_fetcher.__aenter__ = AsyncMock(return_value=mock_fetcher)
+    mock_fetcher.__aexit__ = AsyncMock(return_value=None)
+
+    mock_response = Mock()
+    mock_response.success = True
+    mock_response.content = "BEGIN:VCALENDAR\nVERSION:2.0\nSAMPLE ICS CONTENT\nEND:VCALENDAR"
+    mock_fetcher.fetch_ics = AsyncMock(return_value=mock_response)
+
+    mock_parser = Mock()
+
+    return mock_fetcher, mock_parser
+
+
 class TestIntegrationFixValidation:
     """Test that validates the integration gap fix works correctly."""
 
     @pytest.mark.asyncio
-    async def test_ics_source_now_returns_parse_result(self, sample_parse_result):
+    async def test_ics_source_now_returns_parse_result(
+        self, sample_parse_result, sample_source_config, mock_settings, mock_ics_components
+    ):
         """
         Validates that ICS source now returns ICSParseResult instead of just events.
 
         This test confirms the fix where we changed the return type from
         list[CalendarEvent] to ICSParseResult.
         """
-        # Setup ICS source handler with mocked dependencies
-        mock_source_config = SourceConfig(
-            name="test-source",
-            type="ics",
-            url="https://example.com/calendar.ics",
-            enabled=True,
-            refresh_interval=3600,
-            timeout=30,
-        )
+        mock_fetcher, mock_parser = mock_ics_components
 
         with (
-            patch("calendarbot.sources.ics_source.ICSFetcher") as mock_fetcher_class,
-            patch("calendarbot.sources.ics_source.ICSParser") as mock_parser_class,
+            patch("calendarbot.sources.ics_source.ICSFetcher", return_value=mock_fetcher),
+            patch("calendarbot.sources.ics_source.ICSParser", return_value=mock_parser),
         ):
-            # Setup mocks with proper async context manager support
-            mock_fetcher = AsyncMock()
-            mock_fetcher.__aenter__ = AsyncMock(return_value=mock_fetcher)
-            mock_fetcher.__aexit__ = AsyncMock(return_value=None)
-            mock_fetcher_class.return_value = mock_fetcher
-
-            mock_parser = Mock()
-            mock_parser_class.return_value = mock_parser
-
-            # Mock the fetch response
-            mock_response = Mock()
-            mock_response.success = True
-            mock_response.content = (
-                "BEGIN:VCALENDAR\nVERSION:2.0\nSAMPLE ICS CONTENT\nEND:VCALENDAR"
-            )
-            mock_fetcher.fetch_ics = AsyncMock(return_value=mock_response)
-
             # Parser returns full ICSParseResult with raw content
             mock_parser.parse_ics_content.return_value = sample_parse_result
 
             # Create ICS source handler (actual implementation)
-            mock_settings = Mock()
-            ics_handler = ICSSourceHandler(mock_source_config, mock_settings)
+            ics_handler = ICSSourceHandler(sample_source_config, mock_settings)
 
             # Call fetch_events - THIS IS THE KEY FIX
             result = await ics_handler.fetch_events()
@@ -121,27 +129,19 @@ class TestIntegrationFixValidation:
             assert isinstance(result, ICSParseResult), (
                 f"Expected ICSParseResult, got {type(result)}"
             )
-            # Note: The raw content test is relaxed since mocking the parser deeply is complex
-            # The key validation is that we return ICSParseResult instead of just events
             assert result.success is True, "Parse result should indicate success"
-
-            # Verify that the fetcher was called correctly (parser call validation is complex to mock)
             mock_fetcher.fetch_ics.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_sources_manager_handles_parse_result(self, sample_parse_result):
+    async def test_sources_manager_handles_parse_result(
+        self, sample_parse_result, mock_settings, mock_cache_manager
+    ):
         """
         Validates that sources manager can now handle ICSParseResult objects.
 
         This test confirms the fix where we updated the sources manager to
         detect and properly pass ICSParseResult to the cache manager.
         """
-        # Setup mocks
-        mock_settings = Mock()
-        mock_cache_manager = Mock()
-        mock_cache_manager.cache_events = AsyncMock(return_value=True)
-        mock_cache_manager.clear_cache = AsyncMock(return_value=None)
-
         # Create sources manager
         sources_manager = SourceManager(mock_settings, mock_cache_manager)
 
@@ -170,19 +170,15 @@ class TestIntegrationFixValidation:
         assert len(cached_data.events) == 2, "Events should be included"
 
     @pytest.mark.asyncio
-    async def test_mixed_sources_graceful_degradation(self, sample_parse_result):
+    async def test_mixed_sources_graceful_degradation(
+        self, sample_parse_result, sample_events, mock_settings, mock_cache_manager
+    ):
         """
         Validates that sources manager handles multiple sources by aggregating events.
 
         This test ensures that when we have multiple sources returning ICSParseResult,
         the system aggregates all events into a single list for caching.
         """
-        # Setup mocks
-        mock_settings = Mock()
-        mock_cache_manager = Mock()
-        mock_cache_manager.cache_events = AsyncMock(return_value=True)
-        mock_cache_manager.clear_cache = AsyncMock(return_value=None)
-
         # Create sources manager
         sources_manager = SourceManager(mock_settings, mock_cache_manager)
 
@@ -195,7 +191,7 @@ class TestIntegrationFixValidation:
         # Create a second parse result for the other source
         other_parse_result = ICSParseResult(
             success=True,
-            events=sample_parse_result.events,  # Same events for simplicity
+            events=sample_events,  # Reuse same events for simplicity
             raw_content="BEGIN:VCALENDAR\nVERSION:2.0\nOTHER ICS CONTENT\nEND:VCALENDAR",
             source_url="https://other.example.com/calendar.ics",
             event_count=2,

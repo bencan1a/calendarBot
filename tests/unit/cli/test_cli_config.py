@@ -185,24 +185,29 @@ class TestBackupConfiguration:
 
     def test_backup_configuration_success(self, capsys):
         """Test successful configuration backup."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Create a mock config file
-            config_file = Path(temp_dir) / "config.yaml"
-            config_file.write_text("test: content")
+        # Mock file operations instead of using actual tempfile
+        mock_config_file = MagicMock()
+        mock_config_file.read_text.return_value = "test: content"
 
-            # Mock check_configuration to return our test file
-            with patch(
-                "calendarbot.cli.config.check_configuration", return_value=(True, config_file)
-            ):
-                with patch("calendarbot.cli.config.Path.home") as mock_home:
-                    Path(temp_dir) / "backups"
-                    mock_home.return_value = Path(temp_dir)
+        with (
+            patch(
+                "calendarbot.cli.config.check_configuration", return_value=(True, mock_config_file)
+            ),
+            patch("calendarbot.cli.config.Path.home") as mock_home,
+            patch("shutil.copy2") as mock_copy2,
+        ):
+            # Mock the backup directory and file creation
+            mock_backup_dir = MagicMock()
+            mock_backup_file = MagicMock()
+            mock_backup_dir.__truediv__.return_value = mock_backup_file
+            mock_home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_backup_dir
 
-                    result = backup_configuration()
+            result = backup_configuration()
 
-                    assert result == 0
-                    captured = capsys.readouterr()
-                    assert "Configuration backed up to:" in captured.out
+            assert result == 0
+            mock_copy2.assert_called_once()
+            captured = capsys.readouterr()
+            assert "Configuration backed up to:" in captured.out
 
     def test_backup_configuration_no_config(self, capsys):
         """Test backup when no configuration exists."""
@@ -226,23 +231,32 @@ class TestBackupConfiguration:
 
     def test_backup_configuration_creates_timestamped_file(self):
         """Test that backup creates properly timestamped file."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            config_file = Path(temp_dir) / "config.yaml"
-            config_file.write_text("test: content")
+        mock_config_file = MagicMock()
+        mock_config_file.read_text.return_value = "test: content"
 
-            with patch(
-                "calendarbot.cli.config.check_configuration", return_value=(True, config_file)
-            ):
-                with patch("calendarbot.cli.config.Path.home") as mock_home:
-                    mock_home.return_value = Path(temp_dir)
+        with (
+            patch(
+                "calendarbot.cli.config.check_configuration", return_value=(True, mock_config_file)
+            ),
+            patch("calendarbot.cli.config.Path.home") as mock_home,
+            patch("calendarbot.cli.config.datetime") as mock_datetime,
+            patch("shutil.copy2") as mock_copy2,
+        ):
+            # Mock datetime for consistent timestamping
+            mock_datetime.now.return_value.strftime.return_value = "20240101_120000"
 
-                    result = backup_configuration()
+            # Mock the backup directory and file operations
+            mock_backup_dir = MagicMock()
+            mock_backup_file = MagicMock()
+            mock_backup_file.name = "config_backup_20240101_120000.yaml"
+            mock_backup_dir.__truediv__.return_value = mock_backup_file
+            mock_home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_backup_dir
 
-                    assert result == 0
-                    backup_dir = Path(temp_dir) / ".config" / "calendarbot" / "backups"
-                    backup_files = list(backup_dir.glob("config_backup_*.yaml"))
-                    assert len(backup_files) == 1
-                    assert "config_backup_" in backup_files[0].name
+            result = backup_configuration()
+
+            assert result == 0
+            # Verify shutil.copy2 was called (actual file copying behavior)
+            mock_copy2.assert_called_once()
 
 
 class TestRestoreConfiguration:
@@ -250,19 +264,36 @@ class TestRestoreConfiguration:
 
     def test_restore_configuration_success(self, capsys):
         """Test successful configuration restore."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Create backup file
-            backup_file = Path(temp_dir) / "backup.yaml"
-            backup_file.write_text("restored: content")
+        # Mock file operations instead of using tempfile
+        mock_backup_file = "/mock/backup.yaml"
 
-            with patch("calendarbot.cli.config.Path.home") as mock_home:
-                mock_home.return_value = Path(temp_dir)
+        with (
+            patch("calendarbot.cli.config.Path") as mock_path_class,
+            patch("calendarbot.cli.config.Path.home") as mock_home,
+            patch("shutil.copy2") as mock_copy2,
+        ):
+            # Mock backup file exists and has content
+            mock_backup_path = MagicMock()
+            mock_backup_path.exists.return_value = True
+            mock_backup_path.read_text.return_value = "restored: content"
+            mock_path_class.return_value = mock_backup_path
 
-                result = restore_configuration(str(backup_file))
+            # Mock home directory structure
+            mock_target_config = MagicMock()
+            mock_target_config.exists.return_value = False  # No existing config to backup
+            mock_config_dir = MagicMock()
+            mock_config_dir.__truediv__.return_value = mock_target_config
+            mock_home.return_value.__truediv__.return_value.__truediv__.return_value = (
+                mock_config_dir
+            )
 
-                assert result == 0
-                captured = capsys.readouterr()
-                assert "Configuration restored from:" in captured.out
+            result = restore_configuration(mock_backup_file)
+
+            assert result == 0
+            # Should call copy2 once for restoring (no existing config to backup)
+            mock_copy2.assert_called_once()
+            captured = capsys.readouterr()
+            assert "Configuration restored from:" in captured.out
 
     def test_restore_configuration_backup_not_found(self, capsys):
         """Test restore when backup file doesn't exist."""
@@ -274,24 +305,42 @@ class TestRestoreConfiguration:
 
     def test_restore_configuration_backs_up_current(self, capsys):
         """Test that restore backs up current config."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Create backup file
-            backup_file = Path(temp_dir) / "backup.yaml"
-            backup_file.write_text("restored: content")
+        mock_backup_file = "/mock/backup.yaml"
 
-            # Create existing config
-            target_config = Path(temp_dir) / ".config" / "calendarbot" / "config.yaml"
-            target_config.parent.mkdir(parents=True, exist_ok=True)
-            target_config.write_text("existing: content")
+        with (
+            patch("calendarbot.cli.config.Path") as mock_path_class,
+            patch("calendarbot.cli.config.Path.home") as mock_home,
+            patch("calendarbot.cli.config.datetime") as mock_datetime,
+            patch("shutil.copy2") as mock_copy2,
+        ):
+            # Mock backup file exists
+            mock_backup_path = MagicMock()
+            mock_backup_path.exists.return_value = True
+            mock_backup_path.read_text.return_value = "restored: content"
+            mock_path_class.return_value = mock_backup_path
 
-            with patch("calendarbot.cli.config.Path.home") as mock_home:
-                mock_home.return_value = Path(temp_dir)
+            # Mock existing config file
+            mock_target_config = MagicMock()
+            mock_target_config.exists.return_value = True
+            mock_target_config.read_text.return_value = "existing: content"
 
-                result = restore_configuration(str(backup_file))
+            # Mock datetime for backup naming
+            mock_datetime.now.return_value.strftime.return_value = "20240101_120000"
 
-                assert result == 0
-                captured = capsys.readouterr()
-                assert "Current config backed up to:" in captured.out
+            # Mock directory structure
+            mock_config_dir = MagicMock()
+            mock_config_dir.__truediv__.return_value = mock_target_config
+            mock_home.return_value.__truediv__.return_value.__truediv__.return_value = (
+                mock_config_dir
+            )
+
+            result = restore_configuration(mock_backup_file)
+
+            assert result == 0
+            # Should call copy2 twice: once for backing up current, once for restoring
+            assert mock_copy2.call_count == 2
+            captured = capsys.readouterr()
+            assert "Current config backed up to:" in captured.out
 
     def test_restore_configuration_exception(self, capsys):
         """Test restore with exception during operation."""
@@ -334,27 +383,45 @@ class TestListBackups:
 
     def test_list_backups_with_files(self, capsys):
         """Test list backups with existing backup files."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            backup_dir = Path(temp_dir) / ".config" / "calendarbot" / "backups"
-            backup_dir.mkdir(parents=True, exist_ok=True)
+        with (
+            patch("calendarbot.cli.config.Path.home") as mock_home,
+            patch("calendarbot.cli.config.datetime") as mock_datetime,
+        ):
+            # Mock backup directory with files
+            mock_backup_dir = MagicMock()
+            mock_backup_dir.exists.return_value = True
 
-            # Create test backup files
-            backup1 = backup_dir / "config_backup_20240101_120000.yaml"
-            backup2 = backup_dir / "config_backup_20240102_130000.yaml"
-            backup1.write_text("backup1")
-            backup2.write_text("backup2")
+            # Mock backup files with proper stat objects
+            mock_backup1 = MagicMock()
+            mock_backup1.name = "config_backup_20240101_120000.yaml"
+            mock_stat1 = MagicMock()
+            mock_stat1.st_mtime = 1234567890
+            mock_stat1.st_size = 1024  # 1KB
+            mock_backup1.stat.return_value = mock_stat1
 
-            with patch("calendarbot.cli.config.Path.home") as mock_home:
-                mock_home.return_value = Path(temp_dir)
+            mock_backup2 = MagicMock()
+            mock_backup2.name = "config_backup_20240102_130000.yaml"
+            mock_stat2 = MagicMock()
+            mock_stat2.st_mtime = 1234567900
+            mock_stat2.st_size = 2048  # 2KB
+            mock_backup2.stat.return_value = mock_stat2
 
-                result = list_backups()
+            mock_backup_dir.glob.return_value = [mock_backup1, mock_backup2]
+            mock_home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_backup_dir
 
-                assert result == 0
-                captured = capsys.readouterr()
-                assert "Configuration backups in" in captured.out
-                assert "config_backup_20240101_120000.yaml" in captured.out
-                assert "config_backup_20240102_130000.yaml" in captured.out
-                assert "To restore:" in captured.out
+            # Mock datetime formatting to avoid MagicMock format errors
+            mock_dt_obj = MagicMock()
+            mock_dt_obj.strftime.return_value = "2009-02-13 23:31:30"
+            mock_datetime.fromtimestamp.return_value = mock_dt_obj
+
+            result = list_backups()
+
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "Configuration backups in" in captured.out
+            assert "config_backup_20240101_120000.yaml" in captured.out
+            assert "config_backup_20240102_130000.yaml" in captured.out
+            assert "To restore:" in captured.out
 
     def test_list_backups_exception(self, capsys):
         """Test list backups with exception during operation."""

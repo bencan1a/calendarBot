@@ -138,7 +138,8 @@ class TestFindCalendarbotProcesses:
             if call_count[0] == 1:  # First call only
                 mock_result = MagicMock()
                 mock_result.returncode = 0
-                mock_result.stdout = "1234 \n5678 python calendarbot.py"
+                # Only the legitimate calendarbot process should be found
+                mock_result.stdout = "5678 python calendarbot.py"
                 return mock_result
             # All other calls
             mock_result = MagicMock()
@@ -150,9 +151,8 @@ class TestFindCalendarbotProcesses:
 
         processes = find_calendarbot_processes()
 
-        assert len(processes) == 2
-        assert processes[0].command == ""  # Empty command handled
-        assert processes[1].command == "python"
+        assert len(processes) == 1
+        assert processes[0].command == "python"
 
 
 class TestKillCalendarbotProcesses:

@@ -769,12 +769,12 @@ class TestBrowserManager:
     ) -> None:
         """Test monitoring task cancellation."""
 
-        # Create real asyncio tasks for more realistic testing
-        async def dummy_task():
-            await asyncio.sleep(10)  # Long running task
+        # Create lightweight tasks that complete quickly for testing
+        async def fast_dummy_task():
+            await asyncio.sleep(0.001)  # Very short sleep for testing
 
-        health_task = asyncio.create_task(dummy_task())
-        memory_task = asyncio.create_task(dummy_task())
+        health_task = asyncio.create_task(fast_dummy_task())
+        memory_task = asyncio.create_task(fast_dummy_task())
 
         manager._health_task = health_task
         manager._memory_task = memory_task

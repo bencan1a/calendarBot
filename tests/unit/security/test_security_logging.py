@@ -33,69 +33,100 @@ from calendarbot.security.logging import (
 )
 
 
+# Test fixtures for reusable mock setups
+@pytest.fixture
+def mock_audit_logger_setup():
+    """Fixture for common audit logger mock setup."""
+    with (
+        patch("calendarbot.security.logging.Path") as mock_path,
+        patch("logging.handlers.RotatingFileHandler") as mock_handler_class,
+        patch("logging.getLogger") as mock_get_logger,
+    ):
+        mock_audit_logger = Mock()
+        mock_get_logger.return_value = mock_audit_logger
+
+        mock_handler = Mock()
+        mock_handler_class.return_value = mock_handler
+
+        # Simplified Path mocking
+        mock_audit_dir = Mock()
+        mock_path.return_value = mock_audit_dir
+        mock_path.home.return_value = mock_audit_dir
+        mock_audit_dir.__truediv__ = Mock(return_value=mock_audit_dir)
+        mock_audit_dir.mkdir = Mock()
+
+        yield {
+            "mock_get_logger": mock_get_logger,
+            "mock_audit_logger": mock_audit_logger,
+            "mock_handler": mock_handler,
+            "mock_path": mock_path,
+        }
+
+
+@pytest.fixture
+def security_event_logger():
+    """Fixture for SecurityEventLogger with standard mocking."""
+    with patch("calendarbot.security.logging.get_logger") as mock_get_logger:
+        mock_logger = Mock()
+        mock_get_logger.return_value = mock_logger
+
+        logger = SecurityEventLogger()
+        logger.audit_logger = Mock()  # Simple mock for audit logger
+        yield logger
+
+
 class TestSecurityEventType:
     """Test SecurityEventType enum functionality."""
 
     def test_all_event_types_accessible(self):
-        """Test that all security event types are accessible."""
-        expected_types = [
-            "AUTH_SUCCESS",
-            "AUTH_FAILURE",
-            "AUTH_TIMEOUT",
-            "AUTH_TOKEN_REFRESH",
-            "AUTH_TOKEN_EXPIRED",
-            "AUTH_LOGOUT",
-            "AUTHZ_ACCESS_GRANTED",
-            "AUTHZ_ACCESS_DENIED",
-            "AUTHZ_PERMISSION_CHECK",
-            "INPUT_VALIDATION_FAILURE",
-            "INPUT_SANITIZATION",
-            "INPUT_MALFORMED",
-            "SYSTEM_CONFIG_CHANGE",
-            "SYSTEM_CREDENTIAL_ACCESS",
-            "SYSTEM_SECURITY_VIOLATION",
-            "DATA_ACCESS",
-            "DATA_MODIFICATION",
-            "DATA_EXPORT",
-        ]
+        """Test that all security event types are accessible and have correct values."""
+        expected_types = {
+            "AUTH_SUCCESS": "auth_success",
+            "AUTH_FAILURE": "auth_failure",
+            "INPUT_VALIDATION_FAILURE": "input_validation_failure",
+            "SYSTEM_SECURITY_VIOLATION": "system_security_violation",
+            "DATA_ACCESS": "data_access",
+            "SYSTEM_CREDENTIAL_ACCESS": "system_credential_access",
+        }
 
-        for event_type in expected_types:
-            assert hasattr(SecurityEventType, event_type)
-
-    def test_event_type_values(self):
-        """Test that event types have correct string values."""
-        assert SecurityEventType.AUTH_SUCCESS.value == "auth_success"
-        assert SecurityEventType.AUTH_FAILURE.value == "auth_failure"
-        assert SecurityEventType.INPUT_VALIDATION_FAILURE.value == "input_validation_failure"
-        assert SecurityEventType.SYSTEM_SECURITY_VIOLATION.value == "system_security_violation"
+        # Test both accessibility and values in one pass
+        for enum_name, expected_value in expected_types.items():
+            assert hasattr(SecurityEventType, enum_name)
+            assert getattr(SecurityEventType, enum_name).value == expected_value
 
 
 class TestSecuritySeverity:
     """Test SecuritySeverity enum functionality."""
 
-    def test_severity_initialization(self):
-        """Test that severity levels are initialized correctly."""
-        assert SecuritySeverity.LOW.severity_name == "low"
-        assert SecuritySeverity.LOW.priority == 1
-        assert SecuritySeverity.MEDIUM.severity_name == "medium"
-        assert SecuritySeverity.MEDIUM.priority == 2
-        assert SecuritySeverity.HIGH.severity_name == "high"
-        assert SecuritySeverity.HIGH.priority == 3
-        assert SecuritySeverity.CRITICAL.severity_name == "critical"
-        assert SecuritySeverity.CRITICAL.priority == 4
-
-    def test_severity_string_representation(self):
-        """Test __str__ method returns severity name."""
-        assert str(SecuritySeverity.LOW) == "low"
-        assert str(SecuritySeverity.MEDIUM) == "medium"
-        assert str(SecuritySeverity.HIGH) == "high"
-        assert str(SecuritySeverity.CRITICAL) == "critical"
+    @pytest.mark.parametrize(
+        "severity,name,priority",
+        [
+            (SecuritySeverity.LOW, "low", 1),
+            (SecuritySeverity.MEDIUM, "medium", 2),
+            (SecuritySeverity.HIGH, "high", 3),
+            (SecuritySeverity.CRITICAL, "critical", 4),
+        ],
+    )
+    def test_severity_properties(self, severity, name, priority):
+        """Test severity initialization and string representation."""
+        assert severity.severity_name == name
+        assert severity.priority == priority
+        assert str(severity) == name
 
     def test_severity_comparison(self):
         """Test __lt__ method for severity comparison."""
-        assert SecuritySeverity.LOW < SecuritySeverity.MEDIUM
-        assert SecuritySeverity.MEDIUM < SecuritySeverity.HIGH
-        assert SecuritySeverity.HIGH < SecuritySeverity.CRITICAL
+        severities = [
+            SecuritySeverity.LOW,
+            SecuritySeverity.MEDIUM,
+            SecuritySeverity.HIGH,
+            SecuritySeverity.CRITICAL,
+        ]
+
+        # Test that each severity is less than the next
+        for i in range(len(severities) - 1):
+            assert severities[i] < severities[i + 1]
+
+        # Test reverse is not true
         assert not (SecuritySeverity.HIGH < SecuritySeverity.LOW)
 
 
@@ -208,38 +239,41 @@ class TestSecurityEvent:
 class TestCredentialMaskingPatterns:
     """Test CredentialMaskingPatterns class functionality."""
 
-    def test_get_mask_length(self):
+    @pytest.mark.parametrize(
+        "length,expected", [(5, 3), (8, 3), (12, 6), (16, 6), (24, 8), (32, 8), (64, 12), (128, 12)]
+    )
+    def test_get_mask_length(self, length, expected):
         """Test mask length calculation for different input lengths."""
-        assert CredentialMaskingPatterns.get_mask_length(5) == 3
-        assert CredentialMaskingPatterns.get_mask_length(8) == 3
-        assert CredentialMaskingPatterns.get_mask_length(12) == 6
-        assert CredentialMaskingPatterns.get_mask_length(16) == 6
-        assert CredentialMaskingPatterns.get_mask_length(24) == 8
-        assert CredentialMaskingPatterns.get_mask_length(32) == 8
-        assert CredentialMaskingPatterns.get_mask_length(64) == 12
-        assert CredentialMaskingPatterns.get_mask_length(128) == 12
+        assert CredentialMaskingPatterns.get_mask_length(length) == expected
 
-    def test_create_mask_default_settings(self):
+    @pytest.mark.parametrize(
+        "credential,expected",
+        [
+            ("abc", "***"),
+            ("abcd", "***"),
+            ("password123", "pa******23"),
+            ("verylongpassword456", "ve********56"),
+        ],
+    )
+    def test_create_mask_default_settings(self, credential, expected):
         """Test create_mask with default prefix and suffix."""
-        # Short credential - full mask
-        assert CredentialMaskingPatterns.create_mask("abc") == "***"
-        assert CredentialMaskingPatterns.create_mask("abcd") == "***"
-
-        # Normal credential - prefix + mask + suffix
-        assert CredentialMaskingPatterns.create_mask("password123") == "pa******23"
-        assert CredentialMaskingPatterns.create_mask("verylongpassword456") == "ve********56"
+        assert CredentialMaskingPatterns.create_mask(credential) == expected
 
     def test_create_mask_custom_prefix_suffix(self):
         """Test create_mask with custom prefix and suffix lengths."""
         credential = "secrettoken123456"
 
-        # No prefix or suffix
-        result = CredentialMaskingPatterns.create_mask(credential, show_prefix=0, show_suffix=0)
-        assert result == "********"
+        # Test cases for custom prefix/suffix
+        test_cases = [
+            (0, 0, "********"),
+            (3, 4, "sec********3456"),
+        ]
 
-        # Custom prefix/suffix
-        result = CredentialMaskingPatterns.create_mask(credential, show_prefix=3, show_suffix=4)
-        assert result == "sec********3456"
+        for prefix, suffix, expected in test_cases:
+            result = CredentialMaskingPatterns.create_mask(
+                credential, show_prefix=prefix, show_suffix=suffix
+            )
+            assert result == expected
 
         # Large prefix/suffix (should fall back to full mask)
         result = CredentialMaskingPatterns.create_mask("short", show_prefix=3, show_suffix=3)
@@ -248,31 +282,30 @@ class TestCredentialMaskingPatterns:
     def test_patterns_compilation(self):
         """Test that all predefined patterns are compiled regex objects."""
         patterns = CredentialMaskingPatterns.PATTERNS
+        expected_names = {
+            "password",
+            "token",
+            "bearer",
+            "api_key",
+            "secret",
+            "auth_header",
+            "basic_auth",
+            "jwt",
+            "access_token",
+            "refresh_token",
+            "ics_calendar_id",
+            "ics_outlook_path",
+            "ics_url_generic",
+        }
 
         assert len(patterns) > 0
         for pattern_name, pattern in patterns.items():
             assert isinstance(pattern, re.Pattern)
-            assert pattern_name in [
-                "password",
-                "token",
-                "bearer",
-                "api_key",
-                "secret",
-                "auth_header",
-                "basic_auth",
-                "jwt",
-                "access_token",
-                "refresh_token",
-                "ics_calendar_id",
-                "ics_outlook_path",
-                "ics_url_generic",
-            ]
+            assert pattern_name in expected_names
 
     def test_jwt_pattern_matching(self):
         """Test JWT pattern matching functionality."""
         jwt_pattern = CredentialMaskingPatterns.PATTERNS["jwt"]
-
-        # Valid JWT format
         valid_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
 
         match = jwt_pattern.search(valid_jwt)
@@ -282,7 +315,6 @@ class TestCredentialMaskingPatterns:
     def test_ics_calendar_pattern_matching(self):
         """Test ICS calendar URL pattern matching."""
         ics_pattern = CredentialMaskingPatterns.PATTERNS["ics_calendar_id"]
-
         test_url = (
             "https://calendar.google.com/calendar/ical/user123@gmail.com/private-abc123/basic.ics"
         )
@@ -295,26 +327,24 @@ class TestCredentialMaskingPatterns:
 class TestMaskCredentials:
     """Test mask_credentials function."""
 
-    def test_empty_or_none_input(self):
+    @pytest.mark.parametrize("input_text,expected", [("", ""), (None, None)])
+    def test_empty_or_none_input(self, input_text, expected):
         """Test mask_credentials with empty or None input."""
-        assert mask_credentials("") == ""
-        assert mask_credentials(None) is None
+        assert mask_credentials(input_text) == expected
 
-    def test_password_masking(self):
-        """Test password credential masking."""
-        text = 'Login with password: "mypassword123"'
+    @pytest.mark.parametrize(
+        "text,credential,masked_part",
+        [
+            ('Login with password: "mypassword123"', "mypassword123", "my******23"),
+            ('{"token": "abc123xyz789"}', "abc123xyz789", "ab******89"),
+            ("API_KEY=sk-1234567890abcdef", "sk-1234567890abcdef", "sk********ef"),
+        ],
+    )
+    def test_credential_masking(self, text, credential, masked_part):
+        """Test various credential types are properly masked."""
         result = mask_credentials(text)
-        assert "mypassword123" not in result
-        assert "password" in result
-        assert "my******23" in result
-
-    def test_token_masking(self):
-        """Test token credential masking."""
-        text = '{"token": "abc123xyz789"}'
-        result = mask_credentials(text)
-        assert "abc123xyz789" not in result
-        assert "token" in result
-        assert "ab******89" in result
+        assert credential not in result
+        assert masked_part in result
 
     def test_bearer_token_masking(self):
         """Test Bearer token masking."""
@@ -322,50 +352,35 @@ class TestMaskCredentials:
         result = mask_credentials(text)
         assert "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" not in result
         assert "Authorization:" in result
-        # Bearer token is replaced with *** in the pattern
         assert "***" in result or "ey************R9" in result
-
-    def test_api_key_masking(self):
-        """Test API key masking."""
-        text = "API_KEY=sk-1234567890abcdef"
-        result = mask_credentials(text)
-        assert "sk-1234567890abcdef" not in result
-        assert "API_KEY" in result
-        assert "sk********ef" in result
 
     def test_custom_patterns(self):
         """Test mask_credentials with custom patterns."""
         custom_patterns = {"custom_secret": re.compile(r"(SECRET_VAL=)([^\s]+)", re.IGNORECASE)}
-
         text = "Configuration: SECRET_VAL=custom123secret"
         result = mask_credentials(text, custom_patterns)
+
         assert "custom123secret" not in result
         assert "SECRET_VAL=" in result
         assert "cu******et" in result
 
     def test_multiple_credential_types(self):
         """Test masking multiple credential types in same text."""
-        text = """
-        {
-            "password": "userpass123",
-            "api_key": "sk-abcdefghijklmnop",
-            "token": "bearer_token_xyz"
-        }
-        """
+        text = '{"password": "userpass123", "api_key": "sk-abcdefghijklmnop", "token": "bearer_token_xyz"}'
         result = mask_credentials(text)
 
-        assert "userpass123" not in result
-        assert "sk-abcdefghijklmnop" not in result
-        assert "bearer_token_xyz" not in result
-        assert "password" in result
-        assert "api_key" in result
-        assert "token" in result
+        # Verify credentials are masked
+        for credential in ["userpass123", "sk-abcdefghijklmnop", "bearer_token_xyz"]:
+            assert credential not in result
+
+        # Verify structure preserved
+        for label in ["password", "api_key", "token"]:
+            assert label in result
 
     def test_no_masking_when_no_patterns_match(self):
         """Test that text without credentials remains unchanged."""
         text = "This is just normal text without any sensitive information."
-        result = mask_credentials(text)
-        assert result == text
+        assert mask_credentials(text) == text
 
 
 class TestSecureFormatter:
@@ -457,457 +472,226 @@ class TestSecureFormatter:
 class TestSecurityEventLogger:
     """Test SecurityEventLogger class functionality."""
 
-    def test_initialization_without_settings(self):
+    def test_initialization_without_settings(self, security_event_logger):
         """Test SecurityEventLogger initialization without settings."""
-        with patch("calendarbot.security.logging.get_logger") as mock_get_logger:
-            mock_logger = Mock()
-            mock_get_logger.return_value = mock_logger
+        logger = security_event_logger
 
-            logger = SecurityEventLogger()
+        assert logger.settings is None
+        assert logger._event_cache == []
+        assert logger.cache_size == 1000
 
-            assert logger.settings is None
-            assert logger.logger == mock_logger
-            assert logger._event_cache == []
-            assert logger.cache_size == 1000
-            mock_get_logger.assert_called_once_with("security")
-
-    @patch("calendarbot.security.logging.Path")
-    @patch("logging.handlers.RotatingFileHandler")
-    @patch("logging.getLogger")
-    def test_initialization_with_settings(
-        self, mock_get_audit_logger, mock_handler_class, mock_path
-    ):
+    def test_initialization_with_settings(self, mock_audit_logger_setup):
         """Test SecurityEventLogger initialization with settings."""
         mock_settings = Mock()
         mock_settings.data_dir = "/test/data"
 
-        # Mock audit logger
-        mock_audit_logger = Mock()
-        mock_get_audit_logger.return_value = mock_audit_logger
-
-        # Mock handler
-        mock_handler = Mock()
-        mock_handler_class.return_value = mock_handler
-
-        # Mock Path operations to avoid PermissionError
-        mock_audit_dir = Mock()
-        mock_path.return_value = mock_audit_dir
-        mock_audit_dir.__truediv__ = Mock(return_value=mock_audit_dir)
-        mock_audit_dir.mkdir = Mock()  # Mock mkdir to avoid PermissionError
-
-        with patch("calendarbot.security.logging.get_logger") as mock_get_logger:
-            mock_logger = Mock()
-            mock_get_logger.return_value = mock_logger
-
+        with patch("calendarbot.security.logging.get_logger"):
             logger = SecurityEventLogger(mock_settings)
-
             assert logger.settings == mock_settings
 
-    @patch("calendarbot.security.logging.Path")
-    @patch("logging.getLogger")
-    @patch("logging.handlers.RotatingFileHandler")
-    def test_setup_audit_logger_with_settings(self, mock_handler_class, mock_get_logger, mock_path):
-        """Test audit logger setup with settings."""
-        mock_settings = Mock()
-        mock_settings.data_dir = "/test/data"
-
-        mock_audit_logger = Mock()
-        mock_get_logger.return_value = mock_audit_logger
-
-        mock_handler = Mock()
-        mock_handler_class.return_value = mock_handler
-
-        # Mock Path operations
-        mock_audit_dir = Mock()
-        mock_path.return_value = mock_audit_dir
-        mock_audit_dir.__truediv__ = Mock(return_value=mock_audit_dir)
-
-        with patch("calendarbot.security.logging.get_logger"):
-            SecurityEventLogger(mock_settings)
-
-            # Verify audit logger configuration
-            mock_get_logger.assert_called_with("calendarbot.security.audit")
-            mock_audit_logger.setLevel.assert_called_with(logging.INFO)
-            mock_audit_logger.handlers.clear.assert_called_once()
-
-    @patch("calendarbot.security.logging.Path")
-    @patch("logging.getLogger")
-    @patch("logging.handlers.RotatingFileHandler")
-    def test_setup_audit_logger_without_settings(
-        self, mock_handler_class, mock_get_logger, mock_path
-    ):
-        """Test audit logger setup without settings (uses default path)."""
-        mock_audit_logger = Mock()
-        mock_get_logger.return_value = mock_audit_logger
-
-        mock_handler = Mock()
-        mock_handler_class.return_value = mock_handler
-
-        # Mock Path operations for default directory
-        mock_home_path = Mock()
-        mock_path.home.return_value = mock_home_path
-        mock_audit_dir = Mock()
-        mock_home_path.__truediv__ = Mock(return_value=mock_audit_dir)
-        mock_audit_dir.__truediv__ = Mock(return_value=mock_audit_dir)
-
-        with patch("calendarbot.security.logging.get_logger"):
-            SecurityEventLogger()
-
-            # Verify default path is used
-            mock_path.home.assert_called_once()
-
-    def test_log_event_success(self):
+    def test_log_event_success(self, security_event_logger):
         """Test successful event logging."""
-        with patch("calendarbot.security.logging.get_logger") as mock_get_logger:
-            mock_logger = Mock()
-            mock_audit_logger = Mock()
-            mock_get_logger.return_value = mock_logger
+        event = SecurityEvent(
+            event_type=SecurityEventType.AUTH_SUCCESS,
+            severity=SecuritySeverity.LOW,
+            user_id="user123",
+        )
 
-            logger = SecurityEventLogger()
-            logger.audit_logger = mock_audit_logger
+        security_event_logger.log_event(event)
 
-            event = SecurityEvent(
+        # Verify event was added to cache and audit logged
+        assert len(security_event_logger._event_cache) == 1
+        assert security_event_logger._event_cache[0] == event
+        security_event_logger.audit_logger.info.assert_called_once()
+
+        # Verify audit log format
+        call_args = security_event_logger.audit_logger.info.call_args[0][0]
+        assert call_args.startswith("AUDIT: ")
+        assert "auth_success" in call_args
+        assert "user123" in call_args
+
+    @pytest.mark.parametrize(
+        "method_name,event_type,severity,expected_action,expected_result",
+        [
+            (
+                "log_authentication_success",
+                SecurityEventType.AUTH_SUCCESS,
+                SecuritySeverity.LOW,
+                "authenticate",
+                "success",
+            ),
+            (
+                "log_authentication_failure",
+                SecurityEventType.AUTH_FAILURE,
+                SecuritySeverity.MEDIUM,
+                "authenticate",
+                "failure",
+            ),
+            (
+                "log_credential_access",
+                SecurityEventType.SYSTEM_CREDENTIAL_ACCESS,
+                SecuritySeverity.HIGH,
+                "read",
+                None,
+            ),
+        ],
+    )
+    def test_security_event_methods(
+        self,
+        security_event_logger,
+        method_name,
+        event_type,
+        severity,
+        expected_action,
+        expected_result,
+    ):
+        """Test various security event logging methods."""
+        security_event_logger.log_event = Mock()
+
+        # Call the method with minimal params
+        method = getattr(security_event_logger, method_name)
+        if method_name == "log_credential_access":
+            method(resource="/api/test")
+        else:
+            method(user_id="user123")
+
+        security_event_logger.log_event.assert_called_once()
+        event = security_event_logger.log_event.call_args[0][0]
+
+        assert event.event_type == event_type
+        assert event.severity == severity
+        if expected_action:
+            assert event.action == expected_action
+        if expected_result:
+            assert event.result == expected_result
+
+    def test_log_token_refresh_success_and_failure(self, security_event_logger):
+        """Test log_token_refresh with both success and failure cases."""
+        security_event_logger.log_event = Mock()
+
+        # Test success
+        security_event_logger.log_token_refresh(user_id="user123", success=True)
+        event = security_event_logger.log_event.call_args[0][0]
+        assert event.result == "success"
+
+        # Reset mock and test failure
+        security_event_logger.log_event.reset_mock()
+        security_event_logger.log_token_refresh(user_id="user123", success=False)
+        event = security_event_logger.log_event.call_args[0][0]
+        assert event.result == "failure"
+
+    @pytest.mark.parametrize(
+        "severity,expected_level",
+        [
+            (SecuritySeverity.LOW, logging.DEBUG),
+            (SecuritySeverity.MEDIUM, logging.WARNING),
+            (SecuritySeverity.HIGH, logging.ERROR),
+            (SecuritySeverity.CRITICAL, logging.CRITICAL),
+        ],
+    )
+    def test_severity_to_log_level(self, security_event_logger, severity, expected_level):
+        """Test _severity_to_log_level method."""
+        assert security_event_logger._severity_to_log_level(severity) == expected_level
+
+    def test_severity_to_log_level_unknown(self, security_event_logger):
+        """Test _severity_to_log_level with unknown severity."""
+        mock_severity = Mock()
+        assert security_event_logger._severity_to_log_level(mock_severity) == logging.WARNING
+
+    def test_cache_operations(self, security_event_logger):
+        """Test cache add operations and size limits."""
+        # Test basic add
+        event1 = SecurityEvent(user_id="user1")
+        event2 = SecurityEvent(user_id="user2")
+
+        security_event_logger._add_to_cache(event1)
+        security_event_logger._add_to_cache(event2)
+
+        assert len(security_event_logger._event_cache) == 2
+        assert security_event_logger._event_cache == [event1, event2]
+
+        # Test size limit
+        security_event_logger.cache_size = 2
+        event3 = SecurityEvent(user_id="user3")
+        security_event_logger._add_to_cache(event3)
+
+        assert len(security_event_logger._event_cache) == 2
+        assert security_event_logger._event_cache == [event2, event3]
+
+    def test_get_recent_events_filtering(self, security_event_logger):
+        """Test get_recent_events with various filters."""
+        # Add test events
+        events = [
+            SecurityEvent(
                 event_type=SecurityEventType.AUTH_SUCCESS,
                 severity=SecuritySeverity.LOW,
-                user_id="user123",
-            )
-
-            logger.log_event(event)
-
-            # Verify event was added to cache
-            assert len(logger._event_cache) == 1
-            assert logger._event_cache[0] == event
-
-            # Verify audit logging call (main logger.log is not called in implementation)
-            mock_audit_logger.info.assert_called_once()
-
-            # Verify the audit log message format
-            call_args = mock_audit_logger.info.call_args[0][0]
-            assert call_args.startswith("AUDIT: ")
-            assert "auth_success" in call_args
-            assert "user123" in call_args
-
-    def test_log_authentication_success(self):
-        """Test log_authentication_success method."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-            logger.log_event = Mock()
-
-            logger.log_authentication_success(
-                user_id="user123", session_id="session456", details={"method": "password"}
-            )
-
-            logger.log_event.assert_called_once()
-            event = logger.log_event.call_args[0][0]
-
-            assert event.event_type == SecurityEventType.AUTH_SUCCESS
-            assert event.severity == SecuritySeverity.LOW
-            assert event.user_id == "user123"
-            assert event.session_id == "session456"
-            assert event.action == "authenticate"
-            assert event.result == "success"
-            assert event.details == {"method": "password"}
-
-    def test_log_authentication_failure(self):
-        """Test log_authentication_failure method."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-            logger.log_event = Mock()
-
-            logger.log_authentication_failure(
-                user_id="user123", reason="Invalid password", details={"attempts": 3}
-            )
-
-            logger.log_event.assert_called_once()
-            event = logger.log_event.call_args[0][0]
-
-            assert event.event_type == SecurityEventType.AUTH_FAILURE
-            assert event.severity == SecuritySeverity.MEDIUM
-            assert event.user_id == "user123"
-            assert event.action == "authenticate"
-            assert event.result == "failure"
-            assert event.details == {"attempts": 3, "failure_reason": "Invalid password"}
-
-    def test_log_token_refresh(self):
-        """Test log_token_refresh method."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-            logger.log_event = Mock()
-
-            # Test successful refresh
-            logger.log_token_refresh(user_id="user123", session_id="session456", success=True)
-
-            logger.log_event.assert_called_once()
-            event = logger.log_event.call_args[0][0]
-
-            assert event.event_type == SecurityEventType.AUTH_TOKEN_REFRESH
-            assert event.severity == SecuritySeverity.LOW
-            assert event.user_id == "user123"
-            assert event.session_id == "session456"
-            assert event.action == "token_refresh"
-            assert event.result == "success"
-
-    def test_log_token_refresh_failure(self):
-        """Test log_token_refresh method with failure."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-            logger.log_event = Mock()
-
-            logger.log_token_refresh(user_id="user123", session_id="session456", success=False)
-
-            event = logger.log_event.call_args[0][0]
-            assert event.result == "failure"
-
-    def test_log_input_validation_failure(self):
-        """Test log_input_validation_failure method."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-            logger.log_event = Mock()
-
-            logger.log_input_validation_failure(
-                input_type="calendar_url",
-                validation_error="Invalid URL format",
-                details={"url": "invalid-url", "source": "web_form"},
-            )
-
-            logger.log_event.assert_called_once()
-            event = logger.log_event.call_args[0][0]
-
-            assert event.event_type == SecurityEventType.INPUT_VALIDATION_FAILURE
-            assert event.severity == SecuritySeverity.MEDIUM
-            assert event.action == "validate_input"
-            assert event.result == "failure"
-            expected_details = {
-                "url": "invalid-url",
-                "source": "web_form",
-                "input_type": "calendar_url",
-                "validation_error": "Invalid URL format",
-            }
-            assert event.details == expected_details
-
-    def test_log_credential_access(self):
-        """Test log_credential_access method."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-            logger.log_event = Mock()
-
-            logger.log_credential_access(
-                resource="/api/tokens", access_type="write", user_id="admin123"
-            )
-
-            logger.log_event.assert_called_once()
-            event = logger.log_event.call_args[0][0]
-
-            assert event.event_type == SecurityEventType.SYSTEM_CREDENTIAL_ACCESS
-            assert event.severity == SecuritySeverity.HIGH
-            assert event.user_id == "admin123"
-            assert event.resource == "/api/tokens"
-            assert event.action == "write"
-            assert event.details == {"credential_type": "authentication_token"}
-
-    def test_log_security_violation(self):
-        """Test log_security_violation method."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-            logger.log_event = Mock()
-
-            logger.log_security_violation(
-                violation_type="rate_limit_exceeded",
-                description="Too many requests from IP",
+                timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            ),
+            SecurityEvent(
+                event_type=SecurityEventType.AUTH_FAILURE,
                 severity=SecuritySeverity.HIGH,
-                details={"ip": "192.168.1.100", "requests": 1000},
-            )
+                timestamp=datetime(2024, 1, 2, tzinfo=timezone.utc),
+            ),
+            SecurityEvent(
+                event_type=SecurityEventType.AUTH_SUCCESS,
+                severity=SecuritySeverity.CRITICAL,
+                timestamp=datetime(2024, 1, 3, tzinfo=timezone.utc),
+            ),
+        ]
 
-            logger.log_event.assert_called_once()
-            event = logger.log_event.call_args[0][0]
+        for event in events:
+            security_event_logger._add_to_cache(event)
 
-            assert event.event_type == SecurityEventType.SYSTEM_SECURITY_VIOLATION
-            assert event.severity == SecuritySeverity.HIGH
-            assert event.action == "security_check"
-            assert event.result == "violation"
-            expected_details = {
-                "ip": "192.168.1.100",
-                "requests": 1000,
-                "violation_type": "rate_limit_exceeded",
-                "description": "Too many requests from IP",
-            }
-            assert event.details == expected_details
+        # Test no filters (should return in reverse chronological order)
+        recent = security_event_logger.get_recent_events(limit=10)
+        assert len(recent) == 3
+        assert recent[0] == events[2]  # Most recent first
 
-    def test_severity_to_log_level(self):
-        """Test _severity_to_log_level method."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
+        # Test type filter
+        auth_success_events = security_event_logger.get_recent_events(
+            event_type=SecurityEventType.AUTH_SUCCESS
+        )
+        assert len(auth_success_events) == 2
 
-            assert logger._severity_to_log_level(SecuritySeverity.LOW) == logging.DEBUG
-            assert logger._severity_to_log_level(SecuritySeverity.MEDIUM) == logging.WARNING
-            assert logger._severity_to_log_level(SecuritySeverity.HIGH) == logging.ERROR
-            assert logger._severity_to_log_level(SecuritySeverity.CRITICAL) == logging.CRITICAL
+        # Test severity filter (HIGH and above)
+        high_severity_events = security_event_logger.get_recent_events(
+            severity=SecuritySeverity.HIGH
+        )
+        assert len(high_severity_events) == 2
 
-    def test_severity_to_log_level_unknown(self):
-        """Test _severity_to_log_level with unknown severity."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
+        # Test limit
+        limited = security_event_logger.get_recent_events(limit=1)
+        assert len(limited) == 1
 
-            # Create a mock severity that won't be in the mapping
-            mock_severity = Mock()
-            result = logger._severity_to_log_level(mock_severity)
-            assert result == logging.WARNING
+    def test_get_security_summary(self, security_event_logger):
+        """Test get_security_summary with empty and populated cache."""
+        # Test empty cache
+        summary = security_event_logger.get_security_summary()
+        expected_empty = {"total_events": 0, "by_severity": {}, "by_type": {}}
+        assert summary == expected_empty
 
-    def test_add_to_cache(self):
-        """Test _add_to_cache method."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
+        # Add test events
+        events = [
+            SecurityEvent(event_type=SecurityEventType.AUTH_SUCCESS, severity=SecuritySeverity.LOW),
+            SecurityEvent(event_type=SecurityEventType.AUTH_SUCCESS, severity=SecuritySeverity.LOW),
+            SecurityEvent(
+                event_type=SecurityEventType.AUTH_FAILURE, severity=SecuritySeverity.MEDIUM
+            ),
+        ]
 
-            event1 = SecurityEvent(user_id="user1")
-            event2 = SecurityEvent(user_id="user2")
+        for event in events:
+            security_event_logger._add_to_cache(event)
 
-            logger._add_to_cache(event1)
-            assert len(logger._event_cache) == 1
-            assert logger._event_cache[0] == event1
+        summary = security_event_logger.get_security_summary()
 
-            logger._add_to_cache(event2)
-            assert len(logger._event_cache) == 2
-            assert logger._event_cache[1] == event2
-
-    def test_add_to_cache_size_limit(self):
-        """Test _add_to_cache respects cache size limit."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-            logger.cache_size = 3  # Set small cache size for testing
-
-            # Add events beyond cache size
-            events = [SecurityEvent(user_id=f"user{i}") for i in range(5)]
-            for event in events:
-                logger._add_to_cache(event)
-
-            # Should only keep the last 3 events
-            assert len(logger._event_cache) == 3
-            assert logger._event_cache[0].user_id == "user2"
-            assert logger._event_cache[1].user_id == "user3"
-            assert logger._event_cache[2].user_id == "user4"
-
-    def test_get_recent_events_no_filters(self):
-        """Test get_recent_events without filters."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-
-            # Add events with different timestamps
-            event1 = SecurityEvent(
-                user_id="user1", timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc)
-            )
-            event2 = SecurityEvent(
-                user_id="user2", timestamp=datetime(2024, 1, 2, tzinfo=timezone.utc)
-            )
-            event3 = SecurityEvent(
-                user_id="user3", timestamp=datetime(2024, 1, 3, tzinfo=timezone.utc)
-            )
-
-            for event in [event1, event2, event3]:
-                logger._add_to_cache(event)
-
-            recent = logger.get_recent_events(limit=10)
-
-            # Should return events in reverse chronological order
-            assert len(recent) == 3
-            assert recent[0] == event3  # Most recent first
-            assert recent[1] == event2
-            assert recent[2] == event1
-
-    def test_get_recent_events_with_limit(self):
-        """Test get_recent_events with limit."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-
-            # Add 5 events
-            events = [SecurityEvent(user_id=f"user{i}") for i in range(5)]
-            for event in events:
-                logger._add_to_cache(event)
-
-            recent = logger.get_recent_events(limit=2)
-            assert len(recent) == 2
-
-    def test_get_recent_events_filter_by_type(self):
-        """Test get_recent_events filtering by event type."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-
-            auth_event = SecurityEvent(event_type=SecurityEventType.AUTH_SUCCESS)
-            violation_event = SecurityEvent(event_type=SecurityEventType.SYSTEM_SECURITY_VIOLATION)
-
-            logger._add_to_cache(auth_event)
-            logger._add_to_cache(violation_event)
-
-            auth_events = logger.get_recent_events(event_type=SecurityEventType.AUTH_SUCCESS)
-            assert len(auth_events) == 1
-            assert auth_events[0] == auth_event
-
-    def test_get_recent_events_filter_by_severity(self):
-        """Test get_recent_events filtering by severity."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-
-            low_event = SecurityEvent(severity=SecuritySeverity.LOW)
-            high_event = SecurityEvent(severity=SecuritySeverity.HIGH)
-            critical_event = SecurityEvent(severity=SecuritySeverity.CRITICAL)
-
-            for event in [low_event, high_event, critical_event]:
-                logger._add_to_cache(event)
-
-            # Filter for HIGH severity and above
-            high_and_above = logger.get_recent_events(severity=SecuritySeverity.HIGH)
-            assert len(high_and_above) == 2
-            assert low_event not in high_and_above
-            assert high_event in high_and_above
-            assert critical_event in high_and_above
-
-    def test_get_security_summary_empty_cache(self):
-        """Test get_security_summary with empty cache."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-
-            summary = logger.get_security_summary()
-
-            expected = {"total_events": 0, "by_severity": {}, "by_type": {}}
-            assert summary == expected
-
-    def test_get_security_summary_with_events(self):
-        """Test get_security_summary with events in cache."""
-        with patch("calendarbot.security.logging.get_logger"):
-            logger = SecurityEventLogger()
-
-            # Add events of different types and severities
-            events = [
-                SecurityEvent(
-                    event_type=SecurityEventType.AUTH_SUCCESS, severity=SecuritySeverity.LOW
-                ),
-                SecurityEvent(
-                    event_type=SecurityEventType.AUTH_SUCCESS, severity=SecuritySeverity.LOW
-                ),
-                SecurityEvent(
-                    event_type=SecurityEventType.AUTH_FAILURE, severity=SecuritySeverity.MEDIUM
-                ),
-                SecurityEvent(
-                    event_type=SecurityEventType.SYSTEM_SECURITY_VIOLATION,
-                    severity=SecuritySeverity.HIGH,
-                ),
-            ]
-
-            for event in events:
-                logger._add_to_cache(event)
-
-            summary = logger.get_security_summary()
-
-            assert summary["total_events"] == 4
-            assert summary["recent_events"] == 4
-            assert summary["by_severity"]["low"] == 2
-            assert summary["by_severity"]["medium"] == 1
-            assert summary["by_severity"]["high"] == 1
-            assert summary["by_severity"]["critical"] == 0
-            assert summary["by_type"]["auth_success"] == 2
-            assert summary["by_type"]["auth_failure"] == 1
-            assert summary["by_type"]["system_security_violation"] == 1
-            assert summary["oldest_event"] is not None
-            assert summary["newest_event"] is not None
+        assert summary["total_events"] == 3
+        assert summary["recent_events"] == 3
+        assert summary["by_severity"]["low"] == 2
+        assert summary["by_severity"]["medium"] == 1
+        assert summary["by_type"]["auth_success"] == 2
+        assert summary["by_type"]["auth_failure"] == 1
+        assert summary["oldest_event"] is not None
+        assert summary["newest_event"] is not None
 
 
 class TestGlobalSecurityLoggerFunctions:

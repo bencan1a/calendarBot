@@ -1,5 +1,6 @@
 """Unit tests for layout switching functionality with layout-renderer separation."""
 
+import logging
 from unittest.mock import Mock, patch
 
 import pytest
@@ -8,66 +9,83 @@ from calendarbot.display.manager import DisplayManager
 from calendarbot.layout.registry import LayoutInfo, LayoutRegistry
 from calendarbot.web.server import WebServer
 
+# Disable logging for performance
+logging.getLogger("calendarbot").setLevel(logging.CRITICAL)
+
+
+@pytest.fixture(scope="module")
+def shared_layout_info():
+    """Shared LayoutInfo for performance."""
+    return LayoutInfo(
+        name="test",
+        display_name="Test Layout",
+        version="1.0.0",
+        description="Test layout",
+        capabilities={"renderer_type": "html"},
+        renderer_type="html",
+        fallback_chain=[],
+        resources={"css": [], "js": []},
+        requirements={},
+    )
+
+
+@pytest.fixture(scope="module")
+def shared_layout_registry(shared_layout_info):
+    """Shared mock layout registry for performance."""
+    registry = Mock(spec=LayoutRegistry)
+    registry.get_available_layouts.return_value = ["4x8", "whats-next-view"]
+    registry.validate_layout.side_effect = lambda layout: layout in ["4x8", "whats-next-view"]
+    registry.get_layout_info.return_value = shared_layout_info
+    return registry
+
+
+@pytest.fixture(scope="module")
+def shared_settings():
+    """Shared mock settings for performance."""
+    settings = Mock()
+    settings.display_type = "html"
+    settings.display_enabled = True
+    settings.layout_name = "whats-next-view"
+    settings.web_layout = "whats-next-view"
+    settings.web_host = "localhost"
+    settings.web_port = 8080
+    return settings
+
 
 class TestLayoutSwitching:
     """Test layout switching functionality with new layout-renderer separation."""
 
     @pytest.fixture
-    def mock_layout_registry(self) -> Mock:
-        """Create mock layout registry."""
-        registry = Mock(spec=LayoutRegistry)
-        registry.get_available_layouts.return_value = ["4x8", "whats-next-view"]
-        registry.validate_layout.side_effect = lambda layout: layout in ["4x8", "whats-next-view"]
-        # Mock the actual LayoutInfo object that get_layout_info returns
-        mock_layout_info = LayoutInfo(
-            name="test",
-            display_name="Test Layout",
-            version="1.0.0",
-            description="Test layout",
-            capabilities={"renderer_type": "html"},
-            renderer_type="html",
-            fallback_chain=[],
-            resources={"css": [], "js": []},
-            requirements={},
-        )
-        registry.get_layout_info.return_value = mock_layout_info
-        return registry
-
-    @pytest.fixture
-    def mock_settings(self) -> Mock:
-        """Create mock settings with layout-renderer separation."""
-        settings = Mock()
-        settings.display_type = "html"  # This is the renderer type
-        settings.display_enabled = True
-        settings.layout_name = "whats-next-view"  # This is the layout name
-        settings.web_layout = "whats-next-view"  # For web server compatibility
-        settings.web_host = "localhost"
-        settings.web_port = 8080
-        return settings
-
-    @pytest.fixture
-    def display_manager(self, mock_settings: Mock, mock_layout_registry: Mock) -> DisplayManager:
-        """Create display manager with mock settings and layout registry."""
+    def display_manager(self, shared_settings, shared_layout_registry) -> DisplayManager:
+        """Create display manager with shared fixtures."""
         with (
-            patch("calendarbot.display.manager.LayoutRegistry", return_value=mock_layout_registry),
+            patch(
+                "calendarbot.display.manager.LayoutRegistry", return_value=shared_layout_registry
+            ),
             patch("calendarbot.display.manager.RendererFactory.create_renderer") as mock_create,
         ):
             mock_renderer = Mock()
             mock_create.return_value = mock_renderer
-            return DisplayManager(mock_settings)
+            return DisplayManager(shared_settings)
 
     @pytest.fixture
-    def web_server(self, mock_settings: Mock, mock_layout_registry: Mock) -> WebServer:
-        """Create web server with mock components and layout registry."""
+    def web_server(self, shared_settings, shared_layout_registry) -> WebServer:
+        """Create web server with shared fixtures and disabled asset cache."""
         mock_display_manager = Mock()
         mock_display_manager.get_display_type.return_value = "whats-next-view"
         mock_cache_manager = Mock()
-        return WebServer(
-            mock_settings,
-            mock_display_manager,
-            mock_cache_manager,
-            layout_registry=mock_layout_registry,
-        )
+
+        # Mock expensive operations
+        with (
+            patch("calendarbot.optimization.static_asset_cache.StaticAssetCache"),
+            patch("calendarbot.settings.service.SettingsService"),
+        ):
+            return WebServer(
+                shared_settings,
+                mock_display_manager,
+                mock_cache_manager,
+                layout_registry=shared_layout_registry,
+            )
 
     def test_set_layout_4x8(self, display_manager: DisplayManager) -> None:
         """Test setting layout to 4x8."""
@@ -160,26 +178,28 @@ class TestLayoutSwitching:
         assert result == "whats-next-view"
 
     def test_display_manager_renderer_factory_creation(
-        self, mock_settings: Mock, mock_layout_registry: Mock
+        self, shared_settings, shared_layout_registry
     ) -> None:
         """Test renderer creation using factory pattern."""
-        mock_settings.display_type = "html"
+        shared_settings.display_type = "html"
 
         with (
-            patch("calendarbot.display.manager.LayoutRegistry", return_value=mock_layout_registry),
+            patch(
+                "calendarbot.display.manager.LayoutRegistry", return_value=shared_layout_registry
+            ),
             patch("calendarbot.display.manager.RendererFactory.create_renderer") as mock_create,
         ):
             mock_renderer = Mock()
             mock_create.return_value = mock_renderer
 
-            DisplayManager(mock_settings)
+            DisplayManager(shared_settings)
 
             # Verify factory was used with new keyword signature including layout_registry
             mock_create.assert_called_once_with(
-                settings=mock_settings,
+                settings=shared_settings,
                 renderer_type="eink-whats-next",
                 layout_name=None,
-                layout_registry=mock_layout_registry,
+                layout_registry=shared_layout_registry,
             )
 
     def test_display_manager_layout_renderer_separation(
@@ -268,7 +288,7 @@ class TestLayoutSwitching:
                 layout_registry=display_manager.layout_registry,
             )
 
-    def test_fallback_to_emergency_layouts(self, mock_settings: Mock) -> None:
+    def test_fallback_to_emergency_layouts(self, shared_settings) -> None:
         """Test fallback behavior when layout registry fails."""
         # Mock LayoutRegistry to throw exception during initialization
         with patch("calendarbot.display.manager.LayoutRegistry") as mock_registry_class:
@@ -281,7 +301,7 @@ class TestLayoutSwitching:
                 mock_create.return_value = mock_renderer
 
                 # Should still create display manager with None registry
-                display_manager = DisplayManager(mock_settings)
+                display_manager = DisplayManager(shared_settings)
                 assert display_manager.layout_registry is None
 
                 # Should still have emergency fallback layouts available

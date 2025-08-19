@@ -12,6 +12,65 @@ from pydantic import ValidationError
 from calendarbot.config.ics_config import ICSAuth, ICSConfig, ICSSourceConfig
 
 
+@pytest.fixture
+def basic_auth():
+    """Basic authentication configuration."""
+    return ICSAuth(type="basic", username="testuser", password="testpass")
+
+
+@pytest.fixture
+def bearer_auth():
+    """Bearer token authentication configuration."""
+    return ICSAuth(type="bearer", bearer_token="abc123xyz")
+
+
+@pytest.fixture
+def no_auth():
+    """No authentication configuration."""
+    return ICSAuth()
+
+
+@pytest.fixture
+def basic_source_config():
+    """Basic ICS source configuration."""
+    return ICSSourceConfig(url="https://example.com/calendar.ics")
+
+
+@pytest.fixture
+def mock_settings_basic():
+    """Mock settings object with basic configuration."""
+    mock_settings = MagicMock()
+    mock_settings.configure_mock(
+        ics_url="https://example.com/calendar.ics",
+        ics_refresh_interval=300,
+        ics_timeout=30,
+        max_retries=3,
+        retry_backoff_factor=1.5,
+        ics_validate_ssl=True,
+        cache_ttl=3600,
+        ics_enable_caching=True,
+        ics_filter_busy_only=True,
+        ics_expand_recurring=False,
+    )
+    return mock_settings
+
+
+@pytest.fixture
+def mock_settings_with_basic_auth(mock_settings_basic):
+    """Mock settings with basic authentication."""
+    mock_settings_basic.configure_mock(
+        ics_auth_type="basic", ics_username="testuser", ics_password="testpass"
+    )
+    return mock_settings_basic
+
+
+@pytest.fixture
+def mock_settings_with_bearer_auth(mock_settings_basic):
+    """Mock settings with bearer authentication."""
+    mock_settings_basic.configure_mock(ics_auth_type="bearer", ics_bearer_token="abc123xyz")
+    return mock_settings_basic
+
+
 class TestICSAuth:
     """Test ICSAuth authentication configuration model."""
 
@@ -245,19 +304,17 @@ class TestICSSourceConfig:
         config = ICSSourceConfig(url="https://example.com/cal.ics", timeout=valid_timeout)
         assert config.timeout == valid_timeout
 
-    def test_ics_source_config_with_basic_auth(self):
+    def test_ics_source_config_with_basic_auth(self, basic_auth):
         """Test ICSSourceConfig with basic authentication."""
-        auth = ICSAuth(type="basic", username="testuser", password="testpass")
-        config = ICSSourceConfig(url="https://example.com/cal.ics", auth=auth)
+        config = ICSSourceConfig(url="https://example.com/cal.ics", auth=basic_auth)
 
         assert config.auth.type == "basic"
         assert config.auth.username == "testuser"
         assert config.auth.password == "testpass"
 
-    def test_ics_source_config_with_bearer_auth(self):
+    def test_ics_source_config_with_bearer_auth(self, bearer_auth):
         """Test ICSSourceConfig with bearer authentication."""
-        auth = ICSAuth(type="bearer", bearer_token="abc123xyz")
-        config = ICSSourceConfig(url="https://example.com/cal.ics", auth=auth)
+        config = ICSSourceConfig(url="https://example.com/cal.ics", auth=bearer_auth)
 
         assert config.auth.type == "bearer"
         assert config.auth.bearer_token == "abc123xyz"
@@ -276,12 +333,11 @@ class TestICSSourceConfig:
 class TestICSConfig:
     """Test ICSConfig complete configuration model."""
 
-    def test_ics_config_minimal(self):
+    def test_ics_config_minimal(self, basic_source_config):
         """Test ICSConfig with minimal required fields."""
-        primary_source = ICSSourceConfig(url="https://example.com/cal.ics")
-        config = ICSConfig(primary_source=primary_source)
+        config = ICSConfig(primary_source=basic_source_config)
 
-        assert config.primary_source == primary_source
+        assert config.primary_source == basic_source_config
         assert config.cache_ttl == 3600
         assert config.enable_caching is True
         assert config.filter_busy_only is True
@@ -289,11 +345,10 @@ class TestICSConfig:
         assert config.max_consecutive_failures == 5
         assert config.failure_retry_delay == 60
 
-    def test_ics_config_with_custom_values(self):
+    def test_ics_config_with_custom_values(self, bearer_auth):
         """Test ICSConfig with custom values."""
-        auth = ICSAuth(type="bearer", bearer_token="token123")
         primary_source = ICSSourceConfig(
-            url="https://secure.example.com/cal.ics", auth=auth, refresh_interval=900
+            url="https://secure.example.com/cal.ics", auth=bearer_auth, refresh_interval=900
         )
 
         config = ICSConfig(
@@ -324,69 +379,33 @@ class TestICSConfig:
             exc_info.value
         )
 
-    def test_ics_config_from_settings_minimal(self):
+    def test_ics_config_from_settings_minimal(self, mock_settings_basic):
         """Test from_settings class method with minimal settings."""
-        # Create a mock settings object with minimal required attributes
-        mock_settings = MagicMock()
-        mock_settings.ics_url = "https://example.com/calendar.ics"
-
-        # Set up default attribute values using configure_mock
-        mock_settings.configure_mock(
-            ics_refresh_interval=300, ics_timeout=30, max_retries=3, retry_backoff_factor=1.5, ics_validate_ssl=True, cache_ttl=3600, ics_enable_caching=True, ics_filter_busy_only=True, ics_expand_recurring=False
-        )
-
         # Mock hasattr to return False for ics_auth_type (no auth)
-        def mock_hasattr(obj, name):
-            return name != "ics_auth_type"
-
-        with patch("builtins.hasattr", side_effect=mock_hasattr):
-            config = ICSConfig.from_settings(mock_settings)
+        with patch("builtins.hasattr", return_value=False):
+            config = ICSConfig.from_settings(mock_settings_basic)
 
         assert config.primary_source.url == "https://example.com/calendar.ics"
         assert config.primary_source.auth.type is None
         assert config.cache_ttl == 3600
         assert config.enable_caching is True
 
-    def test_ics_config_from_settings_with_basic_auth(self):
+    def test_ics_config_from_settings_with_basic_auth(self, mock_settings_with_basic_auth):
         """Test from_settings with basic authentication."""
-        mock_settings = MagicMock()
-        mock_settings.ics_url = "https://example.com/calendar.ics"
-        mock_settings.ics_auth_type = "basic"
-
-        # Set up all required attributes directly on the mock
-        mock_settings.configure_mock(
-            ics_username="testuser", ics_password="testpass", ics_refresh_interval=300, ics_timeout=30, max_retries=3, retry_backoff_factor=1.5, ics_validate_ssl=True, cache_ttl=3600, ics_enable_caching=True, ics_filter_busy_only=True, ics_expand_recurring=False
-        )
-
         # Mock hasattr to return True for ics_auth_type
-        def mock_hasattr(obj, name):
-            return name == "ics_auth_type"
-
-        with patch("builtins.hasattr", side_effect=mock_hasattr):
-            config = ICSConfig.from_settings(mock_settings)
+        with patch("builtins.hasattr", return_value=True):
+            config = ICSConfig.from_settings(mock_settings_with_basic_auth)
 
         assert config.primary_source.url == "https://example.com/calendar.ics"
         assert config.primary_source.auth.type == "basic"
         assert config.primary_source.auth.username == "testuser"
         assert config.primary_source.auth.password == "testpass"
 
-    def test_ics_config_from_settings_with_bearer_auth(self):
+    def test_ics_config_from_settings_with_bearer_auth(self, mock_settings_with_bearer_auth):
         """Test from_settings with bearer authentication."""
-        mock_settings = MagicMock()
-        mock_settings.ics_url = "https://example.com/calendar.ics"
-        mock_settings.ics_auth_type = "bearer"
-
-        # Set up all required attributes directly on the mock
-        mock_settings.configure_mock(
-            ics_bearer_token="abc123xyz", ics_refresh_interval=300, ics_timeout=30, max_retries=3, retry_backoff_factor=1.5, ics_validate_ssl=True, cache_ttl=3600, ics_enable_caching=True, ics_filter_busy_only=True, ics_expand_recurring=False
-        )
-
         # Mock hasattr to return True for ics_auth_type
-        def mock_hasattr(obj, name):
-            return name == "ics_auth_type"
-
-        with patch("builtins.hasattr", side_effect=mock_hasattr):
-            config = ICSConfig.from_settings(mock_settings)
+        with patch("builtins.hasattr", return_value=True):
+            config = ICSConfig.from_settings(mock_settings_with_bearer_auth)
 
         assert config.primary_source.url == "https://example.com/calendar.ics"
         assert config.primary_source.auth.type == "bearer"
@@ -395,19 +414,21 @@ class TestICSConfig:
     def test_ics_config_from_settings_with_custom_values(self):
         """Test from_settings with custom configuration values."""
         mock_settings = MagicMock()
-        mock_settings.ics_url = "https://custom.example.com/cal.ics"
-        mock_settings.ics_auth_type = None
-
-        # Set up all custom attributes directly on the mock
         mock_settings.configure_mock(
-            ics_refresh_interval=600, ics_timeout=60, max_retries=5, retry_backoff_factor=2.0, ics_validate_ssl=False, cache_ttl=7200, ics_enable_caching=False, ics_filter_busy_only=False, ics_expand_recurring=True
+            ics_url="https://custom.example.com/cal.ics",
+            ics_refresh_interval=600,
+            ics_timeout=60,
+            max_retries=5,
+            retry_backoff_factor=2.0,
+            ics_validate_ssl=False,
+            cache_ttl=7200,
+            ics_enable_caching=False,
+            ics_filter_busy_only=False,
+            ics_expand_recurring=True,
         )
 
         # Mock hasattr to return False for ics_auth_type (no auth)
-        def mock_hasattr(obj, name):
-            return name != "ics_auth_type"
-
-        with patch("builtins.hasattr", side_effect=mock_hasattr):
+        with patch("builtins.hasattr", return_value=False):
             config = ICSConfig.from_settings(mock_settings)
 
         assert config.primary_source.url == "https://custom.example.com/cal.ics"
@@ -421,43 +442,22 @@ class TestICSConfig:
         assert config.filter_busy_only is False
         assert config.expand_recurring is True
 
-    def test_ics_config_from_settings_no_auth_type_attribute(self):
+    def test_ics_config_from_settings_no_auth_type_attribute(self, mock_settings_basic):
         """Test from_settings when settings has no ics_auth_type attribute."""
-        mock_settings = MagicMock()
-        mock_settings.ics_url = "https://example.com/calendar.ics"
-
-        # Set up all required attributes directly on the mock
-        mock_settings.configure_mock(
-            ics_refresh_interval=300, ics_timeout=30, max_retries=3, retry_backoff_factor=1.5, ics_validate_ssl=True, cache_ttl=3600, ics_enable_caching=True, ics_filter_busy_only=True, ics_expand_recurring=False
-        )
-
         # Mock hasattr to return False for ics_auth_type (no auth)
-        def mock_hasattr(obj, name):
-            return name != "ics_auth_type"
-
-        with patch("builtins.hasattr", side_effect=mock_hasattr):
-            config = ICSConfig.from_settings(mock_settings)
+        with patch("builtins.hasattr", return_value=False):
+            config = ICSConfig.from_settings(mock_settings_basic)
 
         # Should create config with no authentication
         assert config.primary_source.auth.type is None
 
-    def test_ics_config_from_settings_empty_auth_type(self):
+    def test_ics_config_from_settings_empty_auth_type(self, mock_settings_basic):
         """Test from_settings when ics_auth_type is empty."""
-        mock_settings = MagicMock()
-        mock_settings.ics_url = "https://example.com/calendar.ics"
-        mock_settings.ics_auth_type = ""  # Empty string
-
-        # Set up all required attributes directly on the mock
-        mock_settings.configure_mock(
-            ics_refresh_interval=300, ics_timeout=30, max_retries=3, retry_backoff_factor=1.5, ics_validate_ssl=True, cache_ttl=3600, ics_enable_caching=True, ics_filter_busy_only=True, ics_expand_recurring=False
-        )
+        mock_settings_basic.ics_auth_type = ""  # Empty string
 
         # Mock hasattr to return True for ics_auth_type
-        def mock_hasattr(obj, name):
-            return name == "ics_auth_type"
-
-        with patch("builtins.hasattr", side_effect=mock_hasattr):
-            config = ICSConfig.from_settings(mock_settings)
+        with patch("builtins.hasattr", return_value=True):
+            config = ICSConfig.from_settings(mock_settings_basic)
 
         # Empty auth_type should not set up authentication
         assert config.primary_source.auth.type is None

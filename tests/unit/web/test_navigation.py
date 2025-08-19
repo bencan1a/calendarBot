@@ -3,159 +3,96 @@
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from calendarbot.ui.navigation import NavigationState
 from calendarbot.web.navigation import WebNavigationHandler
 
 
-class TestWebNavigationHandler:
-    """Test suite for WebNavigationHandler class."""
+@pytest.fixture
+def handler():
+    """Create WebNavigationHandler instance for testing."""
+    return WebNavigationHandler()
 
-    def test_init_when_no_navigation_state_then_creates_new_state(self) -> None:
-        """Test initialization with no navigation state creates a new one."""
-        # Act
-        handler = WebNavigationHandler()
 
-        # Assert
+@pytest.fixture
+def handler_with_nav_state():
+    """Create WebNavigationHandler with provided navigation state."""
+    nav_state = NavigationState()
+    return WebNavigationHandler(navigation_state=nav_state), nav_state
+
+
+class TestWebNavigationHandlerInitialization:
+    """Test WebNavigationHandler initialization."""
+
+    def test_init_with_no_navigation_state(self, handler):
+        """Test initialization creates new navigation state."""
         assert isinstance(handler.navigation_state, NavigationState)
         assert len(handler._navigation_callbacks) == 0
 
-    def test_init_when_navigation_state_provided_then_uses_provided_state(self) -> None:
-        """Test initialization with provided navigation state uses it."""
-        # Arrange
-        nav_state = NavigationState()
-
-        # Act
-        handler = WebNavigationHandler(navigation_state=nav_state)
-
-        # Assert
+    def test_init_with_provided_navigation_state(self, handler_with_nav_state):
+        """Test initialization uses provided navigation state."""
+        handler, nav_state = handler_with_nav_state
         assert handler.navigation_state is nav_state
         assert len(handler._navigation_callbacks) == 0
 
-    def test_handle_navigation_action_when_prev_then_navigates_backward(self) -> None:
-        """Test handle_navigation_action with 'prev' action navigates backward."""
-        # Arrange
-        handler = WebNavigationHandler()
 
-        with patch.object(handler.navigation_state, "navigate_backward") as mock_navigate:
-            # Act
-            result = handler.handle_navigation_action("prev")
+class TestNavigationActions:
+    """Test navigation action handling."""
 
-            # Assert
+    @pytest.mark.parametrize(
+        ("action", "method_name"),
+        [
+            ("prev", "navigate_backward"),
+            ("next", "navigate_forward"),
+            ("today", "jump_to_today"),
+            ("week-start", "jump_to_start_of_week"),
+            ("week-end", "jump_to_end_of_week"),
+        ],
+    )
+    def test_handle_navigation_action_valid_actions(self, handler, action, method_name):
+        """Test handle_navigation_action with valid actions."""
+        with patch.object(handler.navigation_state, method_name) as mock_method:
+            result = handler.handle_navigation_action(action)
             assert result is True
-            mock_navigate.assert_called_once()
+            mock_method.assert_called_once()
 
-    def test_handle_navigation_action_when_next_then_navigates_forward(self) -> None:
-        """Test handle_navigation_action with 'next' action navigates forward."""
-        # Arrange
-        handler = WebNavigationHandler()
-
-        with patch.object(handler.navigation_state, "navigate_forward") as mock_navigate:
-            # Act
-            result = handler.handle_navigation_action("next")
-
-            # Assert
-            assert result is True
-            mock_navigate.assert_called_once()
-
-    def test_handle_navigation_action_when_today_then_jumps_to_today(self) -> None:
-        """Test handle_navigation_action with 'today' action jumps to today."""
-        # Arrange
-        handler = WebNavigationHandler()
-
-        with patch.object(handler.navigation_state, "jump_to_today") as mock_navigate:
-            # Act
-            result = handler.handle_navigation_action("today")
-
-            # Assert
-            assert result is True
-            mock_navigate.assert_called_once()
-
-    def test_handle_navigation_action_when_week_start_then_jumps_to_start_of_week(self) -> None:
-        """Test handle_navigation_action with 'week-start' action jumps to start of week."""
-        # Arrange
-        handler = WebNavigationHandler()
-
-        with patch.object(handler.navigation_state, "jump_to_start_of_week") as mock_navigate:
-            # Act
-            result = handler.handle_navigation_action("week-start")
-
-            # Assert
-            assert result is True
-            mock_navigate.assert_called_once()
-
-    def test_handle_navigation_action_when_week_end_then_jumps_to_end_of_week(self) -> None:
-        """Test handle_navigation_action with 'week-end' action jumps to end of week."""
-        # Arrange
-        handler = WebNavigationHandler()
-
-        with patch.object(handler.navigation_state, "jump_to_end_of_week") as mock_navigate:
-            # Act
-            result = handler.handle_navigation_action("week-end")
-
-            # Assert
-            assert result is True
-            mock_navigate.assert_called_once()
-
-    def test_handle_navigation_action_when_unknown_action_then_returns_false(self) -> None:
+    def test_handle_navigation_action_unknown_action(self, handler):
         """Test handle_navigation_action with unknown action returns False."""
-        # Arrange
-        handler = WebNavigationHandler()
-
-        # Act
         result = handler.handle_navigation_action("unknown_action")
-
-        # Assert
         assert result is False
 
-    def test_handle_navigation_action_when_exception_occurs_then_returns_false(self) -> None:
-        """Test handle_navigation_action returns False when exception occurs."""
-        # Arrange
-        handler = WebNavigationHandler()
-
+    def test_handle_navigation_action_exception_handling(self, handler):
+        """Test handle_navigation_action handles exceptions gracefully."""
         with patch.object(
             handler.navigation_state, "navigate_forward", side_effect=Exception("Test exception")
         ):
-            # Act
             result = handler.handle_navigation_action("next")
-
-            # Assert
             assert result is False
 
-    def test_jump_to_date_when_valid_date_then_jumps_to_date(self) -> None:
-        """Test jump_to_date with valid date jumps to that date."""
-        # Arrange
-        handler = WebNavigationHandler()
+    def test_jump_to_date_success(self, handler):
+        """Test jump_to_date with valid date."""
         target_date = date.today() + timedelta(days=7)
-
         with patch.object(handler.navigation_state, "jump_to_date") as mock_jump:
-            # Act
             result = handler.jump_to_date(target_date)
-
-            # Assert
             assert result is True
             mock_jump.assert_called_once_with(target_date)
 
-    def test_jump_to_date_when_exception_occurs_then_returns_false(self) -> None:
-        """Test jump_to_date returns False when exception occurs."""
-        # Arrange
-        handler = WebNavigationHandler()
+    def test_jump_to_date_exception_handling(self, handler):
+        """Test jump_to_date handles exceptions gracefully."""
         target_date = date.today() + timedelta(days=7)
-
         with patch.object(
             handler.navigation_state, "jump_to_date", side_effect=Exception("Test exception")
         ):
-            # Act
             result = handler.jump_to_date(target_date)
-
-            # Assert
             assert result is False
 
-    def test_get_navigation_info_when_called_then_returns_navigation_info(self) -> None:
-        """Test get_navigation_info returns navigation information dictionary."""
-        # Arrange
-        handler = WebNavigationHandler()
 
-        # Mock navigation state methods
+class TestNavigationInfo:
+    """Test navigation information retrieval."""
+
+    def test_get_navigation_info_success(self, handler):
+        """Test get_navigation_info returns complete information."""
         with patch.multiple(
             handler.navigation_state,
             get_display_date=MagicMock(return_value="August 2, 2025"),
@@ -168,10 +105,8 @@ class TestWebNavigationHandler:
             ),
             get_formatted_date=MagicMock(return_value="Saturday, August 2, 2025"),
         ):
-            # Act
             result = handler.get_navigation_info()
 
-            # Assert
             assert isinstance(result, dict)
             assert result["selected_date"] == "August 2, 2025"
             assert result["is_today"] is False
@@ -182,211 +117,113 @@ class TestWebNavigationHandler:
             assert result["formatted_date"] == "Saturday, August 2, 2025"
             assert "navigation_help" in result
 
-    def test_get_navigation_info_when_exception_occurs_then_returns_error_info(self) -> None:
-        """Test get_navigation_info returns error info when exception occurs."""
-        # Arrange
-        handler = WebNavigationHandler()
-
+    def test_get_navigation_info_exception_handling(self, handler):
+        """Test get_navigation_info handles exceptions gracefully."""
         with patch.object(
             handler.navigation_state, "get_display_date", side_effect=Exception("Test exception")
         ):
-            # Act
             result = handler.get_navigation_info()
-
-            # Assert
             assert isinstance(result, dict)
             assert result["selected_date"] == "Error"
             assert result["is_today"] is True
             assert "error" in result
 
-    def test_get_web_navigation_help_when_called_then_returns_help_text(self) -> None:
+    def test_get_web_navigation_help(self, handler):
         """Test _get_web_navigation_help returns help text."""
-        # Arrange
-        handler = WebNavigationHandler()
-
-        # Act
         result = handler._get_web_navigation_help()
-
-        # Assert
         assert isinstance(result, str)
         assert "Navigate" in result
         assert "Today" in result
 
-    def test_add_navigation_callback_when_called_then_adds_callback(self) -> None:
-        """Test add_navigation_callback adds callback to list."""
-        # Arrange
-        handler = WebNavigationHandler()
+
+class TestCallbackManagement:
+    """Test navigation callback management."""
+
+    def test_add_navigation_callback(self, handler):
+        """Test adding navigation callback."""
         callback = MagicMock()
-
-        # Act
         handler.add_navigation_callback(callback)
-
-        # Assert
         assert callback in handler._navigation_callbacks
         assert len(handler._navigation_callbacks) == 1
 
-    def test_remove_navigation_callback_when_callback_exists_then_removes_callback(self) -> None:
-        """Test remove_navigation_callback removes existing callback."""
-        # Arrange
-        handler = WebNavigationHandler()
+    def test_remove_navigation_callback_exists(self, handler):
+        """Test removing existing navigation callback."""
         callback = MagicMock()
         handler.add_navigation_callback(callback)
-        assert callback in handler._navigation_callbacks
-
-        # Act
         handler.remove_navigation_callback(callback)
-
-        # Assert
         assert callback not in handler._navigation_callbacks
         assert len(handler._navigation_callbacks) == 0
 
-    def test_remove_navigation_callback_when_callback_not_exists_then_does_nothing(self) -> None:
-        """Test remove_navigation_callback does nothing for non-existent callback."""
-        # Arrange
-        handler = WebNavigationHandler()
+    def test_remove_navigation_callback_not_exists(self, handler):
+        """Test removing non-existent callback does nothing."""
         callback1 = MagicMock()
         callback2 = MagicMock()
         handler.add_navigation_callback(callback1)
-        assert len(handler._navigation_callbacks) == 1
-
-        # Act
         handler.remove_navigation_callback(callback2)
-
-        # Assert
         assert callback1 in handler._navigation_callbacks
         assert len(handler._navigation_callbacks) == 1
 
-    def test_on_navigation_changed_when_called_then_notifies_callbacks(self) -> None:
+    def test_on_navigation_changed_notifies_callbacks(self, handler):
         """Test _on_navigation_changed notifies all callbacks."""
-        # Arrange
-        handler = WebNavigationHandler()
         callback1 = MagicMock()
         callback2 = MagicMock()
         handler.add_navigation_callback(callback1)
         handler.add_navigation_callback(callback2)
 
         new_date = date.today()
-
         with patch.object(handler, "get_navigation_info", return_value={"test": "info"}):
-            # Act
             handler._on_navigation_changed(new_date)
-
-            # Assert
             callback1.assert_called_once_with(new_date, {"test": "info"})
             callback2.assert_called_once_with(new_date, {"test": "info"})
 
-    def test_safe_callback_execution_when_callback_raises_exception_then_handles_gracefully(
-        self,
-    ) -> None:
+    def test_safe_callback_execution_handles_exceptions(self, handler):
         """Test _safe_callback_execution handles exceptions gracefully."""
-        # Arrange
-        handler = WebNavigationHandler()
         callback = MagicMock(side_effect=Exception("Test exception"))
         new_date = date.today()
         nav_info = {"test": "info"}
 
-        # Act & Assert - Should not raise exception
+        # Should not raise exception
         handler._safe_callback_execution(callback, new_date, nav_info)
         callback.assert_called_once_with(new_date, nav_info)
 
-    def test_selected_date_property_when_accessed_then_returns_navigation_state_selected_date(
-        self,
-    ) -> None:
-        """Test selected_date property returns navigation_state.selected_date."""
-        # Arrange
-        handler = WebNavigationHandler()
-        test_date = date(2025, 8, 2)
 
-        # Mock the selected_date property
+class TestPropertyDelegation:
+    """Test property delegation to navigation state."""
+
+    @pytest.mark.parametrize(
+        ("property_name", "expected_value"),
+        [
+            ("selected_date", date(2025, 8, 2)),
+            ("today", date(2025, 8, 2)),
+        ],
+    )
+    def test_property_delegation(self, handler, property_name, expected_value):
+        """Test property delegation to navigation_state."""
         handler.navigation_state = MagicMock()
-        handler.navigation_state.selected_date = test_date
+        setattr(handler.navigation_state, property_name, expected_value)
+        result = getattr(handler, property_name)
+        assert result == expected_value
 
-        # Act
-        result = handler.selected_date
-
-        # Assert
-        assert result == test_date
-
-    def test_today_property_when_accessed_then_returns_navigation_state_today(self) -> None:
-        """Test today property returns navigation_state.today."""
-        # Arrange
-        handler = WebNavigationHandler()
-        test_date = date(2025, 8, 2)
-
-        # Mock the today property
-        handler.navigation_state = MagicMock()
-        handler.navigation_state.today = test_date
-
-        # Act
-        result = handler.today
-
-        # Assert
-        assert result == test_date
-
-    def test_is_today_when_called_then_delegates_to_navigation_state(self) -> None:
-        """Test is_today delegates to navigation_state.is_today."""
-        # Arrange
-        handler = WebNavigationHandler()
-
-        with patch.object(handler.navigation_state, "is_today", return_value=True) as mock_is_today:
-            # Act
-            result = handler.is_today()
-
-            # Assert
-            assert result is True
-            mock_is_today.assert_called_once()
-
-    def test_is_past_when_called_then_delegates_to_navigation_state(self) -> None:
-        """Test is_past delegates to navigation_state.is_past."""
-        # Arrange
-        handler = WebNavigationHandler()
-
-        with patch.object(handler.navigation_state, "is_past", return_value=True) as mock_is_past:
-            # Act
-            result = handler.is_past()
-
-            # Assert
-            assert result is True
-            mock_is_past.assert_called_once()
-
-    def test_is_future_when_called_then_delegates_to_navigation_state(self) -> None:
-        """Test is_future delegates to navigation_state.is_future."""
-        # Arrange
-        handler = WebNavigationHandler()
-
+    @pytest.mark.parametrize(
+        ("method_name", "return_value"),
+        [
+            ("is_today", True),
+            ("is_past", True),
+            ("is_future", True),
+            ("get_display_date", "August 2, 2025"),
+        ],
+    )
+    def test_method_delegation(self, handler, method_name, return_value):
+        """Test method delegation to navigation_state."""
         with patch.object(
-            handler.navigation_state, "is_future", return_value=True
-        ) as mock_is_future:
-            # Act
-            result = handler.is_future()
+            handler.navigation_state, method_name, return_value=return_value
+        ) as mock_method:
+            result = getattr(handler, method_name)()
+            assert result == return_value
+            mock_method.assert_called_once()
 
-            # Assert
-            assert result is True
-            mock_is_future.assert_called_once()
-
-    def test_get_display_date_when_called_then_delegates_to_navigation_state(self) -> None:
-        """Test get_display_date delegates to navigation_state.get_display_date."""
-        # Arrange
-        handler = WebNavigationHandler()
-
-        with patch.object(
-            handler.navigation_state, "get_display_date", return_value="August 2, 2025"
-        ) as mock_get_display_date:
-            # Act
-            result = handler.get_display_date()
-
-            # Assert
-            assert result == "August 2, 2025"
-            mock_get_display_date.assert_called_once()
-
-    def test_update_today_when_called_then_delegates_to_navigation_state(self) -> None:
-        """Test update_today delegates to navigation_state.update_today."""
-        # Arrange
-        handler = WebNavigationHandler()
-
-        with patch.object(handler.navigation_state, "update_today") as mock_update_today:
-            # Act
+    def test_update_today_delegation(self, handler):
+        """Test update_today delegates to navigation_state."""
+        with patch.object(handler.navigation_state, "update_today") as mock_update:
             handler.update_today()
-
-            # Assert
-            mock_update_today.assert_called_once()
+            mock_update.assert_called_once()

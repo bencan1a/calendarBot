@@ -154,12 +154,16 @@ function setupMobileEnhancements() {
     let touchEndX = 0;
 
     document.addEventListener('touchstart', function(event) {
-        touchStartX = event.changedTouches[0].screenX;
+        if (event.changedTouches && event.changedTouches.length > 0) {
+            touchStartX = event.changedTouches[0].screenX;
+        }
     });
 
     document.addEventListener('touchend', function(event) {
-        touchEndX = event.changedTouches[0].screenX;
-        handleSwipe();
+        if (event.changedTouches && event.changedTouches.length > 0) {
+            touchEndX = event.changedTouches[0].screenX;
+            handleSwipe();
+        }
     });
 
     function handleSwipe() {

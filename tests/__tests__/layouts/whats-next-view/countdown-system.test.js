@@ -403,12 +403,13 @@ describe('whats-next-view countdown system', () => {
         test('clears existing interval before setting new one', () => {
             const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
             
-            // Set initial interval
-            global.countdownInterval = setInterval(() => {}, 1000);
+            // Set initial interval and store the ID
+            const initialIntervalId = setInterval(() => {}, 1000);
+            global.countdownInterval = initialIntervalId;
             
             setupCountdownSystem();
 
-            expect(clearIntervalSpy).toHaveBeenCalledWith(global.countdownInterval);
+            expect(clearIntervalSpy).toHaveBeenCalledWith(initialIntervalId);
         });
     });
 

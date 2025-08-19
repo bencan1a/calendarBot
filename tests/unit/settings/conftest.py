@@ -189,7 +189,7 @@ def invalid_attendee_filter_data() -> dict[str, Any]:
 
 @pytest.fixture
 def sample_json_settings_data() -> str:
-    """Create JSON representation of settings for file operations testing."""
+    """Create minimal JSON representation for file operations testing."""
     return json.dumps(
         {
             "event_filters": {
@@ -204,39 +204,18 @@ def sample_json_settings_data() -> str:
                         "description": "Hide standup meetings",
                     }
                 ],
-                "event_categories": {"personal": True, "work": False},
-                "recurring_filters": {"daily": True, "weekly": False},
-                "attendee_count_filter": {"min_count": 2, "max_count": 10},
             },
-            "conflict_resolution": {
-                "priority_by_acceptance": True,
-                "priority_by_attendee_count": False,
-                "priority_by_organizer": True,
-                "show_multiple_conflicts": True,
-                "conflict_display_mode": "primary",
-            },
-            "display": {
-                "default_layout": "whats-next-view",
-                "font_sizes": {"headers": "large", "body": "medium"},
-                "display_density": "normal",
-                "color_theme": "default",
-                "animation_enabled": True,
-            },
-            "metadata": {
-                "version": "1.0.0",
-                "last_modified": "2023-07-18T12:00:00",
-                "last_modified_by": "test_user",
-                "device_id": "test_device",
-            },
-        },
-        indent=2,
+            "conflict_resolution": {"conflict_display_mode": "primary"},
+            "display": {"default_layout": "whats-next-view"},
+            "metadata": {"version": "1.0.0", "last_modified": "2023-07-18T12:00:00"},
+        }
     )
 
 
 @pytest.fixture
 def corrupted_json_data() -> str:
     """Create corrupted JSON data for error testing."""
-    return '{"event_filters": {"hide_all_day_events": true, "invalid": }'
+    return '{"invalid": }'
 
 
 @pytest.fixture
