@@ -50,6 +50,7 @@ requires-python = ">=3.9"
 dependencies = [
     "icalendar>=5.0.0",
     "httpx>=0.25.0",
+    "aiohttp>=3.8.0",
     "aiosqlite>=0.19.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",

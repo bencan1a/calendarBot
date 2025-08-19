@@ -46,10 +46,13 @@ print_header() {
     echo -e "\n${BLUE}=== $1 ===${NC}"
 }
 
-# Error handling
+# Safer error handling to prevent bash context corruption
 error_exit() {
     print_error "$1"
     print_error "Installation failed. Check log file: $LOG_FILE"
+    # Use safer exit that doesn't corrupt bash context in SSH
+    exec >&2
+    echo "Exiting installation..."
     exit 1
 }
 
@@ -100,16 +103,70 @@ check_supported_system() {
 check_calendarbot() {
     print_info "Checking CalendarBot installation..."
     
-    if ! command -v calendarbot >/dev/null 2>&1; then
-        error_exit "CalendarBot command not found. Please install CalendarBot first."
+    # First try the command line version (if pip installed)
+    if command -v calendarbot >/dev/null 2>&1; then
+        local version_output
+        if version_output=$(calendarbot --version 2>&1); then
+            print_success "CalendarBot CLI is installed: $version_output"
+            return 0
+        fi
     fi
     
-    local version_output
-    if ! version_output=$(calendarbot --version 2>&1); then
-        error_exit "CalendarBot --version failed. CalendarBot may not be properly installed."
+    # Try python module version (if in project directory)
+    if python3 -m calendarbot --version >/dev/null 2>&1; then
+        local version_output
+        version_output=$(python3 -m calendarbot --version 2>&1)
+        print_success "CalendarBot Python module is available: $version_output"
+        return 0
     fi
     
-    print_success "CalendarBot is installed: $version_output"
+    # Try to install CalendarBot if we're in the project directory
+    if [[ -f "$PROJECT_DIR/pyproject.toml" ]] && grep -q 'name = "calendarbot"' "$PROJECT_DIR/pyproject.toml"; then
+        print_info "CalendarBot not installed. Attempting to install from project directory..."
+        install_calendarbot_package
+        return $?
+    fi
+    
+    # If all else fails, provide helpful error message
+    print_error "CalendarBot is not available. Please:"
+    print_error "1. Install CalendarBot: 'pip install -e .' (from project directory)"
+    print_error "2. Or ensure 'calendarbot' command is in PATH"
+    print_error "3. Or run this script from CalendarBot project directory"
+    return 1
+}
+
+# Install CalendarBot package from current project directory
+install_calendarbot_package() {
+    print_info "Installing CalendarBot package..."
+    
+    # Check if we're in a virtual environment
+    if [[ -z "${VIRTUAL_ENV:-}" ]] && [[ -d "$PROJECT_DIR/venv" ]]; then
+        print_info "Activating virtual environment..."
+        # Note: This won't affect the current shell, but will affect pip install
+        export PATH="$PROJECT_DIR/venv/bin:$PATH"
+        export VIRTUAL_ENV="$PROJECT_DIR/venv"
+    fi
+    
+    # Install in development mode
+    if cd "$PROJECT_DIR" && pip install -e . >/dev/null 2>&1; then
+        print_success "CalendarBot package installed successfully"
+        
+        # Verify installation
+        if command -v calendarbot >/dev/null 2>&1; then
+            local version_output
+            version_output=$(calendarbot --version 2>&1)
+            print_success "CalendarBot CLI is now available: $version_output"
+            return 0
+        else
+            print_warning "Package installed but 'calendarbot' command not in PATH"
+            print_info "Will use 'python -m calendarbot' instead"
+            return 0
+        fi
+    else
+        print_error "Failed to install CalendarBot package"
+        print_error "Please install manually: 'pip install -e .' from $PROJECT_DIR"
+        return 1
+    fi
 }
 
 # Check for required dependencies
@@ -281,9 +338,17 @@ test_calendarbot() {
     
     print_info "Starting CalendarBot web server for 10 seconds..."
     local pid
+    local calendarbot_cmd
+    
+    # Determine which command to use
+    if command -v calendarbot >/dev/null 2>&1; then
+        calendarbot_cmd="calendarbot"
+    else
+        calendarbot_cmd="python3 -m calendarbot"
+    fi
     
     # Start CalendarBot in background
-    if calendarbot --web --port 8080 >/dev/null 2>&1 & pid=$!; then
+    if $calendarbot_cmd --web --port 8080 >/dev/null 2>&1 & pid=$!; then
         sleep 3
         
         # Test if CalendarBot is responding
@@ -413,9 +478,11 @@ EOF
     print_header "Pre-Installation Checks"
     check_not_root
     check_supported_system
-    check_calendarbot
-    check_dependencies
     check_project_directory
+    if ! check_calendarbot; then
+        error_exit "CalendarBot installation check failed. See error messages above."
+    fi
+    check_dependencies
     
     # Installation steps
     print_header "Installing CalendarBot Kiosk Service"
