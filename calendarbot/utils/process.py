@@ -21,11 +21,13 @@ def _is_legitimate_calendarbot_process(command: str, full_command: str, pattern:
     Returns:
         True if this appears to be a legitimate calendarbot process
     """
-    # Reject obvious non-calendarbot processes
+    # Reject obvious non-calendarbot processes and system processes
     non_calendarbot_commands = {
         "avahi-daemon",
         "systemd",
+        "systemctl",
         "dbus",
+        "dbus-daemon",
         "NetworkManager",
         "bluetoothd",
         "pulseaudio",
@@ -42,10 +44,34 @@ def _is_legitimate_calendarbot_process(command: str, full_command: str, pattern:
         "rsync",
         "cron",
         "at",
+        "snapd",
+        "packagekit",
+        "apt",
+        "dpkg",
+        "update-manager",
+        "software-updater",
+        "pip",
+        "conda",
+        "mamba",
     }
 
     if command in non_calendarbot_commands:
         logger.debug(f"Rejecting known non-calendarbot command: {command}")
+        return False
+
+    # Reject system service paths - but allow system python interpreters running calendarbot
+    system_service_patterns = [
+        "/usr/lib/systemd/",
+        "/lib/systemd/",
+        "/snap/",
+        "/etc/init.d/",
+        "/usr/sbin/",
+        "/sbin/",
+    ]
+
+    # Only reject if it's actually a system service, not just using system python
+    if any(pattern in full_command for pattern in system_service_patterns):
+        logger.debug(f"Rejecting system service process: {full_command}")
         return False
 
     # For "calendarbot" pattern, require it to be in the actual executable path or script name
@@ -65,18 +91,18 @@ def _is_legitimate_calendarbot_process(command: str, full_command: str, pattern:
             )
             return False
 
-    # For python patterns, ensure they're actually running calendarbot code
+    # For python patterns, be much stricter - must have calendarbot in the command
     if pattern.startswith("python"):
-        python_calendarbot_indicators = [
-            "calendarbot",  # module or script name
-            "main.py",  # common calendarbot entry point
-            "-m calendarbot",  # module execution
+        # Require explicit calendarbot indicators in python processes
+        required_calendarbot_indicators = [
+            "calendarbot",  # module or script name containing calendarbot
+            "-m calendarbot",  # module execution of calendarbot
         ]
 
-        has_python_indicator = any(
-            indicator in full_command for indicator in python_calendarbot_indicators
+        has_calendarbot_indicator = any(
+            indicator in full_command for indicator in required_calendarbot_indicators
         )
-        if not has_python_indicator:
+        if not has_calendarbot_indicator:
             logger.debug(f"Python pattern matched but no calendarbot indicators: {full_command}")
             return False
 
@@ -107,7 +133,8 @@ def find_calendarbot_processes() -> list[ProcessInfo]:
 
     try:
         # Use pgrep to find processes matching calendarbot patterns
-        patterns = ["calendarbot", "python.*calendarbot", "python.*main\\.py"]
+        # Removed overly broad "python.*main\\.py" pattern that was causing false positives
+        patterns = ["calendarbot", "python.*calendarbot"]
 
         for pattern in patterns:
             try:

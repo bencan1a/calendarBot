@@ -57,7 +57,9 @@ class TestFindCalendarbotProcesses:
             if call_count[0] == 1:  # First call only
                 mock_result = MagicMock()
                 mock_result.returncode = 0
-                mock_result.stdout = "1234 python calendarbot.py\n5678 /usr/bin/python3 -m calendarbot\n9999 python main.py"
+                mock_result.stdout = (
+                    "1234 python calendarbot.py\n5678 /usr/bin/python3 -m calendarbot"
+                )
                 return mock_result
             # All other calls
             mock_result = MagicMock()
@@ -95,7 +97,7 @@ class TestFindCalendarbotProcesses:
         find_calendarbot_processes()
 
         # Should call pgrep for each pattern
-        assert mock_run.call_count >= 3  # At least 3 patterns
+        assert mock_run.call_count >= 2  # At least 2 patterns (calendarbot, python.*calendarbot)
 
     @patch("calendarbot.utils.process.subprocess.run")
     def test_subprocess_timeout_handling(self, mock_run):

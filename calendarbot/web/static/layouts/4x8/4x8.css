@@ -29,10 +29,8 @@
     --accent-danger: #dc3545;
 }
 
-/* Full viewport without centering - renders at top left */
+/* Fixed viewport sizing without initial vw/vh conflict */
 html, body {
-    width: 100vw;
-    height: 100vh;
     margin: 0;
     padding: 0;
     overflow: hidden;
