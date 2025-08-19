@@ -169,19 +169,15 @@ function setupMobileEnhancements() {
     function handleSwipe() {
         const swipeThreshold = 50; // Minimum distance for a swipe
         const swipeDistance = touchEndX - touchStartX;
-        const rightEdgeThreshold = 50; // Pixels from right edge to trigger layout switch
-        const windowWidth = window.innerWidth;
 
         if (Math.abs(swipeDistance) > swipeThreshold) {
-            // Check for swipe left from right edge for layout switching
-            if (swipeDistance < 0 && touchStartX >= (windowWidth - rightEdgeThreshold)) {
-                // Swipe left from right edge - switch layout
+            if (swipeDistance < 0) {
+                // Swipe left anywhere on screen - switch layout
                 cycleLayout();
             } else if (swipeDistance > 0) {
                 // Swipe right - go to previous day
                 navigate('prev');
             }
-            // Note: Left swipes from non-edge areas are now ignored to avoid conflict with layout switching
         }
     }
 
