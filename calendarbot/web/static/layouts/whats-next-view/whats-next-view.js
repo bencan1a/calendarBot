@@ -524,7 +524,7 @@ function checkBoundaryAlert(timeGapMs) {
         return {
             type: 'tight',
             cssClass: 'time-gap-tight',
-            message: 'Meeting starts soon',
+            message: 'Starting soon',
             showCountdown: true,
             urgent: true
         };
