@@ -1406,7 +1406,6 @@ class ICSParser:
                 # Keep recurring masters that weren't expanded (e.g., due to unsupported RRULE)
                 if event.id not in expanded_master_uids:
                     merged_events.append(event)
-                    logger.debug(f"Keeping unexpanded recurring master: {event.subject}")
             else:
                 # Always keep non-recurring events
                 merged_events.append(event)
