@@ -306,6 +306,12 @@ def apply_cli_overrides(settings: Any, args: Any) -> Any:
         Updated settings object
     """
     logger = logging.getLogger("calendarbot.cli.config")
+
+    # Apply kill-duplicates flag to auto_kill_existing setting
+    if getattr(args, "kill_duplicates", False):
+        settings.auto_kill_existing = True
+        logger.debug("Enabled auto_kill_existing from --kill-duplicates flag")
+
     _apply_renderer_and_layout(settings, args, logger)
     _apply_rpi_mode(settings, args, logger)
     _apply_compact_mode(settings, args, logger)

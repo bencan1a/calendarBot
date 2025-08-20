@@ -619,8 +619,8 @@ def apply_epaper_mode_overrides(settings: Any, _args: Any) -> Any:
     settings.epaper.webserver_enabled = True
     settings.epaper.webserver_port = 8081
 
-    # Enable auto port conflict resolution
-    settings.auto_kill_existing = True
+    # Note: Auto port conflict resolution is now controlled by --kill-duplicates flag
+    # No longer forcing auto_kill_existing = True in epaper mode
 
     logger.debug("Applied e-paper mode setting overrides")
     return settings

@@ -1441,10 +1441,6 @@ class ICSParser:
             if key not in seen:
                 seen.add(key)
                 deduplicated.append(event)
-            else:
-                logger.debug(
-                    f"Skipping duplicate event: {event.subject} at {event.start.date_time}"
-                )
 
         if len(events) != len(deduplicated):
             logger.debug(f"Removed {len(events) - len(deduplicated)} duplicate events")

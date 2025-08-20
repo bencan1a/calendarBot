@@ -231,6 +231,12 @@ Examples:
         "--verbose", "-v", action="store_true", help="Enable verbose logging and detailed output"
     )
 
+    parser.add_argument(
+        "--kill-duplicates",
+        action="store_true",
+        help="Kill existing calendarbot processes on startup (disabled by default)",
+    )
+
     # Test mode arguments
     test_group = parser.add_argument_group("test", "Test and validation mode options")
 

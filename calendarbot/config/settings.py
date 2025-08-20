@@ -348,7 +348,7 @@ class CalendarBotSettings(BaseSettings):
     )
     cache_ttl: int = Field(default=600, description="Cache time-to-live in seconds (10 minutes)")
     auto_kill_existing: bool = Field(
-        default=True, description="Automatically kill existing calendarbot processes on startup"
+        default=False, description="Automatically kill existing calendarbot processes on startup"
     )
 
     # File Paths

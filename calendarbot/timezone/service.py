@@ -127,7 +127,6 @@ class TimezoneService:
                 return dt.replace(tzinfo=server_tz)
 
             # Timezone-aware datetime - convert to server timezone
-            logger.debug(f"Converting timezone-aware datetime to server: {dt}")
             server_dt = dt.astimezone(server_tz)
 
             # Handle Australian timezone special case
