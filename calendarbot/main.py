@@ -312,6 +312,7 @@ class CalendarBot:
 
             # Automatically clean up any existing calendarbot processes if configured
             if self.settings.auto_kill_existing:
+                logger.info("Process killing enabled via auto_kill_existing setting")
                 logger.info("Checking for existing Calendar Bot processes...")
                 killed_count, errors = kill_calendarbot_processes(exclude_self=True)
 

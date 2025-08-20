@@ -520,9 +520,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # BUGFIX: WhatsNextView should always use today's date, not navigation state
         # WhatsNextView is conceptually about "what's next from NOW"
         if current_layout == "whats-next-view":
-            logger.debug(
-                "[BUGFIX] WhatsNextView detected - forcing today's date instead of navigation state"
-            )
             return self._get_non_interactive_mode_events(days)
 
         if self.web_server.navigation_state:
