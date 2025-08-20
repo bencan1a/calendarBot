@@ -569,7 +569,7 @@ class HTMLRenderer:
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="{viewport_content}">
-    <title>📅 Calendar Bot - {display_date}</title>
+    <title>Calendar Bot - {display_date}</title>
 {production_script}
 {css_links_html}
 </head>
@@ -817,7 +817,7 @@ class HTMLRenderer:
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="{viewport_content}">
-    <title>📅 Calendar Bot - Connection Issue</title>
+    <title>Calendar Bot - Connection Issue</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -857,7 +857,7 @@ class HTMLRenderer:
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="{viewport_content}">
-    <title>📅 Calendar Bot - Authentication Required</title>
+    <title>Calendar Bot - Authentication Required</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>

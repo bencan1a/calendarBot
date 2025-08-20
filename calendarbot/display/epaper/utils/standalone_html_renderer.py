@@ -49,7 +49,7 @@ class StandaloneHtmlRenderer:
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>📅 Calendar Bot - {display_date or datetime.now().strftime("%A, %B %d")}</title>
+    <title>Calendar Bot - {display_date or datetime.now().strftime("%A, %B %d")}</title>
     <style>
 {css_content}
     </style>
