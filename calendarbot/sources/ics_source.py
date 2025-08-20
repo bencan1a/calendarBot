@@ -233,13 +233,19 @@ class ICSSourceHandler:
                     ) as response:
                         response_time = (time.time() - start_time) * 1000
 
-                        if response.status == 200:
+                        # Accept 2xx and 3xx status codes as successful connectivity
+                        # 2xx indicates success, 3xx indicates redirect (service is reachable)
+                        if 200 <= response.status < 400:
                             health_check.update_success(
                                 response_time, 0
                             )  # 0 events for HEAD request
                             logger.info(
                                 f"Connection test successful for {self.config.name} (HEAD request: {response.status})"
                             )
+                            if 300 <= response.status < 400:
+                                logger.debug(
+                                    f"Service returned redirect status {response.status}, which indicates successful connectivity"
+                                )
                         else:
                             error_msg = f"HEAD request failed with status {response.status}"
                             health_check.update_error(error_msg)
