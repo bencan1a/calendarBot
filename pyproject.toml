@@ -114,6 +114,7 @@ calendarbot = [
     "py.typed",
     "web/static/*.css",
     "web/static/*.js",
+    "web/static/*.ico",
     "web/static/shared/**/*.css",
     "web/static/shared/**/*.js",
     "web/static/layouts/**/*.css",

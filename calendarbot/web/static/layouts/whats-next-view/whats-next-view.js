@@ -940,7 +940,7 @@ function getContextMessage(isCurrentMeeting) {
     } else if (minutesUntil <= 15) {
         return 'Starting soon';
     } else if (minutesUntil <= 60) {
-        return 'Starting within the hour';
+        return 'Starts within the hour';
     } else {
         return 'Plenty of time';
     }
