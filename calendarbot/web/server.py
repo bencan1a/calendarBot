@@ -6,8 +6,10 @@ import json
 import logging
 import mimetypes
 import sqlite3
+import time
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
+from email.utils import formatdate
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
@@ -1991,6 +1993,23 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 str(file_path).encode(), usedforsecurity=False
             ).hexdigest()  # Used for ETag generation, not security
 
+    def _get_last_modified(self, file_path: Path) -> str:
+        """Generate Last-Modified header value for file.
+
+        Args:
+            file_path: Path to the file
+
+        Returns:
+            Last-Modified header value in HTTP date format
+        """
+        try:
+            stat_info = file_path.stat()
+            # Convert timestamp to HTTP date format
+            return formatdate(stat_info.st_mtime, usegmt=True)
+        except Exception:
+            # Fallback to current time if stat fails
+            return formatdate(time.time(), usegmt=True)
+
     def _serve_static_file(self, path: str) -> None:  # noqa: PLR0912, PLR0915
         """Serve static files (CSS, JS, etc.)."""
         try:
@@ -2115,17 +2134,39 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 if not content_type:
                     content_type = "text/plain"
 
-                # Read and serve file
+                # Generate ETag based on file modification time and size
+                etag = self._generate_etag(full_path)
+
+                # Check for conditional requests (If-None-Match)
+                client_etag = self.headers.get("If-None-Match")
+                if client_etag and client_etag.strip('"') == etag:
+                    # File hasn't changed, send 304 Not Modified
+                    self.send_response(304)
+                    self.send_header("ETag", f'"{etag}"')
+                    self.send_header("Cache-Control", "no-cache, must-revalidate")
+                    self.end_headers()
+                    logger.debug(f"Sent 304 Not Modified for {file_path} (ETag: {etag})")
+                    return
+
+                # Read and serve file with proper cache headers
                 with full_path.open("rb") as f:
                     content = f.read()
 
-                # Send binary response directly
+                # Send response with proper caching headers and ETag
                 self.send_response(200)
                 self.send_header("Content-Type", content_type)
-                self.send_header("Cache-Control", "max-age=3600, public")
+                self.send_header("ETag", f'"{etag}"')
+
+                # Use appropriate cache headers for development vs production
+                # In development: Allow caching but always revalidate
+                # In production: Cache for shorter periods with validation
+                self.send_header("Cache-Control", "no-cache, must-revalidate")
+                self.send_header("Last-Modified", self._get_last_modified(full_path))
+
                 self.send_header("Content-Length", str(len(content)))
                 self.end_headers()
                 self.wfile.write(content)
+                logger.debug(f"Served {file_path} with ETag: {etag}")
             else:
                 logger.warning(f"STATIC_FILE_REQUEST: File not found: {file_path}")
                 self._send_404()
@@ -2140,7 +2181,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         """Send HTTP response."""
         self.send_response(status_code)
         self.send_header("Content-Type", content_type)
-        self.send_header("Cache-Control", "max-age=3600, public")
+
+        # Use appropriate cache headers for non-static content
+        # Allow short-term caching but require revalidation
+        self.send_header("Cache-Control", "max-age=60, must-revalidate")
 
         content_bytes = content.encode("utf-8") if isinstance(content, str) else content
 
