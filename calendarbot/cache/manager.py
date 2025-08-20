@@ -89,7 +89,7 @@ class CacheManager:
 
         return CachedEvent(
             id=generated_id,
-            graph_id=api_event.id,
+            graph_id=generated_id,  # Use unique generated_id instead of api_event.id to fix duplicates
             subject=api_event.subject,
             body_preview=api_event.body_preview,
             start_datetime=api_event.start.date_time.isoformat(),

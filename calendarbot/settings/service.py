@@ -83,6 +83,8 @@ class SettingsService:
 
             # Cache for current settings
             self._current_settings: Optional[SettingsData] = None
+            # Track settings file modification time for automatic cache invalidation
+            self._settings_file_mtime: Optional[float] = None
 
             logger.info(f"Settings service initialized with config directory: {self.config_dir}")
 
@@ -95,8 +97,35 @@ class SettingsService:
                 },
             ) from e
 
+    def _is_settings_file_modified(self) -> bool:
+        """Check if the settings file has been modified since last load.
+
+        Returns:
+            True if the settings file has been modified, False otherwise
+        """
+        try:
+            if not self.persistence.settings_file.exists():
+                return False
+
+            current_mtime = self.persistence.settings_file.stat().st_mtime
+
+            if self._settings_file_mtime is None:
+                # First check, consider it not modified
+                return False
+
+            return current_mtime != self._settings_file_mtime
+
+        except Exception:
+            # If we can't check file modification time, assume it's not modified
+            # to avoid unnecessary reloads on error conditions
+            return False
+
     def get_settings(self, force_reload: bool = False) -> SettingsData:
-        """Get current settings data with caching support.
+        """Get current settings data with caching support and automatic external change detection.
+
+        The cache automatically detects when the settings file has been modified externally
+        (e.g., by scripts or other processes) and reloads the settings without requiring
+        force_reload to be set.
 
         Args:
             force_reload: Whether to force reload from persistence layer
@@ -108,14 +137,27 @@ class SettingsService:
             SettingsError: If settings cannot be loaded
         """
         try:
-            if self._current_settings is None or force_reload:
-                logger.debug("Loading settings from persistence layer")
+            # Check if we need to reload due to external file changes
+            file_modified = self._is_settings_file_modified()
+            should_reload = self._current_settings is None or force_reload or file_modified
+
+            if should_reload:
+                if file_modified:
+                    logger.debug("Settings file modified externally, reloading cache")
+                else:
+                    logger.debug("Loading settings from persistence layer")
+
                 self._current_settings = self.persistence.load_settings()
 
                 # Validate loaded settings
                 self._validate_settings_consistency(self._current_settings)
 
                 logger.debug("Settings loaded and validated successfully")
+
+            # Always update tracked modification time after successful load/reload
+            # This handles cases where the file is created during load_settings()
+            if self.persistence.settings_file.exists():
+                self._settings_file_mtime = self.persistence.settings_file.stat().st_mtime
 
             return self._current_settings
 
@@ -157,6 +199,10 @@ class SettingsService:
 
             # Update cache
             self._current_settings = settings
+
+            # Update tracked modification time to reflect the save
+            if self.persistence.settings_file.exists():
+                self._settings_file_mtime = self.persistence.settings_file.stat().st_mtime
 
             logger.info("Settings updated successfully")
             return settings
