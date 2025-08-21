@@ -9,7 +9,7 @@ from datetime import datetime
 
 import pytest
 
-from calendarbot.cli.parser import create_parser, parse_components, parse_date
+from calendarbot.cli.parser import create_parser, parse_date
 
 
 class TestCreateParser:
@@ -50,57 +50,6 @@ class TestCreateParser:
 
         args = parser.parse_args(["-v"])
         assert args.verbose is True
-
-    def test_parser_has_test_mode_arguments(self):
-        """Test that parser includes test mode arguments."""
-        parser = create_parser()
-
-        args = parser.parse_args(["--test-mode"])
-        assert args.test_mode is True
-
-        args = parser.parse_args(["-t"])
-        assert args.test_mode is True
-
-        args = parser.parse_args(["--no-cache"])
-        assert args.no_cache is True
-
-    def test_parser_date_arguments(self):
-        """Test that parser handles date arguments correctly."""
-        parser = create_parser()
-
-        args = parser.parse_args(["--date", "2024-01-15"])
-        assert isinstance(args.date, datetime)
-        assert args.date.year == 2024
-        assert args.date.month == 1
-        assert args.date.day == 15
-
-        args = parser.parse_args(["--end-date", "2024-12-31"])
-        assert isinstance(args.end_date, datetime)
-
-    def test_parser_components_argument(self):
-        """Test that parser handles components argument correctly."""
-        parser = create_parser()
-
-        args = parser.parse_args(["--components", "sources,cache"])
-        assert args.components == ["sources", "cache"]
-
-        # Test default components
-        args = parser.parse_args([])
-        assert args.components == ["sources", "cache", "display"]
-
-    def test_parser_output_format_argument(self):
-        """Test that parser handles output format choices."""
-        parser = create_parser()
-
-        args = parser.parse_args(["--output-format", "json"])
-        assert args.output_format == "json"
-
-        args = parser.parse_args(["--output-format", "yaml"])
-        assert args.output_format == "yaml"
-
-        # Test default
-        args = parser.parse_args([])
-        assert args.output_format == "console"
 
     def test_parser_interactive_mode_argument(self):
         """Test that parser includes interactive mode argument."""
@@ -246,8 +195,6 @@ class TestCreateParser:
         assert args.rpi_refresh_mode == "partial"
         assert args.compact_width == 300
         assert args.compact_height == 400
-        assert args.output_format == "console"
-        assert args.components == ["sources", "cache", "display"]
 
     def test_parser_invalid_choice_raises_error(self):
         """Test that parser raises error for invalid choices."""
@@ -279,8 +226,6 @@ class TestCreateParser:
                 "--rpi",
                 "--rpi-width",
                 "480",
-                "--components",
-                "sources,cache,display",
                 "--auto-open",
             ]
         )
@@ -292,7 +237,6 @@ class TestCreateParser:
         assert args.log_level == "DEBUG"
         assert args.rpi is True
         assert args.rpi_width == 480
-        assert args.components == ["sources", "cache", "display"]
         assert args.auto_open is True
 
 
@@ -371,132 +315,8 @@ class TestParseDateFunction:
         assert result == expected
 
 
-class TestParseComponentsFunction:
-    """Test suite for parse_components function."""
-
-    def test_parse_components_valid_input(self):
-        """Test that parse_components correctly parses valid component strings."""
-        result = parse_components("sources,cache,display")
-        assert result == ["sources", "cache", "display"]
-
-    def test_parse_components_handles_whitespace(self):
-        """Test that parse_components handles whitespace correctly."""
-        result = parse_components(" sources , cache , display ")
-        assert result == ["sources", "cache", "display"]
-
-        result = parse_components("sources,  cache,   display")
-        assert result == ["sources", "cache", "display"]
-
-    def test_parse_components_handles_case_normalization(self):
-        """Test that parse_components normalizes case correctly."""
-        result = parse_components("SOURCES,Cache,DISPLAY")
-        assert result == ["sources", "cache", "display"]
-
-        result = parse_components("Sources,CACHE,Display")
-        assert result == ["sources", "cache", "display"]
-
-    def test_parse_components_all_valid_components(self):
-        """Test parse_components with all valid component names."""
-        all_components = "sources,cache,display,validation,logging,network"
-        result = parse_components(all_components)
-
-        expected = ["sources", "cache", "display", "validation", "logging", "network"]
-        assert result == expected
-
-    def test_parse_components_single_component(self):
-        """Test parse_components with a single component."""
-        result = parse_components("sources")
-        assert result == ["sources"]
-
-        result = parse_components("  CACHE  ")
-        assert result == ["cache"]
-
-    def test_parse_components_empty_string_raises_error(self):
-        """Test parse_components with empty string raises error."""
-        # Empty string produces [''] after split, which is invalid
-        with pytest.raises(argparse.ArgumentTypeError) as exc_info:
-            parse_components("")
-
-        assert "Invalid components:" in str(exc_info.value)
-
-        # Whitespace-only strings also produce invalid results
-        with pytest.raises(argparse.ArgumentTypeError):
-            parse_components("   ")
-
-    def test_parse_components_invalid_component_raises_error(self):
-        """Test that parse_components raises error for invalid components."""
-        with pytest.raises(argparse.ArgumentTypeError) as exc_info:
-            parse_components("invalid,sources")
-
-        assert "Invalid components: invalid" in str(exc_info.value)
-        assert "Valid options:" in str(exc_info.value)
-
-    def test_parse_components_multiple_invalid_components(self):
-        """Test parse_components with multiple invalid components."""
-        with pytest.raises(argparse.ArgumentTypeError) as exc_info:
-            parse_components("invalid1,sources,invalid2,cache")
-
-        error_msg = str(exc_info.value)
-        assert "Invalid components:" in error_msg
-        assert "invalid1" in error_msg
-        assert "invalid2" in error_msg
-
-    @pytest.mark.parametrize(
-        ("component_string", "expected"),
-        [
-            ("sources", ["sources"]),
-            ("sources,cache", ["sources", "cache"]),
-            ("validation,logging,network", ["validation", "logging", "network"]),
-            ("SOURCES,cache,DISPLAY", ["sources", "cache", "display"]),
-            (" sources , cache ", ["sources", "cache"]),
-        ],
-    )
-    def test_parse_components_parametrized_valid_inputs(self, component_string, expected):
-        """Test parse_components with various valid input combinations."""
-        result = parse_components(component_string)
-        assert result == expected
-
-    def test_parse_components_duplicate_components(self):
-        """Test parse_components with duplicate component names."""
-        result = parse_components("sources,cache,sources,display")
-        # Should preserve duplicates as returned by split logic
-        assert result == ["sources", "cache", "sources", "display"]
-
-    def test_parse_components_partial_invalid_mixed_with_valid(self):
-        """Test parse_components error message contains only invalid components."""
-        with pytest.raises(argparse.ArgumentTypeError) as exc_info:
-            parse_components("sources,invalid,cache,another_invalid")
-
-        error_msg = str(exc_info.value)
-        assert "invalid, another_invalid" in error_msg
-        # Valid components should not be in error message
-        assert "sources" not in error_msg.split("Valid options:")[0]
-        assert "cache" not in error_msg.split("Valid options:")[0]
-
-
 class TestParserIntegration:
     """Integration tests for parser functionality."""
-
-    def test_parser_integration_test_mode_with_components(self):
-        """Test integration of test mode with components parsing."""
-        parser = create_parser()
-
-        args = parser.parse_args(
-            [
-                "--test-mode",
-                "--components",
-                "sources,validation",
-                "--date",
-                "2024-01-15",
-                "--output-format",
-                "json",
-            ]
-        )
-
-        assert args.test_mode is True
-        assert args.components == ["sources", "validation"]
-        assert args.date.year == 2024
-        assert args.output_format == "json"
 
     def test_parser_integration_web_mode_with_logging(self):
         """Test integration of web mode with logging configuration."""

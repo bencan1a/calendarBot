@@ -1,7 +1,7 @@
 """Calendar Bot CLI execution modes.
 
 This module provides the mode registry and execution handlers for different
-Calendar Bot operational modes including interactive, web, and daemon modes.
+Calendar Bot operational modes including interactive, web, and epaper modes.
 
 This is part of the architectural refactoring to establish proper CLI
 module structure within the calendarbot package.
@@ -10,7 +10,6 @@ module structure within the calendarbot package.
 from collections.abc import Callable
 from typing import Any
 
-from .daemon import run_daemon_mode
 from .epaper import run_epaper_mode
 from .interactive import run_interactive_mode
 from .web import run_web_mode
@@ -36,13 +35,6 @@ MODE_REGISTRY: dict[str, dict[str, Any]] = {
         "description": "E-paper display mode with hardware detection and PNG fallback",
         "handler": run_epaper_mode,
         "requires_display": True,
-        "async_mode": True,
-    },
-    "daemon": {
-        "name": "Daemon Mode",
-        "description": "Background daemon mode for continuous operation",
-        "handler": run_daemon_mode,
-        "requires_display": False,
         "async_mode": True,
     },
 }
@@ -137,7 +129,6 @@ __all__ = [
     "get_available_modes",
     "get_mode_handler",
     "register_mode",
-    "run_daemon_mode",
     "run_epaper_mode",
     "run_interactive_mode",
     "run_web_mode",

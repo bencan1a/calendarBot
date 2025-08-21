@@ -29,28 +29,6 @@ from .models import (
 from .persistence import SettingsPersistence
 from .service import SettingsService
 
-# Import kiosk models if available
-try:
-    from .kiosk_models import (
-        KioskDisplaySettings,  # noqa: F401
-        KioskMonitoringSettings,  # noqa: F401
-        KioskPiOptimizationSettings,  # noqa: F401
-        KioskSecuritySettings,  # noqa: F401
-        KioskSettings,  # noqa: F401
-        KioskSystemSettings,  # noqa: F401
-    )
-
-    _kiosk_exports = [
-        "KioskDisplaySettings",
-        "KioskMonitoringSettings",
-        "KioskPiOptimizationSettings",
-        "KioskSecuritySettings",
-        "KioskSettings",
-        "KioskSystemSettings",
-    ]
-except ImportError:
-    _kiosk_exports = []
-
 # Build __all__ list - must contain only strings for static analyzers
 __all__ = [
     "ConflictResolutionSettings",
@@ -65,22 +43,5 @@ __all__ = [
     "SettingsService",
     "SettingsValidationError",
 ]
-
-# Conditionally extend with kiosk exports
-try:
-    # Only add if kiosk imports succeeded
-    if "KioskSettings" in globals():
-        __all__.extend(
-            [
-                "KioskDisplaySettings",
-                "KioskMonitoringSettings",
-                "KioskPiOptimizationSettings",
-                "KioskSecuritySettings",
-                "KioskSettings",
-                "KioskSystemSettings",
-            ]
-        )
-except NameError:
-    pass
 
 __version__ = "1.0.0"

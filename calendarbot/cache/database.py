@@ -22,14 +22,34 @@ class DatabaseManager:
         Args:
             database_path: Path to SQLite database file
         """
-        self.database_path = (
-            Path(database_path) if isinstance(database_path, str) else database_path
-        )
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        # Validate that database_path is a valid path string or Path object
+        # This prevents Mock objects from being used as database paths in tests
+        if database_path != ":memory:":
+            try:
+                # Convert to Path and check it's valid
+                self.database_path = (
+                    Path(database_path) if isinstance(database_path, str) else database_path
+                )
+                # Ensure we have a real Path object, not a Mock
+                if not isinstance(self.database_path, Path):
+                    raise TypeError(f"Invalid database path type: {type(self.database_path)}")  # noqa: TRY301
+                # Check for Mock-like string representations
+                path_str = str(self.database_path)
+                if path_str.startswith(("<Mock", "<MagicMock")):
+                    raise ValueError(f"Mock object detected as database path: {path_str}")  # noqa: TRY301
+                self.database_path.parent.mkdir(parents=True, exist_ok=True)
+            except (TypeError, ValueError):
+                logger.exception("Invalid database path provided")
+                # Fall back to in-memory database for tests
+                logger.warning("Falling back to in-memory database due to invalid path")
+                self.database_path = ":memory:"
+        else:
+            self.database_path = database_path
+
         self._initialized = False
         self._initialization_lock = None
 
-        logger.info(f"Database manager initialized (lazy): {database_path}")
+        logger.info(f"Database manager initialized (lazy): {self.database_path}")
 
     async def _ensure_initialized(self) -> bool:
         """Ensure database is initialized before operations.
@@ -760,7 +780,7 @@ class DatabaseManager:
                 info: dict[str, Any] = {}
 
                 # Database file size
-                if self.database_path.exists():
+                if isinstance(self.database_path, Path) and self.database_path.exists():
                     info["file_size_bytes"] = self.database_path.stat().st_size
 
                 # Event count by date

@@ -945,10 +945,12 @@ class TestGlobalFunctions:
 
     def test_get_performance_logger_creates_new_instance(self) -> None:
         """Test get_performance_logger returns NoOpPerformanceLogger when monitoring disabled."""
-        logger = get_performance_logger()
+        # Reset module state to ensure clean test isolation
+        with patch("calendarbot.monitoring.performance._performance_logger", None):
+            logger = get_performance_logger()
 
-        # When monitoring is disabled (default), should return NoOpPerformanceLogger
-        assert isinstance(logger, NoOpPerformanceLogger)
+            # When monitoring is disabled (default), should return NoOpPerformanceLogger
+            assert isinstance(logger, NoOpPerformanceLogger)
 
     def test_get_performance_logger_returns_existing_instance(self) -> None:
         """Test get_performance_logger returns existing instance if one exists."""

@@ -46,14 +46,6 @@ calendarbot --epaper
 
 Optimized for e-ink displays with auto-hardware detection.
 
-### Daemon Mode
-
-```bash
-calendarbot --daemon              # Start background service
-calendarbot --daemon-status       # Check status
-calendarbot --daemon-stop         # Stop daemon
-```
-
 ## Configuration
 
 ### Quick Setup

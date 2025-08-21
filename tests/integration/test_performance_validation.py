@@ -373,8 +373,11 @@ def test_integrated_performance(performance_benchmark):
         f"Cache performance target not met: {cache_results['hit_rate']:.1%}"
     )
 
-    # Save results for reporting
-    results_file = Path("performance_integrated_results.json")
+    # Save results for reporting in temp directory
+    import tempfile
+
+    temp_dir = Path(tempfile.gettempdir())
+    results_file = temp_dir / "performance_integrated_results.json"
     with open(results_file, "w") as f:
         json.dump(integrated_results, f, indent=2)
 

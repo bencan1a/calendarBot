@@ -300,7 +300,6 @@ class TestModeRegistry:
         assert "interactive" in MODE_REGISTRY
         assert "web" in MODE_REGISTRY
         assert "epaper" in MODE_REGISTRY
-        assert "daemon" in MODE_REGISTRY
 
         # Check structure of a mode entry
         for mode_name, mode_info in MODE_REGISTRY.items():
