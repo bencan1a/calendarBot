@@ -81,10 +81,6 @@ logging:
   max_log_files: 5
   include_function_names: true
 
-  # Interactive mode
-  interactive_split_display: true
-  interactive_log_lines: 5
-
   # Third-party libraries (suppress noisy libraries)
   third_party_level: "WARNING"
 

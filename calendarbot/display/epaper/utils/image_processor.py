@@ -168,7 +168,6 @@ class ImageProcessor:
             Test image in e-Paper display format
         """
         try:
-
             test_buffer = create_test_pattern(
                 capabilities.width, capabilities.height, has_red=capabilities.supports_red
             )

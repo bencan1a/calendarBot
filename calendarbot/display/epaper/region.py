@@ -1,8 +1,6 @@
 """Region model for e-Paper displays."""
 
 
-
-
 class Region:
     """Represents a rectangular region on the display."""
 

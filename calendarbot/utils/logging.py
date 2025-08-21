@@ -7,7 +7,7 @@ import sys
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 # Lazy imports moved to function level to avoid circular dependencies
 
@@ -217,7 +217,7 @@ class TimestampedFileHandler(logging.FileHandler):
     """Handler that creates timestamped log files per execution."""
 
     def __init__(
-        self, log_dir: str | Path, prefix: str = "calendarbot", max_files: int = 5
+        self, log_dir: Union[str, Path], prefix: str = "calendarbot", max_files: int = 5
     ) -> None:
         self.log_dir = Path(log_dir)
         self.prefix = prefix
@@ -292,10 +292,8 @@ class SplitDisplayHandler(logging.Handler):
             pass
 
 
-def setup_enhanced_logging(  # noqa: PLR0915
+def setup_enhanced_logging(
     settings: "CalendarBotSettings",
-    interactive_mode: bool = False,
-    display_manager: Optional["DisplayManager"] = None,
 ) -> logging.Logger:
     """Set up enhanced logging system with all features including security, performance, structured logging, and production optimization."""
 
@@ -340,41 +338,23 @@ def setup_enhanced_logging(  # noqa: PLR0915
             enable_colors=settings.logging.console_colors,
         )
 
-        # Add split display handler for interactive mode
-        if interactive_mode and settings.logging.interactive_split_display and display_manager:
-            split_handler = SplitDisplayHandler(
-                display_manager, max_log_lines=settings.logging.interactive_log_lines
-            )
-            split_handler.setLevel(console_level)
-            split_handler.setFormatter(console_formatter)
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(console_level)
+        console_handler.setFormatter(console_formatter)
 
-            # Apply production optimization filters to console
-            from ..optimization import ProductionLogFilter  # noqa: PLC0415
+        # Apply production optimization filters to console - but allow INFO+ through
+        from ..optimization import ProductionLogFilter  # noqa: PLC0415
 
-            production_filter = ProductionLogFilter(optimizer.rules, settings)
-            split_handler.addFilter(production_filter)
+        # Create console-friendly filter rules (suppress only DEBUG, allow INFO+)
+        console_rules = [
+            rule
+            for rule in optimizer.rules
+            if not rule.suppress or rule.level_threshold != logging.DEBUG
+        ]
+        production_filter = ProductionLogFilter(console_rules, settings)
+        console_handler.addFilter(production_filter)
 
-            logger.addHandler(split_handler)
-        else:
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(console_level)
-            console_handler.setFormatter(console_formatter)
-
-            # Apply production optimization filters to console - but allow INFO+ through
-            from ..optimization import ProductionLogFilter  # noqa: PLC0415
-
-            # Create console-friendly filter rules (suppress only DEBUG, allow INFO+)
-            console_rules = [
-                rule
-                for rule in optimizer.rules
-                if not rule.suppress or rule.level_threshold != logging.DEBUG
-            ]
-            production_filter = ProductionLogFilter(console_rules, settings)
-            console_handler.addFilter(production_filter)
-
-            logger.addHandler(console_handler)
-
-            # Use the specified console level (respect user preferences)
+        logger.addHandler(console_handler)
 
     # 3. File Handler (if enabled)
     if settings.logging.file_enabled:

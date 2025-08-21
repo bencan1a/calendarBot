@@ -8,7 +8,7 @@ import uuid
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from ..monitoring.performance import (
     MetricType,
@@ -88,7 +88,7 @@ class BenchmarkRunner:
         self,
         name: str,
         func: Callable[..., Any],
-        category_or_config: str | BenchmarkConfig | None = None,
+        category_or_config: Union[str, BenchmarkConfig, None] = None,
         description: str = "",
         expected_duration_seconds: Optional[float] = None,
         min_iterations: int = 1,

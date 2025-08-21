@@ -3,7 +3,7 @@
 import os
 from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Any, Optional, Union  # noqa: F401
+from typing import Any, Optional, Union
 
 from .performance import (
     MetricType,
@@ -224,6 +224,6 @@ __all__ = [
 
 
 # Convenience function for quick access
-def get_logger() -> _PerformanceLogger | NoOpPerformanceLogger:
+def get_logger() -> Union[_PerformanceLogger, NoOpPerformanceLogger]:
     """Get the global performance logger instance."""
     return get_performance_logger()

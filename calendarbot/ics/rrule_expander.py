@@ -3,6 +3,7 @@
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Optional
 
 from dateutil.rrule import DAILY, HOURLY, MINUTELY, MONTHLY, SECONDLY, WEEKLY, YEARLY, rrule
 
@@ -42,9 +43,9 @@ class RRuleExpander:
         self,
         master_event: CalendarEvent,
         rrule_string: str,
-        exdates: list[str] | None = None,
-        start_date: datetime | None = None,
-        end_date: datetime | None = None,
+        exdates: Optional[list[str]] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
     ) -> list[CalendarEvent]:
         """Expand RRULE pattern into individual event instances.
 
@@ -65,8 +66,6 @@ class RRuleExpander:
             return []
 
         try:
-            logger.debug(f"Expanding RRULE: {rrule_string} for event {master_event.id}")
-
             # Parse RRULE components
             rrule_params = self.parse_rrule_string(rrule_string)
 
@@ -98,10 +97,7 @@ class RRuleExpander:
                 occurrences = occurrences[:max_occurrences]
 
             # Generate CalendarEvent instances
-            events = self.generate_event_instances(master_event, occurrences)
-
-            logger.debug(f"Generated {len(events)} events from RRULE expansion")
-            return events
+            return self.generate_event_instances(master_event, occurrences)
 
         except Exception as e:
             logger.exception("RRULE expansion failed")
@@ -160,7 +156,7 @@ class RRuleExpander:
             raise RRuleParseError(f"Invalid RRULE format: {rrule_string}") from e
 
     def apply_exdates(
-        self, occurrences: list[datetime], exdates: list[str] | None
+        self, occurrences: list[datetime], exdates: Optional[list[str]]
     ) -> list[datetime]:
         """Remove excluded dates from occurrence list.
 

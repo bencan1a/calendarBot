@@ -11,18 +11,10 @@ from collections.abc import Callable
 from typing import Any
 
 from .epaper import run_epaper_mode
-from .interactive import run_interactive_mode
 from .web import run_web_mode
 
 # Mode registry for available execution modes
 MODE_REGISTRY: dict[str, dict[str, Any]] = {
-    "interactive": {
-        "name": "Interactive Mode",
-        "description": "Interactive console navigation with arrow key controls",
-        "handler": run_interactive_mode,
-        "requires_display": True,
-        "async_mode": True,
-    },
     "web": {
         "name": "Web Server Mode",
         "description": "Web-based calendar interface with browser viewing",
@@ -130,6 +122,5 @@ __all__ = [
     "get_mode_handler",
     "register_mode",
     "run_epaper_mode",
-    "run_interactive_mode",
     "run_web_mode",
 ]

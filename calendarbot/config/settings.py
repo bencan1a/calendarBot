@@ -131,14 +131,6 @@ class LoggingSettings(BaseModel):
         default=True, description="Include function names and line numbers in file logs"
     )
 
-    # Interactive Mode
-    interactive_split_display: bool = Field(
-        default=True, description="Use split display in interactive mode"
-    )
-    interactive_log_lines: int = Field(
-        default=5, description="Number of log lines to show in interactive mode"
-    )
-
     # Third-party Libraries
     third_party_level: str = Field(
         default="WARNING", description="Log level for third-party libraries"
@@ -644,12 +636,6 @@ class CalendarBotSettings(BaseSettings):
             "include_function_names",
         ]
         for setting in file_settings:
-            if setting in logging_config:
-                setattr(self.logging, setting, logging_config[setting])
-
-        # Interactive mode settings
-        interactive_settings = ["interactive_split_display", "interactive_log_lines"]
-        for setting in interactive_settings:
             if setting in logging_config:
                 setattr(self.logging, setting, logging_config[setting])
 

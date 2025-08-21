@@ -11,11 +11,11 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 # Import html2image conditionally to handle environments where it's not installed
 try:
-    from html2image import Html2Image
+    from html2image import Html2Image  # type: ignore[import]
 
     HTML2IMAGE_AVAILABLE = True
 except ImportError:
@@ -57,7 +57,7 @@ class HtmlToPngConverter:
     # Singleton instance for reuse
     _instance: Optional["HtmlToPngConverter"] = None
 
-    def __new__(cls, *_args, **_kwargs):
+    def __new__(cls, *_args: Any, **_kwargs: Any) -> "HtmlToPngConverter":
         """Create or return the singleton instance."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -276,7 +276,7 @@ class HtmlToPngConverter:
                         logger.info(f"Image successfully cropped to 300x400: {cropped_path}")
                         return cropped_path
                     logger.warning("Failed to crop image, returning original")
-                    return original_path
+                    return original_path  # type: ignore[no-any-return]
 
                 return None
 

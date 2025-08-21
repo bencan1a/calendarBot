@@ -16,22 +16,17 @@ class SourceConnectionError(SourceError):
     """Exception raised when source connection fails."""
 
 
-
 class SourceConfigError(SourceError):
     """Exception raised when source configuration is invalid."""
-
 
 
 class SourceAuthError(SourceError):
     """Exception raised when source authentication fails."""
 
 
-
 class SourceDataError(SourceError):
     """Exception raised when source data is invalid or corrupted."""
 
 
-
 class SourceTimeoutError(SourceError):
     """Exception raised when source operation times out."""
-

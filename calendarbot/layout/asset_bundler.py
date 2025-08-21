@@ -125,13 +125,13 @@ class LayoutAssetBundler:
             return [], []
 
         # Find CSS files
-        css_files = []
+        css_files: list[Path] = []
         css_patterns = ["*.css", "css/*.css", "static/*.css"]
         for pattern in css_patterns:
             css_files.extend(layout_dir.glob(pattern))
 
         # Find JS files
-        js_files = []
+        js_files: list[Path] = []
         js_patterns = ["*.js", "js/*.js", "static/*.js"]
         for pattern in js_patterns:
             js_files.extend(layout_dir.glob(pattern))

@@ -1,7 +1,5 @@
-"""User interface components for interactive calendar navigation."""
+"""User interface components for navigation."""
 
-from .interactive import InteractiveController
-from .keyboard import KeyboardHandler
 from .navigation import NavigationState
 
-__all__ = ["InteractiveController", "KeyboardHandler", "NavigationState"]
+__all__ = ["NavigationState"]

@@ -17,7 +17,7 @@ import tempfile
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NoReturn, Optional
+from typing import TYPE_CHECKING, Any, NoReturn, Optional, Union
 
 from PIL import Image
 
@@ -92,7 +92,7 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
     updated_settings = apply_epaper_mode_overrides(updated_settings, args)
 
     # Set up enhanced logging for e-paper mode
-    setup_enhanced_logging(updated_settings, interactive_mode=False)
+    setup_enhanced_logging(updated_settings)
     logger.info("Enhanced logging initialized for e-paper mode")
 
     logger.debug("Initializing Calendar Bot components...")
@@ -451,12 +451,8 @@ async def run_epaper_mode(args: Any) -> int:
             _raise_app_not_initialized()
 
         logger.debug("Starting background data fetching task...")
-        if context.app is not None:
-            context.fetch_task = asyncio.create_task(context.app.run_background_fetch())
-            logger.debug("Background data fetching task started")
-        else:
-            logger.error("CalendarBot app is not initialized; cannot start background fetch task.")
-            _raise_app_not_initialized()
+        context.fetch_task = asyncio.create_task(context.app.run_background_fetch())
+        logger.debug("Background data fetching task started")
 
         try:
             # Run main loop
@@ -545,7 +541,7 @@ def detect_epaper_hardware() -> bool:
         return False
 
 
-def save_png_emulation(image: Any, cycle_number: int | str) -> tuple[Path, Optional[Path]]:
+def save_png_emulation(image: Any, cycle_number: Union[int, str]) -> tuple[Path, Optional[Path]]:
     """Save rendered image as PNG for emulation mode and also save a processed version
     showing how it would appear on the e-paper display.
 

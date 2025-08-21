@@ -103,7 +103,7 @@ class ConnectionManager:
                 "ssl": False,  # Will be determined per request
             }
 
-            self._connector = aiohttp.TCPConnector(**connector_config)
+            self._connector = aiohttp.TCPConnector(**connector_config)  # type: ignore[arg-type]
 
             # Create HTTP session with pooled connector
             timeout = aiohttp.ClientTimeout(total=30.0, connect=10.0)

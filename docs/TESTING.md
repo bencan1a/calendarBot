@@ -93,9 +93,6 @@ calendarbot --test-mode --verbose
 # Test web interface
 calendarbot --web --port 8080
 
-# Test interactive mode
-calendarbot --interactive
-
 # Test setup wizard
 calendarbot --setup
 ```

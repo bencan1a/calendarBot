@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
-from typing import Any, Optional
+from typing import Any, Optional, Union, cast
 
 
 class LogLevel(Enum):
@@ -462,7 +462,7 @@ class ContextualLoggerMixin:
 
 
 @contextmanager
-def correlation_context(correlation_id: Optional[str | CorrelationID] = None) -> Any:
+def correlation_context(correlation_id: Optional[Union[str, CorrelationID]] = None) -> Any:
     """
     Context manager for correlation ID tracking.
 
@@ -499,7 +499,7 @@ def request_context(
     request_id: Optional[str] = None,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
-    correlation_id: Optional[str | CorrelationID] = None,
+    correlation_id: Optional[Union[str, CorrelationID]] = None,
 ) -> Any:
     """
     Context manager for HTTP request tracking.
@@ -537,7 +537,7 @@ def request_context(
 def operation_context(
     operation: str,
     component: Optional[str] = None,
-    correlation_id: Optional[str | CorrelationID] = None,
+    correlation_id: Optional[Union[str, CorrelationID]] = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -578,7 +578,7 @@ def operation_context(
 
 
 def with_correlation_id(
-    correlation_id: Optional[str | CorrelationID] = None,
+    correlation_id: Optional[Union[str, CorrelationID]] = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator to automatically add correlation ID to function context.
@@ -619,7 +619,7 @@ def get_structured_logger(
     # and modifies it through direct module reference
     if globals()["_structured_logger"] is None or globals()["_structured_logger"].name != name:
         globals()["_structured_logger"] = StructuredLogger(name, settings)
-    return globals()["_structured_logger"]
+    return cast(StructuredLogger, globals()["_structured_logger"])
 
 
 def init_structured_logging(settings: Any) -> StructuredLogger:
@@ -631,7 +631,7 @@ def init_structured_logging(settings: Any) -> StructuredLogger:
     logging.addLevelName(LogLevel.TRACE.value, "TRACE")
     logging.addLevelName(LogLevel.AUDIT.value, "AUDIT")
 
-    return globals()["_structured_logger"]
+    return cast(StructuredLogger, globals()["_structured_logger"])
 
 
 # Make os available for process ID

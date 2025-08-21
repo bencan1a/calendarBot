@@ -2,7 +2,7 @@
 
 import contextlib
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -66,7 +66,7 @@ class OptimizationConfig(BaseModel):
         default=0.5, ge=0.1, le=1.0, description="Cache hit rate warning threshold (0.0-1.0)"
     )
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         """Initialize optimization configuration with environment variable support."""
         # Load from environment variables with CALENDARBOT_OPT_ prefix
         env_overrides = {}

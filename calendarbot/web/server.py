@@ -13,7 +13,7 @@ from email.utils import formatdate
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from urllib.parse import parse_qs, urlparse
 
 from ..config.build import (
@@ -269,7 +269,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.exception("Error serving database viewer page")
             self._send_500(str(e))
 
-    def _handle_api_request(self, path: str, params: dict[str, list[str]] | dict[str, Any]) -> None:
+    def _handle_api_request(
+        self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
+    ) -> None:
         """Handle API requests."""
         try:
             logger.debug(f"API request routing: path='{path}', method={self.command}")
@@ -317,7 +319,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.exception("Error handling API request")
             self._send_json_response(500, {"error": str(e)})
 
-    def _handle_navigation_api(self, params: dict[str, list[str]] | dict[str, Any]) -> None:
+    def _handle_navigation_api(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
         """Handle navigation API requests."""
         logger.debug(f"Navigation API params type: {type(params)}")
         logger.debug(f"Navigation API params content: {params}")
@@ -380,7 +382,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         else:
             self._send_json_response(500, {"error": "Web server not available"})
 
-    def _handle_layout_api(self, params: dict[str, list[str]] | dict[str, Any]) -> None:
+    def _handle_layout_api(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
         """Handle layout switching API requests."""
         if isinstance(params, dict) and "layout" in params:
             layout_value = params["layout"]
@@ -415,7 +417,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_refresh_api(
-        self, params: Optional[dict[str, list[str]] | dict[str, Any]] = None
+        self, params: Optional[Union[dict[str, list[str]], dict[str, Any]]] = None
     ) -> None:
         """Handle refresh API requests with optional debug time override."""
         if not self.web_server:
@@ -451,7 +453,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self._send_json_response(200, {"success": success, "html": html_content})
 
     def _handle_whats_next_data_api(
-        self, params: Optional[dict[str, list[str]] | dict[str, Any]] = None
+        self, params: Optional[Union[dict[str, list[str]], dict[str, Any]]] = None
     ) -> None:
         """Handle What's Next data API requests.
 
@@ -481,7 +483,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(500, {"error": str(e)})
 
     def _extract_debug_time(
-        self, params: Optional[dict[str, list[str]] | dict[str, Any]]
+        self, params: Optional[Union[dict[str, list[str]], dict[str, Any]]]
     ) -> Optional[datetime]:
         """Extract and parse debug_time from request parameters."""
         if not self.web_server:
@@ -520,14 +522,14 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # BUGFIX: WhatsNextView should always use today's date, not navigation state
         # WhatsNextView is conceptually about "what's next from NOW"
         if current_layout == "whats-next-view":
-            return self._get_non_interactive_mode_events(days)
+            return self._get_today_events(days)
 
         if self.web_server.navigation_state:
-            return self._get_interactive_mode_events(days)
-        return self._get_non_interactive_mode_events(days)
+            return self._get_navigation_events(days)
+        return self._get_today_events(days)
 
-    def _get_interactive_mode_events(self, days: int) -> tuple[list[Any], dict[str, Any]]:
-        """Get events for interactive mode (navigation state available)."""
+    def _get_navigation_events(self, days: int) -> tuple[list[Any], dict[str, Any]]:
+        """Get events for navigation mode (navigation state available)."""
         if not self.web_server or not self.web_server.navigation_state:
             return [], {}
 
@@ -536,13 +538,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         end_datetime = start_datetime + timedelta(days=days)
 
         logger.debug(
-            f"Interactive mode - getting events for {selected_date} ({start_datetime} to {end_datetime}) [days: {days}]"
+            f"Navigation mode - getting events for {selected_date} ({start_datetime} to {end_datetime}) [days: {days}]"
         )
 
         events = self._get_events_async_safe(start_datetime, end_datetime)
         logger.debug(f"Retrieved {len(events)} events for selected date")
 
-        # Build status info for interactive mode
+        # Build status info for navigation mode
         from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
 
         # Get cache status if cache manager is available
@@ -555,33 +557,31 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         status_info = {
             "selected_date": self.web_server.navigation_state.get_display_date(),
             "is_today": self.web_server.navigation_state.is_today(),
-            "interactive_mode": True,
             "last_update": get_timezone_aware_now().isoformat(),
             "is_cached": is_cached,
         }
 
         return events, status_info
 
-    def _get_non_interactive_mode_events(self, days: int) -> tuple[list[Any], dict[str, Any]]:
-        """Get events for non-interactive mode (static web display)."""
+    def _get_today_events(self, days: int) -> tuple[list[Any], dict[str, Any]]:
+        """Get events for today (static web display)."""
         today = date.today()
         start_datetime = datetime.combine(today, datetime.min.time())
         end_datetime = start_datetime + timedelta(days=days)
 
         logger.debug(
-            f"Non-interactive mode - getting events for today {today} ({start_datetime} to {end_datetime}) [days: {days}]"
+            f"Static mode - getting events for today {today} ({start_datetime} to {end_datetime}) [days: {days}]"
         )
 
         events = self._get_events_async_safe(start_datetime, end_datetime)
         logger.debug(f"Retrieved {len(events)} events for today")
 
-        # Static web display mode - no navigation buttons
+        # Static web display mode
         from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
 
         status_info = {
             "last_update": get_timezone_aware_now().isoformat(),
             "is_cached": False,
-            "interactive_mode": False,
         }
 
         return events, status_info
@@ -703,7 +703,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             "is_cached": view_model.status_info.is_cached,
             "connection_status": view_model.status_info.connection_status,
             "relative_description": view_model.status_info.relative_description,
-            "interactive_mode": view_model.status_info.interactive_mode,
             "selected_date": view_model.status_info.selected_date,
         }
 
@@ -712,7 +711,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         next_events_list = [event_to_dict(event) for event in view_model.next_events]
         later_events_list = [event_to_dict(event) for event in view_model.later_events]
 
-        result = {
+        result: dict[str, Any] = {
             "layout_name": (
                 self.web_server.get_current_layout()
                 if self.web_server and hasattr(self.web_server, "get_current_layout")
@@ -774,34 +773,32 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # Get events for the specified time period
         if self.web_server.navigation_state:
-            # Interactive mode - get events for selected date
+            # Navigation mode - get events for selected date
             selected_date = self.web_server.navigation_state.selected_date
             start_datetime = datetime.combine(selected_date, datetime.min.time())
             end_datetime = start_datetime + timedelta(days=days)
 
-            # Build status info for interactive mode
+            # Build status info for navigation mode
             from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
 
             status_info = {
                 "selected_date": self.web_server.navigation_state.get_display_date(),
                 "is_today": self.web_server.navigation_state.is_today(),
-                "interactive_mode": True,
                 "last_update": get_timezone_aware_now().isoformat(),
                 "is_cached": False,
             }
         else:
-            # Non-interactive mode - get today's events
+            # Static mode - get today's events
             today = date.today()
             start_datetime = datetime.combine(today, datetime.min.time())
             end_datetime = start_datetime + timedelta(days=days)
 
-            # Static web display mode - no navigation buttons
+            # Static web display mode
             from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
 
             status_info = {
                 "last_update": get_timezone_aware_now().isoformat(),
                 "is_cached": False,
-                "interactive_mode": False,
             }
 
         # Check if web_server is available
@@ -904,7 +901,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self._send_json_response(200, status)
 
     def _handle_settings_api(
-        self, path: str, params: dict[str, list[str]] | dict[str, Any]
+        self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle settings API requests with comprehensive endpoint support.
 
@@ -995,7 +992,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(500, {"error": "Failed to get settings", "message": str(e)})
 
     def _handle_update_settings(
-        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle PUT /api/settings - update complete settings."""
         try:
@@ -1044,7 +1041,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_update_filter_settings(
-        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle PUT /api/settings/filters - update filter settings."""
         try:
@@ -1091,7 +1088,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_update_display_settings(
-        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle PUT /api/settings/display - update display settings."""
         try:
@@ -1138,7 +1135,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_update_conflict_settings(
-        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle PUT /api/settings/conflicts - update conflict resolution settings."""
         try:
@@ -1175,7 +1172,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_validate_settings(
-        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle POST /api/settings/validate - validate settings data."""
         try:
@@ -1227,7 +1224,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(500, {"error": "Failed to export settings", "message": str(e)})
 
     def _handle_import_settings(
-        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle POST /api/settings/import - import settings."""
         try:
@@ -1288,7 +1285,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_add_filter_pattern(
-        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle POST /api/settings/filters/patterns - add a new filter pattern."""
         try:
@@ -1334,7 +1331,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_remove_filter_pattern(
-        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle DELETE /api/settings/filters/patterns - remove a filter pattern."""
         try:
@@ -1367,7 +1364,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_hide_event(
-        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle POST /api/events/hide - hide a specific event."""
         try:
@@ -1423,7 +1420,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_json_response(500, {"error": "Failed to hide event", "message": str(e)})
 
     def _handle_unhide_event(
-        self, settings_service: SettingsService, params: dict[str, list[str]] | dict[str, Any]
+        self, settings_service: SettingsService, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle POST /api/events/unhide - unhide a specific event."""
         try:
@@ -1488,7 +1485,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             )
 
     def _handle_database_api(
-        self, path: str, params: dict[str, list[str]] | dict[str, Any]
+        self, path: str, params: Union[dict[str, list[str]], dict[str, Any]]
     ) -> None:
         """Handle database API requests with comprehensive endpoint support.
 
@@ -1540,7 +1537,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             logger.exception("Error handling database API request")
             self._send_json_response(500, {"error": str(e)})
 
-    def _handle_database_query(self, params: dict[str, list[str]] | dict[str, Any]) -> None:
+    def _handle_database_query(self, params: Union[dict[str, list[str]], dict[str, Any]]) -> None:
         """Handle POST /api/database/query - execute SQL query safely."""
         try:
             # Validate that params is a dictionary and contains query
@@ -1805,7 +1802,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
                 async def fetch_with_raw_content() -> dict[str, Any]:
                     """Fetch events with raw content by temporarily overriding production mode."""
-                    result = {"success": False, "count": 0, "error": None}
+                    result: dict[str, Any] = {"success": False, "count": 0, "error": None}
 
                     try:
                         # Import required modules for temporary override
@@ -2173,7 +2170,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self._send_500(str(e))
 
     def _send_response(
-        self, status_code: int, content: str | bytes, content_type: str, _binary: bool = False
+        self, status_code: int, content: Union[str, bytes], content_type: str, _binary: bool = False
     ) -> None:
         """Send HTTP response."""
         self.send_response(status_code)
@@ -2521,7 +2518,6 @@ class WebServer:
                 status_info = {
                     "selected_date": self.navigation_state.get_display_date(),
                     "is_today": self.navigation_state.is_today(),
-                    "interactive_mode": True,
                     "last_update": get_timezone_aware_now().isoformat(),
                     "is_cached": bool(events),  # If we got events, assume cached
                 }
@@ -2572,7 +2568,6 @@ class WebServer:
                 status_info = {
                     "last_update": get_timezone_aware_now().isoformat(),
                     "is_cached": False,
-                    "interactive_mode": False,
                 }
 
             logger.debug(f"Display manager renderer type: {type(self.display_manager.renderer)}")
@@ -2747,7 +2742,7 @@ class WebServer:
             "host": self.host,
             "port": self.port,
             "layout": self.get_current_layout(),
-            "interactive_mode": self.navigation_state is not None,
+            "has_navigation": self.navigation_state is not None,
             "current_date": (
                 self.navigation_state.selected_date.isoformat()
                 if self.navigation_state

@@ -8,7 +8,7 @@ import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -277,7 +277,7 @@ class StaticAssetCache:
         """
         return bool(self._asset_map)
 
-    def get_cache_stats(self) -> dict[str, int | float]:
+    def get_cache_stats(self) -> dict[str, Union[int, float]]:
         """Get cache performance statistics.
 
         Returns:

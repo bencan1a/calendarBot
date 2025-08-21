@@ -19,13 +19,15 @@ ZONEINFO_AVAILABLE = importlib.util.find_spec("zoneinfo") is not None
 PYTZ_AVAILABLE = importlib.util.find_spec("pytz") is not None
 
 # Import timezone libraries at top level if available
-ZoneInfo = None
 if ZONEINFO_AVAILABLE:
-    from zoneinfo import ZoneInfo
+    from zoneinfo import ZoneInfo  # type: ignore[assignment]
+else:
+    ZoneInfo = None  # type: ignore[assignment]
 
-pytz = None
 if PYTZ_AVAILABLE:
     import pytz
+else:
+    pytz = None  # type: ignore[assignment]
 
 
 class TimezoneError(Exception):

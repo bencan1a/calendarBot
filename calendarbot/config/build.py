@@ -16,7 +16,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 # Load environment variables from .env file if available
 try:
@@ -97,7 +97,7 @@ def is_production_mode() -> bool:
     return True
 
 
-def is_debug_asset(file_path: str | Path) -> bool:
+def is_debug_asset(file_path: Union[str, Path]) -> bool:
     """
     Check if a file path matches debug asset patterns.
 
@@ -128,7 +128,7 @@ def is_debug_asset(file_path: str | Path) -> bool:
     return False
 
 
-def should_exclude_asset(file_path: str | Path) -> bool:
+def should_exclude_asset(file_path: Union[str, Path]) -> bool:
     """
     Determine if an asset should be excluded from serving.
 
@@ -161,7 +161,7 @@ def get_excluded_patterns() -> list[str]:
     return PRODUCTION_EXCLUDES + DEVELOPMENT_ARTIFACTS + TEST_PATTERNS
 
 
-def filter_asset_paths(asset_paths: list[str | Path]) -> list[str | Path]:
+def filter_asset_paths(asset_paths: list[Union[str, Path]]) -> list[Union[str, Path]]:
     """
     Filter a list of asset paths, excluding debug assets in production.
 
@@ -223,7 +223,7 @@ def get_asset_exclusion_info() -> dict:
     }
 
 
-def validate_asset_path(file_path: str | Path) -> bool:
+def validate_asset_path(file_path: Union[str, Path]) -> bool:
     """
     Validate that an asset path is safe and should be processed.
 
@@ -275,7 +275,7 @@ class ProductionAssetFilter:
         if self.production_mode:
             logger.info(f"Asset exclusion active with {len(self.exclusion_patterns)} patterns")
 
-    def should_serve_asset(self, file_path: str | Path) -> bool:
+    def should_serve_asset(self, file_path: Union[str, Path]) -> bool:
         """
         Determine if an asset should be served to clients.
 
@@ -304,7 +304,7 @@ class ProductionAssetFilter:
 
         return not excluded
 
-    def get_serving_decision(self, file_path: str | Path) -> dict:
+    def get_serving_decision(self, file_path: Union[str, Path]) -> dict:
         """
         Get detailed information about serving decision for an asset.
 

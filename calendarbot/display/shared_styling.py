@@ -6,7 +6,7 @@ between web (HTML) and e-paper (PIL) renderers. It extracts styling values from 
 WhatsNextRenderer CSS and provides them in formats suitable for different rendering backends.
 """
 
-from typing import Any, ClassVar, Literal, cast
+from typing import Any, ClassVar, Literal, Union, cast
 
 
 class SharedStylingConstants:
@@ -72,7 +72,7 @@ class SharedStylingConstants:
 
 def get_colors_for_renderer(
     renderer_type: Literal["html", "pil"], mode: str = "L", is_epaper: bool = False
-) -> dict[str, str | int | tuple[int, int, int]]:
+) -> dict[str, Union[str, int, tuple[int, int, int]]]:
     """
     Get colors formatted for the specified renderer type.
 
@@ -92,7 +92,7 @@ def get_colors_for_renderer(
 
     if renderer_type == "html":
         # Cast to the expected return type to satisfy type checker
-        return cast("dict[str, str | int | tuple[int, int, int]]", colors)
+        return cast("dict[str, Union[str, int, tuple[int, int, int]]]", colors)
     if renderer_type == "pil":
         return {key: convert_web_to_pil_color(value, mode) for key, value in colors.items()}
     raise ValueError(f"Unsupported renderer type: {renderer_type}")
@@ -100,7 +100,7 @@ def get_colors_for_renderer(
 
 def get_typography_for_renderer(
     renderer_type: Literal["html", "pil"],
-) -> dict[str, str | int]:
+) -> dict[str, Union[str, int]]:
     """
     Get typography formatted for the specified renderer type.
 
@@ -120,7 +120,7 @@ def get_typography_for_renderer(
     raise ValueError(f"Unsupported renderer type: {renderer_type}")
 
 
-def get_layout_for_renderer(renderer_type: Literal["html", "epaper"]) -> dict[str, str | int]:
+def get_layout_for_renderer(renderer_type: Literal["html", "epaper"]) -> dict[str, Union[str, int]]:
     """
     Get layout dimensions for the specified renderer type.
 
@@ -140,7 +140,7 @@ def get_layout_for_renderer(renderer_type: Literal["html", "epaper"]) -> dict[st
     raise ValueError(f"Unsupported renderer type: {renderer_type}")
 
 
-def convert_web_to_pil_color(hex_color: str, mode: str = "L") -> int | tuple[int, int, int]:
+def convert_web_to_pil_color(hex_color: str, mode: str = "L") -> Union[int, tuple[int, int, int]]:
     """
     Convert a web hex color to a PIL-compatible color value.
 
