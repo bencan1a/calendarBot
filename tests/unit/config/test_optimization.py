@@ -70,7 +70,7 @@ class TestOptimizationConfig:
             assert config.cache_hit_rate_warning == 0.7
 
     @pytest.mark.parametrize(
-        "invalid_env,field,expected_default",
+        ("invalid_env", "field", "expected_default"),
         [
             ({"CALENDARBOT_OPT_MAX_CONNECTIONS": "invalid"}, "max_connections", 20),
             (

@@ -112,13 +112,13 @@ class TestSourceConfig:
     def test_source_config_when_missing_required_fields_then_raises_error(self) -> None:
         """Test SourceConfig raises error when missing required fields."""
         # Arrange & Act & Assert
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             SourceConfig()  # type: ignore
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             SourceConfig(name="Test Source")  # type: ignore
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             SourceConfig(name="Test Source", type="ics")  # type: ignore
 
     def test_source_config_when_enum_as_string_then_accepts_value(self) -> None:

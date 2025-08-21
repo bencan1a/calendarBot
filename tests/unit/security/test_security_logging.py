@@ -99,7 +99,7 @@ class TestSecuritySeverity:
     """Test SecuritySeverity enum functionality."""
 
     @pytest.mark.parametrize(
-        "severity,name,priority",
+        ("severity", "name", "priority"),
         [
             (SecuritySeverity.LOW, "low", 1),
             (SecuritySeverity.MEDIUM, "medium", 2),
@@ -240,14 +240,15 @@ class TestCredentialMaskingPatterns:
     """Test CredentialMaskingPatterns class functionality."""
 
     @pytest.mark.parametrize(
-        "length,expected", [(5, 3), (8, 3), (12, 6), (16, 6), (24, 8), (32, 8), (64, 12), (128, 12)]
+        ("length", "expected"),
+        [(5, 3), (8, 3), (12, 6), (16, 6), (24, 8), (32, 8), (64, 12), (128, 12)],
     )
     def test_get_mask_length(self, length, expected):
         """Test mask length calculation for different input lengths."""
         assert CredentialMaskingPatterns.get_mask_length(length) == expected
 
     @pytest.mark.parametrize(
-        "credential,expected",
+        ("credential", "expected"),
         [
             ("abc", "***"),
             ("abcd", "***"),
@@ -327,13 +328,13 @@ class TestCredentialMaskingPatterns:
 class TestMaskCredentials:
     """Test mask_credentials function."""
 
-    @pytest.mark.parametrize("input_text,expected", [("", ""), (None, None)])
+    @pytest.mark.parametrize(("input_text", "expected"), [("", ""), (None, None)])
     def test_empty_or_none_input(self, input_text, expected):
         """Test mask_credentials with empty or None input."""
         assert mask_credentials(input_text) == expected
 
     @pytest.mark.parametrize(
-        "text,credential,masked_part",
+        ("text", "credential", "masked_part"),
         [
             ('Login with password: "mypassword123"', "mypassword123", "my******23"),
             ('{"token": "abc123xyz789"}', "abc123xyz789", "ab******89"),
@@ -511,7 +512,7 @@ class TestSecurityEventLogger:
         assert "user123" in call_args
 
     @pytest.mark.parametrize(
-        "method_name,event_type,severity,expected_action,expected_result",
+        ("method_name", "event_type", "severity", "expected_action", "expected_result"),
         [
             (
                 "log_authentication_success",
@@ -581,7 +582,7 @@ class TestSecurityEventLogger:
         assert event.result == "failure"
 
     @pytest.mark.parametrize(
-        "severity,expected_level",
+        ("severity", "expected_level"),
         [
             (SecuritySeverity.LOW, logging.DEBUG),
             (SecuritySeverity.MEDIUM, logging.WARNING),

@@ -1,7 +1,7 @@
 """Mock ICS data and factory functions for testing."""
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Optional
 
 
 class ICSTestData:
@@ -45,10 +45,10 @@ class ICSTestData:
             )
 
             # Add required methods for testing
-            def is_current():
+            def is_current() -> bool:
                 return False
 
-            def is_upcoming():
+            def is_upcoming() -> bool:
                 return True
 
             def format_time_range(format_str: str = "%I:%M %p") -> str:
@@ -65,7 +65,7 @@ class ICSTestData:
         return events
 
     @staticmethod
-    def create_event_for_date(event_date, title: str):
+    def create_event_for_date(event_date: datetime, title: str) -> SimpleNamespace:
         """Create a single Microsoft Graph API-like event for a specific date."""
         from types import SimpleNamespace
 
@@ -369,7 +369,9 @@ class DatabaseTestData:
 
     @staticmethod
     def create_cache_metadata(
-        last_update: datetime = None, successful_fetch: datetime = None, failures: int = 0
+        last_update: Optional[datetime] = None,
+        successful_fetch: Optional[datetime] = None,
+        failures: int = 0,
     ) -> dict[str, Any]:
         """Create cache metadata for testing."""
         now = datetime.now()

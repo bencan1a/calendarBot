@@ -707,19 +707,16 @@ class TestEInkWhatsNextRendererDrawing:
         Tests that appropriate errors are raised for invalid hex color formats.
         """
         # Test invalid hex format (missing #)
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(ValueError, match="Invalid hex color format") as excinfo:
             convert_to_pil_color("000000", mode="RGB")
-        assert "Invalid hex color format" in str(excinfo.value)
 
         # Test invalid hex format (wrong length)
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(ValueError, match="Invalid hex color format") as excinfo:
             convert_to_pil_color("#00000", mode="RGB")
-        assert "Invalid hex color format" in str(excinfo.value)
 
         # Test invalid hex characters
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(ValueError, match="Invalid hex color") as excinfo:
             convert_to_pil_color("#00gg00", mode="RGB")
-        assert "Invalid hex color" in str(excinfo.value)
 
     def test_convert_to_pil_color_when_unsupported_mode_then_raises_value_error(self) -> None:
         """Test convert_to_pil_color with unsupported mode.

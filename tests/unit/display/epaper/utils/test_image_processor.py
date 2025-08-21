@@ -135,10 +135,8 @@ class TestImageProcessor:
         mock_resize.side_effect = ValueError("Test error")
 
         # Call method and verify exception is raised
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(ValueError, match="Test error") as excinfo:
             processor.convert_to_display_format(mock_image, mock_capabilities)
-
-        assert "Test error" in str(excinfo.value)
 
     @patch("calendarbot.display.epaper.utils.image_processor.resize_image_for_epaper")
     def test_resize_for_display_when_maintain_aspect_ratio_then_resizes_correctly(
@@ -225,10 +223,8 @@ class TestImageProcessor:
         mock_resize.side_effect = ValueError("Test error")
 
         # Call method and verify exception is raised
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(ValueError, match="Test error") as excinfo:
             processor.resize_for_display(mock_image, mock_capabilities)
-
-        assert "Test error" in str(excinfo.value)
 
     def test_optimize_for_eink_when_rgb_image_then_enhances_correctly(
         self, processor: ImageProcessor, real_image: Image.Image
@@ -278,10 +274,8 @@ class TestImageProcessor:
         mock_enhance.Contrast.side_effect = ValueError("Test error")
 
         # Call method and verify exception is raised
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(ValueError, match="Test error") as excinfo:
             processor.optimize_for_eink(real_image)
-
-        assert "Test error" in str(excinfo.value)
 
     @patch("calendarbot.display.epaper.utils.image_processor.create_test_pattern")
     def test_create_test_image_when_bw_display_then_creates_correctly(
@@ -337,7 +331,5 @@ class TestImageProcessor:
         mock_create_pattern.side_effect = ValueError("Test error")
 
         # Call method and verify exception is raised
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(ValueError, match="Test error") as excinfo:
             processor.create_test_image(mock_capabilities)
-
-        assert "Test error" in str(excinfo.value)

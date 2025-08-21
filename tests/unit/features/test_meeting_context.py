@@ -304,7 +304,7 @@ class TestMeetingContextAnalyzer:
         # Create a scenario that will cause an exception in the main logic
         mock_event.start.date_time = "not a datetime"
 
-        with pytest.raises(Exception):
+        with pytest.raises(TypeError):
             analyzer.analyze_upcoming_meetings([mock_event])
 
 
@@ -412,7 +412,7 @@ class TestGetMeetingContextForTimeframe:
         """Test that context generation handles exceptions and re-raises them."""
         mock_events[0].start.date_time = "not a datetime"
 
-        with pytest.raises(Exception):
+        with pytest.raises(TypeError):
             await get_meeting_context_for_timeframe(cast(List[CalendarEvent], mock_events))
 
 

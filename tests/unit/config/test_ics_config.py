@@ -21,7 +21,7 @@ class TestICSAuth:
         assert auth.bearer_token is None
 
     @pytest.mark.parametrize(
-        "auth_type,username,password,bearer_token",
+        ("auth_type", "username", "password", "bearer_token"),
         [
             ("basic", "user", "pass", None),
             ("bearer", None, None, "token123"),

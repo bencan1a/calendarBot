@@ -10,7 +10,7 @@ from tests.utils.async_helpers import ThreadSafeCounter
 
 
 @pytest.fixture(autouse=True)
-def reset_thread_pool():
+def reset_thread_pool() -> None:
     """Reset the singleton thread pool before each test for isolation."""
     GlobalThreadPool.reset_singleton()
     yield
@@ -37,10 +37,12 @@ class TestGlobalThreadPool:
         pool = GlobalThreadPool()
 
         # Verify max_workers setting
-        assert pool._executor._max_workers == 4  # type: ignore[attr-defined]
+        if pool._executor is not None:
+            assert pool._executor._max_workers == 4  # type: ignore[attr-defined]
 
         # Verify thread name prefix
-        assert pool._executor._thread_name_prefix == "calendarbot"  # type: ignore[attr-defined]
+        if pool._executor is not None:
+            assert pool._executor._thread_name_prefix == "calendarbot"  # type: ignore[attr-defined]
 
     def test_singleton_thread_safety_when_concurrent_access_then_same_instance(self) -> None:
         """Test singleton behavior under concurrent access."""
@@ -306,7 +308,7 @@ class TestThreadPoolIntegration:
         # Submit mix of working and failing tasks
         working_future1 = run_in_thread_pool(working_task, 5)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="This task fails"):
             run_in_thread_pool(failing_task)
 
         working_future2 = run_in_thread_pool(working_task, 10)

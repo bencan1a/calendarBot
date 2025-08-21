@@ -289,7 +289,7 @@ class TestSettingsPersistenceAtomicWrite:
         mock_replace.side_effect = OSError("Replace failed")
         test_file = settings_persistence.config_dir / "test_atomic.json"
 
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match="Replace failed"):
             settings_persistence._atomic_write(test_file, sample_settings_data)
 
         # Temporary file should be cleaned up (mocked, but method should be called)
