@@ -175,7 +175,7 @@ class TestConditionalPerformanceLogging:
                 mock_instance = MagicMock()
                 mock_logger.return_value = mock_instance
 
-                mock_settings = {"log_file": "/tmp/test.log"}
+                mock_settings = {"log_file": "tests/fixtures/test.log"}
                 logger = init_performance_logging(mock_settings)
 
                 assert logger is mock_instance
@@ -184,7 +184,7 @@ class TestConditionalPerformanceLogging:
     def test_init_performance_logging_when_disabled(self):
         """Test init_performance_logging creates NoOpPerformanceLogger when monitoring disabled."""
         with patch.dict(os.environ, {"CALENDARBOT_MONITORING": "false"}):
-            mock_settings = {"log_file": "/tmp/test.log"}
+            mock_settings = {"log_file": "tests/fixtures/test.log"}
             logger = init_performance_logging(mock_settings)
 
             assert isinstance(logger, NoOpPerformanceLogger)

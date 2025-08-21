@@ -604,10 +604,10 @@ class TestSettingsServiceUtilityMethods:
             assert "Backup failed" in exc_info.value.details["error"]
 
     def test_export_settings_when_called_then_delegates_to_persistence(
-        self, settings_service: SettingsService
+        self, settings_service: SettingsService, tmp_path
     ) -> None:
         """Test export_settings delegates to persistence layer."""
-        export_path = Path("/tmp/export.json")
+        export_path = tmp_path / "export.json"
 
         with patch.object(
             settings_service.persistence, "export_settings", return_value=True
@@ -618,10 +618,10 @@ class TestSettingsServiceUtilityMethods:
             assert result is True
 
     def test_export_settings_when_persistence_fails_then_raises_settings_error(
-        self, settings_service: SettingsService
+        self, settings_service: SettingsService, tmp_path
     ) -> None:
         """Test export_settings raises SettingsError when persistence fails."""
-        export_path = Path("/tmp/export.json")
+        export_path = tmp_path / "export.json"
 
         with patch.object(
             settings_service.persistence, "export_settings", side_effect=Exception("Export failed")
@@ -633,10 +633,10 @@ class TestSettingsServiceUtilityMethods:
             assert str(export_path) in exc_info.value.details["export_path"]
 
     def test_import_settings_when_called_then_delegates_to_persistence_and_updates_cache(
-        self, settings_service: SettingsService, sample_settings_data: SettingsData
+        self, settings_service: SettingsService, sample_settings_data: SettingsData, tmp_path
     ) -> None:
         """Test import_settings delegates to persistence and updates cache."""
-        import_path = Path("/tmp/import.json")
+        import_path = tmp_path / "import.json"
 
         with patch.object(
             settings_service.persistence, "import_settings", return_value=sample_settings_data
@@ -648,10 +648,10 @@ class TestSettingsServiceUtilityMethods:
             assert settings_service._current_settings == sample_settings_data
 
     def test_import_settings_when_persistence_fails_then_raises_settings_error(
-        self, settings_service: SettingsService
+        self, settings_service: SettingsService, tmp_path
     ) -> None:
         """Test import_settings raises SettingsError when persistence fails."""
-        import_path = Path("/tmp/import.json")
+        import_path = tmp_path / "import.json"
 
         with patch.object(
             settings_service.persistence, "import_settings", side_effect=Exception("Import failed")

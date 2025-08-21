@@ -265,12 +265,12 @@ class TestRuntimeIntegration:
     """Test CLI runtime integration functions."""
 
     @pytest.fixture
-    def mock_settings_enabled(self):
+    def mock_settings_enabled(self, temp_db_path):
         """Create mock settings with runtime tracking enabled."""
         runtime_tracking = SimpleNamespace(enabled=True, sampling_interval=0.1, save_samples=True)
         return SimpleNamespace(
             runtime_tracking=runtime_tracking,
-            benchmark_storage_path=Path("/tmp/test.db"),
+            benchmark_storage_path=temp_db_path,
             version="test_version",
             environment="test",
         )

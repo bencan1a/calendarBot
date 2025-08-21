@@ -214,7 +214,7 @@ class TestLogVolumeAnalyzer:
         # Setup mocks
         mock_exists.return_value = True
         mock_is_dir.return_value = True
-        mock_glob.return_value = [Path("/fake/app.log")]
+        mock_glob.return_value = [Path("tests/fixtures/app.log")]
 
         # Mock file operations
         with (
@@ -225,10 +225,10 @@ class TestLogVolumeAnalyzer:
             mock_stat.return_value.st_mtime = 1234567890.0
 
             analyzer = LogVolumeAnalyzer()
-            analysis = analyzer.analyze_log_files("/fake/logs", hours=24)
+            analysis = analyzer.analyze_log_files("tests/fixtures/logs", hours=24)
 
         assert "analysis_time" in analysis
-        assert analysis["log_directory"] == "/fake/logs"
+        assert analysis["log_directory"] == "tests/fixtures/logs"
         assert analysis["total_files"] == 1
         assert analysis["total_lines"] == 7
         assert analysis["total_size_mb"] > 0
@@ -278,7 +278,7 @@ class TestDebugStatementAnalyzer:
     @patch("pathlib.Path.rglob")
     def test_analyze_codebase_basic(self, mock_rglob, mock_python_code):
         """Test basic codebase analysis with mocked file I/O."""
-        mock_rglob.return_value = [Path("/fake/example.py")]
+        mock_rglob.return_value = [Path("tests/fixtures/example.py")]
 
         with patch("pathlib.Path.open", mock_open(read_data=mock_python_code)):
             analyzer = DebugStatementAnalyzer()
@@ -342,7 +342,7 @@ def example():
 """
 
         tree = ast.parse(code)
-        finder = PrintStatementFinder(Path("test.py"))
+        finder = PrintStatementFinder(Path("tests/fixtures/test.py"))
         finder.visit(tree)
 
         assert len(finder.print_statements) == 3
