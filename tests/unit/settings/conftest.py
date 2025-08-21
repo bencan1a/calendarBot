@@ -148,10 +148,10 @@ def mock_settings_persistence(temp_config_dir: Path) -> Mock:
 
 
 @pytest.fixture
-def mock_calendarbot_settings() -> Mock:
+def mock_calendarbot_settings(tmp_path) -> Mock:
     """Create a mock CalendarBot settings object."""
     mock = Mock()
-    mock.config_dir = Path("/tmp/test_config")
+    mock.config_dir = tmp_path / "test_config"
     return mock
 
 

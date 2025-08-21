@@ -1,6 +1,5 @@
 """Unit tests for calendarbot.cache.migrations module."""
 
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import aiosqlite
@@ -13,9 +12,9 @@ class TestDatabaseMigration:
     """Test cases for DatabaseMigration class."""
 
     @pytest.fixture
-    def temp_db_path(self):
+    def temp_db_path(self, tmp_path):
         """Create a temporary database path for testing."""
-        return Path("/tmp/test_db.db")
+        return tmp_path / "test_db.db"
 
     @pytest.fixture
     def migration_handler(self, temp_db_path):

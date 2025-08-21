@@ -1,80 +1,125 @@
-# Calendar Bot
+# CalendarBot
 
-📅 **Calendar Bot** is a terminal-based calendar utility that integrates with ICS calendar feeds. Provides interactive calendar navigation, real-time updates, and cross-platform compatibility.
+📅 A terminal and web-based calendar utility that integrates with ICS calendar feeds. Provides interactive calendar navigation, real-time updates, and cross-platform compatibility.
 
 ## Features
-- 📋 Interactive navigation with keyboard controls
-- Real-time data fetching from ICS feeds
-- Mobile-friendly web interface
-- Custom configuration via YAML or environment variables
-- Built-in setup wizard for quick configuration
-- Comprehensive logging system for troubleshooting
-- 🔧 **Auto-staging for code formatting** - Automatically stages files modified by black/isort during commits
 
-## Installation
-1. Clone the repository and install dependencies:
+- 📋 Interactive terminal navigation with keyboard controls
+- 🌐 Mobile-friendly web interface with multiple layouts
+- 📱 E-paper display support for Raspberry Pi
+- ⚙️ Built-in setup wizard for quick configuration
+- 🔄 Real-time data fetching from any ICS calendar feed
+- 💾 Local caching with offline support
+
+## Quick Start
+
+### Installation
+
 ```bash
-git clone https://github.com/yourusername/CalendarBot.git
-cd CalendarBot
-. venv/bin/activate  # Use ". venv\bin\activate" on Windows
+# Clone and setup
+git clone <repository-url>
+cd calendarBot
+
+# Create virtual environment
+python -m venv venv
+. venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
-2. **See [Install Guide](docs/INSTALL.md)** for detailed steps.
 
-## Quick Setup
-1. Run the interactive setup wizard:
+### Setup
+
 ```bash
+# Interactive setup wizard
 calendarbot --setup
 ```
-2. Follow on-screen prompts to configure your ICS feed.
 
-**See [Quick Start Guide](quick_start.md)** for common configurations.
+### Launch
 
-## Usage
-
-Daily operation modes:
 ```bash
-# Interactive navigation with terminal UI
-calendarbot  # Launches interactive mode
+# Interactive mode
+calendarbot
 
-# Start web interface on port 8080
+# Web interface
 calendarbot --web
+
+# E-paper display
+calendarbot --epaper
 ```
 
-<!-- Improved maintainability and consistency with CLI structure. -->
+## Calendar Compatibility
 
-_For advanced features, see [Usage Guide](docs/USAGE.md)_
+Supports any RFC 5545 compliant calendar system:
+- Microsoft Outlook/Office 365
+- Google Calendar  
+- Apple iCloud Calendar
+- CalDAV servers (Nextcloud, Radicale, SOGo)
+- Any direct ICS feed
 
-## Developer Features
+## Documentation
 
-### Auto-Staging for Code Formatting
-Automatically stages files modified by black and isort during commits, eliminating manual intervention.
+- **[Installation Guide](docs/INSTALL.md)** - Complete setup instructions
+- **[Usage Guide](docs/USAGE.md)** - Operation modes and configuration
+- **[Architecture Overview](docs/ARCHITECTURE.md)** - System design and components
+- **[Testing Guide](docs/TESTING.md)** - Development and testing workflow
 
-#### Quick Setup
+## Development
+
+### Requirements
+
+- Python 3.9+
+- Virtual environment recommended
+
+### Quick Test
+
 ```bash
-# Install auto-staging (one-time setup)
-python scripts/install_auto_staging.py
+# Activate environment
+. venv/bin/activate
 
-# Verify installation
-python scripts/validate_auto_staging.py
+# Run tests
+pytest
+
+# System validation
+calendarbot --test-mode
 ```
 
-#### How It Works
-- Detects files modified by black/isort using SHA-256 checksums
-- Automatically stages only formatter-modified files
-- Preserves existing staged/unstaged changes
-- Includes comprehensive error handling and rollback mechanisms
+## Configuration
 
-#### Documentation
-- 📋 **[Auto-Staging User Guide](docs/AUTO_STAGING_USER_GUIDE.md)** - Complete usage and configuration guide
-- 📋 **[Auto-Staging Troubleshooting](docs/AUTO_STAGING_TROUBLESHOOTING.md)** - Common issues and solutions
-- 📋 **[Auto-Staging Technical Specification](docs/AUTO_STAGING_TECHNICAL_SPECIFICATION.md)** - Architecture and implementation details
+### Environment Variables
 
-## Additional Resources
-📋 **[Full Installation Guide](docs/FULL_INSTALL.md)** (includes backup/restore)
-📋 **[Architecture Overview](docs/ARCHITECTURE.md)** (system design, components)
-📋 **[Community Contributions](CONTRIBUTING.md)** (developer guidelines)
----
-### Get Support
-- 🗺️ **GitHub Issues**: Post bugs/bugs at [GitHub Issues](https://github.com/yourusername/CalendarBot/issues/new)
-- 📢 **Discussion Forum**: Join community discussions at [Forum](link.to/community)
+```bash
+export CALENDARBOT_ICS_URL="https://example.com/calendar.ics"
+export CALENDARBOT_ICS_AUTH_TYPE="none"
+```
+
+### YAML Configuration
+
+Create `config.yaml`:
+
+```yaml
+ics:
+  url: "https://calendar.example.com/calendar.ics"
+  auth_type: "none"
+
+web:
+  enabled: true
+  port: 8080
+  theme: "4x8"
+```
+
+## Web Interface Layouts
+
+- **4x8**: Standard desktop layout (480x800px)
+- **3x4**: Compact layout (300x400px)  
+- **whats-next-view**: Meeting countdown display
+
+## License
+
+[Add your license here]
+
+## Support
+
+- **Issues**: Report bugs and feature requests via GitHub Issues
+- **Documentation**: See `docs/` folder for detailed guides
+- **Testing**: Use `calendarbot --test-mode` for system validation

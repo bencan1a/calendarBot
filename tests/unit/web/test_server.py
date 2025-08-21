@@ -44,14 +44,14 @@ def mock_web_server():
 
 
 @pytest.fixture
-def mock_settings():
+def mock_settings(tmp_path):
     """Provide mock settings object."""
     settings = Mock()
     settings.web_host = "localhost"
     settings.web_port = 8080
     settings.web_layout = "4x8"
     settings.auto_kill_existing = True
-    settings.config_dir = Path("/tmp/test_config")
+    settings.config_dir = tmp_path / "test_config"
     return settings
 
 

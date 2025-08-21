@@ -40,9 +40,9 @@ def create_mock_event(event_id: str) -> CalendarEvent:
 
 
 @pytest.fixture
-async def cache_manager():
+async def cache_manager(tmp_path):
     """Create a cache manager with mocked database."""
-    db_path = Path("/tmp/test.db")
+    db_path = tmp_path / "test.db"
     settings = MockSettings(db_path)
 
     with patch("calendarbot.cache.manager.DatabaseManager") as mock_db_class:

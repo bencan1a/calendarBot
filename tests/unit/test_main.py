@@ -19,7 +19,7 @@ class TestCalendarBot:
     """Test suite for CalendarBot class."""
 
     @pytest.fixture
-    def mock_settings(self):
+    def mock_settings(self, tmp_path):
         """Mock settings object."""
         settings = Mock()
         settings.refresh_interval = 300
@@ -29,7 +29,7 @@ class TestCalendarBot:
         settings.ics_url = "https://example.com/calendar.ics"
         settings.log_level = "INFO"
         settings.log_file = None
-        settings.config_dir = "/tmp/config"
+        settings.config_dir = tmp_path / "config"
         # Add missing fields for SourceConfig validation
         settings.ics_auth_type = "none"
         settings.ics_username = None

@@ -248,6 +248,14 @@ coverage/lcov-report/whats-next-view.js.html
 coverage/lcov-report/index.html
 coverage/lcov-report/whats-next-view.js.html
 tests/.jest-cache/
+tests/coverage/
+tests/tmp/
+tests/temp/
+tests/fixtures/temp/
+tests/artifacts/
+tests/output/
+.benchmarks/
+test_data/
 bin/
 epaper_output/
 

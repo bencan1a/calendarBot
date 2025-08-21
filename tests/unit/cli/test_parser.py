@@ -6,7 +6,6 @@ and edge cases for command-line argument processing.
 
 import argparse
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 
@@ -193,12 +192,13 @@ class TestCreateParser:
         args = parser.parse_args(["-q"])
         assert args.quiet is True
 
-    def test_parser_logging_file_arguments(self):
+    def test_parser_logging_file_arguments(self, tmp_path):
         """Test that parser includes file logging arguments."""
         parser = create_parser()
 
-        args = parser.parse_args(["--log-dir", "/tmp/logs"])
-        assert args.log_dir == Path("/tmp/logs")
+        log_dir = tmp_path / "logs"
+        args = parser.parse_args(["--log-dir", str(log_dir)])
+        assert args.log_dir == log_dir
 
         args = parser.parse_args(["--no-file-logging"])
         assert args.no_file_logging is True

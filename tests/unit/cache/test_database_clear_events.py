@@ -1,7 +1,6 @@
 """Test database event clearing functionality."""
 
 from datetime import datetime
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,9 +10,9 @@ from calendarbot.cache.models import CachedEvent
 
 
 @pytest.fixture
-async def mock_db():
+async def mock_db(tmp_path):
     """Create a mock database for testing."""
-    db_path = Path("/tmp/test.db")
+    db_path = tmp_path / "test.db"
     with patch("calendarbot.cache.database.aiosqlite.connect") as mock_connect:
         mock_connection = AsyncMock()
         mock_connect.return_value.__aenter__.return_value = mock_connection

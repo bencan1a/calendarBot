@@ -52,11 +52,11 @@ class TestDaemonCore:
         assert "8080" in status.format_status()
 
     @patch("os.getpid", return_value=1234)
-    def test_pid_file_creation(self, mock_getpid):
+    def test_pid_file_creation(self, mock_getpid, tmp_path):
         """Test PID file creation when daemon not running."""
         # Mock Path.open directly to avoid file system issues
         with patch.object(Path, "open", mock_open()) as mock_file, patch.object(Path, "mkdir"):
-            manager = DaemonManager(pid_file_path=Path("/tmp/test/daemon.pid"))
+            manager = DaemonManager(pid_file_path=tmp_path / "test" / "daemon.pid")
 
             with patch.object(manager, "is_daemon_running", return_value=False):
                 pid = manager.create_pid_file()
@@ -64,18 +64,18 @@ class TestDaemonCore:
                 mock_file.assert_called_once_with("w", encoding="utf-8")
 
     @patch.object(Path, "mkdir")
-    def test_pid_file_already_running_error(self, mock_mkdir):
+    def test_pid_file_already_running_error(self, mock_mkdir, tmp_path):
         """Test error when trying to create PID file for running daemon."""
-        manager = DaemonManager(pid_file_path=Path("/tmp/test/daemon.pid"))
+        manager = DaemonManager(pid_file_path=tmp_path / "test" / "daemon.pid")
 
         with patch.object(manager, "is_daemon_running", return_value=True):
             with pytest.raises(DaemonAlreadyRunningError):
                 manager.create_pid_file()
 
     @patch.object(Path, "mkdir")
-    def test_daemon_running_detection(self, mock_mkdir):
+    def test_daemon_running_detection(self, mock_mkdir, tmp_path):
         """Test daemon running detection with stale PID cleanup."""
-        manager = DaemonManager(pid_file_path=Path("/tmp/test/daemon.pid"))
+        manager = DaemonManager(pid_file_path=tmp_path / "test" / "daemon.pid")
 
         # No PID file
         with patch.object(manager, "read_pid_file", return_value=None):
