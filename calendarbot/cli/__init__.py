@@ -16,7 +16,6 @@ from .config import (
     show_setup_guidance,
 )
 from .modes.epaper import run_epaper_mode
-from .modes.interactive import run_interactive_mode
 from .modes.web import run_web_mode
 from .parser import create_parser, parse_date
 from .setup import run_setup_wizard
@@ -47,13 +46,12 @@ async def main_entry() -> int:
         # Validate mutually exclusive modes BEFORE executing any mode
         mode_count = sum(
             [
-                getattr(args, "interactive", False),
                 getattr(args, "web", False),
                 getattr(args, "epaper", False),
             ]
         )
         if mode_count > 1:
-            parser.error("Only one mode can be specified: --interactive, --web, or --epaper")
+            parser.error("Only one mode can be specified: --web or --epaper")
 
         # Check if configuration exists
         is_configured, config_path = check_configuration()
@@ -65,9 +63,7 @@ async def main_entry() -> int:
             # Still run web mode even when not configured
 
         # Run in specified mode
-        if hasattr(args, "interactive") and args.interactive:
-            result = await run_interactive_mode(args)
-        elif hasattr(args, "epaper") and args.epaper:
+        if hasattr(args, "epaper") and args.epaper:
             result = await run_epaper_mode(args)
         else:
             # Default to web mode when no other mode is specified
@@ -86,7 +82,6 @@ __all__ = [
     "parse_date",
     "restore_configuration",
     "run_epaper_mode",
-    "run_interactive_mode",
     "run_setup_wizard",
     "run_web_mode",
     "show_setup_guidance",

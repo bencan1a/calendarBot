@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional, Union
 
 from ..ics.models import CalendarEvent, ICSParseResult
 
@@ -117,7 +117,7 @@ class CacheManager:
 
     @performance_monitor("cache_events")
     @with_correlation_id()
-    async def cache_events(self, api_events: list[CalendarEvent] | ICSParseResult) -> bool:  # noqa: PLR0912, PLR0915
+    async def cache_events(self, api_events: Union[list[CalendarEvent], ICSParseResult]) -> bool:  # noqa: PLR0912, PLR0915
         """Cache events from API response with comprehensive data validation and error handling.
 
         Processes and stores calendar events from various sources (Microsoft Graph API, ICS feeds)
@@ -511,7 +511,7 @@ class CacheManager:
             logger.exception("Failed to clear cache")
             return False
 
-    async def _update_fetch_metadata(self, success: bool, error: str | None = None) -> None:
+    async def _update_fetch_metadata(self, success: bool, error: Optional[str] = None) -> None:
         """Update metadata after a fetch attempt.
 
         Args:

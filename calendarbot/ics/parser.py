@@ -6,7 +6,7 @@ from collections.abc import Generator
 from datetime import datetime, timedelta
 from io import StringIO
 from pathlib import Path
-from typing import Any, BinaryIO, TextIO, cast
+from typing import Any, BinaryIO, Optional, TextIO, Union, cast
 
 from icalendar import Calendar, Event as ICalEvent
 
@@ -62,7 +62,7 @@ class StreamingICSParser:
 
     def parse_stream(
         self,
-        file_source: str | BinaryIO | TextIO,
+        file_source: Union[str, BinaryIO, TextIO],
     ) -> Generator[dict[str, Any], None, None]:
         """Parse ICS content from file stream, yielding events as they are found.
 
@@ -103,7 +103,7 @@ class StreamingICSParser:
 
     def _parse_file_stream(
         self,
-        file_obj: BinaryIO | TextIO,
+        file_obj: Union[BinaryIO, TextIO],
     ) -> Generator[dict[str, Any], None, None]:
         """Parse ICS file stream in chunks."""
         while True:
@@ -288,7 +288,7 @@ class ICSParser:
     def parse_ics_content_optimized(
         self,
         ics_content: str,
-        source_url: str | None = None,
+        source_url: Optional[str] = None,
     ) -> ICSParseResult:
         """Parse ICS content using optimal method based on size.
 
@@ -312,7 +312,7 @@ class ICSParser:
     def _parse_with_streaming(
         self,
         ics_content: str,
-        source_url: str | None = None,
+        source_url: Optional[str] = None,
     ) -> ICSParseResult:
         """Parse ICS content using streaming parser with memory-bounded processing."""
         try:
@@ -441,7 +441,7 @@ class ICSParser:
     def parse_ics_content(
         self,
         ics_content: str,
-        source_url: str | None = None,
+        source_url: Optional[str] = None,
     ) -> ICSParseResult:
         """Parse ICS content into structured calendar events.
 
@@ -584,7 +584,7 @@ class ICSParser:
     def parse_ics_content_unfiltered(
         self,
         ics_content: str,
-        source_url: str | None = None,
+        source_url: Optional[str] = None,
     ) -> ICSParseResult:
         """Parse ICS content into ALL events without filtering for raw event storage.
 
@@ -1366,9 +1366,6 @@ class ICSParser:
                     )
 
                     expanded_events.extend(instances)
-                    logger.debug(
-                        f"Expanded {len(instances)} instances for recurring event {event.subject}",
-                    )
 
                 except Exception as e:
                     logger.warning(f"Failed to expand RRULE for event {event.id}: {e}")

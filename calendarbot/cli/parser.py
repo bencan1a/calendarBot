@@ -172,7 +172,7 @@ def create_parser() -> argparse.ArgumentParser:
 
     Builds a comprehensive ArgumentParser with all supported command-line options
     organized into logical groups for setup, testing, display modes, logging,
-    and operational modes (interactive, web, RPI).
+    and operational modes (web, epaper).
 
     Returns:
         argparse.ArgumentParser: Fully configured ArgumentParser instance with all
@@ -193,7 +193,6 @@ Examples:
   %(prog)s --backup                  # Backup current configuration
   %(prog)s --list-backups            # List available configuration backups
   %(prog)s --restore backup_file.yaml # Restore configuration from backup
-  %(prog)s --interactive             # Run interactive console mode with arrow key controls
   %(prog)s --web                     # Run web server mode on localhost:8080 (explicit)
   %(prog)s --web --port 3000 --auto-open  # Run web server on port 3000 and open browser
   %(prog)s --epaper                  # Run in e-paper display mode with hardware auto-detection
@@ -243,14 +242,6 @@ Examples:
         "--track-runtime",
         action="store_true",
         help="Enable runtime resource tracking with automatic storage (CPU and memory usage, 1.0s sampling)",
-    )
-
-    # Interactive mode arguments
-    parser.add_argument(
-        "--interactive",
-        "-i",
-        action="store_true",
-        help="Run in interactive navigation mode with arrow key controls",
     )
 
     # Web mode arguments
@@ -400,15 +391,6 @@ Examples:
 
     logging_group.add_argument(
         "--no-log-colors", action="store_true", help="Disable colored console output"
-    )
-
-    # Interactive mode options
-    logging_group.add_argument(
-        "--no-split-display", action="store_true", help="Disable split display in interactive mode"
-    )
-
-    logging_group.add_argument(
-        "--log-lines", type=int, help="Number of log lines to show in interactive mode (default: 5)"
     )
 
     return parser

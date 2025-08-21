@@ -936,7 +936,7 @@ class DatabaseManager:
             logger.exception("Failed to clear all raw events")
             return False
 
-    async def get_raw_event_by_id(self, event_id: str) -> RawEvent | None:
+    async def get_raw_event_by_id(self, event_id: str) -> Union[RawEvent, None]:
         """Get raw event by ID.
 
         Args:

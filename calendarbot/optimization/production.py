@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from ..utils.logging import get_logger
 
@@ -150,7 +150,7 @@ class LogVolumeAnalyzer:
         self.logger = get_logger("log_volume_analyzer")
         self.analysis_cache: dict[str, Any] = {}
 
-    def analyze_log_files(self, log_dir: str | Path, hours: int = 24) -> dict[str, Any]:
+    def analyze_log_files(self, log_dir: Union[str, Path], hours: int = 24) -> dict[str, Any]:
         """
         Analyze log files for volume patterns and optimization opportunities.
 
@@ -221,7 +221,7 @@ class LogVolumeAnalyzer:
 
         return analysis
 
-    def _analyze_file(self, log_file: Path, cutoff_time: datetime) -> dict[str, Any] | None:
+    def _analyze_file(self, log_file: Path, cutoff_time: datetime) -> Optional[dict[str, Any]]:
         """Analyze a single log file."""
         try:
             stats: dict[str, Any] = {
@@ -290,7 +290,7 @@ class LogVolumeAnalyzer:
             for pattern, count in frequent
         ]
 
-    def _extract_message_patterns(self, log_file: Path) -> dict[str, int] | None:
+    def _extract_message_patterns(self, log_file: Path) -> Optional[dict[str, int]]:
         """Extract message patterns from a single log file."""
         try:
             patterns: dict[str, int] = defaultdict(int)
@@ -389,7 +389,7 @@ class DebugStatementAnalyzer:
     def __init__(self) -> None:
         self.logger = get_logger("debug_analyzer")
 
-    def analyze_codebase(self, root_dir: str | Path) -> dict[str, Any]:
+    def analyze_codebase(self, root_dir: Union[str, Path]) -> dict[str, Any]:
         """
         Analyze codebase for debug statements and optimization opportunities.
 
@@ -444,7 +444,7 @@ class DebugStatementAnalyzer:
 
         return analysis
 
-    def _analyze_python_file(self, file_path: Path) -> dict[str, Any] | None:
+    def _analyze_python_file(self, file_path: Path) -> Optional[dict[str, Any]]:
         """Analyze a single Python file for debug statements."""
         try:
             file_analysis: dict[str, Any] = {
@@ -718,7 +718,9 @@ class LoggingOptimizer:
 
         return optimized_config
 
-    def analyze_and_optimize(self, log_dir: str | Path, code_dir: str | Path) -> dict[str, Any]:
+    def analyze_and_optimize(
+        self, log_dir: Union[str, Path], code_dir: Union[str, Path]
+    ) -> dict[str, Any]:
         """
         Perform comprehensive analysis and optimization.
 
@@ -811,7 +813,7 @@ def optimize_logging_config(
 
 
 def analyze_log_volume(
-    log_dir: str | Path, hours: int = 24, settings: Optional[Any] = None
+    log_dir: Union[str, Path], hours: int = 24, settings: Optional[Any] = None
 ) -> dict[str, Any]:
     """Convenience function to analyze log volume."""
     analyzer = LogVolumeAnalyzer(settings)

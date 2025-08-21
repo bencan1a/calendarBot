@@ -90,7 +90,7 @@ async def _initialize_web_components(
         Exception: If component initialization fails
     """
     # Set up enhanced logging for web mode
-    logger = setup_enhanced_logging(updated_settings, interactive_mode=False)
+    logger = setup_enhanced_logging(updated_settings)
     logger.info("Starting Calendar Bot web mode initialization...")
 
     # Create Calendar Bot instance

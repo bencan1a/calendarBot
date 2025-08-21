@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Optional, cast
+from typing import Any, Optional, Union, cast
 
 from ..cache.models import CachedEvent
 from ..layout.registry import LayoutRegistry
@@ -29,9 +29,9 @@ class DisplayManager:
             layout_name: Optional layout name override
         """
         self.settings = settings
-        self.renderer: Optional[RendererProtocol | ConsoleRendererProtocol | RendererInterface] = (
-            None
-        )
+        self.renderer: Optional[
+            Union[RendererProtocol, ConsoleRendererProtocol, RendererInterface]
+        ] = None
         self._current_layout_name: Optional[str] = layout_name
         self._current_renderer_type: Optional[str] = renderer_type
 

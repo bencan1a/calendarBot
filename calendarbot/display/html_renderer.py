@@ -188,11 +188,8 @@ class HTMLRenderer:
             Formatted HTML string for web display
         """
         try:
-            # Determine if we're in interactive mode
-            interactive_mode = status_info.get("interactive_mode", False) if status_info else False
-
             # Get date information
-            if interactive_mode and status_info and status_info.get("selected_date"):
+            if status_info and status_info.get("selected_date"):
                 display_date = status_info["selected_date"]
             else:
                 display_date = datetime.now().strftime("%A, %B %d")
@@ -201,11 +198,11 @@ class HTMLRenderer:
             status_line = self._build_status_line(status_info)
 
             # Generate events content
-            events_content = self._render_events_content(events, interactive_mode)
+            events_content = self._render_events_content(events)
 
-            # Generate navigation help if interactive
+            # Generate navigation help
             nav_help = ""
-            if interactive_mode and status_info:
+            if status_info:
                 nav_help = self._render_navigation_help(status_info)
 
             # Build complete HTML
@@ -214,7 +211,6 @@ class HTMLRenderer:
                 status_line=status_line,
                 events_content=events_content,
                 nav_help=nav_help,
-                interactive_mode=interactive_mode,
                 status_info=status_info,
             )
 
@@ -259,12 +255,11 @@ class HTMLRenderer:
         # Return empty string to hide "Updated:" timestamp for 4x8 layout
         return ""
 
-    def _render_events_content(self, events: list[CachedEvent], interactive_mode: bool) -> str:
+    def _render_events_content(self, events: list[CachedEvent]) -> str:
         """Render the main events content.
 
         Args:
             events: List of events to render
-            interactive_mode: Whether in interactive mode (unused in current implementation)
 
         Returns:
             HTML content for events
@@ -487,7 +482,6 @@ class HTMLRenderer:
         status_line: str,
         events_content: str,
         nav_help: str,
-        interactive_mode: bool,
         status_info: Optional[dict[str, Any]] = None,
     ) -> str:
         """Build the complete HTML template with layout-specific customization.
@@ -497,8 +491,7 @@ class HTMLRenderer:
             status_line: Status information HTML
             events_content: Main events content HTML
             nav_help: Navigation help HTML
-            interactive_mode: Whether in interactive mode
-            status_info: Optional status information (unused in current implementation)
+            status_info: Optional status information
 
         Returns:
             Complete HTML document
@@ -514,7 +507,9 @@ class HTMLRenderer:
         # Header navigation with arrow buttons and date
         header_navigation = ""
         if not is_minimal_layout:  # Skip header navigation for whats-next-view
-            if interactive_mode:
+            # Check if we have navigation state (indicates interactive capability)
+            has_navigation = status_info and status_info.get("selected_date")
+            if has_navigation:
                 header_navigation = f"""
                 <div class="header-navigation">
                     <button onclick="navigate('prev')" title="Previous Day" class="nav-arrow-left">←</button>
@@ -533,9 +528,7 @@ class HTMLRenderer:
 
         # Footer navigation help
         footer_content = ""
-        if (
-            not is_minimal_layout and interactive_mode and nav_help
-        ):  # Skip footer for whats-next-view
+        if not is_minimal_layout and nav_help:  # Skip footer for whats-next-view
             footer_content = f'<footer class="footer">{nav_help}</footer>'
 
         # Generate layout-aware viewport meta tag

@@ -2,18 +2,6 @@
 
 ## Basic Operation
 
-### Interactive Mode (Default)
-
-```bash
-calendarbot
-```
-
-**Keyboard Controls:**
-- **Arrow Keys**: Navigate between dates
-- **Space**: Jump to today
-- **Enter**: Refresh view
-- **ESC**: Exit
-
 ### Web Interface
 
 ```bash

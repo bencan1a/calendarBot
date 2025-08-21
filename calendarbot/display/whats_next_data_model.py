@@ -92,7 +92,6 @@ class StatusInfo:
     is_cached: bool = False
     connection_status: Optional[str] = None
     relative_description: Optional[str] = None
-    interactive_mode: bool = False
     selected_date: Optional[str] = None
 
 
@@ -158,7 +157,6 @@ class WhatsNextViewModel:
             is_cached=status_info.get("is_cached", False) if status_info else False,
             connection_status=status_info.get("connection_status") if status_info else None,
             relative_description=status_info.get("relative_description") if status_info else None,
-            interactive_mode=status_info.get("interactive_mode", False) if status_info else False,
             selected_date=status_info.get("selected_date") if status_info else None,
         )
 

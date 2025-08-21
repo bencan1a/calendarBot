@@ -3,7 +3,7 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 # Default log format
 DEFAULT_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -12,7 +12,7 @@ DEFAULT_LEVEL = logging.INFO
 
 def setup_logger(
     name: str,
-    level: int | str = DEFAULT_LEVEL,
+    level: Union[int, str] = DEFAULT_LEVEL,
     log_format: str = DEFAULT_FORMAT,
     log_file: Optional[str] = None,
     console: bool = True,
@@ -71,7 +71,7 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def set_log_level(logger: logging.Logger, level: int | str) -> None:
+def set_log_level(logger: logging.Logger, level: Union[int, str]) -> None:
     """Set the log level for the specified logger.
 
     Args:
@@ -86,7 +86,7 @@ def set_log_level(logger: logging.Logger, level: int | str) -> None:
 
 
 def configure_package_logging(
-    level: int | str = DEFAULT_LEVEL,
+    level: Union[int, str] = DEFAULT_LEVEL,
     log_format: str = DEFAULT_FORMAT,
     log_file: Optional[str] = None,
     console: bool = True,

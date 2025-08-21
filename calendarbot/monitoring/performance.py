@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import psutil
 
@@ -40,7 +40,7 @@ class PerformanceMetric:
     metric_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     name: str = ""
     metric_type: MetricType = MetricType.GAUGE
-    value: float | int | str = 0
+    value: Union[float, int, str] = 0
     unit: str = ""
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     component: str = ""

@@ -55,7 +55,6 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
             "is_cached": view_model.status_info.is_cached,
             "connection_status": view_model.status_info.connection_status,
             "relative_description": view_model.status_info.relative_description,
-            "interactive_mode": view_model.status_info.interactive_mode,
             "selected_date": view_model.status_info.selected_date,
         }
 
@@ -332,12 +331,11 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         # as the content is returned to the web server
         return True
 
-    def _render_events_content(self, events: list[CachedEvent], interactive_mode: bool) -> str:
+    def _render_events_content(self, events: list[CachedEvent]) -> str:
         """Render events content filtered to show only the next upcoming event.
 
         Args:
             events: List of events to render
-            interactive_mode: Whether in interactive mode
 
         Returns:
             HTML content for events showing only next upcoming event
@@ -379,7 +377,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
         except Exception:
             logger.exception("Error filtering events in WhatsNextRenderer")
             # Fallback to parent implementation
-            return super()._render_events_content(events, interactive_mode)
+            return super()._render_events_content(events)
 
     # This method is removed as it's now part of WhatsNextLogic
     # _find_next_upcoming_event is replaced by logic.find_next_upcoming_event

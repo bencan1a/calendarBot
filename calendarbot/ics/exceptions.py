@@ -16,27 +16,21 @@ class ICSFetchError(ICSError):
     """Exception raised when ICS file cannot be fetched."""
 
 
-
 class ICSParseError(ICSError):
     """Exception raised when ICS content cannot be parsed."""
-
 
 
 class ICSAuthError(ICSError):
     """Exception raised when ICS authentication fails."""
 
 
-
 class ICSNetworkError(ICSError):
     """Exception raised for network-related ICS errors."""
-
 
 
 class ICSTimeoutError(ICSError):
     """Exception raised when ICS request times out."""
 
 
-
 class ICSContentError(ICSError):
     """Exception raised when ICS content is invalid or corrupted."""
-
