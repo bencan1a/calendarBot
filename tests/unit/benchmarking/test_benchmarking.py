@@ -702,12 +702,10 @@ class TestBenchmarkRunner:
     def test_create_suite_validation(self, isolated_runner):
         """Test suite creation with validation."""
         # Try to create suite with invalid benchmark IDs
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="Invalid benchmark IDs") as exc_info:
             isolated_runner.create_suite(
                 name="Invalid Suite", benchmark_ids=["invalid-id-1", "invalid-id-2"]
             )
-
-        assert "Invalid benchmark IDs" in str(exc_info.value)
 
     def test_list_benchmarks(self, isolated_runner):
         """Test listing registered benchmarks."""
@@ -766,10 +764,8 @@ class TestBenchmarkRunner:
 
     def test_benchmark_nonexistent_id(self, isolated_runner):
         """Test running benchmark with nonexistent ID."""
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="not found in registry") as exc_info:
             isolated_runner.run_benchmark("nonexistent-id")
-
-        assert "not found in registry" in str(exc_info.value)
 
     def test_cleanup_old_results(self, isolated_runner):
         """Test cleanup of old results through runner."""

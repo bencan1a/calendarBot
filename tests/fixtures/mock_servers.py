@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, urlparse
 class MockHTTPHandler(BaseHTTPRequestHandler):
     """HTTP request handler for mock server."""
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         """Handle GET requests."""
         self.server.request_count += 1
         path = self.path
@@ -49,7 +49,7 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b"Not Found")
 
-    def do_HEAD(self):
+    def do_HEAD(self) -> None:
         """Handle HEAD requests."""
         self.server.request_count += 1
         path = self.path
@@ -90,7 +90,7 @@ class MockICSServer:
         status_code: int = 200,
         headers: Optional[dict[str, str]] = None,
         delay: Optional[float] = None,
-    ):
+    ) -> None:
         """Set response for a specific path."""
         response_headers = headers or {"Content-Type": "text/calendar"}
 
@@ -103,11 +103,11 @@ class MockICSServer:
         if delay:
             self.responses[path]["delay"] = delay
 
-    def set_timeout_response(self, path: str, timeout_duration: float = 30):
+    def set_timeout_response(self, path: str, timeout_duration: float = 30) -> None:
         """Set a timeout response for a specific path."""
         self.responses[path] = {"timeout": True, "timeout_duration": timeout_duration}
 
-    def set_auth_required_response(self, path: str, realm: str = "Calendar"):
+    def set_auth_required_response(self, path: str, realm: str = "Calendar") -> None:
         """Set an authentication required response."""
         self.responses[path] = {
             "content": "Authentication Required",
@@ -115,7 +115,7 @@ class MockICSServer:
             "headers": {"Content-Type": "text/plain", "WWW-Authenticate": f'Basic realm="{realm}"'},
         }
 
-    def set_not_modified_response(self, path: str, etag: str = "12345"):
+    def set_not_modified_response(self, path: str, etag: str = "12345") -> None:
         """Set a 304 Not Modified response."""
         self.responses[path] = {
             "content": "",
@@ -123,12 +123,12 @@ class MockICSServer:
             "headers": {"ETag": f'"{etag}"', "Last-Modified": "Wed, 01 Jan 2025 12:00:00 GMT"},
         }
 
-    def clear_responses(self):
+    def clear_responses(self) -> None:
         """Clear all configured responses."""
         self.responses.clear()
         self.request_count = 0
 
-    def start(self):
+    def start(self) -> None:
         """Start the mock server."""
         if self.running:
             return
@@ -144,7 +144,7 @@ class MockICSServer:
         # Give the server a moment to start
         time.sleep(0.1)
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the mock server."""
         if self.running and self.server:
             self.server.shutdown()
@@ -176,11 +176,11 @@ class MockWebServer:
         self.thread: Optional[threading.Thread] = None
         self.running = False
 
-    def set_api_handler(self, endpoint: str, handler: Callable):
+    def set_api_handler(self, endpoint: str, handler: Callable) -> None:
         """Set a custom handler for an API endpoint."""
         self.api_responses[endpoint] = handler
 
-    def _handle_request(self, handler_self, method: str):
+    def _handle_request(self, handler_self, method: str) -> None:
         """Handle HTTP requests - moved from nested function to method."""
         parsed_url = urlparse(handler_self.path)
         path = parsed_url.path
@@ -227,7 +227,7 @@ class MockWebServer:
             handler_self.end_headers()
             handler_self.wfile.write(b"API endpoint not found")
 
-    def start(self):
+    def start(self) -> None:
         """Start the mock web server."""
         if self.running:
             return
@@ -250,7 +250,7 @@ class MockWebServer:
         # Give the server a moment to start
         time.sleep(0.1)
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the mock web server."""
         if self.running and self.server:
             self.server.shutdown()
@@ -260,7 +260,7 @@ class MockWebServer:
             if self.thread:
                 self.thread.join(timeout=1)
 
-    def clear_request_log(self):
+    def clear_request_log(self) -> None:
         """Clear the request log."""
         self.request_log.clear()
 

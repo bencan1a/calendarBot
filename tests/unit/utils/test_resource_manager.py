@@ -273,7 +273,7 @@ class TestResourceManagerPathMethods:
         assert result is None
 
     @pytest.mark.parametrize(
-        "layout_name,expected_css_path,expected_js_path",
+        ("layout_name", "expected_css_path", "expected_js_path"),
         [
             (
                 "4x8",
@@ -370,7 +370,7 @@ class TestResourceManagerErrorHandling:
 
         resource_manager = ResourceManager(mock_registry)
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="Registry error"):
             resource_manager.get_css_content("test")
 
     def test_handles_file_permission_errors(self) -> None:
@@ -607,7 +607,7 @@ class TestResourceManagerFileOperationErrors:
             assert result["js_valid"] is False
 
     @pytest.mark.parametrize(
-        "error_type,expected_result",
+        ("error_type", "expected_result"),
         [
             (
                 Exception("General error"),

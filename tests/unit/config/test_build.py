@@ -25,7 +25,7 @@ class TestProductionModeDetection:
     """Tests for production mode detection."""
 
     @pytest.mark.parametrize(
-        "env_value,expected",
+        ("env_value", "expected"),
         [
             ("production", True),
             ("prod", True),
@@ -53,7 +53,7 @@ class TestDebugAssetDetection:
     """Tests for debug asset detection."""
 
     @pytest.mark.parametrize(
-        "file_path,expected",
+        ("file_path", "expected"),
         [
             # Debug JavaScript patterns
             ("debug-settings.js", True),

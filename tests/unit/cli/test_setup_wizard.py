@@ -214,7 +214,7 @@ class TestSetupWizardUIHelpers:
         assert len(error_calls) >= 2
 
     @pytest.mark.parametrize(
-        "input_value,expected",
+        ("input_value", "expected"),
         [
             ("y", True),
             ("yes", True),
@@ -249,7 +249,7 @@ class TestSetupWizardValidation:
     """Test SetupWizard validation methods."""
 
     @pytest.mark.parametrize(
-        "url,expected",
+        ("url", "expected"),
         [
             ("https://example.com", True),
             ("http://example.com", True),

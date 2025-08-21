@@ -324,7 +324,7 @@ class TestMainEntry:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "mode_args,expected_count",
+        ("mode_args", "expected_count"),
         [
             ({"test_mode": False, "interactive": False, "web": False}, 0),
             ({"test_mode": True, "interactive": False, "web": False}, 1),

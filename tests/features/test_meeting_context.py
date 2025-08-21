@@ -149,7 +149,7 @@ class TestMeetingContextAnalyzer:
         with patch("calendarbot.features.meeting_context.get_timezone_aware_now") as mock_get_now:
             mock_get_now.side_effect = Exception("Time error")
 
-            with pytest.raises(Exception):
+            with pytest.raises(Exception, match="Time error"):
                 analyzer.analyze_upcoming_meetings(sample_events_list)
 
     def test_filter_upcoming_meetings_when_mixed_events_then_filters_correctly(
@@ -354,7 +354,7 @@ async def test_get_meeting_context_for_timeframe_when_exception_occurs_then_logs
             "Analysis error"
         )
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="Analysis error"):
             await get_meeting_context_for_timeframe(sample_events_list, hours_ahead=4)
 
 

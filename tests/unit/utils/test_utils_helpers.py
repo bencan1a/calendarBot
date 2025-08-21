@@ -534,11 +534,11 @@ class TestCircuitBreaker:
         mock_func = AsyncMock(side_effect=ValueError("error"))
 
         # First failure
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="error"):
             await cb.call(mock_func)
 
         # Second failure - should open circuit
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="error"):
             await cb.call(mock_func)
 
         assert cb.state == "OPEN"
@@ -551,7 +551,7 @@ class TestCircuitBreaker:
         mock_func = AsyncMock(side_effect=ValueError("error"))
 
         # Trigger circuit to open
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="error"):
             await cb.call(mock_func)
 
         assert cb.state == "OPEN"
@@ -567,7 +567,7 @@ class TestCircuitBreaker:
         mock_func = AsyncMock(side_effect=ValueError("error"))
 
         # Open the circuit
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="error"):
             await cb.call(mock_func)
 
         assert cb.state == "OPEN"

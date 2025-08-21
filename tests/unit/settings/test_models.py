@@ -74,7 +74,7 @@ class TestFilterPattern:
         assert exc_info.value.field_value == "[unclosed"
 
     @pytest.mark.parametrize(
-        "pattern,is_regex,expected",
+        ("pattern", "is_regex", "expected"),
         [
             ("Simple Text", False, "Simple Text"),
             ("  Whitespace Trimmed  ", False, "Whitespace Trimmed"),
@@ -329,7 +329,7 @@ class TestDisplaySettings:
         )
 
     @pytest.mark.parametrize(
-        "component,size",
+        ("component", "size"),
         [
             ("headers", "small"),
             ("body", "medium"),

@@ -15,7 +15,7 @@ class DatabaseTestManager:
     def __init__(self, db_path: Path):
         self.db_path = db_path
 
-    async def create_tables(self):
+    async def create_tables(self) -> None:
         """Create the required database tables."""
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
@@ -58,7 +58,7 @@ class DatabaseTestManager:
 
             await db.commit()
 
-    async def insert_test_events(self, events: list[dict[str, Any]]):
+    async def insert_test_events(self, events: list[dict[str, Any]]) -> None:
         """Insert test events into the database."""
         async with aiosqlite.connect(self.db_path) as db:
             for event in events:
@@ -72,7 +72,7 @@ class DatabaseTestManager:
 
             await db.commit()
 
-    async def insert_cache_metadata(self, metadata: dict[str, Any]):
+    async def insert_cache_metadata(self, metadata: dict[str, Any]) -> None:
         """Insert cache metadata into the database as key-value pairs."""
         async with aiosqlite.connect(self.db_path) as db:
             for key, value in metadata.items():
@@ -89,7 +89,7 @@ class DatabaseTestManager:
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute("SELECT COUNT(*) FROM cached_events")
             result = await cursor.fetchone()
-            return result[0] if result else 0
+            return int(result[0]) if result and result[0] is not None else 0
 
     async def get_events_by_date(self, target_date: datetime) -> list[dict[str, Any]]:
         """Get events for a specific date."""
@@ -112,14 +112,14 @@ class DatabaseTestManager:
 
             return events
 
-    async def clear_all_data(self):
+    async def clear_all_data(self) -> None:
         """Clear all data from the database."""
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("DELETE FROM cached_events")
             await db.execute("DELETE FROM cache_metadata")
             await db.commit()
 
-    async def simulate_database_corruption(self):
+    async def simulate_database_corruption(self) -> None:
         """Simulate database corruption for error testing."""
         # Create an invalid SQL operation to test error handling
         async with aiosqlite.connect(self.db_path) as db:
@@ -140,7 +140,8 @@ class DatabaseTestManager:
 
             # Get journal mode
             cursor = await db.execute("PRAGMA journal_mode")
-            journal_mode = (await cursor.fetchone())[0]
+            journal_mode_result = await cursor.fetchone()
+            journal_mode = journal_mode_result[0] if journal_mode_result else "UNKNOWN"
 
             return {"file_size_bytes": file_size, "tables": tables, "journal_mode": journal_mode}
 

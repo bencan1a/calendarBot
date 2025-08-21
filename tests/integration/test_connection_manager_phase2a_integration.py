@@ -15,6 +15,7 @@ from calendarbot.config.optimization import OptimizationConfig
 from calendarbot.monitoring.connection_pool_monitor import ConnectionPoolMonitor
 from calendarbot.optimization.connection_manager import (
     ConnectionManager,
+    ConnectionManagerError,
     get_connection_manager,
     reset_connection_manager,
 )
@@ -205,7 +206,7 @@ class TestConnectionManagerPhase2AIntegration:
 
             # Test error during startup by patching aiohttp components
             with patch("aiohttp.TCPConnector", side_effect=Exception("Test error")):
-                with pytest.raises(Exception):
+                with pytest.raises(ConnectionManagerError, match="Test error"):
                     await connection_manager.startup()
 
             # Since startup failed, we don't expect connection pool status to be logged
