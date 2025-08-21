@@ -90,7 +90,9 @@ class TestICSFetcherInitialization:
 
             # Verify headers
             headers = call_kwargs["headers"]
-            assert headers["User-Agent"].startswith(test_settings.app_name)
+            # Verify browser user agent is used (to avoid blocking by calendar servers)
+            assert "Mozilla" in headers["User-Agent"]
+            assert "Chrome" in headers["User-Agent"]
             assert "text/calendar" in headers["Accept"]
 
     @pytest.mark.asyncio

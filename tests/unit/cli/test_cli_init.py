@@ -57,14 +57,6 @@ class TestMainEntry:
         args.interactive = False
         args.web = False
         args.epaper = False
-        args.daemon = False
-        args.daemon_status = False
-        args.daemon_stop = False
-        args.kiosk = False
-        args.kiosk_status = False
-        args.kiosk_stop = False
-        args.kiosk_restart = False
-        args.kiosk_setup = False
         args.rpi = False
         args.port = 8080
         args.host = None

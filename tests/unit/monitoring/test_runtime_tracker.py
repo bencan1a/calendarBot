@@ -85,14 +85,15 @@ class TestRuntimeResourceStats:
         assert stats.total_samples == 0
 
 
+@pytest.fixture
+def temp_db_path():
+    """Create temporary database path for testing."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        yield Path(temp_dir) / "test_runtime.db"
+
+
 class TestRuntimeResourceTracker:
     """Test RuntimeResourceTracker main functionality."""
-
-    @pytest.fixture
-    def temp_db_path(self):
-        """Create temporary database path for testing."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            yield Path(temp_dir) / "test_runtime.db"
 
     @pytest.fixture
     def mock_settings(self, temp_db_path):

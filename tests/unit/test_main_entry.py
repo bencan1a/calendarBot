@@ -21,7 +21,7 @@ class TestMainEntryPoint:
         with (
             patch("calendarbot.__main__.asyncio.run") as mock_run,
             patch("calendarbot.__main__.sys.exit") as mock_exit,
-            patch("calendarbot.__main__._handle_daemon_mode_early", return_value=False),
+            patch("sys.argv", ["calendarbot"]),
         ):
             # Mock successful execution
             mock_run.return_value = 0
@@ -40,7 +40,7 @@ class TestMainEntryPoint:
         with (
             patch("calendarbot.__main__.asyncio.run") as mock_run,
             patch("calendarbot.__main__.sys.exit") as mock_exit,
-            patch("calendarbot.__main__._handle_daemon_mode_early", return_value=False),
+            patch("sys.argv", ["calendarbot"]),
         ):
             # Mock KeyboardInterrupt
             mock_run.side_effect = KeyboardInterrupt()
@@ -61,7 +61,7 @@ class TestMainEntryPoint:
         with (
             patch("calendarbot.__main__.asyncio.run") as mock_run,
             patch("calendarbot.__main__.sys.exit") as mock_exit,
-            patch("calendarbot.__main__._handle_daemon_mode_early", return_value=False),
+            patch("sys.argv", ["calendarbot"]),
         ):
             # Mock general exception
             test_error = RuntimeError("Test error message")
@@ -86,7 +86,7 @@ class TestMainEntryPoint:
             with (
                 patch("calendarbot.__main__.asyncio.run") as mock_run,
                 patch("calendarbot.__main__.sys.exit") as mock_exit,
-                patch("calendarbot.__main__._handle_daemon_mode_early", return_value=False),
+                patch("sys.argv", ["calendarbot"]),
             ):
                 # Mock main_entry returning specific exit code
                 mock_run.return_value = exit_code
@@ -191,7 +191,7 @@ class TestMainEntryPoint:
         with (
             patch("calendarbot.__main__.asyncio.run") as mock_run,
             patch("calendarbot.__main__.sys.exit") as mock_exit,
-            patch("calendarbot.__main__._handle_daemon_mode_early", return_value=False),
+            patch("sys.argv", ["calendarbot"]),
         ):
             mock_run.side_effect = exception_type
 

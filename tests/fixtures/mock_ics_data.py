@@ -1,6 +1,7 @@
 """Mock ICS data and factory functions for testing."""
 
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from typing import Any, Optional
 
 

@@ -414,13 +414,12 @@ class TestAustralianTimezoneHandling:
         self, timezone_service, sydney_datetime
     ) -> None:
         """Test that Australian timezone detection works correctly."""
-        with patch("calendarbot.timezone.service.logger") as mock_logger:
-            result = timezone_service.convert_to_server_timezone(sydney_datetime)
+        result = timezone_service.convert_to_server_timezone(sydney_datetime)
 
-            # Check that conversion message was logged (Australian timezone special handling exists but may not log)
-            mock_logger.debug.assert_called()
-            assert isinstance(result, datetime)
-            assert result.tzinfo is not None
+        # Verify conversion completes successfully for Australian timezone
+        assert isinstance(result, datetime)
+        assert result.tzinfo is not None
+        assert result.tzinfo == timezone_service.get_server_timezone()
 
     @pytest.mark.parametrize(
         "australian_tz",

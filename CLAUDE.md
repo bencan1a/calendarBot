@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CalendarBot is a Python-based calendar application that fetches and displays ICS calendar feeds. It features multiple display modes including terminal UI, web interface, kiosk mode, and e-paper display support for Raspberry Pi devices.
+CalendarBot is a Python-based calendar application that fetches and displays ICS calendar feeds. It features multiple display modes including terminal UI, web interface, and e-paper display support for Raspberry Pi devices.
 
 ## Key Commands
 
@@ -32,8 +32,8 @@ calendarbot --web
 # Setup wizard for initial configuration
 calendarbot --setup
 
-# Kiosk mode for dedicated displays
-calendarbot --kiosk
+# E-paper display mode
+calendarbot --epaper
 ```
 
 ### Testing Commands

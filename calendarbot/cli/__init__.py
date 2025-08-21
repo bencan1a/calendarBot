@@ -15,13 +15,10 @@ from .config import (
     restore_configuration,
     show_setup_guidance,
 )
-from .modes.daemon import run_daemon_mode
 from .modes.epaper import run_epaper_mode
 from .modes.interactive import run_interactive_mode
-from .modes.kiosk import run_kiosk_mode
-from .modes.test import run_test_mode
 from .modes.web import run_web_mode
-from .parser import create_parser, parse_components, parse_date
+from .parser import create_parser, parse_date
 from .setup import run_setup_wizard
 
 
@@ -46,59 +43,35 @@ async def main_entry() -> int:
         result = restore_configuration(args.restore)
     elif hasattr(args, "list_backups") and args.list_backups:
         result = list_backups()
-    # Handle daemon operations (can run without configuration)
-    elif (
-        (hasattr(args, "daemon") and args.daemon)
-        or (hasattr(args, "daemon_status") and args.daemon_status)
-        or (hasattr(args, "daemon_stop") and args.daemon_stop)
-    ):
-        result = await run_daemon_mode(args)
-    # Handle kiosk operations (can run without configuration)
-    elif (
-        (hasattr(args, "kiosk") and args.kiosk)
-        or (hasattr(args, "kiosk_status") and args.kiosk_status)
-        or (hasattr(args, "kiosk_stop") and args.kiosk_stop)
-        or (hasattr(args, "kiosk_restart") and args.kiosk_restart)
-        or (hasattr(args, "kiosk_setup") and args.kiosk_setup)
-    ):
-        result = await run_kiosk_mode(args)
     else:
         # Validate mutually exclusive modes BEFORE executing any mode
         mode_count = sum(
             [
-                getattr(args, "test_mode", False),
                 getattr(args, "interactive", False),
                 getattr(args, "web", False),
                 getattr(args, "epaper", False),
-                getattr(args, "kiosk", False),
             ]
         )
         if mode_count > 1:
-            parser.error(
-                "Only one mode can be specified: --test-mode, --interactive, --web, --epaper, or --kiosk"
-            )
+            parser.error("Only one mode can be specified: --interactive, --web, or --epaper")
 
-        # Handle test mode - can run even without configuration
-        if hasattr(args, "test_mode") and args.test_mode:
-            result = await run_test_mode(args)
+        # Check if configuration exists
+        is_configured, config_path = check_configuration()
+
+        # If not configured and not running setup, show guidance
+        if not is_configured:
+            show_setup_guidance()
+            print("\n💡 Tip: Run 'calendarbot --setup' to get started quickly!\n")
+            # Still run web mode even when not configured
+
+        # Run in specified mode
+        if hasattr(args, "interactive") and args.interactive:
+            result = await run_interactive_mode(args)
+        elif hasattr(args, "epaper") and args.epaper:
+            result = await run_epaper_mode(args)
         else:
-            # Check if configuration exists
-            is_configured, config_path = check_configuration()
-
-            # If not configured and not running setup or test, show guidance
-            if not is_configured:
-                show_setup_guidance()
-                print("\n💡 Tip: Run 'calendarbot --setup' to get started quickly!\n")
-                # Still run web mode even when not configured
-
-            # Run in specified mode
-            if hasattr(args, "interactive") and args.interactive:
-                result = await run_interactive_mode(args)
-            elif hasattr(args, "epaper") and args.epaper:
-                result = await run_epaper_mode(args)
-            else:
-                # Default to web mode when no other mode is specified
-                result = await run_web_mode(args)
+            # Default to web mode when no other mode is specified
+            result = await run_web_mode(args)
 
     return result
 
@@ -110,15 +83,11 @@ __all__ = [
     "create_parser",
     "list_backups",
     "main_entry",
-    "parse_components",
     "parse_date",
     "restore_configuration",
-    "run_daemon_mode",
     "run_epaper_mode",
     "run_interactive_mode",
-    "run_kiosk_mode",
     "run_setup_wizard",
-    "run_test_mode",
     "run_web_mode",
     "show_setup_guidance",
 ]

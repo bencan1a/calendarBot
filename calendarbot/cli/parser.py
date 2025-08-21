@@ -167,7 +167,7 @@ class LayoutAction(argparse.Action):
         )
 
 
-def create_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
+def create_parser() -> argparse.ArgumentParser:
     """Create command line argument parser with comprehensive configuration options.
 
     Builds a comprehensive ArgumentParser with all supported command-line options
@@ -198,9 +198,6 @@ Examples:
   %(prog)s --web --port 3000 --auto-open  # Run web server on port 3000 and open browser
   %(prog)s --epaper                  # Run in e-paper display mode with hardware auto-detection
   %(prog)s --rpi --web               # Run in RPI e-ink mode with web interface
-  %(prog)s --daemon --port 3000      # Start daemon mode on port 3000 (detaches from terminal)
-  %(prog)s --daemon-status           # Check status of running daemon service
-  %(prog)s --daemon-stop             # Stop running daemon service gracefully
         """,
     )
 
@@ -235,40 +232,6 @@ Examples:
         "--kill-duplicates",
         action="store_true",
         help="Kill existing calendarbot processes on startup (disabled by default)",
-    )
-
-    # Test mode arguments
-    test_group = parser.add_argument_group("test", "Test and validation mode options")
-
-    test_group.add_argument(
-        "--test-mode",
-        "-t",
-        action="store_true",
-        help="Run comprehensive validation and testing of Calendar Bot components",
-    )
-
-    test_group.add_argument(
-        "--date", type=parse_date, help="Start date for test mode (YYYY-MM-DD format)"
-    )
-
-    test_group.add_argument(
-        "--end-date", type=parse_date, help="End date for test mode (YYYY-MM-DD format)"
-    )
-
-    test_group.add_argument("--no-cache", action="store_true", help="Disable cache for test mode")
-
-    test_group.add_argument(
-        "--components",
-        type=parse_components,
-        default=["sources", "cache", "display"],
-        help="Components to test (comma-separated): sources,cache,display,validation,logging,network",
-    )
-
-    test_group.add_argument(
-        "--output-format",
-        choices=["console", "json", "yaml"],
-        default="console",
-        help="Output format for test results",
     )
 
     # Performance tracking arguments
@@ -448,177 +411,6 @@ Examples:
         "--log-lines", type=int, help="Number of log lines to show in interactive mode (default: 5)"
     )
 
-    # Daemon mode arguments
-    daemon_group = parser.add_argument_group("daemon", "Background daemon service options")
-
-    daemon_group.add_argument(
-        "--daemon",
-        "-d",
-        action="store_true",
-        help="Run in background daemon mode with web interface (detaches from terminal)",
-    )
-
-    daemon_group.add_argument(
-        "--daemon-status",
-        action="store_true",
-        help="Check status of running daemon service (PID, uptime, port, health)",
-    )
-
-    daemon_group.add_argument(
-        "--daemon-stop",
-        action="store_true",
-        help="Stop running daemon service gracefully and cleanup PID file",
-    )
-
-    # Kiosk mode arguments
-    kiosk_group = parser.add_argument_group("kiosk", "Kiosk mode deployment options")
-
-    kiosk_group.add_argument(
-        "--kiosk",
-        action="store_true",
-        help="Run in kiosk mode with browser and web interface integration",
-    )
-
-    kiosk_group.add_argument(
-        "--kiosk-status",
-        action="store_true",
-        help="Check status of running kiosk mode (system health, browser state, resource usage)",
-    )
-
-    kiosk_group.add_argument(
-        "--kiosk-stop",
-        action="store_true",
-        help="Stop running kiosk mode gracefully and cleanup processes",
-    )
-
-    kiosk_group.add_argument(
-        "--kiosk-restart",
-        action="store_true",
-        help="Restart kiosk mode with automatic recovery and state management",
-    )
-
-    kiosk_group.add_argument(
-        "--kiosk-setup",
-        action="store_true",
-        help="Run interactive kiosk setup wizard for Pi Zero 2W deployment",
-    )
-
-    # Kiosk configuration arguments
-    kiosk_config_group = parser.add_argument_group(
-        "kiosk-config", "Kiosk mode configuration options"
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-width",
-        type=int,
-        default=480,
-        help="Kiosk display width in pixels (default: 480, optimized for Pi Zero 2W)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-height",
-        type=int,
-        default=800,
-        help="Kiosk display height in pixels (default: 800, optimized for Pi Zero 2W)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-orientation",
-        choices=["portrait", "landscape"],
-        default="portrait",
-        help="Kiosk display orientation (default: portrait)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-scale",
-        type=float,
-        default=1.0,
-        help="Kiosk display scale factor (default: 1.0)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-memory-limit",
-        type=int,
-        default=80,
-        help="Browser memory limit in MB (default: 80, optimized for Pi Zero 2W)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-startup-timeout",
-        type=int,
-        default=30,
-        help="Browser startup timeout in seconds (default: 30)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-health-interval",
-        type=int,
-        default=60,
-        help="Health check interval in seconds (default: 60)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-max-restarts",
-        type=int,
-        default=3,
-        help="Maximum browser restart attempts (default: 3)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-startup-delay",
-        type=float,
-        default=5.0,
-        help="Startup delay in seconds (default: 5.0)",
-    )
-
-    # Kiosk feature flags
-    kiosk_config_group.add_argument(
-        "--kiosk-enable-gpu",
-        action="store_true",
-        help="Enable GPU acceleration (may use more memory)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-disable-extensions",
-        action="store_true",
-        default=True,
-        help="Disable browser extensions (default: enabled for memory optimization)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-disable-plugins",
-        action="store_true",
-        default=True,
-        help="Disable browser plugins (default: enabled for memory optimization)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-fullscreen",
-        action="store_true",
-        default=True,
-        help="Force fullscreen browser display (default: enabled)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-hide-cursor",
-        action="store_true",
-        default=True,
-        help="Hide mouse cursor in kiosk mode (default: enabled)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-prevent-zoom",
-        action="store_true",
-        default=True,
-        help="Prevent user zoom gestures (default: enabled)",
-    )
-
-    kiosk_config_group.add_argument(
-        "--kiosk-auto-start",
-        action="store_true",
-        help="Auto-start kiosk mode on boot (requires system service setup)",
-    )
-
     return parser
 
 
@@ -652,52 +444,8 @@ def parse_date(date_str: str) -> datetime:
         ) from err
 
 
-def parse_components(components_str: str) -> list[str]:
-    """Parse components string into a list of valid component names.
-
-    Validates and processes a comma-separated string of component names
-    for test mode component selection, ensuring all components are valid.
-
-    Args:
-        components_str (str): Comma-separated string of component names
-
-    Returns:
-        List[str]: List of valid, normalized component names
-
-    Raises:
-        argparse.ArgumentTypeError: If any component is invalid or unrecognized
-
-    Example:
-        >>> components = parse_components("sources,cache,display")
-        >>> print(components)  # ['sources', 'cache', 'display']
-        >>>
-        >>> # Handles whitespace and case normalization
-        >>> components = parse_components(" SOURCES, Cache , display ")
-        >>> print(components)  # ['sources', 'cache', 'display']
-        >>>
-        >>> # Invalid component raises error
-        >>> parse_components("invalid,sources")  # Raises ArgumentTypeError
-    """
-    valid_components = ["sources", "cache", "display", "validation", "logging", "network"]
-
-    # Split by comma and clean up whitespace
-    components = [comp.strip().lower() for comp in components_str.split(",")]
-
-    # Validate components
-    invalid_components = [comp for comp in components if comp not in valid_components]
-
-    if invalid_components:
-        raise argparse.ArgumentTypeError(
-            f"Invalid components: {', '.join(invalid_components)}. "
-            f"Valid options: {', '.join(valid_components)}"
-        )
-
-    return components
-
-
 __all__ = [
     "LayoutAction",
     "create_parser",
-    "parse_components",
     "parse_date",
 ]
