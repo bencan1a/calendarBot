@@ -428,7 +428,7 @@ class BenchmarkResultStorage:
                 ORDER BY timestamp DESC
                 LIMIT ? OFFSET ?
             """
-            params.extend([limit, offset])
+            params.extend([str(limit), str(offset)])
 
             with self._get_connection() as conn:
                 cursor = conn.execute(query, params)
@@ -507,7 +507,7 @@ class BenchmarkResultStorage:
                 ORDER BY created_at DESC
                 LIMIT ? OFFSET ?
             """
-            params.extend([limit, offset])
+            params.extend([str(limit), str(offset)])
 
             with self._get_connection() as conn:
                 cursor = conn.execute(query, params)

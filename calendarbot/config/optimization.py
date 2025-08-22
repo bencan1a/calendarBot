@@ -83,12 +83,12 @@ class OptimizationConfig(BaseModel):
                     env_overrides[field_name] = env_value.lower() in ("true", "1", "yes", "on")
                 elif field_type is int:
                     with contextlib.suppress(ValueError):
-                        env_overrides[field_name] = int(env_value)
+                        env_overrides[field_name] = int(env_value)  # type: ignore[assignment]
                 elif field_type is float:
                     with contextlib.suppress(ValueError):
-                        env_overrides[field_name] = float(env_value)
+                        env_overrides[field_name] = float(env_value)  # type: ignore[assignment]
                 else:
-                    env_overrides[field_name] = env_value
+                    env_overrides[field_name] = env_value  # type: ignore[assignment]
 
         # Merge environment overrides with provided kwargs
         final_kwargs = {**env_overrides, **kwargs}

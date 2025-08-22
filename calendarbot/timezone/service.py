@@ -20,9 +20,9 @@ PYTZ_AVAILABLE = importlib.util.find_spec("pytz") is not None
 
 # Import timezone libraries at top level if available
 if ZONEINFO_AVAILABLE:
-    from zoneinfo import ZoneInfo  # type: ignore[assignment]
+    from zoneinfo import ZoneInfo
 else:
-    ZoneInfo = None  # type: ignore[assignment]
+    ZoneInfo = None  # type: ignore[misc, assignment]
 
 if PYTZ_AVAILABLE:
     import pytz
@@ -125,7 +125,7 @@ class TimezoneService:
                 if ZONEINFO_AVAILABLE:
                     return dt.replace(tzinfo=server_tz)
                 if PYTZ_AVAILABLE and hasattr(server_tz, "localize"):
-                    return server_tz.localize(dt)
+                    return server_tz.localize(dt)  # type: ignore[no-any-return]
                 return dt.replace(tzinfo=server_tz)
 
             # Timezone-aware datetime - convert to server timezone
@@ -172,7 +172,7 @@ class TimezoneService:
             if ZONEINFO_AVAILABLE:
                 return dt.replace(tzinfo=tz)
             if PYTZ_AVAILABLE and hasattr(tz, "localize"):
-                return tz.localize(dt)
+                return tz.localize(dt)  # type: ignore[no-any-return]
             return dt.replace(tzinfo=tz)
 
         except Exception as e:
@@ -252,7 +252,7 @@ def get_timezone_service() -> TimezoneService:
     # Use module-level variable access instead of global statement
     if "_timezone_service" not in globals() or globals()["_timezone_service"] is None:
         globals()["_timezone_service"] = TimezoneService()
-    return globals()["_timezone_service"]
+    return globals()["_timezone_service"]  # type: ignore[no-any-return]
 
 
 # Convenience functions for direct use

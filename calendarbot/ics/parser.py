@@ -317,7 +317,7 @@ class ICSParser:
         """Parse ICS content using streaming parser with memory-bounded processing."""
         try:
             # Initialize result tracking - NO event accumulation
-            filtered_events = []  # Only store final filtered results
+            filtered_events: list[CalendarEvent] = []  # Only store final filtered results
             warnings = []
             errors = []
             total_components = 0
@@ -715,8 +715,8 @@ class ICSParser:
     def _parse_event_component(  # noqa: PLR0912, PLR0915
         self,
         component: ICalEvent,
-        default_timezone: str | None = None,
-    ) -> CalendarEvent | None:
+        default_timezone: Optional[str] = None,
+    ) -> Optional[CalendarEvent]:
         """Parse a single VEVENT component into CalendarEvent.
 
         Args:
@@ -876,7 +876,7 @@ class ICSParser:
         else:
             return calendar_event
 
-    def _parse_datetime(self, dt_prop: Any, default_timezone: str | None = None) -> datetime:
+    def _parse_datetime(self, dt_prop: Any, default_timezone: Optional[str] = None) -> datetime:
         """Parse iCalendar datetime property.
 
         Args:
@@ -917,7 +917,7 @@ class ICSParser:
         # Date object - convert to datetime at midnight with proper timezone
         return ensure_timezone_aware(datetime.combine(dt, datetime.min.time()))
 
-    def _parse_datetime_optional(self, dt_prop: Any) -> datetime | None:
+    def _parse_datetime_optional(self, dt_prop: Any) -> Optional[datetime]:
         """Parse optional datetime property.
 
         Args:
@@ -934,7 +934,7 @@ class ICSParser:
         except Exception:
             return None
 
-    def _parse_status(self, status_prop: Any) -> str | None:
+    def _parse_status(self, status_prop: Any) -> Optional[str]:
         """Parse event status.
 
         Args:
@@ -951,7 +951,7 @@ class ICSParser:
     def _map_transparency_to_status(
         self,
         transparency: str,
-        status: str | None,
+        status: Optional[str],
         component: Any,
     ) -> EventStatus:
         """Map iCalendar transparency and status to EventStatus with Microsoft phantom event filtering.
@@ -1004,7 +1004,7 @@ class ICSParser:
 
         return mapped_status
 
-    def _parse_attendee(self, attendee_prop: Any) -> Attendee | None:
+    def _parse_attendee(self, attendee_prop: Any) -> Optional[Attendee]:
         """Parse attendee from iCalendar property.
 
         Args:
@@ -1056,7 +1056,7 @@ class ICSParser:
             logger.debug(f"Failed to parse attendee: {e}")
             return None
 
-    def _get_calendar_property(self, calendar: Calendar, prop_name: str) -> str | None:
+    def _get_calendar_property(self, calendar: Calendar, prop_name: str) -> Optional[str]:
         """Get calendar-level property.
 
         Args:
@@ -1096,9 +1096,9 @@ class ICSParser:
             return events
 
         # Build UID-based mapping for precise targeting
-        uid_to_events = {}  # UID -> list of (event, component) tuples
+        uid_to_events: dict[str, list] = {}  # UID -> list of (event, component) tuples
 
-        for event, component in zip(events, raw_components, strict=False):
+        for event, component in zip(events, raw_components):
             uid = str(component.get("UID", ""))
             if uid not in uid_to_events:
                 uid_to_events[uid] = []
@@ -1339,7 +1339,7 @@ class ICSParser:
                         rrule_string = str(rrule_prop)
 
                     # Convert EXDATE to list of strings
-                    exdates = []
+                    exdates: list[str] = []
                     if exdate_props:
                         if not isinstance(exdate_props, list):
                             exdate_props = [exdate_props]

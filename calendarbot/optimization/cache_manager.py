@@ -14,21 +14,21 @@ from pathlib import Path
 from typing import Any, Optional
 
 try:
-    from cachetools import TTLCache  # type: ignore[attr-defined]
+    from cachetools import TTLCache  # type: ignore[import, attr-defined]
 except ImportError:
     # Fallback implementation if cachetools not available
     import threading
     from collections import OrderedDict
 
-    class TTLCache:
+    class TTLCache:  # type: ignore[no-redef]
         def __init__(self, maxsize: int, ttl: int):
             self.maxsize = maxsize
             self.ttl = ttl
-            self._cache = OrderedDict()
-            self._times = {}
+            self._cache: OrderedDict[Any, Any] = OrderedDict()
+            self._times: dict[Any, float] = {}
             self._lock = threading.RLock()
 
-        def __contains__(self, key):
+        def __contains__(self, key: Any) -> bool:
             with self._lock:
                 if key not in self._cache:
                     return False
@@ -38,7 +38,7 @@ except ImportError:
                     return False
                 return True
 
-        def __getitem__(self, key):
+        def __getitem__(self, key: Any) -> Any:
             with self._lock:
                 if key not in self:
                     raise KeyError(key)
@@ -47,7 +47,7 @@ except ImportError:
                 self._cache.move_to_end(key)
                 return value
 
-        def __setitem__(self, key, value):
+        def __setitem__(self, key: Any, value: Any) -> None:
             with self._lock:
                 current_time = time.time()
                 if key in self._cache:
@@ -63,13 +63,13 @@ except ImportError:
                     self._cache[key] = value
                     self._times[key] = current_time
 
-        def get(self, key, default=None):
+        def get(self, key: Any, default: Any = None) -> Any:
             try:
                 return self[key]
             except KeyError:
                 return default
 
-        def pop(self, key, default=None):
+        def pop(self, key: Any, default: Any = None) -> Any:
             with self._lock:
                 if key in self._cache:
                     value = self._cache.pop(key)
@@ -77,27 +77,27 @@ except ImportError:
                     return value
                 return default
 
-        def clear(self):
+        def clear(self) -> None:
             with self._lock:
                 self._cache.clear()
                 self._times.clear()
 
 
 try:
-    from diskcache import Cache as DiskCache  # type: ignore[import-untyped]
+    from diskcache import Cache as DiskCache  # type: ignore[import, import-untyped]
 except ImportError:
     # Fallback disk cache implementation
 
-    class DiskCache:
+    class DiskCache:  # type: ignore[no-redef]
         def __init__(self, directory: str, size_limit: int = 50 * 1024 * 1024):
             self.directory = Path(directory)
             self.size_limit = size_limit
             self.directory.mkdir(parents=True, exist_ok=True)
 
-        def __contains__(self, key):
+        def __contains__(self, key: Any) -> bool:
             return self._get_path(key).exists()
 
-        def __getitem__(self, key):
+        def __getitem__(self, key: Any) -> Any:
             path = self._get_path(key)
             if not path.exists():
                 raise KeyError(key)
@@ -109,7 +109,7 @@ except ImportError:
                 path.unlink(missing_ok=True)
                 raise KeyError(key) from None
 
-        def __setitem__(self, key, value):
+        def __setitem__(self, key: Any, value: Any) -> None:
             self._cleanup_if_needed()
             path = self._get_path(key)
             try:
@@ -119,13 +119,13 @@ except ImportError:
                 path.unlink(missing_ok=True)
                 raise
 
-        def get(self, key, default=None):
+        def get(self, key: Any, default: Any = None) -> Any:
             try:
                 return self[key]
             except KeyError:
                 return default
 
-        def pop(self, key, default=None):
+        def pop(self, key: Any, default: Any = None) -> Any:
             try:
                 value = self[key]
                 self._get_path(key).unlink(missing_ok=True)
@@ -133,7 +133,7 @@ except ImportError:
             except KeyError:
                 return default
 
-        def clear(self):
+        def clear(self) -> None:
             for file_path in self.directory.glob("cache_*"):
                 file_path.unlink(missing_ok=True)
 
@@ -143,7 +143,7 @@ except ImportError:
             ).hexdigest()  # Used for cache keys, not security
             return self.directory / f"cache_{safe_key}.pkl"
 
-        def _cleanup_if_needed(self):
+        def _cleanup_if_needed(self) -> None:
             total_size = sum(f.stat().st_size for f in self.directory.glob("cache_*"))
             if total_size > self.size_limit:
                 # Remove oldest files

@@ -68,7 +68,9 @@ class WhatsNextLogic:
         current_event_data = [EventData.from_cached_event(e, current_time) for e in current_events]
         # 4x8 view enhancement: consolidate all upcoming events into next_events, eliminate later_events
         next_event_data = [EventData.from_cached_event(e, current_time) for e in upcoming_events]
-        later_event_data = []  # No longer used in 4x8 view - all events consolidated into next_events
+        later_event_data: list[
+            EventData
+        ] = []  # No longer used in 4x8 view - all events consolidated into next_events
 
         # Format display date
         display_date = self._format_display_date(status_info, current_time)
@@ -144,14 +146,14 @@ class WhatsNextLogic:
         # Sort by timezone-aware local time instead of raw UTC
         from ..timezone.service import convert_to_server_timezone  # noqa
 
-        def get_local_time_for_sorting(event):
+        def get_local_time_for_sorting(event: Any) -> datetime:
             """Convert event time to server timezone for proper sorting."""
             try:
                 return convert_to_server_timezone(event.start_dt)
             except Exception as e:
                 logger.warning(f"Timezone conversion failed for event '{event.subject}': {e}")
                 # Fallback to UTC if conversion fails
-                return (
+                return (  # type: ignore[no-any-return]
                     event.start_dt.replace(tzinfo=pytz.UTC)
                     if event.start_dt.tzinfo is None
                     else event.start_dt
@@ -323,14 +325,14 @@ class WhatsNextLogic:
             # Sort by timezone-aware local time instead of raw UTC
             from ..timezone.service import convert_to_server_timezone  # noqa
 
-            def get_local_time_for_sorting(event):
+            def get_local_time_for_sorting(event: Any) -> datetime:
                 """Convert event time to server timezone for proper sorting."""
                 try:
                     return convert_to_server_timezone(event.start_dt)
                 except Exception as e:
                     logger.warning(f"Timezone conversion failed for event '{event.subject}': {e}")
                     # Fallback to UTC if conversion fails
-                    return (
+                    return (  # type: ignore[no-any-return]
                         event.start_dt.replace(tzinfo=pytz.UTC)
                         if event.start_dt.tzinfo is None
                         else event.start_dt

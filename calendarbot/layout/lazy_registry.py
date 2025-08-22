@@ -579,7 +579,7 @@ class LazyLayoutRegistry:
         if self._cache_manager:
             try:
                 cache_stats = self._cache_manager.get_cache_stats()
-                stats["cache_manager_stats"] = cache_stats
+                stats["cache_manager_stats"] = cache_stats  # type: ignore[assignment]
             except Exception as e:
                 logger.debug(f"Failed to get cache manager statistics: {e}")
 

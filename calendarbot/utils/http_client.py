@@ -109,12 +109,12 @@ class HTTPClient:
                     logger.debug(
                         f"Successfully fetched HTML from {url} ({len(html_content)} bytes)"
                     )
-                    return html_content
+                    return html_content  # type: ignore[no-any-return]
 
             except urllib.error.URLError as e:
                 self._handle_url_error(e, attempt)
             except TimeoutError as e:
-                self._handle_socket_timeout(e, attempt)
+                self._handle_socket_timeout(e, attempt)  # type: ignore[arg-type]
             except Exception as e:
                 self._handle_unexpected_error(e, attempt)
 

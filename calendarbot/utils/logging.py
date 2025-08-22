@@ -7,7 +7,7 @@ import sys
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
 
 # Lazy imports moved to function level to avoid circular dependencies
 
@@ -102,8 +102,6 @@ class AutoColoredFormatter(logging.Formatter):
     """Formatter that auto-detects terminal color support and includes filename for DEBUG logs."""
 
     # Color schemes for different terminal types
-    from typing import ClassVar  # noqa: PLC0415
-
     COLORS: ClassVar[dict[str, dict[str, str]]] = {
         "ERROR": {"truecolor": "\033[91m", "basic": "\033[31m", "none": ""},
         "INFO": {"truecolor": "\033[94m", "basic": "\033[34m", "none": ""},
@@ -188,9 +186,9 @@ class AutoColoredFormatter(logging.Formatter):
 
         # Apply colors to level name
         level_name = record.levelname
-        if level_name in self.COLORS:
-            color_start = self.COLORS[level_name][self.color_mode]
-            color_end = self.COLORS["RESET"][self.color_mode]
+        if level_name in self.COLORS:  # type: ignore[attr-defined]
+            color_start = self.COLORS[level_name][self.color_mode]  # type: ignore[index, attr-defined]
+            color_end = self.COLORS["RESET"][self.color_mode]  # type: ignore[index, attr-defined]
 
             # Replace level name with colored version
             colored_level = f"{color_start}{level_name}{color_end}"
@@ -203,8 +201,8 @@ class AutoColoredFormatter(logging.Formatter):
             and hasattr(record, "filename")
         ):
             filename = record.filename
-            filename_color_start = self.COLORS["FILENAME"][self.color_mode]
-            filename_color_end = self.COLORS["RESET"][self.color_mode]
+            filename_color_start = self.COLORS["FILENAME"][self.color_mode]  # type: ignore[index, attr-defined]
+            filename_color_end = self.COLORS["RESET"][self.color_mode]  # type: ignore[index, attr-defined]
 
             # Replace filename with colored version
             colored_filename = f"{filename_color_start}{filename}{filename_color_end}"
@@ -352,7 +350,7 @@ def setup_enhanced_logging(
             if not rule.suppress or rule.level_threshold != logging.DEBUG
         ]
         production_filter = ProductionLogFilter(console_rules, settings)
-        console_handler.addFilter(production_filter)
+        console_handler.addFilter(production_filter)  # type: ignore[arg-type]
 
         logger.addHandler(console_handler)
 
@@ -418,7 +416,7 @@ def setup_enhanced_logging(
         from ..optimization import ProductionLogFilter  # noqa: PLC0415
 
         production_filter = ProductionLogFilter(optimizer.rules, settings)
-        file_handler.addFilter(production_filter)
+        file_handler.addFilter(production_filter)  # type: ignore[arg-type]
 
         logger.addHandler(file_handler)
 

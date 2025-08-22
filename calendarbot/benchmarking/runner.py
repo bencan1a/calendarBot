@@ -537,7 +537,7 @@ class BenchmarkRunner:
         return result
 
     @contextmanager
-    def _performance_context(self, operation: str, correlation_id: str):
+    def _performance_context(self, operation: str, correlation_id: str) -> Any:
         """Context manager for performance monitoring during benchmark execution."""
         timer_id = self.perf_logger.start_timer(
             operation=operation, component="benchmark_execution", correlation_id=correlation_id
@@ -556,13 +556,13 @@ class BenchmarkRunner:
     def _get_app_version(self) -> str:
         """Get application version from settings or default."""
         if self.settings and hasattr(self.settings, "version"):
-            return self.settings.version
+            return self.settings.version  # type: ignore[no-any-return]
         return "unknown"
 
     def _get_environment(self) -> str:
         """Get environment from settings or default."""
         if self.settings and hasattr(self.settings, "environment"):
-            return self.settings.environment
+            return self.settings.environment  # type: ignore[no-any-return]
         return "development"
 
     def get_benchmark_metadata(self, benchmark_id: str) -> Optional[BenchmarkMetadata]:

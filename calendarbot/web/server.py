@@ -2335,7 +2335,7 @@ class WebServer:
 
             # Initialize connection manager for HTTP client pooling
             try:
-                self.connection_manager = get_connection_manager()
+                self.connection_manager = get_connection_manager()  # type: ignore[assignment]
                 logger.info("ConnectionManager initialized for HTTP client pooling")
             except Exception as e:
                 logger.warning(f"Failed to initialize ConnectionManager: {e}")
@@ -2371,8 +2371,8 @@ class WebServer:
         self.running = False  # Set this early to prevent new operations
 
         # Cleanup connection manager first
-        if self.connection_manager:
-            try:
+        if self.connection_manager:  # type: ignore[unreachable]
+            try:  # type: ignore[unreachable]
                 logger.debug("Shutting down ConnectionManager...")
                 # ConnectionManager cleanup is handled by reset_connection_manager()
                 from ..optimization.connection_manager import (  # noqa

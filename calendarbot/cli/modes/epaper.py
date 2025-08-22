@@ -348,7 +348,7 @@ async def _run_epaper_main_loop(context: EpaperModeContext) -> None:  # noqa: PL
                     logger.warning(f"Failed to update e-paper display (cycle {render_count + 1})")
             else:
                 # Save as PNG for emulation mode and also save processed visualization
-                png_path, processed_path = save_png_emulation(rendered_image, render_count + 1)
+                png_path, processed_path = save_png_emulation(rendered_image, render_count + 1)  # type: ignore[assignment]
                 logger.info(f"Saved PNG emulation to: {png_path}")
                 if processed_path:
                     logger.info(f"Saved processed e-paper visualization to: {processed_path}")

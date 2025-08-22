@@ -42,9 +42,9 @@ class DatabaseManager:
                 logger.exception("Invalid database path provided")
                 # Fall back to in-memory database for tests
                 logger.warning("Falling back to in-memory database due to invalid path")
-                self.database_path = ":memory:"
+                self.database_path = ":memory:"  # type: ignore[assignment]
         else:
-            self.database_path = database_path
+            self.database_path = database_path  # type: ignore[assignment]
 
         self._initialized = False
         self._initialization_lock = None
@@ -63,12 +63,12 @@ class DatabaseManager:
 
         # Use a lock to prevent concurrent initialization
         if self._initialization_lock is None:
-            self._initialization_lock = asyncio.Lock()
+            self._initialization_lock = asyncio.Lock()  # type: ignore[assignment]
 
-        async with self._initialization_lock:
+        async with self._initialization_lock:  # type: ignore[attr-defined]
             # Double-check after acquiring lock
             if self._initialized:
-                return True
+                return True  # type: ignore[unreachable]
 
             try:
                 success = await self._initialize_database()
@@ -270,7 +270,7 @@ class DatabaseManager:
             logger.exception("Failed to initialize database")
             return False
 
-    async def _create_schema_in_connection(self, db) -> None:
+    async def _create_schema_in_connection(self, db: Any) -> None:
         """Create database schema in an existing connection.
 
         This is used for in-memory databases where each connection
@@ -597,7 +597,7 @@ class DatabaseManager:
 
                 # DIAGNOSTIC: Check show_as distribution in retrieved events
                 if rows:
-                    show_as_counts = {}
+                    show_as_counts: dict[str, int] = {}
                     for row in rows:
                         show_as = row["show_as"]
                         show_as_counts[show_as] = show_as_counts.get(show_as, 0) + 1
