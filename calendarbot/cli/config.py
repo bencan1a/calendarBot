@@ -230,23 +230,6 @@ def _apply_rpi_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
             logger.info(f"Applied RPI layout override: {current_layout} -> {settings.web_layout}")
 
 
-def _apply_compact_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
-    if getattr(args, "compact", False):
-        logger.info("Compact mode enabled")
-        settings.display_type = "compact"
-        logger.debug(f"Set display_type={settings.display_type} for compact mode")
-        if getattr(args, "compact_width", None):
-            settings.compact_display_width = args.compact_width
-        if getattr(args, "compact_height", None):
-            settings.compact_display_height = args.compact_height
-        if not getattr(args, "layout", None):
-            current_layout = getattr(settings, "web_layout", "NOT_SET")
-            settings.web_layout = "3x4"
-            logger.info(
-                f"Applied compact layout override: {current_layout} -> {settings.web_layout}"
-            )
-
-
 def _apply_epaper_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
     if getattr(args, "epaper", False):
         logger.info("E-Paper mode enabled")
@@ -314,7 +297,6 @@ def apply_cli_overrides(settings: Any, args: Any) -> Any:
 
     _apply_renderer_and_layout(settings, args, logger)
     _apply_rpi_mode(settings, args, logger)
-    _apply_compact_mode(settings, args, logger)
     _apply_epaper_mode(settings, args, logger)
     return settings
 

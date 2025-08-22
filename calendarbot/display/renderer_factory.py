@@ -2,7 +2,6 @@
 
 import logging
 import platform
-import subprocess  # nosec
 from pathlib import Path
 from typing import Any, Optional, cast
 
@@ -33,7 +32,7 @@ class RendererFactory:
         """Detect the device type based on hardware characteristics.
 
         Returns:
-            Device type string: 'rpi', 'compact', 'desktop', or 'unknown'
+            Device type string: 'rpi', 'desktop', or 'unknown'
 
         Raises:
             No exceptions raised - detection failures return 'unknown'
@@ -46,10 +45,6 @@ class RendererFactory:
 
             # Check for Raspberry Pi
             if _is_raspberry_pi():
-                # Check for compact e-ink display (300x400)
-                if _has_compact_display():
-                    logger.info("Detected Raspberry Pi with compact e-ink display")
-                    return "compact"
                 logger.info("Detected standard Raspberry Pi")
                 return "rpi"
 
@@ -201,43 +196,6 @@ def _is_raspberry_pi() -> bool:
 
     except Exception as e:
         logger.debug(f"Raspberry Pi detection failed: {e}")
-        return False
-
-
-def _has_compact_display() -> bool:
-    """Check if device has compact e-ink display (300x400).
-
-    Returns:
-        True if compact display detected, False otherwise
-    """
-    try:
-        # Check for common e-ink display drivers/modules
-        eink_indicators = [
-            Path("/sys/class/graphics/fb1"),  # Secondary framebuffer
-            Path("/dev/fb1"),  # Framebuffer device
-            Path("/sys/module/fbtft"),  # FBTFT driver
-        ]
-
-        for indicator in eink_indicators:
-            if indicator.exists():
-                logger.debug(f"Found e-ink display indicator: {indicator}")
-                return True
-
-        # Check for SPI devices (common for e-ink displays)
-        try:
-            result = subprocess.run(  # nosec
-                ["ls", "/dev/spi*"], check=False, capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                logger.debug("Found SPI devices, possible e-ink display")
-                return True
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
-
-        return False
-
-    except Exception as e:
-        logger.debug(f"Compact display detection failed: {e}")
         return False
 
 
