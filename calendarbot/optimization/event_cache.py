@@ -37,7 +37,7 @@ class CacheableEvent:
     recurrence_rule: str = ""
     last_modified: Optional[datetime] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.attendees is None:
             self.attendees = []
         if self.last_modified is None:
@@ -277,7 +277,7 @@ class EventCache:
                 self._update_response_time(response_time)
 
                 self.logger.debug(f"Layout cache hit: {layout_key}")
-                return cached_result
+                return cached_result  # type: ignore[no-any-return]
 
             self._stats.cache_misses += 1
             self._stats.total_requests += 1
@@ -342,7 +342,7 @@ class EventCache:
                 self._update_response_time(response_time)
 
                 self.logger.debug(f"ICS cache hit: {ics_key}")
-                return cached_data
+                return cached_data  # type: ignore[no-any-return]
 
             self._stats.cache_misses += 1
             self._stats.total_requests += 1

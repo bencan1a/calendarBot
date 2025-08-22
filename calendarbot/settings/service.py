@@ -159,7 +159,7 @@ class SettingsService:
             if self.persistence.settings_file.exists():
                 self._settings_file_mtime = self.persistence.settings_file.stat().st_mtime
 
-            return self._current_settings  # pyright: ignore[reportReturnType]
+            return self._current_settings  # type: ignore[return-value] # pyright: ignore[reportReturnType]
 
         except Exception as e:
             raise SettingsError(

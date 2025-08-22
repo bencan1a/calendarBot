@@ -77,7 +77,7 @@ class HTMLRenderer:
                     config = getattr(layout_info, "config", None)
                     if config is not None:
                         logger.debug("Using layout_info.config from mock")
-                        return config
+                        return config  # type: ignore[no-any-return]
 
                     # In real code, we need to use capabilities
                     logger.debug("Using layout_info.capabilities")
@@ -717,7 +717,7 @@ class HTMLRenderer:
             try:
                 layout_info = self.layout_registry.get_layout_info(self.layout)
                 if layout_info and "icon" in layout_info.capabilities:
-                    return layout_info.capabilities["icon"]
+                    return layout_info.capabilities["icon"]  # type: ignore[no-any-return]
             except Exception as e:
                 logger.debug(f"Failed to get icon from layout registry: {e}")
 

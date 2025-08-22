@@ -557,11 +557,11 @@ def get_security_logger(settings: Optional[Any] = None) -> SecurityEventLogger:
     # Access module-level variable without using 'global'
     if globals()["_security_logger"] is None:
         globals()["_security_logger"] = SecurityEventLogger(settings)
-    return globals()["_security_logger"]
+    return globals()["_security_logger"]  # type: ignore[no-any-return]
 
 
 def init_security_logging(settings: Any) -> SecurityEventLogger:
     """Initialize security logging system with settings."""
     # Update module-level variable without using 'global'
     globals()["_security_logger"] = SecurityEventLogger(settings)
-    return globals()["_security_logger"]
+    return globals()["_security_logger"]  # type: ignore[no-any-return]

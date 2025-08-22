@@ -266,7 +266,7 @@ class ProductionAssetFilter:
     and other static file serving components.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.production_mode = is_production_mode()
         self.exclusion_patterns = get_excluded_patterns()
         self._excluded_cache: set[str] = set()

@@ -2,13 +2,15 @@
 
 import logging
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from dateutil.rrule import DAILY, HOURLY, MINUTELY, MONTHLY, SECONDLY, WEEKLY, YEARLY, rrule
 
 from ..config.settings import CalendarBotSettings
 from .models import CalendarEvent, DateTimeInfo
+
+UTC = timezone.utc
 
 logger = logging.getLogger(__name__)
 
@@ -131,17 +133,17 @@ class RRuleExpander:
                 value = value.strip()
 
                 if key == "freq":
-                    rrule_dict["freq"] = value.upper()
+                    rrule_dict["freq"] = value.upper()  # type: ignore[assignment]
                 elif key == "interval":
-                    rrule_dict["interval"] = int(value)
+                    rrule_dict["interval"] = int(value)  # type: ignore[assignment]
                 elif key == "byday":
                     # Split comma-separated BYDAY values
-                    rrule_dict["byday"] = [day.strip().upper() for day in value.split(",")]
+                    rrule_dict["byday"] = [day.strip().upper() for day in value.split(",")]  # type: ignore[assignment]
                 elif key == "until":
                     # Parse UNTIL datetime
-                    rrule_dict["until"] = self._parse_datetime(value)
+                    rrule_dict["until"] = self._parse_datetime(value)  # type: ignore[assignment]
                 elif key == "count":
-                    rrule_dict["count"] = int(value)
+                    rrule_dict["count"] = int(value)  # type: ignore[assignment]
                 else:
                     # Store other parameters for future extension
                     rrule_dict[key] = value

@@ -120,7 +120,7 @@ class NoOpRuntimeResourceTracker:
         correlation_id: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         save_results: bool = True,
-    ):
+    ) -> Any:
         from contextlib import nullcontext  # noqa: PLC0415
 
         return nullcontext("noop-session")
@@ -199,11 +199,11 @@ if _is_monitoring_enabled():
     performance_monitor = _performance_monitor
     performance_timer = _performance_timer
 else:
-    PerformanceLogger = NoOpPerformanceLogger
-    PerformanceLoggerMixin = NoOpPerformanceLoggerMixin
+    PerformanceLogger = NoOpPerformanceLogger  # type: ignore[misc, assignment]
+    PerformanceLoggerMixin = NoOpPerformanceLoggerMixin  # type: ignore[misc, assignment]
     cache_monitor = noop_context_manager
-    get_performance_logger = lambda settings=None: NoOpPerformanceLogger(settings)  # noqa: E731
-    init_performance_logging = lambda settings: NoOpPerformanceLogger(settings)  # noqa: E731
+    get_performance_logger = lambda settings=None: NoOpPerformanceLogger(settings)  # type: ignore[assignment, return-value] # noqa: E731
+    init_performance_logging = lambda settings: NoOpPerformanceLogger(settings)  # type: ignore[assignment, return-value] # noqa: E731
     memory_monitor = noop_context_manager
     performance_monitor = noop_decorator
     performance_timer = noop_context_manager

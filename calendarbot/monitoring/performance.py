@@ -670,7 +670,7 @@ def get_performance_logger(settings: Optional[Any] = None) -> PerformanceLogger:
             globals()["_performance_logger"] = PerformanceLogger(settings)
         else:
             globals()["_performance_logger"] = NoOpPerformanceLogger()
-    return globals()["_performance_logger"]
+    return globals()["_performance_logger"]  # type: ignore[no-any-return]
 
 
 def init_performance_logging(settings: Any) -> PerformanceLogger:
@@ -682,4 +682,4 @@ def init_performance_logging(settings: Any) -> PerformanceLogger:
         globals()["_performance_logger"] = PerformanceLogger(settings)
     else:
         globals()["_performance_logger"] = NoOpPerformanceLogger()
-    return globals()["_performance_logger"]
+    return globals()["_performance_logger"]  # type: ignore[no-any-return]

@@ -59,7 +59,7 @@ class ResourceManager:
             static_asset_cache is not None,
         )
 
-    def _get_layout_info(self, layout_name: str):
+    def _get_layout_info(self, layout_name: str) -> Any:
         """Get layout info with registry type compatibility."""
         if isinstance(self.layout_registry, LazyLayoutRegistry):
             # LazyLayoutRegistry uses get_layout() method

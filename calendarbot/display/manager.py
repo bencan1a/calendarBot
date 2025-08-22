@@ -274,7 +274,7 @@ class DisplayManager:
                 view_model = logic.create_view_model(events, display_status)
                 # Explicit runtime type check for RendererInterface
                 self._validate_renderer_interface(self.renderer)
-                content = cast("RendererInterface", self.renderer).render(view_model)
+                content = self.renderer.render(view_model)  # type: ignore[attr-defined]
             else:
                 logger.error("Renderer does not support any known rendering interface")
                 return False

@@ -301,7 +301,7 @@ class RuntimeResourceTracker:
             return None
 
     @contextmanager
-    def track_execution(
+    def track_execution(  # type: ignore[no-untyped-def]
         self,
         operation_name: str,
         correlation_id: Optional[str] = None,
@@ -620,13 +620,13 @@ class RuntimeResourceTracker:
     def _get_app_version(self) -> str:
         """Get application version from settings or default."""
         if self.settings and hasattr(self.settings, "version"):
-            return self.settings.version
+            return self.settings.version  # type: ignore[no-any-return]
         return "unknown"
 
     def _get_environment(self) -> str:
         """Get environment from settings or default."""
         if self.settings and hasattr(self.settings, "environment"):
-            return self.settings.environment
+            return self.settings.environment  # type: ignore[no-any-return]
         return "development"
 
     def get_tracking_status(self) -> dict[str, Any]:
@@ -654,7 +654,7 @@ class RuntimeResourceTracker:
                     "duration_so_far": (
                         datetime.now(timezone.utc) - self._current_stats.start_time
                     ).total_seconds(),
-                    "metadata": self._current_stats.metadata,
+                    "metadata": self._current_stats.metadata,  # type: ignore[dict-item]
                 }
             )
 
@@ -677,7 +677,7 @@ def get_runtime_tracker(settings: Optional[Any] = None) -> RuntimeResourceTracke
             globals()["_runtime_tracker"] = RuntimeResourceTracker(settings)
         else:
             globals()["_runtime_tracker"] = NoOpRuntimeResourceTracker(settings)
-    return globals()["_runtime_tracker"]
+    return globals()["_runtime_tracker"]  # type: ignore[no-any-return]
 
 
 def init_runtime_tracking(settings: Any, **kwargs: Any) -> RuntimeResourceTracker:
@@ -689,4 +689,4 @@ def init_runtime_tracking(settings: Any, **kwargs: Any) -> RuntimeResourceTracke
         globals()["_runtime_tracker"] = RuntimeResourceTracker(settings, **kwargs)
     else:
         globals()["_runtime_tracker"] = NoOpRuntimeResourceTracker(settings, **kwargs)
-    return globals()["_runtime_tracker"]
+    return globals()["_runtime_tracker"]  # type: ignore[no-any-return]

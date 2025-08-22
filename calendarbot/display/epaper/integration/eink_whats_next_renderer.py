@@ -1410,7 +1410,7 @@ class EInkWhatsNextRenderer(RendererInterface):
             Cache key string
         """
         # Create a simple hash of the important view model properties
-        key_parts = []
+        key_parts: list[str] = []
 
         # Add current events
         if view_model.current_events:

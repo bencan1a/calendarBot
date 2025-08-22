@@ -2,7 +2,7 @@
 
 import hashlib
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 import pytz
 from pydantic import BaseModel, field_serializer
@@ -382,7 +382,7 @@ class RawEvent(BaseModel):
         end_timezone: str,
         ics_content: str,
         source_url: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> "RawEvent":
         """Create RawEvent instance from ICS content and minimal parsed data.
 

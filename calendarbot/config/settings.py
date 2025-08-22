@@ -393,6 +393,7 @@ class CalendarBotSettings(BaseSettings):
             env_file=".env",
             env_file_encoding="utf-8",
             case_sensitive=False,
+            extra="ignore",  # Allow legacy environment variables to be ignored
         )
     else:
         # For older pydantic versions, use Config class
@@ -763,7 +764,7 @@ def get_settings() -> CalendarBotSettings:
     # and modifies it through direct module reference
     if globals()["_settings_instance"] is None:
         globals()["_settings_instance"] = CalendarBotSettings()
-    return globals()["_settings_instance"]
+    return globals()["_settings_instance"]  # type: ignore[no-any-return]
 
 
 def reset_settings() -> None:
