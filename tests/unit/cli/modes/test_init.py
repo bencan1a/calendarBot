@@ -297,9 +297,10 @@ class TestModeRegistry:
     def test_mode_registry_when_initialized_then_contains_expected_modes(self) -> None:
         """Test that MODE_REGISTRY contains expected modes."""
         # Verify
-        assert "interactive" in MODE_REGISTRY
         assert "web" in MODE_REGISTRY
         assert "epaper" in MODE_REGISTRY
+        # Verify only expected modes exist
+        assert len(MODE_REGISTRY) == 2
 
         # Check structure of a mode entry
         for mode_name, mode_info in MODE_REGISTRY.items():

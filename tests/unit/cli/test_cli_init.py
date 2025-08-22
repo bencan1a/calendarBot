@@ -30,21 +30,11 @@ class TestMainEntry:
                 "restore",
                 "list_backups",
                 "verbose",
-                "test_mode",
-                "interactive",
                 "web",
                 "epaper",
-                "daemon",
-                "daemon_status",
-                "daemon_stop",
-                "kiosk",
-                "kiosk_status",
-                "kiosk_stop",
-                "kiosk_restart",
-                "kiosk_setup",
-                "rpi",
                 "port",
                 "host",
+                "auto_open",
             ]
         )
 
@@ -53,13 +43,11 @@ class TestMainEntry:
         args.backup = False
         args.restore = None
         args.list_backups = False
-        args.test_mode = False
-        args.interactive = False
         args.web = False
         args.epaper = False
-        args.rpi = False
         args.port = 8080
         args.host = None
+        args.auto_open = False
 
         return args
 
@@ -141,23 +129,25 @@ class TestMainEntry:
             mock_list.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_main_entry_test_mode(self, mock_parser_args):
-        """Test main_entry with test mode argument."""
-        mock_parser_args.test_mode = True
+    async def test_main_entry_epaper_mode(self, mock_parser_args):
+        """Test main_entry with epaper mode argument."""
+        mock_parser_args.epaper = True
 
         with (
             patch("calendarbot.cli.create_parser") as mock_create_parser,
-            patch("calendarbot.cli.run_test_mode", new_callable=AsyncMock) as mock_test_mode,
+            patch("calendarbot.cli.check_configuration") as mock_check_config,
+            patch("calendarbot.cli.run_epaper_mode", new_callable=AsyncMock) as mock_epaper_mode,
         ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
-            mock_test_mode.return_value = 0
+            mock_check_config.return_value = (True, "/path/to/config.yaml")
+            mock_epaper_mode.return_value = 0
 
             result = await main_entry()
 
             assert result == 0
-            mock_test_mode.assert_called_once_with(mock_parser_args)
+            mock_epaper_mode.assert_called_once_with(mock_parser_args)
 
     @pytest.mark.asyncio
     async def test_main_entry_not_configured(self, mock_parser_args, capsys):
@@ -185,27 +175,25 @@ class TestMainEntry:
             assert "Tip: Run 'calendarbot --setup'" in captured.out
 
     @pytest.mark.asyncio
-    async def test_main_entry_configured_interactive_mode(self, mock_parser_args):
-        """Test main_entry in interactive mode when configured."""
-        mock_parser_args.interactive = True
+    async def test_main_entry_configured_epaper_mode_explicit(self, mock_parser_args):
+        """Test main_entry with explicit epaper mode argument."""
+        mock_parser_args.epaper = True
 
         with (
             patch("calendarbot.cli.create_parser") as mock_create_parser,
             patch("calendarbot.cli.check_configuration") as mock_check_config,
-            patch(
-                "calendarbot.cli.run_interactive_mode", new_callable=AsyncMock
-            ) as mock_interactive,
+            patch("calendarbot.cli.run_epaper_mode", new_callable=AsyncMock) as mock_epaper,
         ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
             mock_check_config.return_value = (True, "/path/to/config.yaml")
-            mock_interactive.return_value = 0
+            mock_epaper.return_value = 0
 
             result = await main_entry()
 
             assert result == 0
-            mock_interactive.assert_called_once_with(mock_parser_args)
+            mock_epaper.assert_called_once_with(mock_parser_args)
 
     @pytest.mark.asyncio
     async def test_main_entry_configured_web_mode_default(self, mock_parser_args):
@@ -250,9 +238,8 @@ class TestMainEntry:
     @pytest.mark.asyncio
     async def test_main_entry_mutually_exclusive_modes_error(self, mock_parser_args):
         """Test main_entry with mutually exclusive mode arguments."""
-        mock_parser_args.test_mode = True
-        mock_parser_args.interactive = True
         mock_parser_args.web = True
+        mock_parser_args.epaper = True
 
         with (
             patch("calendarbot.cli.create_parser") as mock_create_parser,
@@ -273,23 +260,25 @@ class TestMainEntry:
             mock_parser.error.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_main_entry_test_mode_without_configuration(self, mock_parser_args):
-        """Test that test mode can run even without configuration."""
-        mock_parser_args.test_mode = True
+    async def test_main_entry_epaper_mode_without_configuration(self, mock_parser_args):
+        """Test that epaper mode can run even without configuration."""
+        mock_parser_args.epaper = True
 
         with (
             patch("calendarbot.cli.create_parser") as mock_create_parser,
-            patch("calendarbot.cli.run_test_mode", new_callable=AsyncMock) as mock_test_mode,
+            patch("calendarbot.cli.check_configuration") as mock_check_config,
+            patch("calendarbot.cli.run_epaper_mode", new_callable=AsyncMock) as mock_epaper_mode,
         ):
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = mock_parser_args
             mock_create_parser.return_value = mock_parser
-            mock_test_mode.return_value = 0
+            mock_check_config.return_value = (False, None)
+            mock_epaper_mode.return_value = 0
 
             result = await main_entry()
 
             assert result == 0
-            mock_test_mode.assert_called_once_with(mock_parser_args)
+            mock_epaper_mode.assert_called_once_with(mock_parser_args)
 
     @pytest.mark.asyncio
     async def test_main_entry_hasattr_safety(self, mock_parser_args):
@@ -318,12 +307,10 @@ class TestMainEntry:
     @pytest.mark.parametrize(
         ("mode_args", "expected_count"),
         [
-            ({"test_mode": False, "interactive": False, "web": False}, 0),
-            ({"test_mode": True, "interactive": False, "web": False}, 1),
-            ({"test_mode": False, "interactive": True, "web": False}, 1),
-            ({"test_mode": False, "interactive": False, "web": True}, 1),
-            ({"test_mode": True, "interactive": True, "web": False}, 2),
-            ({"test_mode": True, "interactive": True, "web": True}, 3),
+            ({"epaper": False, "web": False}, 0),
+            ({"epaper": True, "web": False}, 1),
+            ({"epaper": False, "web": True}, 1),
+            ({"epaper": True, "web": True}, 2),
         ],
     )
     async def test_main_entry_mode_count_calculation(
@@ -350,15 +337,8 @@ class TestMainEntry:
                     await main_entry()
                 mock_parser.error.assert_called_once()
             # Should not error - mock the appropriate mode function
-            elif mode_args.get("test_mode", False):
-                with patch("calendarbot.cli.run_test_mode", new_callable=AsyncMock) as mock_mode:
-                    mock_mode.return_value = 0
-                    result = await main_entry()
-                    assert result == 0
-            elif mode_args.get("interactive", False):
-                with patch(
-                    "calendarbot.cli.run_interactive_mode", new_callable=AsyncMock
-                ) as mock_mode:
+            elif mode_args.get("epaper", False):
+                with patch("calendarbot.cli.run_epaper_mode", new_callable=AsyncMock) as mock_mode:
                     mock_mode.return_value = 0
                     result = await main_entry()
                     assert result == 0
@@ -381,7 +361,7 @@ class TestMainEntry:
 
         for mock_func_name, args_dict, expected_code in test_cases:
             # Reset args
-            for attr in ["setup", "backup", "restore", "list_backups", "test_mode"]:
+            for attr in ["setup", "backup", "restore", "list_backups"]:
                 setattr(mock_parser_args, attr, False if attr != "restore" else None)
 
             # Set specific args
@@ -406,14 +386,13 @@ class TestMainEntry:
     async def test_main_entry_async_mode_functions(self, mock_parser_args):
         """Test main_entry calls async mode functions correctly."""
         async_test_cases = [
-            ("run_test_mode", {"test_mode": True}),
-            ("run_interactive_mode", {"interactive": True}),
+            ("run_epaper_mode", {"epaper": True}),
             ("run_web_mode", {"web": True}),
         ]
 
         for mock_func_name, args_dict in async_test_cases:
             # Reset args
-            for attr in ["test_mode", "interactive", "web"]:
+            for attr in ["epaper", "web"]:
                 setattr(mock_parser_args, attr, False)
 
             # Set specific args
@@ -449,12 +428,10 @@ class TestCliImports:
             create_parser,
             list_backups,
             main_entry,
-            parse_components,
             parse_date,
             restore_configuration,
-            run_interactive_mode,
+            run_epaper_mode,
             run_setup_wizard,
-            run_test_mode,
             run_web_mode,
             show_setup_guidance,
         )
@@ -464,7 +441,6 @@ class TestCliImports:
             main_entry,
             create_parser,
             parse_date,
-            parse_components,
             check_configuration,
             show_setup_guidance,
             apply_cli_overrides,
@@ -472,9 +448,8 @@ class TestCliImports:
             backup_configuration,
             restore_configuration,
             list_backups,
-            run_interactive_mode,
+            run_epaper_mode,
             run_web_mode,
-            run_test_mode,
         ]
 
         for func in callable_functions:
@@ -488,7 +463,6 @@ class TestCliImports:
             "main_entry",
             "create_parser",
             "parse_date",
-            "parse_components",
             "check_configuration",
             "show_setup_guidance",
             "apply_cli_overrides",
@@ -496,9 +470,8 @@ class TestCliImports:
             "backup_configuration",
             "restore_configuration",
             "list_backups",
-            "run_interactive_mode",
+            "run_epaper_mode",
             "run_web_mode",
-            "run_test_mode",
         ]
 
         for export in expected_exports:
@@ -543,17 +516,8 @@ class TestCliIntegration:
             args.web = False
             args.epaper = False
 
-            # Add missing daemon arguments
-            args.daemon = False
-            args.daemon_status = False
-            args.daemon_stop = False
-
-            # Add missing kiosk arguments
-            args.kiosk = False
-            args.kiosk_status = False
-            args.kiosk_stop = False
-            args.kiosk_restart = False
-            args.kiosk_setup = False
+            # Set auto_open for mock completeness
+            args.auto_open = False
 
             mock_parser = MagicMock()
             mock_parser.parse_args.return_value = args

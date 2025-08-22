@@ -40,17 +40,6 @@ class TestRendererFactory:
             assert result == mock_renderer
             mock_html.assert_called_once_with(mock_settings)
 
-    def test_create_renderer_rpi_type(self, mock_settings) -> None:
-        """Test creating Raspberry Pi renderer."""
-        with patch("calendarbot.display.renderer_factory.WhatsNextRenderer") as mock_whats_next:
-            mock_renderer = Mock()
-            mock_whats_next.return_value = mock_renderer
-
-            result = RendererFactory.create_renderer("rpi", mock_settings)
-
-            assert result == mock_renderer
-            mock_whats_next.assert_called_once_with(mock_settings)
-
     def test_create_renderer_compact_type(self, mock_settings) -> None:
         """Test creating compact eink renderer."""
         with patch("calendarbot.display.renderer_factory.EInkWhatsNextRenderer_TYPE") as mock_eink:
@@ -323,7 +312,6 @@ class TestRendererFactoryIntegration:
         from calendarbot.display.renderer_factory import _map_device_to_renderer
 
         assert _map_device_to_renderer("compact") == "epaper"
-        assert _map_device_to_renderer("rpi") == "whats-next"
         assert _map_device_to_renderer("desktop") == "html"
         assert _map_device_to_renderer("unknown") == "console"
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CalendarBot is a Python-based calendar application that fetches and displays ICS calendar feeds. It features multiple display modes including terminal UI, web interface, and e-paper display support for Raspberry Pi devices.
+CalendarBot is a Python-based calendar application that fetches and displays ICS calendar feeds. It features multiple display modes including terminal UI, web interface, and e-paper display support.
 
 ## Key Commands
 
@@ -169,7 +169,7 @@ python scripts/view_performance_trends.py
 - Always activate the virtual environment before running commands
 - The project uses both Python (backend) and JavaScript (frontend) testing
 - Browser tests can hang - use `./scripts/run_coverage.sh browser` for automatic cleanup
-- E-paper functionality requires Raspberry Pi with GPIO access
+- E-paper functionality requires compatible e-ink display hardware
 - Web server runs on port 8080 by default
 - Settings changes via web UI are persisted to `config/config.yaml`
 - Use correlation IDs for debugging async operations

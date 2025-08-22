@@ -2520,6 +2520,7 @@ class WebServer:
                     "is_today": self.navigation_state.is_today(),
                     "last_update": get_timezone_aware_now().isoformat(),
                     "is_cached": bool(events),  # If we got events, assume cached
+                    "has_navigation": True,
                 }
             else:
                 # Non-interactive mode - get today's events
@@ -2568,6 +2569,7 @@ class WebServer:
                 status_info = {
                     "last_update": get_timezone_aware_now().isoformat(),
                     "is_cached": False,
+                    "has_navigation": False,
                 }
 
             logger.debug(f"Display manager renderer type: {type(self.display_manager.renderer)}")

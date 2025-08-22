@@ -40,7 +40,6 @@ keywords = [
     "microsoft365",
     "outlook",
     "google-calendar",
-    "raspberry-pi",
     "e-ink",
     "display",
     "web-interface",
@@ -80,10 +79,6 @@ dev = [
     "mypy>=1.0.0",
     "bandit>=1.7.0",
     "pre-commit>=3.0.0",
-]
-rpi = [
-    "RPi.GPIO>=0.7.1",
-    "spidev>=3.5",
 ]
 test = [
     "pytest>=7.4.0",

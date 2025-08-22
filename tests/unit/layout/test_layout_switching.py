@@ -146,8 +146,8 @@ class TestLayoutSwitching:
     def test_web_server_set_layout_invalid(self, web_server: WebServer) -> None:
         """Test web server layout setting with invalid layout."""
         # Mock layout registry validation
-        web_server.layout_registry.validate_layout.return_value = False
-        web_server.layout_registry.get_available_layouts.return_value = ["4x8", "whats-next-view"]
+        web_server.layout_registry.validate_layout.return_value = False  # type: ignore[attr-defined]
+        web_server.layout_registry.get_available_layouts.return_value = ["4x8", "whats-next-view"]  # type: ignore[attr-defined]
 
         result = web_server.set_layout("invalid-layout")
         assert result is False
@@ -255,20 +255,19 @@ class TestLayoutSwitching:
         assert status["running"] is True
         assert status["host"] == "localhost"
         assert status["port"] == 8080
-        assert "interactive_mode" in status
         assert "current_date" in status
 
     def test_layout_registry_integration(self, web_server: WebServer) -> None:
         """Test that web server properly integrates with layout registry."""
         # Test that layout registry is used for validation
-        web_server.layout_registry.validate_layout.return_value = True
+        web_server.layout_registry.validate_layout.return_value = True  # type: ignore[attr-defined]
         web_server.display_manager.set_layout = Mock(return_value=True)
 
         result = web_server.set_layout("4x8")
         assert result is True
 
         # Verify registry was called for validation
-        web_server.layout_registry.validate_layout.assert_called_with("4x8")
+        web_server.layout_registry.validate_layout.assert_called_with("4x8")  # type: ignore[attr-defined]
 
     def test_renderer_factory_integration(self, display_manager: DisplayManager) -> None:
         """Test that display manager properly integrates with renderer factory."""

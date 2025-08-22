@@ -28,7 +28,6 @@ class TestRunWebMode:
         args.host = "localhost"
         args.port = 8080
         args.auto_open = False
-        args.rpi = False
         return args
 
     @pytest.fixture
@@ -80,7 +79,7 @@ class TestRunWebMode:
     @patch("calendarbot.cli.modes.web.apply_cli_overrides")
     @patch("calendarbot.cli.modes.web.get_local_network_interface")
     @patch("calendarbot.cli.modes.web.validate_host_binding")
-    def test_configure_web_settings_when_rpi_false_and_layout_not_whats_next_then_uses_html_renderer(
+    def test_configure_web_settings_when_layout_not_whats_next_then_uses_html_renderer(
         self,
         mock_validate_host,
         mock_get_interface,
@@ -89,9 +88,8 @@ class TestRunWebMode:
         mock_args,
         mock_settings,
     ):
-        """Test _configure_web_settings with rpi=False and layout not whats-next-view."""
+        """Test _configure_web_settings with layout not whats-next-view."""
         # Setup
-        mock_args.rpi = False
         mock_args.layout = "4x8"
         mock_args.host = None
         mock_args.port = 8080
@@ -114,7 +112,7 @@ class TestRunWebMode:
     @patch("calendarbot.cli.modes.web.apply_command_line_overrides")
     @patch("calendarbot.cli.modes.web.apply_cli_overrides")
     @patch("calendarbot.cli.modes.web.validate_host_binding")
-    def test_configure_web_settings_when_rpi_false_and_layout_whats_next_then_uses_whats_next_renderer(
+    def test_configure_web_settings_when_layout_whats_next_then_uses_whats_next_renderer(
         self,
         mock_validate_host,
         mock_apply_cli_overrides,
@@ -122,9 +120,8 @@ class TestRunWebMode:
         mock_args,
         mock_settings,
     ):
-        """Test _configure_web_settings with rpi=False and layout=whats-next-view."""
+        """Test _configure_web_settings with layout=whats-next-view."""
         # Setup
-        mock_args.rpi = False
         mock_args.layout = "whats-next-view"
         mock_args.host = "localhost"
         mock_args.port = 8080
@@ -158,7 +155,6 @@ class TestRunWebMode:
     ):
         """Test _configure_web_settings with display_type=whats-next-view."""
         # Setup
-        mock_args.rpi = False
         mock_args.layout = None
         mock_args.display_type = "whats-next-view"
         mock_args.host = None
@@ -190,7 +186,6 @@ class TestWebModeIntegration:
         mock_args.host = "localhost"
         mock_args.port = 8080
         mock_args.auto_open = False
-        mock_args.rpi = False
 
         # Test different error scenarios
         error_scenarios = [
@@ -258,7 +253,6 @@ class TestWebComponents:
         args.host = "localhost"
         args.port = 8080
         args.auto_open = False
-        args.rpi = False
         return args
 
     @pytest.fixture

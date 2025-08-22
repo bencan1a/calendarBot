@@ -211,7 +211,6 @@ def _map_device_to_renderer(device_type: str) -> str:
     mapping = {
         "desktop": "html",
         "unknown": "console",
-        "rpi": "whats-next",
         "compact": "epaper",  # Updated to use the new standardized "epaper" type
     }
     return mapping.get(device_type, "console")
@@ -238,7 +237,6 @@ def _create_renderer_instance(
         "console": ConsoleRenderer,
         "whats-next": WhatsNextRenderer,
         # Legacy type mappings for backward compatibility
-        "rpi": WhatsNextRenderer,
         "compact": EInkWhatsNextRenderer_TYPE
         if EPAPER_AVAILABLE and EInkWhatsNextRenderer_TYPE is not None
         else ConsoleRenderer,
@@ -262,7 +260,6 @@ def _create_renderer_instance(
     html_based_renderers = {
         "html",
         "whats-next",
-        "rpi",
     }  # WhatsNextRenderer inherits from HTMLRenderer
 
     if renderer_type in html_based_renderers and layout_registry is not None:

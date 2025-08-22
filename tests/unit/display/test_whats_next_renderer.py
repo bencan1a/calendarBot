@@ -187,7 +187,7 @@ class TestWhatsNextRenderer:
             self.create_mock_event("Later Event", 4, 5),
         ]
 
-        result = renderer._render_events_content(events, interactive_mode=False)
+        result = renderer._render_events_content(events)
 
         assert result is not None
         assert isinstance(result, str)
@@ -206,7 +206,7 @@ class TestWhatsNextRenderer:
         mock_find_next.return_value = None
         events = [current_event]
 
-        result = renderer._render_events_content(events, interactive_mode=False)
+        result = renderer._render_events_content(events)
 
         assert result is not None
         assert isinstance(result, str)
@@ -219,7 +219,7 @@ class TestWhatsNextRenderer:
         """Test rendering events content when no events exist."""
         mock_find_next.return_value = None
 
-        result = renderer._render_events_content([], interactive_mode=False)
+        result = renderer._render_events_content([])
 
         assert result is not None
         assert isinstance(result, str)
@@ -236,7 +236,7 @@ class TestWhatsNextRenderer:
         events = [self.create_mock_event("Past Event", -2, -1)]
         events[0].is_current = MagicMock(return_value=False)
 
-        result = renderer._render_events_content(events, interactive_mode=False)
+        result = renderer._render_events_content(events)
 
         assert result is not None
         assert isinstance(result, str)
@@ -257,8 +257,8 @@ class TestWhatsNextRenderer:
         assert result is not None
         assert isinstance(result, str)
         mock_render_content.assert_called_once_with(
-            events, False
-        )  # interactive_mode defaults to False
+            events
+        )  # interactive_mode parameter no longer exists
 
     @patch.object(WhatsNextRenderer, "_render_events_content")
     def test_render_events_when_error_occurs_then_returns_error_html(
@@ -286,7 +286,7 @@ class TestWhatsNextRenderer:
             renderer.logic, "find_next_upcoming_event", side_effect=Exception("Filter error")
         ):
             # This should fall back to parent implementation (HTMLRenderer._render_events_content)
-            result = renderer._render_events_content(events, interactive_mode=False)
+            result = renderer._render_events_content(events)
 
             # Should not crash and should return some content
             assert result is not None

@@ -196,7 +196,6 @@ Examples:
   %(prog)s --web                     # Run web server mode on localhost:8080 (explicit)
   %(prog)s --web --port 3000 --auto-open  # Run web server on port 3000 and open browser
   %(prog)s --epaper                  # Run in e-paper display mode with hardware auto-detection
-  %(prog)s --rpi --web               # Run in RPI e-ink mode with web interface
         """,
     )
 
@@ -287,34 +286,9 @@ Examples:
 
     display_group.add_argument(
         "--renderer",
-        choices=["html", "rpi"],
+        choices=["html"],
         default=None,
-        help="Renderer type: html (web browser), rpi (Raspberry Pi e-ink)",
-    )
-
-    # Raspberry Pi e-ink display arguments
-    rpi_group = parser.add_argument_group("rpi", "Raspberry Pi e-ink display options")
-
-    rpi_group.add_argument(
-        "--rpi",
-        "--rpi-mode",
-        action="store_true",
-        help="Enable Raspberry Pi e-ink display configuration (480x800px optimized layout, compact renderer)",
-    )
-
-    rpi_group.add_argument(
-        "--rpi-width", type=int, default=480, help="RPI display width in pixels (default: 480)"
-    )
-
-    rpi_group.add_argument(
-        "--rpi-height", type=int, default=800, help="RPI display height in pixels (default: 800)"
-    )
-
-    rpi_group.add_argument(
-        "--rpi-refresh-mode",
-        choices=["partial", "full"],
-        default="partial",
-        help="E-ink refresh mode (default: partial)",
+        help="Renderer type: html (web browser)",
     )
 
     # Comprehensive logging arguments

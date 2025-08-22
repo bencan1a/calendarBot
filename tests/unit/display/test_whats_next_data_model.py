@@ -160,14 +160,12 @@ class TestStatusInfo:
             is_cached=True,
             connection_status="Connected",
             relative_description="Today",
-            interactive_mode=False,
         )
 
         assert status_info.last_update == last_update
         assert status_info.is_cached is True
         assert status_info.connection_status == "Connected"
         assert status_info.relative_description == "Today"
-        assert status_info.interactive_mode is False
 
     def test_init_when_optional_fields_none_then_handles_gracefully(self) -> None:
         """Test StatusInfo initialization with None optional fields."""
@@ -178,13 +176,11 @@ class TestStatusInfo:
             is_cached=False,
             connection_status=None,
             relative_description=None,
-            interactive_mode=True,
         )
 
         assert status_info.is_cached is False
         assert status_info.connection_status is None
         assert status_info.relative_description is None
-        assert status_info.interactive_mode is True
 
 
 class TestWeatherData:
@@ -263,7 +259,6 @@ class TestWhatsNextViewModel:
             is_cached=True,
             connection_status="Connected",
             relative_description="Today",
-            interactive_mode=False,
         )
 
     def test_init_when_valid_data_then_creates_instance(self) -> None:
@@ -489,7 +484,7 @@ class TestWhatsNextViewModel:
 
         # StatusInfo
         last_update = datetime(2025, 7, 14, 12, 0, 0)
-        status_info = StatusInfo(last_update, True, "Connected", "Today", False)
+        status_info = StatusInfo(last_update, True, "Connected", "Today")
         assert isinstance(status_info.last_update, datetime)
         assert isinstance(status_info.is_cached, bool)
 

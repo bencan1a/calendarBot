@@ -164,7 +164,6 @@ class TestWhatsNextDataAPI:
             last_update=self.current_time,
             is_cached=False,
             connection_status="connected",
-            interactive_mode=True,
             selected_date="Monday, August 7",
         )
 

@@ -61,7 +61,6 @@ class TestDynamicResourceIntegration:
                     status_line="Test Status",
                     events_content="<div>Test Events</div>",
                     nav_help="<div>Test Nav</div>",
-                    interactive_mode=True,
                 )
 
                 assert "4x8.css" in result
@@ -86,7 +85,6 @@ class TestDynamicResourceIntegration:
                 status_line="Test Status",
                 events_content="<div>Test Events</div>",
                 nav_help="<div>Test Nav</div>",
-                interactive_mode=True,
             )
 
             # Should fall back to theme-based CSS/JS
@@ -196,7 +194,6 @@ class TestLayoutRendererSeparation:
             status_line="",
             events_content="<div>Content</div>",
             nav_help="",
-            interactive_mode=False,
         )
 
         html_whats_next = renderer_whats_next._build_html_template(
@@ -204,7 +201,6 @@ class TestLayoutRendererSeparation:
             status_line="",
             events_content="<div>Content</div>",
             nav_help="",
-            interactive_mode=False,
         )
 
         assert 'class="layout-4x8"' in html_4x8

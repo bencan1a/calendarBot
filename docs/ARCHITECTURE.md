@@ -18,7 +18,7 @@ CalendarBot is a Python-based calendar display application that fetches ICS cale
 
 ### 3. Display System (`calendarbot/display/`)
 - **HTML Renderer**: Web interface with multiple layouts
-- **RPi Renderer**: E-ink optimized display for Raspberry Pi
+- **E-Paper Renderer**: E-ink optimized display with device integration
 
 ### 4. Web Interface (`calendarbot/web/`)
 - **Layout System**: Dynamic layout discovery (4x8, 3x4, whats-next-view)
@@ -62,7 +62,7 @@ CacheManager → DatabaseHandler → CacheProtocol
 ## Operational Modes
 
 - **Web**: Browser-based interface with layout system
-- **E-Paper**: E-ink optimized rendering for Raspberry Pi
+- **E-Paper**: E-ink optimized rendering with device integration
 - **Daemon**: Background service operation
 
 ## Calendar Compatibility
