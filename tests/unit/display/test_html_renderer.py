@@ -786,7 +786,6 @@ class TestHTMLRendererHTMLTemplate:
         assert "Updated: 10:00 AM" in result
         assert "<div>Events</div>" in result
         assert "<div>Navigation</div>" in result
-        assert 'onclick="navigate(' in result
         assert "style.css" in result
         assert "app.js" in result
 

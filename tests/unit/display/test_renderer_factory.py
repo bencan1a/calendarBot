@@ -115,22 +115,18 @@ class TestRendererFactory:
     def test_detect_device_type_rpi_environment(self) -> None:
         """Test detecting device type in RPI environment."""
         with patch("calendarbot.display.renderer_factory._is_raspberry_pi", return_value=True):
-            with patch(
-                "calendarbot.display.renderer_factory._has_compact_display", return_value=False
-            ):
-                device_type = RendererFactory.detect_device_type()
+            device_type = RendererFactory.detect_device_type()
 
-                assert device_type == "rpi"
+            assert device_type == "rpi"
 
-    def test_detect_device_type_compact_environment(self) -> None:
-        """Test detecting device type in compact display environment."""
-        with patch("calendarbot.display.renderer_factory._is_raspberry_pi", return_value=True):
-            with patch(
-                "calendarbot.display.renderer_factory._has_compact_display", return_value=True
-            ):
-                device_type = RendererFactory.detect_device_type()
+    def test_detect_device_type_arm_linux_environment(self) -> None:
+        """Test detecting device type in ARM Linux environment."""
+        with patch("calendarbot.display.renderer_factory._is_raspberry_pi", return_value=False):
+            with patch("platform.system", return_value="Linux"):
+                with patch("platform.machine", return_value="armv7l"):
+                    device_type = RendererFactory.detect_device_type()
 
-                assert device_type == "compact"
+                    assert device_type == "rpi"
 
     def test_detect_device_type_desktop_environment(self) -> None:
         """Test detecting device type in desktop environment."""
@@ -297,15 +293,8 @@ class TestRendererFactoryIntegration:
 
                 assert _is_raspberry_pi() is True
 
-        # Test compact display detection
-        with patch("pathlib.Path.exists") as mock_exists:
-            mock_exists.return_value = True
-
-            from calendarbot.display.renderer_factory import _has_compact_display
-
-            result = _has_compact_display()
-            # Should return True when SPI devices are found
-            assert isinstance(result, bool)
+        # Compact display detection was removed from implementation
+        # No longer testing _has_compact_display function
 
     def test_device_to_renderer_mapping(self) -> None:
         """Test device type to renderer type mapping."""
