@@ -119,10 +119,8 @@ class DisplayManager:
             True if e-Paper renderer should be used, False otherwise
         """
         try:
-            # Use the same device detection logic as RendererFactory
-            device_type = self.renderer_factory.detect_device_type()
-            # Use e-Paper for compact devices or if explicitly configured
-            return device_type == "compact" or getattr(self.settings.epaper, "force_epaper", False)
+            # Use e-Paper if explicitly configured
+            return getattr(self.settings.epaper, "force_epaper", False)
         except Exception as e:
             logger.debug(f"E-Paper device detection failed: {e}")
             return False

@@ -106,22 +106,6 @@ class TestCreateParser:
         args = parser.parse_args(["--rpi-refresh-mode", "full"])
         assert args.rpi_refresh_mode == "full"
 
-    def test_parser_compact_arguments(self):
-        """Test that parser includes compact display arguments."""
-        parser = create_parser()
-
-        args = parser.parse_args(["--compact"])
-        assert args.compact is True
-
-        args = parser.parse_args(["--compact-mode"])
-        assert args.compact is True
-
-        args = parser.parse_args(["--compact-width", "300"])
-        assert args.compact_width == 300
-
-        args = parser.parse_args(["--compact-height", "400"])
-        assert args.compact_height == 400
-
     def test_parser_logging_arguments(self):
         """Test that parser includes comprehensive logging arguments."""
         parser = create_parser()
@@ -193,8 +177,6 @@ class TestCreateParser:
         assert args.rpi_width == 480
         assert args.rpi_height == 800
         assert args.rpi_refresh_mode == "partial"
-        assert args.compact_width == 300
-        assert args.compact_height == 400
 
     def test_parser_invalid_choice_raises_error(self):
         """Test that parser raises error for invalid choices."""

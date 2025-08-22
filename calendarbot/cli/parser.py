@@ -287,9 +287,9 @@ Examples:
 
     display_group.add_argument(
         "--renderer",
-        choices=["html", "rpi", "compact"],
+        choices=["html", "rpi"],
         default=None,
-        help="Renderer type: html (web browser), rpi (Raspberry Pi e-ink), compact (compact e-ink)",
+        help="Renderer type: html (web browser), rpi (Raspberry Pi e-ink)",
     )
 
     # Raspberry Pi e-ink display arguments
@@ -315,30 +315,6 @@ Examples:
         choices=["partial", "full"],
         default="partial",
         help="E-ink refresh mode (default: partial)",
-    )
-
-    # Compact e-ink display arguments
-    compact_group = parser.add_argument_group("compact", "Compact e-ink display options")
-
-    compact_group.add_argument(
-        "--compact",
-        "--compact-mode",
-        action="store_true",
-        help="Enable compact e-ink display mode (300x400px optimized) - sets renderer to 'compact'",
-    )
-
-    compact_group.add_argument(
-        "--compact-width",
-        type=int,
-        default=300,
-        help="Compact display width in pixels (default: 300)",
-    )
-
-    compact_group.add_argument(
-        "--compact-height",
-        type=int,
-        default=400,
-        help="Compact display height in pixels (default: 400)",
     )
 
     # Comprehensive logging arguments

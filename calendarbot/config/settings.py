@@ -356,14 +356,12 @@ class CalendarBotSettings(BaseSettings):
     display_enabled: bool = Field(default=True, description="Enable display output")
     display_type: str = Field(
         default="console",
-        description="Renderer type: console, html, whats-next, epaper, rpi, compact, eink-whats-next",
+        description="Renderer type: console, html, whats-next, epaper, rpi, eink-whats-next",
     )
 
     # Generic Display Dimensions (used by tests and some renderers)
     display_width: int = Field(default=800, description="Generic display width in pixels")
     display_height: int = Field(default=600, description="Generic display height in pixels")
-    compact_display_width: int = Field(default=400, description="Compact display width in pixels")
-    compact_display_height: int = Field(default=300, description="Compact display height in pixels")
 
     # Core E-Paper Configuration
     epaper: EpaperConfiguration = Field(
@@ -379,24 +377,6 @@ class CalendarBotSettings(BaseSettings):
     )
     rpi_auto_layout: bool = Field(
         default=True, description="Auto-optimize layout for e-ink display"
-    )
-
-    # Compact E-ink Display Settings (300x400)
-    compact_eink_enabled: bool = Field(default=False, description="Enable compact e-ink mode")
-    compact_eink_display_width: int = Field(
-        default=300, description="Compact e-ink display width in pixels"
-    )
-    compact_eink_display_height: int = Field(
-        default=400, description="Compact e-ink display height in pixels"
-    )
-    compact_eink_refresh_mode: str = Field(
-        default="partial", description="Compact e-ink refresh mode: partial, full"
-    )
-    compact_eink_auto_layout: bool = Field(
-        default=True, description="Auto-optimize layout for compact e-ink display"
-    )
-    compact_eink_content_truncation: bool = Field(
-        default=True, description="Enable content truncation for compact display"
     )
 
     # Web/HTML Display Settings
