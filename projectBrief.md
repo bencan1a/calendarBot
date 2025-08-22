@@ -39,7 +39,7 @@ CalendarBot is designed for:
 
 1. **Individual Users**: Who need a flexible calendar display for personal use
 2. **Office Environments**: For meeting room displays and shared calendars
-3. **Embedded Device Users**: Particularly those using Raspberry Pi with e-ink displays
+3. **Embedded Device Users**: Particularly those using e-ink displays
 4. **Developers**: Who want to extend or customize calendar visualization
 
 ## Architectural Style/Technologies
@@ -77,7 +77,7 @@ CalendarBot is designed for:
 
 3. **Deployment Options**
    - Standard desktop/laptop deployment
-   - Raspberry Pi with e-ink display support
+   - E-ink display support with device integration
    - Web server mode for network access
 
 4. **Performance Considerations**

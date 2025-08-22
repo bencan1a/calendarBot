@@ -6,7 +6,7 @@
 
 - 📋 Interactive terminal navigation with keyboard controls
 - 🌐 Mobile-friendly web interface with multiple layouts
-- 📱 E-paper display support for Raspberry Pi
+- 📱 E-paper display support with e-ink optimization
 - ⚙️ Built-in setup wizard for quick configuration
 - 🔄 Real-time data fetching from any ICS calendar feed
 - 💾 Local caching with offline support

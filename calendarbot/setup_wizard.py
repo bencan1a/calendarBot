@@ -450,14 +450,6 @@ For other calendar services:
                 "layout": "whats-next-view",
                 "auto_refresh": 60,
             },
-            # Raspberry Pi E-ink Settings
-            "rpi": {
-                "enabled": False,
-                "display_width": 480,
-                "display_height": 800,
-                "refresh_mode": "partial",
-                "auto_theme": True,
-            },
         }
 
         # Add authentication if needed

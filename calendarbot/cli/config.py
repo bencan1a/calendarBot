@@ -210,26 +210,6 @@ def _apply_renderer_and_layout(settings: Any, args: Any, logger: logging.Logger)
         )
 
 
-def _apply_rpi_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
-    if getattr(args, "rpi", False):
-        logger.info(f"RPI mode enabled, auto_layout={getattr(settings, 'rpi_auto_layout', True)}")
-        settings.rpi_enabled = True
-        settings.display_type = "compact"
-        logger.debug(f"Set display_type={settings.display_type} for RPI mode")
-        if getattr(args, "rpi_width", None):
-            settings.rpi_display_width = args.rpi_width
-        if getattr(args, "rpi_height", None):
-            settings.rpi_display_height = args.rpi_height
-        if getattr(args, "rpi_refresh_mode", None):
-            settings.rpi_refresh_mode = args.rpi_refresh_mode
-        if getattr(settings, "rpi_auto_layout", True) and not getattr(args, "layout", None):
-            current_layout = getattr(settings, "web_layout", "NOT_SET")
-            settings.web_layout = "3x4"
-            if hasattr(settings, "layout_name"):
-                settings.layout_name = "3x4"
-            logger.info(f"Applied RPI layout override: {current_layout} -> {settings.web_layout}")
-
-
 def _apply_epaper_mode(settings: Any, args: Any, logger: logging.Logger) -> None:
     if getattr(args, "epaper", False):
         logger.info("E-Paper mode enabled")
@@ -296,7 +276,6 @@ def apply_cli_overrides(settings: Any, args: Any) -> Any:
         logger.debug("Enabled auto_kill_existing from --kill-duplicates flag")
 
     _apply_renderer_and_layout(settings, args, logger)
-    _apply_rpi_mode(settings, args, logger)
     _apply_epaper_mode(settings, args, logger)
     return settings
 

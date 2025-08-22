@@ -46,18 +46,17 @@ def _configure_web_settings(args: Any, base_settings: Any) -> Any:
     updated_settings = apply_cli_overrides(updated_settings, args)
 
     # Apply web mode overrides - ensure HTML renderer and appropriate layout for web mode
-    if not hasattr(args, "rpi") or not args.rpi:
-        # Check if layout was explicitly set to whats-next-view
-        layout_from_args = getattr(args, "layout", None) or getattr(args, "display_type", None)
-        if layout_from_args == "whats-next-view":
-            # Use WhatsNextRenderer for whats-next-view layout
-            updated_settings.display_type = "whats-next"
-            updated_settings.web_layout = "whats-next-view"
-        else:
-            # Use HTML renderer for proper layout structure in web mode
-            updated_settings.display_type = "html"
-            # Use a sensible default layout instead of creating LayoutRegistry
-            updated_settings.web_layout = "default"
+    # Check if layout was explicitly set to whats-next-view
+    layout_from_args = getattr(args, "layout", None) or getattr(args, "display_type", None)
+    if layout_from_args == "whats-next-view":
+        # Use WhatsNextRenderer for whats-next-view layout
+        updated_settings.display_type = "whats-next"
+        updated_settings.web_layout = "whats-next-view"
+    else:
+        # Use HTML renderer for proper layout structure in web mode
+        updated_settings.display_type = "html"
+        # Use a sensible default layout instead of creating LayoutRegistry
+        updated_settings.web_layout = "default"
 
     # Configure host settings
     if args.host is None:

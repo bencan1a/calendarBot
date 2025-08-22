@@ -491,14 +491,23 @@ class TestWebRequestHandler:
                 # When Path(__file__) is called, return our mock
                 mock_path_class.return_value = mock_file_path
 
-                with patch("mimetypes.guess_type", return_value=("text/css", None)):
+                # Mock ETag and last modified methods
+                with (
+                    patch("mimetypes.guess_type", return_value=("text/css", None)),
+                    patch.object(request_handler, "_generate_etag", return_value="test-etag"),
+                    patch.object(
+                        request_handler,
+                        "_get_last_modified",
+                        return_value="Mon, 01 Jan 2023 00:00:00 GMT",
+                    ),
+                ):
                     request_handler._serve_static_file("/static/test.css")
 
                     # Check that the correct HTTP response was sent
                     request_handler.send_response.assert_called_once_with(200)
                     request_handler.send_header.assert_any_call("Content-Type", "text/css")
                     request_handler.send_header.assert_any_call(
-                        "Cache-Control", "max-age=3600, public"
+                        "Cache-Control", "no-cache, must-revalidate"
                     )
                     request_handler.wfile.write.assert_called_once_with(test_content)
 
@@ -533,7 +542,7 @@ class TestWebRequestHandler:
 
         request_handler.send_response.assert_called_once_with(200)
         request_handler.send_header.assert_any_call("Content-Type", "text/plain")
-        request_handler.send_header.assert_any_call("Cache-Control", "max-age=3600, public")
+        request_handler.send_header.assert_any_call("Cache-Control", "max-age=60, must-revalidate")
         request_handler.send_header.assert_any_call("Content-Length", "11")
         request_handler.end_headers.assert_called_once()
         request_handler.wfile.write.assert_called_once_with(b"Hello World")
@@ -857,7 +866,7 @@ class TestWebServer:
             call_args = web_server.display_manager.renderer.render_events.call_args
             events, status_info = call_args[0]
             assert len(events) == 1
-            assert status_info["interactive_mode"] is True
+            assert status_info["has_navigation"] is True
             assert status_info["selected_date"] == "January 15, 2023"
 
     def test_get_calendar_html_non_interactive_mode(
@@ -881,7 +890,7 @@ class TestWebServer:
             # Check status info for non-interactive mode
             call_args = web_server.display_manager.renderer.render_events.call_args
             events, status_info = call_args[0]
-            assert status_info["interactive_mode"] is False
+            assert status_info["has_navigation"] is False
 
     @patch("concurrent.futures.ThreadPoolExecutor")
     @patch("asyncio.get_running_loop")
@@ -1136,7 +1145,7 @@ class TestWebServer:
             "host": "localhost",
             "port": 8080,
             "layout": "4x8",
-            "interactive_mode": True,
+            "has_navigation": True,
             "current_date": "2023-01-15",
         }
 
@@ -1153,7 +1162,7 @@ class TestWebServer:
 
             status = web_server.get_status()
 
-            assert status["interactive_mode"] is False
+            assert status["has_navigation"] is False
             assert status["current_date"] == "2023-01-20"
 
     def test_url_property(self, web_server):

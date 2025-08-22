@@ -294,7 +294,7 @@ class TestUtilityFunctions:
         assert result == "127.0.0.1"
 
     @pytest.mark.parametrize(
-        "input_text,expected",
+        ("input_text", "expected"),
         [
             ("password123", "pa*******23"),
             ("", ""),
@@ -315,23 +315,27 @@ class TestSettingsComplexScenarios:
     @patch("pathlib.Path.exists", return_value=True)
     @patch("pathlib.Path.open", mock_open())
     @patch("calendarbot.config.settings.yaml.safe_load")
-    def test_settings_kiosk_config_loading(self, mock_yaml_load, mock_file_operations) -> None:
-        """Test settings with kiosk configuration loading."""
+    def test_settings_yaml_config_loading(self, mock_yaml_load, mock_file_operations) -> None:
+        """Test settings with YAML configuration loading."""
         yaml_config = {
-            "kiosk": {
+            "web": {
                 "enabled": True,
-                "browser": {"executable_path": "/usr/bin/chromium"},
-                "display": {"width": 1920, "height": 1080},
-            }
+                "port": 9090,
+                "layout": "test-layout",
+            },
+            "logging": {
+                "console_level": "ERROR",
+                "file_enabled": False,
+            },
         }
         mock_yaml_load.return_value = yaml_config
 
-        # Mock kiosk settings availability
-        with patch("calendarbot.config.settings.KIOSK_SETTINGS_AVAILABLE", True):
-            settings = CalendarBotSettings()
+        settings = CalendarBotSettings()
 
-            # Should have loaded kiosk configuration
-            assert hasattr(settings, "kiosk")
+        # Should have loaded YAML configuration
+        assert settings.web_enabled is True
+        assert settings.web_port == 9090
+        assert settings.web_layout == "test-layout"
 
     def test_settings_explicit_args_tracking(self, mock_file_operations) -> None:
         """Test that explicitly provided arguments are tracked."""

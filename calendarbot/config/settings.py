@@ -368,17 +368,6 @@ class CalendarBotSettings(BaseSettings):
         default_factory=EpaperConfiguration, description="Core e-Paper display configuration"
     )
 
-    # Raspberry Pi E-ink Display Settings
-    rpi_enabled: bool = Field(default=False, description="Enable Raspberry Pi e-ink mode")
-    rpi_display_width: int = Field(default=480, description="RPI display width in pixels")
-    rpi_display_height: int = Field(default=800, description="RPI display height in pixels")
-    rpi_refresh_mode: str = Field(
-        default="partial", description="E-ink refresh mode: partial, full"
-    )
-    rpi_auto_layout: bool = Field(
-        default=True, description="Auto-optimize layout for e-ink display"
-    )
-
     # Web/HTML Display Settings
     web_enabled: bool = Field(default=False, description="Enable web server for HTML display")
     web_port: int = Field(default=8080, description="Port for web server")
@@ -637,22 +626,6 @@ class CalendarBotSettings(BaseSettings):
             ):
                 setattr(self, setting, config_data[setting])
 
-    def _load_rpi_config(self, config_data: dict) -> None:
-        """Load RPI display configuration from YAML data."""
-        if "rpi" not in config_data:
-            return
-
-        rpi_config = config_data["rpi"]
-        rpi_settings = ["enabled", "display_width", "display_height", "refresh_mode", "auto_layout"]
-
-        for setting in rpi_settings:
-            if setting in rpi_config:
-                setattr(self, f"rpi_{setting}", rpi_config[setting])
-
-        # Backward compatibility for auto_theme
-        if "auto_theme" in rpi_config:
-            self.rpi_auto_layout = rpi_config["auto_theme"]
-
     def _load_web_config(self, config_data: dict) -> None:
         """Load web configuration from YAML data."""
         if "web" not in config_data:
@@ -748,7 +721,6 @@ class CalendarBotSettings(BaseSettings):
             self._load_legacy_logging_config(config_data)
             self._load_logging_config(config_data)
             self._load_display_settings(config_data)
-            self._load_rpi_config(config_data)
             self._load_web_config(config_data)
             self._load_epaper_config(config_data)
             self._load_network_settings(config_data)

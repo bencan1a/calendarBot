@@ -352,7 +352,7 @@ class TestHTMLRendererRenderEventsContent:
 
     def test_render_events_content_empty(self) -> None:
         """Test rendering events content with empty list."""
-        result = self.renderer._render_events_content([], False)
+        result = self.renderer._render_events_content([])
 
         assert "No meetings scheduled!" in result
         assert "Enjoy your free time" in result
@@ -370,7 +370,7 @@ class TestHTMLRendererRenderEventsContent:
             "_format_current_event_html",
             return_value="<div>Current Event HTML</div>",
         ):
-            result = self.renderer._render_events_content([current_event], False)
+            result = self.renderer._render_events_content([current_event])
 
             assert "▶ Current Event" in result
             assert "Current Event HTML" in result
@@ -389,7 +389,7 @@ class TestHTMLRendererRenderEventsContent:
             "_format_upcoming_event_html",
             return_value="<div>Upcoming Event HTML</div>",
         ):
-            result = self.renderer._render_events_content([upcoming_event], False)
+            result = self.renderer._render_events_content([upcoming_event])
 
             # The implementation generates a section without header text, so check for section and content
             assert '<section class="upcoming-events">' in result
@@ -417,7 +417,7 @@ class TestHTMLRendererRenderEventsContent:
             "_format_upcoming_event_html",
             return_value="<div>Upcoming Event HTML</div>",
         ):
-            result = self.renderer._render_events_content(upcoming_events, False)  # type: ignore
+            result = self.renderer._render_events_content(upcoming_events)  # type: ignore
 
             # Check for section structure instead of specific header text
             assert '<section class="upcoming-events">' in result
@@ -449,7 +449,7 @@ class TestHTMLRendererRenderEventsContent:
             "_format_upcoming_event_html",
             return_value="<div>Upcoming Event HTML</div>",
         ):
-            result = self.renderer._render_events_content(upcoming_events, False)  # type: ignore
+            result = self.renderer._render_events_content(upcoming_events)  # type: ignore
 
             # After consolidation, no separate "Later Today" section exists
             assert "⏰ Later Today" not in result
@@ -477,7 +477,7 @@ class TestHTMLRendererRenderEventsContent:
             "_format_upcoming_event_html",
             return_value="<div>Upcoming Event HTML</div>",
         ):
-            result = self.renderer._render_events_content(upcoming_events, False)  # type: ignore
+            result = self.renderer._render_events_content(upcoming_events)  # type: ignore
 
             # Check that events are processed (teams filtering happens in format method)
             assert "Upcoming Event HTML" in result
@@ -779,7 +779,6 @@ class TestHTMLRendererHTMLTemplate:
             status_line="Updated: 10:00 AM",
             events_content="<div>Events</div>",
             nav_help="<div>Navigation</div>",
-            interactive_mode=True,
         )
 
         assert "<!DOCTYPE html>" in result
@@ -801,7 +800,6 @@ class TestHTMLRendererHTMLTemplate:
             status_line="Live Data",
             events_content="<div>Static Events</div>",
             nav_help="",
-            interactive_mode=False,
         )
 
         assert "Monday, December 18" in result
@@ -1465,7 +1463,6 @@ class TestHTMLRendererViewportConfiguration:
                 status_line="",
                 events_content="<div>Test</div>",
                 nav_help="",
-                interactive_mode=False,
             )
 
         mock_viewport.assert_called_once()

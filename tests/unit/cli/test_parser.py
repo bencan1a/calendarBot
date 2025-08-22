@@ -51,15 +51,15 @@ class TestCreateParser:
         args = parser.parse_args(["-v"])
         assert args.verbose is True
 
-    def test_parser_interactive_mode_argument(self):
-        """Test that parser includes interactive mode argument."""
+    def test_parser_epaper_mode_argument(self):
+        """Test that parser includes epaper mode argument."""
         parser = create_parser()
 
-        args = parser.parse_args(["--interactive"])
-        assert args.interactive is True
+        args = parser.parse_args(["--epaper"])
+        assert args.epaper is True
 
-        args = parser.parse_args(["-i"])
-        assert args.interactive is True
+        args = parser.parse_args(["-e"])
+        assert args.epaper is True
 
     def test_parser_web_mode_arguments(self):
         """Test that parser includes web mode arguments."""
@@ -86,25 +86,6 @@ class TestCreateParser:
 
         args = parser.parse_args(["--layout", "4x8"])
         assert args.display_type == "4x8"  # --layout sets display_type
-
-    def test_parser_rpi_arguments(self):
-        """Test that parser includes Raspberry Pi arguments."""
-        parser = create_parser()
-
-        args = parser.parse_args(["--rpi"])
-        assert args.rpi is True
-
-        args = parser.parse_args(["--rpi-mode"])
-        assert args.rpi is True
-
-        args = parser.parse_args(["--rpi-width", "480"])
-        assert args.rpi_width == 480
-
-        args = parser.parse_args(["--rpi-height", "800"])
-        assert args.rpi_height == 800
-
-        args = parser.parse_args(["--rpi-refresh-mode", "full"])
-        assert args.rpi_refresh_mode == "full"
 
     def test_parser_logging_arguments(self):
         """Test that parser includes comprehensive logging arguments."""
@@ -149,15 +130,15 @@ class TestCreateParser:
         args = parser.parse_args(["--no-log-colors"])
         assert args.no_log_colors is True
 
-    def test_parser_interactive_logging_arguments(self):
-        """Test that parser includes interactive mode logging arguments."""
+    def test_parser_process_and_performance_arguments(self):
+        """Test that parser includes process management and performance tracking arguments."""
         parser = create_parser()
 
-        args = parser.parse_args(["--no-split-display"])
-        assert args.no_split_display is True
+        args = parser.parse_args(["--kill-duplicates"])
+        assert args.kill_duplicates is True
 
-        args = parser.parse_args(["--log-lines", "10"])
-        assert args.log_lines == 10
+        args = parser.parse_args(["--track-runtime"])
+        assert args.track_runtime is True
 
     def test_parser_version_argument(self):
         """Test that parser includes version argument."""
@@ -174,9 +155,6 @@ class TestCreateParser:
 
         # Check some key defaults
         assert args.port == 8080
-        assert args.rpi_width == 480
-        assert args.rpi_height == 800
-        assert args.rpi_refresh_mode == "partial"
 
     def test_parser_invalid_choice_raises_error(self):
         """Test that parser raises error for invalid choices."""
@@ -187,9 +165,6 @@ class TestCreateParser:
 
         with pytest.raises(SystemExit):
             parser.parse_args(["--log-level", "INVALID"])
-
-        with pytest.raises(SystemExit):
-            parser.parse_args(["--rpi-refresh-mode", "invalid"])
 
     def test_parser_complex_argument_combinations(self):
         """Test that parser handles complex argument combinations."""
@@ -205,9 +180,6 @@ class TestCreateParser:
                 "--verbose",
                 "--log-level",
                 "DEBUG",
-                "--rpi",
-                "--rpi-width",
-                "480",
                 "--auto-open",
             ]
         )
@@ -217,8 +189,6 @@ class TestCreateParser:
         assert args.host == "localhost"
         assert args.verbose is True
         assert args.log_level == "DEBUG"
-        assert args.rpi is True
-        assert args.rpi_width == 480
         assert args.auto_open is True
 
 
@@ -324,31 +294,6 @@ class TestParserIntegration:
         assert args.log_level == "DEBUG"
         assert args.no_file_logging is True
         assert args.auto_open is True
-
-    def test_parser_integration_rpi_mode_complete(self):
-        """Test integration of RPI mode with all related arguments."""
-        parser = create_parser()
-
-        args = parser.parse_args(
-            [
-                "--rpi",
-                "--rpi-width",
-                "600",
-                "--rpi-height",
-                "900",
-                "--rpi-refresh-mode",
-                "full",
-                "--web",
-                "--quiet",
-            ]
-        )
-
-        assert args.rpi is True
-        assert args.rpi_width == 600
-        assert args.rpi_height == 900
-        assert args.rpi_refresh_mode == "full"
-        assert args.web is True
-        assert args.quiet is True
 
     def test_parser_help_message_generation(self):
         """Test that parser can generate help messages without errors."""
