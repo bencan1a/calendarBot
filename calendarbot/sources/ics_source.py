@@ -98,66 +98,38 @@ class ICSSourceHandler:
             logger.debug(f"Source enabled: {self.config.enabled}, use_cache: {use_cache}")
 
             async with self.fetcher as fetcher:
-                # Prepare conditional headers for caching
-                conditional_headers = None
-                if use_cache and (self._last_etag or self._last_modified):
-                    conditional_headers = fetcher.get_conditional_headers(
-                        self._last_etag, self._last_modified
-                    )
-                    logger.debug(
-                        f"Using conditional headers - etag={self._last_etag}, last_modified={self._last_modified}"
-                    )
-                else:
-                    logger.debug(
-                        f"No conditional headers - use_cache={use_cache}, etag={self._last_etag}, last_modified={self._last_modified}"
-                    )
+                conditional_headers = self._prepare_conditional_headers(fetcher, use_cache)
 
-                # Fetch ICS content
+                # Fetch ICS content (log conditional headers for diagnostics)
+                logger.debug(
+                    f"Fetching ICS with conditional headers: {conditional_headers} (use_cache={use_cache})"
+                )
                 response = await fetcher.fetch_ics(self.ics_source, conditional_headers)
 
-                logger.debug(
-                    f"ICS response - success={response.success}, is_not_modified={response.is_not_modified}"
-                )
+                # Log core response diagnostics for debugging conditional request behavior
+                try:
+                    logger.debug(
+                        "ICS response - "
+                        f"status_code={response.status_code}, "
+                        f"is_not_modified={getattr(response, 'is_not_modified', False)}, "
+                        f"etag={getattr(response, 'etag', None)}, "
+                        f"last_modified={getattr(response, 'last_modified', None)}"
+                    )
+                except Exception:
+                    logger.debug("ICS response diagnostic logging failed", exc_info=True)
 
                 if not response.success:
                     error_msg = response.error_message or "Unknown fetch error"
                     self._raise_connection_error(error_msg)
 
-                # Handle 304 Not Modified
-                if response.is_not_modified:
-                    logger.debug("Got 304 Not Modified, returning empty parse result")
-                    # Record success with 0 events
-                    response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
-                    self._record_success(response_time, 0)
-                    # Return empty parse result - caller should use cached events
-                    return ICSParseResult(success=True, events=[], raw_content=None)
+                # If 304 Not Modified - handle and return early
+                not_modified_result = self._handle_not_modified(response, start_time)
+                if not_modified_result is not None:
+                    return not_modified_result
 
-                # Update cache headers
-                if response.etag:
-                    self._last_etag = response.etag
-                if response.last_modified:
-                    self._last_modified = response.last_modified
-
-                # Parse ICS content
-                if response.content is None:
-                    error_msg = "Empty ICS content received"
-                    self._raise_data_error(error_msg)
-
-                parse_result = self.parser.parse_ics_content(response.content)
-
-                if not parse_result.success:
-                    error_msg = parse_result.error_message or "Failed to parse ICS content"
-                    self._raise_data_error(error_msg)
-
-                # Record success
-                response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
-                self._record_success(response_time, len(parse_result.events))
-
-                logger.debug(
-                    f"Successfully fetched {len(parse_result.events)} events from {self.config.name}"
-                )
-
-                return parse_result
+                # Update cache headers and parse content
+                self._update_cache_headers(response)
+                return self._parse_and_record(response, start_time)
 
         except ICSAuthError as e:
             error_msg = f"Authentication failed: {e.message}"
@@ -181,6 +153,69 @@ class ICSSourceHandler:
                 f"UNEXPECTED EXCEPTION in fetch_events for {self.config.name}: {type(e).__name__}"
             )
             self._raise_source_error(error_msg, e)
+
+    def _prepare_conditional_headers(
+        self, fetcher: "ICSFetcher", use_cache: bool
+    ) -> Optional[dict]:
+        """Return conditional headers for caching if applicable."""
+        if use_cache and (self._last_etag or self._last_modified):
+            headers = fetcher.get_conditional_headers(self._last_etag, self._last_modified)
+            logger.debug(
+                f"Using conditional headers - etag={self._last_etag}, last_modified={self._last_modified}"
+            )
+            return headers
+        logger.debug(
+            f"No conditional headers - use_cache={use_cache}, etag={self._last_etag}, last_modified={self._last_modified}"
+        )
+        return None
+
+    def _handle_not_modified(self, response: Any, start_time: float) -> Optional[ICSParseResult]:
+        """Handle 304 Not Modified response - update cache and return empty parse result."""
+        if not getattr(response, "is_not_modified", False):
+            return None
+        if getattr(response, "etag", None):
+            self._last_etag = response.etag
+        if getattr(response, "last_modified", None):
+            self._last_modified = response.last_modified
+
+        logger.debug(
+            "Got 304 Not Modified - no new content. "
+            f"etag={self._last_etag}, last_modified={self._last_modified}"
+        )
+
+        response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+        self._record_success(response_time, 0)
+
+        return ICSParseResult(success=True, events=[], raw_content=None)
+
+    def _update_cache_headers(self, response: Any) -> None:
+        """Update stored cache headers from response if present."""
+        if getattr(response, "etag", None):
+            self._last_etag = response.etag
+        if getattr(response, "last_modified", None):
+            self._last_modified = response.last_modified
+
+    def _parse_and_record(self, response: Any, start_time: float) -> ICSParseResult:
+        """Parse ICS response content and record metrics."""
+        if response.content is None:
+            error_msg = "Empty ICS content received"
+            self._raise_data_error(error_msg)
+
+        parse_result = self.parser.parse_ics_content(response.content)
+
+        if not parse_result.success:
+            error_msg = parse_result.error_message or "Failed to parse ICS content"
+            self._raise_data_error(error_msg)
+
+        # Record success
+        response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+        self._record_success(response_time, len(parse_result.events))
+
+        logger.debug(
+            f"Successfully fetched {len(parse_result.events)} events from {self.config.name}"
+        )
+
+        return parse_result
 
     async def test_connection(self) -> SourceHealthCheck:
         """Test connection to ICS source.

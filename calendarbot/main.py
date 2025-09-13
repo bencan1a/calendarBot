@@ -254,6 +254,10 @@ class CalendarBot:
         )
 
         try:
+            # Set running flag to enable the background loop
+            self.running = True
+            logger.debug("Background fetch: self.running set to True")
+
             # Initial fetch
             await self.fetch_and_cache_events()
 
@@ -265,15 +269,21 @@ class CalendarBot:
                     )
 
                     # If we get here, shutdown was signaled
+                    logger.debug("Background fetch: shutdown signaled, breaking loop")
                     break
 
                 except TimeoutError:
                     # Timeout means it's time for next fetch
                     if self.running:
+                        logger.debug("Background fetch: performing scheduled fetch")
                         await self.fetch_and_cache_events()
 
         except Exception:
             logger.exception("Background fetch error")
+        finally:
+            # Ensure running flag is cleared on exit
+            self.running = False
+            logger.debug("Background fetch: self.running set to False")
 
         logger.info("Background data fetching stopped")
 
@@ -282,6 +292,10 @@ class CalendarBot:
         logger.info(f"Starting refresh scheduler (interval: {self.settings.refresh_interval}s)")
 
         try:
+            # Set running flag to enable the scheduler loop
+            self.running = True
+            logger.debug("Scheduler: self.running set to True")
+
             # Initial refresh
             await self.refresh_cycle()
 
@@ -293,15 +307,21 @@ class CalendarBot:
                     )
 
                     # If we get here, shutdown was signaled
+                    logger.debug("Scheduler: shutdown signaled, breaking loop")
                     break
 
                 except TimeoutError:
                     # Timeout means it's time for next refresh
                     if self.running:
+                        logger.debug("Scheduler: performing scheduled refresh")
                         await self.refresh_cycle()
 
         except Exception:
             logger.exception("Scheduler error")
+        finally:
+            # Ensure running flag is cleared on exit
+            self.running = False
+            logger.debug("Scheduler: self.running set to False")
 
         logger.info("Refresh scheduler stopped")
 
