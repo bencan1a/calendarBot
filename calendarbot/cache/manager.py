@@ -492,8 +492,28 @@ class CacheManager:
             True if clearing was successful, False otherwise
         """
         try:
-            # Clear all events (essentially cleanup with 0 days)
-            await self.cleanup_old_events(days_old=0)
+            # Intentionally perform a full clear of the cached_events table so that
+            # the database is fully purged and can be reloaded on the next fetch.
+            # Previously this called cleanup_old_events(days_old=0) which only removed
+            # events that had already ended; future events (including ones deleted on
+            # the server) would remain. Use clear_all_events() which executes a full DELETE.
+            try:
+                # Attempt to log current database info for diagnostics
+                db_info_before = await self.db.get_database_info()
+                total_before = None
+                if isinstance(db_info_before, dict) and "events_by_date" in db_info_before:
+                    # get_database_info returns events_by_date; compute rough total if present
+                    total_before = sum(
+                        item.get("count", 0) for item in db_info_before.get("events_by_date", [])
+                    )
+                logger.debug(f"Clearing cache - events_before={total_before}")
+            except Exception:
+                logger.debug(
+                    "Failed to retrieve database info before clearing cache", exc_info=True
+                )
+
+            deleted_count = await self.db.clear_all_events()
+            logger.debug(f"Cleared cache - deleted_events={deleted_count}")
 
             # Reset metadata
             await self.db.update_cache_metadata(
