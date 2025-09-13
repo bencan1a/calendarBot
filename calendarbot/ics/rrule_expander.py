@@ -1,11 +1,24 @@
 """RRULE expansion logic for CalendarBot ICS parser."""
 
-import logging
-import uuid
+# ruff: noqa: I001
+import contextlib
 from datetime import datetime, timedelta, timezone
+import logging
 from typing import Optional
+import uuid
 
-from dateutil.rrule import DAILY, HOURLY, MINUTELY, MONTHLY, SECONDLY, WEEKLY, YEARLY, rrule
+from dateutil.rrule import (
+    DAILY,
+    HOURLY,
+    MINUTELY,
+    MONTHLY,
+    SECONDLY,
+    WEEKLY,
+    YEARLY,
+    rrule,
+    rrulestr,
+    rruleset,
+)
 
 from ..config.settings import CalendarBotSettings
 from .models import CalendarEvent, DateTimeInfo
@@ -41,7 +54,7 @@ class RRuleExpander:
         self.expansion_window_days = getattr(settings, "rrule_expansion_days", 365)
         self.enable_expansion = getattr(settings, "enable_rrule_expansion", True)
 
-    def expand_rrule(
+    def expand_rrule(  # noqa: PLR0912, PLR0915
         self,
         master_event: CalendarEvent,
         rrule_string: str,
@@ -49,48 +62,165 @@ class RRuleExpander:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
     ) -> list[CalendarEvent]:
-        """Expand RRULE pattern into individual event instances.
+        """Expand RRULE pattern into individual event instances using dateutil's rruleset/rrulestr.
 
-        Args:
-            master_event: Master recurring event containing pattern
-            rrule_string: RRULE string to expand (e.g. "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO")
-            exdates: List of excluded dates in ISO format
-            start_date: Start of expansion window (defaults to event start)
-            end_date: End of expansion window (defaults to start + expansion_window_days)
-
-        Returns:
-            List of CalendarEvent instances for each occurrence
-
-        Raises:
-            RRuleExpansionError: If expansion fails
+        This implementation defers full RRULE parsing to dateutil to preserve all
+        standard RRULE fields (BYDAY, BYMONTHDAY, BYMONTH, UNTIL, COUNT, etc.)
+        and uses an rruleset so EXDATE exclusions are applied precisely.
         """
         if not self.enable_expansion:
             return []
 
         try:
-            # Parse RRULE components
-            rrule_params = self.parse_rrule_string(rrule_string)
-
-            # Set expansion window
+            # Establish expansion window
             if start_date is None:
                 start_date = master_event.start.date_time
             if end_date is None:
-                start_date_naive = (
-                    start_date.replace(tzinfo=None) if start_date.tzinfo else start_date
+                # Preserve timezone awareness when creating the expansion window.
+                # Previously we deliberately stripped tzinfo which produced
+                # offset-naive end_date and caused comparisons to fail inside
+                # dateutil. Use timezone-aware arithmetic instead.
+                end_date = start_date + timedelta(days=self.expansion_window_days)
+
+            # Build an rruleset and parse the RRULE with the correct dtstart
+            rule_set = rruleset()
+
+            try:
+                parsed_rule = rrulestr(rrule_string, dtstart=master_event.start.date_time)
+                # rrulestr can return either an rrule or an rruleset.
+                # If it's an rruleset already, use it directly; otherwise add the rrule to our set.
+                if isinstance(parsed_rule, rruleset):
+                    rule_set = parsed_rule
+                else:
+                    rule_set.rrule(parsed_rule)
+            except Exception:
+                # Fallback: try parsing again and treat result similarly
+                parsed_rule = rrulestr(rrule_string, dtstart=master_event.start.date_time)
+                if isinstance(parsed_rule, rruleset):
+                    rule_set = parsed_rule
+                else:
+                    rule_set.rrule(parsed_rule)
+
+            # Defensive normalization of internal rruleset/rrule datetimes:
+            # dateutil may store naive datetimes inside the parsed rrule/rruleset.
+            # Normalize internal dt values (dtstart, _until, _exdate items) to timezone-aware UTC
+            try:
+                # If rule_set is a rruleset instance, it may contain internal lists of exdates and rrules
+                exlist = getattr(rule_set, "_exdate", None)
+                if exlist:
+                    normalized_exlist = []
+                    for ex in exlist:
+                        try:
+                            if ex is None:
+                                continue
+                            if ex.tzinfo is None:
+                                normalized_ex = ex.replace(tzinfo=UTC)
+                            else:
+                                normalized_ex = ex.astimezone(UTC)
+                            normalized_exlist.append(normalized_ex)
+                        except Exception:
+                            normalized_exlist.append(ex)
+                    # Assign normalized exdate list; suppress assignment errors
+                    with contextlib.suppress(Exception):
+                        rule_set._exdate = normalized_exlist  # type: ignore[attr-defined]  # noqa: SLF001
+
+                # Normalize any rrules contained in the set
+                rrules_internal = getattr(rule_set, "_rrule", None)
+                if rrules_internal:
+                    # Normalize dtstart/until for all internal rules (single try to avoid try/except in loop)
+                    try:
+                        for rr in rrules_internal:
+                            dtstart = getattr(rr, "_dtstart", None)
+                            if dtstart is not None:
+                                normalized_dtstart = (
+                                    dtstart.replace(tzinfo=UTC)
+                                    if dtstart.tzinfo is None
+                                    else dtstart.astimezone(UTC)
+                                )
+                                rr._dtstart = normalized_dtstart  # type: ignore[attr-defined]  # noqa: SLF001
+                            until = getattr(rr, "_until", None)
+                            if until is not None:
+                                normalized_until = (
+                                    until.replace(tzinfo=UTC)
+                                    if until.tzinfo is None
+                                    else until.astimezone(UTC)
+                                )
+                                rr._until = normalized_until  # type: ignore[attr-defined]  # noqa: SLF001
+                    except Exception:
+                        # Defensive: continue if normalization fails for the group
+                        pass
+            except Exception:
+                # Defensive: do not let normalization errors stop expansion; proceed and rely on later normalization
+                logger.debug(
+                    "RRULE expansion: internal normalization of parsed rule failed, continuing"
                 )
-                end_date = start_date_naive + timedelta(days=self.expansion_window_days)
 
-            # Generate occurrences using dateutil.rrule
-            occurrences = self._generate_occurrences(
-                master_event, rrule_params, start_date, end_date
-            )
-
-            # Apply EXDATE exclusions
+            # Apply EXDATEs precisely by parsing each EXDATE string and normalizing to UTC-aware datetimes
             if exdates:
-                occurrences = self.apply_exdates(occurrences, exdates)
+                for ex in exdates:
+                    try:
+                        ex_dt = self._parse_datetime(ex)
+                        # Normalize EXDATE to timezone-aware UTC to avoid naive/aware comparisons inside dateutil
+                        if ex_dt.tzinfo is None:
+                            ex_dt = ex_dt.replace(tzinfo=UTC)
+                        else:
+                            ex_dt = ex_dt.astimezone(UTC)
+                        rule_set.exdate(ex_dt)
+                    except Exception as ex_e:  # noqa: PERF203
+                        logger.warning(f"Failed to parse or normalize EXDATE '{ex}': {ex_e}")
+                        continue
 
-            # Filter by date range
-            occurrences = self._filter_by_date_range(occurrences, start_date, end_date)
+            # Normalize window datetimes to timezone-aware UTC to avoid
+            # "can't compare offset-naive and offset-aware datetimes" errors
+            def _ensure_utc_aware(dt: datetime) -> datetime:
+                if dt is None:
+                    return dt
+                if dt.tzinfo is None:
+                    return dt.replace(tzinfo=UTC)
+                return dt.astimezone(UTC)
+
+            start_window = _ensure_utc_aware(start_date)
+            end_window = _ensure_utc_aware(end_date)
+
+            # Collect occurrences within the date window
+            try:
+                # Debug: log RRULE expansion inputs
+                logger.debug(
+                    "RRULE expansion: uid=%s dtstart=%s rrule=%s exdates=%s window_start=%s window_end=%s",
+                    getattr(master_event, "id", "<no-id>"),
+                    master_event.start.date_time.isoformat(),
+                    rrule_string,
+                    exdates,
+                    start_window.isoformat() if start_window else "<none>",
+                    end_window.isoformat() if end_window else "<none>",
+                )
+            except Exception:
+                logger.debug("RRULE expansion: failed to serialize debug metadata for master_event")
+
+            raw_occurrences = list(rule_set.between(start_window, end_window, inc=True))
+
+            # Normalize occurrences to timezone-aware UTC to avoid naive/aware comparison issues
+            occurrences = []
+            for occ in raw_occurrences:
+                # Normalize occurrences deterministically; avoid try/except in loop for performance
+                if not isinstance(occ, datetime):
+                    continue
+                normalized = occ.replace(tzinfo=UTC) if occ.tzinfo is None else occ.astimezone(UTC)
+                occurrences.append(normalized)
+
+            # Debug: log number of occurrences and first few values
+            try:
+                sample_occurrences = [dt.isoformat() for dt in occurrences[:10]]
+                logger.debug(
+                    "RRULE expansion result: uid=%s occurrences=%d sample=%s",
+                    getattr(master_event, "id", "<no-id>"),
+                    len(occurrences),
+                    sample_occurrences,
+                )
+            except Exception:
+                logger.debug(
+                    "RRULE expansion: failed to serialize occurrence datetimes for logging"
+                )
 
             # Limit number of occurrences
             max_occurrences = getattr(self.settings, "rrule_max_occurrences", 1000)
