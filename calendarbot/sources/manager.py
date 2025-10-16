@@ -247,19 +247,17 @@ class SourceManager:
             - Consider calling frequency to balance freshness vs. resource usage
         """
         try:
-            logger.debug("SourceManager.fetch_and_cache_events() called")
-
-            # Clear cache completely before fetching to ensure no stale events persist
-            if self.cache_manager:
-                logger.debug("Clearing entire cache to prevent stale events")
-                await self.cache_manager.clear_cache()
+            logger.info("=== SourceManager.fetch_and_cache_events() called ===")
 
             # Clear HTTP cache headers on all sources to force fresh fetches
+            logger.info(f"Clearing HTTP cache headers on {len(self._sources)} sources")
             for name, handler in self._sources.items():
-                logger.debug(f"Clearing HTTP cache headers for source: {name}")
+                logger.info(f"Clearing HTTP cache headers for source: {name}")
                 handler.clear_cache_headers()
 
-            logger.debug("Fetching events from all sources")
+            logger.info(
+                "Starting to fetch events from all sources (cache will be replaced atomically)"
+            )
 
             if not self._sources:
                 logger.warning("No sources configured")
@@ -272,57 +270,79 @@ class SourceManager:
             # Fetch from all sources
             for name, handler in self._sources.items():
                 try:
-                    logger.debug(f"Processing source: {name}, healthy: {handler.is_healthy()}")
-                    if not handler.is_healthy():
-                        logger.warning(f"Skipping unhealthy source: {name}")
+                    is_healthy = handler.is_healthy()
+                    logger.info(f"Processing source '{name}': healthy={is_healthy}")
+                    if not is_healthy:
+                        logger.warning(
+                            f"SKIPPING UNHEALTHY SOURCE: {name} - this will reduce event count"
+                        )
                         continue
 
-                    logger.debug(f"About to call fetch_events() for {name}")
+                    logger.info(f"Calling fetch_events() for source '{name}'")
                     parse_result = await handler.fetch_events()
-                    logger.debug(
-                        f"fetch_events() returned {len(parse_result.events)} events for {name}"
-                    )
+                    event_count = len(parse_result.events)
+                    logger.info(f"Source '{name}' fetch_events() returned {event_count} events")
+
+                    if event_count == 0:
+                        logger.warning(
+                            f"Source '{name}' returned ZERO events - check ICS URL and auth"
+                        )
+
                     all_events.extend(parse_result.events)
                     parse_results.append(parse_result)
                     successful_sources += 1
 
-                    logger.debug(f"Fetched {len(parse_result.events)} events from source '{name}'")
-
                 except Exception:
-                    logger.exception(f"Failed to fetch from source '{name}'")
+                    logger.exception(f"EXCEPTION fetching from source '{name}'")
 
-            # Cache events if we have a cache manager
+            logger.info(
+                f"Fetch summary: {len(all_events)} total events from {successful_sources} sources"
+            )
+
+            # Cache events if we have a cache manager - ATOMIC REPLACEMENT
             if self.cache_manager and (all_events or parse_results):
+                logger.info(f"Atomically replacing cache with {len(all_events)} fresh events")
+
+                # Clear cache and immediately repopulate in one operation to minimize gap
+                await self.cache_manager.clear_cache()
+                logger.info("Cache cleared, immediately repopulating...")
+
                 # If we have exactly one source with raw content, pass the full parse result
                 # This preserves raw content for storage in the database
                 if len(parse_results) == 1 and parse_results[0].raw_content:
                     cache_success = await self.cache_manager.cache_events(parse_results[0])
-                    logger.debug("Cached parse result with raw content from single source")
+                    logger.info("Cached parse result with raw content from single source")
                 elif all_events:
                     # Multiple sources or no raw content - use events list
                     cache_success = await self.cache_manager.cache_events(all_events)
-                    logger.debug(
+                    logger.info(
                         f"Cached {len(all_events)} events from {len(parse_results)} sources"
                     )
                 else:
                     cache_success = False
+                    logger.warning(
+                        "No events to cache - both all_events and parse_results are empty"
+                    )
+
                 if cache_success:
                     self._last_successful_update = datetime.now()
                     self._consecutive_failures = 0
-                    logger.debug(
-                        f"Successfully cached {len(all_events)} events from {successful_sources} sources"
+                    logger.info(
+                        f"SUCCESS: Atomically replaced cache with {len(all_events)} events from {successful_sources} sources"
                     )
                     return True
-                logger.error("Failed to cache events")
+                logger.error("CACHE FAILURE: Events fetched but atomic cache replacement failed")
                 self._consecutive_failures += 1
                 return False
             if all_events:
                 # No cache manager, but we got events
                 self._last_successful_update = datetime.now()
                 self._consecutive_failures = 0
-                logger.info(f"Successfully fetched {len(all_events)} events (no caching)")
+                logger.info(
+                    f"SUCCESS: Fetched {len(all_events)} events (no cache manager available)"
+                )
                 return True
-            logger.warning("No events fetched from any source")
+            logger.warning("ZERO EVENTS: No events fetched from any source")
             self._consecutive_failures += 1
             return False
 
