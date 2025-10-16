@@ -47,7 +47,5 @@ unclutter -idle 1 &
 # Start window manager (non-blocking)
 openbox &
 
-# Then launch Chromium as the main foreground process
-exec chromium-browser --kiosk --app="$URL" \
-  --noerrdialogs --disable-infobars --disable-restore-session-state \
-  --disable-session-crashed-bubble --no-sandbox --disable-features=TranslateUI
+# Then launch Epiphany (WebKit) as the main foreground process in kiosk mode
+exec epiphany-browser --kiosk "$URL"
