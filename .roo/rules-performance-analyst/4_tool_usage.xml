@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tool_usage_guide>
+  <overview>
+    How Performance Analyst uses available tools and commands to find, validate,
+    and measure performance issues. Follow this order for best results.
+  </overview>
+
+  <tool_priorities>
+    <priority level="1">
+      <tool>codebase_search</tool>
+      <when>Always start here for semantic discovery of relevant modules, benchmarks, and tests.</when>
+      <why>Finds likely hotspots and test harnesses faster than regex-only searches.</why>
+    </priority>
+
+    <priority level="2">
+      <tool>search_files</tool>
+      <when>After identifying a candidate area, use targeted regex to locate specific patterns, tests, or config files.</when>
+      <why>Pinpoint files or code patterns once you know where to look.</why>
+    </priority>
+
+    <priority level="3">
+      <tool>read_file</tool>
+      <when>Open the exact implementations found with codebase_search / search_files for precise edits or to craft profiling harnesses.</when>
+      <why>Always inspect code before making apply_diff edits.</why>
+    </priority>
+
+    <priority level="4">
+      <tool>command</tool>
+      <when>Run profiling, benchmarking, or reproducible measurement commands.</when>
+      <why>Profile runs and benchmark scripts are required to validate hypotheses and confirm improvements.</why>
+    </priority>
+
+    <priority level="5">
+      <tool>mcp</tool>
+      <when>Use MCP servers (playwright for browser profiling or other MCPs) when interactive or browser-level profiling is required.</when>
+      <why>Allows low-overhead sampling, screenshots, and integration with visual traces.</why>
+    </priority>
+  </tool_priorities>
+
+  <profiling_commands>
+    <category name="sampling-profiling">
+      <description>Low-overhead sampling useful for production or long-running runs.</description>
+      <examples>
+        <example>
+          <description>py-spy: record speedscope JSON for speedscope.app or flamegraph SVG</description>
+          <code><![CDATA[
+# Record speedscope format
+py-spy record -o profile.speedscope.json --format speedscope -- python -m pytest tests/integration/test_performance_benchmark.py
+
+# Produce flamegraph SVG
+py-spy record -o profile.svg -- python -m pytest tests/integration/test_performance_benchmark.py
+]]></code>
+        </example>
+      </examples>
+      <notes>Sampling has minimal overhead and is safe for exploring production-like runs.</notes>
+    </category>
+
+    <category name="deterministic-profiling">
+      <description>CProfiler for detailed CPU time breakdown in controlled runs.</description>
+      <examples>
+        <example>
+          <description>Run cProfile and print top callers</description>
+          <code><![CDATA[
+python -m cProfile -o out.prof -m pytest tests/unit/benchmarking/test_benchmarking.py
+python - <<'PY'
+import pstats
+p = pstats.Stats('out.prof')
+p.sort_stats('cumtime').print_stats(30)
+PY
+]]></code>
+        </example>
+      </examples>
+      <notes>Use deterministic profiling for focused CPU analysis; avoid using in high-noise environments.</notes>
+    </category>
+
+    <category name="pyinstrument">
+      <description>Human-readable, higher-level call stacks.</description>
+      <examples>
+        <example>
+          <code><![CDATA[
+# Run pyinstrument and save report
+pyinstrument -o pyinstrument-report.html -- python -m pytest tests/integration/test_performance_benchmark.py
+]]></code>
+        </example>
+      </examples>
+    </category>
+  </profiling_commands>
+
+  <memory_profiling>
+    <description>Recommended commands and patterns for memory troubleshooting.</description>
+    <examples>
+      <example>
+        <description>tracemalloc snapshot example</description>
+        <code><![CDATA[
+# Minimal tracemalloc usage inside a script/test to capture top allocation sites
+python - <<'PY'
+import tracemalloc, my_module
+tracemalloc.start()
+my_module.run_sample()
+snap = tracemalloc.take_snapshot()
+for stat in snap.statistics('lineno')[:20]:
+    print(stat)
+PY
+]]></code>
+      </example>
+
+      <example>
+        <description>memory_profiler line-by-line</description>
+        <code><![CDATA[
+# Add @profile to target function or run test with mprof
+mprof run -o mem.out -- python -m pytest tests/integration/test_performance_benchmark.py
+mprof plot mem.out
+]]></code>
+      </example>
+    </examples>
+  </memory_profiling>
+
+  <flamegraphs_and_visualization>
+    <description>Produce flamegraphs and speedscope files for visual analysis and reporting.</description>
+    <examples>
+      <example>
+        <code><![CDATA[
+# py-spy to speedscope, open in https://www.speedscope.app/
+py-spy record -o out.speedscope.json --format speedscope -- python -m pytest tests/...
+]]></code>
+      </example>
+      <example>
+        <code><![CDATA[
+# Convert cProfile to flamegraph (using gprof2dot + dot)
+python -m cProfile -o out.prof -m pytest tests/...
+gprof2dot -f pstats out.prof | dot -Tsvg -o flame.svg
+]]></code>
+      </example>
+    </examples>
+  </flamegraphs_and_visualization>
+
+  <benchmarking_commands>
+    <description>How to add and run microbenchmarks and end-to-end benchmarks for this project.</description>
+    <examples>
+      <example>
+        <description>Run the project's performance script (if present)</description>
+        <code>python scripts/performance_benchmark.py</code>
+      </example>
+
+      <example>
+        <description>pytest-benchmark usage</description>
+        <code><![CDATA[
+# Run benchmarks (pytest-benchmark)
+pytest --benchmark-only tests/unit/benchmarking
+# Save results
+pytest --benchmark-only --benchmark-save=my-run
+pytest --benchmark-compare --benchmark-save=baseline --benchmark-compare=my-run
+]]></code>
+      </example>
+    </examples>
+  </benchmarking_commands>
+
+  <safety_and_reproducibility>
+    <items>
+      <item>Always run a baseline measurement before any change and store output (CSV/JSON).</item>
+      <item>Run multiple iterations with warm-up; document the exact command, Python version, and venv path.</item>
+      <item>Prefer isolated test harnesses that avoid external network calls; mock external services where necessary.</item>
+    </items>
+  </safety_and_reproducibility>
+
+  <examples_of_common_commands>
+    <example>
+      <description>Smoke-run the web server with a timeout for safe profiling</description>
+      <code>timeout 120s python -m calendarbot.main --web --port 8080</code>
+    </example>
+
+    <example>
+      <description>Run sampling profiler against a single integration test</description>
+      <code>py-spy record -o perf.speedscope.json --format speedscope -- python -m pytest tests/integration/test_performance_benchmark.py::test_fast_path</code>
+    </example>
+  </examples_of_common_commands>
+
+  <notes>
+    <note>When using command execution tools, confirm the environment uses the project's venv (. venv/bin/activate) per project rules.</note>
+    <note>If MCP Playwright is available and a browser trace is needed, use the Playwright MCP for controlled browser profiling and screenshots.</note>
+  </notes>
+</tool_usage_guide>

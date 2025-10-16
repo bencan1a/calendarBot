@@ -302,23 +302,39 @@ class RRuleExpander:
         if not exdates:
             return occurrences
 
-        excluded_dates = set()
+        excluded_datetimes = set()
 
         for exdate_str in exdates:
             try:
                 exdate = self._parse_datetime(exdate_str)
-                # Convert to date for comparison (ignore time)
-                excluded_dates.add(exdate.date())
+                # Normalize to UTC for consistent comparison
+                if exdate.tzinfo is None:
+                    exdate = exdate.replace(tzinfo=UTC)
+                else:
+                    exdate = exdate.astimezone(UTC)
+                excluded_datetimes.add(exdate)
             except Exception as e:  # noqa: PERF203
                 logger.warning(f"Failed to parse EXDATE {exdate_str}: {e}")
                 continue
 
-        # Filter out excluded dates
-        filtered_occurrences = [
-            occurrence for occurrence in occurrences if occurrence.date() not in excluded_dates
-        ]
+        # Filter out excluded datetimes with tolerance for minor time differences
+        filtered_occurrences = []
+        for occurrence in occurrences:
+            # Normalize occurrence to UTC
+            normalized_occurrence = (
+                occurrence.astimezone(UTC) if occurrence.tzinfo else occurrence.replace(tzinfo=UTC)
+            )
 
-        logger.debug(f"Filtered {len(occurrences) - len(filtered_occurrences)} excluded dates")
+            # Check if this occurrence matches any excluded datetime (within 1 minute tolerance)
+            is_excluded = any(
+                abs((normalized_occurrence - excluded_dt).total_seconds()) < 60
+                for excluded_dt in excluded_datetimes
+            )
+
+            if not is_excluded:
+                filtered_occurrences.append(occurrence)
+
+        logger.debug(f"Filtered {len(occurrences) - len(filtered_occurrences)} excluded datetimes")
         return filtered_occurrences
 
     def generate_event_instances(
@@ -488,7 +504,7 @@ class RRuleExpander:
         """Parse datetime string in various formats.
 
         Args:
-            datetime_str: Datetime string (ISO format or RRULE format)
+            datetime_str: Datetime string (ISO format, RRULE format, or timezone-aware EXDATE)
 
         Returns:
             Parsed datetime object
@@ -496,6 +512,50 @@ class RRuleExpander:
         Raises:
             ValueError: If datetime format is invalid
         """
+        # Handle timezone-aware EXDATE format: TZID=Pacific Standard Time:20250623T083000
+        if datetime_str.startswith("TZID="):
+            try:
+                tzid_part, dt_part = datetime_str.split(":", 1)
+                tzid = tzid_part.replace("TZID=", "").strip()
+
+                # Handle "Z" suffix (UTC indicator)
+                dt_part_clean = dt_part.rstrip("Z")
+
+                # Parse the datetime part
+                dt = datetime.strptime(dt_part_clean, "%Y%m%dT%H%M%S")
+
+                # Handle special timezone cases
+                if tzid == "UTC" or dt_part.endswith("Z"):
+                    # UTC timezone - simple case
+                    return dt.replace(tzinfo=UTC)
+                # previous branch returned; use separate if to avoid unreachable elif warning
+                timezone_name = "America/Los_Angeles" if tzid == "Pacific Standard Time" else tzid
+
+                # Apply timezone and convert to UTC
+                try:
+                    # Try zoneinfo first (preferred)
+                    from zoneinfo import ZoneInfo  # noqa: PLC0415 - deliberate runtime fallback import
+
+                    tz = ZoneInfo(timezone_name)
+                    dt_with_tz = dt.replace(tzinfo=tz)
+                    return dt_with_tz.astimezone(UTC)
+                except (ImportError, Exception):
+                    try:
+                        # Fallback to pytz
+                        import pytz  # noqa: PLC0415 - deliberate runtime fallback import
+
+                        tz = pytz.timezone(timezone_name)
+                        dt_with_tz = tz.localize(dt)
+                        return dt_with_tz.astimezone(UTC)
+                    except Exception:
+                        # Last fallback - assume UTC
+                        logger.warning(f"Could not parse timezone {tzid}, assuming UTC")
+                        return dt.replace(tzinfo=UTC)
+
+            except Exception as e:
+                logger.warning(f"Failed to parse timezone-aware EXDATE {datetime_str}: {e}")
+                # Fall through to standard parsing
+
         # Remove timezone suffix for basic parsing
         dt_str = datetime_str.rstrip("Z")
 

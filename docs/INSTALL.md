@@ -51,7 +51,32 @@ calendarbot --web
 
 # E-paper display
 calendarbot --epaper
+
+# On resource-constrained devices (for example Pi Zero2 W) you can
+# disable e-paper initialization and its heavy components with:
+# export CALENDARBOT_DISABLE_EPAPER=1
+#
+# Alternatively, use the consolidated Pi-optimized mode which applies a
+# recommended set of performance overrides for Pi Zero2 W (disables monitoring,
+# reduces asset/prebuild usage and limits events processed):
+#   python -m calendarbot.main --web --port 8080 --pi-optimized
+# or using environment variable only:
+#   export CALENDARBOT_PI_OPTIMIZED=1 && python -m calendarbot.main --web --port 8080
 ```
+# Monitoring on resource-constrained devices
+# On small devices (for example Raspberry Pi Zero2 W) monitoring and frequent sampling
+# can increase CPU and disk I/O. Consider disabling heavy monitoring or enabling
+# small-device optimizations in your configuration.
+#
+# Example (config.yaml):
+# optimization:
+#   small_device: true
+# monitoring:
+#   enabled: false
+#   sampling_interval_seconds: 30
+#
+# Alternatively, set environment variable to disable monitoring:
+# export CALENDARBOT_MONITORING=0
 
 ## Dependencies
 

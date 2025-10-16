@@ -1346,17 +1346,40 @@ class ICSParser:
                         for exdate in exdate_props:
                             if hasattr(exdate, "to_ical"):
                                 exdate_str = exdate.to_ical().decode("utf-8")
+
+                                # Preserve timezone information if present
+                                if hasattr(exdate, "params") and "TZID" in exdate.params:
+                                    tzid = exdate.params["TZID"]
+
+                                    # Handle comma-separated EXDATE values with timezone
+                                    if "," in exdate_str:
+                                        # Apply timezone to each comma-separated value in one extend for performance
+                                        exdates.extend(
+                                            f"TZID={tzid}:{single_exdate.strip()}"
+                                            for single_exdate in exdate_str.split(",")
+                                        )
+                                    else:
+                                        # Single EXDATE with timezone
+                                        exdates.append(f"TZID={tzid}:{exdate_str}")
+                                else:  # noqa: PLR5501 - separate branch for non-timezone EXDATE formats
+                                    # No timezone - handle comma separation normally
+                                    if "," in exdate_str:
+                                        exdates.extend(
+                                            single_exdate.strip()
+                                            for single_exdate in exdate_str.split(",")
+                                        )
+                                    else:
+                                        exdates.append(exdate_str)
                             else:
                                 exdate_str = str(exdate)
-
-                            # Handle comma-separated EXDATE values
-                            if "," in exdate_str:
-                                # Split comma-separated values and add each one
-                                exdates.extend(
-                                    single_exdate.strip() for single_exdate in exdate_str.split(",")
-                                )
-                            else:
-                                exdates.append(exdate_str)
+                                # Handle comma-separated EXDATE values
+                                if "," in exdate_str:
+                                    exdates.extend(
+                                        single_exdate.strip()
+                                        for single_exdate in exdate_str.split(",")
+                                    )
+                                else:
+                                    exdates.append(exdate_str)
 
                     # Expand using RRuleExpander
                     instances = self.rrule_expander.expand_rrule(

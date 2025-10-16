@@ -95,6 +95,10 @@ logging:
 display_enabled: true
 display_type: "console"    # Options: console, eink (eink for future e-ink displays)
 
+# E-Paper configuration
+epaper:
+  enabled: true
+
 # ============================================================================
 # Network Settings
 # ============================================================================
@@ -193,7 +197,28 @@ retry_backoff_factor: 1.5  # Exponential backoff multiplier
 
 # ============================================================================
 # Environment Variable Overrides
+# Monitoring / Metrics tuning
+# On resource constrained devices (e.g. Raspberry Pi Zero2 W) consider disabling
+# heavy monitoring to reduce CPU and IO overhead, or increasing sampling interval.
+monitoring:
+  enabled: true
+  sampling_interval_seconds: 5   # Default sampling period in seconds
+  slow_write_threshold: 1024     # Bytes; large metric JSONs will trigger immediate flush
+# Recommendation for Pi Zero2 W:
+# monitoring:
+#   enabled: false
+#   sampling_interval_seconds: 30
 # ============================================================================
+# Optimization toggles
+optimization:
+  prebuild_asset_cache: true
+  # Use conservative cache defaults and reduced cache logging for constrained devices
+  small_device: false
+  # Limit number of events processed end-to-end; useful on constrained devices like Pi Zero2 W
+  # Recommended for Pi Zero2 W: 10
+  max_events_processed: null
+  # Timeout for background loop operations; increase for heavy startup operations
+  bridge_timeout_seconds: 10.0
 
 # Any setting in this file can be overridden with environment variables
 # using the CALENDARBOT_ prefix and uppercase names:
@@ -204,5 +229,21 @@ retry_backoff_factor: 1.5  # Exponential backoff multiplier
 # export CALENDARBOT_ICS_PASSWORD="password"
 # export CALENDARBOT_REFRESH_INTERVAL=600
 # export CALENDARBOT_LOG_LEVEL="DEBUG"
+#
+# New: Consolidated Pi-optimized shortcut for constrained devices (Pi Zero2 W)
+# You can enable the recommended Pi tuning with either:
+#   export CALENDARBOT_PI_OPTIMIZED=1
+# or on the CLI:
+#   python -m calendarbot.main --web --port 8080 --pi-optimized
+#
+# When enabled the following recommended overrides are applied at startup:
+#   optimization:
+#     small_device: true
+#     prebuild_asset_cache: false
+#     max_events_processed: 10
+#   monitoring:
+#     enabled: false
+#   epaper:
+#     enabled: false
 #
 # Environment variables take precedence over this file.

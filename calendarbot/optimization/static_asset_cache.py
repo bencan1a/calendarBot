@@ -246,6 +246,82 @@ class StaticAssetCache:
         logger.debug("Cache miss for asset: %s (layout: %s)", requested_path, layout_name)
         return None
 
+    def ensure_built_for(self, requested_path: str, layout_name: Optional[str] = None) -> None:
+        """Ensure the cache contains metadata for the specific requested path.
+
+        This performs a minimal, targeted lookup/build for one or two paths instead of
+        scanning all static assets. It is safe to call repeatedly; it will only add
+        entries if the files exist.
+
+        Args:
+            requested_path: Asset path requested (e.g., "css/styles.css")
+            layout_name: Optional layout context if the asset is layout-specific
+        """
+        if not requested_path:
+            return
+
+        # Normalize as used elsewhere
+        requested_path = requested_path.replace("\\", "/").lstrip("/")
+
+        # Attempt layout-specific locations first
+        candidates: list[Path] = []
+
+        try:
+            if layout_name:
+                # Layout directory: layouts/<layout_name>/<requested_path>
+                layout_dir = self._layouts_dir / layout_name
+                candidates.append(layout_dir / requested_path)
+                # Layout static subdirectory: layouts/<layout_name>/static/<requested_path>
+                candidates.append(layout_dir / "static" / requested_path)
+
+            # Standard static dirs
+            candidates.extend(static_root / requested_path for static_root in self._static_dirs)
+
+            # Try each candidate and add to cache if it exists and is a static asset
+            added = 0
+            try:
+                for candidate in candidates:
+                    if (
+                        candidate.exists()
+                        and candidate.is_file()
+                        and self._is_static_asset(candidate)
+                    ):
+                        stat_info = candidate.stat()
+                        metadata = AssetMetadata(
+                            absolute_path=candidate,
+                            size=stat_info.st_size,
+                            mtime=stat_info.st_mtime,
+                            is_layout_specific=bool(layout_name),
+                            layout_name=layout_name,
+                        )
+
+                        # Use layout-prefixed key when applicable
+                        cache_key = requested_path
+                        if layout_name:
+                            prefixed_key = f"{layout_name}/{cache_key}"
+                            self._asset_map[prefixed_key] = metadata
+                            # Track layout assets set
+                            self._layout_assets.setdefault(layout_name, set()).add(cache_key)
+
+                        # Always add the direct key to support fallback lookups
+                        self._asset_map[cache_key] = metadata
+                        added += 1
+            except OSError:
+                # Ignore filesystem errors during targeted build
+                logger.debug("Filesystem error inspecting candidates during targeted build")
+
+            if added:
+                logger.info(
+                    "Targeted StaticAssetCache build: added %d entries for %s (layout=%s)",
+                    added,
+                    requested_path,
+                    layout_name,
+                )
+        except Exception:
+            logger.exception(
+                "Failed targeted cache build for %s (layout=%s)", requested_path, layout_name
+            )
+
     def get_asset_metadata(
         self, requested_path: str, layout_name: Optional[str] = None
     ) -> Optional[AssetMetadata]:

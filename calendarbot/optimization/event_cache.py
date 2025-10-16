@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from ..config.optimization import OptimizationConfig, get_optimization_config
+from ..config.settings import settings as app_settings
 from ..monitoring.connection_pool_monitor import (
     ConnectionPoolMonitor,
     get_connection_pool_monitor,
@@ -202,13 +203,26 @@ class EventCache:
                 # Convert cached dictionaries back to CacheableEvent objects
                 events = [CacheableEvent.from_dict(event_data) for event_data in cached_data]
 
+                # Apply configured cap early to avoid unnecessary transformations/expansions.
+                # This prevents heavy work (rrule expansion, view-model massaging) from running
+                # on items that will never be consumed when a cap is configured.
+                try:
+                    max_events = getattr(app_settings, "optimization", None) and getattr(
+                        app_settings.optimization, "max_events_processed", None
+                    )
+                except Exception:
+                    max_events = None
+
+                if isinstance(max_events, int) and max_events > 0:
+                    events = events[:max_events]
+
                 self._stats.cache_hits += 1
                 self._stats.total_requests += 1
 
                 response_time = (time.time() - start_time) * 1000
                 self._update_response_time(response_time)
 
-                self.logger.debug(f"Event cache hit: {cache_key} ({len(events)} events)")
+                self.logger.debug(f"Event cache hit: {cache_key} ({len(events)} events after cap)")
                 return events
 
             self._stats.cache_misses += 1

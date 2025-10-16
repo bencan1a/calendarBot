@@ -196,20 +196,45 @@ class CacheManager:
         self.monitor = monitor or get_connection_pool_monitor(self.config)
         self.logger = logger
 
+        # Detect small-device optimization flag from global application settings if available.
+        # This allows a reversible, config-gated change without altering behavior for defaults.
+        small_device = False
+        try:
+            # Import here to avoid circular imports at module import time
+            from ..config.settings import settings as app_settings  # noqa: PLC0415
+
+            small_device = bool(
+                getattr(getattr(app_settings, "optimization", None), "small_device", False)
+            )
+        except Exception:
+            # If settings are not available or import fails, default to non-small-device behavior
+            small_device = False
+
+        # Determine conservative defaults for constrained devices
+        if small_device:
+            self._l1_maxsize = 50
+            self._l1_ttl = 120  # seconds
+            self._l2_size_limit = 15 * 1024 * 1024  # 15MB
+        else:
+            # Use configured defaults
+            self._l1_maxsize = self.config.cache_maxsize
+            self._l1_ttl = self.config.cache_ttl
+            self._l2_size_limit = 50 * 1024 * 1024  # 50MB
+
         # L1 Memory Cache - TTLCache with config-driven parameters
         self.memory_cache = TTLCache(
-            maxsize=self.config.cache_maxsize,  # Default: 500 items
-            ttl=self.config.cache_ttl,  # Default: 300 seconds (5 minutes)
+            maxsize=self._l1_maxsize,
+            ttl=self._l1_ttl,
         )
 
-        # L2 Disk Cache - Persistent storage with 50MB limit
+        # L2 Disk Cache - Persistent storage with size limit
         if cache_dir is None:
             cache_dir = Path(tempfile.gettempdir()) / "calendarbot_cache"
 
         self.cache_dir = cache_dir
         self.disk_cache = DiskCache(
             directory=str(cache_dir),
-            size_limit=50 * 1024 * 1024,  # 50MB limit
+            size_limit=self._l2_size_limit,
         )
 
         # Performance tracking
@@ -223,9 +248,10 @@ class CacheManager:
             "startup_time": time.time(),
         }
 
+        # Report actual active cache parameters (reflects small_device overrides when enabled)
         self.logger.info(
-            f"CacheManager initialized: L1={self.config.cache_maxsize} items, "
-            f"TTL={self.config.cache_ttl}s, L2={cache_dir}"
+            f"CacheManager initialized: L1={self._l1_maxsize} items, "
+            f"TTL={self._l1_ttl}s, L2={cache_dir}"
         )
 
     def _generate_cache_key(self, key: str, prefix: str = "") -> str:
@@ -263,69 +289,74 @@ class CacheManager:
         cache_key = self._generate_cache_key(key, prefix)
         start_time = time.time()
 
-        self.logger.info(f"[CACHE_DEBUG] Starting get operation for key: {cache_key}")
+        # Lower-volume logging for frequent operations on small devices; use DEBUG for details
+        self.logger.debug(f"[CACHE_DEBUG] Starting get operation for key: {cache_key}")
 
         # Try L1 memory cache first
         try:
             l1_start = time.time()
-            self.logger.info(f"[CACHE_DEBUG] Accessing L1 cache for: {cache_key}")
+            self.logger.debug(f"[CACHE_DEBUG] Accessing L1 cache for: {cache_key}")
             value = self.memory_cache.get(cache_key)
             l1_duration = time.time() - l1_start
 
             if value is not None:
                 self._stats["l1_hits"] += 1
-                self.logger.info(
+                self.logger.debug(
                     f"[CACHE_DEBUG] L1 cache hit: {cache_key} (duration: {l1_duration:.4f}s)"
                 )
                 return value
             self._stats["l1_misses"] += 1
-            self.logger.info(
+            self.logger.debug(
                 f"[CACHE_DEBUG] L1 cache miss: {cache_key} (duration: {l1_duration:.4f}s)"
             )
         except Exception as e:
+            # Keep errors visible
             self.logger.error(f"[CACHE_DEBUG] L1 cache error for {cache_key}: {e}", exc_info=True)
             self._stats["l1_misses"] += 1
 
-        # Try L2 disk cache
+        # Try L2 disk cache (disk I/O may block; run in thread to avoid blocking the event loop)
         try:
             l2_start = time.time()
-            self.logger.info(f"[CACHE_DEBUG] Accessing L2 cache for: {cache_key}")
-            value = self.disk_cache.get(cache_key)
+            self.logger.debug(f"[CACHE_DEBUG] Accessing L2 cache for: {cache_key}")
+            import asyncio  # local import to avoid top-level import cycles  # noqa: PLC0415
+
+            value = await asyncio.to_thread(self.disk_cache.get, cache_key)
             l2_duration = time.time() - l2_start
 
             if value is not None:
                 self._stats["l2_hits"] += 1
-                self.logger.info(
+                self.logger.debug(
                     f"[CACHE_DEBUG] L2 cache hit: {cache_key} (duration: {l2_duration:.4f}s)"
                 )
 
-                # Promote to L1 cache
+                # Promote to L1 cache (fast, in-process)
                 try:
                     promote_start = time.time()
-                    self.logger.info(f"[CACHE_DEBUG] Promoting to L1: {cache_key}")
+                    self.logger.debug(f"[CACHE_DEBUG] Promoting to L1: {cache_key}")
                     self.memory_cache[cache_key] = value
                     promote_duration = time.time() - promote_start
-                    self.logger.info(
+                    self.logger.debug(
                         f"[CACHE_DEBUG] L1 promotion complete: {cache_key} (duration: {promote_duration:.4f}s)"
                     )
                 except Exception as e:
                     self.logger.error(f"[CACHE_DEBUG] Failed to promote to L1: {e}", exc_info=True)
 
                 total_duration = time.time() - start_time
-                self.logger.info(
+                self.logger.debug(
                     f"[CACHE_DEBUG] Get operation complete: {cache_key} (total: {total_duration:.4f}s)"
                 )
                 return value
             self._stats["l2_misses"] += 1
-            self.logger.info(
+            self.logger.debug(
                 f"[CACHE_DEBUG] L2 cache miss: {cache_key} (duration: {l2_duration:.4f}s)"
             )
         except Exception as e:
+            # Keep errors visible
             self.logger.error(f"[CACHE_DEBUG] L2 cache error for {cache_key}: {e}", exc_info=True)
             self._stats["l2_misses"] += 1
 
         total_duration = time.time() - start_time
-        self.logger.info(
+        self.logger.debug(
             f"[CACHE_DEBUG] Cache miss complete: {cache_key} (total: {total_duration:.4f}s)"
         )
         return None
@@ -356,9 +387,11 @@ class CacheManager:
         except Exception as e:
             self.logger.warning(f"Failed to store in L1 cache {cache_key}: {e}")
 
-        # Store in L2 disk cache
+        # Store in L2 disk cache (disk I/O may block; run in thread)
         try:
-            self.disk_cache[cache_key] = value
+            import asyncio  # noqa: PLC0415
+
+            await asyncio.to_thread(self.disk_cache.__setitem__, cache_key, value)
             success = True
             self.logger.debug(f"Stored in L2 cache: {cache_key}")
         except Exception as e:
@@ -428,13 +461,14 @@ class CacheManager:
                 "hits": self._stats["l1_hits"],
                 "misses": self._stats["l1_misses"],
                 "hit_rate_percent": l1_hit_rate,
-                "maxsize": self.config.cache_maxsize,
-                "ttl_seconds": self.config.cache_ttl,
+                "maxsize": self._l1_maxsize,
+                "ttl_seconds": self._l1_ttl,
             },
             "l2_disk_cache": {
                 "hits": self._stats["l2_hits"],
                 "misses": self._stats["l2_misses"],
                 "cache_dir": str(self.cache_dir),
+                "size_limit_bytes": self._l2_size_limit,
             },
             "overall": {
                 "total_requests": total_requests,

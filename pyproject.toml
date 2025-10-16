@@ -62,10 +62,6 @@ dependencies = [
     # Cache dependencies for optimization
     "cachetools>=5.0.0",
     "diskcache>=5.0.0",
-    # E-Paper display dependencies (now core features)
-    "Pillow>=9.0.0",
-    "numpy>=1.20.0",
-    "html2image>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -85,6 +81,11 @@ test = [
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
+]
+epaper = [
+    "Pillow>=9.0.0",
+    "numpy>=1.20.0",
+    "html2image>=2.0.0",
 ]
 
 [project.urls]

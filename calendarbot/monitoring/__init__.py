@@ -16,12 +16,36 @@ from .performance import (
     memory_monitor as _memory_monitor,
     performance_monitor as _performance_monitor,
     performance_timer as _performance_timer,
+    set_monitoring_enabled as _set_monitoring_enabled,
 )
 
 
 def _is_monitoring_enabled() -> bool:
-    """Check if monitoring is enabled via environment variable."""
-    return os.getenv("CALENDARBOT_MONITORING", "false").lower() in ("true", "1", "yes", "on")
+    """Determine whether monitoring should be enabled.
+
+    Priority:
+      1. Environment variable CALENDARBOT_MONITORING (if set)
+      2. settings.monitoring.enabled (if available)
+      3. If optimization.small_device is True, prefer to disable monitoring by default
+      4. Fallback to True
+    """
+    env = os.getenv("CALENDARBOT_MONITORING")
+    if env is not None:
+        return env.lower() in ("true", "1", "yes", "on")
+    try:
+        from calendarbot.config.settings import get_settings  # noqa: PLC0415
+
+        settings = get_settings()
+        mon = getattr(settings, "monitoring", None)
+        if mon is not None:
+            return bool(getattr(mon, "enabled", True))
+        if getattr(settings, "optimization", None) and getattr(
+            settings.optimization, "small_device", False
+        ):
+            return False
+    except Exception:
+        pass
+    return True
 
 
 class NoOpPerformanceLogger:
@@ -198,6 +222,7 @@ if _is_monitoring_enabled():
     memory_monitor = _memory_monitor
     performance_monitor = _performance_monitor
     performance_timer = _performance_timer
+    set_monitoring_enabled = _set_monitoring_enabled
 else:
     PerformanceLogger = NoOpPerformanceLogger  # type: ignore[misc, assignment]
     PerformanceLoggerMixin = NoOpPerformanceLoggerMixin  # type: ignore[misc, assignment]
@@ -207,6 +232,18 @@ else:
     memory_monitor = noop_context_manager
     performance_monitor = noop_decorator
     performance_timer = noop_context_manager
+
+    # Provide a runtime setter that replaces the global logger with a noop when monitoring is disabled.
+    def set_monitoring_enabled(enabled: bool, settings: Optional[Any] = None) -> None:
+        """Runtime setter (noop) used when monitoring is disabled.
+
+        Signature intentionally matches the exported implementation from the performance
+        module (enabled: bool, settings: Optional[Any] = None) so static type
+        checkers and callers can assign/replace this symbol without parameter-name
+        mismatches.
+        """
+        # Explicitly acknowledge unused parameters to satisfy linters.
+        del enabled, settings
 
 
 __all__ = [

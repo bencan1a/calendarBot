@@ -1,5 +1,6 @@
 """Simple HTTP server for web interface."""
 
+# ruff: noqa
 import asyncio
 import hashlib
 import json
@@ -13,8 +14,9 @@ from email.utils import formatdate
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 
 from ..config.build import (
     get_asset_exclusion_info,
@@ -123,6 +125,18 @@ class StaticFileCache:
 
 class WebRequestHandler(BaseHTTPRequestHandler):
     """HTTP request handler for calendar web interface."""
+
+    # Declare attributes at class level to help static type checkers (Pylance).
+    # Use plain Any (not Optional[Any]) for these runtime-assigned attributes so the
+    # language server doesn't warn about attribute access like `self.web_server.settings`.
+    web_server: Any = None
+    security_logger: Any = None
+    # Commonly referenced attributes forwarded from web_server; declare them to avoid
+    # "unknown attribute" warnings in request handler methods.
+    settings: Any = None
+    asset_cache: Any = None
+    display_manager: Any = None
+    layout: Any = None
 
     def __init__(self, *args: Any, web_server: Optional["WebServer"] = None, **kwargs: Any) -> None:
         """Initialize WebRequestHandler for both production and test contexts.
@@ -587,21 +601,96 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         return events, status_info
 
     def _get_events_async_safe(self, start_datetime: datetime, end_datetime: datetime) -> list[Any]:
-        """Safely handle async event fetching from sync context."""
+        """Safely handle async event fetching from sync context.
+
+        This implementation prefers using a single dedicated background asyncio loop
+        owned by the WebServer instance. Synchronous handlers schedule coroutines on
+        that loop using asyncio.run_coroutine_threadsafe(...) and block until results are
+        available (with a short timeout). Fallback behavior mirrors previous logic:
+        - If no background loop is available, use per-call loops for compatibility.
+        - If executing inside an event loop, create a temporary loop in a thread.
+        """
         if not self.web_server or not hasattr(self.web_server, "cache_manager"):
             logger.error("Web server or cache manager not available")
             return []
 
         web_server = self.web_server  # Store for type narrowing
 
+        # If a background loop is available, schedule work there to avoid creating per-request loops.
+        bg_loop = getattr(web_server, "_background_loop", None)
+        if bg_loop is not None and self._is_valid_event_loop(bg_loop):
+            # Use configurable bridge timeout and defensive scheduling
+            timeout = getattr(
+                getattr(web_server.settings, "optimization", None), "bridge_timeout_seconds", 10.0
+            )
+            # Defensive validation of background loop and thread liveness
+            bg_thread = getattr(web_server, "_background_thread", None)
+            if (
+                bg_thread is None
+                or not getattr(bg_thread, "is_alive", lambda: False)()
+                or (getattr(bg_loop, "is_closed", lambda: True)())
+            ):
+                logger.warning(
+                    "[TIMEOUT_DEBUG] Background loop/thread invalid or closed - falling back to per-call thread execution"
+                )
+
+                def run_async_in_thread() -> Any:
+                    import asyncio  # noqa: PLC0415
+
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    try:
+                        return new_loop.run_until_complete(
+                            web_server.cache_manager.get_events_by_date_range(
+                                start_datetime, end_datetime
+                            )
+                        )
+                    finally:
+                        new_loop.close()
+
+                return run_in_thread_pool(run_async_in_thread, timeout=timeout)
+            else:
+                try:
+                    future = asyncio.run_coroutine_threadsafe(
+                        web_server.cache_manager.get_events_by_date_range(
+                            start_datetime, end_datetime
+                        ),
+                        bg_loop,
+                    )
+
+                    # Attach done-callback to surface exceptions from scheduled coroutine
+                    def _bg_done_cb(fut) -> None:
+                        try:
+                            exc = fut.exception()
+                            if exc:
+                                logger.exception(
+                                    "[TIMEOUT_DEBUG] Exception raised inside scheduled coroutine",
+                                    exc_info=exc,
+                                )
+                        except Exception:
+                            logger.exception(
+                                "[TIMEOUT_DEBUG] Error while inspecting scheduled future"
+                            )
+
+                    try:
+                        future.add_done_callback(_bg_done_cb)
+                    except Exception:
+                        logger.debug("[TIMEOUT_DEBUG] Failed to attach done callback to future")
+
+                    return future.result(timeout=timeout)
+                except FuturesTimeoutError:
+                    logger.exception("Timed out waiting for background loop to return events")
+                    raise TimeoutError("Timed out waiting for events")
+                except Exception:
+                    logger.exception("Error while fetching events via background loop")
+                    raise
+
+        # Background loop not available; preserve original fallback behavior.
         try:
-            # Try to get the running event loop
+            # If there's a running loop in this thread, spawn a temporary loop in a thread.
             asyncio.get_running_loop()
 
-            # If we're in an event loop, we can't use asyncio.run()
             def run_async_in_thread() -> Any:
-                import asyncio  # noqa: PLC0415
-
                 new_loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(new_loop)
                 try:
@@ -613,13 +702,77 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 finally:
                     new_loop.close()
 
-            return run_in_thread_pool(run_async_in_thread, timeout=5.0)
+            timeout = getattr(
+                getattr(web_server.settings, "optimization", None), "bridge_timeout_seconds", 10.0
+            )
+            return run_in_thread_pool(run_async_in_thread, timeout=timeout)
 
         except RuntimeError:
-            # No running event loop, safe to use asyncio.run()
+            # No running loop in this thread; safe to use asyncio.run()
             return asyncio.run(
                 web_server.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
             )
+
+    def _is_valid_event_loop(self, loop: Any) -> bool:
+        """Check if the provided object is a valid asyncio event loop.
+
+        This method validates that the loop is a real asyncio event loop and not
+        a mock object, which is crucial for test environments where MagicMock
+        objects might be used as loop replacements.
+
+        Args:
+            loop: Object to validate as an event loop
+
+        Returns:
+            True if the object is a valid asyncio event loop, False otherwise
+        """
+        import asyncio  # noqa: PLC0415
+
+        # Check if it's an actual asyncio event loop instance
+        if not isinstance(loop, asyncio.AbstractEventLoop):
+            logger.debug(
+                f"Background loop validation failed: not an AbstractEventLoop instance, got {type(loop)}"
+            )
+            return False
+
+        # Check if loop is closed
+        if loop.is_closed():
+            logger.warning("Background loop validation failed: loop is closed")
+            return False
+
+        # Check if the background thread is still alive
+        bg_thread = getattr(self, "_background_thread", None)
+        if bg_thread and not bg_thread.is_alive():
+            logger.warning(
+                f"Background loop validation failed: thread is dead (thread={bg_thread.name})"
+            )
+            return False
+
+        logger.debug(
+            f"Background loop validation passed: loop={id(loop)}, thread_alive={bg_thread.is_alive() if bg_thread else 'unknown'}"
+        )
+        return True
+
+        # Check for essential event loop methods that we need
+        required_methods = ["run_forever", "call_soon_threadsafe", "is_running", "is_closed"]
+        for method in required_methods:
+            if not hasattr(loop, method) or not callable(getattr(loop, method)):
+                logger.debug(
+                    f"Background loop validation failed: missing or non-callable method '{method}'"
+                )
+                return False
+
+        # Additional check: ensure it's not closed
+        try:
+            if loop.is_closed():
+                logger.debug("Background loop validation failed: loop is closed")
+                return False
+        except Exception as e:
+            logger.debug(f"Background loop validation failed: error checking if closed: {e}")
+            return False
+
+        logger.debug("Background loop validation passed")
+        return True
 
     def _filter_events(self, events: list[Any]) -> list[Any]:
         """Filter out hidden events based on settings."""
@@ -807,33 +960,91 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             events = []
         else:
             web_server = self.web_server  # Store for type narrowing
-            # Get events using async call handling
-            try:
-                # Try to get the running event loop
-                loop = asyncio.get_running_loop()  # noqa: F841
 
-                # If we're in an event loop, we can't use asyncio.run()
-                def run_async_in_thread() -> Any:
-                    import asyncio  # noqa: PLC0415
-
-                    new_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(new_loop)
-                    try:
-                        return new_loop.run_until_complete(
-                            web_server.cache_manager.get_events_by_date_range(
-                                start_datetime, end_datetime
-                            )
-                        )
-                    finally:
-                        new_loop.close()
-
-                events = run_in_thread_pool(run_async_in_thread, timeout=5.0)
-
-            except RuntimeError:
-                # No running event loop, safe to use asyncio.run()
-                events = asyncio.run(
-                    web_server.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
+            # Prefer scheduling on the dedicated background loop when available to avoid per-request loops.
+            bg_loop = getattr(web_server, "_background_loop", None)
+            if bg_loop is not None and self._is_valid_event_loop(bg_loop):
+                # Use configurable bridge timeout and defensive scheduling similar to other paths
+                timeout = getattr(
+                    getattr(web_server.settings, "optimization", None),
+                    "bridge_timeout_seconds",
+                    10.0,
                 )
+                try:
+                    future = asyncio.run_coroutine_threadsafe(
+                        web_server.cache_manager.get_events_by_date_range(
+                            start_datetime, end_datetime
+                        ),
+                        bg_loop,
+                    )
+
+                    # Attach done-callback to surface exceptions from scheduled coroutine
+                    def _bg_done_cb(fut) -> None:
+                        try:
+                            exc = fut.exception()
+                            if exc:
+                                logger.exception(
+                                    "[TIMEOUT_DEBUG] Exception raised inside scheduled coroutine (_get_updated_whats_next_data)",
+                                    exc_info=exc,
+                                )
+                        except Exception:
+                            logger.exception(
+                                "[TIMEOUT_DEBUG] Error while inspecting scheduled future (_get_updated_whats_next_data)"
+                            )
+
+                    try:
+                        future.add_done_callback(_bg_done_cb)
+                    except Exception:
+                        logger.debug(
+                            "[TIMEOUT_DEBUG] Failed to attach done callback to future (_get_updated_whats_next_data)"
+                        )
+
+                    events = future.result(timeout=timeout)
+                except FuturesTimeoutError:
+                    logger.exception(
+                        "Timed out waiting for events from background loop (_get_updated_whats_next_data)"
+                    )
+                    raise TimeoutError("Timed out waiting for events")
+                except Exception:
+                    logger.exception(
+                        "Error while fetching events via background loop (_get_updated_whats_next_data)"
+                    )
+                    raise
+            else:
+                # Get events using async call handling (fallback to per-thread loop when inside an event loop)
+                try:
+                    # Try to get the running event loop
+                    loop = asyncio.get_running_loop()  # noqa: F841
+
+                    # If we're in an event loop, we can't use asyncio.run()
+                    def run_async_in_thread() -> Any:
+                        import asyncio  # noqa: PLC0415
+
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        try:
+                            return new_loop.run_until_complete(
+                                web_server.cache_manager.get_events_by_date_range(
+                                    start_datetime, end_datetime
+                                )
+                            )
+                        finally:
+                            new_loop.close()
+
+                    timeout = getattr(
+                        getattr(web_server.settings, "optimization", None),
+                        "bridge_timeout_seconds",
+                        10.0,
+                    )
+                    events = run_in_thread_pool(run_async_in_thread, timeout=timeout)
+
+                except RuntimeError:
+                    # No running event loop, safe to use asyncio.run()
+                    events = asyncio.run(
+                        web_server.cache_manager.get_events_by_date_range(
+                            start_datetime, end_datetime
+                        )
+                    )
 
         # DIAGNOSTIC: Track TENTATIVE events through web server pipeline
         tentative_before_settings = len(
@@ -867,6 +1078,18 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             # Fallback if settings service not available
             filtered_events = events
             logger.info("DEBUG WEB SERVER: No settings service - using all events")
+
+        # Defensive guard: ensure we never process more than configured max_events_processed
+        max_events_setting = None
+        try:
+            max_events_setting = getattr(self.settings, "optimization", None) and getattr(
+                self.settings.optimization, "max_events_processed", None
+            )
+        except Exception:
+            max_events_setting = None
+
+        if isinstance(max_events_setting, int) and max_events_setting > 0:
+            filtered_events = filtered_events[:max_events_setting]
 
         # Use WhatsNextLogic to create the view model
         from ..display.whats_next_logic import WhatsNextLogic  # noqa: PLC0415
@@ -1745,25 +1968,46 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             db_manager = self.web_server.cache_manager.db
 
             # Use async call handling similar to other methods
-            try:
-                # Try to get the running event loop
-                asyncio.get_running_loop()
+            # Prefer scheduling on WebServer's background loop if available to avoid per-request loops.
+            bg_loop = getattr(self.web_server, "_background_loop", None)
+            if bg_loop is not None:
+                try:
+                    future = asyncio.run_coroutine_threadsafe(
+                        db_manager.get_database_info(), bg_loop
+                    )
+                    timeout = getattr(
+                        getattr(self.settings, "optimization", None), "bridge_timeout_seconds", 10.0
+                    )
+                    db_info = future.result(timeout=timeout)
+                except FuturesTimeoutError:
+                    logger.exception("Timed out waiting for database info from background loop")
+                    raise TimeoutError("Timed out waiting for database info")
+                except Exception:
+                    logger.exception("Error while fetching database info via background loop")
+                    raise
+            else:
+                try:
+                    # Try to get the running event loop in this thread
+                    asyncio.get_running_loop()
 
-                def run_async_in_thread() -> Any:
-                    import asyncio  # noqa: PLC0415
+                    def run_async_in_thread() -> Any:
+                        import asyncio  # noqa: PLC0415
 
-                    new_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(new_loop)
-                    try:
-                        return new_loop.run_until_complete(db_manager.get_database_info())
-                    finally:
-                        new_loop.close()
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        try:
+                            return new_loop.run_until_complete(db_manager.get_database_info())
+                        finally:
+                            new_loop.close()
 
-                db_info = run_in_thread_pool(run_async_in_thread, timeout=5.0)
+                    timeout = getattr(
+                        getattr(self.settings, "optimization", None), "bridge_timeout_seconds", 10.0
+                    )
+                    db_info = run_in_thread_pool(run_async_in_thread, timeout=timeout)
 
-            except RuntimeError:
-                # No running event loop, safe to use asyncio.run()
-                db_info = asyncio.run(db_manager.get_database_info())
+                except RuntimeError:
+                    # No running event loop, safe to use asyncio.run()
+                    db_info = asyncio.run(db_manager.get_database_info())
 
             self._send_json_response(
                 200,
@@ -2052,6 +2296,37 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     cache_file_path, layout_name
                 )
 
+                # If cache miss and prebuild is disabled, attempt a targeted build for this path
+                if (
+                    not full_path
+                    and getattr(self.web_server, "settings", None)
+                    and getattr(self.web_server.settings, "optimization", None)
+                    and not self.web_server.settings.optimization.prebuild_asset_cache
+                ):
+                    try:
+                        if hasattr(self.web_server.asset_cache, "ensure_built_for"):
+                            logger.debug(
+                                "Attempting targeted asset cache build for: %s (layout: %s)",
+                                cache_file_path,
+                                layout_name,
+                            )
+                            self.web_server.asset_cache.ensure_built_for(
+                                cache_file_path, layout_name
+                            )
+                            # Try resolving again after targeted build
+                            full_path = self.web_server.asset_cache.resolve_asset_path(
+                                cache_file_path, layout_name
+                            )
+                            if full_path:
+                                logger.debug(
+                                    "STATIC_FILE_DEBUG: Asset found after targeted build: %s",
+                                    full_path,
+                                )
+                    except Exception:
+                        logger.exception(
+                            "Failed to perform targeted asset cache build for %s", cache_file_path
+                        )
+
                 if full_path:
                     # Security validation - ensure resolved path is within allowed directories
                     resolved_str = str(full_path.resolve())
@@ -2076,6 +2351,46 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                     )
             else:
                 logger.warning("Asset cache not built, falling back to filesystem lookup")
+                # If prebuild is disabled, attempt a targeted build for this asset before doing full filesystem fallbacks.
+                try:
+                    if (
+                        getattr(self.web_server, "settings", None)
+                        and getattr(self.web_server.settings, "optimization", None)
+                        and not self.web_server.settings.optimization.prebuild_asset_cache
+                        and hasattr(self.web_server, "asset_cache")
+                        and hasattr(self.web_server.asset_cache, "ensure_built_for")
+                    ):
+                        # Attempt minimal targeted cache build for the requested asset
+                        layout_name = None
+                        if file_path.startswith("layouts/") and "/" in file_path[8:]:
+                            layout_path_parts = file_path[8:].split("/", 1)
+                            if len(layout_path_parts) >= 2:
+                                layout_name = layout_path_parts[0]
+                                cache_file_path = layout_path_parts[1]
+                            else:
+                                cache_file_path = file_path[8:]
+                        else:
+                            cache_file_path = file_path
+                        logger.debug(
+                            "Prebuild disabled - performing targeted asset build for %s (layout=%s)",
+                            cache_file_path,
+                            layout_name,
+                        )
+                        # Build for the specific requested path
+                        self.web_server.asset_cache.ensure_built_for(cache_file_path, layout_name)
+                        # Try resolving via cache now
+                        full_path = self.web_server.asset_cache.resolve_asset_path(
+                            cache_file_path, layout_name
+                        )
+                        if full_path:
+                            logger.debug(
+                                "STATIC_FILE_DEBUG: Found asset via targeted build: %s", full_path
+                            )
+                except Exception:
+                    logger.exception(
+                        "Targeted asset cache build failed; continuing with filesystem fallback"
+                    )
+
                 # Fallback to original triple lookup pattern if cache failed to build
                 # First check if this is a layout directory path (e.g., layouts/4x8/4x8.css)
                 if file_path.startswith("layouts/"):
@@ -2290,9 +2605,30 @@ class WebServer:
         layouts_dir = Path(__file__).parent / "static" / "layouts"  # Correct path to layout files
         self.asset_cache = StaticAssetCache(static_dirs, layouts_dir)
 
-        # Build cache at startup for O(1) path resolution
-        logger.info("Building static asset cache for performance optimization...")
-        self.asset_cache.build_cache()
+        # Background asyncio loop for sync->async bridging.
+        # Created when the server starts and torn down during shutdown.
+        self._background_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._background_thread: Optional[Thread] = None
+
+        # Build cache at startup for O(1) path resolution by default.
+        # Allow disabling full prebuild for resource-constrained devices via settings.optimization.prebuild_asset_cache.
+        should_prebuild = True
+        try:
+            should_prebuild = bool(
+                getattr(self.settings, "optimization", None)
+                and getattr(self.settings.optimization, "prebuild_asset_cache", True)
+            )
+        except Exception:
+            # Keep default True on any unexpected issues reading settings
+            should_prebuild = True
+
+        if should_prebuild:
+            logger.info("Building static asset cache for performance optimization...")
+            self.asset_cache.build_cache()
+        else:
+            logger.info(
+                "Static asset prebuild disabled by configuration; assets will be built lazily on first request"
+            )
 
         # Initialize connection manager for HTTP client pooling
         self.connection_manager = None
@@ -2332,6 +2668,22 @@ class WebServer:
             # Use non-daemon thread to avoid abrupt termination issues
             self.server_thread = Thread(target=self._serve_with_cleanup, daemon=False)
             self.server_thread.start()
+
+            # Create background asyncio event loop to handle sync->async bridging and avoid
+            # per-request loop/thread churn on resource constrained devices.
+            def _start_bg_loop(loop: asyncio.AbstractEventLoop) -> None:
+                # Each thread must set its own running event loop before running it.
+                asyncio.set_event_loop(loop)
+                loop.run_forever()
+
+            bg_loop = asyncio.new_event_loop()
+            bg_thread = Thread(
+                target=_start_bg_loop, args=(bg_loop,), daemon=True, name="WebBackgroundLoop"
+            )
+            bg_thread.start()
+            self._background_loop = bg_loop
+            self._background_thread = bg_thread
+            logger.debug("Background asyncio loop started for sync->async bridging")
 
             # Initialize connection manager for HTTP client pooling
             try:
@@ -2443,6 +2795,43 @@ class WebServer:
             # Clean up server reference
             self.server = None
 
+            # Shutdown background asyncio loop if it was created.
+            loop = getattr(self, "_background_loop", None)
+            if loop is not None:
+                try:
+                    logger.debug("Stopping background asyncio loop...")
+                    # Try to request stop on the loop (may raise if loop is already closed)
+                    try:
+                        if hasattr(loop, "call_soon_threadsafe"):
+                            loop.call_soon_threadsafe(loop.stop)
+                    except Exception as e:
+                        logger.warning(f"call_soon_threadsafe(loop.stop) raised: {e}")
+
+                    # Wait for the background thread to exit
+                    if self._background_thread and self._background_thread.is_alive():
+                        logger.debug("Waiting for background thread to join (timeout=5s)...")
+                        self._background_thread.join(timeout=5.0)
+                        if self._background_thread.is_alive():
+                            logger.warning(
+                                "Background thread did not terminate within 5 seconds - marking as daemon for cleanup"
+                            )
+                            self._background_thread.daemon = True
+                        else:
+                            logger.debug("Background thread joined successfully")
+
+                    # Close the loop if not already closed
+                    try:
+                        if hasattr(loop, "is_closed") and not loop.is_closed():
+                            loop.close()
+                            logger.debug("Background loop closed successfully")
+                    except Exception as e:
+                        logger.warning(f"Error closing background loop: {e}")
+                except Exception as e:
+                    logger.warning(f"Error shutting down background loop: {e}")
+                finally:
+                    self._background_loop = None
+                    self._background_thread = None
+
         except Exception:
             logger.exception("Error during web server shutdown")
 
@@ -2458,6 +2847,42 @@ class WebServer:
 
         # Always ensure running is False and server is cleaned up
         self.running = False
+
+        # Ensure background loop is stopped/closed even if earlier shutdown paths failed.
+        bg_loop = getattr(self, "_background_loop", None)
+        bg_thread = getattr(self, "_background_thread", None)
+        if bg_loop is not None:
+            try:
+                logger.debug("Final cleanup: stopping background asyncio loop...")
+                try:
+                    bg_loop.call_soon_threadsafe(bg_loop.stop)
+                except Exception as e:
+                    logger.debug(f"Background loop stop request raised: {e}")
+
+                if bg_thread and bg_thread.is_alive():
+                    logger.debug(
+                        "Final cleanup: waiting for background thread to join (timeout=5s)..."
+                    )
+                    bg_thread.join(timeout=5.0)
+                    if bg_thread.is_alive():
+                        logger.warning(
+                            "Background thread did not terminate within 5 seconds during final cleanup - marking as daemon"
+                        )
+                        bg_thread.daemon = True
+                    else:
+                        logger.debug("Background thread joined successfully during final cleanup")
+
+                try:
+                    if not bg_loop.is_closed():
+                        bg_loop.close()
+                        logger.debug("Background loop closed during final cleanup")
+                except Exception as e:
+                    logger.warning(f"Error closing background loop during final cleanup: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected error during background loop final cleanup: {e}")
+            finally:
+                self._background_loop = None
+                self._background_thread = None
 
     def get_calendar_html(self, days: int = 1, debug_time: Optional[datetime] = None) -> str:
         """Get current calendar HTML content.
@@ -2481,36 +2906,143 @@ class WebServer:
                 )
 
                 # Handle async call from sync context properly
-                try:
-                    # Try to get the running event loop
-                    loop = asyncio.get_running_loop()
+                # Prefer scheduling on the dedicated background loop when available.
+                bg_loop = getattr(self, "_background_loop", None)
+                if bg_loop is not None:
+                    # Get configurable timeout from settings
+                    timeout = getattr(
+                        getattr(self.settings, "optimization", None), "bridge_timeout_seconds", 10.0
+                    )
+                    logger.debug(
+                        f"[TIMEOUT_DEBUG] Scheduling get_events_by_date_range on background loop (interactive): loop_id={id(bg_loop)}, start={start_datetime}, end={end_datetime}"
+                    )
+                    # Defensive validation: ensure background loop & thread are alive and loop is open.
+                    bg_thread = getattr(self, "_background_thread", None)
+                    if (
+                        bg_thread is None
+                        or not getattr(bg_thread, "is_alive", lambda: False)()
+                        or (getattr(bg_loop, "is_closed", lambda: True)())
+                    ):
+                        logger.warning(
+                            "[TIMEOUT_DEBUG] Background loop/thread invalid or closed - falling back to per-call thread execution"
+                        )
 
-                    # If we're in an event loop, we can't use asyncio.run()
-                    # Create a task and run it synchronously (this is for web server context)
-                    # Run the async function in a separate thread to avoid event loop conflicts
-                    def run_async_in_thread() -> Any:
-                        import asyncio  # noqa: PLC0415
+                        # Fallback: run the async call in a temporary event loop inside the global thread pool
+                        def run_async_in_thread() -> Any:
+                            import asyncio  # noqa: PLC0415
 
-                        new_loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(new_loop)
+                            new_loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(new_loop)
+                            try:
+                                return new_loop.run_until_complete(
+                                    self.cache_manager.get_events_by_date_range(
+                                        start_datetime, end_datetime
+                                    )
+                                )
+                            finally:
+                                new_loop.close()
+
+                        # Use existing thread pool helper; use the same timeout for the synchronous bridge
+                        events = run_in_thread_pool(run_async_in_thread, timeout=timeout)
+                    else:
+                        start_time = time.time()
                         try:
-                            return new_loop.run_until_complete(
+                            future = asyncio.run_coroutine_threadsafe(
                                 self.cache_manager.get_events_by_date_range(
                                     start_datetime, end_datetime
-                                )
+                                ),
+                                bg_loop,
                             )
-                        finally:
-                            new_loop.close()
 
-                    events = run_in_thread_pool(run_async_in_thread, timeout=5.0)
+                            # Add a done callback to surface exceptions logged from the coroutine running on the background loop.
+                            def _bg_done_cb(fut) -> None:
+                                try:
+                                    exc = fut.exception()
+                                    if exc:
+                                        logger.exception(
+                                            "[TIMEOUT_DEBUG] Exception raised inside scheduled coroutine",
+                                            exc_info=exc,
+                                        )
+                                except Exception:
+                                    # Accessing exception() can itself raise if the future was cancelled concurrently
+                                    logger.exception(
+                                        "[TIMEOUT_DEBUG] Error while inspecting scheduled future"
+                                    )
 
-                except RuntimeError:
-                    # No running event loop, safe to use asyncio.run()
-                    events = asyncio.run(
-                        self.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
-                    )
+                            try:
+                                future.add_done_callback(_bg_done_cb)
+                            except Exception:
+                                logger.debug(
+                                    "[TIMEOUT_DEBUG] Failed to attach done callback to future"
+                                )
+
+                            logger.debug(
+                                f"[TIMEOUT_DEBUG] Coroutine scheduled, waiting for result with {timeout}s timeout"
+                            )
+                            events = future.result(timeout=timeout)
+                            elapsed = time.time() - start_time
+                            logger.debug(
+                                f"[TIMEOUT_DEBUG] Background loop returned {len(events)} events in {elapsed:.3f}s (interactive)"
+                            )
+                        except FuturesTimeoutError:
+                            elapsed = time.time() - start_time
+                            logger.exception(
+                                f"[TIMEOUT_DEBUG] Timed out waiting for events from background loop after {elapsed:.3f}s (interactive)"
+                            )
+                            raise TimeoutError("Timed out waiting for events")
+                        except Exception:
+                            elapsed = time.time() - start_time
+                            logger.exception(
+                                f"[TIMEOUT_DEBUG] Error while fetching events via background loop after {elapsed:.3f}s (interactive)"
+                            )
+                            raise
+                else:
+                    try:
+                        # Try to get the running event loop
+                        loop = asyncio.get_running_loop()
+
+                        # If we're in an event loop, run the async function in a separate thread
+                        def run_async_in_thread() -> Any:
+                            import asyncio  # noqa: PLC0415
+
+                            new_loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(new_loop)
+                            try:
+                                return new_loop.run_until_complete(
+                                    self.cache_manager.get_events_by_date_range(
+                                        start_datetime, end_datetime
+                                    )
+                                )
+                            finally:
+                                new_loop.close()
+
+                        timeout = getattr(
+                            getattr(self.settings, "optimization", None),
+                            "bridge_timeout_seconds",
+                            10.0,
+                        )
+                        events = run_in_thread_pool(run_async_in_thread, timeout=timeout)
+
+                    except RuntimeError:
+                        # No running event loop, safe to use asyncio.run()
+                        events = asyncio.run(
+                            self.cache_manager.get_events_by_date_range(
+                                start_datetime, end_datetime
+                            )
+                        )
 
                 logger.debug(f"Retrieved {len(events)} events for selected date")
+
+                # Defensive guard at WebServer boundary: slice events according to settings
+                try:
+                    max_events_setting = getattr(self.settings, "optimization", None) and getattr(
+                        self.settings.optimization, "max_events_processed", None
+                    )
+                except Exception:
+                    max_events_setting = None
+
+                if isinstance(max_events_setting, int) and max_events_setting > 0:
+                    events = events[:max_events_setting]
 
                 # Build status info for interactive mode
                 from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
@@ -2533,35 +3065,139 @@ class WebServer:
                 )
 
                 # Handle async call from sync context properly
-                try:
-                    # Try to get the running event loop
-                    loop = asyncio.get_running_loop()  # noqa: F841
+                # Prefer scheduling on the dedicated background loop when available.
+                bg_loop = getattr(self, "_background_loop", None)
+                if bg_loop is not None:
+                    # Get configurable timeout from settings
+                    timeout = getattr(
+                        getattr(self.settings, "optimization", None), "bridge_timeout_seconds", 10.0
+                    )
+                    logger.debug(
+                        f"[TIMEOUT_DEBUG] Scheduling get_events_by_date_range on background loop (non-interactive): loop_id={id(bg_loop)}, start={start_datetime}, end={end_datetime}"
+                    )
+                    # Defensive validation of background loop/thread
+                    bg_thread = getattr(self, "_background_thread", None)
+                    if (
+                        bg_thread is None
+                        or not getattr(bg_thread, "is_alive", lambda: False)()
+                        or (getattr(bg_loop, "is_closed", lambda: True)())
+                    ):
+                        logger.warning(
+                            "[TIMEOUT_DEBUG] Background loop/thread invalid or closed - falling back to per-call thread execution (non-interactive)"
+                        )
 
-                    # If we're in an event loop, we can't use asyncio.run()
-                    # Run the async function in a separate thread to avoid event loop conflicts
-                    def run_async_in_thread() -> Any:
-                        import asyncio  # noqa: PLC0415
+                        def run_async_in_thread() -> Any:
+                            import asyncio  # noqa: PLC0415
 
-                        new_loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(new_loop)
+                            new_loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(new_loop)
+                            try:
+                                return new_loop.run_until_complete(
+                                    self.cache_manager.get_events_by_date_range(
+                                        start_datetime, end_datetime
+                                    )
+                                )
+                            finally:
+                                new_loop.close()
+
+                        events = run_in_thread_pool(run_async_in_thread, timeout=timeout)
+                    else:
+                        start_time = time.time()
                         try:
-                            return new_loop.run_until_complete(
+                            future = asyncio.run_coroutine_threadsafe(
                                 self.cache_manager.get_events_by_date_range(
                                     start_datetime, end_datetime
-                                )
+                                ),
+                                bg_loop,
                             )
-                        finally:
-                            new_loop.close()
 
-                    events = run_in_thread_pool(run_async_in_thread, timeout=5.0)
+                            def _bg_done_cb(fut) -> None:
+                                try:
+                                    exc = fut.exception()
+                                    if exc:
+                                        logger.exception(
+                                            "[TIMEOUT_DEBUG] Exception raised inside scheduled coroutine",
+                                            exc_info=exc,
+                                        )
+                                except Exception:
+                                    logger.exception(
+                                        "[TIMEOUT_DEBUG] Error while inspecting scheduled future"
+                                    )
 
-                except RuntimeError:
-                    # No running event loop, safe to use asyncio.run()
-                    events = asyncio.run(
-                        self.cache_manager.get_events_by_date_range(start_datetime, end_datetime)
-                    )
+                            try:
+                                future.add_done_callback(_bg_done_cb)
+                            except Exception:
+                                logger.debug(
+                                    "[TIMEOUT_DEBUG] Failed to attach done callback to future (non-interactive)"
+                                )
+
+                            logger.debug(
+                                f"[TIMEOUT_DEBUG] Coroutine scheduled, waiting for result with {timeout}s timeout"
+                            )
+                            events = future.result(timeout=timeout)
+                            elapsed = time.time() - start_time
+                            logger.debug(
+                                f"[TIMEOUT_DEBUG] Background loop returned {len(events)} events in {elapsed:.3f}s (non-interactive)"
+                            )
+                        except FuturesTimeoutError:
+                            elapsed = time.time() - start_time
+                            logger.exception(
+                                f"[TIMEOUT_DEBUG] Timed out waiting for events from background loop after {elapsed:.3f}s (non-interactive)"
+                            )
+                            raise TimeoutError("Timed out waiting for events")
+                        except Exception:
+                            elapsed = time.time() - start_time
+                            logger.exception(
+                                f"[TIMEOUT_DEBUG] Error while fetching events via background loop after {elapsed:.3f}s (non-interactive)"
+                            )
+                            raise
+                else:
+                    try:
+                        # Try to get the running event loop
+                        loop = asyncio.get_running_loop()  # noqa: F841
+
+                        # If we're in an event loop, run the async function in a separate thread
+                        def run_async_in_thread() -> Any:
+                            import asyncio  # noqa: PLC0415
+
+                            new_loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(new_loop)
+                            try:
+                                return new_loop.run_until_complete(
+                                    self.cache_manager.get_events_by_date_range(
+                                        start_datetime, end_datetime
+                                    )
+                                )
+                            finally:
+                                new_loop.close()
+
+                        timeout = getattr(
+                            getattr(self.settings, "optimization", None),
+                            "bridge_timeout_seconds",
+                            10.0,
+                        )
+                        events = run_in_thread_pool(run_async_in_thread, timeout=timeout)
+
+                    except RuntimeError:
+                        # No running event loop, safe to use asyncio.run()
+                        events = asyncio.run(
+                            self.cache_manager.get_events_by_date_range(
+                                start_datetime, end_datetime
+                            )
+                        )
 
                 logger.debug(f"Retrieved {len(events)} events for today")
+
+                # Defensive guard at WebServer boundary: slice events according to settings
+                try:
+                    max_events_setting = getattr(self.settings, "optimization", None) and getattr(
+                        self.settings.optimization, "max_events_processed", None
+                    )
+                except Exception:
+                    max_events_setting = None
+
+                if isinstance(max_events_setting, int) and max_events_setting > 0:
+                    events = events[:max_events_setting]
 
                 # Static web display mode - no navigation buttons
                 from ..utils.helpers import get_timezone_aware_now  # noqa: PLC0415
