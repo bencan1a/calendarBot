@@ -12,16 +12,10 @@ from .whats_next_renderer import WhatsNextRenderer
 
 logger = logging.getLogger(__name__)
 
-# Import e-Paper renderer with graceful fallback
-try:
-    from .epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer
-
-    EPAPER_AVAILABLE = True
-    EInkWhatsNextRenderer_TYPE: Optional[type[EInkWhatsNextRenderer]] = EInkWhatsNextRenderer
-except ImportError:
-    logger.info("calendarbot.display.epaper package not available - e-Paper rendering disabled")
-    EInkWhatsNextRenderer_TYPE = None
-    EPAPER_AVAILABLE = False
+# Lazy-load e-Paper renderer to avoid importing heavy native libs at module import time.
+# This prevents Pillow/numpy/html2image from being imported on devices that don't need epaper.
+EPAPER_AVAILABLE = False
+EInkWhatsNextRenderer_TYPE: Optional[type] = None
 
 
 class RendererFactory:
@@ -221,6 +215,10 @@ def _create_renderer_instance(
 ) -> RendererProtocol:
     """Create renderer instance of specified type.
 
+    This function attempts a lazy import of the e-Paper renderer only when an
+    e-paper renderer is requested. If the lazy import fails, it falls back to
+    ConsoleRenderer to avoid importing heavy native dependencies at module import.
+
     Args:
         renderer_type: Type of renderer to create
         settings: Application settings
@@ -232,22 +230,39 @@ def _create_renderer_instance(
     Raises:
         ValueError: If renderer_type is invalid
     """
+    # If the requested renderer may be e-paper based, try to lazy-import it.
+    # Use module-level mutable flags for lazy import state; mutate them intentionally.
+    global EPAPER_AVAILABLE, EInkWhatsNextRenderer_TYPE  # noqa: PLW0603 - deliberate lazy module-level state mutation
+    if renderer_type in ("epaper", "eink-whats-next", "compact"):
+        try:
+            # Local import: runtime lazy import to avoid heavy native deps on non-ePaper devices.
+            # Deliberate runtime fallback import; suppress PLC0415 (local import) and I001 (import formatting).
+            from .epaper.integration.eink_whats_next_renderer import EInkWhatsNextRenderer  # type: ignore  # noqa: PLC0415, I001
+
+            EInkWhatsNextRenderer_TYPE = EInkWhatsNextRenderer
+            EPAPER_AVAILABLE = True
+            logger.info("Successfully imported e-Paper renderer lazily")
+        except Exception:
+            logger.info(
+                "e-Paper renderer not available or failed to import; falling back to ConsoleRenderer"
+            )
+            EPAPER_AVAILABLE = False
+            EInkWhatsNextRenderer_TYPE = None
+
+    # Base renderer mappings (use ConsoleRenderer as safe default for compact/epaper if not available)
     renderer_classes = {
         "html": HTMLRenderer,
         "console": ConsoleRenderer,
         "whats-next": WhatsNextRenderer,
-        # Legacy type mappings for backward compatibility
         "compact": EInkWhatsNextRenderer_TYPE
         if EPAPER_AVAILABLE and EInkWhatsNextRenderer_TYPE is not None
         else ConsoleRenderer,
     }
 
-    # Add e-Paper renderer if available
+    # Add e-Paper renderer entries only if available
     if EPAPER_AVAILABLE and EInkWhatsNextRenderer_TYPE is not None:
         renderer_classes["eink-whats-next"] = EInkWhatsNextRenderer_TYPE
-        renderer_classes["epaper"] = (
-            EInkWhatsNextRenderer_TYPE  # Add direct mapping for "epaper" display_type
-        )
+        renderer_classes["epaper"] = EInkWhatsNextRenderer_TYPE
 
     renderer_class = renderer_classes.get(renderer_type)
     if renderer_class is None:
@@ -257,10 +272,7 @@ def _create_renderer_instance(
         )
 
     # Pass layout_registry to HTML-based renderers (HTMLRenderer and its subclasses)
-    html_based_renderers = {
-        "html",
-        "whats-next",
-    }  # WhatsNextRenderer inherits from HTMLRenderer
+    html_based_renderers = {"html", "whats-next"}  # WhatsNextRenderer inherits from HTMLRenderer
 
     if renderer_type in html_based_renderers and layout_registry is not None:
         return cast("RendererProtocol", renderer_class(settings, layout_registry=layout_registry))

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<workflow_instructions>
+  <mode_overview>
+    Performance Analyst mode — identifies hotspots, runs profilers, and produces reproducible benchmarks and optimization plans.
+  </mode_overview>
+
+  <prerequisites>
+    <prerequisite>Project tests and benchmarks runnable (pytest, scripts/performance_benchmark.py)</prerequisite>
+    <prerequisite>Python venv available and dependencies installed</prerequisite>
+    <prerequisite>Access to profiling tools (cProfile, py-spy, pyinstrument) via command group</prerequisite>
+  </prerequisites>
+
+  <initialization_steps>
+    <step number="1">
+      <title>Clarify scope</title>
+      <description>Confirm what to measure: single function, HTTP endpoint, end-to-end workflow, or background job.</description>
+    </step>
+
+    <step number="2">
+      <title>Gather context</title>
+      <description>Use codebase_search to find likely hotspots, relevant benchmarking tests, and existing monitoring instrumentation.</description>
+    </step>
+
+    <step number="3">
+      <title>Prepare environment</title>
+      <description>Ensure reproducible environment: venv activated, deterministic inputs, and minimal background noise.</description>
+    </step>
+  </initialization_steps>
+
+  <main_workflow>
+    <phase name="analysis">
+      <description>Static analysis and quick heuristics to shortlist candidate hotspots.</description>
+      <steps>
+        <step>Run static checks for O(n^2) constructs, heavy allocations, and blocking I/O patterns.</step>
+        <step>Identify long-running loops, nested iterations, and expensive library calls.</step>
+        <step>Locate caching opportunities and redundant computations.</step>
+      </steps>
+    </phase>
+
+    <phase name="profiling">
+      <description>Run targeted runtime profilers and collect data.</description>
+      <steps>
+        <step>Start with lightweight sampling profiler (py-spy) for low overhead sampling</step>
+        <step>Use deterministic profiler (cProfile) for CPU time breakdown on focused tests</step>
+        <step>Collect memory profiles (tracemalloc or memory_profiler) if leaks or high memory usage suspected</step>
+        <step>Generate flamegraphs and call-graphs for visualization</step>
+      </steps>
+    </phase>
+
+    <phase name="benchmarking">
+      <description>Run microbenchmarks and end-to-end benchmarks to measure impact.</description>
+      <steps>
+        <step>Write small, isolated benchmarks using timeit or pytest-benchmark</step>
+        <step>Run multiple iterations and warm-up runs to reduce jitter</step>
+        <step>Record results and compare against baseline</step>
+      </steps>
+    </phase>
+
+    <phase name="optimization">
+      <description>Design and implement safe optimizations with tests and measurements.</description>
+      <steps>
+        <step>Prioritize fixes by expected impact vs implementation cost</step>
+        <step>Apply targeted fixes (algorithmic change, caching, async I/O)</step>
+        <step>Re-run profilers and benchmarks to validate improvements</step>
+      </steps>
+    </phase>
+
+    <phase name="reporting">
+      <description>Produce reproducible performance reports and remediation steps.</description>
+      <steps>
+        <step>Include high-level summary, evidence (profiles, flamegraphs), and measured deltas</step>
+        <step>Provide reproduction steps and exact commands used</step>
+        <step>Suggest follow-up monitoring or instrumentation</step>
+      </steps>
+    </phase>
+  </main_workflow>
+
+  <completion_criteria>
+    <criterion>Hotspots identified and validated with profiling data</criterion>
+    <criterion>Benchmarks added or updated to prevent regressions</criterion>
+    <criterion>Optimizations measured and documented with reproducible commands</criterion>
+  </completion_criteria>
+
+</workflow_instructions>

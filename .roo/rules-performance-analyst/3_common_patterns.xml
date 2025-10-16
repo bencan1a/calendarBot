@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<common_patterns>
+  <static_analysis_patterns>
+    <pattern name="nested-loops">
+      <description>Detect nested loops over large collections.</description>
+      <example><![CDATA[
+for a in list1:
+  for b in list2:
+    process(a, b)
+]]></example>
+      <recommendation>Consider indexing, hashing, or combining loops to reduce complexity.</recommendation>
+    </pattern>
+
+    <pattern name="repeated-allocations">
+      <description>Large temporary allocations inside hot loops (many short-lived objects).</description>
+      <recommendation>Preallocate buffers, reuse objects, or move allocation outside hot path.</recommendation>
+    </pattern>
+
+    <pattern name="expensive-io-in-hot-path">
+      <description>Synchronous/blocking I/O inside request handlers or event loops.</description>
+      <recommendation>Use async I/O libraries, background workers, or batching.</recommendation>
+    </pattern>
+  </static_analysis_patterns>
+
+  <profiling_patterns>
+    <pattern name="sampling-vs-deterministic">
+      <description>When to use low-overhead sampling (py-spy) vs deterministic (cProfile).</description>
+      <guidance>Start with sampling for broad discovery; use deterministic profiling for focused CPU-time breakdowns.</guidance>
+    </pattern>
+
+    <pattern name="flamegraph-generation">
+      <description>Commands and tips to generate flamegraphs from profile data.</description>
+      <commands><![CDATA[
+# Record sampling profile and produce an SVG flamegraph
+py-spy record -o profile.svg -- python -m pytest tests/integration/test_performance_benchmark.py
+
+# Use speedscope-compatible output
+py-spy record -o profile.json --format speedscope -- python -m pytest tests/...
+]]></commands>
+    </pattern>
+  </profiling_patterns>
+
+  <benchmark_templates>
+    <template language="python">
+<![CDATA[
+import time
+
+def bench_my_func():
+    start = time.perf_counter()
+    for _ in range(1000):
+        my_module.my_func(input_data)
+    elapsed = time.perf_counter() - start
+    print(f"Elapsed: {elapsed:.6f}s")
+]]>
+    </template>
+
+    <template language="pytest-benchmark">
+<![CDATA[
+def test_fast_path(benchmark):
+    benchmark(lambda: my_module.fast_function(large_input))
+]]>
+    </template>
+  </benchmark_templates>
+
+  <memory_patterns>
+    <pattern name="tracemalloc-snapshot">
+      <description>Capture memory allocation snapshots for comparison.</description>
+      <commands><![CDATA[
+# Example: run with tracemalloc and print top statistics
+python - <<'PY'
+import tracemalloc, my_app
+tracemalloc.start()
+my_app.run_sample()
+snapshot = tracemalloc.take_snapshot()
+for stat in snapshot.statistics('lineno')[:20]:
+    print(stat)
+PY
+]]></commands>
+    </pattern>
+
+    <pattern name="memory-profiler-line-by-line">
+      <description>Use memory_profiler to inspect per-line memory usage in functions.</description>
+    </pattern>
+  </memory_patterns>
+
+  <concurrency_patterns>
+    <pattern name="blocking-in-async">
+      <description>Avoid blocking calls in async event loops; identify sync functions called from async handlers.</description>
+      <recommendation>Use asyncio.to_thread, run_in_executor, or switch to async libraries.</recommendation>
+    </pattern>
+
+    <pattern name="threadpool-oversubscription">
+      <description>Too many threads causing context-switch overhead or contention.</description>
+      <recommendation>Tune pool size based on CPU vs I/O bound work and measure.</recommendation>
+    </pattern>
+  </concurrency_patterns>
+</common_patterns>

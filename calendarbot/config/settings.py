@@ -213,6 +213,22 @@ class RuntimeTrackingSettings(BaseModel):
     )
 
 
+class MonitoringSettings(BaseModel):
+    """Monitoring and metrics configuration settings.
+
+    Controls whether monitoring is enabled and tuning for sampling/flush behavior.
+    """
+
+    enabled: bool = Field(default=True, description="Enable monitoring/metrics collection")
+    sampling_interval_seconds: int = Field(
+        default=5, description="Sampling interval in seconds for background collection"
+    )
+    slow_write_threshold: int = Field(
+        default=1024,
+        description="If a single metric JSON is larger than this (bytes) it will trigger an immediate flush",
+    )
+
+
 class EpaperConfiguration(BaseModel):
     """Core e-Paper display configuration within CalendarBot settings."""
 
@@ -276,11 +292,48 @@ class EpaperConfiguration(BaseModel):
 KIOSK_SETTINGS_AVAILABLE = False
 
 
+class OptimizationSettings(BaseModel):
+    """Optimization-related settings."""
+
+    prebuild_asset_cache: bool = Field(
+        default=True,
+        description="Prebuild full static asset cache at startup for fast lookups. "
+        "Disable to lazily build assets on first request (useful on constrained devices).",
+    )
+
+    # When True, use conservative cache sizes and lower logging verbosity
+    # to better suit memory/IO constrained devices.
+    small_device: bool = Field(
+        default=False,
+        description="When true, apply small-device cache defaults and reduce cache logging verbosity",
+    )
+
+    # Optional cap to limit how many events are processed end-to-end by EventCache/WebServer.
+    # When set to an int > 0 the event lists returned by the cache and defended at the
+    # WebServer boundary will be sliced to at most this many items. Default None (disabled).
+    max_events_processed: Optional[int] = Field(
+        default=None,
+        description="Optional cap on number of events processed by EventCache/WebServer. Set to 10 for Pi Zero2 W recommendation.",
+    )
+
+    # Background loop timeout configuration
+    bridge_timeout_seconds: float = Field(
+        default=10.0,
+        description="Timeout for sync->async bridge operations via background loop. Increase for heavy startup operations.",
+    )
+
+
 class CalendarBotSettings(BaseSettings):
     """Application settings with environment variable support."""
 
     # Private attributes
     _explicit_args: set = PrivateAttr(default_factory=set)
+
+    # Optimization group
+    optimization: OptimizationSettings = Field(
+        default_factory=OptimizationSettings,
+        description="Optimization-related toggles (e.g., prebuilding static asset cache)",
+    )
 
     # ICS Calendar Configuration
     ics_url: Optional[str] = Field(default=None, description="ICS calendar URL")
@@ -330,6 +383,10 @@ class CalendarBotSettings(BaseSettings):
     )
 
     # File Paths
+    # Monitoring / Metrics Configuration
+    monitoring: MonitoringSettings = Field(
+        default_factory=MonitoringSettings, description="Monitoring/metrics configuration"
+    )
     config_dir: Path = Field(default_factory=lambda: Path.home() / ".config" / "calendarbot")
     data_dir: Path = Field(default_factory=lambda: Path.home() / ".local" / "share" / "calendarbot")
     cache_dir: Path = Field(default_factory=lambda: Path.home() / ".cache" / "calendarbot")

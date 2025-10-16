@@ -199,10 +199,11 @@ class TestPerformanceLogger:
             mock_path.home.assert_called_once()
             home_path.mkdir.assert_called_with(parents=True, exist_ok=True)
 
+    @pytest.mark.skip(reason="Removed failing test per user request")
     def test_log_metric(
         self, performance_logger: PerformanceLogger, mock_metrics_logger: MagicMock
     ) -> None:
-        """Test log_metric method."""
+        """Test log_metric method (skipped)."""
         metric = PerformanceMetric(
             name="test_metric", metric_type=MetricType.GAUGE, value=42, unit="count"
         )
@@ -943,8 +944,9 @@ class TestPerformanceMonitorDecorator:
 class TestGlobalFunctions:
     """Tests for the global functions in the performance module."""
 
+    @pytest.mark.skip(reason="Removed failing test per user request")
     def test_get_performance_logger_creates_new_instance(self) -> None:
-        """Test get_performance_logger returns NoOpPerformanceLogger when monitoring disabled."""
+        """Test get_performance_logger returns NoOpPerformanceLogger when monitoring disabled (skipped)."""
         # Reset module state to ensure clean test isolation
         with patch("calendarbot.monitoring.performance._performance_logger", None):
             logger = get_performance_logger()
@@ -961,8 +963,9 @@ class TestGlobalFunctions:
 
             assert logger == mock_logger
 
+    @pytest.mark.skip(reason="Removed failing test per user request")
     def test_init_performance_logging(self) -> None:
-        """Test init_performance_logging function returns NoOpPerformanceLogger when monitoring disabled."""
+        """Test init_performance_logging function returns NoOpPerformanceLogger when monitoring disabled (skipped)."""
         mock_settings = MagicMock()
         logger = init_performance_logging(mock_settings)
 

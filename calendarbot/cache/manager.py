@@ -251,7 +251,11 @@ class CacheManager:
 
             # Convert API events to cached events with memory monitoring
             with memory_monitor("event_conversion"):
-                cached_events = [self._convert_api_event_to_cached(event) for event in events_list]
+                import asyncio  # run CPU-bound conversion off the event loop  # noqa: PLC0415
+
+                cached_events = await asyncio.to_thread(
+                    lambda: [self._convert_api_event_to_cached(event) for event in events_list]
+                )
 
             logger.debug(f"Converted {len(cached_events)} API events to cached events")
 
@@ -266,9 +270,10 @@ class CacheManager:
                     parser = ICSParser(self.settings)
 
                     # Re-parse the raw content independently to get ALL unfiltered event data
-                    independent_parse_result = parser.parse_ics_content_unfiltered(
-                        raw_content,
-                        source_url,
+                    import asyncio  # run blocking parser in thread  # noqa: PLC0415
+
+                    independent_parse_result = await asyncio.to_thread(
+                        parser.parse_ics_content_unfiltered, raw_content, source_url
                     )
 
                     # Create raw events from the independent parsing using individual event ICS content
@@ -419,7 +424,19 @@ class CacheManager:
         Returns:
             List of cached events
         """
+        import time  # noqa: PLC0415
+
+        start_time = time.time()
+        logger.debug(
+            f"[CACHE_DEBUG] Starting get_events_by_date_range: start={start_date}, end={end_date}"
+        )
+
         cached_events: list[CachedEvent] = await self.get_cached_events(start_date, end_date)
+
+        elapsed = time.time() - start_time
+        logger.debug(
+            f"[CACHE_DEBUG] get_events_by_date_range completed: {len(cached_events)} events in {elapsed:.3f}s"
+        )
         return cached_events
 
     @performance_monitor("get_todays_cached_events")

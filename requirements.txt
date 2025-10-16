@@ -24,10 +24,8 @@ psutil>=5.8.0
 cachetools>=5.0.0
 diskcache>=5.0.0
 
-# Image processing (core for all display modes)
-Pillow>=9.0.0
-numpy>=1.20.0
-html2image>=2.0.0
+# Image processing moved to optional 'epaper' extras to avoid heavy native deps on constrained devices
+# Install with: pip install -e .[epaper] or pip install .[epaper]
 
 # HTTP client for kiosk health checks
 aiohttp>=3.8.0

@@ -14,7 +14,28 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-import psutil
+# psutil is optional for lightweight test environments; provide a safe fallback if not installed
+try:
+    import psutil  # type: ignore
+except Exception:
+
+    class _PsutilDummy:
+        """Minimal psutil fallback used in tests when psutil is unavailable."""
+
+        @staticmethod
+        def cpu_percent(interval: float | None = None) -> float:  # type: ignore[valid-type]
+            return 0.0
+
+        @staticmethod
+        def virtual_memory() -> object:
+            class VM:
+                total = 0
+                available = 0
+
+            return VM()
+
+    psutil = _PsutilDummy()  # type: ignore
+
 import pytest
 
 from calendarbot.cache.manager import CacheManager

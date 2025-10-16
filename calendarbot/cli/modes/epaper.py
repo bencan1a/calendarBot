@@ -8,6 +8,7 @@ The module now includes webserver integration to ensure consistent rendering
 between web mode and e-paper mode by fetching HTML from a local webserver
 instead of generating it directly.
 """
+# ruff: noqa
 
 import asyncio
 import logging
@@ -19,32 +20,42 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn, Optional, Union
 
-from PIL import Image
-
-from calendarbot.cli.modes.shared_webserver import SharedWebServer
 from calendarbot.config.settings import settings
-from calendarbot.display.epaper.drivers.waveshare import EPD4in2bV2
-from calendarbot.display.epaper.integration.eink_whats_next_renderer import (
-    EInkWhatsNextRenderer,
-)
-from calendarbot.display.epaper.utils.html_to_png import (
-    create_converter,
-    is_html2image_available,
-)
-from calendarbot.display.shared_styling import get_layout_for_renderer
 from calendarbot.main import CalendarBot
-from calendarbot.utils.http_client import HTTPClient
+from calendarbot.display.shared_styling import get_layout_for_renderer
 from calendarbot.utils.logging import (
     apply_command_line_overrides,
     setup_enhanced_logging,
 )
-
 from ..config import apply_cli_overrides
+
+# Lazy-loaded heavy dependencies. These are intentionally initialized at runtime
+# inside initialization functions to allow early exit when e-paper is disabled.
+Image = None
+EPD4in2bV2 = None
+EInkWhatsNextRenderer = None
+create_converter = None
+
+
+# Default to a conservative false-returning callable until the real function is loaded
+def is_html2image_available() -> bool:  # type: ignore
+    return False
+
+
+# Runtime-lazy placeholders for heavy classes. Mark as Any so static type-checkers
+# (Pylance) understand these are runtime-assigned and avoid "None is not callable"
+# diagnostics. Actual implementations are imported at runtime inside
+# _initialize_epaper_components().
+SharedWebServer: Any = None
+HTTPClient: Any = None
 
 # Type checking imports
 if TYPE_CHECKING:
     from calendarbot.cli.modes.shared_webserver import SharedWebServer
     from calendarbot.utils.http_client import HTTPClient
+    from calendarbot.display.epaper.integration.eink_whats_next_renderer import (
+        EInkWhatsNextRenderer,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -54,18 +65,17 @@ class EpaperModeContext:
 
     def __init__(self) -> None:
         self.app: Optional[CalendarBot] = None
-        self.epaper_renderer: Optional[EInkWhatsNextRenderer] = None
+        # Use Any here to avoid static analysis issues for runtime-lazy imports
+        self.epaper_renderer: Optional[Any] = None
         self.hardware_available: bool = False
         self.fetch_task: Optional[asyncio.Task] = None
         self.shutdown_event: asyncio.Event = asyncio.Event()
 
-        # Webserver integration components
-        if TYPE_CHECKING:
-            self.webserver: Optional[SharedWebServer] = None
-            self.http_client: Optional[HTTPClient] = None
-        else:
-            self.webserver: Optional[Any] = None
-            self.http_client: Optional[Any] = None
+        # Webserver integration components (runtime-lazy; typed as Any to avoid import-time heavy deps)
+        # Use Any for these attributes so static analysis won't attempt to resolve optional runtime
+        # imports that are lazily loaded by this module.
+        self.webserver: Any = None
+        self.http_client: Any = None
 
 
 async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, Any]:  # noqa: PLR0915
@@ -81,6 +91,83 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
         Exception: If initialization fails
     """
     logger.info("Starting Calendar Bot e-paper mode initialization...")
+
+    # Early disable guard: environment variable override or settings flag
+    _disable_env = os.getenv("CALENDARBOT_DISABLE_EPAPER", "")
+    if _disable_env and _disable_env.lower() in ("1", "true"):
+        print(
+            "e-paper mode disabled by CALENDARBOT_DISABLE_EPAPER=1 or settings.epaper.enabled=false — exiting"
+        )
+        ctx = EpaperModeContext()
+        setattr(ctx, "disabled_by_config", True)
+        return ctx, settings
+
+    if not getattr(settings.epaper, "enabled", True):
+        print(
+            "e-paper mode disabled by CALENDARBOT_DISABLE_EPAPER=1 or settings.epaper.enabled=false — exiting"
+        )
+        ctx = EpaperModeContext()
+        setattr(ctx, "disabled_by_config", True)
+        return ctx, settings
+
+    # Lazy import heavy dependencies here so importing this module does not pull in
+    # renderer, hardware drivers, or html2image at import-time.
+    global \
+        Image, \
+        EPD4in2bV2, \
+        EInkWhatsNextRenderer, \
+        create_converter, \
+        is_html2image_available, \
+        SharedWebServer, \
+        HTTPClient
+    try:
+        from PIL import Image as _Image  # noqa: PLC0415
+
+        Image = _Image
+    except Exception:
+        Image = None
+
+    try:
+        from calendarbot.display.epaper.drivers.waveshare import EPD4in2bV2 as _EPD  # noqa: PLC0415
+
+        EPD4in2bV2 = _EPD
+    except Exception:
+        EPD4in2bV2 = None
+
+    try:
+        from calendarbot.display.epaper.integration.eink_whats_next_renderer import (  # noqa: PLC0415
+            EInkWhatsNextRenderer as _EInk,
+        )
+
+        EInkWhatsNextRenderer = _EInk
+    except Exception:
+        EInkWhatsNextRenderer = None
+
+    try:
+        from calendarbot.display.epaper.utils.html_to_png import (  # noqa: PLC0415
+            create_converter as _create_converter,
+            is_html2image_available as _is_html2image_available,
+        )
+
+        create_converter = _create_converter
+        is_html2image_available = _is_html2image_available
+    except Exception:
+        create_converter = None
+        is_html2image_available = lambda: False  # type: ignore
+
+    try:
+        from calendarbot.cli.modes.shared_webserver import SharedWebServer as _SWS  # noqa: PLC0415
+
+        SharedWebServer = _SWS
+    except Exception:
+        SharedWebServer = None
+
+    try:
+        from calendarbot.utils.http_client import HTTPClient as _HTTPClient  # noqa: PLC0415
+
+        HTTPClient = _HTTPClient
+    except Exception:
+        HTTPClient = None
 
     # Apply command-line logging overrides with priority system
     updated_settings = apply_command_line_overrides(settings, args)
@@ -129,8 +216,14 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
             html2image_available = False
             logger.warning("Failed to import html2image module")
 
-    # Create the renderer
-    context.epaper_renderer = EInkWhatsNextRenderer(updated_settings)
+    # Create the renderer (only if the renderer class was successfully imported)
+    if EInkWhatsNextRenderer is not None:
+        context.epaper_renderer = EInkWhatsNextRenderer(updated_settings)
+    else:
+        context.epaper_renderer = None
+        logger.warning(
+            "EInkWhatsNextRenderer not available; running in fallback emulation mode without renderer instance"
+        )
 
     if context.hardware_available:
         logger.info("E-paper hardware detected - using physical display")
@@ -139,10 +232,13 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
         logger.info("No e-paper hardware detected - using PNG emulation mode")
         print("No e-paper hardware detected - using PNG emulation (output saved to files)")
 
-        # Ensure HTML-to-PNG conversion is used for emulation mode
-        if context.epaper_renderer.html_converter is None:
+        # Ensure HTML-to-PNG conversion is used for emulation mode when we have a renderer instance
+        if (
+            context.epaper_renderer
+            and getattr(context.epaper_renderer, "html_converter", None) is None
+        ):
             logger.warning(
-                "HTML-to-PNG converter not initialized, forcing initialization for emulation mode"
+                "HTML-to-PNG converter not initialized on renderer instance, attempting initialization for emulation mode"
             )
             try:
                 # Get layout dimensions
@@ -151,18 +247,28 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
 
                 # Create temporary directory for output files
                 temp_dir_path = tempfile.mkdtemp(prefix="calendarbot_epaper_")
-                context.epaper_renderer.temp_dir = Path(temp_dir_path)
+                if context.epaper_renderer is not None:
+                    context.epaper_renderer.temp_dir = Path(temp_dir_path)
 
-                # Ensure the directory exists
-                context.epaper_renderer.temp_dir.mkdir(exist_ok=True, parents=True)
-                logger.info(f"Created temporary directory: {context.epaper_renderer.temp_dir}")
+                    # Ensure the directory exists
+                    context.epaper_renderer.temp_dir.mkdir(exist_ok=True, parents=True)
+                    logger.info(f"Created temporary directory: {context.epaper_renderer.temp_dir}")
 
-                # Initialize converter with e-paper dimensions
-                context.epaper_renderer.html_converter = create_converter(
-                    size=(width, height),
-                    output_path=str(context.epaper_renderer.temp_dir),
-                )
-                logger.info(f"HTML-to-PNG converter initialized with size {width}x{height}")
+                    # Initialize converter with e-paper dimensions if available
+                    if create_converter is not None:
+                        context.epaper_renderer.html_converter = create_converter(
+                            size=(width, height),
+                            output_path=str(context.epaper_renderer.temp_dir),
+                        )
+                        logger.info(f"HTML-to-PNG converter initialized with size {width}x{height}")
+                    else:
+                        logger.warning(
+                            "create_converter is not available; cannot initialize html_converter"
+                        )
+                else:
+                    logger.warning(
+                        "No epaper_renderer instance; skipping html_converter initialization"
+                    )
             except Exception as e:
                 logger.warning(f"Failed to initialize HTML-to-PNG converter: {e}")
 
@@ -184,32 +290,51 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
         # Set webserver port in settings
         updated_settings.web_port = webserver_port
 
-        # Create and start webserver
-        context.webserver = SharedWebServer(
-            settings=updated_settings,
-            display_manager=context.app.display_manager,
-            cache_manager=context.app.cache_manager,
-        )
-
-        # Start webserver with automatic port conflict resolution
-        webserver_started = context.webserver.start(auto_find_port=True, max_port_attempts=10)
-
-        if webserver_started:
-            actual_port = context.webserver.port
-            logger.info(f"Webserver started successfully on port {actual_port}")
-
-            # Create HTTP client for fetching HTML
-            # Use the IP address that we know works (192.168.1.45)
-            host = "192.168.1.45"
-            logger.debug(f"Using host {host} for HTTP client")
-            context.http_client = HTTPClient(
-                base_url=f"http://{host}:{actual_port}",
-                timeout=5.0,
-                max_retries=3,
+        # Create and start webserver (only if SharedWebServer class is available)
+        if SharedWebServer is not None:
+            context.webserver = SharedWebServer(
+                settings=updated_settings,
+                display_manager=context.app.display_manager,
+                cache_manager=context.app.cache_manager,
             )
-            logger.info(f"HTTP client initialized with base URL: {context.http_client.base_url}")
+
+            # Start webserver with automatic port conflict resolution
+            webserver_started = False
+            if context.webserver is not None and hasattr(context.webserver, "start"):
+                webserver_started = context.webserver.start(
+                    auto_find_port=True, max_port_attempts=10
+                )
+
+            if webserver_started:
+                actual_port = getattr(context.webserver, "port", None)
+                logger.info(f"Webserver started successfully on port {actual_port}")
+
+                # Create HTTP client for fetching HTML (only if HTTPClient is available)
+                # Use the IP address that we know works (192.168.1.45)
+                host = "192.168.1.45"
+                logger.debug(f"Using host {host} for HTTP client")
+                if HTTPClient is not None:
+                    if actual_port is not None:
+                        context.http_client = HTTPClient(
+                            base_url=f"http://{host}:{actual_port}",
+                            timeout=5.0,
+                            max_retries=3,
+                        )
+                        logger.info(
+                            f"HTTP client initialized with base URL: {context.http_client.base_url}"
+                        )
+                    else:
+                        context.http_client = None
+                        logger.warning("Webserver port unknown; cannot initialize HTTP client")
+                else:
+                    context.http_client = None
+                    logger.warning("HTTPClient class not available; cannot create HTTP client")
+            else:
+                logger.warning("Failed to start webserver, falling back to direct HTML generation")
+                context.webserver = None
+                context.http_client = None
         else:
-            logger.warning("Failed to start webserver, falling back to direct HTML generation")
+            logger.warning("SharedWebServer not available; skipping webserver initialization")
             context.webserver = None
             context.http_client = None
     except Exception:
@@ -313,9 +438,17 @@ async def _run_epaper_main_loop(context: EpaperModeContext) -> None:  # noqa: PL
 
                             if png_path and Path(png_path).exists():
                                 # Load the generated PNG as a PIL Image
-                                rendered_image = Image.open(png_path)
-                                logger.info(f"Webserver URL converted successfully to {png_path}")
-                                logger.info(f"File size: {Path(png_path).stat().st_size} bytes")
+                                if Image is not None:
+                                    rendered_image = Image.open(png_path)
+                                    logger.info(
+                                        f"Webserver URL converted successfully to {png_path}"
+                                    )
+                                    logger.info(f"File size: {Path(png_path).stat().st_size} bytes")
+                                else:
+                                    logger.warning(
+                                        "PIL Image is not available; cannot open generated PNG"
+                                    )
+                                    rendered_image = None
                             else:
                                 # Direct fallback if PNG path doesn't exist
                                 logger.warning(
@@ -432,6 +565,20 @@ async def run_epaper_mode(args: Any) -> int:
         Exit code (0 for success, 1 for failure)
     """
 
+    # Early disable guard: environment variable override or settings flag
+    _disable_env = os.getenv("CALENDARBOT_DISABLE_EPAPER", "")
+    if _disable_env and _disable_env.lower() in ("1", "true"):
+        print(
+            "e-paper mode disabled by CALENDARBOT_DISABLE_EPAPER=1 or settings.epaper.enabled=false — exiting"
+        )
+        return 0
+
+    if not getattr(settings.epaper, "enabled", True):
+        print(
+            "e-paper mode disabled by CALENDARBOT_DISABLE_EPAPER=1 or settings.epaper.enabled=false — exiting"
+        )
+        return 0
+
     def signal_handler(signum: int, frame: Any) -> None:
         """Handle shutdown signals gracefully."""
         print(f"\nReceived signal {signum}, initiating graceful shutdown...")
@@ -445,6 +592,10 @@ async def run_epaper_mode(args: Any) -> int:
     try:
         # Initialize components
         context, _ = await _initialize_epaper_components(args)  # updated_settings unused
+
+        # If initialization returned early because e-paper was disabled, exit cleanly
+        if getattr(context, "disabled_by_config", False):
+            return 0
 
         # Start background data fetching
         if not context.app:
@@ -524,8 +675,11 @@ def detect_epaper_hardware() -> bool:
 
         # Try to initialize the driver with real hardware
         try:
+            if EPD4in2bV2 is None:
+                logger.info("E-paper hardware detection: FAILED - EPD driver not available")
+                return False
             test_driver = EPD4in2bV2()
-            if test_driver.initialize():
+            if hasattr(test_driver, "initialize") and test_driver.initialize():
                 logger.info(
                     "E-paper hardware detection: SUCCESS - Physical Waveshare display detected and initialized"
                 )

@@ -243,6 +243,13 @@ Examples:
         help="Enable runtime resource tracking with automatic storage (CPU and memory usage, 1.0s sampling)",
     )
 
+    performance_group.add_argument(
+        "--pi-optimized",
+        dest="pi_optimized",
+        action="store_true",
+        help="Enable consolidated Pi-optimized mode (equivalent to setting CALENDARBOT_PI_OPTIMIZED=1)",
+    )
+
     # Web mode arguments
     parser.add_argument(
         "--web",

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<best_practices>
+  <overview>
+    Best-practice guidelines for performing safe, measurable, and reproducible
+    performance analysis and optimization.
+  </overview>
+
+  <principles>
+    <principle priority="high">
+      <name>Prefer measurement over guesswork</name>
+      <description>Always profile and benchmark before optimizing; validate every change.</description>
+    </principle>
+    <principle priority="high">
+      <name>Make experiments reproducible</name>
+      <description>Record exact commands, environment (venv, OS), and input data so results can be re-run.</description>
+    </principle>
+    <principle priority="medium">
+      <name>Fix algorithmic issues first</name>
+      <description>Algorithmic improvements (reducing complexity) typically outperform micro-optimizations.</description>
+    </principle>
+  </principles>
+
+  <static_analysis>
+    <description>Static checks and heuristics to shortlist suspicious code without executing it.</description>
+    <checks>
+      <check>Nested loops over large collections or N^2 patterns</check>
+      <check>Frequent allocations in hot paths (creating many short-lived objects)</check>
+      <check>Synchronous/blocking I/O within request handlers or event loops</check>
+      <check>Expensive regex or string operations inside loops</check>
+      <check>Unnecessary serialization/deserialization between components</check>
+    </checks>
+    <tools>
+      <tool>ruff / flake8 - linting and simple heuristics</tool>
+      <tool>semgrep - custom pattern-based static searches</tool>
+    </tools>
+  </static_analysis>
+
+  <memory_analysis>
+    <description>Guidance for memory profiling and leak detection.</description>
+    <recommended>
+      <item>tracemalloc — track Python allocation snapshots</item>
+      <item>memory_profiler — line-by-line memory usage</item>
+      <item>objgraph — inspect retained objects and reference chains</item>
+    </recommended>
+  </memory_analysis>
+
+  <profiling_guidance>
+    <description>Which profilers to use and when to use them.</description>
+    <profiles>
+      <profile>
+        <name>py-spy (sampling)</name>
+        <when>Low-overhead exploration in production or long-running processes; produces flamegraphs.</when>
+      </profile>
+      <profile>
+        <name>cProfile (deterministic)</name>
+        <when>Detailed CPU time breakdown for focused tests in development.</when>
+      </profile>
+      <profile>
+        <name>pyinstrument</name>
+        <when>Human-readable call-stack timings for quickly understanding hotspots.</when>
+      </profile>
+    </profiles>
+  </profiling_guidance>
+
+  <benchmarking>
+    <description>Principles for microbenchmarks and end-to-end measurements.</description>
+    <rules>
+      <rule>Isolate the code under test from unrelated work.</rule>
+      <rule>Include warm-up runs, then collect multiple iterations to reduce jitter.</rule>
+      <rule>Use stable, deterministic inputs and record RNG seeds if applicable.</rule>
+    </rules>
+    <example><![CDATA[
+# Example using pytest-benchmark
+def test_fast_path(benchmark):
+    result = benchmark(lambda: my_module.fast_function(large_input))
+]]></example>
+  </benchmarking>
+
+  <safety_and_testing>
+    <description>Ensure correctness and prevent regressions while optimizing.</description>
+    <items>
+      <item>Add or update unit tests for modified functions.</item>
+      <item>Run full test suite after optimizations (smoke + unit + integration).</item>
+      <item>Measure before-and-after and store results (CSV/JSON) for traceability.</item>
+    </items>
+  </safety_and_testing>
+
+  <reporting_template>
+    <description>Structure for concise, reproducible performance reports.</description>
+    <items>
+      <item>High-level summary and expected user impact.</item>
+      <item>Profiling evidence (flamegraphs, toplists, call graphs) with links/images.</item>
+      <item>Exact reproduction commands and environment details.</item>
+      <item>Proposed remediation steps and estimated cost vs. benefit.</item>
+    </items>
+  </reporting_template>
+</best_practices>

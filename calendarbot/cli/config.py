@@ -5,6 +5,7 @@ backup and restore functionality, and integration with the setup wizard.
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -261,6 +262,12 @@ def _apply_epaper_mode(settings: Any, args: Any, logger: logging.Logger) -> None
 def apply_cli_overrides(settings: Any, args: Any) -> Any:
     """Apply command-line overrides to settings with proper layout/renderer separation.
 
+    This also supports the consolidated "Pi-optimized" shortcut which can be enabled
+    either via the CLI flag --pi-optimized or the environment variable
+    CALENDARBOT_PI_OPTIMIZED=1/true. When enabled, a pre-defined set of tuned
+    configuration overrides intended for Pi Zero2 W and other constrained devices
+    will be applied once during startup.
+
     Args:
         settings: Current settings object
         args: Parsed command line arguments
@@ -275,8 +282,50 @@ def apply_cli_overrides(settings: Any, args: Any) -> Any:
         settings.auto_kill_existing = True
         logger.debug("Enabled auto_kill_existing from --kill-duplicates flag")
 
+    # Apply renderer/layout and epaper mode adjustments first
     _apply_renderer_and_layout(settings, args, logger)
     _apply_epaper_mode(settings, args, logger)
+
+    # Consolidated Pi-optimized mode: CLI flag or environment variable
+    pi_flag = bool(getattr(args, "pi_optimized", False))
+    env_val = os.getenv("CALENDARBOT_PI_OPTIMIZED", "")
+    pi_env = str(env_val).lower() in ("1", "true", "yes", "on")
+
+    if pi_flag or pi_env:
+        logger.info("Pi-optimized mode enabled via CLI flag or CALENDARBOT_PI_OPTIMIZED env var")
+        try:
+            # Apply recommended Pi Zero2 W overrides
+            settings.optimization.small_device = True
+            settings.optimization.prebuild_asset_cache = False
+            settings.optimization.max_events_processed = 10
+        except Exception:
+            logger.exception("Failed to apply optimization overrides for Pi mode")
+
+        try:
+            # Disable monitoring to reduce CPU/IO overhead
+            if getattr(settings, "monitoring", None) is not None:
+                settings.monitoring.enabled = False
+        except Exception:
+            logger.exception("Failed to disable monitoring for Pi mode")
+
+        try:
+            # Disable e-paper initialization/features for constrained devices
+            if getattr(settings, "epaper", None) is not None:
+                settings.epaper.enabled = False
+                # Also set env var so other codepaths that check env see the intent
+                os.environ.setdefault("CALENDARBOT_DISABLE_EPAPER", "1")
+        except Exception:
+            logger.exception("Failed to disable epaper for Pi mode")
+
+        logger.debug(
+            "Applied Pi-optimized overrides: small_device=%s, prebuild_asset_cache=%s, max_events_processed=%s, monitoring.enabled=%s, epaper.enabled=%s",
+            getattr(settings.optimization, "small_device", None),
+            getattr(settings.optimization, "prebuild_asset_cache", None),
+            getattr(settings.optimization, "max_events_processed", None),
+            getattr(getattr(settings, "monitoring", None), "enabled", None),
+            getattr(getattr(settings, "epaper", None), "enabled", None),
+        )
+
     return settings
 
 
