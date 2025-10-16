@@ -473,6 +473,32 @@ class DatabaseManager:
         logger.info("Database initialization deferred for faster startup")
         return True
 
+    async def rebuild_database(self) -> bool:
+        """Rebuild (delete and recreate) the persistent database to ensure a fresh state.
+
+        This deletes the database file (unless using in-memory) and recreates schema.
+        """
+        try:
+            # If using file-backed DB, remove the existing file so a fresh DB will be created.
+            if str(self.database_path) != ":memory:":
+                try:
+                    # Ensure we operate with a Path object (DatabaseManager may store a Path or a string)
+                    path_obj = Path(self.database_path)
+                    path_obj.unlink(missing_ok=True)
+                    logger.info(f"Deleted existing database file: {self.database_path}")
+                except Exception:
+                    logger.exception(f"Failed to delete database file {self.database_path}")
+                    # Continue and attempt to reinitialize anyway
+
+            # Reset internal initialization flag and create fresh schema
+            self._initialized = False
+            success = await self._initialize_database()
+            self._initialized = success
+            return success
+        except Exception:
+            logger.exception("Failed to rebuild database")
+            return False
+
     async def store_events(self, events: list[CachedEvent]) -> bool:
         """Store calendar events in cache.
 

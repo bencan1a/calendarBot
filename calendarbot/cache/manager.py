@@ -1,7 +1,9 @@
 """Cache manager coordinating between API and local storage."""
 
 import logging
+import tempfile
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional, Union
 
 from ..ics.models import CalendarEvent, ICSParseResult
@@ -32,16 +34,40 @@ class CacheManager:
     async def initialize(self) -> bool:
         """Initialize cache manager and database.
 
+        This implementation now forces a rebuild of the local database and clears
+        any on-disk ICS/optimization cache to ensure a clean pull on startup.
+
         Returns:
             True if initialization was successful, False otherwise
         """
         try:
-            success = await self.db.initialize()
-            if success:
-                # Clean up old events on startup
+            # Rebuild the persistent database to ensure no cached events persist across runs.
+            success = await self.db.rebuild_database()
+            if not success:
+                logger.error("Failed to rebuild database during cache manager initialization")
+                return False
+
+            # Run the existing cleanup of old events as a secondary step (kept for compatibility)
+            try:
                 await self.cleanup_old_events()
-                logger.info("Cache manager initialization completed")
-            return success
+            except Exception:
+                logger.warning("cleanup_old_events failed after rebuild, continuing")
+
+            # Clear L2 on-disk cache used by optimization/cache_manager (temp/calendarbot_cache)
+            try:
+                disk_cache_dir = Path(tempfile.gettempdir()) / "calendarbot_cache"
+                if disk_cache_dir.exists() and disk_cache_dir.is_dir():
+                    for file_path in disk_cache_dir.glob("*"):
+                        try:
+                            file_path.unlink(missing_ok=True)
+                        except Exception:  # noqa: PERF203
+                            logger.debug(f"Failed to delete cache file: {file_path}", exc_info=True)
+                    logger.info(f"Cleared on-disk optimization cache: {disk_cache_dir}")
+            except Exception:
+                logger.warning("Failed to clear on-disk optimization cache")
+
+            logger.info("Cache manager initialization completed (rebuild performed)")
+            return True
 
         except Exception:
             logger.exception("Failed to initialize cache manager")
