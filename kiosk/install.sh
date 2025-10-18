@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # CalendarBot Kiosk Installation Script
 # Automates the installation of CalendarBot as a kiosk service using systemd templates
@@ -12,6 +12,24 @@ KIOSK_SERVICE_DIR="$SCRIPT_DIR/service"
 KIOSK_SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 LOG_FILE="/tmp/calendarbot-kiosk-install.log"
 CURRENT_USER="$(whoami)"
+
+# Determine the target kiosk user.
+# Precedence:
+# 1) Environment variable KIOSK_USER (if exported)
+# 2) First positional argument to the script (e.g., ./install.sh pi)
+# 3) Default to the current invoking user (safe default)
+#
+# Important: If the first positional argument is the uninstall flag (--uninstall),
+# do not treat it as a username. The main() function handles the --uninstall case
+# before making changes.
+ARG1="${1:-}"
+if [ "$ARG1" = "--uninstall" ]; then
+    ARG_USER=""
+else
+    ARG_USER="$ARG1"
+fi
+
+KIOSK_USER="${KIOSK_USER:-${ARG_USER:-$CURRENT_USER}}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -135,36 +153,39 @@ check_calendarbot() {
     return 1
 }
 
-# Install CalendarBot package from current project directory
+# Install CalendarBot package from current project directory (into venv if present)
 install_calendarbot_package() {
-    print_info "Installing CalendarBot package..."
-    
-    # Check if we're in a virtual environment
-    if [[ -z "${VIRTUAL_ENV:-}" ]] && [[ -d "$PROJECT_DIR/venv" ]]; then
-        print_info "Activating virtual environment..."
-        # Note: This won't affect the current shell, but will affect pip install
-        export PATH="$PROJECT_DIR/venv/bin:$PATH"
-        export VIRTUAL_ENV="$PROJECT_DIR/venv"
-    fi
-    
-    # Install in development mode
-    if cd "$PROJECT_DIR" && pip install -e . >/dev/null 2>&1; then
-        print_success "CalendarBot package installed successfully"
-        
-        # Verify installation
-        if command -v calendarbot >/dev/null 2>&1; then
+    print_info "Installing CalendarBot package (ensuring module is available)..."
+
+    local venv_python="$PROJECT_DIR/venv/bin/python"
+
+    # Prefer installing into the project's venv if present
+    if [[ -x "$venv_python" ]]; then
+        print_info "Using project venv for package installation: $venv_python"
+        if (cd "$PROJECT_DIR" && "$venv_python" -m pip install -e . >>"$LOG_FILE" 2>&1); then
+            print_success "CalendarBot package installed into venv"
+        else
+            error_exit "Failed to install CalendarBot package into venv"
+        fi
+
+        # Verify module is available via venv python
+        if "$venv_python" -m calendarbot --version >/dev/null 2>&1; then
             local version_output
-            version_output=$(calendarbot --version 2>&1)
-            print_success "CalendarBot CLI is now available: $version_output"
+            version_output=$("$venv_python" -m calendarbot --version 2>&1)
+            print_success "CalendarBot module is available: $version_output"
             return 0
         else
-            print_warning "Package installed but 'calendarbot' command not in PATH"
-            print_info "Will use 'python -m calendarbot' instead"
-            return 0
+            error_exit "CalendarBot module not available after venv installation"
         fi
+    fi
+
+    # Fallback: try to install globally using python3 -m pip (not recommended)
+    print_info "No venv found; attempting global installation using python3 -m pip"
+    if (cd "$PROJECT_DIR" && python3 -m pip install -e . >>"$LOG_FILE" 2>&1); then
+        print_success "CalendarBot package installed globally"
+        return 0
     else
-        print_error "Failed to install CalendarBot package"
-        print_error "Please install manually: 'pip install -e .' from $PROJECT_DIR"
+        print_error "Failed to install CalendarBot package globally"
         return 1
     fi
 }
@@ -217,6 +238,89 @@ check_project_directory() {
     done
     
     print_success "Project directory structure is valid"
+}
+
+# Install minimal OS packages required for Pi-optimized kiosk mode.
+# This is idempotent and non-interactive (DEBIAN_FRONTEND=noninteractive).
+# Packages chosen based on Pi-optimized research: git curl ca-certificates,
+# python3 and build deps, X11 and Openbox, Epiphany WebKitGTK.
+install_os_packages() {
+    print_info "Installing required OS packages (apt)..."
+
+    local packages="git curl ca-certificates \
+python3 python3-venv python3-pip python3-dev build-essential libssl-dev libffi-dev libsqlite3-dev \
+xserver-xorg xinit x11-xserver-utils openbox unclutter dbus-x11 \
+epiphany-browser gir1.2-webkit2-4.0"
+
+    # Use non-interactive frontend for automated installs
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get update -y >>"$LOG_FILE" 2>&1 || error_exit "apt-get update failed"
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y $packages >>"$LOG_FILE" 2>&1 || error_exit "apt-get install failed"
+
+    print_success "OS packages installed or already present"
+}
+
+# Create a Python virtual environment in the project directory (if missing),
+# upgrade pip/setuptools/wheel, and install requirements into the venv using the
+# venv's python to ensure isolation and reproducibility.
+setup_python_venv() {
+    print_info "Setting up Python virtual environment in project directory..."
+
+    local venv_dir="$PROJECT_DIR/venv"
+    local venv_python="$venv_dir/bin/python"
+    local venv_pip="$venv_dir/bin/python -m pip"
+
+    if [[ ! -d "$venv_dir" ]]; then
+        print_info "Creating venv at $venv_dir"
+        if ! python3 -m venv "$venv_dir" >>"$LOG_FILE" 2>&1; then
+            error_exit "Failed to create Python virtualenv at $venv_dir"
+        fi
+    else
+        print_info "Virtualenv already exists at $venv_dir"
+    fi
+
+    # Always upgrade packaging tooling before installing requirements
+    print_info "Upgrading pip, setuptools, wheel in venv"
+    if ! "$venv_python" -m pip install --upgrade pip setuptools wheel >>"$LOG_FILE" 2>&1; then
+        error_exit "Failed to upgrade pip/setuptools/wheel in venv"
+    fi
+
+    # Install project requirements into the venv (if requirements.txt exists)
+    if [[ -f "$PROJECT_DIR/requirements.txt" ]]; then
+        print_info "Installing requirements.txt into venv"
+        if ! "$venv_python" -m pip install -r "$PROJECT_DIR/requirements.txt" >>"$LOG_FILE" 2>&1; then
+            error_exit "Failed to install requirements into venv"
+        fi
+    fi
+
+    # Install the CalendarBot package into the venv in editable mode so that
+    # the systemd service can run the module directly.
+    print_info "Installing CalendarBot package into venv (editable)"
+    if ! (cd "$PROJECT_DIR" && "$venv_python" -m pip install -e . >>"$LOG_FILE" 2>&1); then
+        error_exit "Failed to install CalendarBot package into venv"
+    fi
+
+    print_success "Python virtual environment ready at $venv_dir"
+}
+
+# Configure systemd getty@tty1 autologin for the kiosk user so the Pi boots
+# directly into the kiosk user session on tty1. This writes an override.conf
+# to /etc/systemd/system/getty@tty1.service.d/override.conf and reloads systemd.
+configure_autologin() {
+    print_info "Configuring systemd autologin on tty1 for user: $KIOSK_USER"
+    sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
+    sudo bash -c "cat > /etc/systemd/system/getty@tty1.service.d/override.conf" <<EOF
+[Service]
+# Clear the existing ExecStart and set autologin for the kiosk user.
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $KIOSK_USER --noclear %I \$TERM
+EOF
+
+    # Reload systemd to pick up override
+    if ! sudo systemctl daemon-reload >>"$LOG_FILE" 2>&1; then
+        error_exit "Failed to reload systemd after configuring autologin"
+    fi
+
+    print_success "Configured autologin for $KIOSK_USER on tty1"
 }
 
 # Install systemd service

@@ -1,101 +1,147 @@
-# Installation Guide
+# Raspberry Pi Kiosk Installation Guide
 
-## Prerequisites
+Install CalendarBot as a kiosk on fresh Raspberry Pi OS with --pi-optimized mode using Epiphany browser for minimal dependencies.
 
-- **Python 3.9+** with pip
-- **Git** for cloning the repository
-- **Internet connection** for calendar feeds
+## Preflight Checks
 
-## Quick Installation
+Verify network connectivity, sufficient disk space (>2GB), and that you have a target kiosk user. The installer determines KIOSK_USER from environment variable `KIOSK_USER`, first script argument, or defaults to the invoking user.
 
 ```bash
-# Clone and setup
-git clone <repository-url>
-cd calendarBot
-
-# Create virtual environment
-python -m venv venv
-. venv/bin/activate  # Linux/macOS
-# or: venv\Scripts\activate  # Windows
-
-# Install dependencies
-pip install -r requirements.txt
+ping -c 1 google.com  # Network check
+df -h /               # Disk space check
+whoami                # Current user (will be kiosk user if not specified)
 ```
 
-## Setup
+## Install System Dependencies
 
-Run the interactive setup wizard:
+Run the following command to install all required packages non-interactively:
 
 ```bash
-calendarbot --setup
+sudo apt-get update -y && sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  git curl ca-certificates \
+  python3 python3-venv python3-pip python3-dev build-essential libssl-dev libffi-dev libsqlite3-dev \
+  xserver-xorg xinit x11-xserver-utils openbox unclutter dbus-x11 \
+  epiphany-browser gir1.2-webkit2-4.0
 ```
 
-Or set environment variables:
+## Setup Python Environment
+
+Clone the repository and create the Python virtual environment:
 
 ```bash
-export CALENDARBOT_ICS_URL="https://example.com/calendar.ics"
-export CALENDARBOT_ICS_AUTH_TYPE="none"
+# Clone repository (if not already present)
+git clone <repository-url> calendarbot
+cd calendarbot
+
+# Create and configure virtual environment
+python3 -m venv venv
+venv/bin/python -m pip install --upgrade pip setuptools wheel
+venv/bin/python -m pip install -r requirements.txt
+venv/bin/python -m pip install -e .
 ```
 
-## Launch
+## Install Systemd Service and Configure Autologin
+
+Copy the service template to systemd directory:
 
 ```bash
-# Activate environment
-. venv/bin/activate
-
-# Interactive mode
-calendarbot
-
-# Web interface
-calendarbot --web
-
-# E-paper display
-calendarbot --epaper
-
-# On resource-constrained devices (for example Pi Zero2 W) you can
-# disable e-paper initialization and its heavy components with:
-# export CALENDARBOT_DISABLE_EPAPER=1
-#
-# Alternatively, use the consolidated Pi-optimized mode which applies a
-# recommended set of performance overrides for Pi Zero2 W (disables monitoring,
-# reduces asset/prebuild usage and limits events processed):
-#   python -m calendarbot.main --web --port 8080 --pi-optimized
-# or using environment variable only:
-#   export CALENDARBOT_PI_OPTIMIZED=1 && python -m calendarbot.main --web --port 8080
-```
-# Monitoring on resource-constrained devices
-# On small devices (for example Raspberry Pi Zero2 W) monitoring and frequent sampling
-# can increase CPU and disk I/O. Consider disabling heavy monitoring or enabling
-# small-device optimizations in your configuration.
-#
-# Example (config.yaml):
-# optimization:
-#   small_device: true
-# monitoring:
-#   enabled: false
-#   sampling_interval_seconds: 30
-#
-# Alternatively, set environment variable to disable monitoring:
-# export CALENDARBOT_MONITORING=0
-
-## Dependencies
-
-Core Python packages:
-- `icalendar>=5.0.0` - ICS calendar parsing
-- `httpx>=0.25.0` - HTTP client
-- `aiosqlite>=0.19.0` - Async SQLite database
-- `pydantic>=2.0.0` - Data validation
-- `PyYAML>=6.0` - Configuration
-
-## Troubleshooting
-
-**Python version error**:
-```bash
-python --version  # Check version
-# Install newer Python from python.org if needed
+sudo cp kiosk/service/calendarbot-kiosk.service /etc/systemd/system/calendarbot-kiosk@.service
 ```
 
-**Install failures**:
+The service uses this exact ExecStart command:
+
+```
+ExecStart=/home/%i/calendarbot/venv/bin/python -m calendarbot --web --port 8080 --pi-optimized
+```
+
+Configure autologin for the kiosk user by creating the getty override:
+
 ```bash
-pip install --upgrade pip
-pip install -r requirements.txt
+sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
+sudo tee /etc/systemd/system/getty@tty1.service.d/override.conf > /dev/null <<EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $USER --noclear %I \$TERM
+EOF
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable calendarbot-kiosk@$USER.service
+sudo systemctl start calendarbot-kiosk@$USER.service
+```
+
+## Install Kiosk Scripts and Set Permissions
+
+Copy kiosk scripts to user home directory and set proper permissions:
+
+```bash
+mkdir -p ~/bin
+cp kiosk/scripts/start-kiosk.sh ~/bin/start-kiosk.sh
+cp kiosk/scripts/.xinitrc ~/.xinitrc
+chmod +x ~/bin/start-kiosk.sh ~/.xinitrc
+```
+
+## Verification
+
+Check service status and web server response:
+
+```bash
+# Verify service is active
+sudo systemctl status calendarbot-kiosk@$USER.service
+
+# Check service logs (should show startup without tracebacks)
+sudo journalctl -u calendarbot-kiosk@$USER.service --no-pager -l
+
+# Test web server response
+curl -I http://$(hostname -I | awk '{print $1}'):8080
+```
+
+Service should show "active (running)" status and curl should return HTTP 200 response.
+
+## Notes and Troubleshooting
+
+**Browser Choice**: Epiphany is recommended over Chromium for lower resource usage and fewer dependencies on Pi hardware.
+
+**E-paper Support**: Intentionally omitted for --pi-optimized mode. If needed later, install additional packages (`python3-pil python3-spidev python3-rpi.gpio`) and configure SPI/GPIO.
+
+**WebKit Version**: If Epiphany fails to start, check WebKit library availability:
+```bash
+apt-cache policy libwebkit2gtk-4.0-37 libwebkit2gtk-4.0-dev
+```
+
+**Common Issues**:
+- Service fails: Check Python venv path in service file matches actual installation
+- Browser won't start: Verify X11 dependencies and autologin configuration
+- Network unreachable: Ensure Pi has network access and port 8080 is not blocked
+
+## One-Shot Installation Commands
+
+For automated deployment on fresh Raspberry Pi OS, run these commands in sequence:
+
+```bash
+# 1. Install system packages
+sudo apt-get update -y && sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl ca-certificates python3 python3-venv python3-pip python3-dev build-essential libssl-dev libffi-dev libsqlite3-dev xserver-xorg xinit x11-xserver-utils openbox unclutter dbus-x11 epiphany-browser gir1.2-webkit2-4.0
+
+# 2. Clone and setup project
+git clone <repository-url> calendarbot && cd calendarbot
+
+# 3. Create Python environment
+python3 -m venv venv && venv/bin/python -m pip install --upgrade pip setuptools wheel && venv/bin/python -m pip install -r requirements.txt && venv/bin/python -m pip install -e .
+
+# 4. Install systemd service
+sudo cp kiosk/service/calendarbot-kiosk.service /etc/systemd/system/calendarbot-kiosk@.service
+
+# 5. Configure autologin
+sudo mkdir -p /etc/systemd/system/getty@tty1.service.d && echo -e "[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin $USER --noclear %I \\\$TERM" | sudo tee /etc/systemd/system/getty@tty1.service.d/override.conf
+
+# 6. Enable and start service
+sudo systemctl daemon-reload && sudo systemctl enable calendarbot-kiosk@$USER.service && sudo systemctl start calendarbot-kiosk@$USER.service
+
+# 7. Install kiosk scripts
+mkdir -p ~/bin && cp kiosk/scripts/start-kiosk.sh ~/bin/start-kiosk.sh && cp kiosk/scripts/.xinitrc ~/.xinitrc && chmod +x ~/bin/start-kiosk.sh ~/.xinitrc
+
+# 8. Verify installation
+sudo systemctl status calendarbot-kiosk@$USER.service && curl -I http://$(hostname -I | awk '{print $1}'):8080

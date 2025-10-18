@@ -7,7 +7,9 @@ Type=simple
 User=%i
 Environment=DISPLAY=:0
 WorkingDirectory=/home/%i/calendarbot
-ExecStart=/bin/bash -c '. venv/bin/activate && calendarbot --web --port 8080'
+# Use the venv python to run the calendarbot module directly and include
+# the --pi-optimized flag so the service runs with Pi-specific optimizations.
+ExecStart=/home/%i/calendarbot/venv/bin/python -m calendarbot --web --port 8080 --pi-optimized
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
