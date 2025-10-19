@@ -55,6 +55,17 @@ sleep 15
 
 #chromium launch
 log "launching chromium"
-chromium --no-memcheck --temp-profile --kiosk --enable-low-end-device-mode --noerrdialogs "$URL"
+chromium --no-memcheck --kiosk --enable-low-end-device-mode --noerrdialogs \
+  --no-first-run --no-default-browser-check \
+  --disable-session-crashed-bubble \
+  --overscroll-history-navigation=0 \
+  --disable-vulkan \
+  --disable-gpu-compositing \
+  --disable-background-networking \
+  --disable-component-update \
+  --disable-sync \
+  --no-pings \
+  --disable-features=NetworkService,OnDeviceModel,PushMessaging,UseGCMNetworkManager,NetworkServiceSandbox,OptimizationHints,Translate,HeavyAdIntervention,SubresourceWebBundles,PrivacySandboxAdsAPIs,InterestFeed,FeedV2 \
+  "$URL"
 
 log "chromium exited"
