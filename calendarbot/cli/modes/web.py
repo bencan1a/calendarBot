@@ -11,6 +11,12 @@ import socket
 import webbrowser
 from typing import Any, Optional
 
+from calendarbot.cli.config import apply_cli_overrides
+from calendarbot.cli.runtime_integration import (
+    create_runtime_tracker,
+    start_runtime_tracking,
+    stop_runtime_tracking,
+)
 from calendarbot.config.settings import settings
 from calendarbot.main import CalendarBot
 from calendarbot.utils.logging import (
@@ -20,13 +26,6 @@ from calendarbot.utils.logging import (
 from calendarbot.utils.network import get_local_network_interface, validate_host_binding
 from calendarbot.web.navigation import WebNavigationHandler
 from calendarbot.web.server import WebServer
-
-from ..config import apply_cli_overrides
-from ..runtime_integration import (
-    create_runtime_tracker,
-    start_runtime_tracking,
-    stop_runtime_tracking,
-)
 
 
 def _configure_web_settings(args: Any, base_settings: Any) -> Any:
@@ -76,17 +75,19 @@ def _configure_web_settings(args: Any, base_settings: Any) -> Any:
 
 async def _initialize_web_components(
     updated_settings: Any,
-) -> tuple[CalendarBot, WebServer, WebNavigationHandler, Any]:
+) -> Optional[tuple[CalendarBot, WebServer, WebNavigationHandler, Any]]:
     """Initialize Calendar Bot and web server components.
 
     Args:
         updated_settings: Configured settings object
 
     Returns:
-        Tuple of (app, web_server, navigation_handler, logger)
+        Tuple of (app, web_server, navigation_handler, logger) on success,
+        or None if initialization could not be completed (e.g. missing config).
 
-    Raises:
-        Exception: If component initialization fails
+    Notes:
+        This function no longer raises on common configuration errors; callers
+        should handle a None return value and present user-friendly instructions.
     """
     # Set up enhanced logging for web mode
     logger = setup_enhanced_logging(updated_settings)
@@ -97,9 +98,18 @@ async def _initialize_web_components(
     logger.debug("Created CalendarBot instance")
 
     # Initialize components
-    if not await app.initialize():
-        logger.error("Failed to initialize Calendar Bot")
-        raise RuntimeError("Failed to initialize Calendar Bot")
+    init_ok = await app.initialize()
+    if not init_ok:
+        # Initialization failed due to configuration or component errors.
+        # Log a clear message and return None so the caller can handle it
+        # without an unhandled exception / traceback.
+        logger.error(
+            "Calendar Bot failed to initialize. Check configuration and run 'calendarbot --setup' if this is a new install."
+        )
+        logger.debug(
+            "Initialization returned False from CalendarBot.initialize(); this commonly indicates missing or invalid configuration (e.g. no ICS URL)."
+        )
+        return None
     logger.info("Calendar Bot components initialized successfully")
 
     # Type assertions for components after successful initialization
@@ -126,7 +136,7 @@ async def _initialize_web_components(
     except Exception:
         logger.exception("Failed to create WebServer")
         logger.debug(
-            f"WebServer parameters attempted: settings={updated_settings}, display_manager={app.display_manager}, cache_manager={app.cache_manager}, navigation_state={navigation_handler.navigation_state}"
+            f"WebServer parameters attempted: settings={updated_settings}, display_manager={app.display_manager}, cache_manager={app.cache_manager}, navigation_state={getattr(navigation_handler, 'navigation_state', None)}"
         )
         raise
 
@@ -277,9 +287,19 @@ async def run_web_mode(args: Any) -> int:
         updated_settings = _configure_web_settings(args, settings)
 
         # Initialize components
-        app, web_server, _, logger = await _initialize_web_components(  # navigation_handler unused
-            updated_settings
-        )
+        init_result = await _initialize_web_components(updated_settings)
+        if init_result is None:
+            # Friendly message for first-run / misconfigured installs
+            print("\nCalendar Bot could not initialize due to missing or invalid configuration.")
+            print("Quick fixes:")
+            print("  1) Run the interactive setup:    calendarbot --setup")
+            print("  2) Copy the example config and edit it:")
+            print("       cp calendarbot/config/config.yaml.example calendarbot/config/config.yaml")
+            print(
+                "       Edit calendarbot/config/config.yaml and set your ICS URL or set CALENDARBOT_ICS_URL environment variable."
+            )
+            return 1
+        app, web_server, _, logger = init_result
 
         # Create runtime tracker if enabled
         runtime_tracker = create_runtime_tracker(updated_settings)

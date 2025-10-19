@@ -17,12 +17,18 @@ whoami                # Current user (will be kiosk user if not specified)
 Run the following command to install all required packages non-interactively:
 
 ```bash
-sudo apt-get update -y && sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends \
   git curl ca-certificates \
   python3 python3-venv python3-pip python3-dev build-essential libssl-dev libffi-dev libsqlite3-dev \
-  xserver-xorg xinit x11-xserver-utils openbox unclutter dbus-x11 \
-  epiphany-browser gir1.2-webkit2-4.0
-```
+  xserver-xorg-core xserver-xorg-legacy xinit \
+  x11-xkb-utils x11-xserver-utils \
+  xserver-xorg-input-libinput xserver-xorg-video-fbdev \
+  openbox dbus-x11 unclutter fonts-dejavu-core
+
+# 2) Epiphany with fewer extras
+sudo apt-get install -y --no-install-recommends \
+  epiphany-browser
 
 ## Setup Python Environment
 
