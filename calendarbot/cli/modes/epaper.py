@@ -27,7 +27,7 @@ from calendarbot.utils.logging import (
     apply_command_line_overrides,
     setup_enhanced_logging,
 )
-from ..config import apply_cli_overrides
+from calendarbot.cli.config import apply_cli_overrides
 
 # Lazy-loaded heavy dependencies. These are intentionally initialized at runtime
 # inside initialization functions to allow early exit when e-paper is disabled.
@@ -190,10 +190,24 @@ async def _initialize_epaper_components(args: Any) -> tuple[EpaperModeContext, A
     logger.debug("Created CalendarBot instance")
 
     # Initialize components
-    if not await context.app.initialize():
-        logger.error("Failed to initialize Calendar Bot")
-        print("Failed to initialize Calendar Bot")
-        raise RuntimeError("Failed to initialize Calendar Bot")
+    init_ok = await context.app.initialize()
+    if not init_ok:
+        # Initialization failed due to missing/invalid configuration (common on clean installs).
+        # Log a clear, user-facing message and return the partially-initialized context so
+        # the caller can exit gracefully without raising an unhandled exception.
+        logger.error(
+            "Calendar Bot failed to initialize. This commonly indicates missing or invalid configuration (e.g. no ICS URL)."
+        )
+        print("\nCalendar Bot could not initialize due to missing or invalid configuration.")
+        print("Quick fixes:")
+        print("  1) Run the interactive setup:    calendarbot --setup")
+        print("  2) Copy the example config and edit it:")
+        print("       cp calendarbot/config/config.yaml.example calendarbot/config/config.yaml")
+        print(
+            "       Edit calendarbot/config/config.yaml and set your ICS URL or set CALENDARBOT_ICS_URL environment variable."
+        )
+        setattr(context, "init_failed", True)
+        return context, updated_settings
 
     logger.info("Calendar Bot components initialized successfully")
 
