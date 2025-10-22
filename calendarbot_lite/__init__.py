@@ -1,0 +1,150 @@
+"""calendarbot_lite - lightweight isolated app skeleton for CalendarBot.
+
+This package provides a minimal entrypoint and stubs. It intentionally keeps imports
+light so the package can be inspected without pulling in heavy runtime dependencies.
+"""
+
+__version__ = "0.1.0"
+
+from typing import Optional
+
+
+def _init_logging(level_name: Optional[str]) -> None:
+    """Initialize root logging to stream to console.
+
+    This sets a sensible default formatter and level so that import-time errors
+    and early startup messages are visible on the console. Callers may adjust
+    the level later (e.g. from config).
+
+    For diagnostics this function will also honor the CALENDARBOT_DEBUG environment
+    variable (truthy values: "1", "true", "yes") which forces DEBUG verbosity to
+    surface parser/fetcher debug logs during troubleshooting without changing code.
+    """
+    import logging  # noqa: PLC0415
+    import os  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+
+    # If CALENDARBOT_DEBUG is set to a truthy value, override the requested level.
+    debug_env = os.environ.get("CALENDARBOT_DEBUG", "")
+    if isinstance(debug_env, str) and debug_env.strip().lower() in ("1", "true", "yes", "on"):
+        level_name = "DEBUG"
+
+    root = logging.getLogger()
+    # Only configure basic handler if no handlers are present to avoid duplicate output.
+    if not root.handlers:
+        handler = logging.StreamHandler(stream=sys.stderr)
+        fmt = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+        formatter = logging.Formatter(fmt, datefmt="%Y-%m-%dT%H:%M:%S%z")
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
+
+    # Coerce provided level name (case-insensitive) to a logging level.
+    level = logging.INFO
+    if isinstance(level_name, str):
+        try:
+            # Use public attribute lookup instead of private _nameToLevel
+            level = getattr(logging, level_name.upper(), logging.INFO)
+        except Exception:
+            level = logging.INFO
+    root.setLevel(level)
+    logging.getLogger(__name__).debug(
+        "Logging initialized at level %s", logging.getLevelName(level)
+    )
+
+
+def run_server() -> None:
+    """Start the calendarbot_lite server.
+
+    This function attempts to import the runtime server implementation using
+    importlib so we can capture and report import-time errors more clearly when
+    running `python -m calendarbot_lite`. If the server module is present and
+    provides the expected entrypoint ``start_server``, we delegate to it.
+
+    Behavior:
+    - Initialize console logging early using CALENDARBOT_LOG_LEVEL (env) if present.
+    - After loading any environment/config defaults from the server helper, update
+      the log level from cfg['log_level'] when available.
+    - Delegate to the server's start_server(cfg, skipped) entrypoint.
+    """
+    # Initialize early logging so import-time / startup messages are visible.
+    import os  # noqa: PLC0415
+
+    _init_logging(os.environ.get("CALENDARBOT_LOG_LEVEL"))
+
+    import importlib  # noqa: PLC0415
+    import logging  # noqa: PLC0415
+    import traceback  # noqa: PLC0415
+    from typing import cast  # noqa: PLC0415
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        server = importlib.import_module("calendarbot_lite.server")
+    except Exception as exc:
+        # Provide a useful developer-facing error that includes the underlying traceback.
+        tb = "".join(traceback.format_exception(exc.__class__, exc, exc.__traceback__))
+        logger.exception("Failed to import calendarbot_lite.server")
+        raise NotImplementedError(
+            "calendarbot_lite server not available. To continue development:\n"
+            "  - Implement `calendarbot_lite.server` and expose `start_server()`.\n"
+            "  - Run the package in dev mode with: python -m calendarbot_lite\n\n"
+            f"Underlying import error:\n{tb}"
+        ) from exc
+
+    # Try to use server helpers to build defaults but continue if missing.
+    cfg: dict = {}
+    try:
+        builder = getattr(server, "_build_default_config_from_env", None)
+        if callable(builder):
+            maybe_cfg = builder()
+            if isinstance(maybe_cfg, dict):
+                cfg = cast(dict, maybe_cfg)
+    except Exception:
+        cfg = {}
+
+    # If config includes a log_level, ensure logging level matches it.
+    try:
+        cfg_level = None
+        if isinstance(cfg, dict):
+            cfg_level = cfg.get("log_level")
+        if isinstance(cfg_level, str):
+            logger.info("Applying configured log_level=%s", cfg_level)
+            root = logging.getLogger()
+            root.setLevel(getattr(logging, cfg_level.upper(), logging.INFO))
+    except Exception:
+        # Do not fail startup due to logging configuration issues.
+        logger.debug("Failed to apply configured log level", exc_info=True)
+
+    skipped = None
+    try:
+        creator = getattr(server, "_create_skipped_store_if_available", None)
+        if callable(creator):
+            skipped = creator()
+    except Exception:
+        skipped = None
+
+    start_fn = getattr(server, "start_server", None)
+    if not callable(start_fn):
+        raise NotImplementedError("calendarbot_lite server implementation missing start_server().")
+
+    logger.info("Starting calendarbot_lite server")
+
+    # Diagnostic startup information to help developers verify config/logging at launch.
+    try:
+        root_logger = logging.getLogger()
+        logger.info(
+            "Effective root log level: %s", logging.getLevelName(root_logger.getEffectiveLevel())
+        )
+        # Only surface a small set of config keys to avoid leaking secrets into logs.
+        if isinstance(cfg, dict):
+            diagnostic_cfg = {
+                k: cfg.get(k) for k in ("sources", "log_level", "server_bind", "server_port")
+            }
+        else:
+            diagnostic_cfg = str(cfg)
+        logger.info("Resolved configuration (diagnostic): %s", diagnostic_cfg)
+    except Exception:
+        logger.debug("Failed to emit startup diagnostics", exc_info=True)
+
+    # Delegate and block until shutdown. Any exceptions will propagate to the caller.
+    start_fn(cfg, skipped)
