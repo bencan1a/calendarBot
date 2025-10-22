@@ -9,13 +9,14 @@ from urllib.parse import urlparse
 
 import httpx
 
-from ..security.logging import (
+from calendarbot.ics.exceptions import ICSAuthError, ICSFetchError, ICSNetworkError
+from calendarbot.security.logging import (
     SecurityEvent,
     SecurityEventLogger,
     SecurityEventType,
     SecuritySeverity,
 )
-from .exceptions import ICSAuthError, ICSFetchError, ICSNetworkError
+
 from .models import ICSResponse, ICSSource
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,24 @@ class ICSFetcher:
         Args:
             settings: Application settings
         """
+        # Assign settings and ensure it exposes the small surface the fetcher expects.
+        # Some callers construct minimal ad-hoc settings objects; provide safe defaults
+        # on the settings object so older/compact callers won't trigger AttributeError.
         self.settings = settings
+        try:
+            if not hasattr(self.settings, "request_timeout"):
+                # Prefer direct attribute assignment over setattr for clarity and ruff B010.
+                # Use type: ignore because settings can be a dynamic/mapping-like object in tests.
+                self.settings.request_timeout = 30  # type: ignore[attr-defined]
+            if not hasattr(self.settings, "max_retries"):
+                self.settings.max_retries = 3  # type: ignore[attr-defined]
+            if not hasattr(self.settings, "retry_backoff_factor"):
+                self.settings.retry_backoff_factor = 1.5  # type: ignore[attr-defined]
+        except Exception:
+            # settings may be an immutable type or Mock; in that case other code paths
+            # already use getattr(..., default) fallbacks, so it's safe to ignore.
+            pass
+
         self.client: Optional[httpx.AsyncClient] = None
         self.security_logger = SecurityEventLogger()
 
@@ -455,7 +473,10 @@ class ICSFetcher:
         last_exception = None
 
         attempt = 0
-        while attempt <= self.settings.max_retries:
+        # Use safe defaults if settings object is missing attributes.
+        max_retries = int(getattr(self.settings, "max_retries", 3))
+        backoff_factor = float(getattr(self.settings, "retry_backoff_factor", 1.5))
+        while attempt <= max_retries:
             try:
                 # Create request with SSL verification setting
                 if self.client is None:
@@ -479,10 +500,10 @@ class ICSFetcher:
             except (httpx.TimeoutException, httpx.NetworkError) as e:
                 last_exception = e
 
-                if attempt < self.settings.max_retries:
-                    backoff_time = self.settings.retry_backoff_factor**attempt
+                if attempt < max_retries:
+                    backoff_time = backoff_factor**attempt
                     logger.warning(
-                        f"Request failed (attempt {attempt + 1}/{self.settings.max_retries + 1}), "
+                        f"Request failed (attempt {attempt + 1}/{max_retries + 1}), "
                         f"retrying in {backoff_time:.1f}s: {e}"
                     )
                     await asyncio.sleep(backoff_time)
