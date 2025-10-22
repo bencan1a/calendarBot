@@ -207,6 +207,27 @@ class StreamingICSParser:
 
             for component in calendar.walk():
                 if component.name == "VEVENT":
+                    # DEBUG: log raw VEVENT fields to validate streaming/folding behavior
+                    try:
+                        raw_summary = component.get("SUMMARY")
+                        raw_description = component.get("DESCRIPTION")
+                        raw_attendees = component.get("ATTENDEE")
+                        # Normalize debug-friendly representations
+                        attendees_repr = (
+                            [str(raw_attendees)]
+                            if not getattr(raw_attendees, "__iter__", None)
+                            else [str(a) for a in raw_attendees]
+                        )
+                        logger.debug(
+                            "Streaming parsed VEVENT raw fields - "
+                            f"SUMMARY={raw_summary!r}, DESCRIPTION_present={bool(raw_description)}, "
+                            f"ATTENDEE={attendees_repr}"
+                        )
+                    except Exception:
+                        logger.debug(
+                            "Streaming parsed VEVENT - failed to extract raw fields", exc_info=True
+                        )
+
                     yield {
                         "type": "event",
                         "component": component,
@@ -338,11 +359,39 @@ class ICSParser:
                         component = item["component"]
                         calendar_metadata.update(item["metadata"])
 
+                        # DEBUG: log raw component fields prior to mapping to CalendarEvent
+                        try:
+                            raw_summary = component.get("SUMMARY")
+                            raw_description = component.get("DESCRIPTION")
+                            raw_attendees = component.get("ATTENDEE")
+                            logger.debug(
+                                "Streaming parser received component - "
+                                f"SUMMARY={raw_summary!r}, DESCRIPTION_present={bool(raw_description)}, ATTENDEE={raw_attendees!s}"
+                            )
+                        except Exception:
+                            logger.debug(
+                                "Streaming parser - failed to read raw component fields",
+                                exc_info=True,
+                            )
+
                         # Use existing event parsing logic
                         event = self._parse_event_component(
                             cast("ICalEvent", component),
                             calendar_metadata.get("X-WR-TIMEZONE"),
                         )
+
+                        # DEBUG: log mapped event fields for validation
+                        if event:
+                            try:
+                                attendees_len = len(event.attendees) if event.attendees else 0
+                            except Exception:
+                                attendees_len = -1
+                            logger.debug(
+                                "Streaming parser mapped event - "
+                                f"subject={getattr(event, 'subject', None)!r}, "
+                                f"body_preview_present={bool(getattr(event, 'body_preview', None))}, "
+                                f"attendees_count={attendees_len}"
+                            )
 
                         if event:
                             event_count += 1

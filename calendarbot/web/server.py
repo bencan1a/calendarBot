@@ -833,9 +833,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         # Convert EventData objects to dictionaries
         def event_to_dict(event: "EventData") -> dict[str, Any]:
+            # Return event dict — 'subject' is the canonical title field used across the codebase.
             return {
                 "graph_id": event.graph_id,
-                "title": event.subject,  # Frontend expects 'title' field
+                "subject": event.subject or "",
+                "description": event.description,
                 "start_time": format_datetime(event.start_time),
                 "end_time": format_datetime(event.end_time),
                 "location": event.location,
@@ -846,6 +848,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 "formatted_time_range": event.formatted_time_range,
                 "organizer": event.organizer,
                 "attendees": event.attendees,
+                "participants": event.attendees,  # Alternate key used by some frontends
                 # Include hidden status from settings
                 "is_hidden": False,  # Simplified for now - can be enhanced later
             }

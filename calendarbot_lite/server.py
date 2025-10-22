@@ -443,7 +443,7 @@ async def _refresh_once(  # noqa: PLR0912
                 end = _get(ev, "end", "dtend")
                 duration = _get(ev, "duration")
                 uid = _get(ev, "uid", "id", "uid")
-                summary = _get(ev, "summary", "title", "name")
+                summary = _get(ev, "summary", "subject", "title", "name")
                 location = _get(ev, "location", "place")
                 # Resolve raw_source robustly (handle dict-like or object event representations).
                 if isinstance(ev, dict):
@@ -512,7 +512,10 @@ async def _refresh_once(  # noqa: PLR0912
                 parsed_events.append(
                     {
                         "meeting_id": meeting_id,
-                        "title": str(summary) if summary is not None else "",
+                        "subject": str(summary) if summary is not None else "",
+                        "description": str(_get(ev, "description", "body", "body_preview") or ""),
+                        "participants": _get(ev, "attendees", "participants", "attendee_list")
+                        or [],
                         "start": start_dt,
                         "duration_seconds": int(duration_seconds),
                         "location": str(location) if location is not None else "",
@@ -572,10 +575,15 @@ async def _refresh_loop(
 
 
 def _event_to_api_model(ev: EventDict) -> dict[str, Any]:
-    """Serialize internal event dict to API response fields (start_iso computed later)."""
+    """Serialize internal event dict to API response fields (start_iso computed later).
+
+    Note: 'subject' is the canonical title field for events; 'title' alias removed.
+    """
     return {
         "meeting_id": ev["meeting_id"],
-        "title": ev.get("title"),
+        "subject": ev.get("subject") or ev.get("title") or "",
+        "description": ev.get("description"),
+        "attendees": ev.get("participants") or ev.get("attendees") or [],
         "start_iso": _serialize_iso(ev.get("start")),
         "duration_seconds": int(ev.get("duration_seconds") or 0),
         "location": ev.get("location"),
@@ -713,7 +721,7 @@ async def _make_app(
         const data = await res.json();
         if (data && data.meeting) {
           const m = data.meeting;
-          statusEl.textContent = m.title ? (`Next: ${m.title} — in ${m.seconds_until_start}s`) : (`Next meeting in ${m.seconds_until_start}s`);
+          statusEl.textContent = m.subject ? (`Next: ${m.subject} — in ${m.seconds_until_start}s`) : (`Next meeting in ${m.seconds_until_start}s`);
           eventEl.textContent = JSON.stringify(m, null, 2);
         } else {
           statusEl.textContent = 'No upcoming meetings';

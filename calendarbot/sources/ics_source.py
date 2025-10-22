@@ -203,6 +203,36 @@ class ICSSourceHandler:
 
         parse_result = self.parser.parse_ics_content(response.content)
 
+        # DEBUG: dump a small sample of parsed events to validate mapping of subject/description/attendees
+        try:
+            sample_events = []
+            for ev in parse_result.events[:5]:
+                try:
+                    attendees_list = []
+                    # Prefer direct attribute access when the attribute name is constant.
+                    if hasattr(ev, "attendees") and ev.attendees:
+                        for a in ev.attendees:
+                            if isinstance(a, dict):
+                                attendees_list.append(a.get("email") or a.get("name") or str(a))
+                            else:
+                                attendees_list.append(
+                                    getattr(a, "email", getattr(a, "name", str(a)))
+                                )
+                except Exception:
+                    attendees_list = ["<unserializable>"]
+
+                sample_events.append(
+                    {
+                        "id": getattr(ev, "id", None),
+                        "subject": getattr(ev, "subject", None),
+                        "body_preview": getattr(ev, "body_preview", None),
+                        "attendees": attendees_list,
+                    }
+                )
+            logger.debug(f"ICS parse_result sample events: {sample_events}")
+        except Exception:
+            logger.debug("Failed to serialize parse_result.events for debug", exc_info=True)
+
         if not parse_result.success:
             error_msg = parse_result.error_message or "Failed to parse ICS content"
             self._raise_data_error(error_msg)
