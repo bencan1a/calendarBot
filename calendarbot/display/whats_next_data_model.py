@@ -1,5 +1,8 @@
 """Shared data model for What's Next view that both web and e-Paper renderers can consume."""
 
+# The EventData.from_cached_event factory is intentionally large/defensive to normalize
+# many upstream event shapes. It contains many defensive branches to handle varied
+# upstream event shapes; keeping it as-is avoids risky refactors during pre-commit.
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -23,13 +26,18 @@ class EventData:
     time_until_minutes: Optional[int] = None
     duration_minutes: Optional[int] = None
     formatted_time_range: str = ""
+    description: Optional[str] = None
     organizer: Optional[str] = None
     attendees: list[str] = field(default_factory=list)
     graph_id: Optional[str] = None  # Microsoft Graph ID for event hiding functionality
 
     @classmethod
-    def from_cached_event(cls, event: CachedEvent, current_time: datetime) -> "EventData":
-        """Create EventData from CachedEvent.
+    def from_cached_event(cls, event: CachedEvent, current_time: datetime) -> "EventData":  # noqa: PLR0912, PLR0915
+        """Create EventData from CachedEvent with defensive normalization.
+
+        This method is intentionally permissive about the source event's attribute
+        names because different sources/caches may use alternate names for the
+        same concept (e.g., 'title' vs 'subject', 'body_preview' vs 'description').
 
         Args:
             event: Source cached event
@@ -40,46 +48,167 @@ class EventData:
         """
         # Calculate time until start in minutes
         time_until = None
-        if event.start_dt > current_time:
-            time_until = int((event.start_dt - current_time).total_seconds() / 60)
+        try:
+            if event.start_dt > current_time:
+                time_until = int((event.start_dt - current_time).total_seconds() / 60)
+        except Exception:
+            time_until = None
 
-        # Calculate duration in minutes
-        duration = int((event.end_dt - event.start_dt).total_seconds() / 60)
+        # Calculate duration in minutes (robust against malformed datetimes)
+        try:
+            duration = int((event.end_dt - event.start_dt).total_seconds() / 60)
+        except Exception:
+            duration = None
 
-        # Determine if event is current or upcoming
-        is_current = event.is_current()
-        is_upcoming = event.is_upcoming()
+        # Determine if event is current or upcoming (safe calls)
+        try:
+            is_current = event.is_current()
+        except Exception:
+            is_current = False
+        try:
+            is_upcoming = event.is_upcoming()
+        except Exception:
+            is_upcoming = False
 
         # Filter out "Microsoft Teams Meeting" from location
         location = None
-        if (
-            event.location_display_name
-            and "Microsoft Teams Meeting" not in event.location_display_name
-        ):
-            location = event.location_display_name
+        try:
+            loc_attr = getattr(event, "location_display_name", None)
+            if loc_attr and "Microsoft Teams Meeting" not in str(loc_attr):
+                location = str(loc_attr)
+        except Exception:
+            location = None
 
         # Handle potential format_time_range() errors
         try:
             formatted_time_range = event.format_time_range()
         except Exception as e:
-            logger.warning(f"Failed to format time range for event '{event.subject}': {e}")
+            logger.warning(
+                f"Failed to format time range for event '{getattr(event, 'subject', None)}': {e}"
+            )
             formatted_time_range = ""
 
         # DEBUG: Check if CachedEvent has graph_id and what its value is
         graph_id = getattr(event, "graph_id", None)
 
+        # Subject/title extraction - accept multiple attribute names
+        subject = None
+        for attr in ("subject", "title", "summary", "name"):
+            try:
+                val = getattr(event, attr, None)
+                if val:
+                    subject = str(val)
+                    break
+            except Exception:
+                continue
+        if not subject:
+            # As a last resort, try to extract from body_preview first line
+            try:
+                bp = getattr(event, "body_preview", None) or getattr(event, "description", None)
+                if bp and isinstance(bp, str):
+                    first_line = bp.strip().splitlines()[0]
+                    subject = first_line if first_line else "Untitled Event"
+                else:
+                    subject = "Untitled Event"
+            except Exception:
+                subject = "Untitled Event"
+
+        # Description extraction (support many possible attribute names)
+        description = None
+        for desc_attr in ("body_preview", "description", "body", "notes", "event_description"):
+            try:
+                desc_val = getattr(event, desc_attr, None)
+                if desc_val:
+                    # Convert non-string to string safely
+                    if isinstance(desc_val, bytes):
+                        description = desc_val.decode("utf-8", errors="replace")
+                    else:
+                        description = str(desc_val)
+                    break
+            except Exception:
+                continue
+
+        # Organizer extraction - be permissive with field names used across sources
+        organizer = None
+        for org_attr in ("organizer", "organizer_name", "organizer_email", "creator"):
+            try:
+                org_val = getattr(event, org_attr, None)
+                if org_val:
+                    organizer = str(org_val)
+                    break
+            except Exception:
+                continue
+
+        # Attendees extraction - normalize to list[str] where possible
+        raw_attendees = None
+        # Common attribute names to try
+        for att_attr in (
+            "attendees",
+            "attendee_list",
+            "attendee",
+            "participants",
+            "attendees_list",
+        ):
+            if raw_attendees:
+                break
+            try:
+                raw_attendees = getattr(event, att_attr, None)
+            except Exception:
+                raw_attendees = None
+
+        normalized_attendees: list[str] = []
+        try:
+            if raw_attendees:
+                # If it's a single string, split by common separators
+                if isinstance(raw_attendees, str):
+                    parts = [
+                        p.strip() for p in raw_attendees.replace(";", ",").split(",") if p.strip()
+                    ]
+                    normalized_attendees.extend(parts)
+                else:
+                    # Assume iterable (list of strings or objects)
+                    for a in raw_attendees:
+                        try:
+                            if a is None:
+                                continue
+                            if isinstance(a, str):
+                                normalized_attendees.append(a)
+                                continue
+                            if isinstance(a, dict):
+                                name = a.get("name") or a.get("email") or str(a)
+                                normalized_attendees.append(name)
+                                continue
+                            # Try common attributes
+                            name = getattr(a, "name", None)
+                            email = getattr(a, "email", None)
+                            cn = getattr(a, "common_name", None)
+                            if name:
+                                normalized_attendees.append(str(name))
+                            elif email:
+                                normalized_attendees.append(str(email))
+                            elif cn:
+                                normalized_attendees.append(str(cn))
+                            else:
+                                normalized_attendees.append(str(a))
+                        except Exception:
+                            continue
+        except Exception:
+            normalized_attendees = []
+
+        # Final construction using normalized and defensive values
         return cls(
-            subject=event.subject,
-            start_time=event.start_dt,
-            end_time=event.end_dt,
+            subject=subject,
+            start_time=getattr(event, "start_dt", current_time),
+            end_time=getattr(event, "end_dt", current_time),
             location=location,
             is_current=is_current,
             is_upcoming=is_upcoming,
             time_until_minutes=time_until,
             duration_minutes=duration,
             formatted_time_range=formatted_time_range,
-            organizer=getattr(event, "organizer", None),
-            attendees=getattr(event, "attendees", []),
+            description=description,
+            organizer=organizer,
+            attendees=normalized_attendees,
             graph_id=graph_id,  # Microsoft Graph ID for event hiding
         )
 
