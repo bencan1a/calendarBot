@@ -424,7 +424,7 @@ def setup_enhanced_logging(
 
     # 4. Configure third-party library levels
     third_party_level = get_log_level(settings.logging.third_party_level)
-    for lib in ["aiohttp", "urllib3", "msal", "asyncio"]:
+    for lib in ["aiohttp", "urllib3", "msal", "asyncio", "httpx", "httpcore"]:
         logging.getLogger(lib).setLevel(third_party_level)
 
     # 5. Store references for access by other modules
@@ -524,6 +524,8 @@ def setup_logging(
     logging.getLogger("aiohttp").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("msal").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     logger.info(f"Logging initialized at {log_level} level")
     return logger

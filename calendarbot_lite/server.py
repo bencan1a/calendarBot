@@ -67,7 +67,7 @@ def _build_default_config_from_env() -> dict[str, Any]:
             if set_keys:
                 # Show which keys were loaded from .env (keys only, values not printed).
                 try:
-                    logger.info("Loaded .env defaults for keys: %s", ", ".join(set_keys))
+                    logger.debug("Loaded .env defaults for keys: %s", ", ".join(set_keys))
                 except Exception:
                     logger.debug("Loaded .env defaults (unable to format keys)", exc_info=True)
     except Exception:
@@ -386,7 +386,7 @@ async def _refresh_once(  # noqa: PLR0912
             except Exception:
                 parsed_source_url = str(src_cfg)
 
-            logger.info(
+            logger.debug(
                 "Parsed ICS summary: events=%s calendar=%s source=%s",
                 parsed_event_count,
                 calendar_name,
@@ -772,7 +772,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
 
         env_url = _os.environ.get("CALENDARBOT_ICS_URL")
         masked = env_url[:40] + ("..." if len(env_url) > 40 else "") if env_url else None
-        logger.info("Startup env CALENDARBOT_ICS_URL (masked): %s", masked)
+        logger.debug("Startup env CALENDARBOT_ICS_URL (masked): %s", masked)
     except Exception:
         logger.debug("Failed to read CALENDARBOT_ICS_URL from environment", exc_info=True)
 
@@ -784,7 +784,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
             }
         else:
             cfg_preview = str(config)
-        logger.info("Config passed to _serve (preview): %s", cfg_preview)
+        logger.debug("Config passed to _serve (preview): %s", cfg_preview)
     except Exception:
         logger.debug("Failed to emit config preview", exc_info=True)
 

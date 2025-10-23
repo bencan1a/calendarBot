@@ -302,7 +302,21 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
 
             html_parts.append("</div>")
 
-            return "\n".join(html_parts)
+            # DEBUG: Emit the rendered HTML snippet and subject repr for server-side validation
+            try:
+                rendered_html = "\n".join(html_parts)
+                logger.debug(
+                    "WhatsNextRenderer._format_event_data_html - subject=%r, graph_id=%r, html_snippet=%s",
+                    getattr(event, "subject", None),
+                    graph_id,
+                    rendered_html[:1000],
+                )
+                return rendered_html
+            except Exception:
+                logger.debug(
+                    "WhatsNextRenderer._format_event_data_html - failed to assemble debug HTML, returning minimal output"
+                )
+                return "\n".join(html_parts)
 
         except Exception as e:
             logger.exception("Error formatting EventData")
@@ -334,6 +348,9 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
     def _render_events_content(self, events: list[CachedEvent]) -> str:
         """Render events content filtered to show only the next upcoming event.
 
+        This updated implementation ensures CachedEvent instances are normalized
+        to EventData before rendering so subject normalization is consistent.
+
         Args:
             events: List of events to render
 
@@ -352,7 +369,7 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
             """
 
         try:
-            # Use shared logic to find the next upcoming event
+            # Use shared logic to find the next upcoming event (returns CachedEvent)
             next_event = self.logic.find_next_upcoming_event(events)
 
             if not next_event:
@@ -361,7 +378,11 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
                 if current_events:
                     # Show current event as the "what's next"
                     logger.debug("No upcoming events found, showing current event")
-                    return self._render_single_event_content(current_events[0], is_current=True)
+                    # Normalize to EventData before rendering
+                    ed = EventData.from_cached_event(
+                        current_events[0], self.logic.get_current_time()
+                    )
+                    return self._format_event_data_html(ed, is_current=True)
                 # No current or upcoming events
                 return """
                     <div class="no-events">
@@ -371,8 +392,21 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
                     </div>
                     """
 
-            logger.debug(f"Rendering next event: {next_event.subject}")
-            return self._render_single_event_content(next_event, is_current=False)
+            # Normalize next_event to EventData to ensure subject/title extraction matches calendarbot_lite
+            try:
+                ed_next = (
+                    next_event
+                    if isinstance(next_event, EventData)
+                    else EventData.from_cached_event(next_event, self.logic.get_current_time())
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to normalize next_event to EventData; falling back to raw event rendering"
+                )
+                return self._render_single_event_content(next_event, is_current=False)
+
+            logger.debug(f"Rendering next event: {getattr(ed_next, 'subject', None)}")
+            return self._format_event_data_html(ed_next, is_current=False)
 
         except Exception:
             logger.exception("Error filtering events in WhatsNextRenderer")
@@ -385,26 +419,44 @@ class WhatsNextRenderer(HTMLRenderer, RendererInterface):
     def _render_single_event_content(self, event: CachedEvent, is_current: bool) -> str:
         """Render content for a single event.
 
+        This method now accepts either a CachedEvent or EventData. CachedEvent inputs
+        are normalized to EventData using EventData.from_cached_event to ensure subjects
+        are consistently extracted.
+
         Args:
-            event: Event to render
+            event: Event to render (CachedEvent or EventData)
             is_current: True if this is a current event, False if upcoming
 
         Returns:
             HTML content for the single event
         """
         try:
+            # Normalize to EventData if needed
+            if isinstance(event, EventData):
+                ed = event
+            else:
+                try:
+                    ed = EventData.from_cached_event(event, self.logic.get_current_time())
+                except Exception:
+                    logger.exception(
+                        "Failed to normalize event to EventData; rendering minimal fallback"
+                    )
+                    # Best-effort fallback: try to access subject directly
+                    subj = getattr(event, "subject", getattr(event, "summary", "Untitled Event"))
+                    return f'<div class="upcoming-event"><h3 class="event-title">{self._escape_html(subj)}</h3></div>'
+
             if is_current:
-                # Use existing current event formatting
+                # Use current event section header then format using normalized EventData
                 content_parts = ['<section class="current-events">']
                 content_parts.append('<h2 class="section-title">▶ Current Event</h2>')
-                content_parts.append(self._format_current_event_html(event))
+                content_parts.append(self._format_event_data_html(ed, is_current=True))
                 content_parts.append("</section>")
-            else:
-                # Format as upcoming event but as the main focus
-                content_parts = ['<section class="upcoming-events">']
-                content_parts.append('<h2 class="section-title">📋 What\'s Next</h2>')
-                content_parts.append(self._format_upcoming_event_html(event))
-                content_parts.append("</section>")
+                return "\n".join(content_parts)
+            # Format as upcoming event but as the main focus
+            content_parts = ['<section class="upcoming-events">']
+            content_parts.append('<h2 class="section-title">📋 What\'s Next</h2>')
+            content_parts.append(self._format_upcoming_event_html(event))
+            content_parts.append("</section>")
 
             return "\n".join(content_parts)
 
