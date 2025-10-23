@@ -25,6 +25,91 @@ logger = logging.getLogger(__name__)
 logger.debug("calendarbot_lite.server module loaded")
 
 
+def _import_process_utilities():
+    """Lazy import of process utilities to handle missing calendarbot module."""
+    try:
+        from calendarbot.utils.process import (  # type: ignore  # noqa: PLC0415
+            auto_cleanup_before_start,
+            check_port_availability,
+            find_process_using_port,
+        )
+
+        return check_port_availability, find_process_using_port, auto_cleanup_before_start
+    except ImportError as e:
+        logger.warning("Process utilities not available: %s", e)
+        return None, None, None
+
+
+def _handle_port_conflict(host: str, port: int) -> bool:
+    """Handle port conflicts by offering to terminate conflicting processes.
+
+    Args:
+        host: Host address to bind to
+        port: Port number to bind to
+
+    Returns:
+        True if port is available or conflict was resolved, False otherwise
+    """
+    check_port_availability, find_process_using_port, auto_cleanup_before_start = (
+        _import_process_utilities()
+    )
+
+    if not check_port_availability:
+        logger.warning("Port conflict resolution not available - process utilities missing")
+        return False
+
+    # Check if port is available
+    if check_port_availability(host, port):
+        logger.debug("Port %d is available", port)
+        return True
+
+    logger.error("Port %d is already in use", port)
+
+    # Find the process using the port
+    port_process = None
+    if find_process_using_port:
+        port_process = find_process_using_port(port)
+        if port_process:
+            logger.warning(
+                "Process using port %d: PID %d (%s)", port, port_process.pid, port_process.command
+            )
+        else:
+            logger.warning("Port %d is occupied but could not identify the process", port)
+    else:
+        logger.warning("Port %d is occupied (process identification not available)", port)
+
+    # Offer to terminate the conflicting process
+    print(f"\nPort {port} is currently occupied.")
+    if port_process:
+        print(f"Process using the port: PID {port_process.pid} ({port_process.command})")
+
+    response = (
+        input("Would you like to attempt to terminate the process using this port? (y/N): ")
+        .strip()
+        .lower()
+    )
+
+    if response in ("y", "yes"):
+        logger.info("User confirmed termination of process using port %d", port)
+        print("Attempting to terminate the conflicting process...")
+
+        if auto_cleanup_before_start:
+            success = auto_cleanup_before_start(host, port, force=True)
+            if success:
+                logger.info("Successfully terminated conflicting process and freed port %d", port)
+                print(f"✓ Port {port} is now available")
+                return True
+            logger.error("Failed to terminate conflicting process on port %d", port)
+            print(f"✗ Failed to free port {port}")
+            return False
+        logger.error("Auto cleanup function not available")
+        print("✗ Port cleanup functionality not available")
+        return False
+    logger.info("User declined to terminate process using port %d", port)
+    print("Port conflict not resolved - server cannot start")
+    return False
+
+
 def _build_default_config_from_env() -> dict[str, Any]:
     """Build a default config dict from environment variables.
 
@@ -444,7 +529,6 @@ async def _refresh_once(  # noqa: PLR0912
                 duration = _get(ev, "duration")
                 uid = _get(ev, "uid", "id", "uid")
                 summary = _get(ev, "summary", "subject", "title", "name")
-                location = _get(ev, "location", "place")
                 # Resolve raw_source robustly (handle dict-like or object event representations).
                 if isinstance(ev, dict):
                     raw_source = ev.get("raw") or str(src_cfg)
@@ -518,7 +602,7 @@ async def _refresh_once(  # noqa: PLR0912
                         or [],
                         "start": start_dt,
                         "duration_seconds": int(duration_seconds),
-                        "location": str(location) if location is not None else "",
+                        "location": "",
                         "raw_source": raw_source,
                     }
                 )
@@ -613,6 +697,11 @@ async def _make_app(
 
     app = web.Application()
 
+    # Get the package directory for static file serving
+    from pathlib import Path  # noqa: PLC0415
+
+    package_dir = Path(__file__).resolve().parent
+
     async def whats_next(_request):
         now = _now_utc()
         # Read window with lock to be consistent.
@@ -687,67 +776,44 @@ async def _make_app(
         count = int(res) if isinstance(res, int) else 0
         return web.json_response({"cleared": True, "count": count}, status=200)
 
-    async def whats_next_page(_request):
-        """Serve a simple HTML page that calls the server /api/whats-next endpoint and refreshes every 5 minutes."""
-        html = """<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>What's Next</title>
-  <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 1rem; }
-    pre { background:#f6f8fa; padding:1rem; border-radius:6px; overflow:auto; }
-    #status { margin-bottom: 0.5rem; font-weight:600; }
-  </style>
-</head>
-<body>
-  <h1>What's Next</h1>
-  <div id="status">Loading…</div>
-  <pre id="event" aria-live="polite"></pre>
+    async def serve_static_html(_request):
+        """Serve the static whatsnext.html file."""
+        html_file = package_dir / "whatsnext.html"
+        if not html_file.exists():
+            logger.error("Static HTML file not found: %s", html_file)
+            return web.Response(text="Static HTML file not found", status=404)
 
-  <script>
-    const API = '/api/whats-next';
-    async function fetchAndRender() {
-      const statusEl = document.getElementById('status');
-      const eventEl = document.getElementById('event');
-      try {
-        const res = await fetch(API, { cache: 'no-store' });
-        if (!res.ok) {
-          statusEl.textContent = 'API error: ' + res.status;
-          eventEl.textContent = '';
-          return;
-        }
-        const data = await res.json();
-        if (data && data.meeting) {
-          const m = data.meeting;
-          statusEl.textContent = m.subject ? (`Next: ${m.subject} — in ${m.seconds_until_start}s`) : (`Next meeting in ${m.seconds_until_start}s`);
-          eventEl.textContent = JSON.stringify(m, null, 2);
-        } else {
-          statusEl.textContent = 'No upcoming meetings';
-          eventEl.textContent = '';
-        }
-      } catch (err) {
-        statusEl.textContent = 'Fetch error';
-        eventEl.textContent = String(err);
-      }
-    }
+        return web.FileResponse(html_file)
 
-    // Initial load and periodic refresh every 5 minutes.
-    fetchAndRender();
-    setInterval(fetchAndRender, 5 * 60 * 1000);
-  </script>
-</body>
-</html>"""
-        return web.Response(text=html, content_type="text/html")
+    async def serve_static_css(_request):
+        """Serve the static whatsnext.css file."""
+        css_file = package_dir / "whatsnext.css"
+        if not css_file.exists():
+            logger.error("Static CSS file not found: %s", css_file)
+            return web.Response(text="CSS file not found", status=404)
 
-    # Page route that displays whats-next and auto-refreshes by calling the API.
-    app.router.add_get("/", whats_next_page)
+        return web.FileResponse(css_file)
+
+    async def serve_static_js(_request):
+        """Serve the static whatsnext.js file."""
+        js_file = package_dir / "whatsnext.js"
+        if not js_file.exists():
+            logger.error("Static JS file not found: %s", js_file)
+            return web.Response(text="JS file not found", status=404)
+
+        return web.FileResponse(js_file)
+
+    # Static file routes
+    app.router.add_get("/", serve_static_html)
+    app.router.add_get("/whatsnext.css", serve_static_css)
+    app.router.add_get("/whatsnext.js", serve_static_js)
+
+    # API routes
     app.router.add_get("/api/whats-next", whats_next)
     app.router.add_post("/api/skip", post_skip)
     app.router.add_delete("/api/skip", delete_skip)
     logger.debug(
-        "API routes wired: /api/whats-next GET, /api/skip POST and DELETE; root '/' serves whats-next page"
+        "Routes wired: / (static HTML), /whatsnext.css, /whatsnext.js, /api/whats-next GET, /api/skip POST and DELETE"
     )
 
     # Provide a stop handler to allow external shutdown if needed.
@@ -806,9 +872,22 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
 
     host = _get_config_value(config, "server_bind", "0.0.0.0")  # nosec: B104 - default bind for dev; allow override via config/env
     port = int(_get_config_value(config, "server_port", 8080))
+
+    # Check for port conflicts and handle them
+    if not _handle_port_conflict(host, port):
+        logger.error("Failed to resolve port conflict on %s:%d - server cannot start", host, port)
+        raise RuntimeError(f"Port {port} is occupied and could not be freed")
+
     site = web.TCPSite(runner, host=host, port=port)
-    await site.start()
-    logger.info("Server started on %s:%d", host, port)
+    try:
+        await site.start()
+        logger.info("Server started successfully on %s:%d", host, port)
+    except OSError as e:
+        if "Address already in use" in str(e):
+            logger.exception("Port %d is still occupied after conflict resolution", port)
+            raise RuntimeError(f"Port {port} is still occupied: {e}") from e
+        logger.exception("Failed to start server on %s:%d", host, port)
+        raise
 
     # Start background refresher task
     refresher = asyncio.create_task(
