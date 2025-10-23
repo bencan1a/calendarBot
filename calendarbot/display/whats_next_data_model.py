@@ -93,18 +93,23 @@ class EventData:
 
         # Subject/title extraction - accept multiple attribute names
         subject = None
+        # Collect candidate values for improved debug visibility
+        candidate_values = {}
         for attr in ("subject", "title", "summary", "name"):
             try:
                 val = getattr(event, attr, None)
+                candidate_values[attr] = val
                 if val:
                     subject = str(val)
                     break
             except Exception:
+                candidate_values[attr] = None
                 continue
         if not subject:
             # As a last resort, try to extract from body_preview first line
             try:
                 bp = getattr(event, "body_preview", None) or getattr(event, "description", None)
+                candidate_values["body_preview"] = bp
                 if bp and isinstance(bp, str):
                     first_line = bp.strip().splitlines()[0]
                     subject = first_line if first_line else "Untitled Event"
@@ -112,6 +117,18 @@ class EventData:
                     subject = "Untitled Event"
             except Exception:
                 subject = "Untitled Event"
+        # DEBUG: Log resolved subject and candidate attribute values to aid diagnostics
+        try:
+            logger.debug(
+                "EventData.from_cached_event - resolved subject=%r; candidates=%s",
+                subject,
+                {k: (v if v is not None else None) for k, v in candidate_values.items()},
+            )
+        except Exception:
+            # Ensure we never raise from debug logging
+            logger.debug(
+                "EventData.from_cached_event - resolved subject (logging failed to serialize candidates)"
+            )
 
         # Description extraction (support many possible attribute names)
         description = None

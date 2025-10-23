@@ -17,7 +17,7 @@ def get_local_network_interface() -> str:
     logger = logging.getLogger("calendarbot.network")
 
     # Bind to all interfaces to support both localhost and external access
-    logger.info("Binding to all interfaces (0.0.0.0) for localhost and network access")
+    logger.debug("Binding to all interfaces (0.0.0.0) for localhost and network access")
 
     # Also try to detect and log the actual network IP for user information
     try:
@@ -27,7 +27,9 @@ def get_local_network_interface() -> str:
             local_ip: str = s.getsockname()[0]
 
             if _is_private_ip(local_ip) and local_ip != "127.0.0.1":
-                logger.info(f"Server will be accessible at: http://localhost and http://{local_ip}")
+                logger.debug(
+                    f"Server will be accessible at: http://localhost and http://{local_ip}"
+                )
     except Exception:
         # If we can't detect the IP, that's okay - the binding will still work
         pass
@@ -78,7 +80,7 @@ def validate_host_binding(host: str, warn_on_all_interfaces: bool = True) -> str
     logger = logging.getLogger("calendarbot.network")
 
     if host == "0.0.0.0" and warn_on_all_interfaces:  # nosec B104
-        logger.info(
+        logger.debug(
             "Server binding to all interfaces (0.0.0.0) for dual access. "
             "The server will be accessible via both localhost and your network IP address."
         )
@@ -89,7 +91,7 @@ def validate_host_binding(host: str, warn_on_all_interfaces: bool = True) -> str
                 s.connect(("8.8.8.8", 80))
                 local_ip: str = s.getsockname()[0]
                 if _is_private_ip(local_ip) and local_ip != "127.0.0.1":
-                    logger.info(f"💡 Access URLs: http://localhost and http://{local_ip}")
+                    logger.debug(f"💡 Access URLs: http://localhost and http://{local_ip}")
         except Exception:
             pass
 

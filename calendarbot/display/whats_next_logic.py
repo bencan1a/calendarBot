@@ -7,6 +7,7 @@ from typing import Any, Optional
 import pytz
 
 from ..cache.models import CachedEvent
+from ..timezone.service import convert_to_server_timezone
 from ..utils.helpers import get_timezone_aware_now
 from .whats_next_data_model import EventData, StatusInfo, WhatsNextViewModel
 
@@ -71,6 +72,17 @@ class WhatsNextLogic:
         later_event_data: list[
             EventData
         ] = []  # No longer used in 4x8 view - all events consolidated into next_events
+
+        # DEBUG: Log subjects for converted EventData lists to validate title propagation
+        try:
+            logger.debug(
+                "WhatsNextLogic.create_view_model - subjects: current=%s next=%s later=%s",
+                [getattr(e, "subject", None) for e in current_event_data],
+                [getattr(e, "subject", None) for e in next_event_data],
+                [getattr(e, "subject", None) for e in later_event_data],
+            )
+        except Exception:
+            logger.debug("WhatsNextLogic.create_view_model - failed to log subjects")
 
         # Format display date
         display_date = self._format_display_date(status_info, current_time)
@@ -141,10 +153,32 @@ class WhatsNextLogic:
         current_events = [e for e in visible_events if e.is_current()]
 
         # Find upcoming events (not started yet)
-        upcoming_events = [e for e in visible_events if e.start_dt > current_time]
+        # Be defensive about naive vs aware datetimes: normalize event.start_dt to server timezone before comparing.
+
+        def _starts_after(dt, ref):
+            """Return True if dt (possibly naive) is after ref (timezone-aware)."""
+            try:
+                if dt is None:
+                    return False
+                # If dt is naive, convert to server timezone first
+                if getattr(dt, "tzinfo", None) is None:
+                    try:
+                        dt_conv = convert_to_server_timezone(dt)
+                    except Exception:
+                        # Last-resort: assume UTC
+                        dt_conv = dt.replace(tzinfo=pytz.UTC)
+                else:
+                    dt_conv = dt
+                return dt_conv > ref
+            except Exception as e:
+                logger.debug("Failed to compare datetimes for upcoming check: %s", e)
+                return False
+
+        upcoming_events = [
+            e for e in visible_events if _starts_after(getattr(e, "start_dt", None), current_time)
+        ]
 
         # Sort by timezone-aware local time instead of raw UTC
-        from ..timezone.service import convert_to_server_timezone  # noqa
 
         def get_local_time_for_sorting(event: Any) -> datetime:
             """Convert event time to server timezone for proper sorting."""
@@ -222,7 +256,7 @@ class WhatsNextLogic:
             selected_date=status_info.get("selected_date") if status_info else None,
         )
 
-    def find_next_upcoming_event(self, events: list[CachedEvent]) -> Optional[CachedEvent]:
+    def find_next_upcoming_event(self, events: list[CachedEvent]) -> Optional[CachedEvent]:  # noqa: PLR0915
         """Find the next single upcoming event after current time.
 
         Args:
@@ -309,21 +343,42 @@ class WhatsNextLogic:
 
             # DEBUG: Log recurring event properties for duplicate investigation
             for event in visible_events:
-                if "Product Strategy" in event.subject:
+                # Defensive logging: subject/title may be None; avoid TypeError during 'in' checks
+                subj = getattr(event, "subject", None) or getattr(event, "title", None) or ""
+                if "Product Strategy" in subj:
                     logger.debug(
-                        f"DUPLICATE DEBUG - Event: {event.subject}, ID: {event.id}, "
-                        f"graph_id: {event.graph_id}, is_recurring: {event.is_recurring}, "
-                        f"series_master_id: {event.series_master_id}, start: {event.start_dt}"
+                        f"DUPLICATE DEBUG - Event: {subj}, ID: {getattr(event, 'id', None)}, "
+                        f"graph_id: {getattr(event, 'graph_id', None)}, is_recurring: {getattr(event, 'is_recurring', None)}, "
+                        f"series_master_id: {getattr(event, 'series_master_id', None)}, start: {getattr(event, 'start_dt', None)}"
                     )
 
             # Filter to only upcoming events (not current)
-            upcoming_events = [e for e in visible_events if e.start_dt > now]
+            # Defensive comparison to handle naive vs aware datetimes
+
+            def _starts_after_now(dt):
+                try:
+                    if dt is None:
+                        return False
+                    if getattr(dt, "tzinfo", None) is None:
+                        try:
+                            dt_conv = convert_to_server_timezone(dt)
+                        except Exception:
+                            dt_conv = dt.replace(tzinfo=pytz.UTC)
+                    else:
+                        dt_conv = dt
+                    return dt_conv > now
+                except Exception as e:
+                    logger.debug("Failed to compare datetimes in find_next_upcoming_event: %s", e)
+                    return False
+
+            upcoming_events = [
+                e for e in visible_events if _starts_after_now(getattr(e, "start_dt", None))
+            ]
 
             if not upcoming_events:
                 return None
 
             # Sort by timezone-aware local time instead of raw UTC
-            from ..timezone.service import convert_to_server_timezone  # noqa
 
             def get_local_time_for_sorting(event: Any) -> datetime:
                 """Convert event time to server timezone for proper sorting."""

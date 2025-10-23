@@ -324,7 +324,7 @@ class ICSParser:
             Parse result with events and metadata
         """
         if self._should_use_streaming(ics_content):
-            logger.info(f"Using streaming parser for large ICS content ({len(ics_content)} bytes)")
+            logger.debug(f"Using streaming parser for large ICS content ({len(ics_content)} bytes)")
             return self._parse_with_streaming(ics_content, source_url)
 
         logger.debug(f"Using traditional parser for small ICS content ({len(ics_content)} bytes)")
@@ -514,7 +514,7 @@ class ICSParser:
 
         # Use optimized parsing method that automatically selects strategy
         if self._should_use_streaming(ics_content):
-            logger.info(f"Using streaming parser for large ICS content ({len(ics_content)} bytes)")
+            logger.debug(f"Using streaming parser for large ICS content ({len(ics_content)} bytes)")
             return self._parse_with_streaming(ics_content, source_url)
 
         # Initialize variables that might be used in error handling
@@ -1046,7 +1046,7 @@ class ICSParser:
         elif is_following_meeting:
             # "Following:" meetings should appear on calendar regardless of other properties
             mapped_status = EventStatus.TENTATIVE
-            logger.info(f"  → APPLIED FOLLOWING LOGIC: {mapped_status}")
+            logger.debug(f"  → APPLIED FOLLOWING LOGIC: {mapped_status}")
         else:
             # OPAQUE or default
             mapped_status = EventStatus.BUSY

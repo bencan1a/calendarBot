@@ -59,9 +59,9 @@ class TimezoneService:
             )
 
         if ZONEINFO_AVAILABLE:
-            logger.info("Using zoneinfo for timezone handling")
+            logger.debug("Using zoneinfo for timezone handling")
         else:
-            logger.info("Using pytz fallback for timezone handling")
+            logger.debug("Using pytz fallback for timezone handling")
 
     def get_server_timezone(self) -> Any:
         """Get server timezone object.

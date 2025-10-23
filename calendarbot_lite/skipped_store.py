@@ -72,7 +72,7 @@ class SkippedStore:
         """
         with self._lock:
             if not self._path.exists():
-                logger.info("Skipped store file not found; starting empty: %s", self._path)
+                logger.debug("Skipped store file not found; starting empty: %s", self._path)
                 self._store = {}
                 return
 
@@ -104,7 +104,9 @@ class SkippedStore:
                     continue
 
             self._store = store
-            logger.info("Loaded skipped store %s (%d active entries)", self._path, len(self._store))
+            logger.debug(
+                "Loaded skipped store %s (%d active entries)", self._path, len(self._store)
+            )
 
     def _persist(self) -> None:
         """Persist current in-memory store to disk atomically.

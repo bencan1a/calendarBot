@@ -384,9 +384,10 @@ async function loadMeetingData() {
         
         // Update global variables for backward compatibility with existing functions
         if (data && data.events) {
+            // Normalize server-provided event shape: prefer 'subject' but fall back to legacy 'title'
             upcomingMeetings = data.events.map(event => ({
                 graph_id: event.graph_id,
-                title: event.title,
+                title: event.subject || event.title || '',
                 start_time: event.start_time,
                 end_time: event.end_time,
                 location: event.location || '',
@@ -1094,8 +1095,9 @@ function showErrorState(message) {
  * @returns {string} ARIA label text
  */
 function getMeetingAriaLabel(element) {
-    const title = element.querySelector('.meeting-title')?.textContent || '';
-    const time = element.querySelector('.meeting-time')?.textContent || '';
+    // Use the rendered meeting title (populated from subject -> title mapping)
+    const title = element.querySelector('.meeting-title')?.textContent?.trim() || '';
+    const time = element.querySelector('.meeting-time')?.textContent?.trim() || '';
     return `Meeting: ${title}${time ? `, ${time}` : ''}`;
 }
 
@@ -1864,7 +1866,8 @@ class WhatsNextStateManager {
         this._ensureMeetingLayoutStructure(content);
 
         // Update individual components with change detection
-        this._updateElementIfChanged('.meeting-title', meeting.title);
+        // Prefer subject (set from backend) but fall back to legacy title to avoid blank labels
+        this._updateElementIfChanged('.meeting-title', meeting.subject || meeting.title);
         this._updateElementIfChanged('.meeting-time', this._formatMeetingTime(meeting.start_time, meeting.end_time, meeting.formatted_time_range));
         this._updateElementIfChanged('.meeting-location', meeting.location || '');
         this._updateElementIfChanged('.meeting-description', meeting.description || '');
@@ -1885,8 +1888,9 @@ class WhatsNextStateManager {
         const meetingEnd = new Date(meeting.end_time);
         
         // Update global currentMeeting for backward compatibility with countdown system
+        // Ensure title uses subject when available to prevent downstream overwrites with empty title.
         window.currentMeeting = {
-            title: meeting.title,
+            title: meeting.subject || meeting.title,
             start_time: meeting.start_time,
             end_time: meeting.end_time,
             location: meeting.location || '',
@@ -2361,7 +2365,7 @@ function initializeStateManager() {
                 if (data.data && data.data.events) {
                     upcomingMeetings = data.data.events.map(event => ({
                         graph_id: event.graph_id,
-                        title: event.title,
+                        title: event.subject || event.title,
                         start_time: event.start_time,
                         end_time: event.end_time,
                         location: event.location || '',

@@ -517,13 +517,52 @@ class PerformanceLogger:
                     self.logger.debug("psutil not available; skipping memory sampling")
                     return
 
-            # Acquire process info and system memory safely using resolved psutil
-            process = proc_psutil.Process()
-            memory_info = process.memory_info()
+            # Resolve a usable psutil implementation and acquire process info safely.
+            process = None
+            resolved_psutil = proc_psutil
+            # Try the configured psutil shim first (proc_psutil should be set earlier in the function)
+            if hasattr(resolved_psutil, "Process") and callable(resolved_psutil.Process):
+                try:
+                    process = resolved_psutil.Process()
+                except TypeError:
+                    # Some shims/mocks require a pid argument; try current pid
+                    try:
+                        process = resolved_psutil.Process(os.getpid())
+                    except Exception:
+                        process = None
+
+            # If we don't have a usable process (or it lacks memory_info), try importing real psutil
+            if process is None or not hasattr(process, "memory_info"):
+                try:
+                    import importlib
+
+                    real_psutil = importlib.import_module("psutil")
+                    resolved_psutil = real_psutil
+                    # Update module-level psutil for subsequent calls to avoid repeating import
+                    globals()["psutil"] = real_psutil
+                    try:
+                        process = real_psutil.Process()
+                    except TypeError:
+                        process = real_psutil.Process(os.getpid())
+                except Exception:
+                    # psutil not available or failed to instantiate a Process
+                    self.logger.debug(
+                        "psutil.Process() unavailable or returned None; skipping memory sampling for this interval"
+                    )
+                    return
+
+            # Defensive check before calling memory_info
+            if process is None or not hasattr(process, "memory_info"):
+                self.logger.debug("Process object missing memory_info; skipping memory sampling")
+                return
+
+            memory_info = process.memory_info()  # type: ignore
 
             # Log RSS (Resident Set Size) memory
             rss_mb = float(memory_info.rss) / 1024 / 1024
-            vms_mb = float(memory_info.vms) / 1024 / 1024
+            vms_mb = float(getattr(memory_info, "vms", 0)) / 1024 / 1024
+            rss_mb = float(memory_info.rss) / 1024 / 1024
+            vms_mb = float(getattr(memory_info, "vms", 0)) / 1024 / 1024
             rss_metric = PerformanceMetric(
                 name="memory_rss",
                 metric_type=MetricType.MEMORY,
@@ -535,31 +574,35 @@ class PerformanceLogger:
                 metadata={
                     "memory_type": "rss",
                     "vms": vms_mb,
-                    "pid": process.pid,
+                    "pid": getattr(process, "pid", None),
                 },
             )
             self.log_metric(rss_metric)
 
-            # System memory usage
-            system_memory = psutil.virtual_memory()
-            total_mb = float(system_memory.total) / 1024 / 1024
-            available_mb = float(system_memory.available) / 1024 / 1024
-            used_mb = float(system_memory.used) / 1024 / 1024
-            system_metric = PerformanceMetric(
-                name="system_memory_usage",
-                metric_type=MetricType.SYSTEM,
-                value=float(system_memory.percent),
-                unit="percent",
-                component=component,
-                operation=operation,
-                correlation_id=correlation_id,
-                metadata={
-                    "total_mb": total_mb,
-                    "available_mb": available_mb,
-                    "used_mb": used_mb,
-                },
-            )
-            self.log_metric(system_metric)
+            # System memory usage using the resolved psutil implementation
+            try:
+                system_memory = resolved_psutil.virtual_memory()
+                total_mb = float(system_memory.total) / 1024 / 1024
+                available_mb = float(system_memory.available) / 1024 / 1024
+                used_mb = float(system_memory.used) / 1024 / 1024
+                system_metric = PerformanceMetric(
+                    name="system_memory_usage",
+                    metric_type=MetricType.SYSTEM,
+                    value=float(system_memory.percent),
+                    unit="percent",
+                    component=component,
+                    operation=operation,
+                    correlation_id=correlation_id,
+                    metadata={
+                        "total_mb": total_mb,
+                        "available_mb": available_mb,
+                        "used_mb": used_mb,
+                    },
+                )
+                self.log_metric(system_metric)
+            except Exception:
+                # If virtual_memory fails on this psutil, log debug and continue
+                self.logger.debug("Failed to read system virtual_memory from psutil implementation")
 
         except Exception:
             self.logger.exception("Failed to log memory usage")

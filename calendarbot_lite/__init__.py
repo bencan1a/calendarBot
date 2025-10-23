@@ -33,8 +33,30 @@ def _init_logging(level_name: Optional[str]) -> None:
     # Only configure basic handler if no handlers are present to avoid duplicate output.
     if not root.handlers:
         handler = logging.StreamHandler(stream=sys.stderr)
-        fmt = "%(asctime)s %(levelname)s %(name)s: %(message)s"
-        formatter = logging.Formatter(fmt, datefmt="%Y-%m-%dT%H:%M:%S%z")
+        # Prefer the lightweight external colorlog formatter when available for nicer console output.
+        try:
+            from colorlog import ColoredFormatter  # type: ignore[import-not-found]  # noqa: PLC0415
+
+            # Readable colorized format:
+            # HH:MM:SS  LEVEL   logger.name: message
+            # - Only the level is colorized to avoid all-green output.
+            # - Level is left-aligned to 7 chars for column alignment.
+            fmt = "%(asctime)s %(log_color)s%(levelname)-7s%(reset)s %(name)s: %(message)s"
+            # Adjust level colors for better readability (INFO is intentionally neutral)
+            log_colors = {
+                "DEBUG": "cyan",
+                "INFO": "green",
+                "VERBOSE": "blue",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "bold_red",
+            }
+            formatter = ColoredFormatter(fmt, datefmt="%H:%M:%S", log_colors=log_colors)
+        except Exception:
+            # Fall back to plain logging if colorlog isn't installed.
+            fmt = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
+            formatter = logging.Formatter(fmt, datefmt="%H:%M:%S")
+
         handler.setFormatter(formatter)
         root.addHandler(handler)
 
@@ -132,7 +154,7 @@ def run_server() -> None:
     # Diagnostic startup information to help developers verify config/logging at launch.
     try:
         root_logger = logging.getLogger()
-        logger.info(
+        logger.debug(
             "Effective root log level: %s", logging.getLevelName(root_logger.getEffectiveLevel())
         )
         # Only surface a small set of config keys to avoid leaking secrets into logs.
@@ -142,7 +164,7 @@ def run_server() -> None:
             }
         else:
             diagnostic_cfg = str(cfg)
-        logger.info("Resolved configuration (diagnostic): %s", diagnostic_cfg)
+        logger.debug("Resolved configuration (diagnostic): %s", diagnostic_cfg)
     except Exception:
         logger.debug("Failed to emit startup diagnostics", exc_info=True)
 
