@@ -37,7 +37,9 @@
                 nextMeetingTime: document.querySelector('.next-meeting-time'),
                 nextMeetingTitle: document.querySelector('.next-meeting-title'),
                 nextMeetings: document.querySelector('.next-meetings'),
-                countdownContainer: document.querySelector('.countdown-container')
+                countdownContainer: document.querySelector('.countdown-container'),
+                meetingCloseBtn: document.querySelector('.meeting-close-btn'),
+                meetingCard: document.querySelector('.meeting-card')
             };
         }
         return domElements;
@@ -48,7 +50,8 @@
         intervalId: null,
         retryCount: 0,
         lastSuccessfulUpdate: null,
-        isOnline: navigator.onLine
+        isOnline: navigator.onLine,
+        currentMeeting: null
     };
     
     /**
@@ -106,6 +109,9 @@
             // Check if we have a meeting from the server
             if (data.meeting) {
                 const meeting = data.meeting;
+                
+                // Store current meeting data for skip functionality
+                state.currentMeeting = meeting;
                 
                 // Update meeting title
                 if (elements.meetingTitle) {
@@ -453,10 +459,114 @@
     }
     
     /**
+     * Calls the skip API to mark a meeting as skipped
+     * @param {string} meetingId - The meeting ID to skip
+     * @returns {Promise<boolean>} - True if successful, false otherwise
+     */
+    async function skipMeeting(meetingId) {
+        try {
+            const response = await fetch('/api/skip', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ meeting_id: meetingId })
+            });
+            
+            if (response.ok) {
+                console.log('Meeting skipped successfully:', meetingId);
+                return true;
+            } else {
+                console.error('Failed to skip meeting:', response.status, response.statusText);
+                return false;
+            }
+        } catch (error) {
+            console.error('Error skipping meeting:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * Handles close button click to skip the current meeting
+     */
+    async function handleMeetingClose() {
+        // Check if we have a current meeting
+        if (!state.currentMeeting) {
+            console.warn('No current meeting to skip');
+            return;
+        }
+        
+        // Get meeting ID - try different possible ID fields
+        const meetingId = state.currentMeeting.id ||
+                         state.currentMeeting.graph_id ||
+                         state.currentMeeting.meeting_id ||
+                         state.currentMeeting.uid;
+        
+        if (!meetingId) {
+            console.error('Unable to determine meeting ID for skipping');
+            return;
+        }
+        
+        console.log('Attempting to skip meeting:', meetingId);
+        
+        // Disable the close button to prevent double-clicks
+        const elements = getDOMElements();
+        if (elements.meetingCloseBtn) {
+            elements.meetingCloseBtn.disabled = true;
+            elements.meetingCloseBtn.style.opacity = '0.5';
+        }
+        
+        // Call the skip API
+        const success = await skipMeeting(meetingId);
+        
+        if (success) {
+            // Refresh the page to show the next meeting
+            window.location.reload();
+        } else {
+            // Re-enable the button if skipping failed
+            if (elements.meetingCloseBtn) {
+                elements.meetingCloseBtn.disabled = false;
+                elements.meetingCloseBtn.style.opacity = '1';
+            }
+            
+            // Show error message to user
+            alert('Failed to skip meeting. Please try again.');
+        }
+    }
+    
+    /**
+     * Sets up event listeners for the close button
+     */
+    function setupCloseButtonListener() {
+        const elements = getDOMElements();
+        
+        if (elements.meetingCloseBtn) {
+            // Remove any existing listeners to prevent duplicates
+            elements.meetingCloseBtn.removeEventListener('click', handleMeetingClose);
+            elements.meetingCloseBtn.removeEventListener('touchstart', handleMeetingClose);
+            
+            // Add click and touch event listeners
+            elements.meetingCloseBtn.addEventListener('click', handleMeetingClose, { passive: true });
+            elements.meetingCloseBtn.addEventListener('touchstart', handleMeetingClose, { passive: true });
+            
+            console.log('Close button event listeners set up');
+        }
+    }
+    
+    /**
      * Cleanup function for proper resource management
      */
     function cleanup() {
         stopPolling();
+        
+        // Remove close button listeners
+        const elements = getDOMElements();
+        if (elements.meetingCloseBtn) {
+            elements.meetingCloseBtn.removeEventListener('click', handleMeetingClose);
+            elements.meetingCloseBtn.removeEventListener('touchstart', handleMeetingClose);
+        }
+        
         domElements = null;
         
         // Remove event listeners
@@ -488,6 +598,9 @@
         window.addEventListener('offline', handleConnectionChange, { passive: true });
         document.addEventListener('visibilitychange', handleVisibilityChange, { passive: true });
         window.addEventListener('beforeunload', cleanup, { passive: true });
+        
+        // Set up close button event listener
+        setupCloseButtonListener();
         
         // Start the polling
         startPolling();

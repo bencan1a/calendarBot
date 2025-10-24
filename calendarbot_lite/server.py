@@ -773,6 +773,39 @@ async def _make_app(
         count = int(res) if isinstance(res, int) else 0
         return web.json_response({"cleared": True, "count": count}, status=200)
 
+    async def clear_skips(_request):
+        """Convenient GET endpoint to clear all skipped meetings."""
+        if skipped_store is None:
+            return web.json_response({"error": "skip-store not available"}, status=501)
+        clear_all = getattr(skipped_store, "clear_all", None)
+        if not callable(clear_all):
+            return web.json_response({"error": "skip-store missing clear_all"}, status=501)
+
+        try:
+            res = clear_all()
+            if asyncio.iscoroutine(res):
+                res = await res
+        except Exception:
+            logger.exception("skipped_store.clear_all failed")
+            return web.json_response({"error": "failed to clear skips"}, status=500)
+
+        count = int(res) if isinstance(res, int) else 0
+
+        # Force immediate cache refresh to restore previously skipped meetings
+        try:
+            await _refresh_once(_config, skipped_store, event_window_ref, window_lock)
+            logger.debug("Refreshed event cache after clearing %d skipped meetings", count)
+        except Exception:
+            logger.exception("Failed to refresh cache after clearing skips")
+            return web.json_response(
+                {"error": "cleared skips but failed to refresh cache"}, status=500
+            )
+
+        return web.json_response(
+            {"cleared": True, "count": count, "message": f"Cleared {count} skipped meetings"},
+            status=200,
+        )
+
     async def serve_static_html(_request):
         """Serve the static whatsnext.html file."""
         html_file = package_dir / "whatsnext.html"
@@ -809,8 +842,9 @@ async def _make_app(
     app.router.add_get("/api/whats-next", whats_next)
     app.router.add_post("/api/skip", post_skip)
     app.router.add_delete("/api/skip", delete_skip)
+    app.router.add_get("/api/clear_skips", clear_skips)
     logger.debug(
-        "Routes wired: / (static HTML), /whatsnext.css, /whatsnext.js, /api/whats-next GET, /api/skip POST and DELETE"
+        "Routes wired: / (static HTML), /whatsnext.css, /whatsnext.js, /api/whats-next GET, /api/skip POST and DELETE, /api/clear_skips GET"
     )
 
     # Provide a stop handler to allow external shutdown if needed.
