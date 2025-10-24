@@ -574,6 +574,30 @@ async def _refresh_once(
 
     logger.debug(" Total parsed events from all sources: %d", len(parsed_events))
 
+    # Check if we got any new events from sources
+    if not parsed_events:
+        # All sources failed - preserve existing window to avoid "No upcoming meetings"
+        async with window_lock:
+            existing_window = event_window_ref[0]
+            existing_count = len(existing_window)
+
+        logger.warning(
+            "All ICS sources failed - preserving existing window with %d events to avoid clearing display",
+            existing_count,
+        )
+
+        if existing_count > 0:
+            logger.info(
+                "Fallback: Using cached events - %d upcoming events preserved from last successful refresh",
+                existing_count,
+            )
+            return  # Exit early, preserving existing window
+
+        logger.error(
+            "All sources failed and no cached events available - will show 'No upcoming meetings'"
+        )
+        # Continue with empty window since we have no choice
+
     # Filter out past events and skipped ones, sort and trim window size.
     now = _now_utc()
     upcoming = [
@@ -601,10 +625,16 @@ async def _refresh_once(
     logger.debug(" Refresh complete; stored %d events in window", len(pruned))
 
     # INFO level log to confirm server is operational and data is available
-    logger.info(
-        "ICS data successfully parsed and refreshed - %d upcoming events available for serving",
-        len(pruned),
-    )
+    if parsed_events:
+        logger.info(
+            "ICS data successfully parsed and refreshed - %d upcoming events available for serving",
+            len(pruned),
+        )
+    else:
+        logger.info(
+            "No events from sources - using fallback behavior (%d events in window)",
+            len(pruned),
+        )
 
     # Log event details for debugging
     for i, event in enumerate(pruned[:3]):  # Log first 3 events

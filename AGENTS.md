@@ -7,7 +7,7 @@ This file provides guidance to agents when working with code in this repository.
 - **Dual Projects**: `calendarbot/` (full app) vs `calendarbot_lite/` (standalone) - different entry points and commands
 - **Environment**: ALWAYS activate venv first: `. venv/bin/activate` - module import failures usually mean venv not activated
 - **Debug Mode**: `CALENDARBOT_DEBUG=true` forces DEBUG logging without code changes
-- **Browser Testing**: Use host IP (e.g., 192.168.1.45:8080), not localhost - localhost binding fails
+- **Browser Testing**: Use host IP (e.g., 192.168.1.45:8080), not localhost - localhost binding fails because dev environment is remote
 
 ## Build/Test Commands
 
