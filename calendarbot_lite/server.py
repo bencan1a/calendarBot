@@ -21,11 +21,21 @@ import logging
 import signal
 from typing import Any
 
+# Import and configure logging early for Pi Zero 2W optimization
+try:
+    from .lite_logging import configure_lite_logging
+
+    # Apply lite logging configuration on module import
+    configure_lite_logging(debug_mode=False)
+except ImportError:
+    # Fallback if lite_logging module is not available
+    logging.basicConfig(level=logging.INFO)
+
 logger = logging.getLogger(__name__)
 logger.debug("calendarbot_lite.server module loaded")
 
 
-def _import_process_utilities():
+def _import_process_utilities() -> Any:  # type: ignore[misc]
     """Lazy import of process utilities to handle missing calendarbot module."""
     try:
         from calendarbot.utils.process import (  # type: ignore  # noqa: PLC0415
@@ -236,7 +246,276 @@ def _serialize_iso(dt: datetime.datetime | None) -> str | None:
     return dt.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-async def _refresh_once(  # noqa: PLR0912
+async def _fetch_and_parse_source(  # noqa: PLR0911, PLR0912
+    semaphore: asyncio.Semaphore,
+    src_cfg: Any,
+    config: Any,
+    rrule_days: int,
+) -> list[EventDict]:
+    """Fetch and parse a single source with bounded concurrency.
+
+    Args:
+        semaphore: Semaphore to limit concurrent fetches
+        src_cfg: Source configuration
+        config: Application configuration
+        rrule_days: Days to expand RRULE patterns
+
+    Returns:
+        List of parsed events from the source
+    """
+    async with semaphore:
+        logger.debug(" Processing source configuration: %r", src_cfg)
+        try:
+            # Lazy imports
+            from calendarbot.sources import (  # noqa: PLC0415
+                ics_source as ics_source_module,  # type: ignore
+            )
+
+            from . import (  # noqa: PLC0415
+                lite_parser as ics_parser,  # type: ignore
+                lite_rrule_expander as rrule_expander,  # type: ignore
+            )
+
+            # Try to construct an IcsSource
+            ics_source_ctor = getattr(ics_source_module, "IcsSource", None)
+            if ics_source_ctor is None:
+                try:
+                    from . import lite_models as ics_models  # type: ignore  # noqa: PLC0415
+
+                    ics_source_ctor = getattr(ics_models, "LiteICSSource", None)
+                except Exception:
+                    ics_source_ctor = None
+
+            if ics_source_ctor is None:
+                logger.debug("IcsSource class not found, skipping source %r", src_cfg)
+                return []
+
+            # Get the fetcher
+            try:
+                from . import lite_models as ics_models  # type: ignore  # noqa: PLC0415
+                from .lite_fetcher import (  # noqa: PLC0415
+                    LiteICSFetcher as ICSFetcher,  # type: ignore
+                )
+            except Exception as e:
+                logger.warning("CalendarBot Lite ICS models/fetcher not available: %s", e)
+                return []
+
+            icssrc_model = getattr(ics_models, "LiteICSSource", None)
+            if icssrc_model is None:
+                logger.debug("LiteICSSource model not present, skipping source %r", src_cfg)
+                return []
+
+            # Build ICSSource instance
+            try:
+                if isinstance(src_cfg, icssrc_model):
+                    icssrc = src_cfg
+                elif isinstance(src_cfg, dict):
+                    icssrc = icssrc_model(**src_cfg)
+                elif isinstance(src_cfg, str):
+                    icssrc = icssrc_model(name=str(src_cfg), url=str(src_cfg))
+                else:
+                    icssrc = icssrc_model(
+                        name=getattr(src_cfg, "name", str(src_cfg)),
+                        url=getattr(src_cfg, "url", str(src_cfg)),
+                    )
+            except Exception as e:
+                logger.warning("Failed to construct ICSSource for %r: %s", src_cfg, e)
+                return []
+
+            # Fetch data
+            class _Settings:
+                request_timeout = int(_get_config_value(config, "request_timeout", 30))
+                max_retries = int(_get_config_value(config, "max_retries", 3))
+                retry_backoff_factor = float(_get_config_value(config, "retry_backoff_factor", 1.5))
+
+            logger.debug(" Starting ICS fetch for source: %r", src_cfg)
+            fetcher_client = ICSFetcher(_Settings())
+            async with fetcher_client as client:
+                response = await client.fetch_ics(icssrc, conditional_headers=None)
+
+            logger.debug(
+                " ICS fetch response - success: %r, has_content: %r",
+                getattr(response, "success", False) if response else False,
+                bool(getattr(response, "content", None) or getattr(response, "stream_handle", None))
+                if response
+                else False,
+            )
+
+            if not response or not getattr(response, "success", False):
+                logger.error("DEBUG: ICSFetcher did not return content for %r", src_cfg)
+                return []
+
+            # Check for streaming vs buffered content
+            stream_handle = getattr(response, "stream_handle", None)
+            logger.debug(
+                " Content type - streaming: %r, buffered content size: %d",
+                stream_handle is not None,
+                len(getattr(response, "content", "")) if getattr(response, "content", None) else 0,
+            )
+
+            if stream_handle is not None:
+                # Use streaming parser
+                try:
+                    logger.debug(" Using streaming parser")
+
+                    # Create async iterator from StreamHandle
+                    async def byte_iter():
+                        async for chunk in stream_handle.iter_bytes():
+                            yield chunk
+
+                    parsed = await ics_parser.parse_ics_stream(
+                        byte_iter(), source_url=getattr(icssrc, "url", None)
+                    )
+                    logger.debug(" Streaming parser result type: %r", type(parsed))
+                except Exception:
+                    logger.exception("DEBUG: Streaming parser failed for %r", src_cfg)
+                    return []
+            else:
+                # Use buffered content
+                raw_ics = getattr(response, "content", None)
+                if not raw_ics:
+                    logger.error("DEBUG: No ICS data from source %r", src_cfg)
+                    return []
+
+                logger.debug(" Using buffered parser, content preview: %r...", str(raw_ics)[:200])
+
+                # Create parser instance and parse with correct method
+                try:
+                    # Create parser instance with minimal settings
+                    class _MinimalSettings:
+                        pass
+
+                    parser_instance = getattr(ics_parser, "LiteICSParser", None)
+                    if parser_instance is None:
+                        logger.error(
+                            "DEBUG: LiteICSParser class not found, skipping source %r", src_cfg
+                        )
+                        return []
+
+                    parser = parser_instance(_MinimalSettings())
+
+                    # Use the optimized parsing method
+                    parsed = parser.parse_ics_content_optimized(raw_ics)
+                    logger.debug(" Buffered parser result type: %r", type(parsed))
+                except Exception:
+                    logger.exception("DEBUG: Parser failed for source %r", src_cfg)
+                    return []
+
+            if not parsed:
+                logger.error("DEBUG: Parsing produced no result for source %r", src_cfg)
+                return []
+
+            # Extract events list
+            events_list: list[EventDict] = (
+                parsed if isinstance(parsed, list) else getattr(parsed, "events", []) or []
+            )
+            logger.debug(
+                " Extracted events list length: %d, events_list type: %r",
+                len(events_list),
+                type(events_list),
+            )
+
+            # Log first few events for debugging
+            for i, event in enumerate(events_list[:3]):
+                logger.debug(" Raw event %d: %r", i, event)
+
+            # RRULE expansion using worker-based system for better performance
+            expand_fn = getattr(rrule_expander, "expand", None)
+            if callable(expand_fn):
+                try:
+                    # Use existing synchronous expansion for now
+                    # Future enhancement: integrate async worker-based expansion
+                    expanded = expand_fn(events_list, days=rrule_days)
+                    if expanded is not None:
+                        events_list = list(expanded)  # type: ignore[arg-type]
+                except Exception as e:
+                    logger.warning("RRule expansion failed: %s", e)
+
+            # Normalize events to EventDict format
+            normalized_events = []
+            for ev in events_list:
+                try:
+                    # Extract basic fields
+                    def _get(o, *names, default=None):
+                        for n in names:
+                            if isinstance(o, dict) and n in o:
+                                return o[n]
+                            if hasattr(o, n):
+                                return getattr(o, n)
+                        return default
+
+                    start = _get(ev, "start", "dtstart")
+                    end = _get(ev, "end", "dtend")
+                    uid = _get(ev, "uid", "id")
+                    summary = _get(ev, "summary", "subject", "title", "name")
+
+                    # Normalize start datetime
+                    start_dt = None
+                    if isinstance(start, dict):
+                        s = start.get("date_time") or start.get("dtstart") or start.get("dt")
+                        start_dt = datetime.datetime.fromisoformat(s) if isinstance(s, str) else s
+                    elif hasattr(start, "date_time"):
+                        start_dt = getattr(start, "date_time", None)
+                    elif isinstance(start, str):
+                        start_dt = datetime.datetime.fromisoformat(start)
+                    else:
+                        start_dt = start
+
+                    if start_dt is None:
+                        continue  # Skip events without valid start time
+
+                    # Compute duration
+                    duration_seconds = 0
+                    if isinstance(end, dict):
+                        e = end.get("date_time") or end.get("dtend") or end.get("dt")
+                        end_dt = datetime.datetime.fromisoformat(e) if isinstance(e, str) else e
+                    elif hasattr(end, "date_time"):
+                        end_dt = getattr(end, "date_time", None)
+                    elif isinstance(end, str):
+                        end_dt = datetime.datetime.fromisoformat(end)
+                    else:
+                        end_dt = end
+
+                    if start_dt is not None and end_dt is not None:
+                        try:
+                            duration_seconds = int((end_dt - start_dt).total_seconds())
+                        except Exception:
+                            duration_seconds = 0
+
+                    meeting_id = str(uid) if uid else f"{src_cfg}:{_serialize_iso(start_dt)}"
+                    raw_source = (
+                        ev.get("raw") if isinstance(ev, dict) else getattr(ev, "raw", str(src_cfg))
+                    )
+
+                    normalized_events.append(
+                        {
+                            "meeting_id": meeting_id,
+                            "subject": str(summary) if summary else "",
+                            "description": str(
+                                _get(ev, "description", "body", "body_preview") or ""
+                            ),
+                            "participants": _get(ev, "attendees", "participants", "attendee_list")
+                            or [],
+                            "start": start_dt,
+                            "duration_seconds": duration_seconds,
+                            "location": "",
+                            "raw_source": raw_source or str(src_cfg),
+                        }
+                    )
+
+                except Exception as e:
+                    logger.warning("Failed to normalize event: %s", e)
+                    continue
+
+            logger.debug(" Normalized %d events from source %r", len(normalized_events), src_cfg)
+            return normalized_events
+
+        except Exception:
+            logger.exception("DEBUG: Unexpected error while processing source %r", src_cfg)
+            return []
+
+
+async def _refresh_once(
     config: Any,
     skipped_store: object | None,
     event_window_ref: list[tuple[EventDict, ...]],
@@ -246,369 +525,54 @@ async def _refresh_once(  # noqa: PLR0912
 
     This function performs lazy imports of the calendarbot parsing/fetching modules
     and is resilient if those modules are not present yet.
+
+    Uses bounded concurrency for fetching sources.
     """
-    logger.debug("Starting refresh_once")
-    try:
-        # Lazy imports of parsing/fetching modules from the main repo.
-        from calendarbot.ics import (  # noqa: PLC0415
-            parser as ics_parser,  # type: ignore
-            rrule_expander,  # type: ignore
-        )
-        from calendarbot.sources import (  # noqa: PLC0415
-            ics_source as ics_source_module,  # type: ignore
-        )
-    except Exception as exc:  # pragma: no cover - runtime may not have these modules
-        logger.warning("Calendarbot parser/fetcher not available: %s", exc)
-        return
+    logger.debug("=== Starting refresh_once ===")
 
     # Collect sources configuration
     sources_cfg = _get_config_value(config, "ics_sources", []) or []
-    parsed_events: list[EventDict] = []
+
+    # Get concurrency configuration
+    fetch_concurrency = int(_get_config_value(config, "fetch_concurrency", 2))
+    fetch_concurrency = max(1, min(fetch_concurrency, 3))  # Bound between 1-3 for Pi Zero 2W
 
     # How many days to expand recurrences
     rrule_days = int(_get_config_value(config, "rrule_expansion_days", 14))
+
     logger.debug(
-        "Refresh configuration: rrule_expansion_days=%d, sources_count=%d",
+        "Refresh configuration: rrule_expansion_days=%d, sources_count=%d, fetch_concurrency=%d",
         rrule_days,
         len(sources_cfg),
+        fetch_concurrency,
     )
+    logger.debug(" Sources configured: %r", sources_cfg)
 
-    for src_cfg in sources_cfg:
-        logger.debug("Processing source configuration: %r", src_cfg)
-        try:
-            # Try constructing an IcsSource from configuration.
-            # Attempt to find a constructor for a source object. Prefer calendarbot.sources.ics_source.IcsSource
-            # but fall back to calendarbot.ics.models.ICSSource (Pydantic model) if present.
-            ics_source_ctor = getattr(ics_source_module, "IcsSource", None)
-            if ics_source_ctor is None:
-                try:
-                    from calendarbot.ics import (  # noqa: PLC0415
-                        models as ics_models,  # type: ignore
-                    )
+    if not sources_cfg:
+        logger.error("DEBUG: No sources configured, skipping refresh - THIS IS THE PROBLEM!")
+        return
 
-                    ics_source_ctor = getattr(ics_models, "ICSSource", None)
-                    if ics_source_ctor is not None:
-                        logger.debug(
-                            "Using ICSSource model from calendarbot.ics.models as source constructor"
-                        )
-                except Exception:
-                    ics_source_ctor = None
+    # Use bounded concurrency for fetching sources
+    semaphore = asyncio.Semaphore(fetch_concurrency)
+    fetch_tasks = [
+        asyncio.create_task(_fetch_and_parse_source(semaphore, src_cfg, config, rrule_days))
+        for src_cfg in sources_cfg
+    ]
 
-            if ics_source_ctor is None:
-                logger.debug(
-                    "IcsSource class not found in calendarbot.sources.ics_source or calendarbot.ics.models"
-                )
-                continue
+    # Execute all fetch tasks concurrently and gather results
+    fetch_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
 
-            # Normalize configured source into a calendarbot.ics.models.ICSSource and
-            # use the shared ICSFetcher as the primary fetch path (simpler and predictable).
-            raw_ics = None
-            try:
-                from calendarbot.ics import models as ics_models  # type: ignore  # noqa: PLC0415
-                from calendarbot.ics.fetcher import ICSFetcher  # type: ignore  # noqa: PLC0415
-            except Exception as e:
-                logger.warning("Calendarbot ICS models/fetcher not available: %s", e)
-                continue
+    # Process results and collect parsed events
+    parsed_events: list[EventDict] = []
+    for i, result in enumerate(fetch_results):
+        if isinstance(result, Exception):
+            logger.error("DEBUG: Source %r failed: %s", sources_cfg[i], result)
+            continue
+        if isinstance(result, list):
+            logger.debug(" Source %r returned %d events", sources_cfg[i], len(result))
+            parsed_events.extend(result)
 
-            icssrc_model = getattr(ics_models, "ICSSource", None)
-            if icssrc_model is None:
-                logger.debug(
-                    "ICSSource model not present in calendarbot.ics.models; skipping source %r",
-                    src_cfg,
-                )
-                continue
-
-            # Build a proper ICSSource instance from supported input shapes.
-            try:
-                if isinstance(src_cfg, icssrc_model):
-                    icssrc = src_cfg
-                elif isinstance(src_cfg, dict):
-                    icssrc = icssrc_model(**src_cfg)
-                elif isinstance(src_cfg, str):
-                    icssrc = icssrc_model(name=str(src_cfg), url=str(src_cfg))
-                else:
-                    # Try mapping attributes if given an object
-                    icssrc = icssrc_model(
-                        name=getattr(src_cfg, "name", str(src_cfg)),
-                        url=getattr(src_cfg, "url", str(src_cfg)),
-                    )
-            except Exception as e:
-                logger.warning("Failed to construct ICSSource for %r: %s", src_cfg, e)
-                continue
-
-            logger.debug("Using ICSFetcher to fetch URL=%s", getattr(icssrc, "url", None))
-            try:
-
-                class _Settings:
-                    # Minimal settings surface required by ICSFetcher.
-                    # Provide sensible defaults but allow override from config.
-                    request_timeout = int(_get_config_value(config, "request_timeout", 30))
-                    max_retries = int(_get_config_value(config, "max_retries", 3))
-                    retry_backoff_factor = float(
-                        _get_config_value(config, "retry_backoff_factor", 1.5)
-                    )
-
-                fetcher_client = ICSFetcher(_Settings())
-                async with fetcher_client as client:
-                    response = await client.fetch_ics(icssrc, conditional_headers=None)
-
-                # Diagnostic logging for response
-                try:
-                    logger.debug(
-                        "ICSFetcher response: success=%s status=%s error=%r",
-                        getattr(response, "success", None),
-                        getattr(response, "status_code", None),
-                        getattr(response, "error_message", None),
-                    )
-                    hdrs = getattr(response, "headers", None)
-                    if hdrs:
-                        logger.debug("ICSFetcher response headers: %s", hdrs)
-                except Exception:
-                    logger.debug("Failed to log ICSFetcher response diagnostics", exc_info=True)
-
-                if (
-                    response
-                    and getattr(response, "success", False)
-                    and getattr(response, "content", None)
-                ):
-                    raw_ics = response.content
-                else:
-                    logger.debug("ICSFetcher did not return content for %r", src_cfg)
-                    raw_ics = None
-
-            except Exception as e:
-                logger.warning("Error fetching ICS for %r using ICSFetcher: %s", src_cfg, e)
-                raw_ics = None
-
-            if not raw_ics:
-                logger.debug("No ICS data from source %r", src_cfg)
-                continue
-
-            # Parse calendar content into events.
-            # Try module-level parsing functions first, otherwise instantiate ICSParser.
-            parse_fn = None
-            for name in ("parse_ics", "parse_calendar", "parse"):
-                parse_fn = getattr(ics_parser, name, None)
-                if callable(parse_fn):
-                    break
-
-            parsed = None
-            if callable(parse_fn):
-                try:
-                    parsed = parse_fn(raw_ics)
-                except Exception as e:
-                    logger.warning(
-                        "Parser function %s failed for source %r: %s",
-                        getattr(parse_fn, "__name__", "<callable>"),
-                        src_cfg,
-                        e,
-                    )
-                    parsed = None
-            else:
-                # Fall back to ICSParser class if available
-                parser_class = getattr(ics_parser, "ICSParser", None)
-                if callable(parser_class):
-                    try:
-                        # Minimal settings object for parser instance
-                        class _ParserSettings:
-                            rrule_expansion_days = int(
-                                _get_config_value(config, "rrule_expansion_days", 14)
-                            )
-                            enable_rrule_expansion = bool(
-                                _get_config_value(config, "enable_rrule_expansion", True)
-                            )
-                            rrule_max_occurrences = int(
-                                _get_config_value(config, "rrule_max_occurrences", 1000)
-                            )
-
-                        # Annotate parser_instance as Any so static type checkers won't
-                        # complain about dynamic parse method attributes that may vary
-                        # between parser implementations.
-                        parser_instance: Any = parser_class(_ParserSettings())
-                        if hasattr(parser_instance, "parse_ics_content_optimized"):
-                            parsed = parser_instance.parse_ics_content_optimized(
-                                raw_ics, source_url=getattr(icssrc, "url", None)
-                            )
-                        elif hasattr(parser_instance, "parse_ics_content"):
-                            parsed = parser_instance.parse_ics_content(
-                                raw_ics, source_url=getattr(icssrc, "url", None)
-                            )
-                        else:
-                            logger.debug("ICSParser instance has no supported parse method")
-                            parsed = None
-                    except Exception as e:
-                        logger.warning("ICSParser class failed for source %r: %s", src_cfg, e)
-                        parsed = None
-                else:
-                    logger.debug(
-                        "No parser found in calendarbot.ics.parser and no ICSParser class available"
-                    )
-                    parsed = None
-
-            if not parsed:
-                logger.debug("Parsing produced no result for source %r", src_cfg)
-                continue
-
-            # Emit concise parse diagnostics so the lite server logs show parsing activity.
-            try:
-                parsed_event_count = (
-                    len(parsed)
-                    if isinstance(parsed, list)
-                    else getattr(parsed, "event_count", None)
-                )
-            except Exception:
-                parsed_event_count = None
-            try:
-                calendar_name = (
-                    None if isinstance(parsed, list) else getattr(parsed, "calendar_name", None)
-                )
-            except Exception:
-                calendar_name = None
-            try:
-                parsed_source_url = getattr(parsed, "source_url", None) or getattr(
-                    icssrc, "url", str(src_cfg)
-                )
-            except Exception:
-                parsed_source_url = str(src_cfg)
-
-            logger.debug(
-                "Parsed ICS summary: events=%s calendar=%s source=%s",
-                parsed_event_count,
-                calendar_name,
-                parsed_source_url,
-            )
-
-            # Ensure events_list is typed as a list to satisfy static checkers.
-            events_list: list[EventDict] = (
-                parsed if isinstance(parsed, list) else getattr(parsed, "events", []) or []
-            )
-
-            # Expand recurring events using rrule_expander if available.
-            expand_fn = getattr(rrule_expander, "expand", None) or getattr(
-                rrule_expander, "expand_events", None
-            )
-            if callable(expand_fn):
-                try:
-                    expanded = expand_fn(events_list, days=rrule_days)
-                    if expanded is None:
-                        # keep original events_list
-                        pass
-                    else:
-                        # Convert any iterable/generator to a concrete list to satisfy static checkers.
-                        try:
-                            events_list = list(expanded)  # type: ignore[arg-type]
-                        except Exception:
-                            # If conversion fails, fall back to original list.
-                            logger.debug(
-                                "Failed to coerce expanded events to list; keeping original events_list",
-                                exc_info=True,
-                            )
-                except Exception as e:
-                    logger.warning("RRule expansion failed: %s", e)
-
-            # Normalize events into our lightweight EventDict shape.
-            for ev in events_list:
-                # ev may be a dict-like or object with attributes.
-                def _get(o, *names, default=None):
-                    """Safely retrieve attribute/key from object or dict.
-
-                    Usage: _get(obj, "attr1", "attr2", default=None)
-                    """
-                    for n in names:
-                        # Skip any non-string name defensively
-                        if not isinstance(n, str):
-                            continue
-                        if isinstance(o, dict) and n in o:
-                            return o[n]
-                        if hasattr(o, n):
-                            return getattr(o, n)
-                    return default
-
-                start = _get(ev, "start", "dtstart")
-                end = _get(ev, "end", "dtend")
-                duration = _get(ev, "duration")
-                uid = _get(ev, "uid", "id", "uid")
-                summary = _get(ev, "summary", "subject", "title", "name")
-                # Resolve raw_source robustly (handle dict-like or object event representations).
-                if isinstance(ev, dict):
-                    raw_source = ev.get("raw") or str(src_cfg)
-                else:
-                    raw_source = getattr(ev, "raw", None) or str(src_cfg)
-
-                # Normalize start/end/duration to datetimes/seconds.
-                start_dt = None
-                end_dt = None
-                duration_seconds = 0
-                try:
-                    # Resolve start to a datetime if possible
-                    if isinstance(start, dict):
-                        s = start.get("date_time") or start.get("dtstart") or start.get("dt")
-                        start_dt = datetime.datetime.fromisoformat(s) if isinstance(s, str) else s
-                    elif hasattr(start, "date_time"):
-                        # Some parser objects expose `date_time` but static type checkers
-                        # may not know the attribute. Use getattr and silence attribute
-                        # checking to keep runtime behavior while avoiding type errors.
-                        start_dt = getattr(start, "date_time", None)  # type: ignore[attr-defined]
-                    elif isinstance(start, str):
-                        start_dt = datetime.datetime.fromisoformat(start)
-                    else:
-                        start_dt = start
-
-                    # Resolve end to a datetime if possible
-                    if isinstance(end, dict):
-                        e = end.get("date_time") or end.get("dtend") or end.get("dt")
-                        end_dt = datetime.datetime.fromisoformat(e) if isinstance(e, str) else e
-                    elif hasattr(end, "date_time"):
-                        end_dt = getattr(end, "date_time", None)  # type: ignore[attr-defined]
-                    elif isinstance(end, str):
-                        end_dt = datetime.datetime.fromisoformat(end)
-                    else:
-                        end_dt = end
-
-                    # Prefer computing duration from start/end when available
-                    if start_dt is not None and end_dt is not None:
-                        try:
-                            duration_seconds = int((end_dt - start_dt).total_seconds())
-                        except Exception:
-                            duration_seconds = 0
-                    elif duration is not None:
-                        if hasattr(duration, "total_seconds"):
-                            try:
-                                duration_seconds = int(duration.total_seconds())
-                            except Exception:
-                                duration_seconds = 0
-                        else:
-                            try:
-                                duration_seconds = int(duration)
-                            except Exception:
-                                duration_seconds = 0
-                except Exception:
-                    start_dt = None
-                    duration_seconds = 0
-
-                if start_dt is None:
-                    continue
-
-                meeting_id = (
-                    str(uid) if uid is not None else f"{raw_source}:{_serialize_iso(start_dt)}"
-                )
-
-                parsed_events.append(
-                    {
-                        "meeting_id": meeting_id,
-                        "subject": str(summary) if summary is not None else "",
-                        "description": str(_get(ev, "description", "body", "body_preview") or ""),
-                        "participants": _get(ev, "attendees", "participants", "attendee_list")
-                        or [],
-                        "start": start_dt,
-                        "duration_seconds": int(duration_seconds),
-                        "location": "",
-                        "raw_source": raw_source,
-                    }
-                )
-
-        except Exception:
-            logger.exception("Unexpected error while processing source %r", src_cfg)
+    logger.debug(" Total parsed events from all sources: %d", len(parsed_events))
 
     # Filter out past events and skipped ones, sort and trim window size.
     now = _now_utc()
@@ -634,7 +598,23 @@ async def _refresh_once(  # noqa: PLR0912
     # Store atomically (replace the single reference inside event_window_ref list).
     async with window_lock:
         event_window_ref[0] = tuple(pruned)
-    logger.debug("Refresh complete; stored %d events", len(pruned))
+    logger.debug(" Refresh complete; stored %d events in window", len(pruned))
+
+    # INFO level log to confirm server is operational and data is available
+    logger.info(
+        "ICS data successfully parsed and refreshed - %d upcoming events available for serving",
+        len(pruned),
+    )
+
+    # Log event details for debugging
+    for i, event in enumerate(pruned[:3]):  # Log first 3 events
+        logger.debug(
+            " Event %d - ID: %r, Subject: %r, Start: %r",
+            i,
+            event.get("meeting_id"),
+            event.get("subject"),
+            event.get("start"),
+        )
 
 
 async def _refresh_loop(
@@ -646,16 +626,28 @@ async def _refresh_loop(
 ) -> None:
     """Background refresher: immediate refresh then periodic refreshes."""
     interval = int(_get_config_value(config, "refresh_interval_seconds", 60))
+    logger.debug(" _refresh_loop starting with interval %d seconds", interval)
+
     # Perform an initial refresh immediately.
-    await _refresh_once(config, skipped_store, event_window_ref, window_lock)
+    logger.debug(" Starting initial refresh")
+    try:
+        await _refresh_once(config, skipped_store, event_window_ref, window_lock)
+        logger.debug(" Initial refresh completed")
+    except Exception as e:
+        logger.error("DEBUG: Initial refresh failed: %s", e, exc_info=True)
+
+    logger.debug(" Starting refresh loop")
     while not stop_event.is_set():
         try:
+            logger.debug(" Sleeping for %d seconds until next refresh", interval)
             await asyncio.sleep(interval)
             if stop_event.is_set():
                 break
+            logger.debug(" Starting periodic refresh")
             await _refresh_once(config, skipped_store, event_window_ref, window_lock)
+            logger.debug(" Periodic refresh completed")
         except Exception:
-            logger.exception("Refresh loop unexpected error")
+            logger.exception("DEBUG: Refresh loop unexpected error")
 
 
 def _event_to_api_model(ev: EventDict) -> dict[str, Any]:
@@ -708,8 +700,13 @@ async def _make_app(
         async with window_lock:
             window = tuple(event_window_ref[0])
 
+        logger.debug(" /api/whats-next called - window has %d events", len(window))
+
         # Find first non-skipped upcoming meeting and compute seconds_until_start now.
-        for ev in window:
+        for i, ev in enumerate(window):
+            logger.debug(
+                " Checking event %d - ID: %r, Start: %r", i, ev.get("meeting_id"), ev.get("start")
+            )
             start = ev.get("start")
             if not isinstance(start, datetime.datetime):
                 continue
@@ -890,9 +887,11 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
         raise
 
     # Start background refresher task
+    logger.debug(" Creating background refresher task")
     refresher = asyncio.create_task(
         _refresh_loop(config, skipped_store, event_window_ref, window_lock, stop_event)
     )
+    logger.debug(" Background refresher task created: %r", refresher)
 
     # Wire signals for graceful shutdown
     loop = asyncio.get_running_loop()
@@ -934,6 +933,23 @@ def start_server(config: Any, skipped_store: object | None = None) -> None:
             - rrule_expansion_days: days to expand rrules
             - event_window_size: number of upcoming events to keep
             - ics_sources: iterable of source configurations (passed to IcsSource)
+            - debug_logging: enable debug logging for calendarbot_lite (bool)
+
+            # Bounded Concurrency Configuration (Pi Zero 2W optimized)
+            - fetch_concurrency: number of concurrent fetches (int, default 2, range 1-3)
+            - rrule_worker_concurrency: RRULE worker pool size (int, default 1)
+
+            # RRULE Worker Limits and Performance Controls
+            - max_occurrences_per_rule: max events per RRULE (int, default 250)
+            - expansion_days_window: expansion time window in days (int, default 365)
+            - expansion_time_budget_ms_per_rule: time budget per RRULE in ms (int, default 200)
+            - expansion_yield_frequency: yield to event loop after N events (int, default 50)
+
+            # HTTP Fetcher Configuration
+            - request_timeout: HTTP request timeout in seconds (int, default 30)
+            - max_retries: maximum HTTP retries (int, default 3)
+            - retry_backoff_factor: retry backoff multiplier (float, default 1.5)
+
         skipped_store: optional object implementing:
             - is_skipped(meeting_id) -> bool
             - add_skip(meeting_id) -> Optional[datetime|str]
@@ -944,6 +960,16 @@ def start_server(config: Any, skipped_store: object | None = None) -> None:
     aiohttp is required at runtime; imports are performed lazily so importing this module
     does not require aiohttp to be installed.
     """
+    # Allow runtime control of debug logging via config
+    debug_mode = _get_config_value(config, "debug_logging", False)
+    try:
+        from .lite_logging import configure_lite_logging  # noqa: PLC0415
+
+        configure_lite_logging(debug_mode=debug_mode)
+        logger.info("Logging configuration applied: debug_mode=%s", debug_mode)
+    except ImportError:
+        logger.warning("lite_logging module not available, using basic configuration")
+
     try:
         logger.debug("Running asyncio event loop for server")
         asyncio.run(_serve(config, skipped_store))
