@@ -120,6 +120,7 @@ html, body {
   padding: 24px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   text-align: center;
+  position: relative; /* Required for absolute positioning of close button */
 }
 
 .meeting-title {
@@ -142,6 +143,49 @@ html, body {
   font-size: 14px;
   color: var(--gray-5);
   min-height: 20px;
+}
+
+/* === CLOSE BUTTON === */
+.meeting-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: var(--gray-3);
+  border: 2px solid var(--gray-5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--gray-7);
+  z-index: 10;
+  /* Touch-friendly styling */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  /* Always visible for touch interfaces */
+  opacity: 1;
+  transform: scale(1);
+}
+
+.meeting-close-btn:hover,
+.meeting-close-btn:focus {
+  background-color: var(--gray-4);
+  border-color: var(--gray-6);
+  color: var(--gray-8);
+}
+
+.meeting-close-btn:active {
+  transform: scale(0.95);
+  background-color: var(--gray-5);
+}
+
+.meeting-close-btn:focus {
+  outline: 2px solid var(--gray-6);
+  outline-offset: 2px;
 }
 
 /* === NEXT MEETINGS === */
