@@ -1,6 +1,8 @@
 """iCalendar parser with Microsoft Outlook compatibility - CalendarBot Lite version."""
 
+import asyncio
 import codecs
+import concurrent.futures
 import logging
 import uuid
 from collections.abc import AsyncGenerator, AsyncIterator, Generator
@@ -1269,7 +1271,7 @@ class LiteICSParser:
             logger.debug(f"ICS validation failed: {e}")
             return False
 
-    def _expand_recurring_events(  # noqa: PLR0912
+    def _expand_recurring_events(  # noqa: PLR0912, PLR0915
         self,
         events: list[LiteCalendarEvent],
         raw_components: list[ICalEvent],
@@ -1357,12 +1359,46 @@ class LiteICSParser:
                                 else:
                                     exdates.append(exdate_str)
 
-                    # Expand using LiteRRuleExpander
-                    instances = self.rrule_expander.expand_rrule(
-                        event,
-                        rrule_string,
-                        exdates=exdates if exdates else None,
-                    )
+                    # Expand using streaming LiteRRuleExpander for Pi Zero 2W memory efficiency
+                    from .lite_rrule_expander import expand_events_streaming  # noqa: PLC0415
+
+                    # Use streaming expansion with in-flight deduplication
+                    current_events_with_rrules = [
+                        (event, rrule_string, exdates if exdates else None)
+                    ]
+
+                    async def _stream_expand(events_to_expand):
+                        expanded_instances = []
+                        async for instance in expand_events_streaming(
+                            events_to_expand, self.settings
+                        ):
+                            expanded_instances.append(instance)
+                            # Yield control every 50 events for cooperative multitasking
+                            if len(expanded_instances) % 50 == 0:
+                                await asyncio.sleep(0)
+                        return expanded_instances
+
+                    # Run streaming expansion in event loop
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            # Already in async context, create task
+                            with concurrent.futures.ThreadPoolExecutor() as executor:
+                                future = executor.submit(
+                                    asyncio.run, _stream_expand(current_events_with_rrules)
+                                )
+                                instances = future.result()
+                        else:
+                            # No event loop running, use asyncio.run
+                            instances = asyncio.run(_stream_expand(current_events_with_rrules))
+                    except Exception:
+                        # Fallback to original non-streaming method if async fails
+                        logger.warning("Streaming expansion failed, falling back to non-streaming")
+                        instances = self.rrule_expander.expand_rrule(
+                            event,
+                            rrule_string,
+                            exdates=exdates if exdates else None,
+                        )
 
                     expanded_events.extend(instances)
 

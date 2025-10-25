@@ -1,0 +1,75 @@
+{
+  "concurrent": {
+    "scenario": "concurrent",
+    "overall_elapsed_s": 36.19385577994399,
+    "phases": [
+      {
+        "name": "fetch:/s1.ics",
+        "elapsed_s": 0.018170743016526103,
+        "rss_kb_before": 62812,
+        "rss_kb_after": 65116,
+        "note": null
+      },
+      {
+        "name": "fetch:/s2.ics",
+        "elapsed_s": 0.004442402976565063,
+        "rss_kb_before": 63580,
+        "rss_kb_after": 65116,
+        "note": null
+      },
+      {
+        "name": "parse:/s2.ics",
+        "elapsed_s": 0.051207980955950916,
+        "rss_kb_before": 65116,
+        "rss_kb_after": 69456,
+        "note": null
+      },
+      {
+        "name": "fetch:/s3.ics",
+        "elapsed_s": 0.13083400204777718,
+        "rss_kb_before": 69456,
+        "rss_kb_after": 70560,
+        "note": null
+      },
+      {
+        "name": "parse:/s1.ics",
+        "elapsed_s": 0.20876494597177953,
+        "rss_kb_before": 65116,
+        "rss_kb_after": 69872,
+        "note": null
+      },
+      {
+        "name": "expand:/s1.ics",
+        "elapsed_s": 7.150927558541298e-06,
+        "rss_kb_before": 69872,
+        "rss_kb_after": 69872,
+        "note": null
+      },
+      {
+        "name": "parse:/s3.ics",
+        "elapsed_s": 0.22446320101153105,
+        "rss_kb_before": 70560,
+        "rss_kb_after": 70256,
+        "note": null
+      },
+      {
+        "name": "expand:/s3.ics",
+        "elapsed_s": 3.6660348996520042e-06,
+        "rss_kb_before": 70256,
+        "rss_kb_after": 70256,
+        "note": null
+      }
+    ],
+    "events_parsed": 655,
+    "recurring_instances": 2,
+    "warnings": [],
+    "error": null,
+    "api_validation": {
+      "status": "ERROR",
+      "meeting_found": false,
+      "validation_details": {},
+      "error_message": "calendarbot_lite server did not start within timeout"
+    },
+    "connection_metrics": null
+  }
+}

@@ -21,6 +21,9 @@ import logging
 import signal
 from typing import Any
 
+# Import shared HTTP client for connection reuse optimization
+from .http_client import close_all_clients, get_shared_client
+
 # Import and configure logging early for Pi Zero 2W optimization
 try:
     from .lite_logging import configure_lite_logging
@@ -251,6 +254,7 @@ async def _fetch_and_parse_source(  # noqa: PLR0911, PLR0912
     src_cfg: Any,
     config: Any,
     rrule_days: int,
+    shared_http_client: Any = None,
 ) -> list[EventDict]:
     """Fetch and parse a single source with bounded concurrency.
 
@@ -259,6 +263,7 @@ async def _fetch_and_parse_source(  # noqa: PLR0911, PLR0912
         src_cfg: Source configuration
         config: Application configuration
         rrule_days: Days to expand RRULE patterns
+        shared_http_client: Optional shared HTTP client for connection reuse
 
     Returns:
         List of parsed events from the source
@@ -329,7 +334,7 @@ async def _fetch_and_parse_source(  # noqa: PLR0911, PLR0912
                 retry_backoff_factor = float(_get_config_value(config, "retry_backoff_factor", 1.5))
 
             logger.debug(" Starting ICS fetch for source: %r", src_cfg)
-            fetcher_client = ICSFetcher(_Settings())
+            fetcher_client = ICSFetcher(_Settings(), shared_http_client)
             async with fetcher_client as client:
                 response = await client.fetch_ics(icssrc, conditional_headers=None)
 
@@ -520,6 +525,7 @@ async def _refresh_once(
     skipped_store: object | None,
     event_window_ref: list[tuple[EventDict, ...]],
     window_lock: asyncio.Lock,
+    shared_http_client: Any = None,
 ) -> None:
     """Perform a single refresh: fetch sources, parse/expand events and update window.
 
@@ -527,6 +533,13 @@ async def _refresh_once(
     and is resilient if those modules are not present yet.
 
     Uses bounded concurrency for fetching sources.
+
+    Args:
+        config: Application configuration
+        skipped_store: Optional store for skipped events
+        event_window_ref: Reference to event window for atomic updates
+        window_lock: Lock for thread-safe event window updates
+        shared_http_client: Optional shared HTTP client for connection reuse
     """
     logger.debug("=== Starting refresh_once ===")
 
@@ -555,7 +568,9 @@ async def _refresh_once(
     # Use bounded concurrency for fetching sources
     semaphore = asyncio.Semaphore(fetch_concurrency)
     fetch_tasks = [
-        asyncio.create_task(_fetch_and_parse_source(semaphore, src_cfg, config, rrule_days))
+        asyncio.create_task(
+            _fetch_and_parse_source(semaphore, src_cfg, config, rrule_days, shared_http_client)
+        )
         for src_cfg in sources_cfg
     ]
 
@@ -653,6 +668,7 @@ async def _refresh_loop(
     event_window_ref: list[tuple[EventDict, ...]],
     window_lock: asyncio.Lock,
     stop_event: asyncio.Event,
+    shared_http_client: Any = None,
 ) -> None:
     """Background refresher: immediate refresh then periodic refreshes."""
     interval = int(_get_config_value(config, "refresh_interval_seconds", 60))
@@ -661,7 +677,9 @@ async def _refresh_loop(
     # Perform an initial refresh immediately.
     logger.debug(" Starting initial refresh")
     try:
-        await _refresh_once(config, skipped_store, event_window_ref, window_lock)
+        await _refresh_once(
+            config, skipped_store, event_window_ref, window_lock, shared_http_client
+        )
         logger.debug(" Initial refresh completed")
     except Exception as e:
         logger.error("DEBUG: Initial refresh failed: %s", e, exc_info=True)
@@ -674,7 +692,9 @@ async def _refresh_loop(
             if stop_event.is_set():
                 break
             logger.debug(" Starting periodic refresh")
-            await _refresh_once(config, skipped_store, event_window_ref, window_lock)
+            await _refresh_once(
+                config, skipped_store, event_window_ref, window_lock, shared_http_client
+            )
             logger.debug(" Periodic refresh completed")
         except Exception:
             logger.exception("DEBUG: Refresh loop unexpected error")
@@ -703,6 +723,7 @@ async def _make_app(
     event_window_ref: list[tuple[EventDict, ...]],
     window_lock: asyncio.Lock,
     _stop_event: asyncio.Event,
+    shared_http_client: Any = None,
 ):
     """Create aiohttp web application with routes wired to the in-memory window.
 
@@ -823,7 +844,9 @@ async def _make_app(
 
         # Force immediate cache refresh to restore previously skipped meetings
         try:
-            await _refresh_once(_config, skipped_store, event_window_ref, window_lock)
+            await _refresh_once(
+                _config, skipped_store, event_window_ref, window_lock, shared_http_client
+            )
             logger.debug("Refreshed event cache after clearing %d skipped meetings", count)
         except Exception:
             logger.exception("Failed to refresh cache after clearing skips")
@@ -892,6 +915,16 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     window_lock = asyncio.Lock()
     stop_event = asyncio.Event()
 
+    # Initialize shared HTTP client for connection reuse optimization
+    shared_http_client = None
+    try:
+        shared_http_client = await get_shared_client("lite_server")
+        logger.info("Initialized shared HTTP client for connection reuse")
+    except Exception as e:
+        logger.warning(
+            "Failed to initialize shared HTTP client, falling back to individual clients: %s", e
+        )
+
     # Create web app (may raise if aiohttp not available).
     try:
         # Log the environment and incoming config to diagnose missing source entries.
@@ -922,7 +955,9 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
             for k, v in (config.items() if isinstance(config, dict) else [("config", repr(config))])
         ),
     )
-    app = await _make_app(config, skipped_store, event_window_ref, window_lock, stop_event)
+    app = await _make_app(
+        config, skipped_store, event_window_ref, window_lock, stop_event, shared_http_client
+    )
     logger.debug("Web application created")
 
     # Setup runner and TCP site
@@ -953,7 +988,9 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     # Start background refresher task
     logger.debug(" Creating background refresher task")
     refresher = asyncio.create_task(
-        _refresh_loop(config, skipped_store, event_window_ref, window_lock, stop_event)
+        _refresh_loop(
+            config, skipped_store, event_window_ref, window_lock, stop_event, shared_http_client
+        )
     )
     logger.debug(" Background refresher task created: %r", refresher)
 
@@ -983,6 +1020,14 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
 
     # Cleanup web runner
     await runner.cleanup()
+
+    # Cleanup shared HTTP clients
+    try:
+        await close_all_clients()
+        logger.debug("Shared HTTP clients cleaned up")
+    except Exception as e:
+        logger.warning("Error cleaning up shared HTTP clients: %s", e)
+
     logger.info("Server shutdown complete")
 
 
