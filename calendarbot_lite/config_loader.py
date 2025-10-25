@@ -31,6 +31,7 @@ class Config:
         server_bind: host to bind the HTTP server to
         server_port: port for the HTTP server
         log_level: logging level name
+        alexa_bearer_token: optional bearer token for Alexa API authentication
     """
 
     sources: list[str]
@@ -40,6 +41,7 @@ class Config:
     server_bind: str = "0.0.0.0"  # nosec: B104 - intentional default for local/dev; can be overridden via config/env
     server_port: int = 8080
     log_level: str = "INFO"
+    alexa_bearer_token: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Config:
@@ -94,6 +96,10 @@ class Config:
         log_level = data.get("log_level", "INFO")
         log_level = str(log_level).upper() if log_level is not None else "INFO"
 
+        alexa_bearer_token = data.get("alexa_bearer_token")
+        if alexa_bearer_token is not None:
+            alexa_bearer_token = str(alexa_bearer_token)
+
         return cls(
             sources=sources_list,
             refresh_interval_seconds=refresh,
@@ -102,6 +108,7 @@ class Config:
             server_bind=server_bind,
             server_port=server_port,
             log_level=log_level,
+            alexa_bearer_token=alexa_bearer_token,
         )
 
 
