@@ -62,6 +62,168 @@ class RRuleWorkerPool:
             self.yield_frequency,
         )
 
+    async def expand_rrule_stream(  # noqa: PLR0912
+        self,
+        master_event: LiteCalendarEvent,
+        rrule_string: str,
+        exdates: list[str] | None = None,
+    ) -> AsyncIterator[LiteCalendarEvent]:
+        """Expand RRULE pattern asynchronously with true streaming (no list materialization).
+
+        Args:
+            master_event: Master recurring event template
+            rrule_string: RRULE pattern string
+            exdates: Optional list of excluded dates
+
+        Yields:
+            Individual LiteCalendarEvent instances for each occurrence
+
+        Raises:
+            LiteRRuleExpansionError: If RRULE expansion fails
+        """
+        async with self._semaphore:
+            logger.debug(
+                "Starting streaming RRULE expansion for event %s",
+                getattr(master_event, "id", "<no-id>"),
+            )
+            start_time = time.time()
+
+            try:
+                # Set up expansion window
+                start_date = master_event.start.date_time
+                end_date = start_date + timedelta(days=self.expansion_days)
+
+                # Parse RRULE and build rruleset with exdates
+                rule_set = rruleset()
+
+                try:
+                    parsed_rule = rrulestr(rrule_string, dtstart=master_event.start.date_time)
+                    if isinstance(parsed_rule, rruleset):
+                        rule_set = parsed_rule
+                    else:
+                        rule_set.rrule(parsed_rule)
+                except Exception:
+                    # Fallback parsing
+                    parsed_rule = rrulestr(rrule_string, dtstart=master_event.start.date_time)
+                    if isinstance(parsed_rule, rruleset):
+                        rule_set = parsed_rule
+                    else:
+                        rule_set.rrule(parsed_rule)
+
+                # Apply EXDATEs if provided
+                if exdates:
+                    for ex in exdates:
+                        try:
+                            ex_dt = self._parse_datetime_for_streaming(ex)
+                            if ex_dt.tzinfo is None:
+                                ex_dt = ex_dt.replace(tzinfo=UTC)
+                            else:
+                                ex_dt = ex_dt.astimezone(UTC)
+                            rule_set.exdate(ex_dt)
+                        except Exception as ex_e:  # noqa: PERF203
+                            logger.warning(f"Failed to parse EXDATE '{ex}': {ex_e}")
+                            continue
+
+                # Normalize window datetimes
+                start_window = (
+                    start_date.replace(tzinfo=UTC)
+                    if start_date.tzinfo is None
+                    else start_date.astimezone(UTC)
+                )
+                end_window = (
+                    end_date.replace(tzinfo=UTC)
+                    if end_date.tzinfo is None
+                    else end_date.astimezone(UTC)
+                )
+
+                # Stream occurrences directly from iterator without materialization
+                event_count = 0
+                for i, occurrence in enumerate(
+                    rule_set.between(start_window, end_window, inc=True)
+                ):
+                    # Check time budget
+                    elapsed_ms = (time.time() - start_time) * 1000
+                    if elapsed_ms > self.time_budget_ms:
+                        logger.warning(
+                            "RRULE streaming exceeded time budget (%dms > %dms) after %d events",
+                            elapsed_ms,
+                            self.time_budget_ms,
+                            i,
+                        )
+                        break
+
+                    # Check occurrence limit
+                    if i >= self.max_occurrences:
+                        logger.warning(
+                            "RRULE streaming limited to %d occurrences for Pi Zero 2W",
+                            self.max_occurrences,
+                        )
+                        break
+
+                    # Normalize occurrence
+                    if not isinstance(occurrence, datetime):
+                        continue
+                    normalized_occurrence = (
+                        occurrence.replace(tzinfo=UTC)
+                        if occurrence.tzinfo is None
+                        else occurrence.astimezone(UTC)
+                    )
+
+                    # Generate event instance
+                    duration = master_event.end.date_time - master_event.start.date_time
+                    end_time = normalized_occurrence + duration
+
+                    instance_id = (
+                        f"{master_event.id}_{normalized_occurrence.strftime('%Y%m%dT%H%M%S')}_"
+                        f"{uuid.uuid4().hex[:8]}"
+                    )
+
+                    event = LiteCalendarEvent(
+                        id=instance_id,
+                        subject=master_event.subject,
+                        body_preview=master_event.body_preview,
+                        start=LiteDateTimeInfo(
+                            date_time=normalized_occurrence,
+                            time_zone=master_event.start.time_zone,
+                        ),
+                        end=LiteDateTimeInfo(
+                            date_time=end_time,
+                            time_zone=master_event.end.time_zone,
+                        ),
+                        is_all_day=master_event.is_all_day,
+                        show_as=master_event.show_as,
+                        is_cancelled=master_event.is_cancelled,
+                        is_organizer=master_event.is_organizer,
+                        location=master_event.location,
+                        is_online_meeting=master_event.is_online_meeting,
+                        online_meeting_url=master_event.online_meeting_url,
+                        is_recurring=False,
+                        is_expanded_instance=True,
+                        rrule_master_uid=master_event.id,
+                        last_modified_date_time=master_event.last_modified_date_time,
+                    )
+
+                    yield event
+                    event_count += 1
+
+                    # Cooperative yield to event loop
+                    if i % self.yield_frequency == 0:
+                        await asyncio.sleep(0)
+
+                logger.debug(
+                    "Streaming RRULE expansion completed: event=%s, yielded=%d events, elapsed=%.1fms",
+                    getattr(master_event, "id", "<no-id>"),
+                    event_count,
+                    (time.time() - start_time) * 1000,
+                )
+
+            except Exception as e:
+                logger.exception(
+                    "Streaming RRULE expansion failed for event %s",
+                    getattr(master_event, "id", "<no-id>"),
+                )
+                raise LiteRRuleExpansionError(f"Failed to stream RRULE expansion: {e}") from e
+
     async def expand_event_async(
         self,
         master_event: LiteCalendarEvent,
@@ -78,69 +240,61 @@ class RRuleWorkerPool:
         Yields:
             Individual LiteCalendarEvent instances for each occurrence
         """
-        async with self._semaphore:
-            logger.debug(
-                "Starting async RRULE expansion for event %s",
-                getattr(master_event, "id", "<no-id>"),
-            )
-            start_time = time.time()
+        # Delegate to the streaming implementation
+        async for event in self.expand_rrule_stream(master_event, rrule_string, exdates):
+            yield event
 
+    def _parse_datetime_for_streaming(self, datetime_str: str) -> datetime:
+        """Parse datetime string for streaming operations (lightweight version).
+
+        Args:
+            datetime_str: Datetime string in various formats
+
+        Returns:
+            Parsed datetime object
+
+        Raises:
+            ValueError: If datetime format is invalid
+        """
+        # Handle timezone-aware EXDATE format: TZID=timezone:YYYYMMDDTHHMMSS
+        if datetime_str.startswith("TZID="):
             try:
-                # Use sync expander for actual expansion logic
-                expander = LiteRRuleExpander(self.settings)
+                tzid_part, dt_part = datetime_str.split(":", 1)
+                dt_part_clean = dt_part.rstrip("Z")
+                dt = datetime.strptime(dt_part_clean, "%Y%m%dT%H%M%S")
 
-                # Set up expansion window
-                start_date = master_event.start.date_time
-                end_date = start_date + timedelta(days=self.expansion_days)
-
-                # Get raw occurrences from dateutil
-                expanded_events = expander.expand_rrule(
-                    master_event, rrule_string, exdates, start_date, end_date
-                )
-
-                # Yield events with cooperative multitasking
-                event_count = 0
-                for i, event in enumerate(expanded_events):
-                    # Check time budget
-                    elapsed_ms = (time.time() - start_time) * 1000
-                    if elapsed_ms > self.time_budget_ms:
-                        logger.warning(
-                            "RRULE expansion exceeded time budget (%dms > %dms) after %d events",
-                            elapsed_ms,
-                            self.time_budget_ms,
-                            i,
-                        )
-                        break
-
-                    # Check occurrence limit
-                    if i >= self.max_occurrences:
-                        logger.warning(
-                            "RRULE expansion exceeded occurrence limit (%d >= %d)",
-                            i,
-                            self.max_occurrences,
-                        )
-                        break
-
-                    # Yield event
-                    yield event
-                    event_count += 1
-
-                    # Cooperative yield to event loop
-                    if i % self.yield_frequency == 0:
-                        await asyncio.sleep(0)
-
-                logger.debug(
-                    "Async RRULE expansion completed: event=%s, yielded=%d events, elapsed=%.1fms",
-                    getattr(master_event, "id", "<no-id>"),
-                    event_count,
-                    (time.time() - start_time) * 1000,
-                )
-
+                if dt_part.endswith("Z"):
+                    return dt.replace(tzinfo=UTC)
+                # For streaming, assume UTC for performance
+                return dt.replace(tzinfo=UTC)
             except Exception:
-                logger.exception(
-                    "Async RRULE expansion failed for event %s",
-                    getattr(master_event, "id", "<no-id>"),
-                )
+                # Fall through to standard parsing
+                pass
+
+        # Standard parsing for streaming (optimized)
+        dt_str = datetime_str.rstrip("Z")
+
+        # Try most common format first
+        try:
+            dt = datetime.strptime(dt_str, "%Y%m%dT%H%M%S")
+            if datetime_str.endswith("Z"):
+                dt = dt.replace(tzinfo=UTC)
+            return dt
+        except ValueError:
+            pass
+
+        # Fallback to other formats
+        formats = ["%Y-%m-%dT%H:%M:%S", "%Y%m%d", "%Y-%m-%d"]
+        for fmt in formats:
+            try:
+                dt = datetime.strptime(dt_str, fmt)
+                if datetime_str.endswith("Z"):
+                    dt = dt.replace(tzinfo=UTC)
+                return dt
+            except ValueError:  # noqa: PERF203
+                continue
+
+        raise ValueError(f"Unable to parse datetime: {datetime_str}")
 
     async def expand_event_to_list(
         self,
@@ -203,7 +357,7 @@ async def expand_events_async(
     events_with_rrules: list[tuple[Any, str, list[str] | None]],
     settings: Any,
 ) -> list[Any]:
-    """Expand multiple events with RRULE patterns using worker pool.
+    """Expand multiple events with RRULE patterns using streaming worker pool.
 
     Args:
         events_with_rrules: List of (event, rrule_string, exdates) tuples
@@ -218,21 +372,52 @@ async def expand_events_async(
     worker_pool = get_worker_pool(settings)
     all_expanded = []
 
-    # Process events concurrently
-    tasks = [
-        asyncio.create_task(worker_pool.expand_event_to_list(event, rrule_str, exdates))
-        for event, rrule_str, exdates in events_with_rrules
-    ]
+    # Process events with streaming consumption to avoid memory spikes
+    for i, (event, rrule_str, exdates) in enumerate(events_with_rrules):
+        try:
+            # Stream events one by one for incremental memory usage
+            async for expanded_event in worker_pool.expand_rrule_stream(event, rrule_str, exdates):
+                all_expanded.append(expanded_event)
 
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+                # Yield control periodically for large expansions
+                if len(all_expanded) % 50 == 0:
+                    await asyncio.sleep(0)
 
-    for i, result in enumerate(results):
-        if isinstance(result, Exception):
-            logger.warning("RRULE expansion failed for event %d: %s", i, result)
-        elif isinstance(result, list):
-            all_expanded.extend(result)
+        except Exception as ex:  # noqa: PERF203
+            logger.warning("RRULE expansion failed for event %d: %s", i, ex)
+            continue
 
     return all_expanded
+
+
+async def expand_events_streaming(
+    events_with_rrules: list[tuple[Any, str, list[str] | None]],
+    settings: Any,
+) -> AsyncIterator[Any]:
+    """Expand multiple events with RRULE patterns using pure streaming (no materialization).
+
+    Args:
+        events_with_rrules: List of (event, rrule_string, exdates) tuples
+        settings: Configuration settings
+
+    Yields:
+        Individual expanded LiteCalendarEvent instances
+    """
+    if not events_with_rrules:
+        return
+
+    worker_pool = get_worker_pool(settings)
+
+    # Stream events without materialization for maximum memory efficiency
+    for i, (event, rrule_str, exdates) in enumerate(events_with_rrules):
+        try:
+            # Stream events directly without intermediate collection
+            async for expanded_event in worker_pool.expand_rrule_stream(event, rrule_str, exdates):
+                yield expanded_event
+
+        except Exception as ex:  # noqa: PERF203
+            logger.warning("RRULE streaming expansion failed for event %d: %s", i, ex)
+            continue
 
 
 class LiteRRuleExpansionError(Exception):
@@ -600,25 +785,31 @@ class LiteRRuleExpander:
 
         return events
 
-    def _generate_occurrences(
+    def _generate_occurrences_streaming(
         self,
         master_event: LiteCalendarEvent,
         rrule_params: dict,
         start_date: datetime,
         end_date: datetime,
+        max_occurrences: int = 250,
+        time_budget_ms: int = 200,
     ) -> list[datetime]:
-        """Generate occurrence datetimes using dateutil.rrule.
+        """Generate occurrence datetimes using dateutil.rrule with Pi Zero 2W limits.
 
         Args:
             master_event: Master event with start time
             rrule_params: Parsed RRULE parameters
             start_date: Window start (unused in current implementation)
             end_date: Window end (unused in current implementation)
+            max_occurrences: Maximum occurrences to generate (Pi Zero 2W limit)
+            time_budget_ms: Time budget in milliseconds (Pi Zero 2W limit)
 
         Returns:
-            List of occurrence datetimes
+            List of occurrence datetimes (limited by Pi Zero 2W constraints)
         """
         try:
+            start_time = time.time()
+
             # Map frequency to dateutil constants
             freq_map = {
                 "SECONDLY": SECONDLY,
@@ -666,12 +857,67 @@ class LiteRRuleExpander:
                 if byweekday:
                     kwargs["byweekday"] = byweekday
 
-            # Generate occurrences
+            # Generate occurrences using iterator to avoid memory spike
             rule = rrule(**kwargs)
-            return list(rule)
+            occurrences = []
+
+            for i, occurrence in enumerate(rule):
+                # Check time budget
+                elapsed_ms = (time.time() - start_time) * 1000
+                if elapsed_ms > time_budget_ms:
+                    logger.warning(
+                        "RRULE occurrence generation exceeded time budget (%dms > %dms) after %d items",
+                        elapsed_ms,
+                        time_budget_ms,
+                        i,
+                    )
+                    break
+
+                # Check occurrence limit
+                if i >= max_occurrences:
+                    logger.warning(
+                        "RRULE occurrence generation limited to %d occurrences for Pi Zero 2W",
+                        max_occurrences,
+                    )
+                    break
+
+                occurrences.append(occurrence)
+
+            return occurrences
 
         except Exception as e:
             raise LiteRRuleExpansionError(f"Failed to generate occurrences: {e}") from e
+
+    def _generate_occurrences(
+        self,
+        master_event: LiteCalendarEvent,
+        rrule_params: dict,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> list[datetime]:
+        """Generate occurrence datetimes using dateutil.rrule.
+
+        Args:
+            master_event: Master event with start time
+            rrule_params: Parsed RRULE parameters
+            start_date: Window start (unused in current implementation)
+            end_date: Window end (unused in current implementation)
+
+        Returns:
+            List of occurrence datetimes
+        """
+        # Use streaming version with Pi Zero 2W defaults
+        max_occurrences = getattr(self.settings, "rrule_max_occurrences_per_rule", 250)
+        time_budget_ms = getattr(self.settings, "expansion_time_budget_ms_per_rule", 200)
+
+        return self._generate_occurrences_streaming(
+            master_event,
+            rrule_params,
+            start_date,
+            end_date,
+            max_occurrences,
+            time_budget_ms,
+        )
 
     def _filter_by_date_range(
         self,

@@ -10,6 +10,11 @@ from urllib.parse import urlparse
 
 import httpx
 
+from .http_client import (
+    get_shared_client,
+    record_client_error,
+    record_client_success,
+)
 from .lite_models import LiteICSResponse, LiteICSSource
 
 logger = logging.getLogger(__name__)
@@ -98,9 +103,17 @@ class StreamHandle:
         self.chunk_size = chunk_size
         self.status_code = status_code
         self.headers = dict(resp_headers or {})
+        self._initial_bytes: Optional[bytes] = None
+        self._initial_bytes_consumed = False
 
     async def iter_bytes(self):
         """Async generator yielding raw byte chunks from the remote resource."""
+        # First yield any initial bytes that were peeked earlier
+        if self._initial_bytes and not self._initial_bytes_consumed:
+            yield self._initial_bytes
+            self._initial_bytes_consumed = True
+
+        # Then yield the rest from the stream
         async with self.client.stream(
             "GET", self.url, headers=self.request_headers, timeout=self.timeout
         ) as resp:
@@ -108,7 +121,27 @@ class StreamHandle:
             self.status_code = resp.status_code
             self.headers = dict(resp.headers)
             resp.raise_for_status()
+
+            # Skip initial bytes if we already peeked them
+            bytes_to_skip = (
+                len(self._initial_bytes)
+                if self._initial_bytes and self._initial_bytes_consumed
+                else 0
+            )
+            bytes_skipped = 0
+
             async for chunk in resp.aiter_bytes(chunk_size=self.chunk_size):
+                if bytes_to_skip > 0 and bytes_skipped < bytes_to_skip:
+                    # Skip bytes we already peeked
+                    if bytes_skipped + len(chunk) <= bytes_to_skip:
+                        bytes_skipped += len(chunk)
+                        continue
+                    else:
+                        # Partial chunk to skip
+                        skip_in_chunk = bytes_to_skip - bytes_skipped
+                        chunk = chunk[skip_in_chunk:]  # noqa: PLW2901
+                        bytes_skipped = bytes_to_skip
+
                 yield chunk
 
     async def read_initial_bytes(self, n: int) -> bytes:
@@ -137,11 +170,12 @@ class StreamHandle:
 class LiteICSFetcher:
     """Async HTTP client for downloading ICS calendar files - CalendarBot Lite version."""
 
-    def __init__(self, settings: Any) -> None:
+    def __init__(self, settings: Any, shared_client: Optional[httpx.AsyncClient] = None) -> None:
         """Initialize ICS fetcher.
 
         Args:
             settings: Application settings
+            shared_client: Optional shared HTTP client for connection reuse
         """
         # Assign settings and ensure it exposes the small surface the fetcher expects.
         # Some callers construct minimal ad-hoc settings objects; provide safe defaults
@@ -161,10 +195,12 @@ class LiteICSFetcher:
             # already use getattr(..., default) fallbacks, so it's safe to ignore.
             pass
 
-        self.client: Optional[httpx.AsyncClient] = None
+        self.client: Optional[httpx.AsyncClient] = shared_client
+        self._use_shared_client = shared_client is not None
+        self._client_id = "lite_fetcher"
         self.security_logger = LiteSecurityEventLogger()
 
-        logger.debug("Lite ICS fetcher initialized")
+        logger.debug("Lite ICS fetcher initialized (shared_client: %s)", self._use_shared_client)
 
     async def __aenter__(self) -> "LiteICSFetcher":
         """Async context manager entry."""
@@ -175,8 +211,35 @@ class LiteICSFetcher:
         """Async context manager exit."""
         await self._close_client()
 
+    async def _close_client(self) -> None:
+        """Close HTTP client if it's not shared."""
+        if self.client is not None and not self._use_shared_client:
+            # Only close individual clients, not shared ones
+            if not self.client.is_closed:
+                await self.client.aclose()
+                logger.debug("Closed individual HTTP client")
+            self.client = None
+        elif self._use_shared_client:
+            # Don't close shared clients, just clear reference
+            self.client = None
+            logger.debug("Released shared HTTP client reference")
+
     async def _ensure_client(self) -> None:
         """Ensure HTTP client exists."""
+        if self._use_shared_client:
+            # Use shared client for connection reuse optimization
+            try:
+                self.client = await get_shared_client(self._client_id)
+                logger.debug("Using shared HTTP client for connection reuse")
+                return
+            except Exception as e:
+                logger.warning(
+                    "Failed to get shared HTTP client, falling back to individual client: %s", e
+                )
+                # Fall back to individual client
+                self._use_shared_client = False
+
+        # Individual client path (fallback or when shared client not provided)
         if self.client is None or self.client.is_closed:
             timeout = httpx.Timeout(
                 connect=10.0, read=self.settings.request_timeout, write=10.0, pool=30.0
@@ -200,11 +263,6 @@ class LiteICSFetcher:
                     "Cache-Control": "no-cache",
                 },
             )
-
-    async def _close_client(self) -> None:
-        """Close HTTP client."""
-        if self.client and not self.client.is_closed:
-            await self.client.aclose()
 
     def _validate_url_for_ssrf(self, url: str) -> bool:  # noqa: PLR0911, PLR0912
         """Validate URL to prevent Server-Side Request Forgery (SSRF) attacks with comprehensive security checks.
@@ -591,83 +649,104 @@ class LiteICSFetcher:
                 if self.client is None:
                     _raise_client_not_initialized()
 
-                # Attempt HEAD first to cheaply obtain headers (some servers don't support HEAD)
-                head_resp = None
-                try:
-                    head_resp = await self.client.head(url, headers=headers, timeout=timeout)
-                    # Some test mocks (e.g., SimpleNamespace) do not implement raise_for_status().
-                    # Only call raise_for_status when available to avoid AttributeError on mocks.
-                    if getattr(head_resp, "status_code", None) != 304 and hasattr(
-                        head_resp, "raise_for_status"
-                    ):
-                        head_resp.raise_for_status()
-                except httpx.HTTPStatusError:
-                    # Propagate HTTP errors from HEAD
-                    raise
-                except Exception:
-                    # HEAD not supported or failed; treat as absent
-                    head_resp = None
+                # Single GET request with streaming and peek optimization
+                # This replaces the HEAD+GET pattern to reduce round trips
+                async with self.client.stream(
+                    "GET", url, headers=headers, timeout=timeout
+                ) as streaming_response:
+                    # Handle 304 Not Modified immediately
+                    if streaming_response.status_code == 304:
+                        logger.debug("ICS content not modified (304)")
+                        if self._use_shared_client:
+                            await record_client_success(self._client_id)
+                        return streaming_response
 
-                content_length = None
-                head_headers = None
-                head_status = None
-                if head_resp is not None:
-                    head_headers = dict(getattr(head_resp, "headers", {}))
-                    head_status = getattr(head_resp, "status_code", None)
-                    # Read Content-Length header in a case-insensitive way to support varied servers/mocks
-                    cl = None
-                    if getattr(head_resp, "headers", None):
-                        for hk, hv in getattr(head_resp, "headers", {}).items():
-                            if isinstance(hk, str) and hk.lower() == "content-length":
-                                cl = hv
-                                break
-                    if cl is not None:
+                    # Raise for status for other HTTP errors
+                    streaming_response.raise_for_status()
+
+                    # Get Content-Length from response headers
+                    content_length = None
+                    resp_headers = dict(streaming_response.headers)
+                    cl_header = streaming_response.headers.get("content-length")
+                    if cl_header:
                         try:
-                            content_length = int(cl)
-                        except Exception:
+                            content_length = int(cl_header)
+                        except (ValueError, TypeError):
                             content_length = None
 
-                # Decision logic for streaming vs buffering
-                do_stream = False
-                if prefer_stream == "force":
-                    do_stream = True
-                elif prefer_stream == "never":
+                    # Decision logic for streaming vs buffering using Content-Length
                     do_stream = False
-                elif content_length is not None:
-                    do_stream = content_length > stream_threshold
-                else:
-                    # No Content-Length (chunked) -> conservative: stream
-                    do_stream = True
+                    if prefer_stream == "force":
+                        do_stream = True
+                    elif prefer_stream == "never":
+                        do_stream = False
+                    elif content_length is not None:
+                        do_stream = content_length > stream_threshold
+                    else:
+                        # No Content-Length: default to buffering for safety
+                        # This avoids the complexity of peek-based decisions that can corrupt data
+                        do_stream = False
 
-                if do_stream:
+                    if do_stream:
+                        logger.debug(
+                            "Selected streaming for %s (content_length=%s)", url, content_length
+                        )
+                        # Create StreamHandle for large content
+                        stream_handle = StreamHandle(
+                            self.client,
+                            url,
+                            headers,
+                            timeout,
+                            chunk_size,
+                            status_code=streaming_response.status_code,
+                            resp_headers=resp_headers,
+                        )
+                        if self._use_shared_client:
+                            await record_client_success(self._client_id)
+                        return stream_handle
+
+                    # Buffered path: read all content at once
                     logger.debug(
-                        f"Selected streaming GET for {url} (prefer_stream={prefer_stream}, content_length={content_length})"
-                    )
-                    # Return StreamHandle for downstream consumption
-                    return StreamHandle(
-                        self.client,
-                        url,
-                        headers,
-                        timeout,
-                        chunk_size,
-                        status_code=head_status,
-                        resp_headers=head_headers,
+                        "Selected buffering for %s (content_length=%s)", url, content_length
                     )
 
-                # Buffered path: perform GET and return full response (existing behavior)
-                response = await self.client.get(url, headers=headers, timeout=timeout)
+                    # Read all content without peeking to avoid stream corruption
+                    content_chunks = [
+                        chunk
+                        async for chunk in streaming_response.aiter_bytes(chunk_size=chunk_size)
+                    ]
 
-                if response.status_code != 304:
-                    response.raise_for_status()
+                    full_content = b"".join(content_chunks)
 
-                logger.debug(f"Successfully fetched ICS from {url} (attempt {attempt + 1})")
-                return response
+                    # Create a mock response object with the buffered content
+                    # We need to preserve the httpx.Response interface
+                    buffered_response = type(
+                        "BufferedResponse",
+                        (),
+                        {
+                            "status_code": streaming_response.status_code,
+                            "headers": streaming_response.headers,
+                            "content": full_content,
+                            "text": full_content.decode("utf-8", errors="replace"),
+                            "raise_for_status": lambda: None,  # Already checked above
+                        },
+                    )()
+
+                    if self._use_shared_client:
+                        await record_client_success(self._client_id)
+
+                    logger.debug("Successfully fetched ICS from %s (attempt %d)", url, attempt + 1)
+                    return buffered_response
 
             except httpx.HTTPStatusError:
                 # Don't retry HTTP errors (auth errors, not found, etc.)
                 raise
 
             except (httpx.TimeoutException, httpx.NetworkError) as e:
+                # Record client error for health tracking
+                if self._use_shared_client:
+                    await record_client_error(self._client_id)
+
                 last_exception = e
                 if attempt < max_retries:
                     backoff_time = backoff_factor**attempt
@@ -678,6 +757,11 @@ class LiteICSFetcher:
                 else:
                     logger.exception(f"All retry attempts failed for {url}")
                     raise
+            except Exception:
+                # Record client error for unexpected exceptions
+                if self._use_shared_client:
+                    await record_client_error(self._client_id)
+                raise
             attempt += 1
 
         if last_exception:

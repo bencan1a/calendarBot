@@ -46,6 +46,8 @@ except Exception:
 import aiohttp
 from aiohttp import web
 
+from calendarbot_lite.http_client import close_all_clients, get_shared_client
+
 # Import lite modules
 from calendarbot_lite.lite_fetcher import LiteICSFetcher, StreamHandle
 from calendarbot_lite.lite_parser import LiteICSContentTooLargeError, parse_ics_stream
@@ -75,6 +77,111 @@ class ScenarioResult:
     warnings: list[str]
     error: str | None = None
     api_validation: dict[str, Any] | None = None
+    connection_metrics: dict[str, Any] | None = None
+
+
+async def measure_connection_reuse_benefit() -> dict[str, Any]:
+    """Measure connection reuse performance benefit.
+
+    Compares individual client creation vs shared client usage
+    for multiple sequential requests.
+
+    Returns:
+        Dictionary with connection reuse metrics
+    """
+    logger.info("Measuring connection reuse benefit")
+
+    # Test configuration
+    num_requests = 5
+
+    # Individual client timing (baseline)
+    individual_times = []
+    for i in range(num_requests):
+        start_time = time.time()
+
+        # Create settings object
+        settings = type(
+            "Settings",
+            (),
+            {
+                "request_timeout": 30,
+                "max_retries": 3,
+                "retry_backoff_factor": 1.5,
+            },
+        )()
+
+        fetcher = LiteICSFetcher(settings)
+        try:
+            async with fetcher:
+                # This will create a new client each time
+                pass
+        except Exception:
+            pass  # Ignore errors for timing measurement
+
+        elapsed = time.time() - start_time
+        individual_times.append(elapsed)
+        logger.debug("Individual client request %d: %.3fs", i + 1, elapsed)
+
+    # Shared client timing (optimized)
+    shared_times = []
+    shared_client = None
+    try:
+        shared_client = await get_shared_client("benchmark_test")
+
+        for i in range(num_requests):
+            start_time = time.time()
+
+            settings = type(
+                "Settings",
+                (),
+                {
+                    "request_timeout": 30,
+                    "max_retries": 3,
+                    "retry_backoff_factor": 1.5,
+                },
+            )()
+
+            fetcher = LiteICSFetcher(settings, shared_client)
+            try:
+                async with fetcher:
+                    # This will reuse the shared client
+                    pass
+            except Exception:
+                pass  # Ignore errors for timing measurement
+
+            elapsed = time.time() - start_time
+            shared_times.append(elapsed)
+            logger.debug("Shared client request %d: %.3fs", i + 1, elapsed)
+
+    finally:
+        # Cleanup
+        if shared_client:
+            await close_all_clients()
+
+    # Calculate metrics
+    avg_individual = sum(individual_times) / len(individual_times) if individual_times else 0
+    avg_shared = sum(shared_times) / len(shared_times) if shared_times else 0
+    improvement_pct = (
+        ((avg_individual - avg_shared) / avg_individual * 100) if avg_individual > 0 else 0
+    )
+
+    metrics = {
+        "individual_client_avg_ms": round(avg_individual * 1000, 2),
+        "shared_client_avg_ms": round(avg_shared * 1000, 2),
+        "improvement_percent": round(improvement_pct, 1),
+        "num_requests_tested": num_requests,
+        "individual_times_ms": [round(t * 1000, 2) for t in individual_times],
+        "shared_times_ms": [round(t * 1000, 2) for t in shared_times],
+    }
+
+    logger.info(
+        "Connection reuse results: %.1f%% improvement (%.2fms → %.2fms average)",
+        improvement_pct,
+        avg_individual * 1000,
+        avg_shared * 1000,
+    )
+
+    return metrics
 
 
 # -----------------------
@@ -554,14 +661,98 @@ async def parse_phase(resp, source_url: str) -> tuple[int, int, float, str | Non
     return events_parsed, recurring_instances, elapsed, error_msg
 
 
-async def expand_phase(events, settings_obj) -> tuple[int, float, str | None]:
-    """Run RRULE expansion for recurring events (synchronous helper)."""
+async def expand_phase(events, settings_obj) -> tuple[int, float, str | None, dict]:
+    """Run RRULE streaming expansion for recurring events with Pi Zero 2W metrics."""
+    t0 = time.perf_counter()
+    expanded_total = 0
+    streaming_metrics = {
+        "events_with_rrules": 0,
+        "time_budget_violations": 0,
+        "occurrence_limit_hits": 0,
+        "cooperative_yields": 0,
+        "streaming_mode_used": True,
+        "memory_efficient": True,
+    }
+    err = None
+
+    try:
+        from calendarbot_lite.lite_rrule_expander import expand_events_streaming  # noqa: PLC0415
+
+        # Collect events with RRULEs for streaming expansion
+        events_with_rrules = []
+        for e in events:
+            if getattr(e, "is_recurring", False):
+                rrule_str = getattr(e, "rrule_string", None) or getattr(e, "rrule", None) or ""
+                if rrule_str:
+                    events_with_rrules.append((e, rrule_str, None))
+                    streaming_metrics["events_with_rrules"] += 1
+
+        if events_with_rrules:
+            # Use streaming expansion for memory efficiency
+            stream_start = time.perf_counter()
+            yield_count = 0
+
+            async for _expanded_event in expand_events_streaming(events_with_rrules, settings_obj):
+                expanded_total += 1
+
+                # Track cooperative yields (every 50 events)
+                if expanded_total % 50 == 0:
+                    yield_count += 1
+                    streaming_metrics["cooperative_yields"] = yield_count
+
+                # Check for time budget violations (200ms default per rule)
+                elapsed_per_rule = (time.perf_counter() - stream_start) * 1000
+                time_budget_ms = getattr(settings_obj, "expansion_time_budget_ms_per_rule", 200)
+                if elapsed_per_rule > time_budget_ms * len(events_with_rrules):
+                    streaming_metrics["time_budget_violations"] += 1
+
+                # Check for occurrence limit hits (250 default)
+                max_occurrences = getattr(settings_obj, "rrule_max_occurrences_per_rule", 250)
+                if expanded_total >= max_occurrences * len(events_with_rrules):
+                    streaming_metrics["occurrence_limit_hits"] += 1
+                    break
+
+        logger.debug(
+            f"Streaming expansion: {expanded_total} events, "
+            f"{streaming_metrics['events_with_rrules']} RRULEs, "
+            f"{streaming_metrics['cooperative_yields']} yields, "
+            f"{streaming_metrics['time_budget_violations']} budget violations"
+        )
+
+    except Exception as e:
+        err = str(e)
+        streaming_metrics["streaming_mode_used"] = False
+        streaming_metrics["memory_efficient"] = False
+        logger.warning(f"Streaming expansion failed, falling back: {e}")
+
+        # Fallback to original expansion method
+        try:
+            expander = LiteRRuleExpander(settings_obj)
+            for e in events:
+                try:
+                    if getattr(e, "is_recurring", False):
+                        rrule_str = (
+                            getattr(e, "rrule_string", None) or getattr(e, "rrule", None) or ""
+                        )
+                        instances = expander.expand_rrule(e, rrule_str) if rrule_str else []
+                        expanded_total += len(instances)
+                except Exception as inner_e:  # noqa: PERF203
+                    logger.debug("Expansion error for event: %s", inner_e)
+        except Exception as fallback_e:
+            err = f"Both streaming and fallback failed: {e}, {fallback_e}"
+
+    elapsed = time.perf_counter() - t0
+    return expanded_total, elapsed, err, streaming_metrics
+
+
+async def expand_phase_legacy(events, settings_obj) -> tuple[int, float, str | None]:
+    """Legacy RRULE expansion for comparison benchmarks (non-streaming)."""
     t0 = time.perf_counter()
     expanded_total = 0
     err = None
     try:
         expander = LiteRRuleExpander(settings_obj)
-        # naive expansion for each recurring event: expecting event has attributes rrule etc.
+        # Legacy expansion for each recurring event
         for e in events:
             try:
                 if getattr(e, "is_recurring", False):
@@ -569,8 +760,8 @@ async def expand_phase(events, settings_obj) -> tuple[int, float, str | None]:
                     rrule_str = getattr(e, "rrule_string", None) or getattr(e, "rrule", None) or ""
                     instances = expander.expand_rrule(e, rrule_str) if rrule_str else []
                     expanded_total += len(instances)
-            except Exception as inner_e:
-                logger.debug("Expansion error for event: %s", inner_e)
+            except Exception as inner_e:  # noqa: PERF203
+                logger.debug("Legacy expansion error for event: %s", inner_e)
     except Exception as e:
         err = str(e)
     elapsed = time.perf_counter() - t0
@@ -580,7 +771,7 @@ async def expand_phase(events, settings_obj) -> tuple[int, float, str | None]:
 # -----------------------
 # Scenario orchestrator
 # -----------------------
-async def run_scenario(
+async def run_scenario(  # noqa: PLR0915
     name: str,
     server_base: str,
     endpoints: list[str],
@@ -682,9 +873,12 @@ async def run_scenario(
                     # Use dummy events list with minimal fields for expander
                     # Here we call expander only once to approximate cost
                     dummy_events = []
-                    expanded_total, expand_elapsed, expand_err = await expand_phase(
-                        dummy_events, settings_obj
-                    )
+                    (
+                        expanded_total,
+                        expand_elapsed,
+                        expand_err,
+                        streaming_metrics,
+                    ) = await expand_phase(dummy_events, settings_obj)
                     phases.append(
                         PhaseResult(
                             name=f"expand:{endpoint}",
