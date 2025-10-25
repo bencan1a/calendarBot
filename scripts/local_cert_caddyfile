@@ -1,0 +1,21 @@
+
+# Local self-signed certificate configuration
+# Use this if you want HTTPS with self-signed cert
+
+ashwoodgrove.net {
+    # Use local CA for self-signed certificates
+    tls internal
+    
+    reverse_proxy localhost:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+        header_up Authorization {header.Authorization}
+    }
+    
+    log {
+        output file /var/log/caddy/access.log
+        level DEBUG
+    }
+}

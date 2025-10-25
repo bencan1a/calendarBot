@@ -1,0 +1,31 @@
+
+# Temporary HTTP-only configuration for testing
+# This bypasses SSL certificate issues
+
+ashwoodgrove.net {
+    # Disable automatic HTTPS
+    auto_https off
+    
+    # Serve HTTP only (port 80)
+    
+    reverse_proxy localhost:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto http
+        header_up Authorization {header.Authorization}
+    }
+    
+    log {
+        output file /var/log/caddy/access.log
+        level DEBUG
+    }
+}
+
+# Alternative: Use IP address instead of domain name
+# This completely bypasses DNS/SSL issues
+# 50.35.60.201 {
+#     reverse_proxy localhost:8080 {
+#         header_up Authorization {header.Authorization}
+#     }
+# }

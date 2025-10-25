@@ -206,6 +206,11 @@ def _build_default_config_from_env() -> dict[str, Any]:
         except Exception:
             logger.warning("Invalid CALENDARBOT_WEB_PORT=%r; ignoring", port)
 
+    # Alexa bearer token for API authentication
+    alexa_token = os.environ.get("CALENDARBOT_ALEXA_BEARER_TOKEN")
+    if alexa_token:
+        cfg["alexa_bearer_token"] = alexa_token
+
     return cfg
 
 
@@ -239,6 +244,60 @@ def _get_config_value(config: Any, key: str, default: Any = None) -> Any:
     if isinstance(config, dict):
         return config.get(key, default)
     return getattr(config, key, default)
+
+
+def _check_bearer_token(request: Any, required_token: str | None) -> bool:
+    """Check if request has valid bearer token.
+
+    Args:
+        request: aiohttp request object
+        required_token: Expected bearer token, or None to skip auth
+
+    Returns:
+        True if auth is valid or not required, False otherwise
+    """
+    if required_token is None:
+        return True
+
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return False
+
+    provided_token = auth_header[7:]  # Remove "Bearer " prefix
+    return provided_token == required_token
+
+
+def _format_duration_spoken(seconds: int) -> str:
+    """Format duration in seconds for natural speech.
+
+    Args:
+        seconds: Duration in seconds
+
+    Returns:
+        Human-readable duration string for speech
+    """
+    if seconds < 0:
+        return "in the past"
+    if seconds < 60:
+        return f"in {seconds} seconds"
+    if seconds < 3600:
+        minutes = seconds // 60
+        if minutes == 1:
+            return "in 1 minute"
+        return f"in {minutes} minutes"
+    hours = seconds // 3600
+    remaining_minutes = (seconds % 3600) // 60
+    if hours == 1:
+        if remaining_minutes == 0:
+            return "in 1 hour"
+        if remaining_minutes == 1:
+            return "in 1 hour and 1 minute"
+        return f"in 1 hour and {remaining_minutes} minutes"
+    if remaining_minutes == 0:
+        return f"in {hours} hours"
+    if remaining_minutes == 1:
+        return f"in {hours} hours and 1 minute"
+    return f"in {hours} hours and {remaining_minutes} minutes"
 
 
 def _serialize_iso(dt: datetime.datetime | None) -> str | None:
@@ -891,13 +950,116 @@ async def _make_app(
     app.router.add_get("/whatsnext.css", serve_static_css)
     app.router.add_get("/whatsnext.js", serve_static_js)
 
+    # Get bearer token from config for Alexa endpoints
+    alexa_bearer_token = _get_config_value(_config, "alexa_bearer_token")
+
+    async def alexa_next_meeting(request):
+        """Alexa endpoint for getting next meeting with speech formatting."""
+        if not _check_bearer_token(request, alexa_bearer_token):
+            return web.json_response({"error": "Unauthorized"}, status=401)
+
+        now = _now_utc()
+        async with window_lock:
+            window = tuple(event_window_ref[0])
+
+        logger.debug("Alexa /api/alexa/next-meeting called - window has %d events", len(window))
+
+        # Find first upcoming meeting
+        for ev in window:
+            start = ev.get("start")
+            if not isinstance(start, datetime.datetime):
+                continue
+            seconds_until = int((start - now).total_seconds())
+            if seconds_until < 0:
+                continue
+            if skipped_store is not None:
+                is_skipped = getattr(skipped_store, "is_skipped", None)
+                try:
+                    if callable(is_skipped) and is_skipped(ev["meeting_id"]):
+                        continue
+                except Exception as e:
+                    logger.warning("skipped_store.is_skipped raised during alexa call: %s", e)
+
+            # Format meeting for speech
+            subject = ev.get("subject", "Untitled meeting")
+            duration_spoken = _format_duration_spoken(seconds_until)
+
+            # Simple speech text for Alexa
+            speech_text = f"Your next meeting is {subject} {duration_spoken}."
+
+            return web.json_response(
+                {
+                    "meeting": {
+                        "subject": subject,
+                        "start_iso": _serialize_iso(start),
+                        "seconds_until_start": seconds_until,
+                        "speech_text": speech_text,
+                        "duration_spoken": duration_spoken,
+                    }
+                },
+                status=200,
+            )
+
+        return web.json_response(
+            {"meeting": None, "speech_text": "You have no upcoming meetings."}, status=200
+        )
+
+    async def alexa_time_until_next(request):
+        """Alexa endpoint for getting time until next meeting."""
+        if not _check_bearer_token(request, alexa_bearer_token):
+            return web.json_response({"error": "Unauthorized"}, status=401)
+
+        now = _now_utc()
+        async with window_lock:
+            window = tuple(event_window_ref[0])
+
+        logger.debug("Alexa /api/alexa/time-until-next called - window has %d events", len(window))
+
+        # Find first upcoming meeting
+        for ev in window:
+            start = ev.get("start")
+            if not isinstance(start, datetime.datetime):
+                continue
+            seconds_until = int((start - now).total_seconds())
+            if seconds_until < 0:
+                continue
+            if skipped_store is not None:
+                is_skipped = getattr(skipped_store, "is_skipped", None)
+                try:
+                    if callable(is_skipped) and is_skipped(ev["meeting_id"]):
+                        continue
+                except Exception as e:
+                    logger.warning("skipped_store.is_skipped raised during alexa call: %s", e)
+
+            duration_spoken = _format_duration_spoken(seconds_until)
+            speech_text = f"Your next meeting is {duration_spoken}."
+
+            return web.json_response(
+                {
+                    "seconds_until_start": seconds_until,
+                    "duration_spoken": duration_spoken,
+                    "speech_text": speech_text,
+                },
+                status=200,
+            )
+
+        return web.json_response(
+            {"seconds_until_start": None, "speech_text": "You have no upcoming meetings."},
+            status=200,
+        )
+
     # API routes
     app.router.add_get("/api/whats-next", whats_next)
     app.router.add_post("/api/skip", post_skip)
     app.router.add_delete("/api/skip", delete_skip)
     app.router.add_get("/api/clear_skips", clear_skips)
+
+    # Alexa-specific API routes
+    app.router.add_get("/api/alexa/next-meeting", alexa_next_meeting)
+    app.router.add_get("/api/alexa/time-until-next", alexa_time_until_next)
+
     logger.debug(
-        "Routes wired: / (static HTML), /whatsnext.css, /whatsnext.js, /api/whats-next GET, /api/skip POST and DELETE, /api/clear_skips GET"
+        "Routes wired: / (static HTML), /whatsnext.css, /whatsnext.js, /api/whats-next GET, /api/skip POST and DELETE, /api/clear_skips GET, /api/alexa/next-meeting GET, /api/alexa/time-until-next GET"
     )
 
     # Provide a stop handler to allow external shutdown if needed.
