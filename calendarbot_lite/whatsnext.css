@@ -81,7 +81,7 @@ html, body {
 }
 
 .countdown-label {
-  font-size: 14px;
+  font-size: 21px;
   font-weight: 500;
   color: var(--gray-6);
   letter-spacing: 1px;
@@ -104,7 +104,7 @@ html, body {
 
 .countdown-hours,
 .countdown-minutes {
-  font-size: 12px;
+  font-size: 18px;
   font-weight: 500;
   color: var(--gray-6);
   letter-spacing: 0.5px;
@@ -191,29 +191,35 @@ html, body {
 /* === NEXT MEETINGS === */
 .next-meetings {
   text-align: center;
-  padding: 0 20px;
 }
 
 .next-meeting-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  max-width: 400px;
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+  margin: 0 auto !important;
 }
 
 .next-meeting-title {
-  font-size: 40px;
-  font-weight: 500;
-  color: var(--gray-7);
+  font-size: 32px !important;
+  font-weight: 500 !important;
+  color: var(--gray-7) !important;
+  text-align: center !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  display: block !important;
+  position: relative !important;
+  left: 0 !important;
+  right: 0 !important;
 }
 
 .next-meeting-time {
-  font-size: 40px;
-  font-weight: 600;
-  color: var(--gray-8);
-  text-align: right;
-  min-width: 80px;
+  font-size: 32px !important;
+  font-weight: 600 !important;
+  color: var(--gray-8) !important;
+  display: none !important;
 }
 
 /* === LIGHTWEIGHT STATUS STYLING === */
