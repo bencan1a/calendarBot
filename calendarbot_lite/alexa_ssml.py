@@ -325,7 +325,7 @@ def render_done_for_day_ssml(
                                     " until ",
                                     EMPHASIS_MODERATE.format(text=meeting_name),
                                     BREAK.format(t="0.3"),
-                                    f"in {time_part}."
+                                    f" in {time_part}."
                                 ])
                             else:
                                 # Fallback if parsing fails
