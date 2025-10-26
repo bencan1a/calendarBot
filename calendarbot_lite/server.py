@@ -1089,19 +1089,56 @@ async def _make_app(
             duration_spoken = _format_duration_spoken(seconds_until)
             speech_text = f"Your next meeting is {duration_spoken}."
 
-            return web.json_response(
-                {
-                    "seconds_until_start": seconds_until,
+            # Generate SSML for time-until response if available
+            ssml_output = None
+            if render_time_until_ssml:
+                logger.debug("Attempting SSML generation for time-until-next")
+                meeting_data = {
+                    "subject": ev.get("subject", ""),
                     "duration_spoken": duration_spoken,
-                    "speech_text": speech_text,
-                },
-                status=200,
-            )
+                }
+                try:
+                    ssml_output = render_time_until_ssml(seconds_until, meeting_data)
+                    if ssml_output:
+                        logger.info("Time-until SSML generated: %d characters", len(ssml_output))
+                    else:
+                        logger.warning("Time-until SSML generation returned None")
+                except Exception as e:
+                    logger.error("Time-until SSML generation failed: %s", e, exc_info=True)
+            else:
+                logger.warning("Time-until SSML generation not available - module not imported")
 
-        return web.json_response(
-            {"seconds_until_start": None, "speech_text": "You have no upcoming meetings."},
-            status=200,
-        )
+            response_data = {
+                "seconds_until_start": seconds_until,
+                "duration_spoken": duration_spoken,
+                "speech_text": speech_text,
+            }
+            
+            # Add SSML to response if generated
+            if ssml_output:
+                response_data["ssml"] = ssml_output
+
+            return web.json_response(response_data, status=200)
+
+        # No upcoming meetings case for time-until
+        speech_text = "You have no upcoming meetings."
+        ssml_output = None
+        
+        # Generate SSML for no meetings case if available
+        if render_time_until_ssml:
+            logger.debug("Attempting SSML generation for time-until no meetings case")
+            try:
+                ssml_output = render_time_until_ssml(0, None)  # 0 seconds, no meeting
+                if ssml_output:
+                    logger.info("Time-until no-meetings SSML generated: %d characters", len(ssml_output))
+            except Exception as e:
+                logger.error("Time-until no-meetings SSML generation failed: %s", e, exc_info=True)
+
+        response_data = {"seconds_until_start": None, "speech_text": speech_text}
+        if ssml_output:
+            response_data["ssml"] = ssml_output
+
+        return web.json_response(response_data, status=200)
 
     # API routes
     app.router.add_get("/api/whats-next", whats_next)
