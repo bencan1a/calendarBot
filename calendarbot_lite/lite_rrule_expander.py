@@ -6,7 +6,7 @@ import contextlib
 from datetime import datetime, timedelta, timezone
 import logging
 import time
-from typing import Any
+from typing import Any, Optional
 from collections.abc import AsyncIterator
 import uuid
 
@@ -62,11 +62,11 @@ class RRuleWorkerPool:
             self.yield_frequency,
         )
 
-    async def expand_rrule_stream(  # noqa: PLR0912
+    async def expand_rrule_stream(
         self,
         master_event: LiteCalendarEvent,
         rrule_string: str,
-        exdates: list[str] | None = None,
+        exdates: Optional[list[str]] = None,
     ) -> AsyncIterator[LiteCalendarEvent]:
         """Expand RRULE pattern asynchronously with true streaming (no list materialization).
 
@@ -228,7 +228,7 @@ class RRuleWorkerPool:
         self,
         master_event: LiteCalendarEvent,
         rrule_string: str,
-        exdates: list[str] | None = None,
+        exdates: Optional[list[str]] = None,
     ) -> AsyncIterator[LiteCalendarEvent]:
         """Expand RRULE pattern asynchronously with cooperative multitasking.
 
@@ -259,7 +259,7 @@ class RRuleWorkerPool:
         # Handle timezone-aware EXDATE format: TZID=timezone:YYYYMMDDTHHMMSS
         if datetime_str.startswith("TZID="):
             try:
-                tzid_part, dt_part = datetime_str.split(":", 1)
+                _tzid_part, dt_part = datetime_str.split(":", 1)
                 dt_part_clean = dt_part.rstrip("Z")
                 dt = datetime.strptime(dt_part_clean, "%Y%m%dT%H%M%S")
 
@@ -300,7 +300,7 @@ class RRuleWorkerPool:
         self,
         master_event: LiteCalendarEvent,
         rrule_string: str,
-        exdates: list[str] | None = None,
+        exdates: Optional[list[str]] = None,
     ) -> list[LiteCalendarEvent]:
         """Expand RRULE pattern and return as list.
 
@@ -335,7 +335,7 @@ class RRuleWorkerPool:
 
 
 # Global worker pool instance (created on first use)
-_worker_pool: RRuleWorkerPool | None = None
+_worker_pool: Optional[RRuleWorkerPool] = None
 
 
 def get_worker_pool(settings: Any) -> RRuleWorkerPool:
@@ -354,7 +354,7 @@ def get_worker_pool(settings: Any) -> RRuleWorkerPool:
 
 
 async def expand_events_async(
-    events_with_rrules: list[tuple[Any, str, list[str] | None]],
+    events_with_rrules: list[tuple[Any, str, Optional[list[str]]]],
     settings: Any,
 ) -> list[Any]:
     """Expand multiple events with RRULE patterns using streaming worker pool.
@@ -391,7 +391,7 @@ async def expand_events_async(
 
 
 async def expand_events_streaming(
-    events_with_rrules: list[tuple[Any, str, list[str] | None]],
+    events_with_rrules: list[tuple[Any, str, Optional[list[str]]]],
     settings: Any,
 ) -> AsyncIterator[Any]:
     """Expand multiple events with RRULE patterns using pure streaming (no materialization).
@@ -446,13 +446,13 @@ class LiteRRuleExpander:
         self.expansion_window_days = getattr(settings, "rrule_expansion_days", 365)
         self.enable_expansion = getattr(settings, "enable_rrule_expansion", True)
 
-    def expand_rrule(  # noqa: PLR0912, PLR0915
+    def expand_rrule(
         self,
         master_event: LiteCalendarEvent,
         rrule_string: str,
-        exdates: list[str] | None = None,
-        start_date: datetime | None = None,
-        end_date: datetime | None = None,
+        exdates: Optional[list[str]] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
     ) -> list[LiteCalendarEvent]:
         """Expand RRULE pattern into individual event instances using dateutil's rruleset/rrulestr.
 
@@ -680,7 +680,7 @@ class LiteRRuleExpander:
             raise LiteRRuleParseError(f"Invalid RRULE format: {rrule_string}") from e
 
     def apply_exdates(
-        self, occurrences: list[datetime], exdates: list[str] | None
+        self, occurrences: list[datetime], exdates: Optional[list[str]]
     ) -> list[datetime]:
         """Remove excluded dates from occurrence list.
 

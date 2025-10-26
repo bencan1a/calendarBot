@@ -11,7 +11,7 @@ Performance targets:
 """
 
 import logging
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ URGENCY_FAST_THRESHOLD = 300  # 5 minutes
 URGENCY_STANDARD_THRESHOLD = 3600  # 1 hour
 
 
-def render_meeting_ssml(meeting: dict[str, Any], config: dict[str, Any] | None = None) -> str | None:
+def render_meeting_ssml(meeting: dict[str, Any], config: Optional[dict[str, Any]] = None) -> Optional[str]:
     """Render full SSML for next-meeting intent with urgency-based pacing.
 
     Args:
@@ -149,8 +149,8 @@ def render_meeting_ssml(meeting: dict[str, Any], config: dict[str, Any] | None =
 
 
 def render_time_until_ssml(
-    seconds_until: int, meeting: dict[str, Any] | None = None, config: dict[str, Any] | None = None
-) -> str | None:
+    seconds_until: int, meeting: Optional[dict[str, Any]] = None, config: Optional[dict[str, Any]] = None
+) -> Optional[str]:
     """Render concise SSML for time-until-next intent (time-first approach).
 
     Args:
@@ -242,8 +242,8 @@ def render_time_until_ssml(
 def render_done_for_day_ssml(
     has_meetings_today: bool,
     speech_text: str,
-    config: dict[str, Any] | None = None
-) -> str | None:
+    config: Optional[dict[str, Any]] = None
+) -> Optional[str]:
     """Render SSML for done-for-day intent with appropriate emphasis and pacing.
 
     Args:
@@ -301,28 +301,27 @@ def render_done_for_day_ssml(
             else:
                 # Generic meeting-related message with moderate emphasis
                 fragments.append(EMPHASIS_MODERATE.format(text=safe_speech))
-        else:
-            # No meetings today - relaxed, positive tone
-            if "no meetings today" in safe_speech.lower():
-                # Split and emphasize the positive aspects
-                if "Enjoy your free day!" in safe_speech:
-                    parts = safe_speech.split("Enjoy your free day!")
-                    if len(parts) == 2:
-                        no_meetings_part = parts[0].strip().rstrip(".")
-                        fragments.extend([
-                            PROSODY.format(rate="medium", pitch="medium", text=no_meetings_part + "."),
-                            BREAK.format(t="0.4"),
-                            EMPHASIS_MODERATE.format(text="Enjoy your free day!")
-                        ])
-                    else:
-                        # Fallback
-                        fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+        # No meetings today - relaxed, positive tone
+        elif "no meetings today" in safe_speech.lower():
+            # Split and emphasize the positive aspects
+            if "Enjoy your free day!" in safe_speech:
+                parts = safe_speech.split("Enjoy your free day!")
+                if len(parts) == 2:
+                    no_meetings_part = parts[0].strip().rstrip(".")
+                    fragments.extend([
+                        PROSODY.format(rate="medium", pitch="medium", text=no_meetings_part + "."),
+                        BREAK.format(t="0.4"),
+                        EMPHASIS_MODERATE.format(text="Enjoy your free day!")
+                    ])
                 else:
-                    # Simple no meetings message
+                    # Fallback
                     fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
             else:
-                # Generic no meetings with relaxed pacing
-                fragments.append(PROSODY_RATE.format(rate="medium", text=safe_speech))
+                # Simple no meetings message
+                fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+        else:
+            # Generic no meetings with relaxed pacing
+            fragments.append(PROSODY_RATE.format(rate="medium", text=safe_speech))
 
         # Compose final SSML
         body = _compose_fragments(fragments)

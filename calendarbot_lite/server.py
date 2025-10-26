@@ -10,7 +10,6 @@ The implementation imports calendarbot parsing/fetching modules lazily so
 the module can be imported even if the full application modules aren't present.
 aiohttp is required to run the server (imported at startup).
 """
-# ruff: noqa: PLR0915
 
 from __future__ import annotations
 
@@ -39,7 +38,7 @@ logger.debug("calendarbot_lite.server module loaded")
 
 # Import SSML generation for Alexa endpoints
 try:
-    from .alexa_ssml import render_meeting_ssml, render_time_until_ssml, render_done_for_day_ssml
+    from .alexa_ssml import render_done_for_day_ssml, render_meeting_ssml, render_time_until_ssml
     logger.debug("SSML module imported successfully")
 except ImportError as e:
     logger.warning("SSML module not available: %s", e)
@@ -428,7 +427,7 @@ def _compute_last_meeting_end_for_today(
     return result
 
 
-async def _fetch_and_parse_source(  # noqa: PLR0911, PLR0912
+async def _fetch_and_parse_source(
     semaphore: asyncio.Semaphore,
     src_cfg: Any,
     config: Any,

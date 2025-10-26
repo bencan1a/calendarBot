@@ -1,0 +1,31 @@
+# Configuration for calendarbot_lite specific linting and type checking
+
+[tool.ruff]
+# Extend the main project configuration
+extend = "../pyproject.toml"
+
+[tool.ruff.lint]
+# Additional ignores specific to calendarbot_lite
+extend-ignore = [
+    "PLR0911",  # Too many return statements - acceptable for utility functions
+    "PLR0912",  # Too many branches - acceptable for complex business logic
+    "PLR0913",  # Too many arguments - acceptable for configuration functions
+    "PLR0915",  # Too many statements - acceptable for main functions
+]
+
+[tool.mypy]
+# Type checking configuration for calendarbot_lite
+python_version = "3.9"
+strict = false
+warn_return_any = false
+warn_unused_ignores = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+# Ignore specific mypy issues that are acceptable
+disable_error_code = [
+    "syntax",           # Union syntax issues until Python 3.10 migration
+    "unreachable",      # False positives in error handling code
+    "no-any-return",    # Acceptable for configuration loading
+    "assignment",       # Timezone compatibility issues
+]
