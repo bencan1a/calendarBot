@@ -630,14 +630,20 @@ class LiteICSFetcher:
     ) -> Any:
         """Make HTTP request with retry logic and streaming decision.
 
+        Enhanced with network corruption detection and jittered backoff.
+
         Returns:
             Either an httpx.Response (buffered) or a StreamHandle (streaming).
         """
         last_exception = None
+        corruption_indicators = 0  # Track signs of network issues
 
         attempt = 0
         max_retries = int(getattr(self.settings, "max_retries", 3))
         backoff_factor = float(getattr(self.settings, "retry_backoff_factor", 1.5))
+
+        # Enhanced retry for network corruption scenarios
+        corruption_detected = False
 
         # Configurable tuning values (can be provided on settings object)
         stream_threshold = int(getattr(self.settings, "stream_threshold_bytes", STREAM_THRESHOLD))
@@ -747,15 +753,43 @@ class LiteICSFetcher:
                 if self._use_shared_client:
                     await record_client_error(self._client_id)
 
+                # Detect potential network corruption indicators
+                corruption_indicators += 1
+                if (
+                    "Connection broken" in str(e)
+                    or "Broken pipe" in str(e)
+                    or "Connection reset" in str(e)
+                ):
+                    corruption_detected = True
+                    logger.warning(f"Network corruption detected in attempt {attempt + 1}: {e}")
+
                 last_exception = e
                 if attempt < max_retries:
-                    backoff_time = backoff_factor**attempt
+                    # Enhanced backoff with jitter for network corruption scenarios
+                    base_backoff = backoff_factor**attempt
+                    if corruption_detected:
+                        # Longer backoff for corruption scenarios
+                        base_backoff = min(base_backoff * 2, 30.0)  # Cap at 30 seconds
+
+                    # Add jitter to prevent thundering herd
+                    import random  # noqa: PLC0415
+
+                    jitter = random.uniform(0.1, 0.3) * base_backoff
+                    backoff_time = base_backoff + jitter
+
                     logger.warning(
-                        f"Request failed (attempt {attempt + 1}/{max_retries + 1}), retrying in {backoff_time:.1f}s: {e}"
+                        f"Request failed (attempt {attempt + 1}/{max_retries + 1}), "
+                        f"corruption_detected={corruption_detected}, "
+                        f"retrying in {backoff_time:.1f}s: {e}"
                     )
                     await asyncio.sleep(backoff_time)
                 else:
-                    logger.exception(f"All retry attempts failed for {url}")
+                    if corruption_detected:
+                        logger.exception(
+                            f"All retry attempts failed with network corruption indicators for {url}"
+                        )
+                    else:
+                        logger.exception(f"All retry attempts failed for {url}")
                     raise
             except Exception:
                 # Record client error for unexpected exceptions
