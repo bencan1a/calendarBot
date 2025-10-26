@@ -680,6 +680,30 @@ async def _refresh_once(
             "All sources failed and no cached events available - will show 'No upcoming meetings'"
         )
         # Continue with empty window since we have no choice
+    else:
+        # SMART FALLBACK: Check if we received 0 events from "successful" parsing
+        async with window_lock:
+            existing_window = event_window_ref[0]
+            existing_count = len(existing_window)
+        
+        logger.debug(
+            f"DIAGNOSIS: Received {len(parsed_events)} events from sources. "
+            f"Existing window has {existing_count} events. "
+            f"Will process new events (potentially clearing existing data)."
+        )
+        
+        # SMART FALLBACK: If we get 0 events but had events before, this is suspicious
+        if len(parsed_events) == 0 and existing_count > 0:
+            logger.warning(
+                f"SMART FALLBACK: Suspicious 0 events from 'successful' parsing when we had {existing_count} events before. "
+                f"This likely indicates network corruption that bypassed failure detection. "
+                f"Preserving existing window to avoid showing 'No upcoming meetings'."
+            )
+            # Preserve existing window - don't clear it
+            logger.info(
+                f"Smart fallback: Preserved {existing_count} existing events instead of clearing to 0 events"
+            )
+            return  # Exit early, preserving existing window
 
     # Filter out past events and skipped ones, sort and trim window size.
     now = _now_utc()
