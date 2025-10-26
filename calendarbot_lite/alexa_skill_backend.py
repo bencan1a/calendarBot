@@ -205,6 +205,28 @@ def handle_get_time_until_next_meeting_intent() -> AlexaResponse:
         )
 
 
+def handle_get_done_for_day_intent() -> AlexaResponse:
+    """Handle GetDoneForDayIntent - returns done for the day summary with SSML support."""
+    try:
+        data = call_calendarbot_api("/api/alexa/done-for-day")
+
+        # Extract speech text and SSML from response
+        speech_text = data.get("speech_text", "You have no meetings today.")
+        ssml = data.get("ssml")  # SSML for done-for-day response
+
+        logger.info(f"Extracted speech text: {speech_text}")
+        if ssml:
+            logger.info(f"Extracted SSML: {ssml}")
+
+        return AlexaResponse(speech_text, ssml=ssml, card_title="Done For The Day")
+
+    except Exception:
+        logger.exception("Error in GetDoneForDayIntent")
+        return AlexaResponse(
+            "Sorry, I'm having trouble accessing your calendar right now. Please try again later."
+        )
+
+
 def handle_help_intent() -> AlexaResponse:
     """Handle AMAZON.HelpIntent."""
     speech_text = (
@@ -242,8 +264,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
 
         if request_type == "LaunchRequest":
             speech_text = (
-                "Welcome to Calendar Bot. You can ask me about your next meeting "
-                "or how long until your next meeting."
+                "Welcome to Calendar Bot. You can ask me about your next meeting, "
+                "how long until your next meeting, or if you're done for the day."
             )
             return AlexaResponse(speech_text, should_end_session=False).to_dict()
 
@@ -258,6 +280,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
             if intent_name == "GetTimeUntilNextMeetingIntent":
                 return handle_get_time_until_next_meeting_intent().to_dict()
 
+            if intent_name == "GetDoneForDayIntent":
+                return handle_get_done_for_day_intent().to_dict()
+
             if intent_name == "AMAZON.HelpIntent":
                 return handle_help_intent().to_dict()
 
@@ -266,8 +291,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
 
             logger.warning(f"Unknown intent: {intent_name}")
             speech_text = (
-                "I don't understand that request. You can ask me what's your next meeting "
-                "or how long until your next meeting."
+                "I don't understand that request. You can ask me what's your next meeting, "
+                "how long until your next meeting, or if you're done for the day."
             )
             return AlexaResponse(speech_text).to_dict()
 
@@ -294,8 +319,15 @@ if __name__ == "__main__":
         "request": {"type": "IntentRequest", "intent": {"name": "GetTimeUntilNextMeetingIntent"}}
     }
 
+    test_done_for_day_event: dict[str, Any] = {
+        "request": {"type": "IntentRequest", "intent": {"name": "GetDoneForDayIntent"}}
+    }
+
     print("Testing GetNextMeetingIntent:")
     print(json.dumps(lambda_handler(test_next_meeting_event, None), indent=2))
 
     print("\nTesting GetTimeUntilNextMeetingIntent:")
     print(json.dumps(lambda_handler(test_time_until_event, None), indent=2))
+
+    print("\nTesting GetDoneForDayIntent:")
+    print(json.dumps(lambda_handler(test_done_for_day_event, None), indent=2))

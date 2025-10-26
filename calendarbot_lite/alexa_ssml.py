@@ -239,6 +239,107 @@ def render_time_until_ssml(
         return None
 
 
+def render_done_for_day_ssml(
+    has_meetings_today: bool,
+    speech_text: str,
+    config: dict[str, Any] | None = None
+) -> str | None:
+    """Render SSML for done-for-day intent with appropriate emphasis and pacing.
+
+    Args:
+        has_meetings_today: Whether there were meetings today
+        speech_text: Plain text speech content to convert to SSML
+        config: Optional configuration overrides
+
+    Returns:
+        Complete SSML string (<speak>...</speak>) or None if generation/validation fails
+
+    Raises:
+        Exception: Logs errors and returns None for graceful fallback
+    """
+    try:
+        if not isinstance(speech_text, str) or not speech_text.strip():
+            logger.warning("Invalid speech text for done-for-day SSML generation")
+            return None
+
+        # Merge config with defaults
+        cfg = {**DEFAULT_CONFIG, **(config or {})}
+        
+        if not cfg.get("enable_ssml", True):
+            return None
+
+        # Escape the speech text for SSML
+        safe_speech = _escape_text_for_ssml(speech_text.strip())
+        
+        fragments = []
+        
+        if has_meetings_today:
+            # Handle different meeting scenarios
+            if "you&apos;ll be done at" in safe_speech.lower():
+                # Future completion time - emphasize the time
+                if " at " in safe_speech:
+                    parts = safe_speech.split(" at ", 1)
+                    if len(parts) == 2:
+                        intro_part = parts[0]  # "You'll be done"
+                        time_part = parts[1].rstrip(".")  # "6:00 pm"
+                        fragments.extend([
+                            intro_part,
+                            " at ",
+                            EMPHASIS_STRONG.format(text=time_part),
+                            "."
+                        ])
+                    else:
+                        fragments.append(PROSODY_RATE.format(rate="medium", text=safe_speech))
+                else:
+                    fragments.append(PROSODY_RATE.format(rate="medium", text=safe_speech))
+            elif "you&apos;re all done for today" in safe_speech.lower():
+                # Celebratory tone for being finished
+                fragments.append(EMPHASIS_STRONG.format(text=safe_speech))
+            elif "couldn&apos;t determine" in safe_speech.lower():
+                # Error/uncertainty case - moderate emphasis
+                fragments.append(EMPHASIS_MODERATE.format(text=safe_speech))
+            else:
+                # Generic meeting-related message with moderate emphasis
+                fragments.append(EMPHASIS_MODERATE.format(text=safe_speech))
+        else:
+            # No meetings today - relaxed, positive tone
+            if "no meetings today" in safe_speech.lower():
+                # Split and emphasize the positive aspects
+                if "Enjoy your free day!" in safe_speech:
+                    parts = safe_speech.split("Enjoy your free day!")
+                    if len(parts) == 2:
+                        no_meetings_part = parts[0].strip().rstrip(".")
+                        fragments.extend([
+                            PROSODY.format(rate="medium", pitch="medium", text=no_meetings_part + "."),
+                            BREAK.format(t="0.4"),
+                            EMPHASIS_MODERATE.format(text="Enjoy your free day!")
+                        ])
+                    else:
+                        # Fallback
+                        fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                else:
+                    # Simple no meetings message
+                    fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+            else:
+                # Generic no meetings with relaxed pacing
+                fragments.append(PROSODY_RATE.format(rate="medium", text=safe_speech))
+
+        # Compose final SSML
+        body = _compose_fragments(fragments)
+        ssml = WRAP_SPEAK.format(body=body)
+
+        # Validate before returning
+        if validate_ssml(ssml, cfg["ssml_max_chars"], cfg["allowed_tags"]):
+            logger.debug("Generated done-for-day SSML: %d chars, has_meetings=%s", len(ssml), has_meetings_today)
+            return ssml
+        logger.warning("Done-for-day SSML validation failed, length=%d", len(ssml))
+        return None
+
+    except Exception as e:
+        logger.error("SSML generation failed for done-for-day: %s", e, exc_info=True)
+        return None
+
+
 def validate_ssml(ssml: str, max_chars: int = 500, allowed_tags: set[str] | None = None) -> bool:
     """Fast, linear SSML validation for server-side safety.
 
