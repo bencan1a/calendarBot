@@ -303,8 +303,44 @@ def render_done_for_day_ssml(
                 fragments.append(EMPHASIS_MODERATE.format(text=safe_speech))
         # No meetings today - relaxed, positive tone
         elif "no meetings today" in safe_speech.lower():
-            # Split and emphasize the positive aspects
-            if "Enjoy your free day!" in safe_speech:
+            # Handle new launch intent format: "No meetings today, you're free until {meeting} {time}"
+            if "you&apos;re free until" in safe_speech.lower():
+                # Parse the launch intent format
+                if " until " in safe_speech:
+                    parts = safe_speech.split(" until ", 1)
+                    if len(parts) == 2:
+                        intro_part = parts[0].strip()  # "No meetings today, you're free"
+                        meeting_part = parts[1].rstrip(".")  # "{meeting} {time}"
+                        
+                        # Split meeting part to emphasize the meeting name
+                        # Look for the last " in " to separate meeting name from time
+                        if " in " in meeting_part:
+                            meeting_time_parts = meeting_part.rsplit(" in ", 1)
+                            if len(meeting_time_parts) == 2:
+                                meeting_name = meeting_time_parts[0].strip()
+                                time_part = meeting_time_parts[1].strip()
+                                
+                                fragments.extend([
+                                    PROSODY.format(rate="medium", pitch="medium", text=intro_part),
+                                    " until ",
+                                    EMPHASIS_MODERATE.format(text=meeting_name),
+                                    BREAK.format(t="0.3"),
+                                    f"in {time_part}."
+                                ])
+                            else:
+                                # Fallback if parsing fails
+                                fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                        else:
+                            # Fallback if no " in " found
+                            fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                    else:
+                        # Fallback if split fails
+                        fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                else:
+                    # Fallback if no " until " found
+                    fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+            # Split and emphasize the positive aspects for old format
+            elif "Enjoy your free day!" in safe_speech:
                 parts = safe_speech.split("Enjoy your free day!")
                 if len(parts) == 2:
                     no_meetings_part = parts[0].strip().rstrip(".")

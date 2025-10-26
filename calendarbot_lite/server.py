@@ -1391,10 +1391,202 @@ async def _make_app(
     app.router.add_get("/api/clear_skips", clear_skips)
     app.router.add_get("/api/done-for-day", done_for_day)
 
+    async def alexa_launch_summary(request):
+        """Alexa endpoint for launch intent - comprehensive summary with SSML."""
+        if not _check_bearer_token(request, alexa_bearer_token):
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        
+        now = _now_utc()
+        
+        # Get timezone parameter from query string
+        request_tz = request.query.get("tz")
+        
+        # Read window with lock to be consistent
+        async with window_lock:
+            window = tuple(event_window_ref[0])
+        
+        logger.debug("Alexa /api/alexa/launch-summary called - window has %d events, tz=%s", len(window), request_tz)
+        
+        # Compute last meeting end for today to determine if done for day
+        done_for_day_result = _compute_last_meeting_end_for_today(request_tz, window, skipped_store)
+        
+        # Parse timezone for date comparison
+        try:
+            if request_tz:
+                import zoneinfo  # noqa: PLC0415
+                tz = zoneinfo.ZoneInfo(request_tz)
+            else:
+                tz = datetime.timezone.utc
+        except Exception:
+            tz = datetime.timezone.utc
+        
+        today_date = now.astimezone(tz).date()
+        
+        # Initialize meeting variables
+        next_meeting_today = None
+        future_meeting = None
+        
+        # Build speech response based on whether there are meetings today
+        if not done_for_day_result["has_meetings_today"]:
+            # No meetings today case
+            # Find next future meeting beyond today
+            future_meeting = None
+            for ev in window:
+                start = ev.get("start")
+                if not isinstance(start, datetime.datetime):
+                    continue
+                    
+                start_local = start.astimezone(tz)
+                if start_local.date() <= today_date:
+                    continue  # Skip today's meetings and past meetings
+                
+                # This is a future meeting beyond today
+                if skipped_store is not None:
+                    is_skipped = getattr(skipped_store, "is_skipped", None)
+                    try:
+                        if callable(is_skipped) and is_skipped(ev["meeting_id"]):
+                            continue
+                    except Exception:
+                        pass
+                
+                seconds_until = int((start - now).total_seconds())
+                future_meeting = {
+                    "event": ev,
+                    "seconds_until": seconds_until,
+                    "subject": ev.get("subject", "Untitled meeting"),
+                    "duration_spoken": _format_duration_spoken(seconds_until)
+                }
+                break
+            
+            if future_meeting:
+                speech_text = f"No meetings today, you're free until {future_meeting['subject']} {future_meeting['duration_spoken']}."
+            else:
+                speech_text = "No meetings today. You have no upcoming meetings scheduled."
+                
+        else:
+            # Have meetings today case - find next meeting today
+            next_meeting_today = None
+            for ev in window:
+                start = ev.get("start")
+                if not isinstance(start, datetime.datetime):
+                    continue
+                    
+                start_local = start.astimezone(tz)
+                if start_local.date() != today_date:
+                    continue  # Skip non-today meetings
+                    
+                seconds_until = int((start - now).total_seconds())
+                if seconds_until < 0:
+                    continue  # Skip past meetings
+                    
+                if skipped_store is not None:
+                    is_skipped = getattr(skipped_store, "is_skipped", None)
+                    try:
+                        if callable(is_skipped) and is_skipped(ev["meeting_id"]):
+                            continue
+                    except Exception as e:
+                        logger.warning("skipped_store.is_skipped raised during alexa launch call: %s", e)
+                
+                next_meeting_today = {
+                    "event": ev,
+                    "seconds_until": seconds_until,
+                    "subject": ev.get("subject", "Untitled meeting"),
+                    "duration_spoken": _format_duration_spoken(seconds_until)
+                }
+                break
+            
+            if next_meeting_today:
+                speech_text = f"Your next meeting is {next_meeting_today['subject']} {next_meeting_today['duration_spoken']}."
+            else:
+                speech_text = "You have no more meetings today."
+            
+            # Add done-for-day information if we have meetings today
+            if done_for_day_result["last_meeting_end_iso"]:
+                try:
+                    import zoneinfo  # noqa: PLC0415
+                    end_utc = datetime.datetime.fromisoformat(done_for_day_result["last_meeting_end_iso"].replace("Z", "+00:00"))
+                    
+                    # Convert to local time for speech
+                    if request_tz:
+                        try:
+                            tz = zoneinfo.ZoneInfo(request_tz)
+                            end_local = end_utc.astimezone(tz)
+                            time_str = end_local.strftime("%-I:%M %p").lower()
+                        except Exception:
+                            time_str = end_utc.strftime("%-I:%M %p UTC").lower()
+                    else:
+                        time_str = end_utc.strftime("%-I:%M %p UTC").lower()
+                    
+                    if now >= end_utc:
+                        speech_text += " You're all done for today!"
+                    else:
+                        speech_text += f" You'll be done for the day at {time_str}."
+                        
+                except Exception as e:
+                    logger.warning("Error formatting end time for launch summary: %s", e)
+                    speech_text += " I couldn't determine when your last meeting ends today."
+        
+        # Determine which meeting to use for SSML and response building
+        primary_meeting = None
+        if done_for_day_result["has_meetings_today"] and next_meeting_today is not None:
+            primary_meeting = next_meeting_today
+        elif not done_for_day_result["has_meetings_today"] and future_meeting is not None:
+            primary_meeting = future_meeting
+        
+        # Generate SSML if available - reuse existing SSML functions
+        ssml_output = None
+        if done_for_day_result["has_meetings_today"] and primary_meeting and render_meeting_ssml:
+            # Meetings today case - use meeting SSML
+            logger.debug("Attempting SSML generation for launch summary with meetings today")
+            try:
+                meeting_data = {
+                    "subject": primary_meeting["subject"],
+                    "seconds_until_start": primary_meeting["seconds_until"],
+                    "duration_spoken": primary_meeting["duration_spoken"],
+                    "location": primary_meeting["event"].get("location", ""),
+                    "is_online_meeting": primary_meeting["event"].get("is_online_meeting", False),
+                }
+                # Use the meeting SSML renderer for meetings today
+                base_ssml = render_meeting_ssml(meeting_data)
+                if base_ssml:
+                    ssml_output = base_ssml
+                    logger.info("Launch summary (meetings today) SSML generated: %d characters", len(ssml_output))
+            except Exception as e:
+                logger.error("Launch summary (meetings today) SSML generation failed: %s", e, exc_info=True)
+        elif render_done_for_day_ssml:
+            # No meetings today case - use done-for-day SSML (which handles the speech_text format)
+            logger.debug("Attempting SSML generation for launch summary (no meetings today)")
+            try:
+                ssml_output = render_done_for_day_ssml(done_for_day_result["has_meetings_today"], speech_text)
+                if ssml_output:
+                    logger.info("Launch summary (no meetings today) SSML generated: %d characters", len(ssml_output))
+            except Exception as e:
+                logger.error("Launch summary (no meetings today) SSML generation failed: %s", e, exc_info=True)
+        
+        # Build response
+        response_data = {
+            "speech_text": speech_text,
+            "has_meetings_today": done_for_day_result["has_meetings_today"],
+            "next_meeting": {
+                "subject": primary_meeting["subject"],
+                "start_iso": _serialize_iso(primary_meeting["event"].get("start")),
+                "seconds_until_start": primary_meeting["seconds_until"],
+                "duration_spoken": primary_meeting["duration_spoken"],
+            } if primary_meeting else None,
+            "done_for_day": done_for_day_result,
+        }
+        
+        # Add SSML to response if generated
+        if ssml_output:
+            response_data["ssml"] = ssml_output
+        
+        return web.json_response(response_data, status=200)
+
     # Alexa-specific API routes
     app.router.add_get("/api/alexa/next-meeting", alexa_next_meeting)
     app.router.add_get("/api/alexa/time-until-next", alexa_time_until_next)
     app.router.add_get("/api/alexa/done-for-day", alexa_done_for_day)
+    app.router.add_get("/api/alexa/launch-summary", alexa_launch_summary)
 
     logger.debug(
         "Routes wired: / (static HTML), /whatsnext.css, /whatsnext.js, /api/whats-next GET, /api/skip POST and DELETE, /api/clear_skips GET, /api/done-for-day GET, /api/alexa/next-meeting GET, /api/alexa/time-until-next GET, /api/alexa/done-for-day GET"

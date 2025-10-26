@@ -227,6 +227,28 @@ def handle_get_done_for_day_intent() -> AlexaResponse:
         )
 
 
+def handle_launch_intent() -> AlexaResponse:
+    """Handle LaunchRequest - returns comprehensive calendar summary with SSML support."""
+    try:
+        data = call_calendarbot_api("/api/alexa/launch-summary")
+
+        # Extract speech text and SSML from response
+        speech_text = data.get("speech_text", "I couldn't get your calendar information.")
+        ssml = data.get("ssml")  # SSML for launch summary response
+
+        logger.info(f"Extracted launch summary speech text: {speech_text}")
+        if ssml:
+            logger.info(f"Extracted launch summary SSML: {ssml}")
+
+        return AlexaResponse(speech_text, ssml=ssml, card_title="Calendar Summary")
+
+    except Exception:
+        logger.exception("Error in LaunchRequest")
+        return AlexaResponse(
+            "Sorry, I'm having trouble accessing your calendar right now. Please try again later."
+        )
+
+
 def handle_help_intent() -> AlexaResponse:
     """Handle AMAZON.HelpIntent."""
     speech_text = (
@@ -263,11 +285,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
         request_type = request.get("type")
 
         if request_type == "LaunchRequest":
-            speech_text = (
-                "Welcome to Calendar Bot. You can ask me about your next meeting, "
-                "how long until your next meeting, or if you're done for the day."
-            )
-            return AlexaResponse(speech_text, should_end_session=False).to_dict()
+            alexa_response = handle_launch_intent().to_dict()
+            logger.info(f"Lambda returning launch response: {json.dumps(alexa_response)}")
+            return alexa_response
 
         if request_type == "IntentRequest":
             intent_name = request.get("intent", {}).get("name")
