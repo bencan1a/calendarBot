@@ -34,21 +34,72 @@ REQUEST_TIMEOUT = int(os.environ.get("REQUEST_TIMEOUT", "10"))
 
 
 class AlexaResponse:
-    """Helper class to build Alexa response format."""
+    """Helper class to build Alexa response format with SSML support."""
 
-    def __init__(self, speech_text: str, should_end_session: bool = True):
+    def __init__(
+        self,
+        speech_text: str,
+        should_end_session: bool = True,
+        reprompt_text: str | None = None,
+        card_title: str = "Next Meeting",
+        ssml: str | None = None,
+    ):
         self.speech_text = speech_text
         self.should_end_session = should_end_session
+        self.reprompt_text = reprompt_text
+        self.card_title = card_title
+        self.ssml = ssml
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to Alexa response format."""
-        return {
+        # Prefer SSML if available and valid, otherwise use plain text
+        output_speech = self._build_output_speech()
+
+        resp: dict[str, Any] = {
             "version": "1.0",
+            "sessionAttributes": {},
             "response": {
-                "outputSpeech": {"type": "PlainText", "text": self.speech_text},
+                "outputSpeech": output_speech,
+                "card": {
+                    "type": "Simple",
+                    "title": self.card_title or "Calendar Bot Says...",
+                    "content": self.speech_text,  # Card always uses plain text
+                },
                 "shouldEndSession": self.should_end_session,
             },
         }
+        if not self.should_end_session:
+            # Reprompt is recommended when the session stays open
+            reprompt = self.reprompt_text or "You can ask, what's my next meeting?"
+            resp["response"]["reprompt"] = {"outputSpeech": {"type": "PlainText", "text": reprompt}}
+        return resp
+
+    def _build_output_speech(self) -> dict[str, Any]:
+        """Build outputSpeech section, preferring SSML when available."""
+        if self.ssml and self._validate_ssml(self.ssml):
+            logger.info("Using SSML for speech output")
+            return {"type": "SSML", "ssml": self.ssml}
+        else:  # noqa: RET505
+            if self.ssml:
+                logger.warning("SSML validation failed, falling back to PlainText")
+            return {"type": "PlainText", "text": self.speech_text}
+
+    def _validate_ssml(self, ssml: str) -> bool:
+        """Basic SSML validation for Lambda use."""
+        if not isinstance(ssml, str):
+            return False
+
+        # Must start and end with speak tags
+        ssml_stripped = ssml.strip()
+        if not (ssml_stripped.startswith("<speak>") and ssml_stripped.endswith("</speak>")):
+            logger.warning("SSML validation failed: missing <speak> tags")
+            return False
+
+        # Basic length check (avoid overly long SSML)
+        if len(ssml) > 8000:  # Alexa SSML limit is ~8KB
+            logger.warning("SSML validation failed: exceeds length limit")
+            return False
+
+        return True
 
 
 def call_calendarbot_api(endpoint_path: str) -> dict[str, Any]:
@@ -83,6 +134,7 @@ def call_calendarbot_api(endpoint_path: str) -> dict[str, Any]:
         if response.status == 200:
             data = json.loads(response.read().decode("utf-8"))
             logger.info(f"API response received: status={response.status}")
+            logger.info(f"API response data: {json.dumps(data)}")
             return data
         logger.error(f"API returned non-200 status: {response.status}")
         raise Exception(f"API returned status {response.status}")  # noqa: TRY002, TRY301
@@ -103,16 +155,26 @@ def call_calendarbot_api(endpoint_path: str) -> dict[str, Any]:
 
 
 def handle_get_next_meeting_intent() -> AlexaResponse:
-    """Handle GetNextMeetingIntent - returns next meeting info."""
+    """Handle GetNextMeetingIntent - returns next meeting info with SSML support."""
     try:
         data = call_calendarbot_api("/api/alexa/next-meeting")
 
+        # Extract speech text and SSML from response
         if data.get("meeting") is None:
             speech_text = data.get("speech_text", "You have no upcoming meetings.")
+            ssml = data.get("ssml")  # Top-level SSML for no meetings
         else:
-            speech_text = data["meeting"].get("speech_text", "You have a meeting coming up.")
+            meeting = data["meeting"]
+            speech_text = meeting.get("speech_text", "You have a meeting coming up.")
+            ssml = meeting.get("ssml")  # Meeting-level SSML
 
-        return AlexaResponse(speech_text)
+        logger.info(f"Extracted speech text: {speech_text}")
+        if ssml:
+            logger.info(f"Extracted SSML: {ssml}")
+
+        alexa_response = AlexaResponse(speech_text, ssml=ssml)
+        logger.info(f"Alexa response: {json.dumps(alexa_response.to_dict())}")
+        return alexa_response
 
     except Exception:
         logger.exception("Error in GetNextMeetingIntent")
@@ -122,11 +184,19 @@ def handle_get_next_meeting_intent() -> AlexaResponse:
 
 
 def handle_get_time_until_next_meeting_intent() -> AlexaResponse:
-    """Handle GetTimeUntilNextMeetingIntent - returns time until next meeting."""
+    """Handle GetTimeUntilNextMeetingIntent - returns time until next meeting with SSML support."""
     try:
         data = call_calendarbot_api("/api/alexa/time-until-next")
+
+        # Extract speech text and SSML from response
         speech_text = data.get("speech_text", "You have no upcoming meetings.")
-        return AlexaResponse(speech_text)
+        ssml = data.get("ssml")  # SSML for time-until response
+
+        logger.info(f"Extracted speech text: {speech_text}")
+        if ssml:
+            logger.info(f"Extracted SSML: {ssml}")
+
+        return AlexaResponse(speech_text, ssml=ssml)
 
     except Exception:
         logger.exception("Error in GetTimeUntilNextMeetingIntent")
@@ -181,7 +251,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
             intent_name = request.get("intent", {}).get("name")
 
             if intent_name == "GetNextMeetingIntent":
-                return handle_get_next_meeting_intent().to_dict()
+                alexa_response = handle_get_next_meeting_intent().to_dict()
+                logger.info(f"Lambda returning response: {json.dumps(alexa_response)}")
+                return alexa_response
 
             if intent_name == "GetTimeUntilNextMeetingIntent":
                 return handle_get_time_until_next_meeting_intent().to_dict()
@@ -214,11 +286,11 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
 # For local testing
 if __name__ == "__main__":
     # Example test events
-    test_next_meeting_event = {
+    test_next_meeting_event: dict[str, Any] = {
         "request": {"type": "IntentRequest", "intent": {"name": "GetNextMeetingIntent"}}
     }
 
-    test_time_until_event = {
+    test_time_until_event: dict[str, Any] = {
         "request": {"type": "IntentRequest", "intent": {"name": "GetTimeUntilNextMeetingIntent"}}
     }
 

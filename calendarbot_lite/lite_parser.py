@@ -395,13 +395,32 @@ async def parse_ics_stream(
 
         # Parse stream with memory-bounded processing
         max_stored_events = 50  # Cap at 50 events for Pi Zero 2W
+        
+        # Debug counters for network corruption detection
+        total_items_processed = 0
+        event_items_processed = 0
+        duplicate_event_ids = set()
+        warning_count = 0
 
         async for item in parser.parse_from_bytes_iter(stream):
+            total_items_processed += 1
+            
             if item["type"] == "event":
+                event_items_processed += 1
                 try:
                     # Convert raw component to LiteCalendarEvent using existing parser logic
                     component = item["component"]
                     calendar_metadata.update(item["metadata"])
+                    
+                    # Check for duplicate event processing (indicates network corruption)
+                    event_uid = str(component.get("UID", f"no-uid-{event_items_processed}"))
+                    if event_uid in duplicate_event_ids:
+                        logger.error(
+                            f"NETWORK CORRUPTION: Duplicate event UID {event_uid} "
+                            f"(total items: {total_items_processed}, events: {event_items_processed})"
+                        )
+                    else:
+                        duplicate_event_ids.add(event_uid)
 
                     # Use a minimal settings object for event parsing
                     class _MinimalSettings:
@@ -428,11 +447,23 @@ async def parse_ics_stream(
                             if len(events) < max_stored_events:
                                 events.append(event)
                             elif len(events) == max_stored_events:
+                                warning_count += 1
                                 warning = (
                                     f"Event limit reached ({max_stored_events}), truncating results"
                                 )
                                 warnings.append(warning)
-                                logger.warning(warning)
+                                logger.warning(f"{warning} [WARNING #{warning_count}, Total items processed: {total_items_processed}, Events: {event_items_processed}, Unique UIDs: {len(duplicate_event_ids)}]")
+                                
+                                # Circuit breaker: if we're seeing repeated warnings, terminate parsing
+                                if warning_count > 5:
+                                    logger.error(
+                                        f"NETWORK CORRUPTION DETECTED: {warning_count} limit warnings indicate "
+                                        f"parser is stuck in loop. Total items: {total_items_processed}, "
+                                        f"Unique events: {len(duplicate_event_ids)}, Processed events: {event_items_processed}. "
+                                        f"TERMINATING PARSING TO PREVENT INFINITE LOOP."
+                                    )
+                                    # Break out of the parsing loop to prevent infinite processing
+                                    break
 
                         # Explicit cleanup for memory management
                         del event
