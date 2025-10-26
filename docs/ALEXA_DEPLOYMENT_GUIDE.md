@@ -60,9 +60,9 @@ In another terminal, test the endpoints:
 curl http://localhost:8080/api/whats-next
 
 # Then test Alexa endpoints (replace YOUR_TOKEN with your actual token from .env)
-curl -H "Authorization: Bearer Uc39FIpUYa2BDIMjOUDyhzQk53qhQjHFxTpw-9P7wkA" http://localhost:8080/api/alexa/next-meeting
+curl -H "Authorization: Bearer your-bearer-token" http://localhost:8080/api/alexa/next-meeting
 
-curl -H "Authorization: Bearer Uc39FIpUYa2BDIMjOUDyhzQk53qhQjHFxTpw-9P7wkA" http://localhost:8080/api/alexa/time-until-next
+curl -H "Authorization: Bearer your-bearer-token" http://localhost:8080/api/alexa/time-until-next
 ```
 
 **Expected Response:**

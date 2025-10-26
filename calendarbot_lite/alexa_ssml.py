@@ -129,14 +129,8 @@ def render_meeting_ssml(meeting: dict[str, Any], config: dict[str, Any] | None =
                 "joining online"
             ])
 
-        # Add duration if it meets threshold criteria
-        if _should_include_duration(seconds_until, cfg):
-            duration_text = _escape_text_for_ssml(duration_spoken)
-            duration_phrase = EMPHASIS_REDUCED.format(text=duration_text)
-            fragments.extend([
-                BREAK.format(t="0.2"),
-                f"lasting {duration_phrase}"
-            ])
+        # Note: Removed duration section as duration_spoken represents time until start,
+        # not actual meeting duration. The timing is already included in the main message.
 
         # Compose final SSML
         body = _compose_fragments(fragments)
