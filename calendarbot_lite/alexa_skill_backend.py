@@ -21,7 +21,7 @@ import urllib.error
 
 # Lightweight HTTP client - using urllib to avoid external dependencies
 import urllib.request
-from typing import Any
+from typing import Any, Optional
 from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
@@ -40,9 +40,9 @@ class AlexaResponse:
         self,
         speech_text: str,
         should_end_session: bool = True,
-        reprompt_text: str | None = None,
+        reprompt_text: Optional[str] = None,
         card_title: str = "Next Meeting",
-        ssml: str | None = None,
+        ssml: Optional[str] = None,
     ):
         self.speech_text = speech_text
         self.should_end_session = should_end_session
@@ -241,7 +241,7 @@ def handle_stop_intent() -> AlexaResponse:
     return AlexaResponse("Goodbye!")
 
 
-def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # noqa: ARG001, PLR0911
+def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # noqa: ARG001
     """AWS Lambda handler for Alexa skill requests.
 
     Args:

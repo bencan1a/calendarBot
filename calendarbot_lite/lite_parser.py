@@ -9,7 +9,7 @@ from collections.abc import AsyncGenerator, AsyncIterator, Generator
 from datetime import datetime, timedelta, timezone
 from io import StringIO
 from pathlib import Path
-from typing import Any, BinaryIO, TextIO, cast
+from typing import Any, BinaryIO, Optional, TextIO, Union, cast
 
 from icalendar import Calendar, Event as ICalEvent
 
@@ -72,7 +72,7 @@ class LiteStreamingICSParser:
 
     def parse_stream(
         self,
-        file_source: str | BinaryIO | TextIO,
+        file_source: Union[str, BinaryIO, TextIO],
     ) -> Generator[dict[str, Any], None, None]:
         """Parse ICS content from file stream, yielding events as they are found.
 
@@ -349,7 +349,7 @@ class LiteStreamingICSParser:
 
 async def parse_ics_stream(
     stream: AsyncIterator[bytes],
-    source_url: str | None = None,
+    source_url: Optional[str] = None,
     read_chunk_size_bytes: int = DEFAULT_READ_CHUNK_SIZE_BYTES,
     max_line_length_bytes: int = DEFAULT_MAX_LINE_LENGTH_BYTES,
     stream_decode_errors: str = DEFAULT_STREAM_DECODE_ERRORS,
@@ -590,7 +590,7 @@ class LiteICSParser:
     def parse_ics_content_optimized(
         self,
         ics_content: str,
-        source_url: str | None = None,
+        source_url: Optional[str] = None,
     ) -> LiteICSParseResult:
         """Parse ICS content using optimal method based on size.
 
@@ -614,7 +614,7 @@ class LiteICSParser:
     def _parse_with_streaming(
         self,
         ics_content: str,
-        source_url: str | None = None,
+        source_url: Optional[str] = None,
     ) -> LiteICSParseResult:
         """Parse ICS content using streaming parser with memory-bounded processing."""
         try:
@@ -771,7 +771,7 @@ class LiteICSParser:
     def parse_ics_content(
         self,
         ics_content: str,
-        source_url: str | None = None,
+        source_url: Optional[str] = None,
     ) -> LiteICSParseResult:
         """Parse ICS content into structured calendar events.
 
@@ -911,10 +911,10 @@ class LiteICSParser:
                 source_url=source_url,
             )
 
-    def _parse_event_component(  # noqa: PLR0912, PLR0915
+    def _parse_event_component(
         self,
         component: ICalEvent,
-        default_timezone: str | None = None,
+        default_timezone: Optional[str] = None,
     ) -> LiteCalendarEvent | None:
         """Parse a single VEVENT component into LiteCalendarEvent.
 
@@ -1075,7 +1075,7 @@ class LiteICSParser:
         else:
             return calendar_event
 
-    def _parse_datetime(self, dt_prop: Any, default_timezone: str | None = None) -> datetime:
+    def _parse_datetime(self, dt_prop: Any, default_timezone: Optional[str] = None) -> datetime:
         """Parse iCalendar datetime property.
 
         Args:
@@ -1113,7 +1113,7 @@ class LiteICSParser:
         # Date object - convert to datetime at midnight with proper timezone
         return _ensure_timezone_aware(datetime.combine(dt, datetime.min.time()))
 
-    def _parse_datetime_optional(self, dt_prop: Any) -> datetime | None:
+    def _parse_datetime_optional(self, dt_prop: Any) -> Optional[datetime]:
         """Parse optional datetime property.
 
         Args:
@@ -1130,7 +1130,7 @@ class LiteICSParser:
         except Exception:
             return None
 
-    def _parse_status(self, status_prop: Any) -> str | None:
+    def _parse_status(self, status_prop: Any) -> Optional[str]:
         """Parse event status.
 
         Args:
@@ -1147,7 +1147,7 @@ class LiteICSParser:
     def _map_transparency_to_status(
         self,
         transparency: str,
-        status: str | None,
+        status: Optional[str],
         component: Any,
     ) -> LiteEventStatus:
         """Map iCalendar transparency and status to LiteEventStatus with Microsoft phantom event filtering.
@@ -1254,7 +1254,7 @@ class LiteICSParser:
             logger.debug(f"Failed to parse attendee: {e}")
             return None
 
-    def _get_calendar_property(self, calendar: Calendar, prop_name: str) -> str | None:
+    def _get_calendar_property(self, calendar: Calendar, prop_name: str) -> Optional[str]:
         """Get calendar-level property.
 
         Args:
@@ -1314,7 +1314,7 @@ class LiteICSParser:
             logger.debug(f"ICS validation failed: {e}")
             return False
 
-    def _expand_recurring_events(  # noqa: PLR0912, PLR0915
+    def _expand_recurring_events(
         self,
         events: list[LiteCalendarEvent],
         raw_components: list[ICalEvent],

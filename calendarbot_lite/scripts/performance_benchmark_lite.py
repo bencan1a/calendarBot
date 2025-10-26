@@ -45,7 +45,6 @@ except Exception:
 
 import aiohttp
 from aiohttp import web
-
 from calendarbot_lite.http_client import close_all_clients, get_shared_client
 
 # Import lite modules
@@ -298,7 +297,7 @@ def generate_expected_event_data(
     return expected_events
 
 
-async def validate_api_response(  # noqa: PLR0912, PLR0915
+async def validate_api_response(
     server_port: int, expected_events: list[dict[str, Any]]
 ) -> dict[str, Any]:
     """Validate the /api/whats-next endpoint returns correct JSON based on expected events.
@@ -771,7 +770,7 @@ async def expand_phase_legacy(events, settings_obj) -> tuple[int, float, str | N
 # -----------------------
 # Scenario orchestrator
 # -----------------------
-async def run_scenario(  # noqa: PLR0915
+async def run_scenario(
     name: str,
     server_base: str,
     endpoints: list[str],
@@ -827,7 +826,7 @@ async def run_scenario(  # noqa: PLR0915
             await fetcher._ensure_client()  # noqa: SLF001
             rss_before = get_rss_kb()
             try:
-                resp, fetch_elapsed, bytes_hint = await fetch_phase(fetcher, src)
+                resp, fetch_elapsed, _bytes_hint = await fetch_phase(fetcher, src)
             except Exception as e:
                 phases.append(
                     PhaseResult(
@@ -874,10 +873,10 @@ async def run_scenario(  # noqa: PLR0915
                     # Here we call expander only once to approximate cost
                     dummy_events = []
                     (
-                        expanded_total,
+                        _expanded_total,
                         expand_elapsed,
                         expand_err,
-                        streaming_metrics,
+                        _streaming_metrics,
                     ) = await expand_phase(dummy_events, settings_obj)
                     phases.append(
                         PhaseResult(
@@ -1114,7 +1113,7 @@ async def main_async(args):
         )
         for sc in scenarios_to_run:
             logger.info("Running scenario: %s", sc)
-            endpoints, include_rrule, _ = scenarios_config[sc]
+            _endpoints, include_rrule, _ = scenarios_config[sc]
             # Map scenario endpoints to server paths used earlier
             eps = ["/s1.ics", "/s2.ics", "/s3.ics"] if sc == "concurrent" else [f"/{sc}.ics"]
             scenario_result = await run_scenario(

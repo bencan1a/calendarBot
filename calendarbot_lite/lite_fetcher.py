@@ -264,7 +264,7 @@ class LiteICSFetcher:
                 },
             )
 
-    def _validate_url_for_ssrf(self, url: str) -> bool:  # noqa: PLR0911, PLR0912
+    def _validate_url_for_ssrf(self, url: str) -> bool:
         """Validate URL to prevent Server-Side Request Forgery (SSRF) attacks with comprehensive security checks.
 
         Implements multi-layered security validation to prevent malicious URLs from accessing
@@ -625,7 +625,7 @@ class LiteICSFetcher:
             logger.exception(f"Unexpected error fetching ICS from {source.url}")
             raise LiteICSFetchError(f"Unexpected error: {e}") from e
 
-    async def _make_request_with_retry(  # noqa: PLR0912, PLR0915
+    async def _make_request_with_retry(
         self, url: str, headers: dict[str, str], timeout: int, _verify_ssl: bool
     ) -> Any:
         """Make HTTP request with retry logic and streaming decision.
