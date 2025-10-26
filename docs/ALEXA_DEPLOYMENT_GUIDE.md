@@ -2,6 +2,22 @@
 
 This guide walks through setting up the complete Alexa integration for CalendarBot Lite.
 
+## Supported Alexa Commands
+
+CalendarBot Lite supports the following voice commands through Alexa:
+
+### GetNextMeetingIntent
+- **Sample phrases:** "What's my next meeting?", "Tell me my next meeting", "What meeting do I have next?"
+- **Function:** Returns details about your upcoming meeting including subject, start time, and duration
+
+### GetTimeUntilNextMeetingIntent
+- **Sample phrases:** "How long until my next meeting?", "When is my next meeting?", "How much time until my next meeting?"
+- **Function:** Returns the countdown time until your next meeting starts
+
+### GetDoneForDayIntent
+- **Sample phrases:** "Am I done for the day?", "When am I finished today?", "When does my last meeting end?", "What time am I done today?", "When can I go home?"
+- **Function:** Returns when your last meeting of the day ends, helping you know when you're free
+
 ## Prerequisites
 
 - CalendarBot Lite running and configured with calendar sources
@@ -63,6 +79,8 @@ curl http://localhost:8080/api/whats-next
 curl -H "Authorization: Bearer your-bearer-token" http://localhost:8080/api/alexa/next-meeting
 
 curl -H "Authorization: Bearer your-bearer-token" http://localhost:8080/api/alexa/time-until-next
+
+curl -H "Authorization: Bearer your-bearer-token" http://localhost:8080/api/alexa/done-for-day
 ```
 
 **Expected Response:**
@@ -182,8 +200,11 @@ curl -k https://ashwoodgrove.net/api/whats-next
 # Test the Alexa endpoints through Caddy (replace with your actual domain and token)
 curl -k -H "Authorization: Bearer Uc39FIpUYa2BDIMjOUDyhzQk53qhQjHFxTpw-9P7wkA" https://your-domain.com/api/alexa/next-meeting
 
+curl -k -H "Authorization: Bearer Uc39FIpUYa2BDIMjOUDyhzQk53qhQjHFxTpw-9P7wkA" https://your-domain.com/api/alexa/done-for-day
+
 # Should return:
 # {"meeting": {"subject": "...", "speech_text": "...", ...}}
+# or {"speech_text": "You are done for the day at...", ...}
 ```
 
 **Troubleshooting:**
@@ -235,14 +256,39 @@ REQUEST_TIMEOUT = 10
 
 ### 3.4 Test Lambda Function
 
-Use the Lambda test feature with this test event:
+Use the Lambda test feature with these test events:
 
+**Test GetNextMeetingIntent:**
 ```json
 {
   "request": {
     "type": "IntentRequest",
     "intent": {
       "name": "GetNextMeetingIntent"
+    }
+  }
+}
+```
+
+**Test GetTimeUntilNextMeetingIntent:**
+```json
+{
+  "request": {
+    "type": "IntentRequest",
+    "intent": {
+      "name": "GetTimeUntilNextMeetingIntent"
+    }
+  }
+}
+```
+
+**Test GetDoneForDayIntent:**
+```json
+{
+  "request": {
+    "type": "IntentRequest",
+    "intent": {
+      "name": "GetDoneForDayIntent"
     }
   }
 }
@@ -296,6 +342,22 @@ Expected response should include `speech_text` field.
           ]
         },
         {
+          "name": "GetDoneForDayIntent",
+          "slots": [],
+          "samples": [
+            "am I done for the day",
+            "when am I done for the day",
+            "when am I finished today",
+            "when does my last meeting end",
+            "what time am I done today",
+            "when can I go home",
+            "when is my day over",
+            "when do I finish today",
+            "what time do I finish work",
+            "when am I free for the day"
+          ]
+        },
+        {
           "name": "AMAZON.HelpIntent",
           "samples": []
         },
@@ -329,16 +391,71 @@ Expected response should include `speech_text` field.
 
 1. In Alexa Developer Console, click "Test"
 2. Enable testing for "Development"
-3. Type or speak: "ask calendar bot what's my next meeting"
-4. Verify response matches your calendar
+3. Test the different intents:
+   - "ask calendar bot what's my next meeting"
+   - "ask calendar bot how long until my next meeting"
+   - "ask calendar bot am I done for the day"
+4. Verify responses match your calendar
 
 ### 5.2 Test on Device
 
 1. Ensure your Alexa device is registered to the same Amazon account
-2. Say: "Alexa, ask Calendar Bot what's my next meeting"
-3. Verify the response
+2. Test with various phrases:
+   - "Alexa, ask Calendar Bot what's my next meeting"
+   - "Alexa, ask Calendar Bot when am I done for the day"
+   - "Alexa, ask Calendar Bot how long until my next meeting"
+3. Verify the responses
 
-## Step 6: Security Hardening
+## Step 6: Adding "Done for the Day" Functionality
+
+### 6.1 New Intent Configuration
+
+The `GetDoneForDayIntent` has been added to support "done for the day" queries. If you're updating an existing Alexa skill, you'll need to add this intent to your interaction model.
+
+**Required Changes to Interaction Model:**
+
+1. In Alexa Developer Console, go to "Interaction Model" > "JSON Editor"
+2. Add the `GetDoneForDayIntent` to your existing intents array (as shown in Section 4.2)
+3. Save and build the model
+
+**API Endpoint:**
+- **Path:** `/api/alexa/done-for-day`
+- **Method:** GET
+- **Headers:** `Authorization: Bearer <your-token>`
+
+**Sample Response:**
+```json
+{
+  "speech_text": "You are done for the day at 5:00 PM, after your meeting with the Marketing Team.",
+  "ssml": "<speak>You are done for the day at <say-as interpret-as='time'>17:00</say-as>, after your meeting with the Marketing Team.</speak>",
+  "end_time_iso": "2025-10-26T17:00:00Z",
+  "last_meeting": {
+    "subject": "Marketing Team Meeting",
+    "end_time_iso": "2025-10-26T17:00:00Z"
+  }
+}
+```
+
+### 6.2 Testing the New Functionality
+
+**Test with cURL:**
+```bash
+# Test the done-for-day endpoint directly
+curl -H "Authorization: Bearer your-bearer-token" \
+     https://your-domain.com/api/alexa/done-for-day
+```
+
+**Test with Alexa Simulator:**
+- "ask calendar bot am I done for the day"
+- "ask calendar bot when am I finished today"
+- "ask calendar bot what time am I done today"
+
+**Expected Behavior:**
+- If you have meetings today: Returns the end time of your last meeting
+- If you have no meetings today: Returns a message indicating you have no meetings
+- If all meetings are finished: Returns a message about being done for the day
+
+## Step 7: Security Hardening
 
 ### 6.1 Firewall Configuration
 
@@ -395,9 +512,15 @@ python -c "from calendarbot_lite.config_loader import load_config; print(load_co
 
 **Bearer token errors**:
 ```bash
-# Test authentication manually
+# Test authentication manually for all endpoints
 curl -v -H "Authorization: Bearer YOUR_TOKEN" \
      https://your-domain.com/api/alexa/next-meeting
+
+curl -v -H "Authorization: Bearer YOUR_TOKEN" \
+     https://your-domain.com/api/alexa/time-until-next
+
+curl -v -H "Authorization: Bearer YOUR_TOKEN" \
+     https://your-domain.com/api/alexa/done-for-day
 ```
 
 ### HTTPS Issues
@@ -432,6 +555,12 @@ ngrok http 8080
 3. Verify skill is enabled in Alexa app
 4. Check interaction model is built
 
+**"Done for the day" intent issues**:
+1. Verify `GetDoneForDayIntent` is included in interaction model JSON
+2. Test with specific phrases: "ask calendar bot am I done for the day"
+3. Check that `/api/alexa/done-for-day` endpoint returns valid response
+4. If response says "no meetings today" when you have meetings, check calendar sync
+
 **Authentication errors in Lambda**:
 1. Verify environment variables in Lambda
 2. Test CalendarBot endpoint with curl
@@ -454,7 +583,10 @@ aws logs tail /aws/lambda/calendarbot-alexa-skill --follow
 1. **Update CalendarBot**: Pull latest changes and restart service
 2. **Rotate Bearer Token**: Generate new token monthly
 3. **Monitor Logs**: Check for errors or unusual activity
-4. **Test Functionality**: Weekly voice test with Alexa
+4. **Test Functionality**: Weekly voice test with Alexa for all intents:
+   - "Alexa, ask Calendar Bot what's my next meeting"
+   - "Alexa, ask Calendar Bot how long until my next meeting"
+   - "Alexa, ask Calendar Bot am I done for the day"
 
 ### Backup Configuration
 

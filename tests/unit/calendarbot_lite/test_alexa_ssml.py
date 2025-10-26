@@ -11,6 +11,7 @@ from calendarbot_lite.alexa_ssml import (
     URGENCY_STANDARD_THRESHOLD,
     render_meeting_ssml,
     render_time_until_ssml,
+    render_done_for_day_ssml,
     validate_ssml,
     _basic_tag_balance_check,
     _compose_fragments,
@@ -591,6 +592,191 @@ class TestSsmlPerformanceConstraints:
         
         assert isinstance(EMPHASIS_STRONG, str)
         assert "{text}" in EMPHASIS_STRONG
+
+
+class TestRenderDoneForDaySsml:
+    """Tests for render_done_for_day_ssml function."""
+
+    def test_render_done_for_day_ssml_when_no_meetings_today_then_relaxed_positive_tone(self):
+        """Test SSML generation for no meetings today scenario."""
+        speech_text = "You have no meetings today. Enjoy your free day!"
+        
+        result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text)
+        assert result is not None
+        assert result.startswith("<speak>")
+        assert result.endswith("</speak>")
+        
+        # Should have relaxed pacing for no meetings
+        assert 'rate="medium"' in result or 'pitch="medium"' in result
+        # Should emphasize the positive aspects
+        assert 'level="moderate"' in result
+        # Should include a break before "Enjoy your free day!"
+        assert 'time="0.4s"' in result
+        assert "Enjoy your free day!" in result
+
+    def test_render_done_for_day_ssml_when_had_meetings_with_done_message_then_celebratory_tone(self):
+        """Test SSML generation for done-for-day with completed meetings."""
+        speech_text = "You're all done for today!"
+        
+        result = render_done_for_day_ssml(has_meetings_today=True, speech_text=speech_text)
+        assert result is not None
+        assert result.startswith("<speak>")
+        assert result.endswith("</speak>")
+        
+        # Should have strong emphasis for celebration
+        assert 'level="strong"' in result  # Strong celebratory emphasis
+        assert "You&apos;re all done for today!" in result  # Escaped text
+
+    def test_render_done_for_day_ssml_when_will_be_done_future_then_emphasizes_time(self):
+        """Test SSML generation for future completion time."""
+        speech_text = "You'll be done at 6:00 pm."
+        
+        result = render_done_for_day_ssml(has_meetings_today=True, speech_text=speech_text)
+        assert result is not None
+        assert result.startswith("<speak>")
+        assert result.endswith("</speak>")
+        
+        # Should emphasize the completion time
+        assert 'level="strong"' in result  # Strong emphasis on time
+        assert "6:00 pm" in result  # Time should be present
+        assert "You&apos;ll be done at" in result  # Future completion phrase
+
+    def test_render_done_for_day_ssml_when_had_meetings_generic_message_then_moderate_emphasis(self):
+        """Test SSML generation for generic done-for-day message."""
+        speech_text = "You have meetings today, but I couldn't determine when your last one ends."
+        
+        result = render_done_for_day_ssml(has_meetings_today=True, speech_text=speech_text)
+        assert result is not None
+        assert result.startswith("<speak>")
+        assert result.endswith("</speak>")
+        
+        # Should use moderate emphasis for generic messages
+        assert 'level="moderate"' in result
+        assert "couldn&apos;t" in result  # Escaped text should be present
+
+    def test_render_done_for_day_ssml_when_no_meetings_without_enjoy_phrase_then_relaxed_tone(self):
+        """Test SSML generation for no meetings without 'Enjoy your free day!' phrase."""
+        speech_text = "You have no meetings today."
+        
+        result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text)
+        assert result is not None
+        assert result.startswith("<speak>")
+        assert result.endswith("</speak>")
+        
+        # Should use relaxed pacing
+        assert 'rate="medium"' in result and 'pitch="medium"' in result
+        assert speech_text in result
+
+    def test_render_done_for_day_ssml_when_special_chars_in_speech_then_escaped(self):
+        """Test SSML generation with special characters in speech text."""
+        speech_text = "Your meeting 'Q&A Session' ended at 3 PM. You're done!"
+        
+        result = render_done_for_day_ssml(has_meetings_today=True, speech_text=speech_text)
+        assert result is not None
+        
+        # Special characters should be escaped
+        assert "&apos;" in result  # Single quote
+        assert "&amp;" in result  # Ampersand
+
+    def test_render_done_for_day_ssml_when_invalid_speech_text_then_none(self):
+        """Test SSML generation with invalid speech text."""
+        # Empty string
+        result = render_done_for_day_ssml(has_meetings_today=False, speech_text="")
+        assert result is None
+        
+        # Whitespace only
+        result = render_done_for_day_ssml(has_meetings_today=False, speech_text="   ")
+        assert result is None
+        
+        # Non-string input
+        result = render_done_for_day_ssml(has_meetings_today=False, speech_text=None)  # type: ignore
+        assert result is None
+
+    def test_render_done_for_day_ssml_when_ssml_disabled_then_none(self):
+        """Test SSML generation when disabled in config."""
+        speech_text = "You have no meetings today. Enjoy your free day!"
+        config = {"enable_ssml": False}
+        
+        result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text, config=config)
+        assert result is None
+
+    def test_render_done_for_day_ssml_when_custom_config_then_respects_settings(self):
+        """Test SSML generation with custom configuration."""
+        speech_text = "You have no meetings today. Enjoy your free day!"
+        config = {
+            "enable_ssml": True,
+            "ssml_max_chars": 200,  # Lower limit
+            "allowed_tags": {"speak", "prosody", "emphasis", "break"}
+        }
+        
+        result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text, config=config)
+        assert result is not None
+        assert len(result) <= 200
+
+    def test_render_done_for_day_ssml_when_long_speech_text_then_handles_gracefully(self):
+        """Test SSML generation with very long speech text."""
+        long_speech = "Your last meeting today ended at 3:30 PM " * 20 + "You're done for the day!"
+        
+        result = render_done_for_day_ssml(has_meetings_today=True, speech_text=long_speech)
+        # Should either truncate appropriately or return None if too long
+        if result is not None:
+            assert len(result) <= DEFAULT_CONFIG["ssml_max_chars"]
+
+    def test_render_done_for_day_ssml_when_validation_fails_then_none(self):
+        """Test SSML generation when validation fails."""
+        # Force validation failure with very strict character limit
+        speech_text = "You have no meetings today. Enjoy your free day!"
+        config = {"ssml_max_chars": 50}  # Too small for any real SSML
+        
+        result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text, config=config)
+        assert result is None
+
+    @patch("calendarbot_lite.alexa_ssml._escape_text_for_ssml")
+    @patch("calendarbot_lite.alexa_ssml.logger")
+    def test_render_done_for_day_ssml_when_exception_occurs_then_logs_and_returns_none(self, mock_logger, mock_escape):
+        """Test SSML generation handles exceptions gracefully."""
+        # Force an exception by making _escape_text_for_ssml raise an exception
+        mock_escape.side_effect = Exception("Test exception")
+        speech_text = "You have no meetings today."
+        
+        result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text)
+        assert result is None
+        mock_logger.error.assert_called()
+
+    def test_render_done_for_day_ssml_generates_valid_ssml_structure(self):
+        """Test that generated SSML has valid structure."""
+        speech_text = "You have no meetings today. Enjoy your free day!"
+        
+        result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text)
+        assert result is not None
+        
+        # Should pass validation
+        assert validate_ssml(result) is True
+        
+        # Should have proper speak wrapper
+        assert result.startswith("<speak>")
+        assert result.endswith("</speak>")
+        
+        # Should contain valid SSML tags only
+        allowed_tags = {"speak", "prosody", "emphasis", "break"}
+        assert _basic_tag_balance_check(result, allowed_tags) is True
+
+    def test_render_done_for_day_ssml_both_meeting_scenarios_generate_different_ssml(self):
+        """Test that different meeting scenarios generate appropriately different SSML."""
+        no_meetings_text = "You have no meetings today. Enjoy your free day!"
+        had_meetings_text = "You're all done for today!"
+        
+        no_meetings_result = render_done_for_day_ssml(has_meetings_today=False, speech_text=no_meetings_text)
+        had_meetings_result = render_done_for_day_ssml(has_meetings_today=True, speech_text=had_meetings_text)
+        
+        assert no_meetings_result is not None
+        assert had_meetings_result is not None
+        assert no_meetings_result != had_meetings_result
+        
+        # No meetings should have relaxed tone indicators
+        assert 'pitch="medium"' in no_meetings_result
+        # Had meetings (all done) should have strong celebratory emphasis
+        assert 'level="strong"' in had_meetings_result
 
 
 class TestSsmlUserStoryCompliance:
