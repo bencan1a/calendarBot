@@ -37,6 +37,15 @@ except ImportError:
 logger = logging.getLogger(__name__)
 logger.debug("calendarbot_lite.server module loaded")
 
+# Import SSML generation for Alexa endpoints
+try:
+    from .alexa_ssml import render_meeting_ssml, render_time_until_ssml
+    logger.debug("SSML module imported successfully")
+except ImportError as e:
+    logger.warning("SSML module not available: %s", e)
+    render_meeting_ssml = None
+    render_time_until_ssml = None
+
 
 def _import_process_utilities() -> Any:  # type: ignore[misc]
     """Lazy import of process utilities to handle missing calendarbot module."""
@@ -987,22 +996,68 @@ async def _make_app(
             # Simple speech text for Alexa
             speech_text = f"Your next meeting is {subject} {duration_spoken}."
 
-            return web.json_response(
-                {
-                    "meeting": {
-                        "subject": subject,
-                        "start_iso": _serialize_iso(start),
-                        "seconds_until_start": seconds_until,
-                        "speech_text": speech_text,
-                        "duration_spoken": duration_spoken,
-                    }
-                },
-                status=200,
-            )
+            # Generate SSML if available
+            ssml_output = None
+            if render_meeting_ssml:
+                logger.debug("Attempting SSML generation for next-meeting")
+                meeting_data = {
+                    "subject": subject,
+                    "seconds_until_start": seconds_until,
+                    "duration_spoken": duration_spoken,
+                    "location": ev.get("location", ""),
+                    "is_online_meeting": ev.get("is_online_meeting", False),
+                }
+                try:
+                    ssml_output = render_meeting_ssml(meeting_data)
+                    if ssml_output:
+                        logger.info("SSML generated successfully: %d characters", len(ssml_output))
+                    else:
+                        logger.warning("SSML generation returned None - validation failed or disabled")
+                except Exception as e:
+                    logger.error("SSML generation failed: %s", e, exc_info=True)
+            else:
+                logger.warning("SSML generation not available - module not imported")
 
-        return web.json_response(
-            {"meeting": None, "speech_text": "You have no upcoming meetings."}, status=200
-        )
+            response_data = {
+                "meeting": {
+                    "subject": subject,
+                    "start_iso": _serialize_iso(start),
+                    "seconds_until_start": seconds_until,
+                    "speech_text": speech_text,
+                    "duration_spoken": duration_spoken,
+                }
+            }
+            
+            # Add SSML to response if generated
+            if ssml_output:
+                response_data["meeting"]["ssml"] = ssml_output
+                logger.debug("Added SSML to response: %s", ssml_output[:100] + "..." if len(ssml_output) > 100 else ssml_output)
+
+            return web.json_response(response_data, status=200)
+
+        # No upcoming meetings case
+        speech_text = "You have no upcoming meetings."
+        ssml_output = None
+        
+        # Generate SSML for no meetings case if available
+        if render_meeting_ssml:
+            logger.debug("Attempting SSML generation for no meetings case")
+            try:
+                # Create empty meeting dict for no meetings case
+                empty_meeting = {"subject": "", "seconds_until_start": 0, "duration_spoken": ""}
+                ssml_output = render_meeting_ssml(empty_meeting)
+                if ssml_output:
+                    logger.info("No-meetings SSML generated: %d characters", len(ssml_output))
+                else:
+                    logger.warning("No-meetings SSML generation returned None")
+            except Exception as e:
+                logger.error("No-meetings SSML generation failed: %s", e, exc_info=True)
+
+        response_data = {"meeting": None, "speech_text": speech_text}
+        if ssml_output:
+            response_data["ssml"] = ssml_output
+
+        return web.json_response(response_data, status=200)
 
     async def alexa_time_until_next(request):
         """Alexa endpoint for getting time until next meeting."""
