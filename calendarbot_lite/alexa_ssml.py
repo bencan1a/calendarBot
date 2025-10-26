@@ -194,15 +194,19 @@ def render_time_until_ssml(
         
         fragments = []
         
+        # Clean up duration_spoken for time-until phrasing
+        # Remove "in " prefix if present since we'll reconstruct the sentence properly
+        clean_duration = duration_spoken.replace("in ", "", 1) if duration_spoken.startswith("in ") else duration_spoken
+        
         if urgency == "fast":
             # Urgent time-first response
-            time_phrase = _escape_text_for_ssml(duration_spoken)
+            time_phrase = _escape_text_for_ssml(clean_duration)
             urgent_time = PROSODY.format(rate="fast", pitch="high", text=time_phrase)
             fragments.append(f"{urgent_time} until your next meeting.")
             
         else:
             # Standard/relaxed time response
-            time_phrase = _escape_text_for_ssml(duration_spoken)
+            time_phrase = _escape_text_for_ssml(clean_duration)
             emphasized_time = EMPHASIS_STRONG.format(text=time_phrase)
             fragments.append(f"{emphasized_time} until your next meeting.")
 
