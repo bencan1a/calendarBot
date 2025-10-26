@@ -39,12 +39,13 @@ logger.debug("calendarbot_lite.server module loaded")
 
 # Import SSML generation for Alexa endpoints
 try:
-    from .alexa_ssml import render_meeting_ssml, render_time_until_ssml
+    from .alexa_ssml import render_meeting_ssml, render_time_until_ssml, render_done_for_day_ssml
     logger.debug("SSML module imported successfully")
 except ImportError as e:
     logger.warning("SSML module not available: %s", e)
     render_meeting_ssml = None
     render_time_until_ssml = None
+    render_done_for_day_ssml = None
 
 
 def _import_process_utilities() -> Any:  # type: ignore[misc]
@@ -315,6 +316,116 @@ def _serialize_iso(dt: datetime.datetime | None) -> str | None:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=datetime.timezone.utc)
     return dt.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _compute_last_meeting_end_for_today(
+    request_tz: str | None,
+    event_window: tuple[EventDict, ...],
+    skipped_store: object | None,
+) -> dict[str, Any]:
+    """Compute the last meeting end time for today from the event window.
+
+    Args:
+        request_tz: Optional timezone string for date comparison (e.g., "America/Los_Angeles")
+        event_window: Tuple of EventDict objects from the in-memory window
+        skipped_store: Optional skipped store object for checking skipped meetings
+
+    Returns:
+        Dictionary with keys:
+        - has_meetings_today: bool
+        - last_meeting_start_iso: str | None
+        - last_meeting_end_iso: str | None
+        - last_meeting_end_local_iso: str | None
+        - note: str | None (for any processing notes)
+    """
+    now_utc = _now_utc()
+    
+    # Parse timezone or fallback to UTC
+    try:
+        if request_tz:
+            import zoneinfo  # noqa: PLC0415
+            tz = zoneinfo.ZoneInfo(request_tz)
+        else:
+            tz = datetime.timezone.utc
+    except Exception:
+        logger.warning("Invalid timezone %r, falling back to UTC", request_tz)
+        tz = datetime.timezone.utc
+    
+    # Get today's date in the target timezone
+    today_date = now_utc.astimezone(tz).date()
+    
+    latest_end_utc = None
+    latest_start_utc = None
+    meetings_found = 0
+    
+    # Process events in the window
+    for ev in event_window:
+        try:
+            # Get event start time
+            start = ev.get("start")
+            if not isinstance(start, datetime.datetime):
+                continue
+                
+            # Convert to target timezone for date comparison
+            start_local = start.astimezone(tz)
+            if start_local.date() != today_date:
+                continue  # Not today
+                
+            # Check if meeting is skipped
+            if skipped_store is not None:
+                meeting_id = ev.get("meeting_id")
+                if meeting_id:
+                    try:
+                        is_skipped_fn = getattr(skipped_store, "is_skipped", None)
+                        if callable(is_skipped_fn) and is_skipped_fn(meeting_id):
+                            continue  # Skip this meeting
+                    except Exception as e:
+                        logger.warning("Error checking skipped status for %s: %s", meeting_id, e)
+                        # Continue processing - don't let skipped store errors block us
+            
+            meetings_found += 1
+            
+            # Calculate event end time with 1-hour fallback
+            duration_seconds = ev.get("duration_seconds")
+            if not isinstance(duration_seconds, int) or duration_seconds <= 0:
+                duration_seconds = 3600  # 1-hour fallback
+                
+            end_utc = start + datetime.timedelta(seconds=duration_seconds)
+            
+            # Track latest end time
+            if latest_end_utc is None or end_utc > latest_end_utc:
+                latest_end_utc = end_utc
+                latest_start_utc = start
+                
+        except Exception as e:
+            logger.warning("Error processing event for done-for-day: %s", e)
+            continue
+    
+    # Build response
+    result = {
+        "has_meetings_today": meetings_found > 0,
+        "last_meeting_start_iso": _serialize_iso(latest_start_utc),
+        "last_meeting_end_iso": _serialize_iso(latest_end_utc),
+        "last_meeting_end_local_iso": None,
+        "note": None,
+    }
+    
+    # Add local timezone version if we have an end time
+    if latest_end_utc is not None:
+        try:
+            end_local = latest_end_utc.astimezone(tz)
+            result["last_meeting_end_local_iso"] = end_local.isoformat()
+        except Exception as e:
+            logger.warning("Error converting end time to local timezone: %s", e)
+            result["note"] = "Local timezone conversion failed"
+    
+    logger.debug(
+        "Done-for-day computation: %d meetings today, latest end: %s",
+        meetings_found,
+        result["last_meeting_end_iso"],
+    )
+    
+    return result
 
 
 async def _fetch_and_parse_source(  # noqa: PLR0911, PLR0912
@@ -1164,18 +1275,130 @@ async def _make_app(
 
         return web.json_response(response_data, status=200)
 
+    async def done_for_day(request):
+        """API endpoint for getting last meeting end time for today."""
+        now = _now_utc()
+        
+        # Get timezone parameter from query string
+        request_tz = request.query.get("tz")
+        
+        # Read window with lock to be consistent
+        async with window_lock:
+            window = tuple(event_window_ref[0])
+        
+        logger.debug("/api/done-for-day called - window has %d events, tz=%s", len(window), request_tz)
+        
+        # Compute last meeting end for today
+        result = _compute_last_meeting_end_for_today(request_tz, window, skipped_store)
+        
+        # Build full response with current time and timezone info
+        response = {
+            "now_iso": _serialize_iso(now),
+            "tz": request_tz,
+            **result,
+        }
+        
+        return web.json_response(response, status=200)
+
+    async def alexa_done_for_day(request):
+        """Alexa endpoint for getting done-for-day status with SSML."""
+        if not _check_bearer_token(request, alexa_bearer_token):
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        
+        now = _now_utc()
+        
+        # Get timezone parameter from query string
+        request_tz = request.query.get("tz")
+        
+        # Read window with lock to be consistent
+        async with window_lock:
+            window = tuple(event_window_ref[0])
+        
+        logger.debug("Alexa /api/alexa/done-for-day called - window has %d events, tz=%s", len(window), request_tz)
+        
+        # Compute last meeting end for today
+        result = _compute_last_meeting_end_for_today(request_tz, window, skipped_store)
+        
+        # Generate speech text based on results
+        if result["has_meetings_today"]:
+            if result["last_meeting_end_iso"]:
+                # Parse the end time for speech formatting
+                try:
+                    import zoneinfo  # noqa: PLC0415
+                    end_utc = datetime.datetime.fromisoformat(result["last_meeting_end_iso"].replace("Z", "+00:00"))
+                    
+                    # Convert to local time for speech
+                    if request_tz:
+                        try:
+                            tz = zoneinfo.ZoneInfo(request_tz)
+                            end_local = end_utc.astimezone(tz)
+                            time_str = end_local.strftime("%-I:%M %p").lower()
+                        except Exception:
+                            time_str = end_utc.strftime("%-I:%M %p UTC").lower()
+                    else:
+                        time_str = end_utc.strftime("%-I:%M %p UTC").lower()
+                    
+                    # Compare current time with last meeting end time
+                    if now >= end_utc:
+                        # All meetings for today have ended
+                        speech_text = "You're all done for today!"
+                    else:
+                        # Still have meetings, will be done at end time
+                        speech_text = f"You'll be done at {time_str}."
+                        
+                except Exception as e:
+                    logger.warning("Error formatting end time for speech: %s", e)
+                    speech_text = "You have meetings today, but I couldn't determine when your last one ends."
+            else:
+                speech_text = "You have meetings today, but I couldn't determine when your last one ends."
+        else:
+            speech_text = "You have no meetings today. Enjoy your free day!"
+        
+        # Generate SSML if available
+        ssml_output = None
+        if render_done_for_day_ssml:
+            logger.debug("Attempting SSML generation for done-for-day")
+            try:
+                ssml_output = render_done_for_day_ssml(result["has_meetings_today"], speech_text)
+                if ssml_output:
+                    logger.info("Done-for-day SSML generated: %d characters", len(ssml_output))
+                else:
+                    logger.warning("Done-for-day SSML generation returned None")
+            except Exception as e:
+                logger.error("Done-for-day SSML generation failed: %s", e, exc_info=True)
+        
+        # Build response
+        response_data = {
+            "now_iso": _serialize_iso(now),
+            "tz": request_tz,
+            **result,
+            "speech_text": speech_text,
+        }
+        
+        # Add SSML and card data for Alexa if available
+        if ssml_output:
+            response_data["ssml"] = ssml_output
+            response_data["card"] = {
+                "title": "Done for the Day",
+                "content": speech_text,
+            }
+        
+        return web.json_response(response_data, status=200)
+
     # API routes
     app.router.add_get("/api/whats-next", whats_next)
     app.router.add_post("/api/skip", post_skip)
     app.router.add_delete("/api/skip", delete_skip)
     app.router.add_get("/api/clear_skips", clear_skips)
+    app.router.add_get("/api/done-for-day", done_for_day)
 
     # Alexa-specific API routes
     app.router.add_get("/api/alexa/next-meeting", alexa_next_meeting)
     app.router.add_get("/api/alexa/time-until-next", alexa_time_until_next)
+    app.router.add_get("/api/alexa/done-for-day", alexa_done_for_day)
 
     logger.debug(
-        "Routes wired: / (static HTML), /whatsnext.css, /whatsnext.js, /api/whats-next GET, /api/skip POST and DELETE, /api/clear_skips GET, /api/alexa/next-meeting GET, /api/alexa/time-until-next GET"
+        "Routes wired: / (static HTML), /whatsnext.css, /whatsnext.js, /api/whats-next GET, /api/skip POST and DELETE, /api/clear_skips GET, /api/done-for-day GET, /api/alexa/next-meeting GET, /api/alexa/time-until-next GET, /api/alexa/done-for-day GET"
     )
 
     # Provide a stop handler to allow external shutdown if needed.
