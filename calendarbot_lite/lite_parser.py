@@ -462,8 +462,20 @@ async def parse_ics_stream(
                                         f"Unique events: {len(duplicate_event_ids)}, Processed events: {event_items_processed}. "
                                         f"TERMINATING PARSING TO PREVENT INFINITE LOOP."
                                     )
-                                    # Break out of the parsing loop to prevent infinite processing
-                                    break
+                                    # FIX: Return failure when corruption is detected to trigger fallback logic
+                                    logger.error(
+                                        f"CORRUPTION FIX: Returning failure instead of success to preserve existing events. "
+                                        f"Events collected before corruption: {len(events)}."
+                                    )
+                                    return LiteICSParseResult(
+                                        success=False,
+                                        error_message=f"Network corruption detected: {warning_count} duplicate event warnings indicate infinite loop",
+                                        warnings=warnings,
+                                        source_url=source_url,
+                                        event_count=event_count,
+                                        recurring_event_count=recurring_event_count,
+                                        total_components=total_components,
+                                    )
 
                         # Explicit cleanup for memory management
                         del event
