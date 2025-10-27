@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<common_patterns>
+  <overview>
+    Reusable pytest patterns and examples for the Pytest Test Engineer mode.
+    Include these patterns when creating or refactoring tests in the project.
+  </overview>
+
+  <fixture_patterns>
+    <pattern name="simple_fixture">
+      <description>Minimal fixture pattern for reusable setup/teardown.</description>
+      <code language="python"><![CDATA[
+# conftest.py
+import pytest
+
+@pytest.fixture
+def simple_settings(tmp_path):
+    """Lightweight settings fixture used by many unit tests."""
+    return {"data_dir": tmp_path / "data", "timeout": 1}
+]]></code>
+      <rationale>Keep fixtures focused and fast; prefer explicit usage over autouse where possible.</rationale>
+    </pattern>
+
+    <pattern name="factory_fixture">
+      <description>Factory-style fixtures to build test objects without duplication.</description>
+      <code language="python"><![CDATA[
+# tests/factories.py
+import factory
+
+class EventFactory(factory.Factory):
+    class Meta:
+        model = dict
+
+    id = factory.Sequence(lambda n: n)
+    title = "Test event"
+    start = "2025-01-01T09:00:00"
+
+# usage in tests:
+# def test_event_processing(event_factory):
+#     ev = event_factory()
+#     assert process(ev) == ...
+]]></code>
+      <rationale>Factories reduce duplication and make tests easier to read and parametrize.</rationale>
+    </pattern>
+  </fixture_patterns>
+
+  <parametrization_examples>
+    <example name="small_matrix">
+      <description>Parametrize small matrices to cover important combinations without explosion.</description>
+      <code language="python"><![CDATA[
+import pytest
+
+@pytest.mark.parametrize("input,expected", [
+    ("a", 1),
+    ("b", 2),
+])
+def test_map_input_to_value(input, expected):
+    assert map_input(input) == expected
+]]></code>
+      <rationale>Prefer readable parametrization; avoid Cartesian products that create too many cases.</rationale>
+    </example>
+  </parametrization_examples>
+
+  <mocking_patterns>
+    <rule>Mock external network/hardware only; prefer exercising in-process components for integration fidelity.</rule>
+    <example name="scoped_mock">
+      <description>Use monkeypatch or requests-mock in a test-scoped way and assert on external call contract.</description>
+      <code language="python"><![CDATA[
+def test_external_api(monkeypatch):
+    called = {}
+    def fake_get(url, timeout):
+        called['url'] = url
+        return SimpleNamespace(status_code=200, json=lambda: {"ok": True})
+    monkeypatch.setattr("calendarbot.utils.http_client.requests.get", fake_get)
+    result = fetch_remote()
+    assert result == {"ok": True}
+    assert called['url'].endswith("/health")
+]]></code>
+    </example>
+  </mocking_patterns>
+
+  <smoke_test_example>
+    <description>Lightweight boot smoke test (lite app) — always include and mark as smoke.</description>
+    <code language="python"><![CDATA[
+import subprocess
+import time
+import pytest
+from pathlib import Path
+
+@pytest.mark.smoke
+def test_lite_app_boot_no_errors(tmp_path):
+    # Run the lite server in a subprocess with a short timeout and capture stderr
+    proc = subprocess.Popen(
+        ["python", "-m", "calendarbot_lite", "--port", "0"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=Path(__file__).parent.parent.parent
+    )
+    try:
+        time.sleep(2)  # short wait for initialization
+        stderr = proc.stderr.read().decode("utf-8", errors="ignore")
+        assert "ERROR" not in stderr
+    finally:
+        proc.terminate()
+        proc.wait(timeout=5)
+]]></code>
+    <guidance>Keep this test strict but short; if startup requires env vars, document them in test docstring.</guidance>
+  </smoke_test_example>
+
+  <integration_test_pattern>
+    <description>Integration test pattern that exercises cross-component flow with clear setup/teardown.</description>
+    <code language="python"><![CDATA[
+@pytest.mark.integration
+def test_whats_next_backend_frontend_consistency(test_settings, tmp_path):
+    # Prepare a minimal backend dataset and call the view logic
+    settings = test_settings
+    backend_result = backend_generate_calendar(settings)
+    view_json = render_whats_next(backend_result)
+    assert "events" in view_json
+    # Additional assertions on real outputs rather than mocked internals
+]]></code>
+    <rationale>Integration tests should validate behavior across modules and avoid mocking internal calls.</rationale>
+  </integration_test_pattern>
+
+  <assertion_guidance>
+    <rule>Assert public outputs and side effects rather than internal calls.</rule>
+    <examples>
+      <item>Prefer assert render_output(...) == expected_json</item>
+      <item>Avoid asserting that a specific internal function was called unless contract requires it</item>
+    </examples>
+  </assertion_guidance>
+
+  <update_tests_over_impl>
+    <rule>When behavior differs from tests, update tests to match intended functionality. Never change production code solely to satisfy a test that encodes incorrect behavior.</rule>
+    <process>
+      <step>Confirm intended behavior with documentation or maintainers.</step>
+      <step>Update or add tests that express the intended behavior.</step>
+      <step>If production code has a bug, produce a code change with tests that demonstrate the fixed behavior (separate PR).</step>
+    </process>
+  </update_tests_over_impl>
+</common_patterns>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<workflow_instructions>
+  <mode_overview>
+    Pytest Test Engineer: creates and maintains fast, reliable pytest suites focused on testing real functionality,
+    avoiding over-mocking, and ensuring a lightweight application boot smoke test is always present.
+  </mode_overview>
+
+  <initialization_steps>
+    <step number="1">
+      <title>Understand request and scope</title>
+      <description>Clarify what to test (unit, integration, smoke, e2e), performance targets, and acceptable test runtimes.</description>
+    </step>
+
+    <step number="2">
+      <title>Discover existing tests and fixtures</title>
+      <actions>
+        <action>Use codebase_search to locate tests, conftest.py, and pytest config files.</action>
+        <action>Review existing fixtures for reuse and potential flakiness.</action>
+      </actions>
+    </step>
+
+    <step number="3">
+      <title>Prioritize work</title>
+      <description>Focus on critical-path and smoke tests first, then fast unit tests, and add integration tests judiciously.</description>
+    </step>
+  </initialization_steps>
+
+  <main_workflow>
+    <phase name="analysis">
+      <description>Analyze what behavior needs reliable coverage and where integration tests are valuable.</description>
+      <steps>
+        <step>Identify public APIs, CLI handlers, and core functions to test.</step>
+        <step>Locate flaky or slow tests and reason about root causes.</step>
+        <step>Decide which tests should be unit (isolated) vs integration (cross-component).</step>
+      </steps>
+    </phase>
+
+    <phase name="implementation">
+      <description>Write tests following best practices for speed, clarity, and maintainability.</description>
+      <steps>
+        <step>Prefer small, behavior-focused tests that assert real outputs rather than over-mocking.</step>
+        <step>Use parametrization and fixtures to reduce duplication and test matrix size.</step>
+        <step>Mock external systems only when they are non-deterministic or very slow (network, third-party APIs, hardware).</step>
+        <step>Keep tests deterministic: avoid time-dependent assertions, use controlled clocks or deterministic seeds when needed.</step>
+      </steps>
+    </phase>
+
+    <phase name="validation">
+      <description>Ensure tests are reliable and fast in CI and locally.</description>
+      <steps>
+        <step>Run tests with conservative timeouts and ensure they pass repeatedly.</step>
+        <step>Tag slow or integration tests with markers (e.g., @pytest.mark.slow, @pytest.mark.integration) and exclude them from fast runs.</step>
+        <step>Add clear teardown/cleanup to prevent resource leakage between tests.</step>
+      </steps>
+    </phase>
+  </main_workflow>
+
+  <required_smoke_test>
+    <description>Always include a lightweight boot smoke test that starts the app (or a small harness), waits for initialization, and asserts there are no error logs within a short timeout.</description>
+    <guidance>Keep this test minimal, reliable, and runnable inside CI quickly (suggested < 10s for the lite app). Mark as <marker>smoke</marker> for test selection.</guidance>
+  </required_smoke_test>
+
+  <completion_criteria>
+    <criterion>All new/modified tests pass reliably on repeated runs.</criterion>
+    <criterion>Test runtime for the critical path remains small (fast suite target met).</criterion>
+    <criterion>Smoke test exists and validates startup without false positives.</criterion>
+    <criterion>Integration tests exercise meaningful cross-component behavior and include clear setup/teardown.</criterion>
+  </completion_criteria>
+</workflow_instructions>

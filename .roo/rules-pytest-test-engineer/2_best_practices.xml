@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<best_practices>
+  <overview>
+    Best practices for Pytest Test Engineer mode: speed, reliability, pragmatic mocking, and testing real behavior.
+  </overview>
+
+  <testing_philosophy>
+    <principle name="test_real_behavior">
+      <rule>Prefer testing actual functionality rather than mocking everything.</rule>
+      <rationale>Over-mocking hides integration bugs and reduces confidence in tests.</rationale>
+      <exceptions>When external systems are non-deterministic, slow, or unavailable in CI.</exceptions>
+    </principle>
+
+    <principle name="tests_follow_code">
+      <rule>Always update tests to match observed and intended functionality; do not change production implementation to satisfy a broken or incorrect test.</rule>
+      <rationale>Tests must reflect intended behavior; implementation changes are only for legitimate fixes.</rationale>
+    </principle>
+
+    <principle name="fast_and_deterministic">
+      <rule>Keep critical-path and unit tests fast and deterministic.</rule>
+      <rationale>Fast feedback loop in CI and locally improves developer productivity.</rationale>
+    </principle>
+  </testing_philosophy>
+
+  <naming_and_structure>
+    <naming>
+      <rule>Use descriptive test names: test_function_when_condition_then_expected</rule>
+    </naming>
+    <structure>
+      <rule>Organize tests under tests/unit, tests/integration, tests/lite, tests/browser, etc.</rule>
+      <rule>Reuse shared fixtures via conftest.py rather than test-local duplication.</rule>
+    </structure>
+  </naming_and_structure>
+
+  <fixtures_and_parametrization>
+    <fixture_guidelines>
+      <rule>Keep fixtures small and focused; avoid heavy setup in autouse fixtures that run for every test.</rule>
+      <rule>Use factories or builders for complex test data.</rule>
+    </fixture_guidelines>
+    <parametrization>
+      <rule>Parametrize inputs to cover combinations without duplicating tests. Prefer concise matrices to avoid explosion.</rule>
+    </parametrization>
+  </fixtures_and_parametrization>
+
+  <mocking_strategy>
+    <rule>Mock external network calls, slow I/O, and hardware. Prefer lightweight, scoped mocks.</rule>
+    <rule>Avoid mocking internal logic that would make tests trivial; prefer integration coverage where feasible.</rule>
+    <practice>When mocking, assert the contract (inputs/outputs) rather than internal implementation calls.</practice>
+  </mocking_strategy>
+
+  <performance_and_flakiness>
+    <timeouts>
+      <rule>Set conservative per-test timeouts for known slow tests; mark them with @pytest.mark.slow.</rule>
+    </timeouts>
+    <flaky_tests>
+      <rule>Investigate and fix flaky tests; only use flaky markers or xfail temporarily with a plan to fix.</rule>
+      <practice>Record failures and add additional assertions or stabilization where needed.</practice>
+    </flaky_tests>
+  </performance_and_flakiness>
+
+  <smoke_tests>
+    <rule>Include a boot smoke test that starts the app (or lite harness), waits for init, and asserts no ERROR logs within a short timeout.</rule>
+    <execution>Mark as @pytest.mark.smoke and ensure excluded from slow unit runs if needed.</execution>
+  </smoke_tests>
+
+  <integration_tests>
+    <rule>Design integration tests to exercise meaningful cross-component flows with clear setup and teardown.</rule>
+    <practice>Use test doubles for third-parties but exercise real in-process components where possible.</practice>
+  </integration_tests>
+
+  <ci_and_local_parity>
+    <rule>Tests should pass locally and in CI; CI-specific resources must be declared and cleaned up.</rule>
+    <practice>Provide reproducible instructions to run failing tests locally (e.g., env vars, seed values).</practice>
+  </ci_and_local_parity>
+
+  <documentation_and_examples>
+    <rule>Every non-trivial test file should include a brief docstring describing purpose and scope.</rule>
+    <practice>Maintain a README under tests/ explaining how suites are organized and run.</practice>
+  </documentation_and_examples>
+
+  <quality_checklist>
+    <item>Does the test assert behavior, not internals?</item>
+    <item>Is the test fast (<1s preferred for unit tests)?</item>
+    <item>Are fixtures minimal and reusable?</item>
+    <item>Are integration tests marked and isolated?</item>
+    <item>Is the smoke test present and reliable?</item>
+  </quality_checklist>
+</best_practices>
