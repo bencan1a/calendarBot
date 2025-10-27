@@ -82,73 +82,43 @@ class StreamHandle:
     """Lightweight handle representing a streaming HTTP response.
 
     The StreamHandle provides an async iterator of bytes via `iter_bytes()`.
-    It does not consume the entire response body up-front and is designed to be
-    passed to downstream consumers that can stream-parse the content.
+    It reuses the existing HTTP response stream to avoid duplicate requests.
     """
 
     def __init__(
         self,
-        client: httpx.AsyncClient,
+        buffered_chunks: list[bytes],
+        status_code: int,
+        resp_headers: dict[str, str],
         url: str,
-        headers: dict[str, str],
-        timeout: int,
         chunk_size: int = READ_CHUNK_SIZE_BYTES,
-        status_code: Optional[int] = None,
-        resp_headers: Optional[dict[str, str]] = None,
     ):
-        self.client = client
-        self.url = url
-        self.request_headers = headers
-        self.timeout = timeout
-        self.chunk_size = chunk_size
+        self.buffered_chunks = buffered_chunks
         self.status_code = status_code
-        self.headers = dict(resp_headers or {})
-        self._initial_bytes: Optional[bytes] = None
-        self._initial_bytes_consumed = False
+        self.headers = dict(resp_headers)
+        self.url = url
+        self.chunk_size = chunk_size
+        self._chunks_yielded = 0
 
     async def iter_bytes(self):
-        """Async generator yielding raw byte chunks from the remote resource."""
-        # First yield any initial bytes that were peeked earlier
-        if self._initial_bytes and not self._initial_bytes_consumed:
-            yield self._initial_bytes
-            self._initial_bytes_consumed = True
-
-        # Then yield the rest from the stream
-        async with self.client.stream(
-            "GET", self.url, headers=self.request_headers, timeout=self.timeout
-        ) as resp:
-            # Let callers observe status/headers via the handle if needed
-            self.status_code = resp.status_code
-            self.headers = dict(resp.headers)
-            resp.raise_for_status()
-
-            # Skip initial bytes if we already peeked them
-            bytes_to_skip = (
-                len(self._initial_bytes)
-                if self._initial_bytes and self._initial_bytes_consumed
-                else 0
-            )
-            bytes_skipped = 0
-
-            async for chunk in resp.aiter_bytes(chunk_size=self.chunk_size):
-                if bytes_to_skip > 0 and bytes_skipped < bytes_to_skip:
-                    # Skip bytes we already peeked
-                    if bytes_skipped + len(chunk) <= bytes_to_skip:
-                        bytes_skipped += len(chunk)
-                        continue
-                    else:
-                        # Partial chunk to skip
-                        skip_in_chunk = bytes_to_skip - bytes_skipped
-                        chunk = chunk[skip_in_chunk:]  # noqa: PLW2901
-                        bytes_skipped = bytes_to_skip
-
+        """Async generator yielding raw byte chunks from buffered response.
+        
+        This method yields from pre-buffered chunks instead of making a new HTTP request,
+        which fixes the double request bug that was causing "network corruption" errors.
+        """
+        logger.debug(f"StreamHandle.iter_bytes() yielding {len(self.buffered_chunks)} buffered chunks for {self.url}")
+        
+        for chunk in self.buffered_chunks:
+            if chunk:  # Only yield non-empty chunks
+                self._chunks_yielded += 1
                 yield chunk
+        
+        logger.debug(f"StreamHandle.iter_bytes() completed, yielded {self._chunks_yielded} chunks")
 
     async def read_initial_bytes(self, n: int) -> bytes:
         """Read up to `n` bytes from the stream, returning them as a single bytes object.
 
-        This method will consume the stream; intended for heuristics (e.g., sniffing headers)
-        and should be used carefully.
+        This method will consume the buffered chunks; intended for heuristics.
         """
         buf = bytearray()
         async for chunk in self.iter_bytes():
@@ -161,8 +131,6 @@ class StreamHandle:
                 buf.extend(chunk)
             else:
                 buf.extend(chunk[:need])
-                # Note: we cannot push the remainder back into the stream easily,
-                # so read_initial_bytes should be used only for small heuristics.
                 break
         return bytes(buf)
 
@@ -697,15 +665,22 @@ class LiteICSFetcher:
                         logger.debug(
                             "Selected streaming for %s (content_length=%s)", url, content_length
                         )
-                        # Create StreamHandle for large content
+                        # Buffer all content from the existing stream to avoid double request
+                        logger.debug("Buffering streaming response to prevent double HTTP request")
+                        content_chunks = [
+                            chunk
+                            async for chunk in streaming_response.aiter_bytes(chunk_size=chunk_size)
+                        ]
+                        
+                        logger.debug(f"Buffered {len(content_chunks)} chunks for streaming response")
+                        
+                        # Create StreamHandle with buffered content (fixes double request bug)
                         stream_handle = StreamHandle(
-                            self.client,
-                            url,
-                            headers,
-                            timeout,
-                            chunk_size,
+                            buffered_chunks=content_chunks,
                             status_code=streaming_response.status_code,
                             resp_headers=resp_headers,
+                            url=url,
+                            chunk_size=chunk_size,
                         )
                         if self._use_shared_client:
                             await record_client_success(self._client_id)
