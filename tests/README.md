@@ -11,6 +11,22 @@ tests/
 ├── run_tests.py               # Test runner script
 ├── README.md                  # This file
 │
+├── lite/                      # CalendarBot Lite tests (251 tests)
+│   ├── README.md              # Lite test documentation
+│   ├── test_lite_fetcher.py   # HTTP client and ICS fetching
+│   ├── test_http_client.py    # Shared HTTP client and connection pool
+│   ├── test_lite_parser_streaming.py # ICS parser streaming
+│   ├── test_rrule_streaming_optimization.py # RRule expansion and worker pool
+│   ├── test_lite_done_for_day.py # Done-for-day functionality
+│   ├── test_lite_logging.py   # Lite logging functionality
+│   ├── test_alexa_launch_intent.py # Alexa launch intent handler
+│   ├── test_alexa_integration.py # Alexa skill integration tests
+│   ├── test_alexa_ssml.py     # SSML generation and formatting
+│   ├── test_concurrency_system.py # Concurrency system and worker pool
+│   ├── test_config_and_skipped_store.py # Config and skipped events
+│   ├── test_calendarbot_lite_harness.py # Integration test harness
+│   └── test_server_port_conflict.py # Server port conflict handling
+│
 ├── fixtures/                  # Test fixtures and mock data
 │   ├── mock_ics_data.py      # ICS calendar data factories
 │   ├── test_databases.py     # Database testing utilities
@@ -44,6 +60,34 @@ tests/
 ```
 
 ## 🧪 Test Categories
+
+### CalendarBot Lite Tests (`tests/lite/`)
+Tests for the lightweight Alexa skill implementation (calendarbot_lite module).
+
+- **`test_lite_fetcher.py`**: HTTP client, ICS fetching, SSRF protection
+- **`test_http_client.py`**: Shared HTTP client and connection pool management
+- **`test_lite_parser_streaming.py`**: Streaming ICS parser functionality
+- **`test_rrule_streaming_optimization.py`**: RRule expansion and worker pool optimization
+- **`test_lite_done_for_day.py`**: Done-for-day computation and SSML rendering
+- **`test_alexa_launch_intent.py`**: Alexa launch intent handler
+- **`test_alexa_integration.py`**: Alexa skill integration tests
+- **`test_alexa_ssml.py`**: SSML generation, formatting, and urgency selection
+- **`test_concurrency_system.py`**: Concurrency system and worker pool tests
+- **`test_lite_logging.py`**: Lite logging functionality
+- **`test_config_and_skipped_store.py`**: Configuration and skipped event storage
+- **`test_calendarbot_lite_harness.py`**: Integration test harness
+- **`test_server_port_conflict.py`**: Server port conflict handling
+
+**Run lite tests only:**
+```bash
+pytest tests/lite/                          # All lite tests
+pytest tests/lite/ --cov=calendarbot_lite   # With coverage
+```
+
+**Run main calendarbot tests (excluding lite):**
+```bash
+pytest tests/ --ignore=tests/lite/
+```
 
 ### Unit Tests (`tests/unit/`)
 Test individual components in isolation with mocked dependencies.
