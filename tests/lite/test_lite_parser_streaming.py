@@ -285,17 +285,12 @@ SUMMARY:Incomplete Event
 
 def test_streaming_parser_class_initialization():
     """Test LiteStreamingICSParser class initialization."""
-    parser = LiteStreamingICSParser(
-        chunk_size=4096,
-        read_chunk_size_bytes=8192,
-        max_line_length_bytes=16384,
-        stream_decode_errors="strict",
-    )
+    parser = LiteStreamingICSParser(chunk_size=4096)
 
     assert parser.chunk_size == 4096
-    assert parser.read_chunk_size_bytes == 8192
-    assert parser.max_line_length_bytes == 16384
-    assert parser.stream_decode_errors == "strict"
+    assert parser.read_chunk_size_bytes == 8192  # DEFAULT_READ_CHUNK_SIZE_BYTES
+    assert parser.max_line_length_bytes == 32768  # DEFAULT_MAX_LINE_LENGTH_BYTES (32KB)
+    assert parser.stream_decode_errors == "replace"  # DEFAULT_STREAM_DECODE_ERRORS
 
 
 @pytest.mark.asyncio

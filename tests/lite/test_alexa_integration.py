@@ -99,11 +99,10 @@ class TestAlexaEndpointsIntegration:
         os.environ["CALENDARBOT_ALEXA_BEARER_TOKEN"] = "test-env-token"
 
         try:
-            # Note: Current implementation doesn't read CALENDARBOT_ALEXA_BEARER_TOKEN
-            # This test documents expected behavior for future enhancement
+            # Current implementation reads CALENDARBOT_ALEXA_BEARER_TOKEN into the config
             config = _build_default_config_from_env()
-            # For now, this will be empty since not implemented
-            assert "alexa_bearer_token" not in config
+            # Should include the environment-derived token
+            assert config.get("alexa_bearer_token") == "test-env-token"
         finally:
             if original_value is not None:
                 os.environ["CALENDARBOT_ALEXA_BEARER_TOKEN"] = original_value
