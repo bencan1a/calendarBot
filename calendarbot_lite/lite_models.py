@@ -6,6 +6,9 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
+# Import the central datetime override function
+from .server import _now_utc
+
 
 class LiteAuthType(str, Enum):
     """Supported authentication types for ICS sources."""
@@ -77,7 +80,7 @@ class LiteICSResponse(BaseModel):
     status_code: Optional[int] = None
     headers: dict[str, str] = Field(default_factory=dict)
     error_message: Optional[str] = None
-    fetch_time: datetime = Field(default_factory=datetime.now)
+    fetch_time: datetime = Field(default_factory=_now_utc)
 
     # HTTP caching support
     etag: Optional[str] = None
@@ -144,7 +147,7 @@ class LiteICSParseResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
     # Parsing metadata
-    parse_time: datetime = Field(default_factory=datetime.now)
+    parse_time: datetime = Field(default_factory=_now_utc)
     ics_version: Optional[str] = None
     prodid: Optional[str] = None
 

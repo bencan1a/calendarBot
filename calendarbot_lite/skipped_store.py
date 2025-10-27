@@ -15,8 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 def _now_utc() -> datetime:
-    """Return current UTC time as an aware datetime."""
-    return datetime.now(timezone.utc)
+    """Return current UTC time as an aware datetime.
+    
+    Uses centralized datetime override from server.py that supports CALENDARBOT_TEST_TIME.
+    """
+    from .server import _now_utc as server_now_utc
+    return server_now_utc()
 
 
 def _parse_iso(s: str) -> datetime:

@@ -394,7 +394,7 @@ async def parse_ics_stream(
         calendar_metadata = {}
 
         # Parse stream with memory-bounded processing
-        max_stored_events = 50  # Cap at 50 events for Pi Zero 2W
+        max_stored_events = 1000  # Increased to handle calendars with many recurring events
         
         # Debug counters for network corruption detection
         total_items_processed = 0
@@ -413,8 +413,22 @@ async def parse_ics_stream(
                     calendar_metadata.update(item["metadata"])
                     
                     # Check for duplicate event processing (indicates network corruption)
+                    # NOTE: Events with RECURRENCE-ID share the same UID as their master event,
+                    # so we need to include RECURRENCE-ID in the uniqueness check
                     event_uid = str(component.get("UID", f"no-uid-{event_items_processed}"))
-                    if event_uid in duplicate_event_ids:
+                    recurrence_id = component.get("RECURRENCE-ID")
+                    if recurrence_id:
+                        # Modified instance - create unique key with UID + RECURRENCE-ID
+                        if hasattr(recurrence_id, "to_ical"):
+                            recurrence_id_str = recurrence_id.to_ical().decode("utf-8")
+                        else:
+                            recurrence_id_str = str(recurrence_id)
+                        unique_event_key = f"{event_uid}::{recurrence_id_str}"
+                    else:
+                        # Master event or standalone event
+                        unique_event_key = event_uid
+
+                    if unique_event_key in duplicate_event_ids:
                         # Enhanced duplicate detection logging with context
                         content_size_estimate = total_items_processed * 100  # Rough estimate
                         logger.warning(
@@ -426,7 +440,7 @@ async def parse_ics_stream(
                         )
                         warning_count += 1
                     else:
-                        duplicate_event_ids.add(event_uid)
+                        duplicate_event_ids.add(unique_event_key)
                         # Log parsing progress every 10 events for telemetry
                         if event_items_processed % 10 == 0:
                             logger.debug(
@@ -477,7 +491,9 @@ async def parse_ics_stream(
                                 )
                                 
                                 # Circuit breaker: if we're seeing repeated warnings, terminate parsing
-                                if warning_count > 5:
+                                # Increased threshold to 50 to handle large calendars with recurring events
+                                # Only trigger if we also have duplicates (corruption indicator)
+                                if warning_count > 50 and duplicate_ratio > 10:
                                     # Circuit breaker activation with comprehensive diagnostic data
                                     content_size_estimate = total_items_processed * 100  # Rough estimate
                                     corruption_severity = "HIGH" if duplicate_ratio > 50 else "MEDIUM"
@@ -659,6 +675,7 @@ class LiteICSParser:
         try:
             # Initialize result tracking - NO event accumulation
             filtered_events: list[LiteCalendarEvent] = []  # Only store final filtered results
+            raw_components: list[Any] = []  # Store raw components for RRULE expansion
             warnings = []
             errors = []
             total_components = 0
@@ -668,7 +685,7 @@ class LiteICSParser:
 
             # Memory-bounded processing: limit stored events for typical calendar view usage
             max_stored_events = (
-                50  # Cap at 50 events - sufficient for typical 1-20 event calendar views
+                1000  # Increased to handle calendars with many recurring events
             )
 
             # Process stream with immediate filtering to prevent memory accumulation
@@ -725,6 +742,8 @@ class LiteICSParser:
                                 # Only store filtered events, and cap the total
                                 if len(filtered_events) < max_stored_events:
                                     filtered_events.append(event)
+                                    # Store raw component for RRULE expansion (needed for recurring events)
+                                    raw_components.append(component)
                                 elif len(filtered_events) == max_stored_events:
                                     warning = f"Event limit reached ({max_stored_events}), truncating results"
                                     warnings.append(warning)
@@ -754,6 +773,24 @@ class LiteICSParser:
                 f"Streaming parser processed {len(filtered_events)} events "
                 f"({event_count} total events, {len(filtered_events)} busy/tentative)",
             )
+
+            # IMPORTANT: Expand recurring events (RRULE) to generate instances
+            # This was missing from the streaming parser, causing recurring events
+            # to not show their future occurrences
+            expanded_events = []
+            if recurring_event_count > 0:
+                try:
+                    # Pass the raw components we collected for RRULE expansion
+                    expanded_events = self._expand_recurring_events(filtered_events, raw_components)
+                    if expanded_events:
+                        # Merge expanded events with original events and deduplicate
+                        filtered_events = self._merge_expanded_events(filtered_events, expanded_events)
+                        logger.debug(
+                            f"Streaming parser: Added {len(expanded_events)} expanded recurring event instances"
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to expand recurring events in streaming parser: {e}")
+                    # Continue with unexpanded events
 
             return LiteICSParseResult(
                 success=True,

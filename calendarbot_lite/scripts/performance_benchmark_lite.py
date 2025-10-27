@@ -43,6 +43,15 @@ try:
 except Exception:
     psutil = None  # Fallback to resource module
 
+# Import centralized datetime function that supports CALENDARBOT_TEST_TIME override
+try:
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from calendarbot_lite.server import _now_utc
+except ImportError:
+    # Fallback if import fails (shouldn't happen in normal usage)
+    def _now_utc():
+        return datetime.now(timezone.utc)
+
 import aiohttp
 from aiohttp import web
 from calendarbot_lite.http_client import close_all_clients, get_shared_client
@@ -253,7 +262,7 @@ def generate_expected_event_data(
         List of expected event dictionaries
     """
     expected_events = []
-    now = datetime.now(timezone.utc)
+    now = _now_utc()
 
     # Add predictable upcoming events based on scenario
     if scenario == "small":
@@ -448,7 +457,7 @@ def make_ics_with_sizes(
     events = []
 
     # Generate predictable upcoming events for API validation
-    now = datetime.now(timezone.utc)
+    now = _now_utc()
 
     # Add predictable test events based on scenario
     if scenario == "small":
