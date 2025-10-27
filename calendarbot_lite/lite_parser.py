@@ -415,12 +415,26 @@ async def parse_ics_stream(
                     # Check for duplicate event processing (indicates network corruption)
                     event_uid = str(component.get("UID", f"no-uid-{event_items_processed}"))
                     if event_uid in duplicate_event_ids:
-                        logger.error(
-                            f"NETWORK CORRUPTION: Duplicate event UID {event_uid} "
-                            f"(total items: {total_items_processed}, events: {event_items_processed})"
+                        # Enhanced duplicate detection logging with context
+                        content_size_estimate = total_items_processed * 100  # Rough estimate
+                        logger.warning(
+                            "Duplicate event UID detected during streaming parse - "
+                            f"uid={event_uid}, source_url={source_url or 'unknown'}, "
+                            f"content_size_est={content_size_estimate}bytes, "
+                            f"total_items={total_items_processed}, events_processed={event_items_processed}, "
+                            f"unique_uids={len(duplicate_event_ids)}, duplicate_count={total_items_processed - len(duplicate_event_ids)}"
                         )
+                        warning_count += 1
                     else:
                         duplicate_event_ids.add(event_uid)
+                        # Log parsing progress every 10 events for telemetry
+                        if event_items_processed % 10 == 0:
+                            logger.debug(
+                                "Streaming parse progress - source_url=%s, events_processed=%d, "
+                                "unique_uids=%d, duplicate_ratio=%.2f%%",
+                                source_url or "unknown", event_items_processed, len(duplicate_event_ids),
+                                ((total_items_processed - len(duplicate_event_ids)) / max(total_items_processed, 1)) * 100
+                            )
 
                     # Use a minimal settings object for event parsing
                     class _MinimalSettings:
@@ -452,24 +466,40 @@ async def parse_ics_stream(
                                     f"Event limit reached ({max_stored_events}), truncating results"
                                 )
                                 warnings.append(warning)
-                                logger.warning(f"{warning} [WARNING #{warning_count}, Total items processed: {total_items_processed}, Events: {event_items_processed}, Unique UIDs: {len(duplicate_event_ids)}]")
+                                
+                                # Enhanced warning logging with telemetry data
+                                duplicate_ratio = ((total_items_processed - len(duplicate_event_ids)) / max(total_items_processed, 1)) * 100
+                                logger.warning(
+                                    "Event limit warning - source_url=%s, limit=%d, warning_count=%d, "
+                                    "total_items=%d, events_processed=%d, unique_uids=%d, duplicate_ratio=%.2f%%",
+                                    source_url or "unknown", max_stored_events, warning_count,
+                                    total_items_processed, event_items_processed, len(duplicate_event_ids), duplicate_ratio
+                                )
                                 
                                 # Circuit breaker: if we're seeing repeated warnings, terminate parsing
                                 if warning_count > 5:
+                                    # Circuit breaker activation with comprehensive diagnostic data
+                                    content_size_estimate = total_items_processed * 100  # Rough estimate
+                                    corruption_severity = "HIGH" if duplicate_ratio > 50 else "MEDIUM"
+                                    
                                     logger.error(
-                                        f"NETWORK CORRUPTION DETECTED: {warning_count} limit warnings indicate "
-                                        f"parser is stuck in loop. Total items: {total_items_processed}, "
-                                        f"Unique events: {len(duplicate_event_ids)}, Processed events: {event_items_processed}. "
-                                        f"TERMINATING PARSING TO PREVENT INFINITE LOOP."
+                                        "CIRCUIT BREAKER ACTIVATED - Network corruption detected during streaming parse. "
+                                        "source_url=%s, severity=%s, warning_count=%d, content_size_est=%dbytes, "
+                                        "total_items=%d, unique_events=%d, processed_events=%d, duplicate_ratio=%.2f%%, "
+                                        "events_collected=%d. TERMINATING PARSING TO PREVENT INFINITE LOOP.",
+                                        source_url or "unknown", corruption_severity, warning_count, content_size_estimate,
+                                        total_items_processed, len(duplicate_event_ids), event_items_processed,
+                                        duplicate_ratio, len(events)
                                     )
-                                    # FIX: Return failure when corruption is detected to trigger fallback logic
+                                    
+                                    # Return failure when corruption is detected to trigger fallback logic
                                     logger.error(
-                                        f"CORRUPTION FIX: Returning failure instead of success to preserve existing events. "
-                                        f"Events collected before corruption: {len(events)}."
+                                        "Corruption mitigation: Returning failure to preserve %d events collected before corruption",
+                                        len(events)
                                     )
                                     return LiteICSParseResult(
                                         success=False,
-                                        error_message=f"Network corruption detected: {warning_count} duplicate event warnings indicate infinite loop",
+                                        error_message=f"Circuit breaker: Network corruption detected ({warning_count} warnings, {duplicate_ratio:.1f}% duplicates)",
                                         warnings=warnings,
                                         source_url=source_url,
                                         event_count=event_count,
@@ -497,9 +527,18 @@ async def parse_ics_stream(
                 source_url=source_url,
             )
 
+        # Log comprehensive parsing telemetry at completion
+        duplicate_count = total_items_processed - len(duplicate_event_ids)
+        duplicate_ratio = (duplicate_count / max(total_items_processed, 1)) * 100
+        content_size_estimate = total_items_processed * 100  # Rough estimate
+        
         logger.debug(
-            f"Streaming parser processed {len(events)} events "
-            f"({event_count} total events, {len(events)} busy/tentative)"
+            "Streaming parse completed successfully - source_url=%s, content_size_est=%dbytes, "
+            "total_items=%d, events_processed=%d, unique_uids=%d, duplicate_count=%d, "
+            "duplicate_ratio=%.2f%%, final_events=%d, warnings=%d",
+            source_url or "unknown", content_size_estimate, total_items_processed,
+            event_items_processed, len(duplicate_event_ids), duplicate_count, duplicate_ratio,
+            len(events), len(warnings)
         )
 
         return LiteICSParseResult(

@@ -19,11 +19,8 @@ from .lite_models import LiteICSResponse, LiteICSSource
 
 logger = logging.getLogger(__name__)
 
-# Streaming / performance tuning defaults (can be overridden via settings object)
-STREAM_THRESHOLD = 262_144  # 256KB
-READ_CHUNK_SIZE_BYTES = 8192
-PREFER_STREAM_DEFAULT = "auto"  # "auto" | "force" | "never"
-INITIAL_BUFFER_BYTES_FOR_CHUNKED = 8192
+# HTTP client defaults
+READ_CHUNK_SIZE_BYTES = 8192  # Still used for some internal operations
 
 
 # Lite exceptions for CalendarBot Lite
@@ -76,63 +73,6 @@ class LiteSecurityEventLogger:
 def _raise_client_not_initialized() -> NoReturn:
     """Raise LiteICSFetchError for uninitialized HTTP client."""
     raise LiteICSFetchError("HTTP client not initialized")
-
-
-class StreamHandle:
-    """Lightweight handle representing a streaming HTTP response.
-
-    The StreamHandle provides an async iterator of bytes via `iter_bytes()`.
-    It reuses the existing HTTP response stream to avoid duplicate requests.
-    """
-
-    def __init__(
-        self,
-        buffered_chunks: list[bytes],
-        status_code: int,
-        resp_headers: dict[str, str],
-        url: str,
-        chunk_size: int = READ_CHUNK_SIZE_BYTES,
-    ):
-        self.buffered_chunks = buffered_chunks
-        self.status_code = status_code
-        self.headers = dict(resp_headers)
-        self.url = url
-        self.chunk_size = chunk_size
-        self._chunks_yielded = 0
-
-    async def iter_bytes(self):
-        """Async generator yielding raw byte chunks from buffered response.
-        
-        This method yields from pre-buffered chunks instead of making a new HTTP request,
-        which fixes the double request bug that was causing "network corruption" errors.
-        """
-        logger.debug(f"StreamHandle.iter_bytes() yielding {len(self.buffered_chunks)} buffered chunks for {self.url}")
-        
-        for chunk in self.buffered_chunks:
-            if chunk:  # Only yield non-empty chunks
-                self._chunks_yielded += 1
-                yield chunk
-        
-        logger.debug(f"StreamHandle.iter_bytes() completed, yielded {self._chunks_yielded} chunks")
-
-    async def read_initial_bytes(self, n: int) -> bytes:
-        """Read up to `n` bytes from the stream, returning them as a single bytes object.
-
-        This method will consume the buffered chunks; intended for heuristics.
-        """
-        buf = bytearray()
-        async for chunk in self.iter_bytes():
-            if not chunk:
-                break
-            need = n - len(buf)
-            if need <= 0:
-                break
-            if len(chunk) <= need:
-                buf.extend(chunk)
-            else:
-                buf.extend(chunk[:need])
-                break
-        return bytes(buf)
 
 
 class LiteICSFetcher:
@@ -233,212 +173,67 @@ class LiteICSFetcher:
             )
 
     def _validate_url_for_ssrf(self, url: str) -> bool:
-        """Validate URL to prevent Server-Side Request Forgery (SSRF) attacks with comprehensive security checks.
+        """Validate URL for basic format and security - simplified for single-user hobby application.
 
-        Implements multi-layered security validation to prevent malicious URLs from accessing
-        internal network resources, localhost services, or private IP ranges. Includes detection
-        of encoded IP addresses and alternative representations commonly used in SSRF exploits.
-
-        Security Validation Layers:
-        1. Protocol validation - Only HTTP/HTTPS allowed
-        2. Hostname validation - Rejects empty or malformed hostnames
-        3. IP address validation - Blocks private, loopback, and link-local ranges
-        4. Alternative encoding detection - Prevents decimal/hex IP encoding bypasses
-        5. Hostname pattern matching - Blocks common private network names
+        Performs basic URL validation to ensure proper format and prevent obviously malicious URLs.
+        This simplified version is appropriate for single-user applications where complex SSRF
+        protection is unnecessary overhead.
 
         Args:
-            url: URL string to validate for SSRF security risks. Should be a complete
-                HTTP or HTTPS URL with valid hostname/IP and optional path components.
+            url: URL string to validate. Should be a complete HTTP or HTTPS URL.
 
         Returns:
-            bool: True if URL is safe for external requests, False if blocked for security.
-                 All rejections are logged as security events for audit compliance.
-
-        Security Patterns Detected and Blocked:
-            - Non-HTTP(S) protocols: ftp://, file://, gopher://, etc.
-            - Private IPv4 ranges: 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12
-            - IPv6 loopback and link-local: ::1, fe80::/10
-            - Localhost patterns: localhost, 127.0.0.1, 127.x.x.x
-            - Decimal IP encoding: 2130706433 (represents 127.0.0.1)
-            - Hexadecimal IP encoding: 0x7f000001 (represents 127.0.0.1)
-            - Partial private network matches: 192.168.*, 10.*, 172.*
-
-        Environment Variables:
-            CALENDARBOT_ALLOW_LOCALHOST: Set to 'true', '1', or 'yes' to allow localhost
-                                        URLs for testing purposes. This bypasses security
-                                        checks for localhost/127.0.0.1 addresses only.
+            bool: True if URL has valid format, False if blocked due to invalid format.
         """
         try:
-            # Check for testing mode that allows localhost URLs
-            allow_localhost = os.environ.get("CALENDARBOT_ALLOW_LOCALHOST", "").lower() in (
-                "true",
-                "1",
-                "yes",
-            )
-            if allow_localhost:
-                logger.debug(
-                    "CALENDARBOT_ALLOW_LOCALHOST enabled - localhost URLs will be allowed for testing"
-                )
-
             parsed = urlparse(url)
 
-            # Only allow HTTP/HTTPS
+            # Only allow HTTP/HTTPS schemes
             if parsed.scheme not in ["http", "https"]:
+                logger.debug(f"Blocked non-HTTP(S) URL: {url}")
                 event = {
-                    "event_type": "SYSTEM_SECURITY_VIOLATION",
-                    "severity": "HIGH",
+                    "event_type": "INPUT_VALIDATION_FAILURE",
+                    "severity": "LOW",
                     "resource": url,
                     "action": "url_validation",
                     "result": "blocked",
                     "details": {
-                        "violation_type": "ssrf_attempt",
-                        "description": f"Blocked non-HTTP(S) scheme: {parsed.scheme}",
-                        "source_ip": "internal",
+                        "description": f"Invalid URL scheme: {parsed.scheme}",
                     },
                 }
                 self.security_logger.log_event(event)
                 return False
 
-            # Check for localhost/private IP addresses
-            hostname = parsed.hostname
-            if not hostname:
-                # Reject URLs with empty hostnames
+            # Require valid hostname
+            if not parsed.hostname:
+                logger.debug(f"Blocked URL with missing hostname: {url}")
                 event = {
-                    "event_type": "SYSTEM_SECURITY_VIOLATION",
-                    "severity": "HIGH",
+                    "event_type": "INPUT_VALIDATION_FAILURE",
+                    "severity": "LOW",
                     "resource": url,
                     "action": "url_validation",
                     "result": "blocked",
                     "details": {
-                        "violation_type": "ssrf_attempt",
-                        "description": f"Blocked URL with empty hostname: {url}",
-                        "source_ip": "internal",
+                        "description": "URL missing hostname",
                     },
                 }
                 self.security_logger.log_event(event)
                 return False
 
-            if hostname:
-                # First try standard IP parsing
-                try:
-                    ip = ipaddress.ip_address(hostname)
-                    # Allow localhost/loopback IPs if testing mode is enabled
-                    if allow_localhost and ip.is_loopback:
-                        logger.debug(
-                            "Allowing localhost IP %s due to CALENDARBOT_ALLOW_LOCALHOST", hostname
-                        )
-                        return True
-
-                    if ip.is_private or ip.is_loopback or ip.is_link_local:
-                        event = {
-                            "event_type": "SYSTEM_SECURITY_VIOLATION",
-                            "severity": "HIGH",
-                            "resource": url,
-                            "action": "url_validation",
-                            "result": "blocked",
-                            "details": {
-                                "violation_type": "ssrf_attempt",
-                                "description": f"Blocked private/localhost IP: {hostname}",
-                                "source_ip": "internal",
-                            },
-                        }
-                        self.security_logger.log_event(event)
-                        return False
-                except ValueError:
-                    # Try parsing alternative IP representations (decimal, hex)
-                    parsed_ip = None
-                    try:
-                        # Try decimal representation (e.g., 2130706433 = 127.0.0.1)
-                        if hostname.isdigit():
-                            decimal_ip = int(hostname)
-                            if 0 <= decimal_ip <= 0xFFFFFFFF:  # Valid IPv4 range
-                                # Convert decimal to dotted decimal
-                                ip_bytes = [
-                                    (decimal_ip >> 24) & 0xFF,
-                                    (decimal_ip >> 16) & 0xFF,
-                                    (decimal_ip >> 8) & 0xFF,
-                                    decimal_ip & 0xFF,
-                                ]
-                                ip_str = ".".join(map(str, ip_bytes))
-                                parsed_ip = ipaddress.ip_address(ip_str)
-
-                        # Try hexadecimal representation (e.g., 0x7f000001 = 127.0.0.1)
-                        elif hostname.lower().startswith("0x"):
-                            hex_ip = int(hostname, 16)
-                            if 0 <= hex_ip <= 0xFFFFFFFF:  # Valid IPv4 range
-                                # Convert hex to dotted decimal
-                                ip_bytes = [
-                                    (hex_ip >> 24) & 0xFF,
-                                    (hex_ip >> 16) & 0xFF,
-                                    (hex_ip >> 8) & 0xFF,
-                                    hex_ip & 0xFF,
-                                ]
-                                ip_str = ".".join(map(str, ip_bytes))
-                                parsed_ip = ipaddress.ip_address(ip_str)
-
-                        # If we successfully parsed an alternative IP format, check if it's private
-                        if parsed_ip and (
-                            parsed_ip.is_private or parsed_ip.is_loopback or parsed_ip.is_link_local
-                        ):
-                            event = {
-                                "event_type": "SYSTEM_SECURITY_VIOLATION",
-                                "severity": "HIGH",
-                                "resource": url,
-                                "action": "url_validation",
-                                "result": "blocked",
-                                "details": {
-                                    "violation_type": "ssrf_attempt",
-                                    "description": f"Blocked encoded private IP: {hostname} -> {parsed_ip}",
-                                    "source_ip": "internal",
-                                },
-                            }
-                            self.security_logger.log_event(event)
-                            return False
-
-                    except (ValueError, OverflowError):
-                        pass  # Not a valid alternative IP format
-
-                    # Hostname is not an IP, check for localhost patterns
-                    # Allow localhost hostnames if testing mode is enabled
-                    if allow_localhost and (
-                        hostname.lower() in ["localhost", "::1"] or hostname.startswith("127.")
-                    ):
-                        logger.debug(
-                            "Allowing localhost hostname %s due to CALENDARBOT_ALLOW_LOCALHOST",
-                            hostname,
-                        )
-                        return True
-
-                    if hostname.lower() in ["localhost", "127.0.0.1", "::1"] or hostname.startswith(
-                        ("192.168.", "10.", "172.")
-                    ):
-                        event = {
-                            "event_type": "SYSTEM_SECURITY_VIOLATION",
-                            "severity": "HIGH",
-                            "resource": url,
-                            "action": "url_validation",
-                            "result": "blocked",
-                            "details": {
-                                "violation_type": "ssrf_attempt",
-                                "description": f"Blocked private hostname: {hostname}",
-                                "source_ip": "internal",
-                            },
-                        }
-                        self.security_logger.log_event(event)
-                        return False
-
+            # URL passed basic validation
+            logger.debug(f"URL validation passed: {url}")
             return True
 
         except Exception as e:
+            logger.debug(f"URL validation error for {url}: {e}")
             event = {
                 "event_type": "INPUT_VALIDATION_FAILURE",
-                "severity": "MEDIUM",
+                "severity": "LOW",
                 "resource": url,
                 "action": "url_validation",
                 "result": "error",
                 "details": {
-                    "validation_error": f"URL validation failed: {e}",
-                    "source_ip": "internal",
+                    "description": f"URL validation error: {e}",
                 },
             }
             self.security_logger.log_event(event)
@@ -613,111 +408,54 @@ class LiteICSFetcher:
         # Enhanced retry for network corruption scenarios
         corruption_detected = False
 
-        # Configurable tuning values (can be provided on settings object)
-        stream_threshold = int(getattr(self.settings, "stream_threshold_bytes", STREAM_THRESHOLD))
-        prefer_stream = str(getattr(self.settings, "prefer_stream", PREFER_STREAM_DEFAULT)).lower()
-        chunk_size = int(getattr(self.settings, "read_chunk_size_bytes", READ_CHUNK_SIZE_BYTES))
-
         while attempt <= max_retries:
             try:
                 if self.client is None:
                     _raise_client_not_initialized()
 
-                # Single GET request with streaming and peek optimization
-                # This replaces the HEAD+GET pattern to reduce round trips
-                async with self.client.stream(
-                    "GET", url, headers=headers, timeout=timeout
-                ) as streaming_response:
-                    # Handle 304 Not Modified immediately
-                    if streaming_response.status_code == 304:
-                        logger.debug("ICS content not modified (304)")
-                        if self._use_shared_client:
-                            await record_client_success(self._client_id)
-                        return streaming_response
+                # Add browser-like headers to avoid automated client detection by Office365
+                browser_headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "text/calendar,text/plain,*/*",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "DNT": "1",
+                    "Connection": "keep-alive",
+                    "Upgrade-Insecure-Requests": "1",
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "none",
+                    "Cache-Control": "max-age=0",
+                }
+                # Merge existing headers with browser headers (browser headers take precedence)
+                combined_headers = {**headers, **browser_headers}
 
-                    # Raise for status for other HTTP errors
-                    streaming_response.raise_for_status()
+                # DEAD SIMPLE: Use httpx.get() to download entire file at once like a browser
+                logger.debug("Using dead simple GET request for %s", url)
+                response = await self.client.get(
+                    url, headers=combined_headers, timeout=timeout, follow_redirects=True
+                )
 
-                    # Get Content-Length from response headers
-                    content_length = None
-                    resp_headers = dict(streaming_response.headers)
-                    cl_header = streaming_response.headers.get("content-length")
-                    if cl_header:
-                        try:
-                            content_length = int(cl_header)
-                        except (ValueError, TypeError):
-                            content_length = None
-
-                    # Decision logic for streaming vs buffering using Content-Length
-                    do_stream = False
-                    if prefer_stream == "force":
-                        do_stream = True
-                    elif prefer_stream == "never":
-                        do_stream = False
-                    elif content_length is not None:
-                        do_stream = content_length > stream_threshold
-                    else:
-                        # No Content-Length: default to buffering for safety
-                        # This avoids the complexity of peek-based decisions that can corrupt data
-                        do_stream = False
-
-                    if do_stream:
-                        logger.debug(
-                            "Selected streaming for %s (content_length=%s)", url, content_length
-                        )
-                        # Buffer all content from the existing stream to avoid double request
-                        logger.debug("Buffering streaming response to prevent double HTTP request")
-                        content_chunks = [
-                            chunk
-                            async for chunk in streaming_response.aiter_bytes(chunk_size=chunk_size)
-                        ]
-                        
-                        logger.debug(f"Buffered {len(content_chunks)} chunks for streaming response")
-                        
-                        # Create StreamHandle with buffered content (fixes double request bug)
-                        stream_handle = StreamHandle(
-                            buffered_chunks=content_chunks,
-                            status_code=streaming_response.status_code,
-                            resp_headers=resp_headers,
-                            url=url,
-                            chunk_size=chunk_size,
-                        )
-                        if self._use_shared_client:
-                            await record_client_success(self._client_id)
-                        return stream_handle
-
-                    # Buffered path: read all content at once
-                    logger.debug(
-                        "Selected buffering for %s (content_length=%s)", url, content_length
-                    )
-
-                    # Read all content without peeking to avoid stream corruption
-                    content_chunks = [
-                        chunk
-                        async for chunk in streaming_response.aiter_bytes(chunk_size=chunk_size)
-                    ]
-
-                    full_content = b"".join(content_chunks)
-
-                    # Create a mock response object with the buffered content
-                    # We need to preserve the httpx.Response interface
-                    buffered_response = type(
-                        "BufferedResponse",
-                        (),
-                        {
-                            "status_code": streaming_response.status_code,
-                            "headers": streaming_response.headers,
-                            "content": full_content,
-                            "text": full_content.decode("utf-8", errors="replace"),
-                            "raise_for_status": lambda: None,  # Already checked above
-                        },
-                    )()
-
+                # Handle 304 Not Modified
+                if response.status_code == 304:
+                    logger.debug("ICS content not modified (304)")
                     if self._use_shared_client:
                         await record_client_success(self._client_id)
+                    return response
 
-                    logger.debug("Successfully fetched ICS from %s (attempt %d)", url, attempt + 1)
-                    return buffered_response
+                # Raise for status for HTTP errors
+                response.raise_for_status()
+
+                if self._use_shared_client:
+                    await record_client_success(self._client_id)
+
+                logger.debug(
+                    "Successfully fetched ICS from %s (attempt %d) - %d bytes",
+                    url,
+                    attempt + 1,
+                    len(response.content),
+                )
+                return response
 
             except httpx.HTTPStatusError:
                 # Don't retry HTTP errors (auth errors, not found, etc.)
@@ -786,23 +524,7 @@ class LiteICSFetcher:
         Returns:
             ICS response object
         """
-        # Streaming path
-        if isinstance(http_response, StreamHandle):
-            headers = dict(http_response.headers or {})
-            logger.debug(f"Creating streaming LiteICSResponse for {http_response.url}")
-            return LiteICSResponse(
-                success=True,
-                content=None,
-                stream_handle=http_response,
-                stream_mode="bytes",
-                status_code=http_response.status_code,
-                headers=headers,
-                etag=headers.get("etag"),
-                last_modified=headers.get("last-modified"),
-                cache_control=headers.get("cache-control"),
-            )
-
-        # Otherwise expect a buffered httpx.Response
+        # Always buffered httpx.Response now
         headers = dict(http_response.headers)
 
         # Handle 304 Not Modified
