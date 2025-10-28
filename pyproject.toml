@@ -270,8 +270,8 @@ ignore_missing_imports = true
 # Consolidated pytest configuration (migrated from pytest.ini)
 minversion = "7.0"
 
-# Test discovery settings
-testpaths = ["tests"]
+# Test discovery settings — restrict discovery to lite tests so VS Code shows only them
+testpaths = ["tests/lite"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -365,7 +365,7 @@ markers = [
 
 [tool.coverage.run]
 # Comprehensive coverage configuration (migrated from .coveragerc)
-source = ["calendarbot"]
+source = ["calendarbot_lite"]
 branch = true
 parallel = true
 

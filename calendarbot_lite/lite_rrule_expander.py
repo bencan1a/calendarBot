@@ -569,8 +569,6 @@ class LiteRRuleExpander:
             # Normalize window datetimes to timezone-aware UTC to avoid
             # "can't compare offset-naive and offset-aware datetimes" errors
             def _ensure_utc_aware(dt: datetime) -> datetime:
-                if dt is None:
-                    return dt
                 if dt.tzinfo is None:
                     return dt.replace(tzinfo=UTC)
                 return dt.astimezone(UTC)
@@ -609,7 +607,6 @@ class LiteRRuleExpander:
 
                     # Check if target time (8:30 AM PDT on 2025-10-27) is in expansion window
                     import zoneinfo  # noqa: PLC0415
-                    from datetime import datetime  # noqa: PLC0415
 
                     target_time_pdt = datetime(2025, 10, 27, 8, 30).replace(
                         tzinfo=zoneinfo.ZoneInfo("America/Los_Angeles")
@@ -722,7 +719,7 @@ class LiteRRuleExpander:
                     rrule_dict[key] = value
 
             # Validate required components
-            if "freq" not in rrule_dict:
+            if "freq" not in rrule_dict or not rrule_dict.get("freq"):
                 raise LiteRRuleParseError("RRULE missing required FREQ parameter")
 
             return rrule_dict
@@ -1048,8 +1045,8 @@ class LiteRRuleExpander:
                         # Fallback to pytz
                         import pytz  # noqa: PLC0415 - deliberate runtime fallback import
 
-                        tz = pytz.timezone(timezone_name)
-                        dt_with_tz = tz.localize(dt)
+                        tz_pytz = pytz.timezone(timezone_name)
+                        dt_with_tz = tz_pytz.localize(dt)
                         return dt_with_tz.astimezone(UTC)
                     except Exception:
                         # Last fallback - assume UTC
