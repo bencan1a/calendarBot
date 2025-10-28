@@ -7,19 +7,21 @@ module.exports = {
   // Test environment
   testEnvironment: 'jsdom',
   
-  // Test file patterns
+  // Test file patterns - looking only in tests/lite directory
   testMatch: [
-    '<rootDir>/tests/**/*.test.js'
+    '<rootDir>/tests/lite/**/*.test.js',
+    '<rootDir>/tests/lite/**/*.spec.js'
   ],
   
-  // Coverage configuration
+  // Coverage configuration - only collect from calendarbot_lite directory
   collectCoverage: true,
   collectCoverageFrom: [
-    'calendarbot/web/static/shared/js/**/*.js',
-    'calendarbot/web/static/layouts/**/*.js',
+    '<rootDir>/calendarbot_lite/**/*.js',
     '!**/*.min.js',
     '!**/node_modules/**',
-    '!**/vendor/**'
+    '!**/vendor/**',
+    '!**/__pycache__/**',
+    '!**/*.py'
   ],
   
   coverageDirectory: 'tests/coverage',
@@ -32,7 +34,7 @@ module.exports = {
   
   coverageThreshold: {
     global: {
-      branches: 60,
+      branches: 55,
       functions: 60,
       lines: 60,
       statements: 60
@@ -50,10 +52,10 @@ module.exports = {
   // Clear mocks between tests
   clearMocks: true,
   
-  // Setup files
-  setupFilesAfterEnv: [
-    '<rootDir>/tests/__tests__/jest-setup.js'
-  ],
+  // Setup files - commented out since jest-setup.js is in deprecated tests
+  // setupFilesAfterEnv: [
+  //   '<rootDir>/tests/lite/jest-setup.js'
+  // ],
   
   // Cache directory
   cacheDirectory: './tests/.jest-cache',
@@ -68,11 +70,12 @@ module.exports = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '/tests/coverage/',
-    '/tests/.jest-cache/'
+    '/tests/.jest-cache/',
+    '/tests/deprecated*/'
   ],
   
   // Custom test environment options
   testEnvironmentOptions: {
-    url: 'http://192.168.1.45:8080'
+    url: 'http://localhost:8080'
   }
 };

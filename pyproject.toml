@@ -271,13 +271,14 @@ ignore_missing_imports = true
 minversion = "7.0"
 
 # Test discovery settings — restrict discovery to lite tests so VS Code shows only them
-testpaths = ["tests/lite"]
+testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 # Exclude problematic directories from test discovery
 norecursedirs = [
+    "deprecated_calendarbot_tests",
     "bad_unit_tests",
     "backup",
     ".git",
