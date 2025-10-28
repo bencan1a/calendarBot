@@ -24,6 +24,193 @@ env:
   PYTHON_VERSION: '3.9'
 
 jobs:
+  # Lite test suite jobs for calendarbot_lite module
+  lite-smoke-test:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    timeout-minutes: 3
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-timeout pytest-html pytest-json-report
+
+    - name: Activate virtual environment
+      run: |
+        python -m venv venv
+        . venv/bin/activate
+        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+        echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+
+    - name: Run lite smoke tests
+      run: |
+        . venv/bin/activate
+        pytest -c pytest-lite.ini -m smoke tests/lite/
+      timeout-minutes: 2
+
+    - name: Upload smoke test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: lite-smoke-results
+        path: |
+          htmlcov/
+          coverage.xml
+        retention-days: 3
+
+  lite-unit-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    timeout-minutes: 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-timeout pytest-html pytest-json-report
+
+    - name: Activate virtual environment
+      run: |
+        python -m venv venv
+        . venv/bin/activate
+        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+        echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+
+    - name: Run lite unit tests (fast only)
+      run: |
+        . venv/bin/activate
+        pytest -c pytest-lite.ini -m "not slow and not integration" tests/lite/
+      timeout-minutes: 3
+
+    - name: Upload unit test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: lite-unit-results
+        path: |
+          htmlcov/
+          coverage.xml
+        retention-days: 3
+
+  lite-integration-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    timeout-minutes: 10
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-timeout pytest-html pytest-json-report
+
+    - name: Activate virtual environment
+      run: |
+        python -m venv venv
+        . venv/bin/activate
+        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+        echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+
+    - name: Run lite integration tests
+      run: |
+        . venv/bin/activate
+        pytest -c pytest-lite.ini -m integration tests/lite/
+      timeout-minutes: 8
+
+    - name: Upload integration test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: lite-integration-results
+        path: |
+          htmlcov/
+          coverage.xml
+        retention-days: 5
+
+  lite-full-coverage:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-timeout pytest-html pytest-json-report pytest-cov
+
+    - name: Activate virtual environment
+      run: |
+        python -m venv venv
+        . venv/bin/activate
+        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+        echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+
+    - name: Run full lite test suite with coverage
+      run: |
+        . venv/bin/activate
+        pytest -c pytest-lite.ini --cov=calendarbot_lite --cov-report=xml --cov-report=html --junitxml=lite-results.xml tests/lite/
+      timeout-minutes: 12
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      if: always()
+      with:
+        file: ./coverage.xml
+        flags: calendarbot-lite
+        name: lite-coverage
+
+    - name: Upload full coverage results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: lite-full-coverage-results
+        path: |
+          htmlcov/
+          coverage.xml
+          coverage.json
+          lite-results.xml
+        retention-days: 7
+
   # Fast feedback job for PRs and pushes
   critical-path:
     runs-on: ubuntu-latest
@@ -334,11 +521,11 @@ jobs:
 # Notification and reporting
   notify-results:
     runs-on: ubuntu-latest
-    needs: [critical-path, security-quality, build-verification]
+    needs: [lite-smoke-test, lite-unit-tests, lite-integration-tests, critical-path, security-quality, build-verification]
     if: always()
     steps:
     - name: Notify on failure
-      if: needs.critical-path.result == 'failure' || needs.security-quality.result == 'failure' || needs.build-verification.result == 'failure'
+      if: needs.lite-smoke-test.result == 'failure' || needs.lite-unit-tests.result == 'failure' || needs.lite-integration-tests.result == 'failure' || needs.critical-path.result == 'failure' || needs.security-quality.result == 'failure' || needs.build-verification.result == 'failure'
       uses: actions/github-script@v6
       with:
         script: |
@@ -346,12 +533,12 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: '❌ Critical path tests or security checks failed. Please review the test results.'
+            body: '❌ Critical tests (lite or main) or security checks failed. Please review the test results.'
           })
 
     - name: Success notification
-      if: needs.critical-path.result == 'success' && needs.security-quality.result == 'success' && needs.build-verification.result == 'success'
+      if: needs.lite-smoke-test.result == 'success' && needs.lite-unit-tests.result == 'success' && needs.lite-integration-tests.result == 'success' && needs.critical-path.result == 'success' && needs.security-quality.result == 'success' && needs.build-verification.result == 'success'
       uses: actions/github-script@v6
       with:
         script: |
-          console.log('✅ All critical tests passed successfully!')
+          console.log('✅ All critical tests (lite and main) passed successfully!')

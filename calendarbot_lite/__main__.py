@@ -22,6 +22,8 @@ def main() -> NoReturn:
     """
     try:
         run_server()
+        # If run_server() returns normally, exit successfully
+        sys.exit(0)
     except NotImplementedError as exc:
         # User-friendly message for developers running `python -m calendarbot_lite`.
         print(
