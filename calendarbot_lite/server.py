@@ -320,8 +320,8 @@ def _enhance_datetime_with_dst_detection(dt: datetime.datetime, original_test_ti
                     import logging
                     dst_status = "PDT" if actual_offset_hours == -7 else "PST"
                     provided_status = "PDT" if offset_hours == -7 else "PST"
-                    
-                    logging.info(
+
+                    logging.debug(
                         f"DST Auto-correction: {original_test_time} uses {provided_status} "
                         f"but {dt.date()} should be {dst_status}. "
                         f"Correcting {offset_hours:+.0f}:00 → {actual_offset_hours:+.0f}:00"

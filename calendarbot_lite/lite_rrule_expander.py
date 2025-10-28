@@ -158,7 +158,7 @@ class RRuleWorkerPool:
 
                     # Check occurrence limit
                     if i >= self.max_occurrences:
-                        logger.warning(
+                        logger.debug(
                             "RRULE streaming limited to %d occurrences for Pi Zero 2W",
                             self.max_occurrences,
                         )
