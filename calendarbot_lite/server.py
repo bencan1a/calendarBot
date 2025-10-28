@@ -1680,11 +1680,124 @@ async def _make_app(  # type: ignore[no-untyped-def]
         
         return web.json_response(response_data, status=200)
 
+    async def alexa_morning_summary(request):  # type: ignore[no-untyped-def]
+        """Alexa endpoint for morning summary with intelligent context switching."""
+        if not _check_bearer_token(request, alexa_bearer_token):
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        
+        try:
+            # Parse request parameters
+            target_date = request.query.get("date")  # ISO date for summary (defaults to tomorrow)
+            timezone_str = request.query.get("timezone", "UTC")
+            detail_level = request.query.get("detail_level", "normal")
+            prefer_ssml = request.query.get("prefer_ssml", "false").lower() == "true"
+            max_events = int(request.query.get("max_events", "50"))
+            
+            logger.debug("Alexa morning summary called with tz=%s, prefer_ssml=%s", timezone_str, prefer_ssml)
+            
+            # Read window with lock to be consistent
+            async with window_lock:
+                window = tuple(event_window_ref[0])
+            
+            # Convert raw events to LiteCalendarEvent objects for morning summary service
+            from .lite_models import (
+                LiteCalendarEvent,
+                LiteDateTimeInfo,
+                LiteEventStatus,
+                LiteLocation,
+            )
+            from .morning_summary import MorningSummaryRequest, MorningSummaryService
+            
+            lite_events = []
+            for ev in window:
+                try:
+                    # Convert raw event dict to LiteCalendarEvent
+                    start_dt = ev.get("start")
+                    duration_seconds = ev.get("duration_seconds", 3600)  # Default 1 hour
+                    
+                    if not isinstance(start_dt, datetime.datetime):
+                        continue
+                        
+                    end_dt = start_dt + datetime.timedelta(seconds=duration_seconds)
+                    
+                    # Create location object if location exists
+                    location_obj = None
+                    if ev.get("location"):
+                        location_obj = LiteLocation(display_name=ev.get("location", ""))
+                    
+                    lite_event = LiteCalendarEvent(
+                        id=ev.get("meeting_id", f"event_{id(ev)}"),  # Use meeting_id or fallback
+                        subject=ev.get("subject", "Untitled meeting"),
+                        start=LiteDateTimeInfo(date_time=start_dt),
+                        end=LiteDateTimeInfo(date_time=end_dt),
+                        location=location_obj,
+                        is_online_meeting=ev.get("is_online_meeting", False),
+                        is_cancelled=False,  # Assume not cancelled if in window
+                        show_as=LiteEventStatus.BUSY,  # Default to busy
+                    )
+                    lite_events.append(lite_event)
+                except Exception as e:
+                    logger.warning("Failed to convert event to LiteCalendarEvent: %s", e)
+                    continue
+            
+            # Create morning summary request
+            summary_request = MorningSummaryRequest(
+                date=target_date,
+                timezone=timezone_str,
+                detail_level=detail_level,
+                prefer_ssml=prefer_ssml,
+                max_events=max_events
+            )
+            
+            # Generate morning summary
+            service = MorningSummaryService()
+            summary_result = await service.generate_summary(lite_events, summary_request)
+            
+            # Generate SSML if requested and available
+            ssml_output = None
+            if prefer_ssml and summary_result.speech_text:
+                try:
+                    from .alexa_ssml import render_morning_summary_ssml
+                    ssml_output = render_morning_summary_ssml(summary_result)
+                    if ssml_output:
+                        logger.info("Morning summary SSML generated: %d characters", len(ssml_output))
+                except Exception as e:
+                    logger.error("Morning summary SSML generation failed: %s", e, exc_info=True)
+            
+            # Build response following existing Alexa endpoint patterns
+            response_data = {
+                "speech_text": summary_result.speech_text,
+                "summary": {
+                    "preview_for": summary_result.metadata.get("preview_for", "tomorrow_morning"),
+                    "total_meetings_equivalent": summary_result.total_meetings_equivalent,
+                    "early_start_flag": summary_result.early_start_flag,
+                    "density": summary_result.density,
+                    "back_to_back_count": summary_result.back_to_back_count,
+                    "timeframe_start": summary_result.timeframe_start.isoformat(),
+                    "timeframe_end": summary_result.timeframe_end.isoformat(),
+                    "wake_up_recommendation": summary_result.wake_up_recommendation_time.isoformat() if summary_result.wake_up_recommendation_time else None,
+                }
+            }
+            
+            # Add SSML to response if generated
+            if ssml_output:
+                response_data["ssml"] = ssml_output
+            
+            return web.json_response(response_data, status=200)
+            
+        except Exception as e:
+            logger.error("Morning summary endpoint failed: %s", e, exc_info=True)
+            return web.json_response({
+                "error": "Internal server error",
+                "speech_text": "Sorry, I couldn't generate your morning summary right now. Please try again later."
+            }, status=500)
+
     # Alexa-specific API routes
     app.router.add_get("/api/alexa/next-meeting", alexa_next_meeting)
     app.router.add_get("/api/alexa/time-until-next", alexa_time_until_next)
     app.router.add_get("/api/alexa/done-for-day", alexa_done_for_day)
     app.router.add_get("/api/alexa/launch-summary", alexa_launch_summary)
+    app.router.add_post("/api/alexa/morning-summary", alexa_morning_summary)
 
     logger.debug(
         "Routes wired: / (static HTML), /whatsnext.css, /whatsnext.js, /api/whats-next GET, /api/skip POST and DELETE, /api/clear_skips GET, /api/done-for-day GET, /api/alexa/next-meeting GET, /api/alexa/time-until-next GET, /api/alexa/done-for-day GET"
