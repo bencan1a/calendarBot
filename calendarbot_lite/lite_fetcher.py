@@ -2,9 +2,7 @@
 
 # Standard library imports
 import asyncio
-import ipaddress
 import logging
-import os
 from typing import Any, NoReturn, Optional
 from urllib.parse import urlparse
 

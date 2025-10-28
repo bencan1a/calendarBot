@@ -82,10 +82,14 @@ class RRuleWorkerPool:
             LiteRRuleExpansionError: If RRULE expansion fails
         """
         async with self._semaphore:
+            event_subject = getattr(master_event, "subject", "")
             logger.debug(
-                "Starting streaming RRULE expansion for event %s",
+                "Starting streaming RRULE expansion for event %s, subject: %r",
                 getattr(master_event, "id", "<no-id>"),
+                event_subject,
             )
+
+            # Check if this might be the missing Ani/Ben recurring event
             start_time = time.time()
 
             try:
@@ -577,15 +581,62 @@ class LiteRRuleExpander:
             # Collect occurrences within the date window
             try:
                 # Debug: log RRULE expansion inputs
-                logger.debug(
-                    "RRULE expansion: uid=%s dtstart=%s rrule=%s exdates=%s window_start=%s window_end=%s",
-                    getattr(master_event, "id", "<no-id>"),
-                    master_event.start.date_time.isoformat(),
-                    rrule_string,
-                    exdates,
-                    start_window.isoformat() if start_window else "<none>",
-                    end_window.isoformat() if end_window else "<none>",
-                )
+                # TARGETED DEBUG: Enhanced logging for Ani/Ben meeting
+                event_subject = getattr(master_event, "subject", "")
+                is_ani_ben_meeting = "Ani" in str(event_subject) and "Ben" in str(event_subject)
+
+                if is_ani_ben_meeting:
+                    logger.info("🔍 TARGETED DEBUG: Ani/Ben meeting RRULE expansion:")
+                    logger.info("  Subject: %r", event_subject)
+                    logger.info("  UID: %s", getattr(master_event, "id", "<no-id>"))
+                    logger.info(
+                        "  Master event start: %s", master_event.start.date_time.isoformat()
+                    )
+                    logger.info(
+                        "  Master event timezone: %s",
+                        getattr(master_event.start.date_time, "tzinfo", "None"),
+                    )
+                    logger.info("  RRULE: %s", rrule_string)
+                    logger.info("  EXDATEs: %s", exdates)
+                    logger.info(
+                        "  Expansion window start: %s",
+                        start_window.isoformat() if start_window else "<none>",
+                    )
+                    logger.info(
+                        "  Expansion window end: %s",
+                        end_window.isoformat() if end_window else "<none>",
+                    )
+
+                    # Check if target time (8:30 AM PDT on 2025-10-27) is in expansion window
+                    import zoneinfo
+                    from datetime import datetime
+
+                    target_time_pdt = datetime(2025, 10, 27, 8, 30).replace(
+                        tzinfo=zoneinfo.ZoneInfo("America/Los_Angeles")
+                    )
+                    target_time_utc = target_time_pdt.astimezone(UTC)
+                    logger.info(
+                        "  Target time we're looking for (PDT): %s", target_time_pdt.isoformat()
+                    )
+                    logger.info(
+                        "  Target time we're looking for (UTC): %s", target_time_utc.isoformat()
+                    )
+
+                    if start_window and end_window:
+                        in_window = start_window <= target_time_utc <= end_window
+                        logger.info("  Is target time in expansion window? %s", in_window)
+                        if not in_window:
+                            logger.warning("  ❌ TARGET TIME IS OUTSIDE EXPANSION WINDOW!")
+                else:
+                    logger.debug(
+                        "RRULE expansion: uid=%s dtstart=%s rrule=%s exdates=%s window_start=%s window_end=%s",
+                        getattr(master_event, "id", "<no-id>"),
+                        master_event.start.date_time.isoformat(),
+                        rrule_string,
+                        exdates,
+                        start_window.isoformat() if start_window else "<none>",
+                        end_window.isoformat() if end_window else "<none>",
+                    )
             except Exception:
                 logger.debug("RRULE expansion: failed to serialize debug metadata for master_event")
 

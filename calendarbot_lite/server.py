@@ -329,10 +329,9 @@ def _enhance_datetime_with_dst_detection(dt: datetime.datetime, original_test_ti
                     
                     # Return the corrected datetime with proper Pacific timezone
                     return pacific_dt
-                else:
-                    # Offset is correct, but still convert to proper Pacific timezone object
-                    # for consistency (in case it was using a simple UTC offset)
-                    return pacific_dt
+                # Offset is correct, but still convert to proper Pacific timezone object
+                # for consistency (in case it was using a simple UTC offset)
+                return pacific_dt
                     
     except Exception as e:
         import logging
@@ -740,19 +739,6 @@ async def _fetch_and_parse_source(
 
                     if start_dt is None:
                         continue  # Skip events without valid start time
-                        
-                    # DIAGNOSTIC: Log meeting time parsing details
-                    logger.debug("DIAGNOSTIC: Parsed meeting start_dt = %r, timezone = %r",
-                               start_dt, start_dt.tzinfo if hasattr(start_dt, 'tzinfo') else 'No tzinfo')
-                    
-                    # Log the first few meetings with more detail
-                    meeting_summary = str(summary) if summary else "No title"
-                    if "2025-10-27" in str(start_dt):  # Focus on target date
-                        logger.info("DIAGNOSTIC: Meeting on 2025-10-27 found:")
-                        logger.info("  Subject: %r", meeting_summary)
-                        logger.info("  Raw start: %r", start)
-                        logger.info("  Parsed start_dt: %r", start_dt)
-                        logger.info("  Timezone info: %r", start_dt.tzinfo if hasattr(start_dt, 'tzinfo') else 'No tzinfo')
 
                     # Compute duration
                     duration_seconds = 0
@@ -960,6 +946,7 @@ async def _refresh_once(
             len(pruned),
         )
 
+
     # Log event details for debugging
     for i, event in enumerate(pruned[:3]):  # Log first 3 events
         logger.debug(
@@ -1061,14 +1048,6 @@ async def _make_app(
             window = tuple(event_window_ref[0])
 
         logger.debug(" /api/whats-next called - window has %d events", len(window))
-        
-        # DIAGNOSTIC: Log current override time details
-        import os
-        test_time_env = os.environ.get("CALENDARBOT_TEST_TIME")
-        if test_time_env:
-            logger.info("DIAGNOSTIC: CALENDARBOT_TEST_TIME environment = %r", test_time_env)
-            logger.info("DIAGNOSTIC: _now_utc() returns = %r (UTC)", now)
-            logger.info("DIAGNOSTIC: _now_utc() timezone = %r", now.tzinfo)
 
         # Find first non-skipped upcoming meeting and compute seconds_until_start now.
         for i, ev in enumerate(window):
@@ -1078,30 +1057,8 @@ async def _make_app(
             start = ev.get("start")
             if not isinstance(start, datetime.datetime):
                 continue
-                
-            # DIAGNOSTIC: Log meeting time details for first few events
-            if i < 3:
-                logger.info("DIAGNOSTIC: Event %d meeting start = %r", i, start)
-                logger.info("DIAGNOSTIC: Event %d timezone = %r", i, start.tzinfo)
-                if hasattr(start, 'astimezone'):
-                    try:
-                        # Show in PDT for comparison
-                        import zoneinfo
-                        pdt_tz = zoneinfo.ZoneInfo("America/Los_Angeles")
-                        start_pdt = start.astimezone(pdt_tz)
-                        logger.info("DIAGNOSTIC: Event %d in PDT = %r", i, start_pdt)
-                    except Exception as e:
-                        logger.warning("DIAGNOSTIC: Could not convert to PDT: %s", e)
-                        
+
             seconds_until = int((start - now).total_seconds())
-            
-            # DIAGNOSTIC: Log calculation details for upcoming meetings
-            if seconds_until >= -3600:  # Log events within 1 hour past or any future
-                logger.info("DIAGNOSTIC: Event %d calculation:", i)
-                logger.info("  Meeting start (UTC): %r", start)
-                logger.info("  Current time (UTC): %r", now)
-                logger.info("  Time difference: %d seconds", seconds_until)
-                logger.info("  Subject: %r", ev.get("subject", "No subject"))
                 
             if seconds_until < 0:
                 continue
@@ -1114,11 +1071,7 @@ async def _make_app(
                     logger.warning("skipped_store.is_skipped raised during api call: %s", e)
             model = _event_to_api_model(ev)
             model["seconds_until_start"] = seconds_until
-            
-            # DIAGNOSTIC: Log the final result
-            logger.info("DIAGNOSTIC: Selected meeting - Subject: %r, seconds_until_start: %d",
-                       ev.get("subject"), seconds_until)
-            
+
             return web.json_response({"meeting": model}, status=200)
 
         return web.json_response({"meeting": None}, status=200)

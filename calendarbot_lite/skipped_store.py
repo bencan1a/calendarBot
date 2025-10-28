@@ -8,7 +8,7 @@ import logging
 import os
 import tempfile
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
