@@ -1,0 +1,19 @@
+{
+  "fifty": {
+    "scenario": "fifty",
+    "overall_elapsed_s": 0.036996767012169585,
+    "phases": [
+      {
+        "name": "fetch_and_parse:/fifty.ics",
+        "elapsed_s": 0.03610041699721478,
+        "rss_kb_before": 55040,
+        "rss_kb_after": 55304,
+        "note": null
+      }
+    ],
+    "events_parsed": 50,
+    "recurring_instances": 0,
+    "warnings": [],
+    "error": null
+  }
+}

@@ -45,8 +45,9 @@ class TestAlexaLaunchIntent:
 
     @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
     def test_handle_launch_intent_no_meetings_today(self, mock_api):
-        """Test launch intent when there are no meetings today."""
-        mock_api.return_value = {
+        """Test launch intent when there are no meetings today - should switch to morning summary mode."""
+        # Mock the launch summary call (first call to check status)
+        launch_response = {
             "speech_text": "No meetings today, you're free until Project Review in 2 days.",
             "has_meetings_today": False,
             "next_meeting": None,
@@ -55,12 +56,36 @@ class TestAlexaLaunchIntent:
                 "last_meeting_end_iso": None
             }
         }
+        
+        # Mock the morning summary call (second call when switching to morning summary mode)
+        morning_response = {
+            "speech_text": "Good evening. You have a completely free morning. Great opportunity for deep work.",
+            "ssml": "<speak>Good evening. <emphasis level='moderate'>You have a completely free morning.</emphasis> Great opportunity for deep work.</speak>",
+            "summary": {
+                "preview_for": "tomorrow_morning",
+                "total_meetings_equivalent": 0,
+                "early_start_flag": False,
+                "density": "light"
+            }
+        }
+        
+        # Configure mock to return different values for different calls
+        mock_api.side_effect = [launch_response, morning_response]
 
         response = handle_launch_intent()
 
-        assert "No meetings today, you're free until" in response.speech_text
-        assert response.card_title == "Calendar Summary"
-        mock_api.assert_called_once_with("/api/alexa/launch-summary")
+        # Should switch to morning summary mode and return morning summary content
+        assert "completely free morning" in response.speech_text
+        assert response.card_title == "Tomorrow Morning Summary"
+        assert response.ssml is not None
+        
+        # Verify both API calls were made
+        assert mock_api.call_count == 2
+        mock_api.assert_any_call("/api/alexa/launch-summary")
+        # Check that the second call is to morning summary with query parameters
+        second_call_args = mock_api.call_args_list[1][0][0]
+        assert "/api/alexa/morning-summary" in second_call_args
+        assert "prefer_ssml=true" in second_call_args
 
     @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
     def test_handle_launch_intent_api_error(self, mock_api):

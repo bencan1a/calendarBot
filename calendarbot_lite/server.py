@@ -1792,6 +1792,152 @@ async def _make_app(  # type: ignore[no-untyped-def]
                 "speech_text": "Sorry, I couldn't generate your morning summary right now. Please try again later."
             }, status=500)
 
+    async def morning_summary(request):  # type: ignore[no-untyped-def]
+        """General API endpoint for morning summary with full structured data.
+
+        Returns comprehensive morning summary data for programmatic consumption,
+        excluding Alexa-specific fields like speech_text and ssml.
+
+        Query Parameters:
+            date (str, optional): ISO date for summary (defaults to tomorrow)
+            timezone (str, optional): IANA timezone identifier (default: UTC)
+            detail_level (str, optional): Detail level: brief|normal|detailed (default: normal)
+            max_events (int, optional): Maximum events to process (default: 50)
+
+        Returns:
+            JSON response with complete summary structure including timeframe,
+            meeting analysis, free blocks, density metrics, and metadata.
+        """
+        # No authentication required for general API endpoints
+
+        try:
+            # Parse request parameters - same as Alexa endpoint but no prefer_ssml
+            target_date = request.query.get("date")  # ISO date for summary (defaults to tomorrow)
+            timezone_str = request.query.get("timezone", "UTC")
+            detail_level = request.query.get("detail_level", "normal")
+            max_events = int(request.query.get("max_events", "50"))
+
+            logger.debug(
+                "Morning summary called with tz=%s, detail_level=%s", timezone_str, detail_level
+            )
+
+            # Read window with lock to be consistent
+            async with window_lock:
+                window = tuple(event_window_ref[0])
+
+            # Convert raw events to LiteCalendarEvent objects for morning summary service
+            from .lite_models import (
+                LiteCalendarEvent,
+                LiteDateTimeInfo,
+                LiteEventStatus,
+                LiteLocation,
+            )
+            from .morning_summary import MorningSummaryRequest, MorningSummaryService
+
+            lite_events = []
+            for ev in window:
+                try:
+                    # Convert raw event dict to LiteCalendarEvent
+                    start_dt = ev.get("start")
+                    duration_seconds = ev.get("duration_seconds", 3600)  # Default 1 hour
+
+                    if not isinstance(start_dt, datetime.datetime):
+                        continue
+
+                    end_dt = start_dt + datetime.timedelta(seconds=duration_seconds)
+
+                    # Create location object if location exists
+                    location_obj = None
+                    if ev.get("location"):
+                        location_obj = LiteLocation(display_name=ev.get("location", ""))
+
+                    lite_event = LiteCalendarEvent(
+                        id=ev.get("meeting_id", f"event_{id(ev)}"),  # Use meeting_id or fallback
+                        subject=ev.get("subject", "Untitled meeting"),
+                        start=LiteDateTimeInfo(date_time=start_dt),
+                        end=LiteDateTimeInfo(date_time=end_dt),
+                        location=location_obj,
+                        is_online_meeting=ev.get("is_online_meeting", False),
+                        is_cancelled=False,  # Assume not cancelled if in window
+                        show_as=LiteEventStatus.BUSY,  # Default to busy
+                    )
+                    lite_events.append(lite_event)
+                except Exception as e:
+                    logger.warning("Failed to convert event to LiteCalendarEvent: %s", e)
+                    continue
+
+            # Create morning summary request (no prefer_ssml for general API)
+            summary_request = MorningSummaryRequest(
+                date=target_date,
+                timezone=timezone_str,
+                detail_level=detail_level,
+                prefer_ssml=False,  # General API doesn't need SSML
+                max_events=max_events,
+            )
+
+            # Generate morning summary
+            service = MorningSummaryService()
+            summary_result = await service.generate_summary(lite_events, summary_request)
+
+            # Build response with full structured data (exclude Alexa-specific fields)
+            summary_data = {
+                "timeframe_start": summary_result.timeframe_start.isoformat(),
+                "timeframe_end": summary_result.timeframe_end.isoformat(),
+                "analysis_time": summary_result.analysis_time.isoformat(),
+                "total_meetings_equivalent": summary_result.total_meetings_equivalent,
+                "early_start_flag": summary_result.early_start_flag,
+                "density": summary_result.density,
+                "back_to_back_count": summary_result.back_to_back_count,
+                "meeting_insights": [
+                    {
+                        "meeting_id": insight.meeting_id,
+                        "subject": insight.subject,
+                        "start_time": insight.start_time.isoformat(),
+                        "end_time": insight.end_time.isoformat(),
+                        "time_until_minutes": insight.time_until_minutes,
+                        "preparation_needed": insight.preparation_needed,
+                        "is_online": insight.is_online,
+                        "attendees_count": insight.attendees_count,
+                        "short_note": insight.short_note,
+                    }
+                    for insight in summary_result.meeting_insights
+                ],
+                "free_blocks": [
+                    {
+                        "start_time": block.start_time.isoformat(),
+                        "end_time": block.end_time.isoformat(),
+                        "duration_minutes": block.duration_minutes,
+                        "recommended_action": block.recommended_action,
+                        "is_significant": block.is_significant,
+                    }
+                    for block in summary_result.free_blocks
+                ],
+                "metadata": summary_result.metadata,
+            }
+
+            # Add wake-up recommendation if available
+            if summary_result.wake_up_recommendation_time:
+                summary_data["wake_up_recommendation_time"] = (
+                    summary_result.wake_up_recommendation_time.isoformat()
+                )
+
+            response_data = {"summary": summary_data}
+
+            return web.json_response(response_data, status=200)
+
+        except Exception as e:
+            logger.error("Morning summary endpoint failed: %s", e, exc_info=True)
+            return web.json_response(
+                {
+                    "error": "Internal server error",
+                    "message": "Failed to generate morning summary. Please try again later.",
+                },
+                status=500,
+            )
+
+    # General API routes
+    app.router.add_post("/api/morning-summary", morning_summary)
+    
     # Alexa-specific API routes
     app.router.add_get("/api/alexa/next-meeting", alexa_next_meeting)
     app.router.add_get("/api/alexa/time-until-next", alexa_time_until_next)
