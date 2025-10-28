@@ -375,6 +375,160 @@ def render_done_for_day_ssml(
         return None
 
 
+def render_morning_summary_ssml(summary_result: Any, config: Optional[dict[str, Any]] = None) -> Optional[str]:
+    """Render SSML for morning summary with natural evening/night context.
+
+    Args:
+        summary_result: MorningSummaryResult object with speech text and analysis
+        config: Optional configuration overrides
+
+    Returns:
+        Complete SSML string (<speak>...</speak>) or None if generation/validation fails
+
+    Raises:
+        Exception: Logs errors and returns None for graceful fallback
+    """
+    try:
+        if not summary_result or not hasattr(summary_result, 'speech_text'):
+            logger.warning("Invalid summary result for morning summary SSML generation")
+            return None
+
+        # Merge config with defaults
+        cfg = {**DEFAULT_CONFIG, **(config or {})}
+        
+        if not cfg.get("enable_ssml", True):
+            return None
+
+        # Extract speech text
+        speech_text = summary_result.speech_text
+        if not isinstance(speech_text, str) or not speech_text.strip():
+            logger.warning("Invalid speech text for morning summary SSML")
+            return None
+
+        # Escape the speech text for SSML
+        safe_speech = _escape_text_for_ssml(speech_text.strip())
+        
+        fragments = []
+        
+        # Check for early start patterns and handle accordingly
+        early_start_flag = getattr(summary_result, 'early_start_flag', False)
+        
+        if early_start_flag and ("you start early" in safe_speech.lower() or "early at" in safe_speech.lower()):
+            # Handle early start with emphasis on urgency
+            if "good evening" in safe_speech.lower():
+                # Split greeting from content
+                parts = safe_speech.split(".", 1)
+                if len(parts) >= 2:
+                    greeting_part = parts[0].strip() + "."
+                    content_part = parts[1].strip()
+                    
+                    fragments.extend([
+                        PROSODY.format(rate="medium", pitch="medium", text=greeting_part),
+                        BREAK.format(t="0.4"),
+                    ])
+                    
+                    # Emphasize early start information
+                    if "you start early" in content_part.lower():
+                        early_parts = content_part.split("you start early", 1)
+                        if len(early_parts) == 2:
+                            before_early = early_parts[0].strip()
+                            after_early = early_parts[1].strip()
+                            
+                            fragments.extend([
+                                before_early + " " if before_early else "",
+                                EMPHASIS_STRONG.format(text="You start early"),
+                                after_early,
+                            ])
+                        else:
+                            fragments.append(EMPHASIS_MODERATE.format(text=content_part))
+                    else:
+                        fragments.append(EMPHASIS_MODERATE.format(text=content_part))
+                else:
+                    fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+            # No greeting, just emphasize early start
+            elif "you start early" in safe_speech.lower():
+                early_parts = safe_speech.split("you start early", 1)
+                if len(early_parts) == 2:
+                    before_early = early_parts[0].strip()
+                    after_early = early_parts[1].strip()
+
+                    fragments.extend([
+                        before_early + " " if before_early else "",
+                        EMPHASIS_STRONG.format(text="You start early"),
+                        after_early,
+                    ])
+                else:
+                    fragments.append(EMPHASIS_MODERATE.format(text=safe_speech))
+            else:
+                fragments.append(EMPHASIS_MODERATE.format(text=safe_speech))
+                    
+        elif "completely free morning" in safe_speech.lower():
+            # Handle free morning with positive emphasis
+            if "good evening" in safe_speech.lower():
+                parts = safe_speech.split(".", 1)
+                if len(parts) >= 2:
+                    greeting_part = parts[0].strip() + "."
+                    content_part = parts[1].strip()
+                    
+                    fragments.extend([
+                        PROSODY.format(rate="medium", pitch="medium", text=greeting_part),
+                        BREAK.format(t="0.4"),
+                        EMPHASIS_MODERATE.format(text=content_part),
+                    ])
+                else:
+                    fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+            # Emphasize the positive aspect of free time
+            elif "completely free" in safe_speech.lower():
+                free_parts = safe_speech.split("completely free", 1)
+                if len(free_parts) == 2:
+                    before_free = free_parts[0].strip()
+                    after_free = free_parts[1].strip()
+
+                    fragments.extend([
+                        before_free + " " if before_free else "",
+                        EMPHASIS_MODERATE.format(text="completely free"),
+                        after_free,
+                    ])
+                else:
+                    fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+            else:
+                fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                    
+        # Standard morning summary - natural conversational flow
+        elif "good evening" in safe_speech.lower():
+            # Split greeting from content for natural pacing
+            parts = safe_speech.split(".", 1)
+            if len(parts) >= 2:
+                greeting_part = parts[0].strip() + "."
+                content_part = parts[1].strip()
+
+                fragments.extend([
+                    PROSODY.format(rate="medium", pitch="medium", text=greeting_part),
+                    BREAK.format(t="0.3"),
+                    content_part,
+                ])
+            else:
+                fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+        else:
+            # No greeting, natural flow
+            fragments.append(safe_speech)
+
+        # Compose final SSML
+        body = _compose_fragments(fragments)
+        ssml = WRAP_SPEAK.format(body=body)
+
+        # Validate before returning
+        if validate_ssml(ssml, cfg["ssml_max_chars"], cfg["allowed_tags"]):
+            logger.debug("Generated morning summary SSML: %d chars, early_start=%s", len(ssml), early_start_flag)
+            return ssml
+        logger.warning("Morning summary SSML validation failed, length=%d", len(ssml))
+        return None
+
+    except Exception as e:
+        logger.error("SSML generation failed for morning summary: %s", e, exc_info=True)
+        return None
+
+
 def validate_ssml(ssml: str, max_chars: int = 500, allowed_tags: set[str] | None = None) -> bool:
     """Fast, linear SSML validation for server-side safety.
 
