@@ -18,6 +18,7 @@ import contextlib
 import datetime
 import logging
 import signal
+from collections.abc import AsyncIterator
 from typing import Any
 
 # Import shared HTTP client for connection reuse optimization
@@ -42,9 +43,9 @@ try:
     logger.debug("SSML module imported successfully")
 except ImportError as e:
     logger.warning("SSML module not available: %s", e)
-    render_meeting_ssml = None
-    render_time_until_ssml = None
-    render_done_for_day_ssml = None
+    render_meeting_ssml = None  # type: ignore[assignment]
+    render_time_until_ssml = None  # type: ignore[assignment]
+    render_done_for_day_ssml = None  # type: ignore[assignment]
 
 
 def _import_process_utilities() -> Any:  # type: ignore[misc]
@@ -252,12 +253,12 @@ def _now_utc() -> datetime.datetime:
     Enhanced with DST detection: If a Pacific timezone offset is provided that doesn't
     match the actual DST status for that date, it will be automatically corrected.
     """
-    import os
+    import os  # noqa: PLC0415
     test_time = os.environ.get("CALENDARBOT_TEST_TIME")
     if test_time:
         try:
             # Parse the test time and convert to UTC
-            from dateutil import parser as date_parser
+            from dateutil import parser as date_parser  # noqa: PLC0415
             dt = date_parser.isoparse(test_time)
             if dt.tzinfo is None:
                 # Assume UTC if no timezone specified
@@ -269,7 +270,7 @@ def _now_utc() -> datetime.datetime:
                 dt = dt.astimezone(datetime.timezone.utc)
             return dt
         except Exception as e:
-            import logging
+            import logging  # noqa: PLC0415
             logging.warning(f"Invalid CALENDARBOT_TEST_TIME: {test_time}, error: {e}")
 
     return datetime.datetime.now(datetime.timezone.utc)
@@ -300,7 +301,7 @@ def _enhance_datetime_with_dst_detection(dt: datetime.datetime, original_test_ti
             
             # Pacific timezone offsets: PST = -8, PDT = -7
             if offset_hours in (-8, -7):
-                import zoneinfo
+                import zoneinfo  # noqa: PLC0415
                 pacific_tz = zoneinfo.ZoneInfo("America/Los_Angeles")
                 
                 # Create a naive datetime and localize it to Pacific timezone
@@ -317,7 +318,7 @@ def _enhance_datetime_with_dst_detection(dt: datetime.datetime, original_test_ti
                 
                 # Check if the provided offset differs from the actual DST status
                 if offset_hours != actual_offset_hours:
-                    import logging
+                    import logging  # noqa: PLC0415
                     dst_status = "PDT" if actual_offset_hours == -7 else "PST"
                     provided_status = "PDT" if offset_hours == -7 else "PST"
 
@@ -332,9 +333,9 @@ def _enhance_datetime_with_dst_detection(dt: datetime.datetime, original_test_ti
                 # Offset is correct, but still convert to proper Pacific timezone object
                 # for consistency (in case it was using a simple UTC offset)
                 return pacific_dt
-                    
+
     except Exception as e:
-        import logging
+        import logging  # noqa: PLC0415
         logging.warning(f"DST detection failed for {original_test_time}: {e}")
         # Fall back to original datetime
         
@@ -366,7 +367,7 @@ def _check_bearer_token(request: Any, required_token: str | None) -> bool:
         return False
 
     provided_token = auth_header[7:]  # Remove "Bearer " prefix
-    return provided_token == required_token
+    return provided_token == required_token  # type: ignore[no-any-return]
 
 
 def _format_duration_spoken(seconds: int) -> str:
@@ -438,10 +439,10 @@ def _compute_last_meeting_end_for_today(
             import zoneinfo  # noqa: PLC0415
             tz = zoneinfo.ZoneInfo(request_tz)
         else:
-            tz = datetime.timezone.utc
+            tz = datetime.timezone.utc  # type: ignore[assignment]
     except Exception:
         logger.warning("Invalid timezone %r, falling back to UTC", request_tz)
-        tz = datetime.timezone.utc
+        tz = datetime.timezone.utc  # type: ignore[assignment]
     
     # Get today's date in the target timezone
     today_date = now_utc.astimezone(tz).date()
@@ -635,7 +636,7 @@ async def _fetch_and_parse_source(
                     logger.debug(" Using streaming parser")
 
                     # Create async iterator from StreamHandle
-                    async def byte_iter():
+                    async def byte_iter() -> AsyncIterator[bytes]:  # type: ignore[misc]
                         async for chunk in stream_handle.iter_bytes():
                             yield chunk
 
@@ -682,7 +683,7 @@ async def _fetch_and_parse_source(
                 return []
 
             # Extract events list
-            events_list: list[EventDict] = (
+            events_list: list[EventDict] = (  # type: ignore[unreachable]
                 parsed if isinstance(parsed, list) else getattr(parsed, "events", []) or []
             )
             logger.debug(
@@ -712,7 +713,7 @@ async def _fetch_and_parse_source(
             for ev in events_list:
                 try:
                     # Extract basic fields
-                    def _get(o, *names, default=None):
+                    def _get(o, *names, default=None):  # type: ignore[no-untyped-def]
                         for n in names:
                             if isinstance(o, dict) and n in o:
                                 return o[n]
@@ -743,10 +744,10 @@ async def _fetch_and_parse_source(
                     # Compute duration
                     duration_seconds = 0
                     if isinstance(end, dict):
-                        e = end.get("date_time") or end.get("dtend") or end.get("dt")
-                        end_dt = datetime.datetime.fromisoformat(e) if isinstance(e, str) else e
+                        e = end.get("date_time") or end.get("dtend") or end.get("dt")  # type: ignore[misc]
+                        end_dt = datetime.datetime.fromisoformat(e) if isinstance(e, str) else e  # type: ignore[misc]
                     elif hasattr(end, "date_time"):
-                        end_dt = getattr(end, "date_time", None)
+                        end_dt = getattr(end, "date_time", None)  # type: ignore[assignment]
                     elif isinstance(end, str):
                         end_dt = datetime.datetime.fromisoformat(end)
                     else:
@@ -1013,7 +1014,7 @@ def _event_to_api_model(ev: EventDict) -> dict[str, Any]:
     }
 
 
-async def _make_app(
+async def _make_app(  # type: ignore[no-untyped-def]
     _config: Any,
     skipped_store: object | None,
     event_window_ref: list[tuple[EventDict, ...]],
@@ -1041,7 +1042,7 @@ async def _make_app(
 
     package_dir = Path(__file__).resolve().parent
 
-    async def whats_next(_request):
+    async def whats_next(_request):  # type: ignore[no-untyped-def]
         now = _now_utc()
         # Read window with lock to be consistent.
         async with window_lock:
@@ -1076,7 +1077,7 @@ async def _make_app(
 
         return web.json_response({"meeting": None}, status=200)
 
-    async def post_skip(request):
+    async def post_skip(request):  # type: ignore[no-untyped-def]
         if skipped_store is None:
             return web.json_response({"error": "skip-store not available"}, status=501)
         try:
@@ -1106,7 +1107,7 @@ async def _make_app(
 
         return web.json_response({"skipped_until": skipped_until_iso}, status=200)
 
-    async def delete_skip(_request):
+    async def delete_skip(_request):  # type: ignore[no-untyped-def]
         if skipped_store is None:
             return web.json_response({"error": "skip-store not available"}, status=501)
         clear_all = getattr(skipped_store, "clear_all", None)
@@ -1123,7 +1124,7 @@ async def _make_app(
         count = int(res) if isinstance(res, int) else 0
         return web.json_response({"cleared": True, "count": count}, status=200)
 
-    async def clear_skips(_request):
+    async def clear_skips(_request):  # type: ignore[no-untyped-def]
         """Convenient GET endpoint to clear all skipped meetings."""
         if skipped_store is None:
             return web.json_response({"error": "skip-store not available"}, status=501)
@@ -1158,7 +1159,7 @@ async def _make_app(
             status=200,
         )
 
-    async def serve_static_html(_request):
+    async def serve_static_html(_request):  # type: ignore[no-untyped-def]
         """Serve the static whatsnext.html file."""
         html_file = package_dir / "whatsnext.html"
         if not html_file.exists():
@@ -1167,7 +1168,7 @@ async def _make_app(
 
         return web.FileResponse(html_file)
 
-    async def serve_static_css(_request):
+    async def serve_static_css(_request):  # type: ignore[no-untyped-def]
         """Serve the static whatsnext.css file."""
         css_file = package_dir / "whatsnext.css"
         if not css_file.exists():
@@ -1176,7 +1177,7 @@ async def _make_app(
 
         return web.FileResponse(css_file)
 
-    async def serve_static_js(_request):
+    async def serve_static_js(_request):  # type: ignore[no-untyped-def]
         """Serve the static whatsnext.js file."""
         js_file = package_dir / "whatsnext.js"
         if not js_file.exists():
@@ -1193,7 +1194,7 @@ async def _make_app(
     # Get bearer token from config for Alexa endpoints
     alexa_bearer_token = _get_config_value(_config, "alexa_bearer_token")
 
-    async def alexa_next_meeting(request):
+    async def alexa_next_meeting(request):  # type: ignore[no-untyped-def]
         """Alexa endpoint for getting next meeting with speech formatting."""
         if not _check_bearer_token(request, alexa_bearer_token):
             return web.json_response({"error": "Unauthorized"}, status=401)
@@ -1229,7 +1230,7 @@ async def _make_app(
 
             # Generate SSML if available
             ssml_output = None
-            if render_meeting_ssml:
+            if render_meeting_ssml:  # type: ignore[truthy-function]
                 logger.debug("Attempting SSML generation for next-meeting")
                 meeting_data = {
                     "subject": subject,
@@ -1246,7 +1247,7 @@ async def _make_app(
                         logger.warning("SSML generation returned None - validation failed or disabled")
                 except Exception as e:
                     logger.error("SSML generation failed: %s", e, exc_info=True)
-            else:
+            else:  # type: ignore[unreachable]
                 logger.warning("SSML generation not available - module not imported")
 
             response_data = {
@@ -1271,7 +1272,7 @@ async def _make_app(
         ssml_output = None
         
         # Generate SSML for no meetings case if available
-        if render_meeting_ssml:
+        if render_meeting_ssml:  # type: ignore[truthy-function]
             logger.debug("Attempting SSML generation for no meetings case")
             try:
                 # Create empty meeting dict for no meetings case
@@ -1284,13 +1285,13 @@ async def _make_app(
             except Exception as e:
                 logger.error("No-meetings SSML generation failed: %s", e, exc_info=True)
 
-        response_data = {"meeting": None, "speech_text": speech_text}
+        response_data = {"meeting": None, "speech_text": speech_text}  # type: ignore[dict-item]
         if ssml_output:
-            response_data["ssml"] = ssml_output
+            response_data["ssml"] = ssml_output  # type: ignore[assignment]
 
         return web.json_response(response_data, status=200)
 
-    async def alexa_time_until_next(request):
+    async def alexa_time_until_next(request):  # type: ignore[no-untyped-def]
         """Alexa endpoint for getting time until next meeting."""
         if not _check_bearer_token(request, alexa_bearer_token):
             return web.json_response({"error": "Unauthorized"}, status=401)
@@ -1322,7 +1323,7 @@ async def _make_app(
 
             # Generate SSML for time-until response if available
             ssml_output = None
-            if render_time_until_ssml:
+            if render_time_until_ssml:  # type: ignore[truthy-function]
                 logger.debug("Attempting SSML generation for time-until-next")
                 meeting_data = {
                     "subject": ev.get("subject", ""),
@@ -1336,7 +1337,7 @@ async def _make_app(
                         logger.warning("Time-until SSML generation returned None")
                 except Exception as e:
                     logger.error("Time-until SSML generation failed: %s", e, exc_info=True)
-            else:
+            else:  # type: ignore[unreachable]
                 logger.warning("Time-until SSML generation not available - module not imported")
 
             response_data = {
@@ -1356,7 +1357,7 @@ async def _make_app(
         ssml_output = None
         
         # Generate SSML for no meetings case if available
-        if render_time_until_ssml:
+        if render_time_until_ssml:  # type: ignore[truthy-function]
             logger.debug("Attempting SSML generation for time-until no meetings case")
             try:
                 ssml_output = render_time_until_ssml(0, None)  # 0 seconds, no meeting
@@ -1371,7 +1372,7 @@ async def _make_app(
 
         return web.json_response(response_data, status=200)
 
-    async def done_for_day(request):
+    async def done_for_day(request):  # type: ignore[no-untyped-def]
         """API endpoint for getting last meeting end time for today."""
         now = _now_utc()
         
@@ -1396,7 +1397,7 @@ async def _make_app(
         
         return web.json_response(response, status=200)
 
-    async def alexa_done_for_day(request):
+    async def alexa_done_for_day(request):  # type: ignore[no-untyped-def]
         """Alexa endpoint for getting done-for-day status with SSML."""
         if not _check_bearer_token(request, alexa_bearer_token):
             return web.json_response({"error": "Unauthorized"}, status=401)
@@ -1452,7 +1453,7 @@ async def _make_app(
         
         # Generate SSML if available
         ssml_output = None
-        if render_done_for_day_ssml:
+        if render_done_for_day_ssml:  # type: ignore[truthy-function]
             logger.debug("Attempting SSML generation for done-for-day")
             try:
                 ssml_output = render_done_for_day_ssml(result["has_meetings_today"], speech_text)
@@ -1488,7 +1489,7 @@ async def _make_app(
     app.router.add_get("/api/clear_skips", clear_skips)
     app.router.add_get("/api/done-for-day", done_for_day)
 
-    async def alexa_launch_summary(request):
+    async def alexa_launch_summary(request):  # type: ignore[no-untyped-def]
         """Alexa endpoint for launch intent - comprehensive summary with SSML."""
         if not _check_bearer_token(request, alexa_bearer_token):
             return web.json_response({"error": "Unauthorized"}, status=401)
@@ -1513,9 +1514,9 @@ async def _make_app(
                 import zoneinfo  # noqa: PLC0415
                 tz = zoneinfo.ZoneInfo(request_tz)
             else:
-                tz = datetime.timezone.utc
+                tz = datetime.timezone.utc  # type: ignore[assignment]
         except Exception:
-            tz = datetime.timezone.utc
+            tz = datetime.timezone.utc  # type: ignore[assignment]
         
         today_date = now.astimezone(tz).date()
         
@@ -1632,7 +1633,7 @@ async def _make_app(
         
         # Generate SSML if available - reuse existing SSML functions
         ssml_output = None
-        if done_for_day_result["has_meetings_today"] and primary_meeting and render_meeting_ssml:
+        if done_for_day_result["has_meetings_today"] and primary_meeting and render_meeting_ssml:  # type: ignore[truthy-function]
             # Meetings today case - use meeting SSML
             logger.debug("Attempting SSML generation for launch summary with meetings today")
             try:
@@ -1650,7 +1651,7 @@ async def _make_app(
                     logger.info("Launch summary (meetings today) SSML generated: %d characters", len(ssml_output))
             except Exception as e:
                 logger.error("Launch summary (meetings today) SSML generation failed: %s", e, exc_info=True)
-        elif render_done_for_day_ssml:
+        elif render_done_for_day_ssml:  # type: ignore[truthy-function]
             # No meetings today case - use done-for-day SSML (which handles the speech_text format)
             logger.debug("Attempting SSML generation for launch summary (no meetings today)")
             try:
@@ -1690,7 +1691,7 @@ async def _make_app(
     )
 
     # Provide a stop handler to allow external shutdown if needed.
-    async def _shutdown(_app):
+    async def _shutdown(_app):  # type: ignore[no-untyped-def]
         logger.info("Application shutdown requested")
 
     app.on_shutdown.append(_shutdown)
@@ -1732,7 +1733,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
                 k: config.get(k) for k in ("ics_sources", "sources", "server_bind", "server_port")
             }
         else:
-            cfg_preview = str(config)
+            cfg_preview = str(config)  # type: ignore[assignment]
         logger.debug("Config passed to _serve (preview): %s", cfg_preview)
     except Exception:
         logger.debug("Failed to emit config preview", exc_info=True)
@@ -1786,7 +1787,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     # Wire signals for graceful shutdown
     loop = asyncio.get_running_loop()
 
-    def _on_signal():
+    def _on_signal() -> None:
         logger.info("Shutdown signal received")
         stop_event.set()
 

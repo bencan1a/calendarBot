@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 def _now_utc() -> datetime:
     """Return current UTC time as an aware datetime.
-    
+
     Uses centralized datetime override from server.py that supports CALENDARBOT_TEST_TIME.
     """
-    from .server import _now_utc as server_now_utc
+    from .server import _now_utc as server_now_utc  # noqa: PLC0415
     return server_now_utc()
 
 
