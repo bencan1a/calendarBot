@@ -151,7 +151,17 @@ class LiteICSFetcher:
                 connect=10.0, read=self.settings.request_timeout, write=10.0, pool=30.0
             )
 
+            # Create IPv4-only transport to prevent IPv6 DNS resolution issues on Pi Zero 2W
+            # This fixes "temporary failure in name resolution" when IPv6 is configured
+            # on the host but DNS resolution fails for certain domains like outlook.office365.com
+            limits = httpx.Limits(max_connections=10, max_keepalive_connections=5)
+            transport = httpx.AsyncHTTPTransport(
+                limits=limits,
+                local_address="0.0.0.0",  # Force IPv4 binding
+            )
+
             self.client = httpx.AsyncClient(
+                transport=transport,
                 timeout=timeout,
                 follow_redirects=True,
                 verify=True,  # SSL verification

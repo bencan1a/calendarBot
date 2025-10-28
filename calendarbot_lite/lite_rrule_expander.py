@@ -608,8 +608,8 @@ class LiteRRuleExpander:
                     )
 
                     # Check if target time (8:30 AM PDT on 2025-10-27) is in expansion window
-                    import zoneinfo
-                    from datetime import datetime
+                    import zoneinfo  # noqa: PLC0415
+                    from datetime import datetime  # noqa: PLC0415
 
                     target_time_pdt = datetime(2025, 10, 27, 8, 30).replace(
                         tzinfo=zoneinfo.ZoneInfo("America/Los_Angeles")

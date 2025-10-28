@@ -8,7 +8,8 @@ Configured with Pi Zero 2W-specific limits to balance performance and resource u
 import asyncio
 import logging
 import time
-from typing import Optional
+from collections.abc import AsyncIterator
+from typing import Any, Optional
 
 import httpx
 
@@ -43,6 +44,28 @@ HEALTH_ERROR_THRESHOLD = 3  # Recreate client after 3 consecutive errors
 HEALTH_TIMEOUT_SECONDS = 300  # Consider client unhealthy after 5 minutes of errors
 
 
+def _create_ipv4_transport(limits: httpx.Limits) -> httpx.AsyncHTTPTransport:
+    """Create HTTP transport configured for IPv4-only connections.
+
+    This prevents IPv6 resolution issues on Pi Zero 2W where IPv6 may be
+    configured on the host but DNS resolution fails for certain domains.
+
+    Args:
+        limits: Connection limits
+
+    Returns:
+        HTTP transport configured to use IPv4 only
+    """
+    # Create a connection pool with IPv4-only socket family
+    # By specifying socket_options, we can control the socket creation
+    # The key is to use local_address="0.0.0.0" which forces IPv4 binding
+    return httpx.AsyncHTTPTransport(
+        limits=limits,
+        # Force IPv4 resolution by binding to IPv4 address
+        local_address="0.0.0.0",
+    )
+
+
 async def get_shared_client(
     client_id: str = "default",
     limits: Optional[httpx.Limits] = None,
@@ -73,14 +96,17 @@ async def get_shared_client(
 
                 logger.debug(
                     "Creating shared HTTP client '%s' with limits: max_connections=%d, "
-                    "max_keepalive=%d",
+                    "max_keepalive=%d (IPv4-only)",
                     client_id,
                     effective_limits.max_connections,
                     effective_limits.max_keepalive_connections,
                 )
 
+                # Create IPv4-only transport to prevent IPv6 DNS resolution issues
+                transport = _create_ipv4_transport(effective_limits)
+
                 _shared_clients[client_id] = httpx.AsyncClient(
-                    limits=effective_limits,
+                    transport=transport,
                     timeout=effective_timeout,
                     follow_redirects=True,
                     verify=True,  # SSL verification
@@ -217,9 +243,13 @@ async def get_fallback_client(
     """
     effective_timeout = timeout or _PI_ZERO_TIMEOUT
 
-    logger.debug("Creating fallback HTTP client for single request")
+    logger.debug("Creating fallback HTTP client for single request (IPv4-only)")
+
+    # Create IPv4-only transport to prevent IPv6 DNS resolution issues
+    transport = _create_ipv4_transport(_PI_ZERO_LIMITS)
 
     return httpx.AsyncClient(
+        transport=transport,
         timeout=effective_timeout,
         follow_redirects=True,
         verify=True,
@@ -273,7 +303,7 @@ class StreamingHTTPResponse:
 
         return self._initial_bytes
 
-    async def iter_bytes_with_peek(self, chunk_size: int = 8192):
+    async def iter_bytes_with_peek(self, chunk_size: int = 8192) -> AsyncIterator[bytes]:
         """Iterate over response bytes including the peeked bytes.
 
         Args:
@@ -319,7 +349,7 @@ async def stream_request_with_peek(
     client: httpx.AsyncClient,
     method: str,
     url: str,
-    **kwargs,
+    **kwargs: Any,
 ) -> StreamingHTTPResponse:
     """Make a streaming HTTP request with peek capability.
 
