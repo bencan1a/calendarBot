@@ -1,6 +1,24 @@
 # CalendarBot
 
+> **IMPORTANT**: This README describes the legacy `calendarbot/` application which is now **ARCHIVED**.
+> For active development, see **[calendarbot_lite/](calendarbot_lite/)** - the lightweight, focused ICS calendar processor.
+
+---
+
+## Project Status
+
+- **ACTIVE**: [calendarbot_lite/](calendarbot_lite/) - Lightweight ICS parser and calendar processor
+- **ARCHIVED**: [calendarbot/](calendarbot/) - Legacy terminal/web-based calendar application (see [DEPRECATED.md](calendarbot/DEPRECATED.md))
+
+The `calendarbot_lite` implementation provides focused ICS parsing, RRULE expansion, and Alexa integration without the complexity of the full web UI and e-paper display system.
+
+---
+
+## Legacy CalendarBot (ARCHIVED)
+
 📅 A terminal and web-based calendar utility that integrates with ICS calendar feeds. Provides interactive calendar navigation, real-time updates, and cross-platform compatibility.
+
+**Note: This implementation is no longer actively maintained. Use [calendarbot_lite/](calendarbot_lite/) for new projects.**
 
 ## Features
 

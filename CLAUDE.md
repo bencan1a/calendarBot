@@ -2,13 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## IMPORTANT: Project Status
+
+**The `calendarbot/` directory is ARCHIVED and DEPRECATED.**
+
+- **ACTIVE PROJECT**: `calendarbot_lite/` - Use this for all new development
+- **ARCHIVED**: `calendarbot/` - Legacy codebase, no longer maintained
+- **DO NOT** modify or work in the `calendarbot/` directory unless explicitly instructed
+- **ALWAYS** default to working in `calendarbot_lite/` for calendar-related tasks
+
 ## Project Overview
 
-CalendarBot is a Python-based calendar application that fetches and displays ICS calendar feeds. It features multiple display modes including terminal UI, web interface, and e-paper display support.
+**calendarbot_lite** is a lightweight, focused calendar application for ICS feed processing and Alexa integration. It provides core ICS parsing, RRULE expansion, and calendar event management with minimal dependencies.
+
+The legacy `calendarbot/` directory contains an older, more complex implementation with terminal UI, web interface, and e-paper display support. This codebase is no longer actively maintained.
 
 ## Key Commands
 
-### Development Setup
+### Development Setup (calendarbot_lite)
 ```bash
 # Activate virtual environment
 . venv/bin/activate  # Linux/Mac
@@ -17,11 +28,30 @@ CalendarBot is a Python-based calendar application that fetches and displays ICS
 # Install dependencies
 pip install -r requirements.txt
 
-# Install development dependencies
-pip install -e ".[dev]"
+# Run calendarbot_lite
+python -m calendarbot_lite
 ```
 
-### Running the Application
+### Testing calendarbot_lite
+```bash
+# Run lite tests
+./run_lite_tests.sh
+
+# Run with pytest directly
+pytest -c pytest-lite.ini
+
+# Run specific test
+pytest calendarbot_lite/test_lite_parser.py -v
+```
+
+---
+
+## ARCHIVED: Legacy CalendarBot Commands
+
+The following commands are for the **archived** `calendarbot/` directory only.
+**Do not use these unless specifically working with legacy code.**
+
+### Running the Application (LEGACY - ARCHIVED)
 ```bash
 # Interactive terminal mode
 calendarbot
@@ -36,9 +66,9 @@ calendarbot --setup
 calendarbot --epaper
 ```
 
-### Testing Commands
+### Testing Commands (LEGACY - ARCHIVED)
 
-#### Python Tests (pytest)
+#### Python Tests (pytest) - LEGACY
 ```bash
 # Run full test suite with coverage
 pytest --cov=calendarbot --cov-report=term-missing --cov-report=html
@@ -59,7 +89,7 @@ pytest tests/browser/ -m "browser"         # Browser tests
 ./scripts/run_coverage.sh module tests/unit/test_setup_wizard.py
 ```
 
-#### JavaScript Tests (Jest)
+#### JavaScript Tests (Jest) - LEGACY
 ```bash
 # Run JavaScript tests for web UI components
 npm test                    # Run all tests
@@ -67,7 +97,7 @@ npm run test:watch         # Watch mode
 npm run test:coverage      # With coverage report
 ```
 
-### Code Quality
+### Code Quality - LEGACY
 ```bash
 # Linting and formatting (using ruff)
 ruff check calendarbot      # Check for issues
@@ -83,7 +113,7 @@ bandit -r calendarbot
 python scripts/find_dead_code.py
 ```
 
-### Performance & Benchmarking
+### Performance & Benchmarking - LEGACY
 ```bash
 # Run performance benchmarks
 python scripts/performance_benchmark.py
@@ -95,7 +125,12 @@ python scripts/test_bootup_performance.py
 python scripts/view_performance_trends.py
 ```
 
-## High-Level Architecture
+## ARCHIVED: Legacy CalendarBot Architecture
+
+**The following architecture documentation is for the ARCHIVED `calendarbot/` directory.**
+**For current development, refer to `calendarbot_lite/` source code and README.**
+
+## High-Level Architecture (LEGACY)
 
 ### Core Components
 
