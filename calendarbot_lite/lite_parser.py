@@ -1407,11 +1407,21 @@ class LiteICSParser:
         expanded_events = []
 
         # Create a mapping of event UIDs to their raw components
+        # IMPORTANT: When there are multiple events with the same UID (master + instances),
+        # we need to map the RECURRING MASTER to its component, not the instances.
+        # Build the map by prioritizing events that have RRULE properties.
         component_map = {}
+
+        # First pass: map all events
         for i, component in enumerate(raw_components):
             if i < len(events):
                 uid = events[i].id
-                component_map[uid] = component
+                # Only add to map if this UID isn't already mapped OR if this is a recurring event
+                if uid not in component_map:
+                    component_map[uid] = component
+                elif events[i].is_recurring and component.get("RRULE"):
+                    # This is a recurring master - prioritize it over instances
+                    component_map[uid] = component
 
         for event in events:
             if not event.is_recurring:
@@ -1558,7 +1568,8 @@ class LiteICSParser:
                 if event.id not in expanded_master_uids:
                     merged_events.append(event)
             else:
-                # Always keep non-recurring events
+                # Always keep non-recurring events (including moved instances with RECURRENCE-ID)
+                # Modified instances have recurrence_id set and should be included
                 merged_events.append(event)
 
         logger.debug(
@@ -1579,9 +1590,12 @@ class LiteICSParser:
         deduplicated = []
 
         for event in events:
-            # Create a unique key based on subject, start time, and basic properties
+            # Create a unique key based on UID, start time, and basic properties
+            # Two events with different UIDs are by definition different events,
+            # even if they have the same subject and time (e.g., two separate recurring series)
             # Use start time as string to avoid timezone comparison issues
             key = (
+                event.id,  # Include UID to avoid incorrectly deduplicating separate events
                 event.subject,
                 event.start.date_time.isoformat(),
                 event.end.date_time.isoformat(),
