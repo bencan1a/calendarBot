@@ -25,7 +25,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .lite_models import LiteCalendarEvent
-from .server import _now_utc
+from .server import _now_utc, _get_server_timezone, _get_fallback_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class MorningSummaryRequest(BaseModel):
     date: Optional[str] = Field(
         default=None, description="ISO date for summary (defaults to tomorrow)"
     )
-    timezone: str = Field(default="UTC", description="IANA timezone identifier")
+    timezone: str = Field(default_factory=lambda: _get_server_timezone(), description="IANA timezone identifier")
     detail_level: str = Field(default="normal", description="Detail level: brief|normal|detailed")
     prefer_ssml: bool = Field(default=False, description="Prefer SSML response if available")
     max_events: int = Field(default=50, description="Maximum events to process")
@@ -112,8 +112,19 @@ class FreeBlock(BaseModel):
 
     def get_spoken_start_time(self) -> str:
         """Get conversational start time (Story 5)."""
-        hour = self.start_time.hour
-        minute = self.start_time.minute
+        # Convert to server timezone for speech display
+        try:
+            import zoneinfo  # noqa: PLC0415
+            from .server import _get_server_timezone  # noqa: PLC0415
+            
+            server_tz = zoneinfo.ZoneInfo(_get_server_timezone())
+            local_time = self.start_time.astimezone(server_tz)
+            hour = local_time.hour
+            minute = local_time.minute
+        except Exception:
+            # Fallback to original time if conversion fails
+            hour = self.start_time.hour
+            minute = self.start_time.minute
 
         if minute == 0:
             if hour == 12:
@@ -158,8 +169,19 @@ class MeetingInsight(BaseModel):
 
     def get_spoken_start_time(self) -> str:
         """Get conversational start time (Story 5)."""
-        hour = self.start_time.hour
-        minute = self.start_time.minute
+        # Convert to server timezone for speech display
+        try:
+            import zoneinfo  # noqa: PLC0415
+            from .server import _get_server_timezone  # noqa: PLC0415
+            
+            server_tz = zoneinfo.ZoneInfo(_get_server_timezone())
+            local_time = self.start_time.astimezone(server_tz)
+            hour = local_time.hour
+            minute = local_time.minute
+        except Exception:
+            # Fallback to original time if conversion fails
+            hour = self.start_time.hour
+            minute = self.start_time.minute
 
         if minute == 0:
             if hour == 12:
@@ -349,9 +371,19 @@ class MorningSummaryService:
             tomorrow = now_local + timedelta(days=1)
             return tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
         except Exception as e:
-            logger.warning(f"Timezone conversion failed for {timezone_str}: {e}, using UTC")
-            tomorrow = now_utc + timedelta(days=1)
-            return tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
+            logger.warning(f"Timezone conversion failed for {timezone_str}: {e}, using Pacific fallback")
+            # Use Pacific timezone fallback instead of UTC
+            try:
+                import zoneinfo  # noqa: PLC0415
+                
+                fallback_tz = zoneinfo.ZoneInfo(_get_fallback_timezone())
+                now_fallback = now_utc.astimezone(fallback_tz)
+                tomorrow = now_fallback + timedelta(days=1)
+                return tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
+            except Exception as fallback_error:
+                logger.error(f"Fallback timezone conversion also failed: {fallback_error}, using naive UTC")
+                tomorrow = now_utc + timedelta(days=1)
+                return tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
 
     def _create_time_window(
         self, tomorrow_date: datetime, timezone_str: str
@@ -361,11 +393,41 @@ class MorningSummaryService:
             import zoneinfo  # noqa: PLC0415
 
             tz = zoneinfo.ZoneInfo(timezone_str)
-        except Exception:
-            tz = timezone.utc
-
-        timeframe_start = tomorrow_date.replace(hour=MORNING_START_HOUR, tzinfo=tz)
-        timeframe_end = tomorrow_date.replace(hour=MORNING_END_HOUR, tzinfo=tz)
+            
+            # Create the morning window in the target timezone
+            # tomorrow_date should already be timezone-aware in the target timezone
+            timeframe_start = tomorrow_date.replace(hour=MORNING_START_HOUR, minute=0, second=0, microsecond=0)
+            timeframe_end = tomorrow_date.replace(hour=MORNING_END_HOUR, minute=0, second=0, microsecond=0)
+            
+            # Ensure timezone info is correctly set
+            if timeframe_start.tzinfo is None:
+                timeframe_start = timeframe_start.replace(tzinfo=tz)
+                timeframe_end = timeframe_end.replace(tzinfo=tz)
+                
+        except Exception as e:
+            logger.warning(f"Timezone window creation failed for {timezone_str}: {e}, using Pacific fallback")
+            # Fallback to Pacific timezone instead of UTC
+            try:
+                import zoneinfo  # noqa: PLC0415
+                
+                fallback_tz = zoneinfo.ZoneInfo(_get_fallback_timezone())
+                
+                # Convert tomorrow_date to Pacific timezone
+                if tomorrow_date.tzinfo is None:
+                    base_date = tomorrow_date.replace(tzinfo=fallback_tz)
+                else:
+                    base_date = tomorrow_date.astimezone(fallback_tz)
+                    
+                timeframe_start = base_date.replace(hour=MORNING_START_HOUR, minute=0, second=0, microsecond=0)
+                timeframe_end = base_date.replace(hour=MORNING_END_HOUR, minute=0, second=0, microsecond=0)
+                
+            except Exception as fallback_error:
+                logger.error(f"Pacific fallback also failed: {fallback_error}, using UTC as last resort")
+                # Last resort fallback to UTC (should rarely happen)
+                tz = timezone.utc
+                base_date = tomorrow_date.replace(tzinfo=tz) if tomorrow_date.tzinfo is None else tomorrow_date.astimezone(tz)
+                timeframe_start = base_date.replace(hour=MORNING_START_HOUR, minute=0, second=0, microsecond=0)
+                timeframe_end = base_date.replace(hour=MORNING_END_HOUR, minute=0, second=0, microsecond=0)
 
         return timeframe_start, timeframe_end
 
@@ -377,6 +439,12 @@ class MorningSummaryService:
     ) -> list[LiteCalendarEvent]:
         """Filter events to morning window and remove cancelled/hidden events (Story 2)."""
         filtered_events = []
+
+        # Convert timeframe boundaries to UTC for consistent comparison
+        timeframe_start_utc = timeframe_start.astimezone(timezone.utc)
+        timeframe_end_utc = timeframe_end.astimezone(timezone.utc)
+        
+        logger.debug(f"Morning window UTC: {timeframe_start_utc} to {timeframe_end_utc}")
 
         for event in events:
             # Skip cancelled events (Story 2)
@@ -391,16 +459,51 @@ class MorningSummaryService:
             event_start = event.start.date_time
             event_end = event.end.date_time
 
-            # Convert to UTC for comparison if needed
+            # Convert event times to UTC for comparison
+            # CRITICAL FIX: Assume timezone-naive events are in server timezone, NOT UTC
             if event_start.tzinfo is None:
-                event_start = event_start.replace(tzinfo=timezone.utc)
+                try:
+                    import zoneinfo  # noqa: PLC0415
+                    server_tz = zoneinfo.ZoneInfo(_get_server_timezone())
+                    event_start = event_start.replace(tzinfo=server_tz).astimezone(timezone.utc)
+                except Exception:
+                    # Fallback to Pacific timezone
+                    try:
+                        import zoneinfo  # noqa: PLC0415
+                        fallback_tz = zoneinfo.ZoneInfo(_get_fallback_timezone())
+                        event_start = event_start.replace(tzinfo=fallback_tz).astimezone(timezone.utc)
+                    except Exception:
+                        # Last resort: treat as UTC (should rarely happen)
+                        event_start = event_start.replace(tzinfo=timezone.utc)
+            else:
+                event_start = event_start.astimezone(timezone.utc)
+            
             if event_end.tzinfo is None:
-                event_end = event_end.replace(tzinfo=timezone.utc)
+                try:
+                    import zoneinfo  # noqa: PLC0415
+                    server_tz = zoneinfo.ZoneInfo(_get_server_timezone())
+                    event_end = event_end.replace(tzinfo=server_tz).astimezone(timezone.utc)
+                except Exception:
+                    # Fallback to Pacific timezone
+                    try:
+                        import zoneinfo  # noqa: PLC0415
+                        fallback_tz = zoneinfo.ZoneInfo(_get_fallback_timezone())
+                        event_end = event_end.replace(tzinfo=fallback_tz).astimezone(timezone.utc)
+                    except Exception:
+                        # Last resort: treat as UTC (should rarely happen)
+                        event_end = event_end.replace(tzinfo=timezone.utc)
+            else:
+                event_end = event_end.astimezone(timezone.utc)
 
-            # Check overlap with morning window
-            if event_start < timeframe_end and event_end > timeframe_start:
+            # Check overlap with morning window (both in UTC now)
+            overlaps = event_start < timeframe_end_utc and event_end > timeframe_start_utc
+            
+            logger.debug(f"Event '{event.subject}': {event.start.date_time} -> {event_start} UTC, overlaps: {overlaps}")
+
+            if overlaps:
                 filtered_events.append(event)
 
+        logger.debug(f"Filtered {len(filtered_events)} events from {len(events)} total")
         return filtered_events
 
     def _is_hidden_event(self, event: LiteCalendarEvent) -> bool:

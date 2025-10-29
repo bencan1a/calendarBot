@@ -1551,13 +1551,69 @@ class LiteICSParser:
         Returns:
             Combined list of events
         """
-        # Start with all expanded events
-        merged_events = expanded_events.copy()
+        # First, collect RECURRENCE-ID events and their original times for suppression
+        recurrence_overrides = {}  # Maps (master_uid, original_time) -> moved_event
+        
+        for event in original_events:
+            if hasattr(event, 'recurrence_id') and event.recurrence_id:
+                # Extract master UID from the event
+                master_uid = event.id.split('::')[0] if '::' in event.id else event.id.split('_')[0]
+                
+                # Parse the RECURRENCE-ID to get the original time being overridden
+                try:
+                    # RECURRENCE-ID format: "TZID=Pacific Standard Time:20251028T143000"
+                    recurrence_id_str = str(event.recurrence_id)
+                    if ':' in recurrence_id_str and 'T' in recurrence_id_str:
+                        # Extract the datetime part after the colon
+                        datetime_part = recurrence_id_str.split(':')[-1]  # "20251028T143000"
+                        
+                        # Create a key for the original time slot being overridden
+                        override_key = (master_uid, datetime_part)
+                        recurrence_overrides[override_key] = event
+                        
+                        logger.debug(
+                            f"RECURRENCE-ID override detected: {event.subject} "
+                            f"moves {datetime_part} to {event.start.date_time.strftime('%Y%m%dT%H%M%S')}"
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to parse RECURRENCE-ID {event.recurrence_id}: {e}")
+        
+        # Filter expanded events to exclude those overridden by RECURRENCE-ID
+        filtered_expanded = []
+        suppressed_count = 0
+        
+        for event in expanded_events:
+            master_uid = getattr(event, "rrule_master_uid", None)
+            if master_uid and hasattr(event, 'start') and event.start:
+                # Create key for this expanded occurrence
+                event_time_key = event.start.date_time.strftime('%Y%m%dT%H%M%S')
+                override_key = (master_uid, event_time_key)
+                
+                if override_key in recurrence_overrides:
+                    # This expanded occurrence is overridden by a RECURRENCE-ID event
+                    override_event = recurrence_overrides[override_key]
+                    logger.debug(
+                        f"Suppressing expanded occurrence: {event.subject} at {event_time_key} "
+                        f"(overridden by RECURRENCE-ID event at {override_event.start.date_time})"
+                    )
+                    suppressed_count += 1
+                    continue
+            
+            filtered_expanded.append(event)
+        
+        if suppressed_count > 0:
+            logger.info(
+                f"RECURRENCE-ID processing: Suppressed {suppressed_count} expanded occurrences "
+                f"that were overridden by moved meetings"
+            )
+
+        # Start with filtered expanded events (suppressed overrides removed)
+        merged_events = filtered_expanded.copy()
 
         # Create a set of master UIDs that were successfully expanded
         expanded_master_uids = {
             getattr(event, "rrule_master_uid", None)
-            for event in expanded_events
+            for event in filtered_expanded
             if getattr(event, "rrule_master_uid", None)
         }
 
@@ -1573,7 +1629,7 @@ class LiteICSParser:
                 merged_events.append(event)
 
         logger.debug(
-            f"Merged {len(original_events)} original + {len(expanded_events)} expanded = {len(merged_events)} total events"
+            f"Merged {len(original_events)} original + {len(filtered_expanded)} expanded = {len(merged_events)} total events"
         )
         return merged_events
 
