@@ -115,18 +115,33 @@ class RRuleWorkerPool:
                         rule_set.rrule(parsed_rule)
 
                 # Apply EXDATEs if provided
+                logger.debug(
+                    "EXDATE processing for event %s: exdates=%r",
+                    event_subject,
+                    exdates
+                )
                 if exdates:
-                    for ex in exdates:
+                    logger.debug("Processing %d EXDATE entries", len(exdates))
+                    for i, ex in enumerate(exdates):
                         try:
                             ex_dt = self._parse_datetime_for_streaming(ex)
+                            logger.debug(
+                                "EXDATE %d: raw='%s' parsed=%r tzinfo=%r",
+                                i, ex, ex_dt, ex_dt.tzinfo if hasattr(ex_dt, 'tzinfo') else None
+                            )
                             if ex_dt.tzinfo is None:
                                 ex_dt = ex_dt.replace(tzinfo=UTC)
+                                logger.debug("EXDATE %d: added UTC timezone -> %r", i, ex_dt)
                             else:
                                 ex_dt = ex_dt.astimezone(UTC)
+                                logger.debug("EXDATE %d: converted to UTC -> %r", i, ex_dt)
                             rule_set.exdate(ex_dt)
+                            logger.debug("EXDATE %d: successfully added to ruleset", i)
                         except Exception as ex_e:  # noqa: PERF203
                             logger.warning(f"Failed to parse EXDATE '{ex}': {ex_e}")
                             continue
+                else:
+                    logger.debug("No EXDATE entries provided for event %s", event_subject)
 
                 # Normalize window datetimes
                 start_window = (

@@ -244,6 +244,89 @@ def _create_skipped_store_if_available() -> object | None:
 EventDict = dict[str, Any]
 
 
+# Centralized timezone constants
+DEFAULT_SERVER_TIMEZONE = "America/Los_Angeles"  # Pacific timezone as fallback
+
+
+def _get_server_timezone() -> str:
+    """Get the server's local timezone as an IANA timezone identifier.
+    
+    This function provides centralized timezone detection for calendarbot_lite.
+    It NEVER falls back to UTC - always falls back to Pacific time as specified.
+    
+    Returns:
+        IANA timezone string (e.g., "America/Los_Angeles", "America/New_York")
+        Falls back to "America/Los_Angeles" (Pacific) if detection fails.
+    """
+    try:
+        import time
+        import zoneinfo
+        
+        # Get local timezone name from system
+        local_tz_name = time.tzname[time.daylight] if time.daylight else time.tzname[0]
+        
+        # Map common timezone abbreviations to IANA identifiers
+        tz_mapping = {
+            'PST': 'America/Los_Angeles',
+            'PDT': 'America/Los_Angeles',
+            'EST': 'America/New_York',
+            'EDT': 'America/New_York',
+            'CST': 'America/Chicago',
+            'CDT': 'America/Chicago',
+            'MST': 'America/Denver',
+            'MDT': 'America/Denver',
+        }
+        
+        # Try mapped timezone first
+        if local_tz_name in tz_mapping:
+            iana_tz = tz_mapping[local_tz_name]
+            # Validate it's a real timezone
+            zoneinfo.ZoneInfo(iana_tz)
+            return iana_tz
+            
+        # Fallback: try to use system timezone detection via datetime
+        from datetime import datetime, timezone
+        now_local = datetime.now()
+        now_utc = datetime.now(timezone.utc)
+        offset = now_local - now_utc.replace(tzinfo=None)
+        
+        # Map UTC offsets to common timezones (approximate)
+        offset_hours = int(round(offset.total_seconds() / 3600))
+        offset_mapping = {
+            -8: 'America/Los_Angeles',  # PST
+            -7: 'America/Los_Angeles',  # PDT
+            -6: 'America/Chicago',      # CST
+            -5: 'America/New_York',     # EST (prioritize over Chicago for -5)
+            -4: 'America/New_York',     # EDT
+            0: 'UTC',  # Only UTC if actually at UTC offset
+        }
+        
+        if offset_hours in offset_mapping:
+            detected_tz = offset_mapping[offset_hours]
+            # Validate the timezone works
+            zoneinfo.ZoneInfo(detected_tz)
+            return detected_tz
+            
+        logger.warning(f"Could not detect server timezone, offset={offset_hours}h, falling back to Pacific")
+        return DEFAULT_SERVER_TIMEZONE
+        
+    except Exception as e:
+        logger.warning(f"Failed to detect server timezone: {e}, falling back to Pacific")
+        return DEFAULT_SERVER_TIMEZONE
+
+
+def _get_fallback_timezone() -> str:
+    """Get the centralized fallback timezone for calendarbot_lite.
+    
+    This function provides a single source of truth for timezone fallbacks.
+    Used when timezone detection or conversion fails anywhere in the application.
+    
+    Returns:
+        Always returns "America/Los_Angeles" (Pacific timezone)
+    """
+    return DEFAULT_SERVER_TIMEZONE
+
+
 def _now_utc() -> datetime.datetime:
     """Return current UTC time with tzinfo.
 
@@ -911,11 +994,43 @@ async def _refresh_once(
 
     # Filter out past events and skipped ones, sort and trim window size.
     now = _now_utc()
-    upcoming = [
-        e
-        for e in parsed_events
-        if isinstance(e.get("start"), datetime.datetime) and e["start"] >= now
-    ]
+    server_tz_name = _get_server_timezone()
+    
+    upcoming = []
+    for e in parsed_events:
+        start_dt = e.get("start")
+        if not isinstance(start_dt, datetime.datetime):
+            continue
+            
+        # Handle timezone-aware vs timezone-naive datetime comparison
+        try:
+            if start_dt.tzinfo is None:
+                # Event is timezone-naive - assume it's in server timezone
+                try:
+                    import zoneinfo  # noqa: PLC0415
+                    server_tz = zoneinfo.ZoneInfo(server_tz_name)
+                    start_dt_aware = start_dt.replace(tzinfo=server_tz)
+                except Exception:
+                    # Fallback: assume naive datetime is in server timezone
+                    server_tz = _get_fallback_timezone()
+                    try:
+                        import zoneinfo  # noqa: PLC0415
+                        fallback_tz = zoneinfo.ZoneInfo(server_tz)
+                        start_dt_aware = start_dt.replace(tzinfo=fallback_tz)
+                    except Exception:
+                        # Last resort: treat as UTC
+                        start_dt_aware = start_dt.replace(tzinfo=datetime.timezone.utc)
+            else:
+                # Event is already timezone-aware
+                start_dt_aware = start_dt
+                
+            # Now we can safely compare timezone-aware datetimes
+            if start_dt_aware >= now:
+                upcoming.append(e)
+                
+        except Exception as ex:
+            logger.warning("Failed to process event start time %s: %s", start_dt, ex)
+            continue
 
     if skipped_store is not None:
         is_skipped_fn = getattr(skipped_store, "is_skipped", None)
@@ -1688,7 +1803,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
         try:
             # Parse request parameters
             target_date = request.query.get("date")  # ISO date for summary (defaults to tomorrow)
-            timezone_str = request.query.get("timezone", "UTC")
+            timezone_str = request.query.get("timezone", _get_server_timezone())
             detail_level = request.query.get("detail_level", "normal")
             prefer_ssml = request.query.get("prefer_ssml", "false").lower() == "true"
             max_events = int(request.query.get("max_events", "50"))
@@ -1813,7 +1928,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
         try:
             # Parse request parameters - same as Alexa endpoint but no prefer_ssml
             target_date = request.query.get("date")  # ISO date for summary (defaults to tomorrow)
-            timezone_str = request.query.get("timezone", "UTC")
+            timezone_str = request.query.get("timezone", _get_server_timezone())
             detail_level = request.query.get("detail_level", "normal")
             max_events = int(request.query.get("max_events", "50"))
 
