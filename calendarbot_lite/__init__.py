@@ -74,7 +74,7 @@ def _init_logging(level_name: Optional[str]) -> None:
     )
 
 
-def run_server() -> None:
+def run_server(args: Optional[object] = None) -> None:
     """Start the calendarbot_lite server.
 
     This function attempts to import the runtime server implementation using
@@ -82,10 +82,14 @@ def run_server() -> None:
     running `python -m calendarbot_lite`. If the server module is present and
     provides the expected entrypoint ``start_server``, we delegate to it.
 
+    Args:
+        args: Optional command line arguments namespace containing --port and other options
+
     Behavior:
     - Initialize console logging early using CALENDARBOT_LOG_LEVEL (env) if present.
     - After loading any environment/config defaults from the server helper, update
       the log level from cfg['log_level'] when available.
+    - Apply command line argument overrides to configuration.
     - Delegate to the server's start_server(cfg, skipped) entrypoint.
     """
     # Initialize early logging so import-time / startup messages are visible.
@@ -123,6 +127,17 @@ def run_server() -> None:
                 cfg = cast(dict, maybe_cfg)
     except Exception:
         cfg = {}
+
+    # Apply command line argument overrides to configuration
+    if args is not None:
+        port = getattr(args, "port", None)
+        if port is not None:
+            try:
+                port_int = int(port)
+                cfg["server_port"] = port_int
+                logger.debug("Applied command line port override: %d", port_int)
+            except (ValueError, TypeError) as e:
+                logger.warning("Invalid port value from command line '%s': %s", port, e)
 
     # If config includes a log_level, ensure logging level matches it.
     try:
