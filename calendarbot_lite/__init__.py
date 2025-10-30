@@ -20,9 +20,9 @@ def _init_logging(level_name: Optional[str]) -> None:
     variable (truthy values: "1", "true", "yes") which forces DEBUG verbosity to
     surface parser/fetcher debug logs during troubleshooting without changing code.
     """
-    import logging  # noqa: PLC0415
-    import os  # noqa: PLC0415
-    import sys  # noqa: PLC0415
+    import logging
+    import os
+    import sys
 
     # If CALENDARBOT_DEBUG is set to a truthy value, override the requested level.
     debug_env = os.environ.get("CALENDARBOT_DEBUG", "")
@@ -35,7 +35,7 @@ def _init_logging(level_name: Optional[str]) -> None:
         handler = logging.StreamHandler(stream=sys.stderr)
         # Prefer the lightweight external colorlog formatter when available for nicer console output.
         try:
-            from colorlog import ColoredFormatter  # type: ignore[import-not-found]  # noqa: PLC0415
+            from colorlog import ColoredFormatter  # type: ignore[import-not-found]
 
             # Readable colorized format:
             # HH:MM:SS  LEVEL   logger.name: message
@@ -93,14 +93,14 @@ def run_server(args: Optional[object] = None) -> None:
     - Delegate to the server's start_server(cfg, skipped) entrypoint.
     """
     # Initialize early logging so import-time / startup messages are visible.
-    import os  # noqa: PLC0415
+    import os
 
     _init_logging(os.environ.get("CALENDARBOT_LOG_LEVEL"))
 
-    import importlib  # noqa: PLC0415
-    import logging  # noqa: PLC0415
-    import traceback  # noqa: PLC0415
-    from typing import cast  # noqa: PLC0415
+    import importlib
+    import logging
+    import traceback
+    from typing import cast
 
     logger = logging.getLogger(__name__)
 

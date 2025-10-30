@@ -229,10 +229,10 @@ def handle_get_done_for_day_intent() -> AlexaResponse:
 
 def handle_launch_intent() -> AlexaResponse:
     """Handle LaunchRequest with intelligent context switching.
-    
+
     During the day (when there are still meetings left today):
     - Use existing behavior: call /api/alexa/launch-summary for current day info
-    
+
     After current day's meetings are done:
     - Switch to morning summary mode for next day preparation
     - Call /api/alexa/morning-summary to preview tomorrow's schedule
@@ -240,60 +240,69 @@ def handle_launch_intent() -> AlexaResponse:
     try:
         # First, get current day status to determine switching logic
         launch_data = call_calendarbot_api("/api/alexa/launch-summary")
-        
+
         # Check if there are remaining meetings today
         has_meetings_today = launch_data.get("has_meetings_today", False)
         next_meeting = launch_data.get("next_meeting")
-        
+
         # Intelligent switching logic:
         # If no meetings today OR no more meetings today, switch to morning summary
         if not has_meetings_today or (has_meetings_today and not next_meeting):
             logger.info("Launch Intent: Switching to morning summary mode (done for today)")
-            
+
             try:
                 # Switch to morning summary for next day preparation
                 import zoneinfo
                 from datetime import datetime, timedelta
-                
+
                 # Calculate tomorrow's date
                 now = datetime.now(zoneinfo.ZoneInfo("UTC"))
                 tomorrow = now + timedelta(days=1)
                 tomorrow_date = tomorrow.strftime("%Y-%m-%d")
-                
+
                 # Call morning summary endpoint with appropriate parameters
                 from urllib.parse import urlencode
+
                 query_params = {
                     "date": tomorrow_date,
                     "timezone": "America/Los_Angeles",  # Default timezone, could be made configurable
                     "prefer_ssml": "true",
                     "detail_level": "normal",
-                    "max_events": "50"
+                    "max_events": "50",
                 }
                 morning_summary_url = f"/api/alexa/morning-summary?{urlencode(query_params)}"
                 morning_data = call_calendarbot_api(morning_summary_url)
-                
+
                 # Extract speech text and SSML from morning summary response
-                speech_text = morning_data.get("speech_text", "I couldn't generate your morning summary.")
+                speech_text = morning_data.get(
+                    "speech_text", "I couldn't generate your morning summary."
+                )
                 ssml = morning_data.get("ssml")
-                
+
                 logger.info(f"Morning summary speech text: {speech_text}")
                 if ssml:
                     logger.info(f"Morning summary SSML generated: {len(ssml)} characters")
-                
+
                 return AlexaResponse(speech_text, ssml=ssml, card_title="Tomorrow Morning Summary")
-                
+
             except Exception as e:
-                logger.warning(f"Failed to get morning summary, falling back to launch summary: {e}")
+                logger.warning(
+                    f"Failed to get morning summary, falling back to launch summary: {e}"
+                )
                 # Fall back to regular launch summary if morning summary fails
-                speech_text = launch_data.get("speech_text", "I couldn't get your calendar information.")
+                speech_text = launch_data.get(
+                    "speech_text", "I couldn't get your calendar information."
+                )
                 ssml = launch_data.get("ssml")
                 return AlexaResponse(speech_text, ssml=ssml, card_title="Calendar Summary")
-        
+
         else:
             # Still have meetings today - use existing launch summary behavior
             logger.info("Launch Intent: Using current day mode (meetings remaining today)")
-            
-            speech_text = launch_data.get("speech_text", "I couldn't get your calendar information.")
+
+            speech_text = launch_data.get(
+                "speech_text", "I couldn't get your calendar information."
+            )
             ssml = launch_data.get("ssml")  # SSML for launch summary response
 
             logger.info(f"Extracted launch summary speech text: {speech_text}")

@@ -34,12 +34,50 @@ except ImportError:
     # Fallback if lite_logging module is not available
     logging.basicConfig(level=logging.INFO)
 
-logger = logging.getLogger(__name__)
-logger.debug("calendarbot_lite.server module loaded")
+# Import enhanced monitoring logging
+try:
+    from .monitoring_logging import get_logger
+
+    # Get monitoring logger for server component
+    monitoring_logger = get_logger("server")
+    logger = logging.getLogger(__name__)
+    logger.debug("calendarbot_lite.server module loaded with monitoring logging")
+except ImportError:
+    # Fallback if monitoring_logging module is not available
+    monitoring_logger = None
+    logger = logging.getLogger(__name__)
+    logger.debug("calendarbot_lite.server module loaded (monitoring logging not available)")
+
+
+def log_monitoring_event(event: str, message: str, level: str = "INFO", **kwargs) -> None:
+    """Log monitoring event with fallback to standard logging."""
+    if monitoring_logger:
+        monitoring_logger.log(level, event, message, **kwargs)
+    else:
+        # Fallback to standard logging
+        log_level = getattr(logging, level.upper(), logging.INFO)
+        logger.log(log_level, f"[{event}] {message}")
+
+
+# Health tracking infrastructure - lightweight in-memory tracking for monitoring
+import os
+import time
+from typing import Optional
+
+# Global health tracking variables (thread-safe with atomic operations)
+_server_start_time: float = time.time()
+_last_refresh_attempt: Optional[float] = None
+_last_refresh_success: Optional[float] = None
+_current_event_count: int = 0
+_background_task_heartbeat: Optional[float] = None
+_last_render_probe: Optional[float] = None
+_last_render_probe_ok: bool = False
+_last_render_probe_notes: Optional[str] = None
 
 # Import SSML generation for Alexa endpoints
 try:
     from .alexa_ssml import render_done_for_day_ssml, render_meeting_ssml, render_time_until_ssml
+
     logger.debug("SSML module imported successfully")
 except ImportError as e:
     logger.warning("SSML module not available: %s", e)
@@ -51,7 +89,7 @@ except ImportError as e:
 def _import_process_utilities() -> Any:  # type: ignore[misc]
     """Lazy import of process utilities to handle missing calendarbot module."""
     try:
-        from calendarbot.utils.process import (  # type: ignore  # noqa: PLC0415
+        from calendarbot.utils.process import (  # type: ignore
             auto_cleanup_before_start,
             check_port_availability,
             find_process_using_port,
@@ -63,8 +101,90 @@ def _import_process_utilities() -> Any:  # type: ignore[misc]
         return None, None, None
 
 
+class PortConflictError(Exception):
+    """Raised when a port conflict cannot be resolved."""
+
+
+def _get_system_diagnostics() -> dict[str, Any]:
+    """Get lightweight system diagnostics for health monitoring.
+
+    Returns:
+        Dictionary with system metrics, using None for unavailable values.
+    """
+    diag: dict[str, Any] = {
+        "server_load_1m": None,
+        "free_mem_kb": None,
+    }
+
+    try:
+        # Get 1-minute load average (Pi Zero 2W specific)
+        load_avg = os.getloadavg()
+        diag["server_load_1m"] = round(load_avg[0], 2)
+    except (OSError, AttributeError):
+        # getloadavg not available on all platforms
+        pass
+
+    try:
+        # Get free memory in KB - lightweight approach
+        with open("/proc/meminfo", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    # Extract value in KB
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        diag["free_mem_kb"] = int(parts[1])
+                    break
+    except (FileNotFoundError, ValueError, IndexError):
+        # /proc/meminfo not available or format unexpected
+        pass
+
+    return diag
+
+
+def _update_health_tracking(
+    *,
+    refresh_attempt: bool = False,
+    refresh_success: bool = False,
+    event_count: Optional[int] = None,
+    background_heartbeat: bool = False,
+    render_probe_ok: Optional[bool] = None,
+    render_probe_notes: Optional[str] = None,
+) -> None:
+    """Update health tracking variables atomically.
+
+    Args:
+        refresh_attempt: Mark a refresh attempt timestamp
+        refresh_success: Mark a successful refresh timestamp
+        event_count: Update current event count
+        background_heartbeat: Update background task heartbeat
+        render_probe_ok: Update render probe status
+        render_probe_notes: Update render probe notes
+    """
+    global _last_refresh_attempt, _last_refresh_success, _current_event_count
+    global _background_task_heartbeat, _last_render_probe, _last_render_probe_ok
+    global _last_render_probe_notes
+
+    now = time.time()
+
+    if refresh_attempt:
+        _last_refresh_attempt = now
+    if refresh_success:
+        _last_refresh_success = now
+    if event_count is not None:
+        _current_event_count = event_count
+    if background_heartbeat:
+        _background_task_heartbeat = now
+    if render_probe_ok is not None:
+        _last_render_probe = now
+        _last_render_probe_ok = render_probe_ok
+        _last_render_probe_notes = render_probe_notes
+
+
 def _handle_port_conflict(host: str, port: int) -> bool:
     """Handle port conflicts by offering to terminate conflicting processes.
+
+    In non-interactive mode (CALENDARBOT_NONINTERACTIVE=true), automatically attempts
+    cleanup without user prompts for systemd/journald compatibility.
 
     Args:
         host: Host address to bind to
@@ -101,7 +221,31 @@ def _handle_port_conflict(host: str, port: int) -> bool:
     else:
         logger.warning("Port %d is occupied (process identification not available)", port)
 
-    # Offer to terminate the conflicting process
+    # Check for non-interactive mode
+    noninteractive = os.environ.get("CALENDARBOT_NONINTERACTIVE", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+
+    if noninteractive:
+        # Non-interactive mode: automatically attempt cleanup
+        logger.info(
+            "Non-interactive mode: automatically attempting to terminate conflicting process on port %d",
+            port,
+        )
+
+        if auto_cleanup_before_start:
+            success = auto_cleanup_before_start(host, port, force=True)
+            if success:
+                logger.info("Successfully terminated conflicting process and freed port %d", port)
+                return True
+            logger.error("Failed to terminate conflicting process on port %d", port)
+            return False
+        logger.error("Auto cleanup function not available")
+        return False
+
+    # Interactive mode: prompt user
     print(f"\nPort {port} is currently occupied.")
     if port_process:
         print(f"Process using the port: PID {port_process.pid} ({port_process.command})")
@@ -149,8 +293,8 @@ def _build_default_config_from_env() -> dict[str, Any]:
     Returns:
         Mapping compatible with start_server's expected config parameter.
     """
-    import os  # noqa: PLC0415
-    from pathlib import Path  # noqa: PLC0415
+    import os
+    from pathlib import Path
 
     # Best-effort: try to load .env from the repo root to help developers who keep
     # runtime values there. Do not fail on errors.
@@ -230,7 +374,7 @@ def _create_skipped_store_if_available() -> object | None:
     Returns the instance if available and constructable, otherwise None.
     """
     try:
-        from .skipped_store import SkippedStore  # type: ignore  # noqa: PLC0415
+        from .skipped_store import SkippedStore  # type: ignore
     except Exception:
         return None
     try:
@@ -250,10 +394,10 @@ DEFAULT_SERVER_TIMEZONE = "America/Los_Angeles"  # Pacific timezone as fallback
 
 def _get_server_timezone() -> str:
     """Get the server's local timezone as an IANA timezone identifier.
-    
+
     This function provides centralized timezone detection for calendarbot_lite.
     It NEVER falls back to UTC - always falls back to Pacific time as specified.
-    
+
     Returns:
         IANA timezone string (e.g., "America/Los_Angeles", "America/New_York")
         Falls back to "America/Los_Angeles" (Pacific) if detection fails.
@@ -261,55 +405,58 @@ def _get_server_timezone() -> str:
     try:
         import time
         import zoneinfo
-        
+
         # Get local timezone name from system
         local_tz_name = time.tzname[time.daylight] if time.daylight else time.tzname[0]
-        
+
         # Map common timezone abbreviations to IANA identifiers
         tz_mapping = {
-            'PST': 'America/Los_Angeles',
-            'PDT': 'America/Los_Angeles',
-            'EST': 'America/New_York',
-            'EDT': 'America/New_York',
-            'CST': 'America/Chicago',
-            'CDT': 'America/Chicago',
-            'MST': 'America/Denver',
-            'MDT': 'America/Denver',
+            "PST": "America/Los_Angeles",
+            "PDT": "America/Los_Angeles",
+            "EST": "America/New_York",
+            "EDT": "America/New_York",
+            "CST": "America/Chicago",
+            "CDT": "America/Chicago",
+            "MST": "America/Denver",
+            "MDT": "America/Denver",
         }
-        
+
         # Try mapped timezone first
         if local_tz_name in tz_mapping:
             iana_tz = tz_mapping[local_tz_name]
             # Validate it's a real timezone
             zoneinfo.ZoneInfo(iana_tz)
             return iana_tz
-            
+
         # Fallback: try to use system timezone detection via datetime
         from datetime import datetime, timezone
+
         now_local = datetime.now()
         now_utc = datetime.now(timezone.utc)
         offset = now_local - now_utc.replace(tzinfo=None)
-        
+
         # Map UTC offsets to common timezones (approximate)
-        offset_hours = int(round(offset.total_seconds() / 3600))
+        offset_hours = round(offset.total_seconds() / 3600)
         offset_mapping = {
-            -8: 'America/Los_Angeles',  # PST
-            -7: 'America/Los_Angeles',  # PDT
-            -6: 'America/Chicago',      # CST
-            -5: 'America/New_York',     # EST (prioritize over Chicago for -5)
-            -4: 'America/New_York',     # EDT
-            0: 'UTC',  # Only UTC if actually at UTC offset
+            -8: "America/Los_Angeles",  # PST
+            -7: "America/Los_Angeles",  # PDT
+            -6: "America/Chicago",  # CST
+            -5: "America/New_York",  # EST (prioritize over Chicago for -5)
+            -4: "America/New_York",  # EDT
+            0: "UTC",  # Only UTC if actually at UTC offset
         }
-        
+
         if offset_hours in offset_mapping:
             detected_tz = offset_mapping[offset_hours]
             # Validate the timezone works
             zoneinfo.ZoneInfo(detected_tz)
             return detected_tz
-            
-        logger.warning(f"Could not detect server timezone, offset={offset_hours}h, falling back to Pacific")
+
+        logger.warning(
+            f"Could not detect server timezone, offset={offset_hours}h, falling back to Pacific"
+        )
         return DEFAULT_SERVER_TIMEZONE
-        
+
     except Exception as e:
         logger.warning(f"Failed to detect server timezone: {e}, falling back to Pacific")
         return DEFAULT_SERVER_TIMEZONE
@@ -317,10 +464,10 @@ def _get_server_timezone() -> str:
 
 def _get_fallback_timezone() -> str:
     """Get the centralized fallback timezone for calendarbot_lite.
-    
+
     This function provides a single source of truth for timezone fallbacks.
     Used when timezone detection or conversion fails anywhere in the application.
-    
+
     Returns:
         Always returns "America/Los_Angeles" (Pacific timezone)
     """
@@ -332,16 +479,18 @@ def _now_utc() -> datetime.datetime:
 
     Can be overridden for testing via CALENDARBOT_TEST_TIME environment variable.
     Format: ISO 8601 datetime string (e.g., "2025-10-27T08:20:00-07:00")
-    
+
     Enhanced with DST detection: If a Pacific timezone offset is provided that doesn't
     match the actual DST status for that date, it will be automatically corrected.
     """
-    import os  # noqa: PLC0415
+    import os
+
     test_time = os.environ.get("CALENDARBOT_TEST_TIME")
     if test_time:
         try:
             # Parse the test time and convert to UTC
-            from dateutil import parser as date_parser  # noqa: PLC0415
+            from dateutil import parser as date_parser
+
             dt = date_parser.isoparse(test_time)
             if dt.tzinfo is None:
                 # Assume UTC if no timezone specified
@@ -353,22 +502,25 @@ def _now_utc() -> datetime.datetime:
                 dt = dt.astimezone(datetime.timezone.utc)
             return dt
         except Exception as e:
-            import logging  # noqa: PLC0415
+            import logging
+
             logging.warning(f"Invalid CALENDARBOT_TEST_TIME: {test_time}, error: {e}")
 
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def _enhance_datetime_with_dst_detection(dt: datetime.datetime, original_test_time: str) -> datetime.datetime:
+def _enhance_datetime_with_dst_detection(
+    dt: datetime.datetime, original_test_time: str
+) -> datetime.datetime:
     """Enhance datetime with DST detection for Pacific timezone.
-    
+
     If the provided timezone offset doesn't match the actual DST status for that date,
     automatically correct it to the proper DST/PST timezone.
-    
+
     Args:
         dt: Parsed datetime with timezone info
         original_test_time: Original test time string for logging
-        
+
     Returns:
         Datetime with corrected timezone if applicable
     """
@@ -378,30 +530,32 @@ def _enhance_datetime_with_dst_detection(dt: datetime.datetime, original_test_ti
             utc_offset = dt.utcoffset()
             if utc_offset is None:
                 return dt
-                
+
             offset_seconds = utc_offset.total_seconds()
             offset_hours = offset_seconds / 3600
-            
+
             # Pacific timezone offsets: PST = -8, PDT = -7
             if offset_hours in (-8, -7):
-                import zoneinfo  # noqa: PLC0415
+                import zoneinfo
+
                 pacific_tz = zoneinfo.ZoneInfo("America/Los_Angeles")
-                
+
                 # Create a naive datetime and localize it to Pacific timezone
                 naive_dt = dt.replace(tzinfo=None)
                 pacific_dt = naive_dt.replace(tzinfo=pacific_tz)
-                
+
                 # Get the actual offset that Pacific timezone should have on this date
                 actual_utc_offset = pacific_dt.utcoffset()
                 if actual_utc_offset is None:
                     return dt
-                    
+
                 actual_offset_seconds = actual_utc_offset.total_seconds()
                 actual_offset_hours = actual_offset_seconds / 3600
-                
+
                 # Check if the provided offset differs from the actual DST status
                 if offset_hours != actual_offset_hours:
-                    import logging  # noqa: PLC0415
+                    import logging
+
                     dst_status = "PDT" if actual_offset_hours == -7 else "PST"
                     provided_status = "PDT" if offset_hours == -7 else "PST"
 
@@ -410,7 +564,7 @@ def _enhance_datetime_with_dst_detection(dt: datetime.datetime, original_test_ti
                         f"but {dt.date()} should be {dst_status}. "
                         f"Correcting {offset_hours:+.0f}:00 → {actual_offset_hours:+.0f}:00"
                     )
-                    
+
                     # Return the corrected datetime with proper Pacific timezone
                     return pacific_dt
                 # Offset is correct, but still convert to proper Pacific timezone object
@@ -418,10 +572,11 @@ def _enhance_datetime_with_dst_detection(dt: datetime.datetime, original_test_ti
                 return pacific_dt
 
     except Exception as e:
-        import logging  # noqa: PLC0415
+        import logging
+
         logging.warning(f"DST detection failed for {original_test_time}: {e}")
         # Fall back to original datetime
-        
+
     return dt
 
 
@@ -515,25 +670,26 @@ def _compute_last_meeting_end_for_today(
         - note: str | None (for any processing notes)
     """
     now_utc = _now_utc()
-    
+
     # Parse timezone or fallback to UTC
     try:
         if request_tz:
-            import zoneinfo  # noqa: PLC0415
+            import zoneinfo
+
             tz = zoneinfo.ZoneInfo(request_tz)
         else:
             tz = datetime.timezone.utc  # type: ignore[assignment]
     except Exception:
         logger.warning("Invalid timezone %r, falling back to UTC", request_tz)
         tz = datetime.timezone.utc  # type: ignore[assignment]
-    
+
     # Get today's date in the target timezone
     today_date = now_utc.astimezone(tz).date()
-    
+
     latest_end_utc = None
     latest_start_utc = None
     meetings_found = 0
-    
+
     # Process events in the window
     for ev in event_window:
         try:
@@ -541,12 +697,12 @@ def _compute_last_meeting_end_for_today(
             start = ev.get("start")
             if not isinstance(start, datetime.datetime):
                 continue
-                
+
             # Convert to target timezone for date comparison
             start_local = start.astimezone(tz)
             if start_local.date() != today_date:
                 continue  # Not today
-                
+
             # Check if meeting is skipped
             if skipped_store is not None:
                 meeting_id = ev.get("meeting_id")
@@ -558,25 +714,25 @@ def _compute_last_meeting_end_for_today(
                     except Exception as e:
                         logger.warning("Error checking skipped status for %s: %s", meeting_id, e)
                         # Continue processing - don't let skipped store errors block us
-            
+
             meetings_found += 1
-            
+
             # Calculate event end time with 1-hour fallback
             duration_seconds = ev.get("duration_seconds")
             if not isinstance(duration_seconds, int) or duration_seconds <= 0:
                 duration_seconds = 3600  # 1-hour fallback
-                
+
             end_utc = start + datetime.timedelta(seconds=duration_seconds)
-            
+
             # Track latest end time
             if latest_end_utc is None or end_utc > latest_end_utc:
                 latest_end_utc = end_utc
                 latest_start_utc = start
-                
+
         except Exception as e:
             logger.warning("Error processing event for done-for-day: %s", e)
             continue
-    
+
     # Build response
     result = {
         "has_meetings_today": meetings_found > 0,
@@ -585,7 +741,7 @@ def _compute_last_meeting_end_for_today(
         "last_meeting_end_local_iso": None,
         "note": None,
     }
-    
+
     # Add local timezone version if we have an end time
     if latest_end_utc is not None:
         try:
@@ -594,13 +750,13 @@ def _compute_last_meeting_end_for_today(
         except Exception as e:
             logger.warning("Error converting end time to local timezone: %s", e)
             result["note"] = "Local timezone conversion failed"
-    
+
     logger.debug(
         "Done-for-day computation: %d meetings today, latest end: %s",
         meetings_found,
         result["last_meeting_end_iso"],
     )
-    
+
     return result
 
 
@@ -627,11 +783,11 @@ async def _fetch_and_parse_source(
         logger.debug(" Processing source configuration: %r", src_cfg)
         try:
             # Lazy imports
-            from calendarbot.sources import (  # noqa: PLC0415
+            from calendarbot.sources import (
                 ics_source as ics_source_module,  # type: ignore
             )
 
-            from . import (  # noqa: PLC0415
+            from . import (
                 lite_parser as ics_parser,  # type: ignore
                 lite_rrule_expander as rrule_expander,  # type: ignore
             )
@@ -640,7 +796,7 @@ async def _fetch_and_parse_source(
             ics_source_ctor = getattr(ics_source_module, "IcsSource", None)
             if ics_source_ctor is None:
                 try:
-                    from . import lite_models as ics_models  # type: ignore  # noqa: PLC0415
+                    from . import lite_models as ics_models  # type: ignore
 
                     ics_source_ctor = getattr(ics_models, "LiteICSSource", None)
                 except Exception:
@@ -652,8 +808,8 @@ async def _fetch_and_parse_source(
 
             # Get the fetcher
             try:
-                from . import lite_models as ics_models  # type: ignore  # noqa: PLC0415
-                from .lite_fetcher import (  # noqa: PLC0415
+                from . import lite_models as ics_models  # type: ignore
+                from .lite_fetcher import (
                     LiteICSFetcher as ICSFetcher,  # type: ignore
                 )
             except Exception as e:
@@ -898,6 +1054,15 @@ async def _refresh_once(
     """
     logger.debug("=== Starting refresh_once ===")
 
+    # Track refresh attempt and log monitoring event
+    _update_health_tracking(refresh_attempt=True, background_heartbeat=True)
+    log_monitoring_event(
+        "refresh.cycle.start",
+        "Starting refresh cycle",
+        "DEBUG",
+        details={"sources_count": len(_get_config_value(config, "ics_sources", []) or [])},
+    )
+
     # Collect sources configuration
     sources_cfg = _get_config_value(config, "ics_sources", []) or []
 
@@ -918,6 +1083,12 @@ async def _refresh_once(
 
     if not sources_cfg:
         logger.error("DEBUG: No sources configured, skipping refresh - THIS IS THE PROBLEM!")
+        log_monitoring_event(
+            "refresh.config.error",
+            "No ICS sources configured - refresh skipped",
+            "ERROR",
+            details={"config_keys": list(config.keys()) if isinstance(config, dict) else []},
+        )
         return
 
     # Use bounded concurrency for fetching sources
@@ -956,6 +1127,15 @@ async def _refresh_once(
             existing_count,
         )
 
+        # Log monitoring event for source failures
+        log_monitoring_event(
+            "refresh.sources.all_failed",
+            f"All ICS sources failed - preserving {existing_count} existing events",
+            "ERROR",
+            details={"existing_events": existing_count, "sources_count": len(sources_cfg)},
+            include_system_state=True,
+        )
+
         if existing_count > 0:
             logger.info(
                 "Fallback: Using cached events - %d upcoming events preserved from last successful refresh",
@@ -966,19 +1146,25 @@ async def _refresh_once(
         logger.error(
             "All sources failed and no cached events available - will show 'No upcoming meetings'"
         )
+        log_monitoring_event(
+            "refresh.sources.critical_failure",
+            "All sources failed with no cached events - service degraded",
+            "CRITICAL",
+            include_system_state=True,
+        )
         # Continue with empty window since we have no choice
     else:
         # SMART FALLBACK: Check if we received 0 events from "successful" parsing
         async with window_lock:
             existing_window = event_window_ref[0]
             existing_count = len(existing_window)
-        
+
         logger.debug(
             f"DIAGNOSIS: Received {len(parsed_events)} events from sources. "
             f"Existing window has {existing_count} events. "
             f"Will process new events (potentially clearing existing data)."
         )
-        
+
         # SMART FALLBACK: If we get 0 events but had events before, this is suspicious
         if len(parsed_events) == 0 and existing_count > 0:
             logger.warning(
@@ -995,26 +1181,28 @@ async def _refresh_once(
     # Filter out past events and skipped ones, sort and trim window size.
     now = _now_utc()
     server_tz_name = _get_server_timezone()
-    
+
     upcoming = []
     for e in parsed_events:
         start_dt = e.get("start")
         if not isinstance(start_dt, datetime.datetime):
             continue
-            
+
         # Handle timezone-aware vs timezone-naive datetime comparison
         try:
             if start_dt.tzinfo is None:
                 # Event is timezone-naive - assume it's in server timezone
                 try:
-                    import zoneinfo  # noqa: PLC0415
+                    import zoneinfo
+
                     server_tz = zoneinfo.ZoneInfo(server_tz_name)
                     start_dt_aware = start_dt.replace(tzinfo=server_tz)
                 except Exception:
                     # Fallback: assume naive datetime is in server timezone
                     server_tz = _get_fallback_timezone()
                     try:
-                        import zoneinfo  # noqa: PLC0415
+                        import zoneinfo
+
                         fallback_tz = zoneinfo.ZoneInfo(server_tz)
                         start_dt_aware = start_dt.replace(tzinfo=fallback_tz)
                     except Exception:
@@ -1023,11 +1211,11 @@ async def _refresh_once(
             else:
                 # Event is already timezone-aware
                 start_dt_aware = start_dt
-                
+
             # Now we can safely compare timezone-aware datetimes
             if start_dt_aware >= now:
                 upcoming.append(e)
-                
+
         except Exception as ex:
             logger.warning("Failed to process event start time %s: %s", start_dt, ex)
             continue
@@ -1042,13 +1230,30 @@ async def _refresh_once(
 
     upcoming.sort(key=lambda e: e["start"])
 
-    window_size = int(_get_config_value(config, "event_window_size", 10))
+    window_size = int(_get_config_value(config, "event_window_size", 50))
     pruned = upcoming[:window_size]
 
     # Store atomically (replace the single reference inside event_window_ref list).
     async with window_lock:
         event_window_ref[0] = tuple(pruned)
+
+    # Track successful refresh and log monitoring event
+    _update_health_tracking(refresh_success=True, event_count=len(pruned))
+
     logger.debug(" Refresh complete; stored %d events in window", len(pruned))
+
+    # Log structured monitoring event for refresh success
+    log_monitoring_event(
+        "refresh.cycle.complete",
+        f"Refresh cycle completed successfully - {len(pruned)} events in window",
+        "INFO",
+        details={
+            "events_parsed": len(parsed_events),
+            "events_in_window": len(pruned),
+            "sources_processed": len(_get_config_value(config, "ics_sources", []) or []),
+        },
+        include_system_state=True,
+    )
 
     # INFO level log to confirm server is operational and data is available
     if parsed_events:
@@ -1061,7 +1266,6 @@ async def _refresh_once(
             "No events from sources - using fallback behavior (%d events in window)",
             len(pruned),
         )
-
 
     # Log event details for debugging
     for i, event in enumerate(pruned[:3]):  # Log first 3 events
@@ -1143,7 +1347,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
     """
     # Lazy import aiohttp.web
     try:
-        from aiohttp import web  # type: ignore  # noqa: PLC0415
+        from aiohttp import web  # type: ignore
     except Exception:  # pragma: no cover - requires aiohttp at runtime
         logger.exception("aiohttp is required to run the server")
         raise
@@ -1153,9 +1357,80 @@ async def _make_app(  # type: ignore[no-untyped-def]
     app = web.Application()
 
     # Get the package directory for static file serving
-    from pathlib import Path  # noqa: PLC0415
+    from pathlib import Path
 
     package_dir = Path(__file__).resolve().parent
+
+    async def health_check(_request):  # type: ignore[no-untyped-def]
+        """Health check endpoint for monitoring system status."""
+        now = _now_utc()
+        now_iso = now.isoformat() + "Z"
+
+        # Server uptime calculation
+        uptime_seconds = int(time.time() - _server_start_time)
+
+        # Last refresh delta calculation
+        last_success_delta_s = None
+        if _last_refresh_success is not None:
+            last_success_delta_s = int(time.time() - _last_refresh_success)
+
+        # Determine overall status
+        status = "ok"
+        if _last_refresh_success is None:
+            status = "degraded"  # Never had successful refresh
+        elif last_success_delta_s is not None and last_success_delta_s > 900:  # 15 minutes
+            status = "degraded"  # No successful refresh in 15+ minutes
+
+        # Background task status
+        background_tasks = []
+        if _background_task_heartbeat is not None:
+            heartbeat_age = int(time.time() - _background_task_heartbeat)
+            background_tasks.append(
+                {
+                    "name": "refresher_task",
+                    "status": "running" if heartbeat_age < 600 else "stale",  # 10 minutes
+                    "last_heartbeat_age_s": heartbeat_age,
+                }
+            )
+
+        # Get system diagnostics
+        diag = _get_system_diagnostics()
+
+        # Build comprehensive health response
+        health_data = {
+            "status": status,
+            "server_time_iso": now_iso,
+            "server_status": {"uptime_s": uptime_seconds, "pid": os.getpid()},
+            "last_refresh": {
+                "last_success_iso": _last_refresh_success
+                and datetime.datetime.fromtimestamp(
+                    _last_refresh_success, tz=datetime.timezone.utc
+                ).isoformat()
+                + "Z",
+                "last_attempt_iso": _last_refresh_attempt
+                and datetime.datetime.fromtimestamp(
+                    _last_refresh_attempt, tz=datetime.timezone.utc
+                ).isoformat()
+                + "Z",
+                "last_success_delta_s": last_success_delta_s,
+                "event_count": _current_event_count,
+            },
+            "background_tasks": background_tasks,
+            "display_probe": {
+                "last_render_probe_iso": _last_render_probe
+                and datetime.datetime.fromtimestamp(
+                    _last_render_probe, tz=datetime.timezone.utc
+                ).isoformat()
+                + "Z",
+                "last_probe_ok": _last_render_probe_ok,
+                "last_probe_notes": _last_render_probe_notes,
+            },
+            "diag": diag,
+        }
+
+        # Return appropriate HTTP status based on health
+        http_status = 200 if status == "ok" else 503
+        return web.json_response(health_data, status=http_status)
 
     async def whats_next(_request):  # type: ignore[no-untyped-def]
         now = _now_utc()
@@ -1175,7 +1450,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
                 continue
 
             seconds_until = int((start - now).total_seconds())
-                
+
             if seconds_until < 0:
                 continue
             if skipped_store is not None:
@@ -1359,7 +1634,9 @@ async def _make_app(  # type: ignore[no-untyped-def]
                     if ssml_output:
                         logger.info("SSML generated successfully: %d characters", len(ssml_output))
                     else:
-                        logger.warning("SSML generation returned None - validation failed or disabled")
+                        logger.warning(
+                            "SSML generation returned None - validation failed or disabled"
+                        )
                 except Exception as e:
                     logger.error("SSML generation failed: %s", e, exc_info=True)
             else:  # type: ignore[unreachable]
@@ -1374,18 +1651,21 @@ async def _make_app(  # type: ignore[no-untyped-def]
                     "duration_spoken": duration_spoken,
                 }
             }
-            
+
             # Add SSML to response if generated
             if ssml_output:
                 response_data["meeting"]["ssml"] = ssml_output
-                logger.debug("Added SSML to response: %s", ssml_output[:100] + "..." if len(ssml_output) > 100 else ssml_output)
+                logger.debug(
+                    "Added SSML to response: %s",
+                    ssml_output[:100] + "..." if len(ssml_output) > 100 else ssml_output,
+                )
 
             return web.json_response(response_data, status=200)
 
         # No upcoming meetings case
         speech_text = "You have no upcoming meetings."
         ssml_output = None
-        
+
         # Generate SSML for no meetings case if available
         if render_meeting_ssml:  # type: ignore[truthy-function]
             logger.debug("Attempting SSML generation for no meetings case")
@@ -1460,7 +1740,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
                 "duration_spoken": duration_spoken,
                 "speech_text": speech_text,
             }
-            
+
             # Add SSML to response if generated
             if ssml_output:
                 response_data["ssml"] = ssml_output
@@ -1470,14 +1750,16 @@ async def _make_app(  # type: ignore[no-untyped-def]
         # No upcoming meetings case for time-until
         speech_text = "You have no upcoming meetings."
         ssml_output = None
-        
+
         # Generate SSML for no meetings case if available
         if render_time_until_ssml:  # type: ignore[truthy-function]
             logger.debug("Attempting SSML generation for time-until no meetings case")
             try:
                 ssml_output = render_time_until_ssml(0, None)  # 0 seconds, no meeting
                 if ssml_output:
-                    logger.info("Time-until no-meetings SSML generated: %d characters", len(ssml_output))
+                    logger.info(
+                        "Time-until no-meetings SSML generated: %d characters", len(ssml_output)
+                    )
             except Exception as e:
                 logger.error("Time-until no-meetings SSML generation failed: %s", e, exc_info=True)
 
@@ -1490,55 +1772,64 @@ async def _make_app(  # type: ignore[no-untyped-def]
     async def done_for_day(request):  # type: ignore[no-untyped-def]
         """API endpoint for getting last meeting end time for today."""
         now = _now_utc()
-        
+
         # Get timezone parameter from query string
         request_tz = request.query.get("tz")
-        
+
         # Read window with lock to be consistent
         async with window_lock:
             window = tuple(event_window_ref[0])
-        
-        logger.debug("/api/done-for-day called - window has %d events, tz=%s", len(window), request_tz)
-        
+
+        logger.debug(
+            "/api/done-for-day called - window has %d events, tz=%s", len(window), request_tz
+        )
+
         # Compute last meeting end for today
         result = _compute_last_meeting_end_for_today(request_tz, window, skipped_store)
-        
+
         # Build full response with current time and timezone info
         response = {
             "now_iso": _serialize_iso(now),
             "tz": request_tz,
             **result,
         }
-        
+
         return web.json_response(response, status=200)
 
     async def alexa_done_for_day(request):  # type: ignore[no-untyped-def]
         """Alexa endpoint for getting done-for-day status with SSML."""
         if not _check_bearer_token(request, alexa_bearer_token):
             return web.json_response({"error": "Unauthorized"}, status=401)
-        
+
         now = _now_utc()
-        
+
         # Get timezone parameter from query string
         request_tz = request.query.get("tz")
-        
+
         # Read window with lock to be consistent
         async with window_lock:
             window = tuple(event_window_ref[0])
-        
-        logger.debug("Alexa /api/alexa/done-for-day called - window has %d events, tz=%s", len(window), request_tz)
-        
+
+        logger.debug(
+            "Alexa /api/alexa/done-for-day called - window has %d events, tz=%s",
+            len(window),
+            request_tz,
+        )
+
         # Compute last meeting end for today
         result = _compute_last_meeting_end_for_today(request_tz, window, skipped_store)
-        
+
         # Generate speech text based on results
         if result["has_meetings_today"]:
             if result["last_meeting_end_iso"]:
                 # Parse the end time for speech formatting
                 try:
-                    import zoneinfo  # noqa: PLC0415
-                    end_utc = datetime.datetime.fromisoformat(result["last_meeting_end_iso"].replace("Z", "+00:00"))
-                    
+                    import zoneinfo
+
+                    end_utc = datetime.datetime.fromisoformat(
+                        result["last_meeting_end_iso"].replace("Z", "+00:00")
+                    )
+
                     # Convert to local time for speech
                     if request_tz:
                         try:
@@ -1549,7 +1840,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
                             time_str = end_utc.strftime("%-I:%M %p UTC").lower()
                     else:
                         time_str = end_utc.strftime("%-I:%M %p UTC").lower()
-                    
+
                     # Compare current time with last meeting end time
                     if now >= end_utc:
                         # All meetings for today have ended
@@ -1557,15 +1848,19 @@ async def _make_app(  # type: ignore[no-untyped-def]
                     else:
                         # Still have meetings, will be done at end time
                         speech_text = f"You'll be done at {time_str}."
-                        
+
                 except Exception as e:
                     logger.warning("Error formatting end time for speech: %s", e)
-                    speech_text = "You have meetings today, but I couldn't determine when your last one ends."
+                    speech_text = (
+                        "You have meetings today, but I couldn't determine when your last one ends."
+                    )
             else:
-                speech_text = "You have meetings today, but I couldn't determine when your last one ends."
+                speech_text = (
+                    "You have meetings today, but I couldn't determine when your last one ends."
+                )
         else:
             speech_text = "You have no meetings today. Enjoy your free day!"
-        
+
         # Generate SSML if available
         ssml_output = None
         if render_done_for_day_ssml:  # type: ignore[truthy-function]
@@ -1578,7 +1873,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
                     logger.warning("Done-for-day SSML generation returned None")
             except Exception as e:
                 logger.error("Done-for-day SSML generation failed: %s", e, exc_info=True)
-        
+
         # Build response
         response_data = {
             "now_iso": _serialize_iso(now),
@@ -1586,7 +1881,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
             **result,
             "speech_text": speech_text,
         }
-        
+
         # Add SSML and card data for Alexa if available
         if ssml_output:
             response_data["ssml"] = ssml_output
@@ -1594,10 +1889,11 @@ async def _make_app(  # type: ignore[no-untyped-def]
                 "title": "Done for the Day",
                 "content": speech_text,
             }
-        
+
         return web.json_response(response_data, status=200)
 
     # API routes
+    app.router.add_get("/api/health", health_check)
     app.router.add_get("/api/whats-next", whats_next)
     app.router.add_post("/api/skip", post_skip)
     app.router.add_delete("/api/skip", delete_skip)
@@ -1608,37 +1904,42 @@ async def _make_app(  # type: ignore[no-untyped-def]
         """Alexa endpoint for launch intent - comprehensive summary with SSML."""
         if not _check_bearer_token(request, alexa_bearer_token):
             return web.json_response({"error": "Unauthorized"}, status=401)
-        
+
         now = _now_utc()
-        
+
         # Get timezone parameter from query string
         request_tz = request.query.get("tz")
-        
+
         # Read window with lock to be consistent
         async with window_lock:
             window = tuple(event_window_ref[0])
-        
-        logger.debug("Alexa /api/alexa/launch-summary called - window has %d events, tz=%s", len(window), request_tz)
-        
+
+        logger.debug(
+            "Alexa /api/alexa/launch-summary called - window has %d events, tz=%s",
+            len(window),
+            request_tz,
+        )
+
         # Compute last meeting end for today to determine if done for day
         done_for_day_result = _compute_last_meeting_end_for_today(request_tz, window, skipped_store)
-        
+
         # Parse timezone for date comparison
         try:
             if request_tz:
-                import zoneinfo  # noqa: PLC0415
+                import zoneinfo
+
                 tz = zoneinfo.ZoneInfo(request_tz)
             else:
                 tz = datetime.timezone.utc  # type: ignore[assignment]
         except Exception:
             tz = datetime.timezone.utc  # type: ignore[assignment]
-        
+
         today_date = now.astimezone(tz).date()
-        
+
         # Initialize meeting variables
         next_meeting_today = None
         future_meeting = None
-        
+
         # Build speech response based on whether there are meetings today
         if not done_for_day_result["has_meetings_today"]:
             # No meetings today case
@@ -1648,11 +1949,11 @@ async def _make_app(  # type: ignore[no-untyped-def]
                 start = ev.get("start")
                 if not isinstance(start, datetime.datetime):
                     continue
-                    
+
                 start_local = start.astimezone(tz)
                 if start_local.date() <= today_date:
                     continue  # Skip today's meetings and past meetings
-                
+
                 # This is a future meeting beyond today
                 if skipped_store is not None:
                     is_skipped = getattr(skipped_store, "is_skipped", None)
@@ -1661,21 +1962,21 @@ async def _make_app(  # type: ignore[no-untyped-def]
                             continue
                     except Exception:
                         pass
-                
+
                 seconds_until = int((start - now).total_seconds())
                 future_meeting = {
                     "event": ev,
                     "seconds_until": seconds_until,
                     "subject": ev.get("subject", "Untitled meeting"),
-                    "duration_spoken": _format_duration_spoken(seconds_until)
+                    "duration_spoken": _format_duration_spoken(seconds_until),
                 }
                 break
-            
+
             if future_meeting:
                 speech_text = f"No meetings today, you're free until {future_meeting['subject']} {future_meeting['duration_spoken']}."
             else:
                 speech_text = "No meetings today. You have no upcoming meetings scheduled."
-                
+
         else:
             # Have meetings today case - find next meeting today
             next_meeting_today = None
@@ -1683,42 +1984,47 @@ async def _make_app(  # type: ignore[no-untyped-def]
                 start = ev.get("start")
                 if not isinstance(start, datetime.datetime):
                     continue
-                    
+
                 start_local = start.astimezone(tz)
                 if start_local.date() != today_date:
                     continue  # Skip non-today meetings
-                    
+
                 seconds_until = int((start - now).total_seconds())
                 if seconds_until < 0:
                     continue  # Skip past meetings
-                    
+
                 if skipped_store is not None:
                     is_skipped = getattr(skipped_store, "is_skipped", None)
                     try:
                         if callable(is_skipped) and is_skipped(ev["meeting_id"]):
                             continue
                     except Exception as e:
-                        logger.warning("skipped_store.is_skipped raised during alexa launch call: %s", e)
-                
+                        logger.warning(
+                            "skipped_store.is_skipped raised during alexa launch call: %s", e
+                        )
+
                 next_meeting_today = {
                     "event": ev,
                     "seconds_until": seconds_until,
                     "subject": ev.get("subject", "Untitled meeting"),
-                    "duration_spoken": _format_duration_spoken(seconds_until)
+                    "duration_spoken": _format_duration_spoken(seconds_until),
                 }
                 break
-            
+
             if next_meeting_today:
                 speech_text = f"Your next meeting is {next_meeting_today['subject']} {next_meeting_today['duration_spoken']}."
             else:
                 speech_text = "You have no more meetings today."
-            
+
             # Add done-for-day information if we have meetings today
             if done_for_day_result["last_meeting_end_iso"]:
                 try:
-                    import zoneinfo  # noqa: PLC0415
-                    end_utc = datetime.datetime.fromisoformat(done_for_day_result["last_meeting_end_iso"].replace("Z", "+00:00"))
-                    
+                    import zoneinfo
+
+                    end_utc = datetime.datetime.fromisoformat(
+                        done_for_day_result["last_meeting_end_iso"].replace("Z", "+00:00")
+                    )
+
                     # Convert to local time for speech
                     if request_tz:
                         try:
@@ -1729,23 +2035,23 @@ async def _make_app(  # type: ignore[no-untyped-def]
                             time_str = end_utc.strftime("%-I:%M %p UTC").lower()
                     else:
                         time_str = end_utc.strftime("%-I:%M %p UTC").lower()
-                    
+
                     if now >= end_utc:
                         speech_text += " You're all done for today!"
                     else:
                         speech_text += f" You'll be done for the day at {time_str}."
-                        
+
                 except Exception as e:
                     logger.warning("Error formatting end time for launch summary: %s", e)
                     speech_text += " I couldn't determine when your last meeting ends today."
-        
+
         # Determine which meeting to use for SSML and response building
         primary_meeting = None
         if done_for_day_result["has_meetings_today"] and next_meeting_today is not None:
             primary_meeting = next_meeting_today
         elif not done_for_day_result["has_meetings_today"] and future_meeting is not None:
             primary_meeting = future_meeting
-        
+
         # Generate SSML if available - reuse existing SSML functions
         ssml_output = None
         if done_for_day_result["has_meetings_today"] and primary_meeting and render_meeting_ssml:  # type: ignore[truthy-function]
@@ -1763,19 +2069,33 @@ async def _make_app(  # type: ignore[no-untyped-def]
                 base_ssml = render_meeting_ssml(meeting_data)
                 if base_ssml:
                     ssml_output = base_ssml
-                    logger.info("Launch summary (meetings today) SSML generated: %d characters", len(ssml_output))
+                    logger.info(
+                        "Launch summary (meetings today) SSML generated: %d characters",
+                        len(ssml_output),
+                    )
             except Exception as e:
-                logger.error("Launch summary (meetings today) SSML generation failed: %s", e, exc_info=True)
+                logger.error(
+                    "Launch summary (meetings today) SSML generation failed: %s", e, exc_info=True
+                )
         elif render_done_for_day_ssml:  # type: ignore[truthy-function]
             # No meetings today case - use done-for-day SSML (which handles the speech_text format)
             logger.debug("Attempting SSML generation for launch summary (no meetings today)")
             try:
-                ssml_output = render_done_for_day_ssml(done_for_day_result["has_meetings_today"], speech_text)
+                ssml_output = render_done_for_day_ssml(
+                    done_for_day_result["has_meetings_today"], speech_text
+                )
                 if ssml_output:
-                    logger.info("Launch summary (no meetings today) SSML generated: %d characters", len(ssml_output))
+                    logger.info(
+                        "Launch summary (no meetings today) SSML generated: %d characters",
+                        len(ssml_output),
+                    )
             except Exception as e:
-                logger.error("Launch summary (no meetings today) SSML generation failed: %s", e, exc_info=True)
-        
+                logger.error(
+                    "Launch summary (no meetings today) SSML generation failed: %s",
+                    e,
+                    exc_info=True,
+                )
+
         # Build response
         response_data = {
             "speech_text": speech_text,
@@ -1785,21 +2105,23 @@ async def _make_app(  # type: ignore[no-untyped-def]
                 "start_iso": _serialize_iso(primary_meeting["event"].get("start")),
                 "seconds_until_start": primary_meeting["seconds_until"],
                 "duration_spoken": primary_meeting["duration_spoken"],
-            } if primary_meeting else None,
+            }
+            if primary_meeting
+            else None,
             "done_for_day": done_for_day_result,
         }
-        
+
         # Add SSML to response if generated
         if ssml_output:
             response_data["ssml"] = ssml_output
-        
+
         return web.json_response(response_data, status=200)
 
     async def alexa_morning_summary(request):  # type: ignore[no-untyped-def]
         """Alexa endpoint for morning summary with intelligent context switching."""
         if not _check_bearer_token(request, alexa_bearer_token):
             return web.json_response({"error": "Unauthorized"}, status=401)
-        
+
         try:
             # Parse request parameters
             target_date = request.query.get("date")  # ISO date for summary (defaults to tomorrow)
@@ -1807,13 +2129,15 @@ async def _make_app(  # type: ignore[no-untyped-def]
             detail_level = request.query.get("detail_level", "normal")
             prefer_ssml = request.query.get("prefer_ssml", "false").lower() == "true"
             max_events = int(request.query.get("max_events", "50"))
-            
-            logger.debug("Alexa morning summary called with tz=%s, prefer_ssml=%s", timezone_str, prefer_ssml)
-            
+
+            logger.debug(
+                "Alexa morning summary called with tz=%s, prefer_ssml=%s", timezone_str, prefer_ssml
+            )
+
             # Read window with lock to be consistent
             async with window_lock:
                 window = tuple(event_window_ref[0])
-            
+
             # Convert raw events to LiteCalendarEvent objects for morning summary service
             from .lite_models import (
                 LiteCalendarEvent,
@@ -1822,24 +2146,24 @@ async def _make_app(  # type: ignore[no-untyped-def]
                 LiteLocation,
             )
             from .morning_summary import MorningSummaryRequest, MorningSummaryService
-            
+
             lite_events = []
             for ev in window:
                 try:
                     # Convert raw event dict to LiteCalendarEvent
                     start_dt = ev.get("start")
                     duration_seconds = ev.get("duration_seconds", 3600)  # Default 1 hour
-                    
+
                     if not isinstance(start_dt, datetime.datetime):
                         continue
-                        
+
                     end_dt = start_dt + datetime.timedelta(seconds=duration_seconds)
-                    
+
                     # Create location object if location exists
                     location_obj = None
                     if ev.get("location"):
                         location_obj = LiteLocation(display_name=ev.get("location", ""))
-                    
+
                     lite_event = LiteCalendarEvent(
                         id=ev.get("meeting_id", f"event_{id(ev)}"),  # Use meeting_id or fallback
                         subject=ev.get("subject", "Untitled meeting"),
@@ -1854,31 +2178,34 @@ async def _make_app(  # type: ignore[no-untyped-def]
                 except Exception as e:
                     logger.warning("Failed to convert event to LiteCalendarEvent: %s", e)
                     continue
-            
+
             # Create morning summary request
             summary_request = MorningSummaryRequest(
                 date=target_date,
                 timezone=timezone_str,
                 detail_level=detail_level,
                 prefer_ssml=prefer_ssml,
-                max_events=max_events
+                max_events=max_events,
             )
-            
+
             # Generate morning summary
             service = MorningSummaryService()
             summary_result = await service.generate_summary(lite_events, summary_request)
-            
+
             # Generate SSML if requested and available
             ssml_output = None
             if prefer_ssml and summary_result.speech_text:
                 try:
                     from .alexa_ssml import render_morning_summary_ssml
+
                     ssml_output = render_morning_summary_ssml(summary_result)
                     if ssml_output:
-                        logger.info("Morning summary SSML generated: %d characters", len(ssml_output))
+                        logger.info(
+                            "Morning summary SSML generated: %d characters", len(ssml_output)
+                        )
                 except Exception as e:
                     logger.error("Morning summary SSML generation failed: %s", e, exc_info=True)
-            
+
             # Build response following existing Alexa endpoint patterns
             response_data = {
                 "speech_text": summary_result.speech_text,
@@ -1890,22 +2217,27 @@ async def _make_app(  # type: ignore[no-untyped-def]
                     "back_to_back_count": summary_result.back_to_back_count,
                     "timeframe_start": summary_result.timeframe_start.isoformat(),
                     "timeframe_end": summary_result.timeframe_end.isoformat(),
-                    "wake_up_recommendation": summary_result.wake_up_recommendation_time.isoformat() if summary_result.wake_up_recommendation_time else None,
-                }
+                    "wake_up_recommendation": summary_result.wake_up_recommendation_time.isoformat()
+                    if summary_result.wake_up_recommendation_time
+                    else None,
+                },
             }
-            
+
             # Add SSML to response if generated
             if ssml_output:
                 response_data["ssml"] = ssml_output
-            
+
             return web.json_response(response_data, status=200)
-            
+
         except Exception as e:
             logger.error("Morning summary endpoint failed: %s", e, exc_info=True)
-            return web.json_response({
-                "error": "Internal server error",
-                "speech_text": "Sorry, I couldn't generate your morning summary right now. Please try again later."
-            }, status=500)
+            return web.json_response(
+                {
+                    "error": "Internal server error",
+                    "speech_text": "Sorry, I couldn't generate your morning summary right now. Please try again later.",
+                },
+                status=500,
+            )
 
     async def morning_summary(request):  # type: ignore[no-untyped-def]
         """General API endpoint for morning summary with full structured data.
@@ -2052,7 +2384,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
 
     # General API routes
     app.router.add_post("/api/morning-summary", morning_summary)
-    
+
     # Alexa-specific API routes
     app.router.add_get("/api/alexa/next-meeting", alexa_next_meeting)
     app.router.add_get("/api/alexa/time-until-next", alexa_time_until_next)
@@ -2092,7 +2424,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     # Create web app (may raise if aiohttp not available).
     try:
         # Log the environment and incoming config to diagnose missing source entries.
-        import os as _os  # noqa: PLC0415
+        import os as _os
 
         env_url = _os.environ.get("CALENDARBOT_ICS_URL")
         masked = env_url[:40] + ("..." if len(env_url) > 40 else "") if env_url else None
@@ -2125,7 +2457,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     logger.debug("Web application created")
 
     # Setup runner and TCP site
-    from aiohttp import web  # type: ignore  # noqa: PLC0415
+    from aiohttp import web  # type: ignore
 
     runner = web.AppRunner(app)
     await runner.setup()
@@ -2136,17 +2468,45 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     # Check for port conflicts and handle them
     if not _handle_port_conflict(host, port):
         logger.error("Failed to resolve port conflict on %s:%d - server cannot start", host, port)
-        raise RuntimeError(f"Port {port} is occupied and could not be freed")
+        log_monitoring_event(
+            "server.startup.port_conflict",
+            f"Port conflict on {host}:{port} could not be resolved",
+            "CRITICAL",
+            details={"host": host, "port": port},
+            include_system_state=True,
+        )
+        raise PortConflictError(f"Port {port} is occupied and could not be freed")
 
     site = web.TCPSite(runner, host=host, port=port)
     try:
         await site.start()
         logger.info("Server started successfully on %s:%d", host, port)
+        log_monitoring_event(
+            "server.startup.success",
+            f"CalendarBot_Lite server started successfully on {host}:{port}",
+            "INFO",
+            details={"host": host, "port": port, "pid": os.getpid()},
+            include_system_state=True,
+        )
     except OSError as e:
         if "Address already in use" in str(e):
             logger.exception("Port %d is still occupied after conflict resolution", port)
+            log_monitoring_event(
+                "server.startup.port_still_occupied",
+                f"Port {port} still occupied after conflict resolution",
+                "CRITICAL",
+                details={"host": host, "port": port, "error": str(e)},
+                include_system_state=True,
+            )
             raise RuntimeError(f"Port {port} is still occupied: {e}") from e
         logger.exception("Failed to start server on %s:%d", host, port)
+        log_monitoring_event(
+            "server.startup.failure",
+            f"Failed to start server on {host}:{port}",
+            "CRITICAL",
+            details={"host": host, "port": port, "error": str(e)},
+            include_system_state=True,
+        )
         raise
 
     # Start background refresher task
@@ -2172,6 +2532,12 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     # Wait until stop_event is set (by signal) then cleanup.
     await stop_event.wait()
     logger.info("Stop event received, shutting down")
+    log_monitoring_event(
+        "server.shutdown.start",
+        "Server shutdown initiated",
+        "INFO",
+        details={"uptime_seconds": int(time.time() - _server_start_time)},
+    )
 
     # Cancel refresher and wait for it to finish
     refresher.cancel()
@@ -2236,7 +2602,7 @@ def start_server(config: Any, skipped_store: object | None = None) -> None:
     # Allow runtime control of debug logging via config
     debug_mode = _get_config_value(config, "debug_logging", False)
     try:
-        from .lite_logging import configure_lite_logging  # noqa: PLC0415
+        from .lite_logging import configure_lite_logging
 
         configure_lite_logging(debug_mode=debug_mode)
         logger.info("Logging configuration applied: debug_mode=%s", debug_mode)
@@ -2248,5 +2614,9 @@ def start_server(config: Any, skipped_store: object | None = None) -> None:
         asyncio.run(_serve(config, skipped_store))
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
+    except PortConflictError as e:
+        logger.exception("Server cannot start")
+        print(f"\nServer startup aborted: {e}")
+        print("Please resolve the port conflict and try again.")
     except Exception:
         logger.exception("Server terminated unexpectedly")

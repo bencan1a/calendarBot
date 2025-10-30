@@ -395,7 +395,7 @@ async def parse_ics_stream(
 
         # Parse stream with memory-bounded processing
         max_stored_events = 1000  # Increased to handle calendars with many recurring events
-        
+
         # Debug counters for network corruption detection
         total_items_processed = 0
         event_items_processed = 0
@@ -404,14 +404,14 @@ async def parse_ics_stream(
 
         async for item in parser.parse_from_bytes_iter(stream):
             total_items_processed += 1
-            
+
             if item["type"] == "event":
                 event_items_processed += 1
                 try:
                     # Convert raw component to LiteCalendarEvent using existing parser logic
                     component = item["component"]
                     calendar_metadata.update(item["metadata"])
-                    
+
                     # Check for duplicate event processing (indicates network corruption)
                     # NOTE: Events with RECURRENCE-ID share the same UID as their master event,
                     # so we need to include RECURRENCE-ID in the uniqueness check
@@ -446,8 +446,14 @@ async def parse_ics_stream(
                             logger.debug(
                                 "Streaming parse progress - source_url=%s, events_processed=%d, "
                                 "unique_uids=%d, duplicate_ratio=%.2f%%",
-                                source_url or "unknown", event_items_processed, len(duplicate_event_ids),
-                                ((total_items_processed - len(duplicate_event_ids)) / max(total_items_processed, 1)) * 100
+                                source_url or "unknown",
+                                event_items_processed,
+                                len(duplicate_event_ids),
+                                (
+                                    (total_items_processed - len(duplicate_event_ids))
+                                    / max(total_items_processed, 1)
+                                )
+                                * 100,
                             )
 
                     # Use a minimal settings object for event parsing
@@ -480,38 +486,56 @@ async def parse_ics_stream(
                                     f"Event limit reached ({max_stored_events}), truncating results"
                                 )
                                 warnings.append(warning)
-                                
+
                                 # Enhanced warning logging with telemetry data
-                                duplicate_ratio = ((total_items_processed - len(duplicate_event_ids)) / max(total_items_processed, 1)) * 100
+                                duplicate_ratio = (
+                                    (total_items_processed - len(duplicate_event_ids))
+                                    / max(total_items_processed, 1)
+                                ) * 100
                                 logger.warning(
                                     "Event limit warning - source_url=%s, limit=%d, warning_count=%d, "
                                     "total_items=%d, events_processed=%d, unique_uids=%d, duplicate_ratio=%.2f%%",
-                                    source_url or "unknown", max_stored_events, warning_count,
-                                    total_items_processed, event_items_processed, len(duplicate_event_ids), duplicate_ratio
+                                    source_url or "unknown",
+                                    max_stored_events,
+                                    warning_count,
+                                    total_items_processed,
+                                    event_items_processed,
+                                    len(duplicate_event_ids),
+                                    duplicate_ratio,
                                 )
-                                
+
                                 # Circuit breaker: if we're seeing repeated warnings, terminate parsing
                                 # Increased threshold to 50 to handle large calendars with recurring events
                                 # Only trigger if we also have duplicates (corruption indicator)
                                 if warning_count > 50 and duplicate_ratio > 10:
                                     # Circuit breaker activation with comprehensive diagnostic data
-                                    content_size_estimate = total_items_processed * 100  # Rough estimate
-                                    corruption_severity = "HIGH" if duplicate_ratio > 50 else "MEDIUM"
-                                    
+                                    content_size_estimate = (
+                                        total_items_processed * 100
+                                    )  # Rough estimate
+                                    corruption_severity = (
+                                        "HIGH" if duplicate_ratio > 50 else "MEDIUM"
+                                    )
+
                                     logger.error(
                                         "CIRCUIT BREAKER ACTIVATED - Network corruption detected during streaming parse. "
                                         "source_url=%s, severity=%s, warning_count=%d, content_size_est=%dbytes, "
                                         "total_items=%d, unique_events=%d, processed_events=%d, duplicate_ratio=%.2f%%, "
                                         "events_collected=%d. TERMINATING PARSING TO PREVENT INFINITE LOOP.",
-                                        source_url or "unknown", corruption_severity, warning_count, content_size_estimate,
-                                        total_items_processed, len(duplicate_event_ids), event_items_processed,
-                                        duplicate_ratio, len(events)
+                                        source_url or "unknown",
+                                        corruption_severity,
+                                        warning_count,
+                                        content_size_estimate,
+                                        total_items_processed,
+                                        len(duplicate_event_ids),
+                                        event_items_processed,
+                                        duplicate_ratio,
+                                        len(events),
                                     )
-                                    
+
                                     # Return failure when corruption is detected to trigger fallback logic
                                     logger.error(
                                         "Corruption mitigation: Returning failure to preserve %d events collected before corruption",
-                                        len(events)
+                                        len(events),
                                     )
                                     return LiteICSParseResult(
                                         success=False,
@@ -547,14 +571,20 @@ async def parse_ics_stream(
         duplicate_count = total_items_processed - len(duplicate_event_ids)
         duplicate_ratio = (duplicate_count / max(total_items_processed, 1)) * 100
         content_size_estimate = total_items_processed * 100  # Rough estimate
-        
+
         logger.debug(
             "Streaming parse completed successfully - source_url=%s, content_size_est=%dbytes, "
             "total_items=%d, events_processed=%d, unique_uids=%d, duplicate_count=%d, "
             "duplicate_ratio=%.2f%%, final_events=%d, warnings=%d",
-            source_url or "unknown", content_size_estimate, total_items_processed,
-            event_items_processed, len(duplicate_event_ids), duplicate_count, duplicate_ratio,
-            len(events), len(warnings)
+            source_url or "unknown",
+            content_size_estimate,
+            total_items_processed,
+            event_items_processed,
+            len(duplicate_event_ids),
+            duplicate_count,
+            duplicate_ratio,
+            len(events),
+            len(warnings),
         )
 
         return LiteICSParseResult(
@@ -598,7 +628,7 @@ def _ensure_timezone_aware(dt: datetime) -> datetime:
 
 def _is_production_mode() -> bool:
     """Simple production mode check for calendarbot_lite."""
-    import os  # noqa: PLC0415
+    import os
 
     return os.environ.get("CALENDARBOT_PRODUCTION", "false").lower() in ("true", "1")
 
@@ -684,9 +714,7 @@ class LiteICSParser:
             calendar_metadata = {}
 
             # Memory-bounded processing: limit stored events for typical calendar view usage
-            max_stored_events = (
-                1000  # Increased to handle calendars with many recurring events
-            )
+            max_stored_events = 1000  # Increased to handle calendars with many recurring events
 
             # Process stream with immediate filtering to prevent memory accumulation
             for item in self._streaming_parser.parse_stream(ics_content):
@@ -784,7 +812,9 @@ class LiteICSParser:
                     expanded_events = self._expand_recurring_events(filtered_events, raw_components)
                     if expanded_events:
                         # Merge expanded events with original events and deduplicate
-                        filtered_events = self._merge_expanded_events(filtered_events, expanded_events)
+                        filtered_events = self._merge_expanded_events(
+                            filtered_events, expanded_events
+                        )
                         logger.debug(
                             f"Streaming parser: Added {len(expanded_events)} expanded recurring event instances"
                         )
@@ -1117,7 +1147,7 @@ class LiteICSParser:
                 ):
                     is_online_meeting = True
                     # Try to extract URL (basic implementation)
-                    import re  # noqa: PLC0415
+                    import re
 
                     url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
                     urls = re.findall(url_pattern, str(description))
@@ -1489,7 +1519,7 @@ class LiteICSParser:
                                     exdates.append(exdate_str)
 
                     # Expand using streaming LiteRRuleExpander for Pi Zero 2W memory efficiency
-                    from .lite_rrule_expander import expand_events_streaming  # noqa: PLC0415
+                    from .lite_rrule_expander import expand_events_streaming
 
                     # Use streaming expansion with in-flight deduplication
                     current_events_with_rrules = [
@@ -1553,42 +1583,42 @@ class LiteICSParser:
         """
         # First, collect RECURRENCE-ID events and their original times for suppression
         recurrence_overrides = {}  # Maps (master_uid, original_time) -> moved_event
-        
+
         for event in original_events:
-            if hasattr(event, 'recurrence_id') and event.recurrence_id:
+            if hasattr(event, "recurrence_id") and event.recurrence_id:
                 # Extract master UID from the event
-                master_uid = event.id.split('::')[0] if '::' in event.id else event.id.split('_')[0]
-                
+                master_uid = event.id.split("::")[0] if "::" in event.id else event.id.split("_")[0]
+
                 # Parse the RECURRENCE-ID to get the original time being overridden
                 try:
                     # RECURRENCE-ID format: "TZID=Pacific Standard Time:20251028T143000"
                     recurrence_id_str = str(event.recurrence_id)
-                    if ':' in recurrence_id_str and 'T' in recurrence_id_str:
+                    if ":" in recurrence_id_str and "T" in recurrence_id_str:
                         # Extract the datetime part after the colon
-                        datetime_part = recurrence_id_str.split(':')[-1]  # "20251028T143000"
-                        
+                        datetime_part = recurrence_id_str.split(":")[-1]  # "20251028T143000"
+
                         # Create a key for the original time slot being overridden
                         override_key = (master_uid, datetime_part)
                         recurrence_overrides[override_key] = event
-                        
+
                         logger.debug(
                             f"RECURRENCE-ID override detected: {event.subject} "
                             f"moves {datetime_part} to {event.start.date_time.strftime('%Y%m%dT%H%M%S')}"
                         )
                 except Exception as e:
                     logger.warning(f"Failed to parse RECURRENCE-ID {event.recurrence_id}: {e}")
-        
+
         # Filter expanded events to exclude those overridden by RECURRENCE-ID
         filtered_expanded = []
         suppressed_count = 0
-        
+
         for event in expanded_events:
             master_uid = getattr(event, "rrule_master_uid", None)
-            if master_uid and hasattr(event, 'start') and event.start:
+            if master_uid and hasattr(event, "start") and event.start:
                 # Create key for this expanded occurrence
-                event_time_key = event.start.date_time.strftime('%Y%m%dT%H%M%S')
+                event_time_key = event.start.date_time.strftime("%Y%m%dT%H%M%S")
                 override_key = (master_uid, event_time_key)
-                
+
                 if override_key in recurrence_overrides:
                     # This expanded occurrence is overridden by a RECURRENCE-ID event
                     override_event = recurrence_overrides[override_key]
@@ -1598,9 +1628,9 @@ class LiteICSParser:
                     )
                     suppressed_count += 1
                     continue
-            
+
             filtered_expanded.append(event)
-        
+
         if suppressed_count > 0:
             logger.info(
                 f"RECURRENCE-ID processing: Suppressed {suppressed_count} expanded occurrences "

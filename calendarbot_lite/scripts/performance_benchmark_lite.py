@@ -52,6 +52,7 @@ except ImportError:
     def _now_utc():
         return datetime.now(timezone.utc)
 
+
 import aiohttp
 from aiohttp import web
 from calendarbot_lite.http_client import close_all_clients, get_shared_client
@@ -201,7 +202,7 @@ def get_rss_kb() -> int | None:
         if psutil:
             proc = psutil.Process()
             return int(proc.memory_info().rss // 1024)
-        import resource  # noqa: PLC0415
+        import resource
 
         usage = resource.getrusage(resource.RUSAGE_SELF)
         # ru_maxrss typically in KB on Linux
@@ -651,7 +652,7 @@ async def parse_phase(resp, source_url: str) -> tuple[int, int, float, str | Non
         else:
             # Buffered path - use existing optimized parser path
             content = getattr(resp, "content", "") or ""
-            from calendarbot_lite.lite_parser import LiteICSParser  # noqa: PLC0415
+            from calendarbot_lite.lite_parser import LiteICSParser
 
             parser = LiteICSParser(type("S", (), {})())  # minimal settings for parsing
             parse_result = parser.parse_ics_content_optimized(content, source_url=source_url)
@@ -684,7 +685,7 @@ async def expand_phase(events, settings_obj) -> tuple[int, float, str | None, di
     err = None
 
     try:
-        from calendarbot_lite.lite_rrule_expander import expand_events_streaming  # noqa: PLC0415
+        from calendarbot_lite.lite_rrule_expander import expand_events_streaming
 
         # Collect events with RRULEs for streaming expansion
         events_with_rrules = []
@@ -744,7 +745,7 @@ async def expand_phase(events, settings_obj) -> tuple[int, float, str | None, di
                         )
                         instances = expander.expand_rrule(e, rrule_str) if rrule_str else []
                         expanded_total += len(instances)
-                except Exception as inner_e:  # noqa: PERF203
+                except Exception as inner_e:
                     logger.debug("Expansion error for event: %s", inner_e)
         except Exception as fallback_e:
             err = f"Both streaming and fallback failed: {e}, {fallback_e}"
@@ -768,7 +769,7 @@ async def expand_phase_legacy(events, settings_obj) -> tuple[int, float, str | N
                     rrule_str = getattr(e, "rrule_string", None) or getattr(e, "rrule", None) or ""
                     instances = expander.expand_rrule(e, rrule_str) if rrule_str else []
                     expanded_total += len(instances)
-            except Exception as inner_e:  # noqa: PERF203
+            except Exception as inner_e:
                 logger.debug("Legacy expansion error for event: %s", inner_e)
     except Exception as e:
         err = str(e)
@@ -933,7 +934,7 @@ async def run_scenario(
 
         # Need to check if calendarbot_lite can be imported and run
         try:
-            import subprocess  # noqa: PLC0415
+            import subprocess
 
             # Generate expected events for validation
             expected_events = generate_expected_event_data(name, bool(total_recurring))

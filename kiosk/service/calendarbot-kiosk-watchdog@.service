@@ -1,0 +1,72 @@
+[Unit]
+Description=CalendarBot Kiosk Watchdog for user %i
+Documentation=https://github.com/user/calendarbot
+After=network-online.target
+Wants=network-online.target
+PartOf=calendarbot-kiosk@%i.service
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+
+# Working directory
+WorkingDirectory=/home/%i
+
+# Environment
+Environment=DISPLAY=:0
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/etc/calendarbot-monitor/monitor.conf
+EnvironmentFile=-/home/%i/.config/calendarbot/watchdog.conf
+
+# Execution
+ExecStart=/usr/bin/python3 /usr/local/bin/calendarbot-watchdog --config /etc/calendarbot-monitor/monitor.yaml --user %i
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Process management
+Restart=on-failure
+RestartSec=10
+StartLimitBurst=5
+StartLimitIntervalSec=600
+
+# Security and resource limits
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/var/log/calendarbot-watchdog /var/local/calendarbot-watchdog /tmp
+
+# Capability restrictions (minimal sudo access for reboot/service restart)
+AmbientCapabilities=
+CapabilityBoundingSet=
+
+# Network restrictions
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+
+# System call restrictions
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@debug @mount @raw-io @reboot @swap @privileged @resources
+
+# Resource limits (Pi Zero 2 optimized)
+MemoryHigh=50M
+MemoryMax=100M
+CPUQuota=10%
+IOWeight=100
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=calendarbot-watchdog
+
+# Timeouts
+TimeoutStartSec=30
+TimeoutStopSec=15
+TimeoutAbortSec=5
+
+[Install]
+WantedBy=multi-user.target
+Also=calendarbot-kiosk@%i.service

@@ -19,7 +19,8 @@ def _now_utc() -> datetime:
 
     Uses centralized datetime override from server.py that supports CALENDARBOT_TEST_TIME.
     """
-    from .server import _now_utc as server_now_utc  # noqa: PLC0415
+    from .server import _now_utc as server_now_utc
+
     return server_now_utc()
 
 

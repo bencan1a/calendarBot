@@ -17,7 +17,7 @@ from . import run_server
 
 def _create_parser() -> argparse.ArgumentParser:
     """Create argument parser for calendarbot_lite CLI.
-    
+
     Returns:
         Configured argument parser
     """
@@ -31,14 +31,14 @@ Examples:
   python -m calendarbot_lite --port 3000        # Start server on port 3000
         """,
     )
-    
+
     parser.add_argument(
         "--port",
         type=int,
         metavar="PORT",
         help="Port number for the web server (default: 8080, or from CALENDARBOT_WEB_PORT env var)",
     )
-    
+
     return parser
 
 
@@ -50,7 +50,7 @@ def main() -> NoReturn:
     """
     parser = _create_parser()
     args = parser.parse_args()
-    
+
     try:
         run_server(args)
         # If run_server() returns normally, exit successfully

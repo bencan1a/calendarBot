@@ -31,7 +31,7 @@ class LiteICSAuth(BaseModel):
         headers = {}
 
         if self.type == LiteAuthType.BASIC and self.username and self.password:
-            import base64  # noqa: PLC0415
+            import base64
 
             credentials = f"{self.username}:{self.password}"
             encoded = base64.b64encode(credentials.encode()).decode()

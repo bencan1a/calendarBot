@@ -115,11 +115,7 @@ class RRuleWorkerPool:
                         rule_set.rrule(parsed_rule)
 
                 # Apply EXDATEs if provided
-                logger.debug(
-                    "EXDATE processing for event %s: exdates=%r",
-                    event_subject,
-                    exdates
-                )
+                logger.debug("EXDATE processing for event %s: exdates=%r", event_subject, exdates)
                 if exdates:
                     logger.debug("Processing %d EXDATE entries", len(exdates))
                     for i, ex in enumerate(exdates):
@@ -127,7 +123,10 @@ class RRuleWorkerPool:
                             ex_dt = self._parse_datetime_for_streaming(ex)
                             logger.debug(
                                 "EXDATE %d: raw='%s' parsed=%r tzinfo=%r",
-                                i, ex, ex_dt, ex_dt.tzinfo if hasattr(ex_dt, 'tzinfo') else None
+                                i,
+                                ex,
+                                ex_dt,
+                                ex_dt.tzinfo if hasattr(ex_dt, "tzinfo") else None,
                             )
                             if ex_dt.tzinfo is None:
                                 ex_dt = ex_dt.replace(tzinfo=UTC)
@@ -137,7 +136,7 @@ class RRuleWorkerPool:
                                 logger.debug("EXDATE %d: converted to UTC -> %r", i, ex_dt)
                             rule_set.exdate(ex_dt)
                             logger.debug("EXDATE %d: successfully added to ruleset", i)
-                        except Exception as ex_e:  # noqa: PERF203
+                        except Exception as ex_e:
                             logger.warning(f"Failed to parse EXDATE '{ex}': {ex_e}")
                             continue
                 else:
@@ -310,7 +309,7 @@ class RRuleWorkerPool:
                 if datetime_str.endswith("Z"):
                     dt = dt.replace(tzinfo=UTC)
                 return dt
-            except ValueError:  # noqa: PERF203
+            except ValueError:
                 continue
 
         raise ValueError(f"Unable to parse datetime: {datetime_str}")
@@ -366,7 +365,7 @@ def get_worker_pool(settings: Any) -> RRuleWorkerPool:
     Returns:
         RRuleWorkerPool instance
     """
-    global _worker_pool  # noqa: PLW0603
+    global _worker_pool
     if _worker_pool is None:
         _worker_pool = RRuleWorkerPool(settings)
     return _worker_pool
@@ -402,7 +401,7 @@ async def expand_events_async(
                 if len(all_expanded) % 50 == 0:
                     await asyncio.sleep(0)
 
-        except Exception as ex:  # noqa: PERF203
+        except Exception as ex:
             logger.warning("RRULE expansion failed for event %d: %s", i, ex)
             continue
 
@@ -434,7 +433,7 @@ async def expand_events_streaming(
             async for expanded_event in worker_pool.expand_rrule_stream(event, rrule_str, exdates):
                 yield expanded_event
 
-        except Exception as ex:  # noqa: PERF203
+        except Exception as ex:
             logger.warning("RRULE streaming expansion failed for event %d: %s", i, ex)
             continue
 
@@ -577,7 +576,7 @@ class LiteRRuleExpander:
                         else:
                             ex_dt = ex_dt.astimezone(UTC)
                         rule_set.exdate(ex_dt)
-                    except Exception as ex_e:  # noqa: PERF203
+                    except Exception as ex_e:
                         logger.warning(f"Failed to parse or normalize EXDATE '{ex}': {ex_e}")
                         continue
 
@@ -621,7 +620,7 @@ class LiteRRuleExpander:
                     )
 
                     # Check if target time (8:30 AM PDT on 2025-10-27) is in expansion window
-                    import zoneinfo  # noqa: PLC0415
+                    import zoneinfo
 
                     target_time_pdt = datetime(2025, 10, 27, 8, 30).replace(
                         tzinfo=zoneinfo.ZoneInfo("America/Los_Angeles")
@@ -768,7 +767,7 @@ class LiteRRuleExpander:
                 else:
                     exdate = exdate.astimezone(UTC)
                 excluded_datetimes.add(exdate)
-            except Exception as e:  # noqa: PERF203
+            except Exception as e:
                 logger.warning(f"Failed to parse EXDATE {exdate_str}: {e}")
                 continue
 
@@ -1050,7 +1049,7 @@ class LiteRRuleExpander:
                 # Apply timezone and convert to UTC
                 try:
                     # Try zoneinfo first (preferred)
-                    from zoneinfo import ZoneInfo  # noqa: PLC0415 - deliberate runtime fallback import
+                    from zoneinfo import ZoneInfo
 
                     tz = ZoneInfo(timezone_name)
                     dt_with_tz = dt.replace(tzinfo=tz)
@@ -1058,7 +1057,7 @@ class LiteRRuleExpander:
                 except (ImportError, Exception):
                     try:
                         # Fallback to pytz
-                        import pytz  # noqa: PLC0415 - deliberate runtime fallback import
+                        import pytz
 
                         tz_pytz = pytz.timezone(timezone_name)
                         dt_with_tz = tz_pytz.localize(dt)
@@ -1090,7 +1089,7 @@ class LiteRRuleExpander:
                 if datetime_str.endswith("Z"):
                     dt = dt.replace(tzinfo=UTC)
                 return dt
-            except ValueError:  # noqa: PERF203
+            except ValueError:
                 continue
 
         raise ValueError(f"Unable to parse datetime: {datetime_str}")

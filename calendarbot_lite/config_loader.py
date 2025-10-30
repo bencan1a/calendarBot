@@ -122,7 +122,7 @@ def _load_yaml_or_json(path: Path) -> dict[str, Any]:
     """
     text = path.read_text()
     try:
-        import yaml  # type: ignore  # noqa: PLC0415
+        import yaml  # type: ignore
     except Exception:
         # Fall back to JSON parsing
         try:

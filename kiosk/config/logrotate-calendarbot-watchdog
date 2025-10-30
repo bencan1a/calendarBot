@@ -1,0 +1,123 @@
+# CalendarBot Kiosk Watchdog Log Rotation Configuration
+# Place in /etc/logrotate.d/calendarbot-watchdog
+
+/var/log/calendarbot-watchdog/*.log {
+    # Rotate daily
+    daily
+    
+    # Keep 7 days of logs (1 week)
+    rotate 7
+    
+    # Size-based rotation: rotate when log exceeds 2MB
+    size 2M
+    
+    # Compress old logs to save space (Pi Zero 2 storage optimization)
+    compress
+    
+    # Delay compression until next rotation cycle
+    delaycompress
+    
+    # Don't rotate if log is empty
+    notifempty
+    
+    # Don't fail if log file is missing
+    missingok
+    
+    # Create new log file with specified permissions after rotation
+    create 644 root root
+    
+    # Use copytruncate for active log files (watchdog doesn't need to reopen files)
+    copytruncate
+    
+    # Log rotation events to syslog for monitoring
+    sharedscripts
+    
+    # Post-rotation script to clean up and notify if needed
+    postrotate
+        # Send SIGHUP to watchdog if running to refresh any file handles
+        if [ -f /var/run/calendarbot-watchdog.pid ]; then
+            /bin/kill -HUP "$(cat /var/run/calendarbot-watchdog.pid)" 2>/dev/null || true
+        fi
+        
+        # Log rotation event to journald for monitoring
+        /usr/bin/logger -t "logrotate" -p "daemon.info" "Rotated CalendarBot watchdog logs"
+        
+        # Clean up any core dumps or temp files older than 7 days
+        /usr/bin/find /var/log/calendarbot-watchdog -name "core.*" -mtime +7 -delete 2>/dev/null || true
+        /usr/bin/find /var/log/calendarbot-watchdog -name "*.tmp" -mtime +1 -delete 2>/dev/null || true
+    endscript
+}
+
+# Watchdog state files (less frequent rotation)
+/var/local/calendarbot-watchdog/*.json {
+    # Rotate weekly to preserve recovery history
+    weekly
+    
+    # Keep 4 weeks of state history
+    rotate 4
+    
+    # Only rotate files larger than 1MB
+    size 1M
+    
+    # Compress old state files
+    compress
+    delaycompress
+    
+    # Don't rotate empty files
+    notifempty
+    
+    # Missing files are OK
+    missingok
+    
+    # Create with restrictive permissions for state files
+    create 600 root root
+    
+    # Copy and truncate to preserve file handles
+    copytruncate
+    
+    postrotate
+        # Log state file rotation
+        /usr/bin/logger -t "logrotate" -p "daemon.info" "Rotated CalendarBot watchdog state files"
+    endscript
+}
+
+# Browser launch logs (separate rotation schedule)
+/home/*/kiosk/*.log {
+    # Rotate daily for browser logs
+    daily
+    
+    # Keep 3 days of browser logs (less critical)
+    rotate 3
+    
+    # Rotate when file exceeds 5MB
+    size 5M
+    
+    # Compress old logs
+    compress
+    delaycompress
+    
+    # Don't rotate empty files
+    notifempty
+    
+    # Missing files are OK (user might not exist)
+    missingok
+    
+    # Create with user ownership
+    create 644 pi pi
+    
+    # Use copytruncate for active browser logs
+    copytruncate
+    
+    # Shared script for all user log files
+    sharedscripts
+    
+    postrotate
+        # Clean up old browser cache and temp files
+        /usr/bin/find /home/*/kiosk -name "*.tmp" -mtime +1 -delete 2>/dev/null || true
+        /usr/bin/find /tmp -name "*chromium*" -mtime +1 -delete 2>/dev/null || true
+        /usr/bin/find /tmp -name "*epiphany*" -mtime +1 -delete 2>/dev/null || true
+        
+        # Log browser log rotation
+        /usr/bin/logger -t "logrotate" -p "daemon.info" "Rotated CalendarBot browser logs"
+    endscript
+}
