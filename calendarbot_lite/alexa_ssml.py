@@ -39,7 +39,9 @@ URGENCY_FAST_THRESHOLD = 300  # 5 minutes
 URGENCY_STANDARD_THRESHOLD = 3600  # 1 hour
 
 
-def render_meeting_ssml(meeting: dict[str, Any], config: Optional[dict[str, Any]] = None) -> Optional[str]:
+def render_meeting_ssml(
+    meeting: dict[str, Any], config: Optional[dict[str, Any]] = None
+) -> Optional[str]:
     """Render full SSML for next-meeting intent with urgency-based pacing.
 
     Args:
@@ -60,7 +62,7 @@ def render_meeting_ssml(meeting: dict[str, Any], config: Optional[dict[str, Any]
 
         # Merge config with defaults
         cfg = {**DEFAULT_CONFIG, **(config or {})}
-        
+
         if not cfg.get("enable_ssml", True):
             return None
 
@@ -73,61 +75,59 @@ def render_meeting_ssml(meeting: dict[str, Any], config: Optional[dict[str, Any]
 
         # Determine urgency and build content
         urgency = _select_urgency(seconds_until)
-        
+
         # Escape and truncate title
         safe_subject = _escape_text_for_ssml(subject)
         truncated_subject = _truncate_title(safe_subject, cfg["title_max_chars"])
 
         # Build SSML fragments based on urgency
         fragments = []
-        
+
         if urgency == "fast":
             # Fast-paced urgent template
             emphasized_title = EMPHASIS_STRONG.format(text=truncated_subject)
             time_phrase = _escape_text_for_ssml(duration_spoken)
             urgent_time = PROSODY.format(rate="fast", pitch="high", text=time_phrase)
-            
+
             body_text = f"Your meeting {emphasized_title} starts in {urgent_time}"
             fragments.append(PROSODY_RATE.format(rate="fast", text=body_text))
-            
+
         elif urgency == "standard":
             # Standard pacing template
             emphasized_title = EMPHASIS_MODERATE.format(text=truncated_subject)
             time_phrase = _escape_text_for_ssml(duration_spoken)
-            
-            fragments.extend([
-                f"Your meeting {emphasized_title}",
-                BREAK.format(t="0.3"),
-                f"starts {time_phrase}."
-            ])
-            
+
+            fragments.extend(
+                [
+                    f"Your meeting {emphasized_title}",
+                    BREAK.format(t="0.3"),
+                    f"starts {time_phrase}.",
+                ]
+            )
+
         else:  # relaxed
             # Relaxed pacing template
             emphasized_title = EMPHASIS_MODERATE.format(text=truncated_subject)
             time_phrase = _escape_text_for_ssml(duration_spoken)
-            
+
             opening = f"Your next meeting is {emphasized_title}."
             timing = f"It starts {time_phrase}."
-            
-            fragments.extend([
-                PROSODY.format(rate="medium", pitch="medium", text=opening),
-                BREAK.format(t="0.5"),
-                timing
-            ])
+
+            fragments.extend(
+                [
+                    PROSODY.format(rate="medium", pitch="medium", text=opening),
+                    BREAK.format(t="0.5"),
+                    timing,
+                ]
+            )
 
         # Add location information if available
         if location and not is_online:
             safe_location = _escape_text_for_ssml(location)
             location_phrase = EMPHASIS_REDUCED.format(text=safe_location)
-            fragments.extend([
-                BREAK.format(t="0.2"),
-                f"in {location_phrase}"
-            ])
+            fragments.extend([BREAK.format(t="0.2"), f"in {location_phrase}"])
         elif is_online:
-            fragments.extend([
-                BREAK.format(t="0.2"),
-                "joining online"
-            ])
+            fragments.extend([BREAK.format(t="0.2"), "joining online"])
 
         # Note: Removed duration section as duration_spoken represents time until start,
         # not actual meeting duration. The timing is already included in the main message.
@@ -149,7 +149,9 @@ def render_meeting_ssml(meeting: dict[str, Any], config: Optional[dict[str, Any]
 
 
 def render_time_until_ssml(
-    seconds_until: int, meeting: Optional[dict[str, Any]] = None, config: Optional[dict[str, Any]] = None
+    seconds_until: int,
+    meeting: Optional[dict[str, Any]] = None,
+    config: Optional[dict[str, Any]] = None,
 ) -> Optional[str]:
     """Render concise SSML for time-until-next intent (time-first approach).
 
@@ -167,7 +169,7 @@ def render_time_until_ssml(
     try:
         # Merge config with defaults
         cfg = {**DEFAULT_CONFIG, **(config or {})}
-        
+
         if not cfg.get("enable_ssml", True):
             return None
 
@@ -188,22 +190,26 @@ def render_time_until_ssml(
                 duration_spoken = f"{hours} hour{'s' if hours != 1 else ''}"
             else:
                 duration_spoken = f"{hours} hour{'s' if hours != 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-        
+
         # Determine urgency for time phrasing
         urgency = _select_urgency(seconds_until)
-        
+
         fragments = []
-        
+
         # Clean up duration_spoken for time-until phrasing
         # Remove "in " prefix if present since we'll reconstruct the sentence properly
-        clean_duration = duration_spoken.replace("in ", "", 1) if duration_spoken.startswith("in ") else duration_spoken
-        
+        clean_duration = (
+            duration_spoken.replace("in ", "", 1)
+            if duration_spoken.startswith("in ")
+            else duration_spoken
+        )
+
         if urgency == "fast":
             # Urgent time-first response
             time_phrase = _escape_text_for_ssml(clean_duration)
             urgent_time = PROSODY.format(rate="fast", pitch="high", text=time_phrase)
             fragments.append(f"{urgent_time} until your next meeting.")
-            
+
         else:
             # Standard/relaxed time response
             time_phrase = _escape_text_for_ssml(clean_duration)
@@ -216,11 +222,8 @@ def render_time_until_ssml(
             safe_subject = _escape_text_for_ssml(subject)
             truncated_subject = _truncate_title(safe_subject, cfg["title_max_chars"])
             reduced_title = EMPHASIS_REDUCED.format(text=truncated_subject)
-            
-            fragments.extend([
-                BREAK.format(t="0.2"),
-                f"Your meeting is {reduced_title}."
-            ])
+
+            fragments.extend([BREAK.format(t="0.2"), f"Your meeting is {reduced_title}."])
 
         # Compose final SSML
         body = _compose_fragments(fragments)
@@ -240,9 +243,7 @@ def render_time_until_ssml(
 
 
 def render_done_for_day_ssml(
-    has_meetings_today: bool,
-    speech_text: str,
-    config: Optional[dict[str, Any]] = None
+    has_meetings_today: bool, speech_text: str, config: Optional[dict[str, Any]] = None
 ) -> Optional[str]:
     """Render SSML for done-for-day intent with appropriate emphasis and pacing.
 
@@ -264,15 +265,15 @@ def render_done_for_day_ssml(
 
         # Merge config with defaults
         cfg = {**DEFAULT_CONFIG, **(config or {})}
-        
+
         if not cfg.get("enable_ssml", True):
             return None
 
         # Escape the speech text for SSML
         safe_speech = _escape_text_for_ssml(speech_text.strip())
-        
+
         fragments = []
-        
+
         if has_meetings_today:
             # Handle different meeting scenarios
             if "you&apos;ll be done at" in safe_speech.lower():
@@ -282,12 +283,9 @@ def render_done_for_day_ssml(
                     if len(parts) == 2:
                         intro_part = parts[0]  # "You'll be done"
                         time_part = parts[1].rstrip(".")  # "6:00 pm"
-                        fragments.extend([
-                            intro_part,
-                            " at ",
-                            EMPHASIS_STRONG.format(text=time_part),
-                            "."
-                        ])
+                        fragments.extend(
+                            [intro_part, " at ", EMPHASIS_STRONG.format(text=time_part), "."]
+                        )
                     else:
                         fragments.append(PROSODY_RATE.format(rate="medium", text=safe_speech))
                 else:
@@ -311,7 +309,7 @@ def render_done_for_day_ssml(
                     if len(parts) == 2:
                         intro_part = parts[0].strip()  # "No meetings today, you're free"
                         meeting_part = parts[1].rstrip(".")  # "{meeting} {time}"
-                        
+
                         # Split meeting part to emphasize the meeting name
                         # Look for the last " in " to separate meeting name from time
                         if " in " in meeting_part:
@@ -319,39 +317,57 @@ def render_done_for_day_ssml(
                             if len(meeting_time_parts) == 2:
                                 meeting_name = meeting_time_parts[0].strip()
                                 time_part = meeting_time_parts[1].strip()
-                                
-                                fragments.extend([
-                                    PROSODY.format(rate="medium", pitch="medium", text=intro_part),
-                                    " until ",
-                                    EMPHASIS_MODERATE.format(text=meeting_name),
-                                    BREAK.format(t="0.3"),
-                                    f" in {time_part}."
-                                ])
+
+                                fragments.extend(
+                                    [
+                                        PROSODY.format(
+                                            rate="medium", pitch="medium", text=intro_part
+                                        ),
+                                        " until ",
+                                        EMPHASIS_MODERATE.format(text=meeting_name),
+                                        BREAK.format(t="0.3"),
+                                        f" in {time_part}.",
+                                    ]
+                                )
                             else:
                                 # Fallback if parsing fails
-                                fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                                fragments.append(
+                                    PROSODY.format(rate="medium", pitch="medium", text=safe_speech)
+                                )
                         else:
                             # Fallback if no " in " found
-                            fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                            fragments.append(
+                                PROSODY.format(rate="medium", pitch="medium", text=safe_speech)
+                            )
                     else:
                         # Fallback if split fails
-                        fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                        fragments.append(
+                            PROSODY.format(rate="medium", pitch="medium", text=safe_speech)
+                        )
                 else:
                     # Fallback if no " until " found
-                    fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                    fragments.append(
+                        PROSODY.format(rate="medium", pitch="medium", text=safe_speech)
+                    )
             # Split and emphasize the positive aspects for old format
             elif "Enjoy your free day!" in safe_speech:
                 parts = safe_speech.split("Enjoy your free day!")
                 if len(parts) == 2:
                     no_meetings_part = parts[0].strip().rstrip(".")
-                    fragments.extend([
-                        PROSODY.format(rate="medium", pitch="medium", text=no_meetings_part + "."),
-                        BREAK.format(t="0.4"),
-                        EMPHASIS_MODERATE.format(text="Enjoy your free day!")
-                    ])
+                    fragments.extend(
+                        [
+                            PROSODY.format(
+                                rate="medium", pitch="medium", text=no_meetings_part + "."
+                            ),
+                            BREAK.format(t="0.4"),
+                            EMPHASIS_MODERATE.format(text="Enjoy your free day!"),
+                        ]
+                    )
                 else:
                     # Fallback
-                    fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                    fragments.append(
+                        PROSODY.format(rate="medium", pitch="medium", text=safe_speech)
+                    )
             else:
                 # Simple no meetings message
                 fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
@@ -365,7 +381,11 @@ def render_done_for_day_ssml(
 
         # Validate before returning
         if validate_ssml(ssml, cfg["ssml_max_chars"], cfg["allowed_tags"]):
-            logger.debug("Generated done-for-day SSML: %d chars, has_meetings=%s", len(ssml), has_meetings_today)
+            logger.debug(
+                "Generated done-for-day SSML: %d chars, has_meetings=%s",
+                len(ssml),
+                has_meetings_today,
+            )
             return ssml
         logger.warning("Done-for-day SSML validation failed, length=%d", len(ssml))
         return None
@@ -375,7 +395,9 @@ def render_done_for_day_ssml(
         return None
 
 
-def render_morning_summary_ssml(summary_result: Any, config: Optional[dict[str, Any]] = None) -> Optional[str]:
+def render_morning_summary_ssml(
+    summary_result: Any, config: Optional[dict[str, Any]] = None
+) -> Optional[str]:
     """Render SSML for morning summary with natural evening/night context.
 
     Args:
@@ -389,13 +411,13 @@ def render_morning_summary_ssml(summary_result: Any, config: Optional[dict[str, 
         Exception: Logs errors and returns None for graceful fallback
     """
     try:
-        if not summary_result or not hasattr(summary_result, 'speech_text'):
+        if not summary_result or not hasattr(summary_result, "speech_text"):
             logger.warning("Invalid summary result for morning summary SSML generation")
             return None
 
         # Merge config with defaults
         cfg = {**DEFAULT_CONFIG, **(config or {})}
-        
+
         if not cfg.get("enable_ssml", True):
             return None
 
@@ -407,13 +429,15 @@ def render_morning_summary_ssml(summary_result: Any, config: Optional[dict[str, 
 
         # Escape the speech text for SSML
         safe_speech = _escape_text_for_ssml(speech_text.strip())
-        
+
         fragments = []
-        
+
         # Check for early start patterns and handle accordingly
-        early_start_flag = getattr(summary_result, 'early_start_flag', False)
-        
-        if early_start_flag and ("you start early" in safe_speech.lower() or "early at" in safe_speech.lower()):
+        early_start_flag = getattr(summary_result, "early_start_flag", False)
+
+        if early_start_flag and (
+            "you start early" in safe_speech.lower() or "early at" in safe_speech.lower()
+        ):
             # Handle early start with emphasis on urgency
             if "good evening" in safe_speech.lower():
                 # Split greeting from content
@@ -421,30 +445,36 @@ def render_morning_summary_ssml(summary_result: Any, config: Optional[dict[str, 
                 if len(parts) >= 2:
                     greeting_part = parts[0].strip() + "."
                     content_part = parts[1].strip()
-                    
-                    fragments.extend([
-                        PROSODY.format(rate="medium", pitch="medium", text=greeting_part),
-                        BREAK.format(t="0.4"),
-                    ])
-                    
+
+                    fragments.extend(
+                        [
+                            PROSODY.format(rate="medium", pitch="medium", text=greeting_part),
+                            BREAK.format(t="0.4"),
+                        ]
+                    )
+
                     # Emphasize early start information
                     if "you start early" in content_part.lower():
                         early_parts = content_part.split("you start early", 1)
                         if len(early_parts) == 2:
                             before_early = early_parts[0].strip()
                             after_early = early_parts[1].strip()
-                            
-                            fragments.extend([
-                                before_early + " " if before_early else "",
-                                EMPHASIS_STRONG.format(text="You start early"),
-                                after_early,
-                            ])
+
+                            fragments.extend(
+                                [
+                                    before_early + " " if before_early else "",
+                                    EMPHASIS_STRONG.format(text="You start early"),
+                                    after_early,
+                                ]
+                            )
                         else:
                             fragments.append(EMPHASIS_MODERATE.format(text=content_part))
                     else:
                         fragments.append(EMPHASIS_MODERATE.format(text=content_part))
                 else:
-                    fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                    fragments.append(
+                        PROSODY.format(rate="medium", pitch="medium", text=safe_speech)
+                    )
             # No greeting, just emphasize early start
             elif "you start early" in safe_speech.lower():
                 early_parts = safe_speech.split("you start early", 1)
@@ -452,16 +482,18 @@ def render_morning_summary_ssml(summary_result: Any, config: Optional[dict[str, 
                     before_early = early_parts[0].strip()
                     after_early = early_parts[1].strip()
 
-                    fragments.extend([
-                        before_early + " " if before_early else "",
-                        EMPHASIS_STRONG.format(text="You start early"),
-                        after_early,
-                    ])
+                    fragments.extend(
+                        [
+                            before_early + " " if before_early else "",
+                            EMPHASIS_STRONG.format(text="You start early"),
+                            after_early,
+                        ]
+                    )
                 else:
                     fragments.append(EMPHASIS_MODERATE.format(text=safe_speech))
             else:
                 fragments.append(EMPHASIS_MODERATE.format(text=safe_speech))
-                    
+
         elif "completely free morning" in safe_speech.lower():
             # Handle free morning with positive emphasis
             if "good evening" in safe_speech.lower():
@@ -469,14 +501,18 @@ def render_morning_summary_ssml(summary_result: Any, config: Optional[dict[str, 
                 if len(parts) >= 2:
                     greeting_part = parts[0].strip() + "."
                     content_part = parts[1].strip()
-                    
-                    fragments.extend([
-                        PROSODY.format(rate="medium", pitch="medium", text=greeting_part),
-                        BREAK.format(t="0.4"),
-                        EMPHASIS_MODERATE.format(text=content_part),
-                    ])
+
+                    fragments.extend(
+                        [
+                            PROSODY.format(rate="medium", pitch="medium", text=greeting_part),
+                            BREAK.format(t="0.4"),
+                            EMPHASIS_MODERATE.format(text=content_part),
+                        ]
+                    )
                 else:
-                    fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                    fragments.append(
+                        PROSODY.format(rate="medium", pitch="medium", text=safe_speech)
+                    )
             # Emphasize the positive aspect of free time
             elif "completely free" in safe_speech.lower():
                 free_parts = safe_speech.split("completely free", 1)
@@ -484,16 +520,20 @@ def render_morning_summary_ssml(summary_result: Any, config: Optional[dict[str, 
                     before_free = free_parts[0].strip()
                     after_free = free_parts[1].strip()
 
-                    fragments.extend([
-                        before_free + " " if before_free else "",
-                        EMPHASIS_MODERATE.format(text="completely free"),
-                        after_free,
-                    ])
+                    fragments.extend(
+                        [
+                            before_free + " " if before_free else "",
+                            EMPHASIS_MODERATE.format(text="completely free"),
+                            after_free,
+                        ]
+                    )
                 else:
-                    fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                    fragments.append(
+                        PROSODY.format(rate="medium", pitch="medium", text=safe_speech)
+                    )
             else:
                 fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
-                    
+
         # Standard morning summary - natural conversational flow
         elif "good evening" in safe_speech.lower():
             # Split greeting from content for natural pacing
@@ -502,11 +542,13 @@ def render_morning_summary_ssml(summary_result: Any, config: Optional[dict[str, 
                 greeting_part = parts[0].strip() + "."
                 content_part = parts[1].strip()
 
-                fragments.extend([
-                    PROSODY.format(rate="medium", pitch="medium", text=greeting_part),
-                    BREAK.format(t="0.3"),
-                    content_part,
-                ])
+                fragments.extend(
+                    [
+                        PROSODY.format(rate="medium", pitch="medium", text=greeting_part),
+                        BREAK.format(t="0.3"),
+                        content_part,
+                    ]
+                )
             else:
                 fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
         else:
@@ -519,7 +561,11 @@ def render_morning_summary_ssml(summary_result: Any, config: Optional[dict[str, 
 
         # Validate before returning
         if validate_ssml(ssml, cfg["ssml_max_chars"], cfg["allowed_tags"]):
-            logger.debug("Generated morning summary SSML: %d chars, early_start=%s", len(ssml), early_start_flag)
+            logger.debug(
+                "Generated morning summary SSML: %d chars, early_start=%s",
+                len(ssml),
+                early_start_flag,
+            )
             return ssml
         logger.warning("Morning summary SSML validation failed, length=%d", len(ssml))
         return None
@@ -561,13 +607,15 @@ def validate_ssml(ssml: str, max_chars: int = 500, allowed_tags: set[str] | None
 
         # Length check
         if len(ssml) > max_chars:
-            logger.warning("SSML validation failed: exceeds %d char limit (%d)", max_chars, len(ssml))
+            logger.warning(
+                "SSML validation failed: exceeds %d char limit (%d)", max_chars, len(ssml)
+            )
             return False
 
         # Tag balance and allowlist check
         default_allowed = {"speak", "prosody", "emphasis", "break"}
         tags_allowed = allowed_tags or default_allowed
-        
+
         if not _basic_tag_balance_check(ssml_trimmed, tags_allowed):
             logger.warning("SSML validation failed: tag balance or allowlist violation")
             return False
@@ -580,6 +628,7 @@ def validate_ssml(ssml: str, max_chars: int = 500, allowed_tags: set[str] | None
 
 
 # Internal helper functions
+
 
 def _select_urgency(seconds_until: int) -> Literal["fast", "standard", "relaxed"]:
     """Select urgency level based on time until meeting.
@@ -608,14 +657,14 @@ def _escape_text_for_ssml(text: str) -> str:
     """
     if not isinstance(text, str):
         return ""
-    
+
     # Escape XML special characters
     escaped = text.replace("&", "&amp;")
     escaped = escaped.replace("<", "&lt;")
     escaped = escaped.replace(">", "&gt;")
     escaped = escaped.replace('"', "&quot;")
     escaped = escaped.replace("'", "&apos;")
-    
+
     # Remove control characters that could break SSML
     return "".join(char for char in escaped if ord(char) >= 32 or char in ["\n", "\t"])
 
@@ -632,10 +681,10 @@ def _truncate_title(text: str, max_chars: int = 50) -> str:
     """
     if not isinstance(text, str) or len(text) <= max_chars:
         return text
-    
+
     # Reserve 3 characters for "..."
     truncate_at = max_chars - 3
-    
+
     # Try to find last space before the limit
     space_pos = text.rfind(" ", 0, truncate_at)
     if space_pos > max_chars // 2:  # Only use space if it's not too early
@@ -654,7 +703,7 @@ def _compose_fragments(fragments: list[str]) -> str:
     """
     if not fragments:
         return ""
-    
+
     return "".join(fragments)
 
 
@@ -670,16 +719,16 @@ def _basic_tag_balance_check(ssml: str, allowed_tags: set[str]) -> bool:
     """
     tag_stack = []
     i = 0
-    
+
     while i < len(ssml):
         if ssml[i] == "<":
             # Find the end of the tag
             end = ssml.find(">", i)
             if end == -1:
                 return False  # Malformed tag
-            
-            tag_content = ssml[i + 1:end]
-            
+
+            tag_content = ssml[i + 1 : end]
+
             # Skip self-closing tags (like <break time="0.3s"/>)
             if tag_content.endswith("/"):
                 tag_name = tag_content[:-1].strip().split()[0]
@@ -687,7 +736,7 @@ def _basic_tag_balance_check(ssml: str, allowed_tags: set[str]) -> bool:
                     return False
                 i = end + 1
                 continue
-            
+
             # Handle closing tags
             if tag_content.startswith("/"):
                 tag_name = tag_content[1:].strip()
@@ -700,11 +749,11 @@ def _basic_tag_balance_check(ssml: str, allowed_tags: set[str]) -> bool:
                 if tag_name not in allowed_tags:
                     return False
                 tag_stack.append(tag_name)
-            
+
             i = end + 1
         else:
             i += 1
-    
+
     # All tags should be closed
     return len(tag_stack) == 0
 
@@ -722,8 +771,8 @@ def _should_include_duration(seconds_until: int, config: dict[str, Any]) -> bool
     # Note: This is a placeholder - actual duration would come from meeting data
     # For now, we include duration for urgent meetings as they might be short
     # and for very long meetings (>1 hour away) as they might be long
-    
+
     long_threshold = config.get("duration_threshold_long", 3600)
     short_threshold = config.get("duration_threshold_short", 900)
-    
+
     return seconds_until <= short_threshold or seconds_until > long_threshold

@@ -493,7 +493,7 @@ class LiteICSFetcher:
                         base_backoff = min(base_backoff * 2, 30.0)  # Cap at 30 seconds
 
                     # Add jitter to prevent thundering herd
-                    import random  # noqa: PLC0415
+                    import random
 
                     jitter = random.uniform(0.1, 0.3) * base_backoff
                     backoff_time = base_backoff + jitter

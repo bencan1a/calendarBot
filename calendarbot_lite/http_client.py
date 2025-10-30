@@ -144,7 +144,7 @@ async def close_all_clients() -> None:
                 if not client.is_closed:
                     await client.aclose()
                     logger.debug("Closed shared HTTP client '%s'", client_id)
-            except Exception as e:  # noqa: PERF203
+            except Exception as e:
                 logger.warning("Error closing shared HTTP client '%s': %s", client_id, e)
 
         _shared_clients.clear()
