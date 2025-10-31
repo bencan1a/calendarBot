@@ -1,0 +1,130 @@
+<best_practices>
+  <overview>
+    Best practices for reliable ICS parsing, timezone handling, RRULE expansion, and recurrence exception management.
+  </overview>
+
+  <principles>
+    <principle priority="high">
+      <name>Source of truth</name>
+      <description>
+        Always treat the ICS source specified by the workspace .env (ICS_SOURCE) as the single source of truth.
+        Fetched content must be compared (checksum/length/head) with the expected source before further processing.
+      </description>
+    </principle>
+
+    <principle priority="high">
+      <name>Deterministic reproduction</name>
+      <description>
+        Use DATETIME_OVERRIDE to freeze "now" when debugging expansions. This ensures reproducible results across runs and machines.
+      </description>
+    </principle>
+
+    <principle priority="high">
+      <name>Explicit timezone normalization</name>
+      <description>
+        Normalize all datetimes to timezone-aware datetimes as early as possible in the pipeline:
+        - If an ICS DTSTART/DTEND contains a TZID, parse using the matching timezone database entry.
+        - If a time is 'floating' (no TZID and not UTC), interpret it in the configured local timezone (calendarbot_lite config).
+        - Convert all results to UTC for storage/expansion logic; preserve original tz info on display formatting.
+      </description>
+    </principle>
+
+    <principle priority="medium">
+      <name>Master event identification</name>
+      <description>
+        Use UID as the primary identifier for a recurring series. Do not rely solely on SUMMARY/title matching.
+        If duplicate UIDs are present in the feed (real-world data sometimes contains this), log a warning and show the full VEVENT metadata to aid manual resolution.
+      </description>
+    </principle>
+
+    <principle priority="medium">
+      <name>Respect RRULE semantics</name>
+      <description>
+        Implement or verify correct handling for:
+        - UNTIL vs COUNT precedence and timezone interpretation of UNTIL (UNTIL is in the same timezone as the rule unless specified as UTC)
+        - BY* rules (BYDAY, BYMONTH, BYHOUR, etc.) and complex combinations
+        - Frequency boundaries and expansion windows (use settings.rrule_expansion_days)
+      </description>
+    </principle>
+
+    <principle priority="medium">
+      <name>EXDATE and RECURRENCE-ID handling</name>
+      <description>
+        Apply EXDATE and RECURRENCE-ID changes after expansion but before filtering for display.
+        Match EXDATE and RECURRENCE-ID using timezone-normalized instants (convert both occurrence and exception to UTC for matching).
+      </description>
+    </principle>
+
+    <principle priority="low">
+      <name>Fail loudly with context</name>
+      <description>
+        When parsing/expanding fails, raise or log errors with:
+        - UID, DTSTART, RRULE string, and the raw VEVENT snippet
+        - The stage where it failed (parse, expansion, override application)
+        - The DATETIME_OVERRIDE in effect
+      </description>
+    </principle>
+  </principles>
+
+  <code_examples>
+    <example name="normalize-datetime">
+      <description>Normalize incoming DTSTART to timezone-aware UTC</description>
+      <code language="python"><![CDATA[
+# Example pseudocode (use dateutil.tz or zoneinfo)
+from dateutil import parser
+from zoneinfo import ZoneInfo
+
+def normalize_dt(dt_string: str, tzid: Optional[str], local_tz: str) -> datetime:
+    dt = parser.isoparse(dt_string)
+    if dt.tzinfo is None:
+        # floating time - interpret in configured local timezone
+        dt = dt.replace(tzinfo=ZoneInfo(local_tz))
+    elif tzid:
+        # ensure TZID mapping if provided separately
+        dt = dt.astimezone(ZoneInfo(tzid))
+    return dt.astimezone(ZoneInfo("UTC"))
+]]></code>
+    </example>
+
+    <example name="match-exception">
+      <description>Normalize and match an EXDATE against an occurrence</description>
+      <code language="python"><![CDATA[
+# Normalize both sides to UTC for matching
+occurrence_utc = normalize_dt(occurrence_dtstr, occurrence_tzid, local_tz)
+exdate_utc = normalize_dt(exdate_dtstr, exdate_tzid, local_tz)
+if occurrence_utc == exdate_utc:
+    # exclude the occurrence
+    pass
+]]></code>
+    </example>
+  </code_examples>
+
+  <testing_guidance>
+    <item>Create test ICS fixtures covering: floating times, TZID with non-standard tz names, EXDATE/RECURRENCE-ID overrides, complex BY* rules, COUNT and UNTIL combinations.</item>
+    <item>Run expansions with DATETIME_OVERRIDE set to dates that exercise edge conditions (DST transitions, leap days, month-end).</item>
+    <item>Compare expansion results to a trusted implementation (python-dateutil rrule or an external canonical test vector).</item>
+  </testing_guidance>
+
+  <logging_and_observability>
+    <recommendation>
+      Ensure the lite logging captures:
+      - Raw fetched ICS (or a checksum) and fetch headers (status, content-length)
+      - Parsed VEVENT list with UID, DTSTART, TZID, RRULE, EXDATE, and RECURRENCE-ID
+      - Expansion decisions including limits applied (max occurrences), and occurrences generated
+      - Any UID collisions or ambiguous master selection warnings
+    </recommendation>
+
+    <example><![CDATA[
+# Recommended log line format (structured JSON)
+{
+  "stage": "parse",
+  "uid": "abc123",
+  "dtstart": "2025-10-31T09:00:00-07:00",
+  "tzid": "America/Los_Angeles",
+  "rrule": "FREQ=WEEKLY;BYDAY=MO,WE,FR",
+  "message": "Parsed VEVENT"
+}
+]]></example>
+  </logging_and_observability>
+
+</best_practices>

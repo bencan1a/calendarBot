@@ -1,0 +1,99 @@
+<common_patterns>
+  <overview>
+    Reusable patterns and concrete examples for diagnosing ICS/RRULE/timezone issues.
+    Use these as quick reference checks during investigations.
+  </overview>
+
+  <pattern name="floating-times">
+    <description>
+      Floating times are DTSTART/DTEND without timezone info. Many feeds intend them to be local dates.
+      Mistakes: treating floating times as UTC or as another timezone.
+    </description>
+    <checks>
+      <check>Log raw DTSTART string and whether parser produced tz-aware datetime.</check>
+      <check>If tzinfo is None, interpret as configured local timezone (calendarbot_lite config)</check>
+      <check>On mismatch, output both interpreted and normalized UTC timestamps for comparison.</check>
+    </checks>
+    <example><![CDATA[
+# Example: detect floating datetime
+if parsed_dt.tzinfo is None:
+    logger.warning("Floating DTSTART interpreted in local tz", extra={"dt": raw_dt, "local_tz": local_tz})
+    parsed_dt = parsed_dt.replace(tzinfo=ZoneInfo(local_tz))
+occurrence_utc = parsed_dt.astimezone(ZoneInfo("UTC"))
+]]></example>
+  </pattern>
+
+  <pattern name="tzid-mapping-issues">
+    <description>
+      ICS sometimes uses non-standard TZID names or VTIMEZONE definitions that do not map directly to system tzdb.
+      Strategy: try to match TZID to zoneinfo names, and if not found, fall back to parsing VTIMEZONE blocks or treat as floating with warning.
+    </description>
+    <example><![CDATA[
+# Pseudocode: mapping TZID -> ZoneInfo
+try:
+    tz = ZoneInfo(tzid)
+except Exception:
+    tz = resolve_tz_from_vtimezone_block(raw_vtimezone) or ZoneInfo(local_tz)
+]]></example>
+  </pattern>
+
+  <pattern name="rrule-count-vs-until">
+    <description>
+      UNTIL and COUNT can be used together by authors; implementations vary in whether UNTIL is inclusive and which timezone it's evaluated in.
+      Check that UNTIL is parsed in the same timezone context as DTSTART when specified without a Z suffix.
+    </description>
+    <checks>
+      <check>Log RRULE string and parsed UNTIL value along with timezone.</check>
+      <check>Validate that expansions stop at the expected last occurrence when applying UNTIL in the rule's timezone.</check>
+    </checks>
+  </pattern>
+
+  <pattern name="exdate-and-recurrence-id">
+    <description>
+      EXDATE entries and RECURRENCE-ID overrides must be matched against expanded occurrences in normalized time (UTC).
+      Common bug: comparing string representations without normalizing timezones.
+    </description>
+    <example><![CDATA[
+# Normalize and match
+occ_utc = normalize_dt(occ_dtstr, occ_tzid, local_tz)
+ex_utc = normalize_dt(ex_dtstr, ex_tzid, local_tz)
+if occ_utc == ex_utc:
+    # remove occurrence
+    pass
+]]></example>
+  </pattern>
+
+  <pattern name="uid-collisions">
+    <description>
+      Real feeds sometimes reuse UID across unrelated events. The safe approach:
+      - Prefer UID to identify series, but additionally check DTSTART and a master indicator (e.g., absence of RECURRENCE-ID) when matching.
+      - If multiple masters found for a UID, log and surface the raw VEVENTs for manual resolution.
+    </description>
+    <checks>
+      <check>Count VEVENTs per UID and list those with multiple masters</check>
+      <check>When collision occurs, avoid automatic merging; surface details in debug output</check>
+    </checks>
+  </pattern>
+
+  <pattern name="max-occurrence-limits">
+    <description>
+      Implement safety limits on expansion volume to prevent runaway expansions (COUNT huge or infinite RRULE).
+      Use configurable settings: rrule_expansion_days and rrule_max_occurrences.
+    </description>
+    <example><![CDATA[
+# Stop expansion early if limit reached
+if len(generated_occurrences) >= settings.rrule_max_occurrences:
+    logger.warning("RRULE expansion truncated by max occurrences", extra={"uid": uid})
+    break
+]]></example>
+  </pattern>
+
+  <quick_debug_checklist>
+    <item>Fetch raw ICS and save a copy for inspection.</item>
+    <item>Confirm DATETIME_OVERRIDE is applied and logged at startup.</item>
+    <item>Run parser with a single VEVENT and inspect parsed fields (UID, DTSTART, TZID, RRULE, EXDATE, RECURRENCE-ID).</item>
+    <item>Run expander for that VEVENT and compare generated occurrences against expected (use dateutil as oracle).</item>
+    <item>Apply EXDATE/RECURRENCE-ID and ensure affected occurrences are removed or replaced.</item>
+    <item>Trace whats-next selection to verify final chosen occurrence.</item>
+  </quick_debug_checklist>
+</common_patterns>
