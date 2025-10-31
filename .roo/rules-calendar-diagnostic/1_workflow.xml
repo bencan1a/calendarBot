@@ -1,0 +1,117 @@
+<workflow_instructions>
+  <mode_overview>
+    Calendar diagnostics for calendarbot_lite focusing on ICS, RRULE, timezones, and exception handling.
+  </mode_overview>
+
+  <prerequisites>
+    <prerequisite>Activate python virtualenv: . venv/bin/activate</prerequisite>
+    <prerequisite>Configured .env in workspace root with ICS_SOURCE and optional DATETIME_OVERRIDE</prerequisite>
+    <prerequisite>Enable CALENDARBOT_DEBUG=true to increase logging</prerequisite>
+  </prerequisites>
+
+  <initialization_steps>
+    <step number="1">
+      <title>Load ICS source</title>
+      <description>Read the ICS URL/path from the project's .env file and treat it as the source of truth.</description>
+      <actions>
+        <action>Open .env and locate ICS_SOURCE (or equivalent setting used by calendarbot_lite/config_loader.py)</action>
+        <action>If ICS_SOURCE is a URL, fetch it via lite_fetcher; if a local file, read directly.</action>
+      </actions>
+    </step>
+
+    <step number="2">
+      <title>Apply datetime override</title>
+      <description>Set the reproduction time to a fixed value so expansions are deterministic.</description>
+      <actions>
+        <action>Use DATETIME_OVERRIDE in .env or set environment variable for tests</action>
+        <action>Confirm server code reads DATETIME_OVERRIDE (search calendarbot_lite/config_loader.py and server startup)</action>
+      </actions>
+    </step>
+
+    <step number="3">
+      <title>Enable debug logging</title>
+      <description>Turn on CALENDARBOT_DEBUG to capture detailed logs across fetch/parse/expand pipeline.</description>
+      <actions>
+        <action>Set CALENDARBOT_DEBUG=true in .env and restart any running lite server</action>
+        <action>Confirm logs appear from modules: lite_fetcher, lite_parser, lite_rrule_expander, lite_logging</action>
+      </actions>
+    </step>
+  </initialization_steps>
+
+  <diagnostic_workflow>
+    <phase name="fetch-and-validate">
+      <description>Ensure the ICS received by the app matches the source</description>
+      <steps>
+        <step>Fetch ICS using lite_fetcher and save raw content</step>
+        <step>Compare raw fetched content to source (checksum/size/first lines)</step>
+        <step>Log any network redirects, auth, or truncated responses</step>
+      </steps>
+    </phase>
+
+    <phase name="parse">
+      <description>Trace ICS parsing to VEVENT objects</description>
+      <steps>
+        <step>Inspect lite_parser for how it handles TZID, DTSTART/DTEND, and floating times</step>
+        <step>Log each parsed VEVENT with UID, DTSTART, TZID, RRULE, EXDATE, and RECURRENCE-ID</step>
+        <step>Identify events missing required properties or with multiple MASTER indicators</step>
+      </steps>
+    </phase>
+
+    <phase name="rrule-expansion">
+      <description>Verify RRULE expansion behavior and windowing</description>
+      <steps>
+        <step>Run lite_rrule_expander with the DATETIME_OVERRIDE window and capture occurrences</step>
+        <step>Compare expansion output against an independent rrule library (e.g., python-dateutil) if needed</step>
+        <step>Check handling of COUNT vs UNTIL and BY* rules, and max occurrence limits</step>
+      </steps>
+    </phase>
+
+    <phase name="exception_handling">
+      <description>Validate EXDATE and RECURRENCE-ID overrides are applied correctly</description>
+      <steps>
+        <step>Verify overrides are matched by UID + RECURRENCE-ID and replace/graft onto master event</step>
+        <step>Confirm EXDATE entries remove occurrences with identical timezone-normalized timestamps</step>
+        <step>Detect duplicate UIDs used for distinct series (common source of master selection bugs)</step>
+      </steps>
+    </phase>
+
+    <phase name="display_consistency">
+      <description>Trace how expanded occurrences are filtered and selected by whats-next</description>
+      <steps>
+        <step>Inspect whats-next selection logic in calendarbot_lite.server or morning_summary</step>
+        <step>Log all candidate occurrences and why the chosen event was selected</step>
+        <step>Look for title-based matching or non-unique selection heuristics that pick wrong master</step>
+      </steps>
+    </phase>
+  </diagnostic_workflow>
+
+  <validation_checks>
+    <check>Timezone conversion: ensure DTSTART with TZID converts to UTC as expected</check>
+    <check>Floating times (no TZID) are interpreted in configured local timezone</check>
+    <check>RRULE expansion includes expected occurrences within window</check>
+    <check>EXDATE/RECURRENCE-ID correctly remove or override occurrences</check>
+    <check>Master event identification uses UID and not only title</check>
+  </validation_checks>
+
+  <recommended_commands>
+    <command><![CDATA[
+# Fetch raw ICS and save
+python -c "from calendarbot_lite import lite_fetcher; print(lite_fetcher.fetch_raw_ics())" > /tmp/raw.ics
+]]></command>
+    <command><![CDATA[
+# Run expansion debug script
+python scripts/debug_recurring_events.py --env .env --output /tmp/expansion_debug.json
+]]></command>
+    <command><![CDATA[
+# Run unit rrule comparison (dateutil)
+python scripts/test_rrule_debug.py --env .env
+]]></command>
+  </recommended_commands>
+
+  <completion_criteria>
+    <criterion>Identified the exact pipeline stage where the discrepancy occurs (fetch, parse, expand, or display)</criterion>
+    <criterion>Reproduced the unexpected behavior deterministically using DATETIME_OVERRIDE</criterion>
+    <criterion>Provided targeted remediation steps and minimal code locations to change</criterion>
+  </completion_criteria>
+
+</workflow_instructions>

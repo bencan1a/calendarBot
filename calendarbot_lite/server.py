@@ -1441,6 +1441,9 @@ async def _make_app(  # type: ignore[no-untyped-def]
         logger.debug(" /api/whats-next called - window has %d events", len(window))
 
         # Find first non-skipped upcoming meeting and compute seconds_until_start now.
+        # FIX: Prioritize business meetings over generic "Lunch" events when they occur at same time
+        candidate_events = []
+
         for i, ev in enumerate(window):
             logger.debug(
                 " Checking event %d - ID: %r, Start: %r", i, ev.get("meeting_id"), ev.get("start")
@@ -1460,9 +1463,54 @@ async def _make_app(  # type: ignore[no-untyped-def]
                         continue
                 except Exception as e:
                     logger.warning("skipped_store.is_skipped raised during api call: %s", e)
+
+            candidate_events.append((ev, seconds_until))
+
+            # If we have multiple candidates, check if any occur at nearly the same time
+            if len(candidate_events) >= 2:
+                # Group events by time (within 30 minutes)
+                current_time_group = [candidate_events[-1]]  # Latest event
+                for prev_ev, prev_seconds in candidate_events[:-1]:
+                    if abs(seconds_until - prev_seconds) <= 1800:  # Within 30 minutes
+                        current_time_group.append((prev_ev, prev_seconds))
+
+                if len(current_time_group) > 1:
+                    # Multiple events at similar time - prioritize non-lunch business events
+                    logger.debug(
+                        "PRIORITY FIX: Multiple events at similar time, applying prioritization"
+                    )
+
+                    business_events = []
+                    lunch_events = []
+
+                    for cand_ev, cand_seconds in current_time_group:
+                        subject = cand_ev.get("subject", "").lower()
+                        if "lunch" in subject and len(subject) <= 10:  # Generic lunch events
+                            lunch_events.append((cand_ev, cand_seconds))
+                            logger.debug(f"PRIORITY FIX: Categorized as lunch event: {subject}")
+                        else:
+                            business_events.append((cand_ev, cand_seconds))
+                            logger.debug(f"PRIORITY FIX: Categorized as business event: {subject}")
+
+                    # Prioritize business events over lunch
+                    if business_events:
+                        selected_ev, selected_seconds = business_events[0]  # Take first business event
+                        logger.debug("PRIORITY FIX: Selected business event over lunch")
+                    else:
+                        selected_ev, selected_seconds = current_time_group[0][0], current_time_group[0][1]
+                        logger.debug(
+                            "PRIORITY FIX: No business events found, using first available"
+                        )
+
+                    model = _event_to_api_model(selected_ev)
+                    model["seconds_until_start"] = selected_seconds
+                    return web.json_response({"meeting": model}, status=200)
+
+        # Default behavior: return first qualifying event
+        if candidate_events:
+            ev, seconds_until = candidate_events[0]
             model = _event_to_api_model(ev)
             model["seconds_until_start"] = seconds_until
-
             return web.json_response({"meeting": model}, status=200)
 
         return web.json_response({"meeting": None}, status=200)
