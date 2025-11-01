@@ -136,8 +136,21 @@ curl -s http://127.0.0.1:8080/ | grep 'calendarbot-ready'
 The watchdog integrates with existing kiosk components:
 - Uses health endpoint from [`calendarbot_lite/server.py`](../calendarbot_lite/server.py)
 - Detects render marker from [`calendarbot_lite/whatsnext.html`](../calendarbot_lite/whatsnext.html)
+- **Browser heartbeat monitoring**: JavaScript in the page sends heartbeats every 30 seconds to `/api/browser-heartbeat`
+- Watchdog checks `display_probe` data in health endpoint to detect stuck/frozen browsers
 - Works with existing [`kiosk/service/calendarbot-kiosk.service`](service/calendarbot-kiosk.service)
 - Compatible with [`kiosk/scripts/.xinitrc`](scripts/.xinitrc) browser launch patterns
+
+### Browser Heartbeat System
+
+The browser heartbeat system provides robust detection of stuck or frozen browsers:
+
+1. **JavaScript Heartbeat** ([`whatsnext.js`](../calendarbot_lite/whatsnext.js)): Sends POST request to `/api/browser-heartbeat` every 30 seconds
+2. **Server Tracking** ([`routes/api_routes.py`](../calendarbot_lite/routes/api_routes.py)): Records heartbeat timestamps in health tracker
+3. **Watchdog Verification**: Checks `display_probe.last_render_probe_iso` in `/api/health` response
+4. **Stale Detection**: If last heartbeat > 2 minutes old, browser is considered stuck and will be restarted
+
+This solves the problem of browsers showing blank pages while the server remains healthy.
 
 ## Performance
 

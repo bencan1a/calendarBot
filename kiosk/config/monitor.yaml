@@ -14,7 +14,7 @@ monitor:
     # Maximum retries for transient failures before escalating
     max_retries: 3
     # Request timeout for health checks (seconds)
-    request_timeout_s: 6
+    request_timeout_s: 10
     # Base URL for health checks - will resolve to local IP
     base_url: "http://127.0.0.1:8080"
     # HTML marker to look for in render probe
@@ -80,13 +80,13 @@ monitor:
   # Resource monitoring and graceful degradation
   resource_limits:
     # Minimum free memory (KB) before degrading monitoring frequency
-    min_free_mem_kb: 60000
+    min_free_mem_kb: 30000
     # Maximum 1-minute load average before degrading monitoring
-    max_load_1m: 1.5
+    max_load_1m: 2.0
     # Degradation factor for intervals when under resource pressure
     degradation_factor: 2.0
-    # Enable automatic throttling under system load
-    auto_throttle: true
+    # Enable automatic throttling under system load (disabled for debugging)
+    auto_throttle: false
 
   # Remote monitoring and alerting (disabled by default)
   remote:
