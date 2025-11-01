@@ -274,17 +274,44 @@ class RRuleWorkerPool:
         Raises:
             ValueError: If datetime format is invalid
         """
-        # Handle timezone-aware EXDATE format: TZID=timezone:YYYYMMDDTHHMMSS
+        # Handle timezone-aware EXDATE format: TZID=Pacific Standard Time:20251031T090000
         if datetime_str.startswith("TZID="):
             try:
-                _tzid_part, dt_part = datetime_str.split(":", 1)
+                # Find the last colon that separates timezone from datetime
+                if ":2" in datetime_str:  # Look for pattern ":20" to find datetime start
+                    last_colon_pos = datetime_str.rfind(":", datetime_str.find(":2"))
+                    tzid_part = datetime_str[:last_colon_pos]
+                    dt_part = datetime_str[last_colon_pos + 1:]
+                else:
+                    # Fallback to original split if pattern not found
+                    tzid_part, dt_part = datetime_str.split(":", 1)
+                    
+                tzid = tzid_part.replace("TZID=", "").strip()
+
+                # Handle "Z" suffix (UTC indicator)
                 dt_part_clean = dt_part.rstrip("Z")
+
+                # Parse the datetime part
                 dt = datetime.strptime(dt_part_clean, "%Y%m%dT%H%M%S")
 
-                if dt_part.endswith("Z"):
+                # Handle special timezone cases
+                if tzid == "UTC" or dt_part.endswith("Z"):
                     return dt.replace(tzinfo=UTC)
-                # For streaming, assume UTC for performance
-                return dt.replace(tzinfo=UTC)
+                    
+                # Map timezone names
+                timezone_name = "America/Los_Angeles" if tzid == "Pacific Standard Time" else tzid
+
+                # Apply timezone and convert to UTC
+                try:
+                    from zoneinfo import ZoneInfo
+                    tz = ZoneInfo(timezone_name)
+                    dt_with_tz = dt.replace(tzinfo=tz)
+                    return dt_with_tz.astimezone(UTC)
+                except Exception:
+                    # Fallback - assume UTC
+                    logger.warning(f"Could not parse timezone {tzid}, assuming UTC")
+                    return dt.replace(tzinfo=UTC)
+                    
             except Exception:
                 # Fall through to standard parsing
                 pass
@@ -371,6 +398,55 @@ def get_worker_pool(settings: Any) -> RRuleWorkerPool:
     return _worker_pool
 
 
+# Backwards-compatibility shims
+# Some callsites (including older parser paths) expect these names:
+# - expand_events_streaming (an async generator)
+# - LiteRRuleExpander class with expand_event / expand_rrule methods
+#
+# Provide thin wrappers that delegate to the current worker-pool based implementation.
+
+async def expand_events_streaming(
+    events_with_rrules: list[tuple[Any, str, Optional[list[str]]]],
+    settings: Any,
+) -> AsyncIterator[Any]:
+    """Compatibility async generator: yields expanded events for each (event, rrule, exdates).
+
+    Delegates to get_worker_pool(settings).expand_rrule_stream for each tuple.
+    """
+    if not events_with_rrules:
+        return
+    pool = get_worker_pool(settings)
+    for ev, rrule_str, exdates in events_with_rrules:
+        try:
+            async for inst in pool.expand_rrule_stream(ev, rrule_str, exdates):
+                yield inst
+        except Exception:
+            logger.exception("expand_events_streaming: failed to stream expansion for %s", getattr(ev, "id", None))
+            continue
+
+
+class LiteRRuleExpander(RRuleWorkerPool):
+    """Compatibility subclass exposing legacy method names expected by callers."""
+
+    def __init__(self, settings: Any):
+        super().__init__(settings)
+
+    def expand_event(self, master_event: Any, rrule_string: str, exdates: Optional[list[str]] = None):
+        """Legacy synchronous-style wrapper returning a list of expanded events.
+
+        Delegates to expand_event_to_list via asyncio.run for callers that expect a blocking call.
+        """
+        try:
+            return asyncio.run(self.expand_event_to_list(master_event, rrule_string, exdates))
+        except Exception:
+            logger.exception("LiteRRuleExpander.expand_event failed for master %s", getattr(master_event, "id", None))
+            return []
+
+    def expand_rrule(self, master_event: Any, rrule_string: str, exdates: Optional[list[str]] = None):
+        """Alias for expand_event to support older callers that used expand_rrule."""
+        return self.expand_event(master_event, rrule_string, exdates)
+
+
 async def expand_events_async(
     events_with_rrules: list[tuple[Any, str, Optional[list[str]]]],
     settings: Any,
@@ -408,45 +484,12 @@ async def expand_events_async(
     return all_expanded
 
 
-async def expand_events_streaming(
-    events_with_rrules: list[tuple[Any, str, Optional[list[str]]]],
-    settings: Any,
-) -> AsyncIterator[Any]:
-    """Expand multiple events with RRULE patterns using pure streaming (no materialization).
-
-    Args:
-        events_with_rrules: List of (event, rrule_string, exdates) tuples
-        settings: Configuration settings
-
-    Yields:
-        Individual expanded LiteCalendarEvent instances
-    """
-    if not events_with_rrules:
-        return
-
-    worker_pool = get_worker_pool(settings)
-
-    # Stream events without materialization for maximum memory efficiency
-    for i, (event, rrule_str, exdates) in enumerate(events_with_rrules):
-        try:
-            # Stream events directly without intermediate collection
-            async for expanded_event in worker_pool.expand_rrule_stream(event, rrule_str, exdates):
-                yield expanded_event
-
-        except Exception as ex:
-            logger.warning("RRULE streaming expansion failed for event %d: %s", i, ex)
-            continue
-
-
 class LiteRRuleExpansionError(Exception):
     """Base exception for RRULE expansion errors."""
 
 
 class LiteRRuleParseError(LiteRRuleExpansionError):
     """Error parsing RRULE string."""
-
-
-class LiteRRuleExpander:
     """Client-side RRULE expansion for CalendarBot Lite.
 
     This class handles expansion of RRULE patterns into individual LiteCalendarEvent
@@ -1029,8 +1072,18 @@ class LiteRRuleExpander:
         """
         # Handle timezone-aware EXDATE format: TZID=Pacific Standard Time:20250623T083000
         if datetime_str.startswith("TZID="):
+            logger.debug(f"TZID parsing started for: {datetime_str}")
             try:
-                tzid_part, dt_part = datetime_str.split(":", 1)
+                # Find the last colon that separates timezone from datetime
+                # EXDATE format: TZID=Pacific Standard Time:20251031T090000
+                if ":2" in datetime_str:  # Look for pattern ":20" to find datetime start
+                    last_colon_pos = datetime_str.rfind(":", datetime_str.find(":2"))
+                    tzid_part = datetime_str[:last_colon_pos]
+                    dt_part = datetime_str[last_colon_pos + 1:]
+                else:
+                    # Fallback to original split if pattern not found
+                    tzid_part, dt_part = datetime_str.split(":", 1)
+                    
                 tzid = tzid_part.replace("TZID=", "").strip()
 
                 # Handle "Z" suffix (UTC indicator)
@@ -1069,6 +1122,8 @@ class LiteRRuleExpander:
 
             except Exception as e:
                 logger.warning(f"Failed to parse timezone-aware EXDATE {datetime_str}: {e}")
+                import traceback
+                logger.debug(f"TZID parsing exception traceback: {traceback.format_exc()}")
                 # Fall through to standard parsing
 
         # Remove timezone suffix for basic parsing
