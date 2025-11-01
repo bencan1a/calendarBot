@@ -675,6 +675,62 @@ class LaunchSummaryHandler(AlexaEndpointBase):
         self.iso_serializer = iso_serializer
         self.get_server_timezone = get_server_timezone
 
+    def _find_next_meeting(
+        self,
+        window: tuple[dict[str, Any], ...],
+        now: datetime.datetime,
+        tz: Any,
+        today_date: datetime.date,
+        include_today: bool = True,
+    ) -> Optional[dict[str, Any]]:
+        """Find the next upcoming meeting.
+
+        Args:
+            window: Event window to search
+            now: Current time
+            tz: Timezone for date comparison
+            today_date: Today's date in the target timezone
+            include_today: If True, include today's meetings; if False, only future days
+
+        Returns:
+            Dictionary with meeting details or None if no meeting found
+        """
+        for ev in window:
+            start = ev.get("start")
+            if not isinstance(start, datetime.datetime):
+                continue
+
+            start_local = start.astimezone(tz)
+
+            # Filter by date based on include_today parameter
+            if include_today:
+                if start_local.date() != today_date:
+                    continue  # Skip non-today meetings
+            else:
+                if start_local.date() <= today_date:
+                    continue  # Skip today's and past meetings
+
+            # Skip past meetings
+            seconds_until = int((start - now).total_seconds())
+            if seconds_until < 0:
+                continue
+
+            # Check if skipped
+            if self._is_skipped(ev):
+                continue
+
+            # Found a meeting
+            return {
+                "event": ev,
+                "seconds_until": seconds_until,
+                "subject": ev.get("subject", "Untitled meeting"),
+                "duration_spoken": (
+                    self.duration_formatter(seconds_until) if self.duration_formatter else ""
+                ),
+            }
+
+        return None
+
     async def handle_request(
         self,
         request: Any,
@@ -724,29 +780,9 @@ class LaunchSummaryHandler(AlexaEndpointBase):
         # Build speech response based on whether there are meetings today
         if not done_for_day_result["has_meetings_today"]:
             # No meetings today case - find next future meeting beyond today
-            for ev in window:
-                start = ev.get("start")
-                if not isinstance(start, datetime.datetime):
-                    continue
-
-                start_local = start.astimezone(tz)
-                if start_local.date() <= today_date:
-                    continue  # Skip today's meetings and past meetings
-
-                # Check if skipped
-                if self._is_skipped(ev):
-                    continue
-
-                seconds_until = int((start - now).total_seconds())
-                future_meeting = {
-                    "event": ev,
-                    "seconds_until": seconds_until,
-                    "subject": ev.get("subject", "Untitled meeting"),
-                    "duration_spoken": (
-                        self.duration_formatter(seconds_until) if self.duration_formatter else ""
-                    ),
-                }
-                break
+            future_meeting = self._find_next_meeting(
+                window, now, tz, today_date, include_today=False
+            )
 
             if future_meeting:
                 speech_text = f"No meetings today, you're free until {future_meeting['subject']} {future_meeting['duration_spoken']}."
@@ -755,31 +791,9 @@ class LaunchSummaryHandler(AlexaEndpointBase):
 
         else:
             # Have meetings today case - find next meeting today
-            for ev in window:
-                start = ev.get("start")
-                if not isinstance(start, datetime.datetime):
-                    continue
-
-                start_local = start.astimezone(tz)
-                if start_local.date() != today_date:
-                    continue  # Skip non-today meetings
-
-                seconds_until = int((start - now).total_seconds())
-                if seconds_until < 0:
-                    continue  # Skip past meetings
-
-                if self._is_skipped(ev):
-                    continue
-
-                next_meeting_today = {
-                    "event": ev,
-                    "seconds_until": seconds_until,
-                    "subject": ev.get("subject", "Untitled meeting"),
-                    "duration_spoken": (
-                        self.duration_formatter(seconds_until) if self.duration_formatter else ""
-                    ),
-                }
-                break
+            next_meeting_today = self._find_next_meeting(
+                window, now, tz, today_date, include_today=True
+            )
 
             if next_meeting_today:
                 speech_text = f"Your next meeting is {next_meeting_today['subject']} {next_meeting_today['duration_spoken']}."

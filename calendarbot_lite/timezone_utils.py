@@ -278,3 +278,54 @@ def windows_tz_to_iana(windows_tz: str) -> str | None:
         IANA timezone identifier (e.g., "America/Denver") or None if not found
     """
     return _detector.WINDOWS_TZ_MAP.get(windows_tz)
+
+
+def convert_to_server_tz(dt: datetime.datetime) -> datetime.datetime:
+    """Convert a datetime to the server's local timezone.
+
+    This is a convenience function for the common pattern of converting
+    UTC or other timezone datetimes to the server's local timezone.
+
+    Args:
+        dt: Datetime to convert (should be timezone-aware)
+
+    Returns:
+        Datetime in server's local timezone
+
+    Examples:
+        >>> import datetime
+        >>> from zoneinfo import ZoneInfo
+        >>> utc_time = datetime.datetime(2025, 11, 1, 20, 0, tzinfo=datetime.timezone.utc)
+        >>> local_time = convert_to_server_tz(utc_time)
+        >>> # Returns time converted to server's timezone (e.g., Pacific)
+    """
+    import zoneinfo
+
+    server_tz_str = get_server_timezone()
+    server_tz = zoneinfo.ZoneInfo(server_tz_str)
+    return dt.astimezone(server_tz)
+
+
+def convert_to_timezone(dt: datetime.datetime, tz_str: str) -> datetime.datetime:
+    """Convert a datetime to a specific timezone.
+
+    Args:
+        dt: Datetime to convert (should be timezone-aware)
+        tz_str: IANA timezone identifier (e.g., "America/Los_Angeles")
+
+    Returns:
+        Datetime in the specified timezone
+
+    Raises:
+        zoneinfo.ZoneInfoNotFoundError: If timezone identifier is invalid
+
+    Examples:
+        >>> import datetime
+        >>> from zoneinfo import ZoneInfo
+        >>> utc_time = datetime.datetime(2025, 11, 1, 20, 0, tzinfo=datetime.timezone.utc)
+        >>> ny_time = convert_to_timezone(utc_time, "America/New_York")
+    """
+    import zoneinfo
+
+    target_tz = zoneinfo.ZoneInfo(tz_str)
+    return dt.astimezone(target_tz)
