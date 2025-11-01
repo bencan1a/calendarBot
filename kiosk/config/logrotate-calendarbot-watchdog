@@ -101,10 +101,10 @@
     
     # Missing files are OK (user might not exist)
     missingok
-    
+
     # Create with user ownership
-    create 644 pi pi
-    
+    create 644 bencan bencan
+
     # Use copytruncate for active browser logs
     copytruncate
     
