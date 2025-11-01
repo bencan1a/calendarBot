@@ -52,6 +52,10 @@ def register_api_routes(
         # Get system diagnostics
         diag = get_system_diagnostics()
 
+        # Get display probe data
+        last_probe_ts = health_tracker.get_last_render_probe_timestamp()
+        last_probe_iso = None if last_probe_ts is None else serialize_iso(time_provider().replace(microsecond=0).fromtimestamp(last_probe_ts))
+
         # Build comprehensive health response
         health_data = {
             "status": health_status.status,
@@ -65,6 +69,11 @@ def register_api_routes(
                 "last_refresh_success_age_s": health_status.last_refresh_success_age_seconds,
             },
             "background_tasks": health_status.background_tasks,
+            "display_probe": {
+                "last_render_probe_iso": last_probe_iso,
+                "last_probe_ok": health_tracker.get_last_render_probe_ok(),
+                "last_probe_notes": health_tracker.get_last_render_probe_notes(),
+            },
             "system_diagnostics": {
                 "platform": diag.platform,
                 "python_version": diag.python_version,
@@ -195,8 +204,23 @@ def register_api_routes(
             status=200,
         )
 
+    async def browser_heartbeat(_request: Any) -> Any:
+        """Browser heartbeat endpoint to detect stuck/frozen browsers.
+
+        Called periodically by JavaScript in the browser to prove the page is
+        alive and rendering. Watchdog can check this to detect blank pages."""
+        now = time_provider()
+        now_iso = now.isoformat() + "Z"
+
+        # Record that browser sent a heartbeat
+        health_tracker.record_render_probe(ok=True, notes="browser-heartbeat")
+        logger.debug("Browser heartbeat received at %s", now_iso)
+
+        return web.json_response({"status": "ok", "timestamp": now_iso}, status=200)
+
     # Register API routes
     app.router.add_get("/api/health", health_check)
+    app.router.add_post("/api/browser-heartbeat", browser_heartbeat)
     app.router.add_get("/api/whats-next", whats_next)
     app.router.add_post("/api/skip", post_skip)
     app.router.add_delete("/api/skip", delete_skip)

@@ -48,6 +48,7 @@
     // === STATE MANAGEMENT ===
     let state = {
         intervalId: null,
+        heartbeatIntervalId: null,
         retryCount: 0,
         lastSuccessfulUpdate: null,
         isOnline: navigator.onLine,
@@ -457,7 +458,60 @@
             startPolling();
         }
     }
-    
+
+    /**
+     * Sends browser heartbeat to server for watchdog monitoring
+     * This helps detect stuck/frozen browsers showing blank pages
+     */
+    async function sendBrowserHeartbeat() {
+        try {
+            const response = await fetch('/api/browser-heartbeat', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                console.log('Browser heartbeat sent successfully');
+            } else {
+                console.warn('Browser heartbeat failed:', response.status);
+            }
+        } catch (error) {
+            console.error('Error sending browser heartbeat:', error);
+        }
+    }
+
+    /**
+     * Starts the browser heartbeat monitoring
+     * Sends heartbeats every 30 seconds to prove the browser is alive
+     */
+    function startBrowserHeartbeat() {
+        // Clear any existing heartbeat interval
+        if (state.heartbeatIntervalId) {
+            clearInterval(state.heartbeatIntervalId);
+        }
+
+        // Send immediate heartbeat
+        sendBrowserHeartbeat();
+
+        // Set up recurring heartbeats every 30 seconds
+        state.heartbeatIntervalId = setInterval(sendBrowserHeartbeat, 30000);
+
+        console.log('Browser heartbeat started - sending every 30 seconds');
+    }
+
+    /**
+     * Stops the browser heartbeat monitoring
+     */
+    function stopBrowserHeartbeat() {
+        if (state.heartbeatIntervalId) {
+            clearInterval(state.heartbeatIntervalId);
+            state.heartbeatIntervalId = null;
+            console.log('Browser heartbeat stopped');
+        }
+    }
+
     /**
      * Calls the skip API to mark a meeting as skipped
      * @param {string} meetingId - The meeting ID to skip
@@ -559,16 +613,17 @@
      */
     function cleanup() {
         stopPolling();
-        
+        stopBrowserHeartbeat();
+
         // Remove close button listeners
         const elements = getDOMElements();
         if (elements.meetingCloseBtn) {
             elements.meetingCloseBtn.removeEventListener('click', handleMeetingClose);
             elements.meetingCloseBtn.removeEventListener('touchstart', handleMeetingClose);
         }
-        
+
         domElements = null;
-        
+
         // Remove event listeners
         window.removeEventListener('online', handleConnectionChange);
         window.removeEventListener('offline', handleConnectionChange);
@@ -601,9 +656,12 @@
         
         // Set up close button event listener
         setupCloseButtonListener();
-        
+
         // Start the polling
         startPolling();
+
+        // Start browser heartbeat for watchdog monitoring
+        startBrowserHeartbeat();
     }
     
     // Initialize when DOM is ready
