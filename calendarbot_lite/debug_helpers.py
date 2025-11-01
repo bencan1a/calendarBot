@@ -31,15 +31,18 @@ logger = logging.getLogger(__name__)
 def read_env(env_path: str | Path) -> dict[str, Optional[str]]:
     """Read a minimal .env-style file and return selected keys.
 
-    Supported keys:
-      - ICS_SOURCE (url or file path)
+    Supported keys (preferred):
+      - CALENDARBOT_ICS_URL (url or file path)
       - DATETIME_OVERRIDE
       - CALENDARBOT_DEBUG
+
+    Backwards compatibility:
+      - If a legacy ICS_SOURCE key is present in .env, it will be mapped to CALENDARBOT_ICS_URL.
 
     This is intentionally not a full dotenv implementation (keeps deps low).
     """
     env: dict[str, Optional[str]] = {
-        "ICS_SOURCE": None,
+        "CALENDARBOT_ICS_URL": None,
         "DATETIME_OVERRIDE": None,
         "CALENDARBOT_DEBUG": None,
     }
@@ -55,7 +58,10 @@ def read_env(env_path: str | Path) -> dict[str, Optional[str]]:
         k, v = line.split("=", 1)
         k = k.strip()
         v = v.strip().strip('"').strip("'")
-        if k in env:
+        # Accept both the new primary key and the legacy ICS_SOURCE for backwards compatibility
+        if k in {"ICS_SOURCE", "CALENDARBOT_ICS_URL"}:
+            env["CALENDARBOT_ICS_URL"] = v
+        elif k in env:
             env[k] = v
     return env
 

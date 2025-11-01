@@ -7,13 +7,82 @@ _compute_last_meeting_end_for_today. They are deterministic and fast.
 from __future__ import annotations
 
 import datetime
-import os
 import zoneinfo
 from typing import Any
 
 import pytest
 
 from calendarbot_lite import server
+
+
+def test_is_focus_time_event_when_exact_keyword_match_then_true():
+    """Focus time keywords should be detected exactly."""
+    focus_events = [
+        {"subject": "focus time"},
+        {"subject": "Focus Time"},
+        {"subject": "FOCUS TIME"},
+        {"subject": "focus"},
+        {"subject": "deep work"},
+        {"subject": "thinking time"},
+        {"subject": "planning time"},
+    ]
+    
+    for event in focus_events:
+        assert server._is_focus_time_event(event), f"Event {event} should be focus time"
+
+
+def test_is_focus_time_event_when_keyword_in_longer_subject_then_true():
+    """Focus time keywords within longer subjects should be detected."""
+    focus_events = [
+        {"subject": "Morning focus time block"},
+        {"subject": "focus time - project planning"},
+        {"subject": "Team deep work session"},
+        {"subject": "Personal thinking time"},
+        {"subject": "Planning time for Q4"},
+        {"subject": "focus session"},
+    ]
+    
+    for event in focus_events:
+        assert server._is_focus_time_event(event), f"Event {event} should be focus time"
+
+
+def test_is_focus_time_event_when_non_focus_subject_then_false():
+    """Non-focus time events should not be detected as focus time."""
+    non_focus_events = [
+        {"subject": "Team standup"},
+        {"subject": "Client meeting"},
+        {"subject": "1:1 with manager"},
+        {"subject": "Project review"},
+        {"subject": "Lunch"},
+        {"subject": "All hands meeting"},
+        {"subject": "discussion meeting"},  # does not contain focus keywords
+        {"subject": "work session"},  # partial but not complete keyword
+        {"subject": "development sync"},
+        {"subject": "code review"},
+    ]
+    
+    for event in non_focus_events:
+        assert not server._is_focus_time_event(event), f"Event {event} should not be focus time"
+
+
+def test_is_focus_time_event_when_missing_subject_then_false():
+    """Events without subject should not be considered focus time."""
+    assert not server._is_focus_time_event({})
+    assert not server._is_focus_time_event({"subject": ""})
+
+
+def test_is_focus_time_event_when_case_insensitive_then_detected():
+    """Focus time detection should be case insensitive."""
+    mixed_case_events = [
+        {"subject": "Focus Time"},
+        {"subject": "DEEP WORK"},
+        {"subject": "Thinking Time"},
+        {"subject": "PLANNING TIME"},
+        {"subject": "Morning FOCUS session"},
+    ]
+    
+    for event in mixed_case_events:
+        assert server._is_focus_time_event(event), f"Event {event} should be focus time"
 
 
 def test_format_duration_spoken_seconds_under_minute_then_seconds():
@@ -29,7 +98,7 @@ def test_format_duration_spoken_exact_minute_then_1_minute():
 
 
 @pytest.mark.parametrize(
-    "seconds,expected",
+    ("seconds", "expected"),
     [
         (61, "in 1 minute"),
         (90, "in 1 minute"),
@@ -150,7 +219,7 @@ def test_compute_last_meeting_end_for_today_with_skipped_store_honors_skip(test_
     assert result["has_meetings_today"] is True
     # The latest end should come from ev_keep only
     expected = server._serialize_iso(
-        (ev_keep["start"] + datetime.timedelta(seconds=ev_keep["duration_seconds"]))
+        ev_keep["start"] + datetime.timedelta(seconds=ev_keep["duration_seconds"])
     )
     assert result["last_meeting_end_iso"] == expected
 

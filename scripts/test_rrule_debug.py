@@ -15,6 +15,7 @@ import argparse
 import asyncio
 import logging
 import sys
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -276,11 +277,11 @@ async def main_async(args: argparse.Namespace) -> None:
     """Main async function for the test script."""
     setup_logging(verbose=args.verbose)
     
-    # Read environment
+    # Read environment (prefer CALENDARBOT_ICS_URL, fall back to ICS_SOURCE in .env)
     env_data = read_env(args.env)
-    ics_source = env_data.get("ICS_SOURCE")
+    ics_source = os.environ.get("CALENDARBOT_ICS_URL") or env_data.get("CALENDARBOT_ICS_URL") or env_data.get("ICS_SOURCE")
     if not ics_source:
-        logger.error("No ICS_SOURCE found in %s", args.env)
+        logger.error("No CALENDARBOT_ICS_URL or ICS_SOURCE found in %s", args.env)
         sys.exit(1)
 
     logger.info("Testing RRULE implementation against python-dateutil")
