@@ -118,34 +118,16 @@ class FreeBlock(BaseModel):
         try:
             import zoneinfo
 
+            from .lite_datetime_utils import format_time_for_speech
             from .server import _get_server_timezone
 
             server_tz = zoneinfo.ZoneInfo(_get_server_timezone())
-            local_time = self.start_time.astimezone(server_tz)
-            hour = local_time.hour
-            minute = local_time.minute
+            return format_time_for_speech(self.start_time, server_tz)
         except Exception:
-            # Fallback to original time if conversion fails
-            hour = self.start_time.hour
-            minute = self.start_time.minute
+            # Fallback to formatting without timezone conversion
+            from .lite_datetime_utils import format_time_for_speech
 
-        if minute == 0:
-            if hour == 12:
-                return "noon"
-            if hour > 12:
-                return f"{hour - 12} PM"
-            return f"{hour} AM"
-        if minute == 30:
-            if hour == 12:
-                return "twelve thirty PM"
-            if hour > 12:
-                return f"{hour - 12} thirty PM"
-            return f"{hour} thirty AM"
-        if hour == 12:
-            return f"twelve {minute:02d} PM"
-        if hour > 12:
-            return f"{hour - 12} {minute:02d} PM"
-        return f"{hour} {minute:02d} AM"
+            return format_time_for_speech(self.start_time)
 
 
 class MeetingInsight(BaseModel):
@@ -176,34 +158,16 @@ class MeetingInsight(BaseModel):
         try:
             import zoneinfo
 
+            from .lite_datetime_utils import format_time_for_speech
             from .server import _get_server_timezone
 
             server_tz = zoneinfo.ZoneInfo(_get_server_timezone())
-            local_time = self.start_time.astimezone(server_tz)
-            hour = local_time.hour
-            minute = local_time.minute
+            return format_time_for_speech(self.start_time, server_tz)
         except Exception:
-            # Fallback to original time if conversion fails
-            hour = self.start_time.hour
-            minute = self.start_time.minute
+            # Fallback to formatting without timezone conversion
+            from .lite_datetime_utils import format_time_for_speech
 
-        if minute == 0:
-            if hour == 12:
-                return "noon"
-            if hour > 12:
-                return f"{hour - 12} PM"
-            return f"{hour} AM"
-        if minute == 30:
-            if hour == 12:
-                return "twelve thirty PM"
-            if hour > 12:
-                return f"{hour - 12} thirty PM"
-            return f"{hour} thirty AM"
-        if hour == 12:
-            return f"twelve {minute:02d} PM"
-        if hour > 12:
-            return f"{hour - 12} {minute:02d} PM"
-        return f"{hour} {minute:02d} AM"
+            return format_time_for_speech(self.start_time)
 
 
 class MorningSummaryResult(BaseModel):

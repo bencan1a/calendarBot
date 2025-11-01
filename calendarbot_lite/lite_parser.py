@@ -41,6 +41,50 @@ def _is_production_mode() -> bool:
     return os.environ.get("CALENDARBOT_PRODUCTION", "false").lower() in ("true", "1")
 
 
+# Internal helper classes for RRULE expansion
+# These classes are used to create lightweight event representations for recurring events
+
+
+class _SimpleEvent:
+    """Lightweight event representation for RRULE expansion.
+
+    Used as a fallback when a full parsed event is not available.
+    Contains minimal attributes needed for recurring event expansion.
+    """
+
+    def __init__(self) -> None:
+        """Initialize a simple event with default None values."""
+        self.start: Any = None
+        self.end: Any = None
+        self.id: Any = None
+        self.subject: Any = None
+        self.body_preview: Any = None
+        self.is_recurring: Any = None
+        self.is_all_day: Any = None
+        self.is_cancelled: Any = None
+        self.is_online_meeting: Any = None
+        self.online_meeting_url: Any = None
+        self.last_modified_date_time: Any = None
+
+
+class _DateTimeWrapper:
+    """Wrapper for datetime objects used in event expansion.
+
+    Provides a consistent interface for date_time and time_zone attributes
+    expected by the RRULE expander.
+    """
+
+    def __init__(self, dt: Any) -> None:
+        """Initialize datetime wrapper.
+
+        Args:
+            dt: Datetime object to wrap
+        """
+        self.date_time = dt
+        # Preserve timezone info if present, else default to UTC
+        self.time_zone = getattr(dt, "tzinfo", timezone.utc)
+
+
 class LiteICSParser:
     """iCalendar parser with Microsoft Outlook compatibility - CalendarBot Lite version."""
 
@@ -60,6 +104,314 @@ class LiteICSParser:
         )
         self._event_merger = LiteEventMerger()
         logger.debug("Lite ICS parser initialized")
+
+    def _build_component_and_event_maps(
+        self,
+        events: list[LiteCalendarEvent],
+        raw_components: list[ICalEvent],
+    ) -> tuple[dict[str, ICalEvent], dict[str, LiteCalendarEvent]]:
+        """Build mappings of UIDs to components and parsed events.
+
+        Creates two maps prioritizing recurring masters over instances:
+        1. component_map: UID -> raw iCalendar component
+        2. events_by_id: UID -> parsed LiteCalendarEvent
+
+        Args:
+            events: List of parsed calendar events
+            raw_components: List of raw iCalendar components
+
+        Returns:
+            Tuple of (component_map, events_by_id)
+        """
+        # Build component map: UID -> component, prioritizing recurring masters
+        component_map = {}
+        for component in raw_components:
+            try:
+                comp_uid = str(component.get("UID"))
+            except Exception:
+                comp_uid = None
+            if not comp_uid:
+                continue
+
+            # If we haven't seen this UID yet, store it
+            if comp_uid not in component_map:
+                component_map[comp_uid] = component
+            else:
+                # Prefer a component that contains an RRULE (recurring master) over instances
+                existing = component_map[comp_uid]
+                existing_has_rrule = bool(existing.get("RRULE"))
+                current_has_rrule = bool(component.get("RRULE"))
+                if not existing_has_rrule and current_has_rrule:
+                    component_map[comp_uid] = component
+
+        # Build events map: UID -> parsed event, prioritizing recurring masters
+        events_by_id: dict[str, LiteCalendarEvent] = {}
+        for e in events:
+            event_id = getattr(e, "id", None)
+            if not event_id:
+                continue
+
+            # If we haven't seen this UID yet, add it
+            if event_id not in events_by_id:
+                events_by_id[event_id] = e
+            else:
+                # Prefer recurring masters over instances
+                existing = events_by_id[event_id]
+                if not getattr(existing, "is_recurring", False) and getattr(e, "is_recurring", False):
+                    events_by_id[event_id] = e
+
+        return component_map, events_by_id
+
+    def _collect_expansion_candidates(
+        self,
+        component_map: dict[str, ICalEvent],
+        events_by_id: dict[str, LiteCalendarEvent],
+        events: list[LiteCalendarEvent],
+    ) -> list[tuple[Any, str, Optional[list[str]]]]:
+        """Collect RRULE expansion candidates from components.
+
+        For each component with an RRULE, creates a candidate tuple containing:
+        - The event object (parsed or synthesized)
+        - The RRULE string
+        - Optional list of EXDATE strings
+
+        Args:
+            component_map: Mapping of UID -> raw component
+            events_by_id: Mapping of UID -> parsed event
+            events: List of all parsed events (for RECURRENCE-ID detection)
+
+        Returns:
+            List of (event, rrule_string, exdates) tuples for expansion
+        """
+        candidates: list[tuple[Any, str, Optional[list[str]]]] = []
+
+        for comp_uid, component in component_map.items():
+            try:
+                # Only consider components that contain an RRULE
+                if not component.get("RRULE"):
+                    continue
+
+                # Extract RRULE property robustly
+                rrule_prop = component.get("RRULE")
+                if hasattr(rrule_prop, "to_ical"):
+                    rrule_string = rrule_prop.to_ical().decode("utf-8")
+                else:
+                    rrule_string = str(rrule_prop)
+
+                # Collect EXDATE properties
+                exdates = self._collect_exdates(component, events, comp_uid)
+
+                # Get or create candidate event
+                candidate_event = self._get_or_create_candidate_event(
+                    comp_uid, component, events_by_id
+                )
+
+                candidates.append(
+                    (candidate_event, rrule_string, exdates if exdates else None)
+                )
+            except Exception as e:
+                logger.warning("Failed to build RRULE candidate for UID=%s: %s", comp_uid, e)
+                continue
+
+        return candidates
+
+    def _collect_exdates(
+        self,
+        component: ICalEvent,
+        events: list[LiteCalendarEvent],
+        comp_uid: str,
+    ) -> list[str]:
+        """Collect EXDATE properties and RECURRENCE-ID instances.
+
+        Args:
+            component: Raw iCalendar component
+            events: List of all parsed events
+            comp_uid: Component UID
+
+        Returns:
+            List of EXDATE strings (including RECURRENCE-IDs)
+        """
+        # Collect EXDATE props using event parser helper
+        exdate_props = self._event_parser._collect_exdate_props(component) or []  # noqa: SLF001
+        exdates: list[str] = []
+
+        if exdate_props:
+            if not isinstance(exdate_props, list):
+                exdate_props = [exdate_props]
+            for exdate in exdate_props:
+                try:
+                    if hasattr(exdate, "to_ical"):
+                        exdate_str = exdate.to_ical().decode("utf-8")
+                        tzid = (
+                            exdate.params["TZID"]
+                            if hasattr(exdate, "params") and "TZID" in exdate.params
+                            else None
+                        )
+                        parts = [p.strip() for p in exdate_str.split(",") if p.strip()]
+                        exdates.extend([f"TZID={tzid}:{p}" if tzid else p for p in parts])
+                    else:
+                        exdate_str = str(exdate)
+                        exdates.extend([q.strip() for q in exdate_str.split(",") if q.strip()])
+                except Exception:
+                    continue
+
+        # Add RECURRENCE-ID instances to exdates to exclude them from normal expansion
+        for event in events:
+            if (getattr(event, "id", None) == comp_uid and
+                hasattr(event, "recurrence_id") and event.recurrence_id):
+                exdates.append(event.recurrence_id)
+                logger.debug(
+                    f"Adding RECURRENCE-ID to exdates for {comp_uid}: {event.recurrence_id}"
+                )
+
+        return exdates
+
+    def _get_or_create_candidate_event(
+        self,
+        comp_uid: str,
+        component: ICalEvent,
+        events_by_id: dict[str, LiteCalendarEvent],
+    ) -> Any:
+        """Get parsed event or create synthetic candidate for expansion.
+
+        Args:
+            comp_uid: Component UID
+            component: Raw iCalendar component
+            events_by_id: Mapping of UID -> parsed event
+
+        Returns:
+            Event object (parsed or synthetic _SimpleEvent)
+        """
+        # Prefer using the parsed event if present (has richer metadata)
+        parsed_event = events_by_id.get(comp_uid)
+        if parsed_event:
+            return parsed_event
+
+        # Synthesize a lightweight event object with minimal attributes
+        candidate_event = _SimpleEvent()  # type: ignore[assignment]
+
+        # Decode DTSTART/DTEND from the raw component
+        try:
+            dtstart_raw = component.decoded("DTSTART")
+            dtend_raw = component.decoded("DTEND") if "DTEND" in component else None
+
+            # Wrap start and end in simple containers expected by expander
+            if isinstance(dtstart_raw, datetime):
+                candidate_event.start = _DateTimeWrapper(dtstart_raw)  # type: ignore[assignment]
+            else:
+                # fallback parse string
+                candidate_event.start = _DateTimeWrapper(  # type: ignore[assignment]
+                    self._parse_datetime(component.get("DTSTART"))
+                )
+
+            if dtend_raw and isinstance(dtend_raw, datetime):
+                candidate_event.end = _DateTimeWrapper(dtend_raw)  # type: ignore[assignment]
+            elif dtend_raw:
+                candidate_event.end = _DateTimeWrapper(self._parse_datetime(component.get("DTEND")))  # type: ignore[assignment]
+            else:
+                # If DTEND missing, approximate using duration of one hour
+                candidate_event.end = _DateTimeWrapper(  # type: ignore[assignment]
+                    candidate_event.start.date_time + timedelta(hours=1)
+                )
+        except Exception:
+            # Last-resort defaults
+            now = datetime.now(timezone.utc)
+            candidate_event.start = _DateTimeWrapper(now)  # type: ignore[assignment]
+            candidate_event.end = _DateTimeWrapper(now + timedelta(hours=1))  # type: ignore[assignment]
+
+        # Minimal metadata to make expansion operate
+        candidate_event.id = comp_uid
+        candidate_event.subject = (
+            str(component.get("SUMMARY", "")) if component.get("SUMMARY") else ""
+        )
+        candidate_event.body_preview = ""  # Default empty body preview
+        candidate_event.is_recurring = True
+        candidate_event.is_all_day = False
+        candidate_event.is_cancelled = False
+        candidate_event.is_online_meeting = False
+        candidate_event.online_meeting_url = None
+        candidate_event.last_modified_date_time = None
+
+        return candidate_event
+
+    def _orchestrate_rrule_expansion(
+        self,
+        candidates: list[tuple[Any, str, Optional[list[str]]]],
+    ) -> list[LiteCalendarEvent]:
+        """Execute RRULE expansion for candidates using async streaming.
+
+        Handles both running and non-running event loop scenarios safely.
+
+        Args:
+            candidates: List of (event, rrule_string, exdates) tuples
+
+        Returns:
+            List of expanded event instances
+        """
+        expanded_instances = []
+
+        if not candidates:
+            return expanded_instances
+
+        # Import expansion function
+        try:
+            from .lite_rrule_expander import expand_events_streaming
+        except Exception:
+            expand_events_streaming = None  # type: ignore[assignment]
+
+        if not expand_events_streaming:  # type: ignore[truthy-function]
+            return expanded_instances
+
+        # Define async collector
+        async def _collect_expansions(cands):  # type: ignore[no-untyped-def]
+            instances = []
+            try:
+                instances.extend(
+                    [
+                        inst
+                        async for inst in expand_events_streaming(cands, self.settings)
+                    ]
+                )
+            except Exception as _e:
+                logger.exception("expand_events_streaming failed: %s")
+            return instances
+
+        # Execute the async collector safely from sync context
+        try:
+            # Check if there's a running event loop
+            try:
+                asyncio.get_running_loop()
+                # There's a running loop, run in a separate thread with its own loop
+                import concurrent.futures
+
+                def run_in_new_loop():  # type: ignore[no-untyped-def]
+                    """Run coroutine in a new event loop in separate thread."""
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    try:
+                        return new_loop.run_until_complete(_collect_expansions(candidates))
+                    finally:
+                        new_loop.close()
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(run_in_new_loop)
+                    instances = future.result()
+            except RuntimeError:
+                # No running loop, use asyncio.run() directly
+                instances = asyncio.run(_collect_expansions(candidates))
+        except Exception as e:
+            logger.warning("Failed to expand RRULE candidates: %s", e)
+            instances = []
+
+        # Collect expanded instances
+        for inst in instances:
+            try:
+                expanded_instances.append(inst)
+            except Exception:
+                # Defensive: skip malformed instances
+                continue
+
+        return expanded_instances
 
     def _should_use_streaming(self, ics_content: str) -> bool:
         """Determine if streaming parser should be used based on content size.
@@ -591,6 +943,11 @@ class LiteICSParser:
     ) -> list[LiteCalendarEvent]:
         """Expand recurring events using LiteRRuleExpander.
 
+        Delegates to helper methods for better testability and maintainability:
+        1. Build component and event maps
+        2. Collect expansion candidates
+        3. Execute async RRULE expansion
+
         Args:
             events: List of parsed calendar events
             raw_components: List of raw iCalendar components for RRULE extraction
@@ -600,244 +957,18 @@ class LiteICSParser:
         """
         expanded_events = []
 
-        # Create a mapping of event UIDs to their raw components
-        # IMPORTANT: When there are multiple events with the same UID (master + instances),
-        # we need to map the RECURRING MASTER to its component, not the instances.
-        # Build the map by prioritizing events that have RRULE properties.
-        component_map = {}
+        # Phase 1: Build mappings of UIDs to components and events
+        component_map, events_by_id = self._build_component_and_event_maps(
+            events, raw_components
+        )
 
-        # First pass: build a mapping of UID -> component, prioritizing recurring masters.
-        # Use the raw component UID when available rather than relying on index alignment
-        # between raw_components and parsed events (streaming parsing order may differ).
-        for component in raw_components:
-            try:
-                comp_uid = str(component.get("UID"))
-            except Exception:
-                comp_uid = None
-            if not comp_uid:
-                continue
+        # Phase 2: Collect RRULE expansion candidates
+        current_candidates = self._collect_expansion_candidates(
+            component_map, events_by_id, events
+        )
 
-            # If we haven't seen this UID yet, store it
-            if comp_uid not in component_map:
-                component_map[comp_uid] = component
-            else:
-                # Prefer a component that contains an RRULE (recurring master) over instances
-                existing = component_map[comp_uid]
-                existing_has_rrule = bool(existing.get("RRULE"))
-                current_has_rrule = bool(component.get("RRULE"))
-                if not existing_has_rrule and current_has_rrule:
-                    component_map[comp_uid] = component
-
-        # Build a list of RRULE expansion candidates by scanning the component_map first.
-        # This ensures recurring masters are discovered even if parsed events were filtered/capped.
-        # IMPORTANT: When multiple events have the same UID (e.g., master + RECURRENCE-ID instances),
-        # we need to prefer the recurring master (is_recurring=True) over instances.
-        events_by_id: dict[str, LiteCalendarEvent] = {}
-        for e in events:
-            event_id = getattr(e, "id", None)
-            if not event_id:
-                continue
-
-            # If we haven't seen this UID yet, add it
-            if event_id not in events_by_id:
-                events_by_id[event_id] = e
-            else:
-                # Prefer recurring masters over instances
-                existing = events_by_id[event_id]
-                if not getattr(existing, "is_recurring", False) and getattr(e, "is_recurring", False):
-                    events_by_id[event_id] = e
-
-        current_candidates: list[tuple[Any, str, Optional[list[str]]]] = []
-
-        for comp_uid, component in component_map.items():
-            try:
-                # Only consider components that contain an RRULE
-                if not component.get("RRULE"):
-                    continue
-
-                # Extract RRULE property robustly
-                rrule_prop = component.get("RRULE")
-                if hasattr(rrule_prop, "to_ical"):
-                    rrule_string = rrule_prop.to_ical().decode("utf-8")
-                else:
-                    rrule_string = str(rrule_prop)
-
-                # Collect EXDATE props using event parser helper
-                exdate_props = self._event_parser._collect_exdate_props(component) or []  # noqa: SLF001
-                exdates: list[str] = []
-                if exdate_props:
-                    if not isinstance(exdate_props, list):
-                        exdate_props = [exdate_props]
-                    for exdate in exdate_props:
-                        try:
-                            if hasattr(exdate, "to_ical"):
-                                exdate_str = exdate.to_ical().decode("utf-8")
-                                tzid = (
-                                    exdate.params["TZID"]
-                                    if hasattr(exdate, "params") and "TZID" in exdate.params
-                                    else None
-                                )
-                                parts = [p.strip() for p in exdate_str.split(",") if p.strip()]
-                                exdates.extend([f"TZID={tzid}:{p}" if tzid else p for p in parts])
-                            else:
-                                exdate_str = str(exdate)
-                                exdates.extend([q.strip() for q in exdate_str.split(",") if q.strip()])
-                        except Exception:
-                            continue
-
-                # Add RECURRENCE-ID instances to exdates to exclude them from normal expansion
-                # These will be handled separately by the event merger
-                for event in events:
-                    if (getattr(event, "id", None) == comp_uid and
-                        hasattr(event, "recurrence_id") and event.recurrence_id):
-                        # Add the RECURRENCE-ID time to exdates
-                        exdates.append(event.recurrence_id)
-                        logger.debug(
-                            f"Adding RECURRENCE-ID to exdates for {comp_uid}: {event.recurrence_id}"
-                        )
-
-                # Prefer using the parsed event if present (has richer metadata)
-                parsed_event = events_by_id.get(comp_uid)
-                if parsed_event:
-                    candidate_event = parsed_event
-                else:
-                    # Synthesize a lightweight master_event object with minimal attributes
-                    class _SimpleEvent:
-                        def __init__(self) -> None:
-                            self.start: Any = None
-                            self.end: Any = None
-                            self.id: Any = None
-                            self.subject: Any = None
-                            self.body_preview: Any = None
-                            self.is_recurring: Any = None
-                            self.is_all_day: Any = None
-                            self.is_cancelled: Any = None
-                            self.is_online_meeting: Any = None
-                            self.online_meeting_url: Any = None
-                            self.last_modified_date_time: Any = None
-
-                    candidate_event = _SimpleEvent()  # type: ignore[assignment]
-                    # Decode DTSTART/DTEND from the raw component where possible
-                    try:
-                        dtstart_raw = component.decoded("DTSTART")
-                        dtend_raw = component.decoded("DTEND") if "DTEND" in component else None
-
-                        # Wrap start and end in simple containers expected by expander
-                        class _DT:
-                            def __init__(self, dt: Any) -> None:
-                                self.date_time = dt
-                                # preserve tz info if present, else UTC
-                                self.time_zone = getattr(dt, "tzinfo", timezone.utc)
-
-                        if isinstance(dtstart_raw, datetime):
-                            candidate_event.start = _DT(dtstart_raw)  # type: ignore[assignment]
-                        else:
-                            # fallback parse string
-                            candidate_event.start = _DT(  # type: ignore[assignment]
-                                self._parse_datetime(component.get("DTSTART"))
-                            )
-                        if dtend_raw and isinstance(dtend_raw, datetime):
-                            candidate_event.end = _DT(dtend_raw)  # type: ignore[assignment]
-                        elif dtend_raw:
-                            candidate_event.end = _DT(self._parse_datetime(component.get("DTEND")))  # type: ignore[assignment]
-                        else:
-                            # If DTEND missing, approximate using duration of one hour
-                            candidate_event.end = _DT(  # type: ignore[assignment]
-                                candidate_event.start.date_time + timedelta(hours=1)
-                            )
-                    except Exception:
-                        # Last-resort defaults
-                        now = datetime.now(timezone.utc)
-
-                        class _DTdef:
-                            def __init__(self, dt: Any) -> None:
-                                self.date_time = dt
-                                self.time_zone = timezone.utc
-
-                        candidate_event.start = _DTdef(now)  # type: ignore[assignment]
-                        candidate_event.end = _DTdef(now + timedelta(hours=1))  # type: ignore[assignment]
-
-                    # Minimal metadata to make expansion operate
-                    candidate_event.id = comp_uid
-                    candidate_event.subject = (
-                        str(component.get("SUMMARY", "")) if component.get("SUMMARY") else ""
-                    )
-                    candidate_event.body_preview = (
-                        ""  # Default empty body preview for synthetic events
-                    )
-                    candidate_event.is_recurring = True
-                    candidate_event.is_all_day = False
-                    candidate_event.is_cancelled = False
-                    candidate_event.is_online_meeting = False
-                    candidate_event.online_meeting_url = None
-                    candidate_event.last_modified_date_time = None
-
-                current_candidates.append(
-                    (candidate_event, rrule_string, exdates if exdates else None)
-                )
-            except Exception as e:
-                logger.warning("Failed to build RRULE candidate for UID=%s: %s", comp_uid, e)
-                continue
-
-        # If we have RRULE candidates, expand them using the compatibility wrapper.
-        if current_candidates:
-            try:
-                from .lite_rrule_expander import expand_events_streaming
-            except Exception:
-                expand_events_streaming = None  # type: ignore[assignment]
-
-            if expand_events_streaming:  # type: ignore[truthy-function]
-
-                async def _collect_expansions(candidates):  # type: ignore[no-untyped-def]
-                    instances = []
-                    try:
-                        instances.extend(
-                            [
-                                inst
-                                async for inst in expand_events_streaming(candidates, self.settings)
-                            ]
-                        )
-                    except Exception as _e:
-                        logger.exception("expand_events_streaming failed: %s")
-                    return instances
-
-                # Execute the async collector safely from sync context.
-                try:
-                    # Check if there's a running event loop
-                    try:
-                        asyncio.get_running_loop()
-                        # There's a running loop, we need to run in a separate thread
-                        # with its own event loop to avoid nested event loop issues
-                        import concurrent.futures
-
-                        def run_in_new_loop():  # type: ignore[no-untyped-def]
-                            """Run coroutine in a new event loop in separate thread."""
-                            new_loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(new_loop)
-                            try:
-                                return new_loop.run_until_complete(
-                                    _collect_expansions(current_candidates)
-                                )
-                            finally:
-                                new_loop.close()
-
-                        with concurrent.futures.ThreadPoolExecutor() as executor:
-                            future = executor.submit(run_in_new_loop)
-                            instances = future.result()
-                    except RuntimeError:
-                        # No running loop, we can use asyncio.run() directly
-                        instances = asyncio.run(_collect_expansions(current_candidates))
-                except Exception as e:
-                    logger.warning("Failed to expand RRULE candidates: %s", e)
-                    instances = []
-
-                # Append expanded instances to the expanded_events list
-                for inst in instances:
-                    try:
-                        expanded_events.append(inst)
-                    except Exception:
-                        # Defensive: skip malformed instances
-                        continue
+        # Phase 3: Execute async RRULE expansion
+        expanded_events = self._orchestrate_rrule_expansion(current_candidates)
 
         return expanded_events
 
