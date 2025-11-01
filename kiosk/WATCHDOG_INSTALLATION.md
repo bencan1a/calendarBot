@@ -31,7 +31,7 @@ sudo cp kiosk/config/logrotate-calendarbot-watchdog /etc/logrotate.d/calendarbot
 # Create log directories
 sudo mkdir -p /var/log/calendarbot-watchdog
 sudo mkdir -p /var/local/calendarbot-watchdog
-sudo chown pi:pi /var/log/calendarbot-watchdog /var/local/calendarbot-watchdog
+sudo chown bencan:bencan /var/log/calendarbot-watchdog /var/local/calendarbot-watchdog
 ```
 
 ### 2. Install Python Dependencies
@@ -45,21 +45,21 @@ pip install PyYAML
 # Create sudoers file for reboot privileges
 sudo tee /etc/sudoers.d/calendarbot-watchdog << EOF
 # CalendarBot watchdog privileges
-pi ALL=NOPASSWD: /sbin/reboot
-pi ALL=NOPASSWD: /bin/systemctl restart calendarbot-kiosk@pi.service
+bencan ALL=NOPASSWD: /sbin/reboot
+bencan ALL=NOPASSWD: /bin/systemctl restart calendarbot-kiosk@bencan.service
 EOF
 ```
 
 ### 4. Enable and Start Watchdog
 ```bash
-# Enable watchdog service for user 'pi'
-sudo systemctl enable calendarbot-kiosk-watchdog@pi.service
+# Enable watchdog service for user 'bencan'
+sudo systemctl enable calendarbot-kiosk-watchdog@bencan.service
 
 # Start watchdog service
-sudo systemctl start calendarbot-kiosk-watchdog@pi.service
+sudo systemctl start calendarbot-kiosk-watchdog@bencan.service
 
 # Check status
-sudo systemctl status calendarbot-kiosk-watchdog@pi.service
+sudo systemctl status calendarbot-kiosk-watchdog@bencan.service
 ```
 
 ## Configuration
@@ -80,19 +80,19 @@ Key settings:
 ### View Logs
 ```bash
 # Watchdog service logs
-sudo journalctl -u calendarbot-kiosk-watchdog@pi.service -f
+sudo journalctl -u calendarbot-kiosk-watchdog@bencan.service -f
 
 # Local log files
 sudo tail -f /var/log/calendarbot-watchdog/watchdog.log
 
 # Browser launch logs
-tail -f /home/pi/kiosk/browser-launch.log
+tail -f /home/bencan/kiosk/browser-launch.log
 ```
 
 ### Check Status
 ```bash
 # Service status
-systemctl status calendarbot-kiosk-watchdog@pi.service
+systemctl status calendarbot-kiosk-watchdog@bencan.service
 
 # Health endpoint
 curl http://127.0.0.1:8080/api/health
@@ -105,15 +105,15 @@ ps aux | grep calendarbot
 
 ### Common Issues
 1. **Watchdog not starting**: Check PyYAML is installed and config file exists
-2. **Permission errors**: Verify log directories are writable by pi user
+2. **Permission errors**: Verify log directories are writable by bencan user
 3. **No recovery actions**: Check rate limits in state file `/var/local/calendarbot-watchdog/state.json`
 4. **High resource usage**: Enable degraded mode or adjust thresholds
 
 ### Debug Mode
 ```bash
 # Enable debug logging
-sudo systemctl stop calendarbot-kiosk-watchdog@pi.service
-sudo CALENDARBOT_WATCHDOG_DEBUG=true systemctl start calendarbot-kiosk-watchdog@pi.service
+sudo systemctl stop calendarbot-kiosk-watchdog@bencan.service
+sudo CALENDARBOT_WATCHDOG_DEBUG=true systemctl start calendarbot-kiosk-watchdog@bencan.service
 ```
 
 ### Manual Testing

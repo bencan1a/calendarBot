@@ -194,7 +194,7 @@ get_service_status() {
     fi
     
     # Check systemd services
-    local services=("calendarbot-kiosk@pi" "calendarbot-kiosk-watchdog@pi")
+    local services=("calendarbot-kiosk@bencan" "calendarbot-kiosk-watchdog@bencan")
     local service_states='[]'
     
     for service in "${services[@]}"; do
