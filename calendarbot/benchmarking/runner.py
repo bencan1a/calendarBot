@@ -232,7 +232,7 @@ class BenchmarkRunner:
 
         return decorator
 
-    def run_benchmark(  # noqa: PLR0915
+    def run_benchmark(
         self,
         benchmark_id: str,
         iterations: Optional[int] = None,

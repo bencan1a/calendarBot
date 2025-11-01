@@ -33,7 +33,7 @@ SettingsBase = BaseSettings
 def _get_safe_web_host() -> str:
     """Get a safe default web host, preferring local network interface over 0.0.0.0."""
     try:
-        from calendarbot.utils.network import (  # noqa: PLC0415
+        from calendarbot.utils.network import (
             get_local_network_interface,
         )
 
@@ -539,7 +539,7 @@ class CalendarBotSettings(BaseSettings):
     def _log_credential_loading(self, credential_type: str, credential_value: str) -> None:
         """Log credential loading with security masking."""
         if SECURITY_LOGGING_AVAILABLE:
-            from calendarbot.security.logging import (  # noqa: PLC0415
+            from calendarbot.security.logging import (
                 SecurityEvent,
                 SecurityEventLogger,
                 SecurityEventType,
@@ -603,7 +603,7 @@ class CalendarBotSettings(BaseSettings):
 
         # Custom headers handling
         if "custom_headers" in ics_config and not self.ics_custom_headers:
-            import json  # noqa: PLC0415
+            import json
 
             try:
                 headers = ics_config["custom_headers"]

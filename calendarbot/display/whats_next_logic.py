@@ -63,7 +63,7 @@ class WhatsNextLogic:
         current_time = self.get_current_time()
 
         # Group events by type
-        current_events, upcoming_events, later_events = self._group_events(events, current_time)
+        current_events, upcoming_events, _later_events = self._group_events(events, current_time)
 
         # Convert to EventData objects
         current_event_data = [EventData.from_cached_event(e, current_time) for e in current_events]
@@ -256,7 +256,7 @@ class WhatsNextLogic:
             selected_date=status_info.get("selected_date") if status_info else None,
         )
 
-    def find_next_upcoming_event(self, events: list[CachedEvent]) -> Optional[CachedEvent]:  # noqa: PLR0915
+    def find_next_upcoming_event(self, events: list[CachedEvent]) -> Optional[CachedEvent]:
         """Find the next single upcoming event after current time.
 
         Args:
@@ -270,7 +270,7 @@ class WhatsNextLogic:
 
             # Apply hidden events filter first - get fresh settings to avoid staleness
             try:
-                from ..settings.service import SettingsService  # noqa: PLC0415
+                from ..settings.service import SettingsService
 
                 settings_service = SettingsService()
                 fresh_settings = settings_service.get_filter_settings()

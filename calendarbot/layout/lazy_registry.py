@@ -395,7 +395,7 @@ class LazyLayoutRegistry:
             cache_key = self._key_generator.generate_simple_key("layout", layout_name)
 
             # Handle async cache operation synchronously
-            import asyncio  # noqa: PLC0415
+            import asyncio
 
             try:
                 loop = asyncio.get_event_loop()
@@ -443,7 +443,7 @@ class LazyLayoutRegistry:
             }
 
             # Handle async cache operation synchronously
-            import asyncio  # noqa: PLC0415
+            import asyncio
 
             try:
                 loop = asyncio.get_event_loop()
@@ -479,7 +479,7 @@ class LazyLayoutRegistry:
             )
 
             # Handle async cache operation synchronously
-            import asyncio  # noqa: PLC0415
+            import asyncio
 
             try:
                 loop = asyncio.get_event_loop()
@@ -517,7 +517,7 @@ class LazyLayoutRegistry:
             )
 
             # Handle async cache operation synchronously
-            import asyncio  # noqa: PLC0415
+            import asyncio
 
             try:
                 loop = asyncio.get_event_loop()

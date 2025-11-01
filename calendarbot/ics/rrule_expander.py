@@ -54,7 +54,7 @@ class RRuleExpander:
         self.expansion_window_days = getattr(settings, "rrule_expansion_days", 365)
         self.enable_expansion = getattr(settings, "enable_rrule_expansion", True)
 
-    def expand_rrule(  # noqa: PLR0912, PLR0915
+    def expand_rrule(
         self,
         master_event: CalendarEvent,
         rrule_string: str,
@@ -166,7 +166,7 @@ class RRuleExpander:
                         else:
                             ex_dt = ex_dt.astimezone(UTC)
                         rule_set.exdate(ex_dt)
-                    except Exception as ex_e:  # noqa: PERF203
+                    except Exception as ex_e:
                         logger.warning(f"Failed to parse or normalize EXDATE '{ex}': {ex_e}")
                         continue
 
@@ -313,7 +313,7 @@ class RRuleExpander:
                 else:
                     exdate = exdate.astimezone(UTC)
                 excluded_datetimes.add(exdate)
-            except Exception as e:  # noqa: PERF203
+            except Exception as e:
                 logger.warning(f"Failed to parse EXDATE {exdate_str}: {e}")
                 continue
 
@@ -534,7 +534,7 @@ class RRuleExpander:
                 # Apply timezone and convert to UTC
                 try:
                     # Try zoneinfo first (preferred)
-                    from zoneinfo import ZoneInfo  # noqa: PLC0415 - deliberate runtime fallback import
+                    from zoneinfo import ZoneInfo
 
                     tz = ZoneInfo(timezone_name)
                     dt_with_tz = dt.replace(tzinfo=tz)
@@ -542,7 +542,7 @@ class RRuleExpander:
                 except (ImportError, Exception):
                     try:
                         # Fallback to pytz
-                        import pytz  # noqa: PLC0415 - deliberate runtime fallback import
+                        import pytz
 
                         tz = pytz.timezone(timezone_name)
                         dt_with_tz = tz.localize(dt)
@@ -574,7 +574,7 @@ class RRuleExpander:
                 if datetime_str.endswith("Z"):
                     dt = dt.replace(tzinfo=UTC)
                 return dt
-            except ValueError:  # noqa: PERF203
+            except ValueError:
                 continue
 
         raise ValueError(f"Unable to parse datetime: {datetime_str}")
