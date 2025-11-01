@@ -391,6 +391,22 @@ EventDict = dict[str, Any]
 # Centralized timezone constants
 DEFAULT_SERVER_TIMEZONE = "America/Los_Angeles"  # Pacific timezone as fallback
 
+# Focus Time keywords for detection - used to skip focus time events from whats-next
+FOCUS_TIME_KEYWORDS = ["focus time", "focus", "deep work", "thinking time", "planning time"]
+
+
+def _is_focus_time_event(event: dict[str, Any]) -> bool:
+    """Check if event is Focus Time and should be skipped from whats-next.
+
+    Args:
+        event: Event dictionary with 'subject' key
+
+    Returns:
+        True if event is focus time, False otherwise
+    """
+    subject = event.get("subject", "").lower()
+    return any(keyword in subject for keyword in FOCUS_TIME_KEYWORDS)
+
 
 def _get_server_timezone() -> str:
     """Get the server's local timezone as an IANA timezone identifier.
@@ -1456,6 +1472,12 @@ async def _make_app(  # type: ignore[no-untyped-def]
 
             if seconds_until < 0:
                 continue
+
+            # Skip focus time events - treat as free time
+            if _is_focus_time_event(ev):
+                logger.debug("Skipping focus time event: %r", ev.get("subject"))
+                continue
+
             if skipped_store is not None:
                 is_skipped = getattr(skipped_store, "is_skipped", None)
                 try:
@@ -1492,10 +1514,12 @@ async def _make_app(  # type: ignore[no-untyped-def]
                             business_events.append((cand_ev, cand_seconds))
                             logger.debug(f"PRIORITY FIX: Categorized as business event: {subject}")
 
-                    # Prioritize business events over lunch
+                    # Prioritize business events over lunch, taking the earliest business event
                     if business_events:
-                        selected_ev, selected_seconds = business_events[0]  # Take first business event
-                        logger.debug("PRIORITY FIX: Selected business event over lunch")
+                        # Sort business events by time and take the earliest
+                        business_events.sort(key=lambda x: x[1])  # Sort by seconds_until
+                        selected_ev, selected_seconds = business_events[0]
+                        logger.debug("PRIORITY FIX: Selected earliest business event over lunch")
                     else:
                         selected_ev, selected_seconds = current_time_group[0][0], current_time_group[0][1]
                         logger.debug(
