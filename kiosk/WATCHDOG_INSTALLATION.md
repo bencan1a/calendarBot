@@ -67,6 +67,9 @@ sudo systemctl status calendarbot-kiosk-watchdog@bencan.service
 ### Monitor Configuration (`/etc/calendarbot-monitor/monitor.yaml`)
 Key settings:
 - `health_check.interval_s`: Health check frequency (default: 30s)
+- `health_check.browser_heartbeat_check_interval_s`: How often to check browser heartbeat (default: 60s)
+- `health_check.browser_heartbeat_timeout_s`: Consider heartbeat stale after this time (default: 120s)
+- `thresholds.browser_heartbeat_fail_count`: Consecutive heartbeat failures before restart (default: 2)
 - `thresholds.max_browser_restarts_per_hour`: Rate limiting (default: 4)
 - `resource_limits.min_free_mem_kb`: Degradation threshold (default: 60MB)
 
@@ -108,6 +111,13 @@ ps aux | grep calendarbot
 2. **Permission errors**: Verify log directories are writable by bencan user
 3. **No recovery actions**: Check rate limits in state file `/var/local/calendarbot-watchdog/state.json`
 4. **High resource usage**: Enable degraded mode or adjust thresholds
+5. **Browser heartbeat not detected**:
+   - Verify server has browser-heartbeat endpoint: `curl -X POST http://localhost:8080/api/browser-heartbeat`
+   - Check JavaScript is sending heartbeats in browser console logs
+   - Verify `display_probe` data in health endpoint: `curl http://localhost:8080/api/health | jq '.display_probe'`
+6. **False heartbeat failures**:
+   - Increase `browser_heartbeat_timeout_s` in monitor.yaml (currently 120s)
+   - Check system clock is synchronized (NTP)
 
 ### Debug Mode
 ```bash
@@ -123,6 +133,10 @@ curl -v http://127.0.0.1:8080/api/health
 
 # Test render marker
 curl -s http://127.0.0.1:8080/ | grep 'calendarbot-ready'
+
+# Test browser heartbeat
+curl -X POST http://127.0.0.1:8080/api/browser-heartbeat
+curl -s http://127.0.0.1:8080/api/health | jq '.display_probe'
 
 # Test port cleanup
 ./kiosk/scripts/cleanup-port.sh 8080

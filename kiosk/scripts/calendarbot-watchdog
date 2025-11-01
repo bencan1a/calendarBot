@@ -262,12 +262,54 @@ class HealthChecker:
             self.logger.log_event('WARN', 'healthcheck', 'browser.process.timeout')
             return False
     
+    def check_browser_heartbeat(self, health_data: Optional[dict[str, Any]]) -> tuple[bool, Optional[int]]:
+        """Check browser heartbeat from display_probe data.
+
+        Args:
+            health_data: Health endpoint response data
+
+        Returns:
+            Tuple of (heartbeat_ok, age_seconds)
+        """
+        if not health_data:
+            return False, None
+
+        display_probe = health_data.get('display_probe', {})
+        last_heartbeat_iso = display_probe.get('last_render_probe_iso')
+
+        if not last_heartbeat_iso:
+            self.logger.log_event('WARN', 'healthcheck', 'browser.heartbeat.missing',
+                                {'notes': 'No heartbeat timestamp in health data'})
+            return False, None
+
+        try:
+            # Parse ISO timestamp
+            from datetime import datetime, timezone
+            heartbeat_time = datetime.fromisoformat(last_heartbeat_iso.replace('Z', '+00:00'))
+            current_time = datetime.now(timezone.utc)
+            age_seconds = int((current_time - heartbeat_time).total_seconds())
+
+            # Check if heartbeat is stale
+            timeout = self.health_config.get('browser_heartbeat_timeout_s', 120)
+            heartbeat_ok = age_seconds <= timeout
+
+            self.logger.log_event('DEBUG', 'healthcheck', 'browser.heartbeat.check',
+                                {'age_s': age_seconds, 'timeout_s': timeout, 'ok': heartbeat_ok,
+                                 'notes': display_probe.get('last_probe_notes')})
+
+            return heartbeat_ok, age_seconds
+
+        except (ValueError, TypeError) as e:
+            self.logger.log_event('ERROR', 'healthcheck', 'browser.heartbeat.parse_error',
+                                {'error': str(e), 'timestamp': last_heartbeat_iso})
+            return False, None
+
     def check_x_server(self) -> bool:
         """Check if X server is responsive."""
         try:
             cmd = self.config.get('commands', {}).get('x_health_cmd', 'DISPLAY=:0 xdpyinfo >/dev/null 2>&1')
             result = subprocess.run(cmd, check=False, shell=True, timeout=5)
-            
+
             running = result.returncode == 0
             self.logger.log_event('DEBUG', 'healthcheck', 'x.server.check',
                                 {'running': running})
@@ -598,7 +640,9 @@ def main() -> int:
     last_health_check = 0
     last_render_check = 0
     last_x_check = 0
+    last_heartbeat_check = 0
     render_failures = 0
+    heartbeat_failures = 0
     
     while not _shutdown_requested:
         try:
@@ -657,7 +701,30 @@ def main() -> int:
                 else:
                     consecutive_failures = 0
                     render_failures = 0
-            
+
+                    # Browser heartbeat check (when health is ok)
+                    heartbeat_interval = _config.get('health_check', {}).get('browser_heartbeat_check_interval_s', 60)
+                    if current_time - last_heartbeat_check >= heartbeat_interval:
+                        heartbeat_ok, age_s = health_checker.check_browser_heartbeat(_health_data)
+                        last_heartbeat_check = current_time
+
+                        if not heartbeat_ok:
+                            heartbeat_failures += 1
+                            structured_logger.log_event('WARN', 'watchdog', 'browser.heartbeat.stale',
+                                                      {'heartbeat_failures': heartbeat_failures,
+                                                       'age_s': age_s})
+
+                            # Escalate after threshold
+                            fail_threshold = _config.get('thresholds', {}).get('browser_heartbeat_fail_count', 2)
+                            if heartbeat_failures >= fail_threshold:
+                                structured_logger.log_event('ERROR', 'watchdog', 'browser.heartbeat.escalate',
+                                                          {'heartbeat_failures': heartbeat_failures,
+                                                           'threshold': fail_threshold})
+                                if recovery_mgr.restart_browser(args.user, state):
+                                    heartbeat_failures = 0
+                        else:
+                            heartbeat_failures = 0
+
             # Render probe check
             if current_time - last_render_check >= render_interval:
                 render_ok = health_checker.check_render_probe()
