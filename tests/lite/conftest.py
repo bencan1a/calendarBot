@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Generator
 import pytest
 
 from calendarbot_lite.http_client import close_all_clients
@@ -31,6 +31,36 @@ def test_timezone() -> str:
     which can make datetime-sensitive tests flaky.
     """
     return "America/Los_Angeles"
+
+
+@pytest.fixture(autouse=True)
+def reset_worker_pool() -> Generator[None, Any, None]:
+    """Reset global worker pool between tests to prevent state pollution.
+
+    The global _worker_pool singleton in lite_rrule_expander can carry state
+    from one test to another. This fixture ensures each test gets a fresh
+    worker pool by resetting it to None after each test.
+    """
+    yield
+    # Reset global worker pool after each test
+    import calendarbot_lite.lite_rrule_expander
+    calendarbot_lite.lite_rrule_expander._worker_pool = None
+
+
+@pytest.fixture(autouse=True)
+def clean_test_environment(monkeypatch: Any) -> Generator[None, Any, None]:
+    """Ensure test environment variables are cleaned between tests.
+
+    Some tests set CALENDARBOT_TEST_TIME to freeze time for recurring event
+    expansion. This fixture ensures the environment variable is cleared before
+    and after each test to prevent pollution between tests.
+    """
+    # Clear any lingering test time before the test
+    monkeypatch.delenv("CALENDARBOT_TEST_TIME", raising=False)
+    yield
+    # Clear again after the test
+    monkeypatch.delenv("CALENDARBOT_TEST_TIME", raising=False)
+
 
 @pytest.fixture(autouse=True)
 async def cleanup_shared_http_clients() -> AsyncIterator[None]:
