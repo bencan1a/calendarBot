@@ -5,7 +5,7 @@ from typing import List
 
 import pytest
 
-from calendarbot_lite.lite_parser import (
+from calendarbot_lite.lite_streaming_parser import (
     LiteStreamingICSParser,
     parse_ics_stream,
 )

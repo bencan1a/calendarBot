@@ -1,0 +1,190 @@
+{
+  "summary": {
+    "total_tests": 7,
+    "passed": 0,
+    "failed": 7,
+    "success_rate": 0.0
+  },
+  "tests": [
+    {
+      "test_id": "single_meeting_20251105",
+      "pass": false,
+      "expected": {
+        "events": [
+          {
+            "start_datetime": "2025-11-05T16:00:00Z",
+            "end_datetime": "2025-11-05T17:00:00Z",
+            "summary": "Team Standup",
+            "uid": "single-meeting-20251105-001@example.com"
+          }
+        ]
+      },
+      "actual": {
+        "meeting": null
+      },
+      "diff": {
+        "differences": [
+          "Event count mismatch: expected 1, got 0",
+          "Missing event at index 0: {'start_datetime': '2025-11-05T16:00:00Z', 'end_datetime': '2025-11-05T17:00:00Z', 'summary': 'Team Standup', 'uid': 'single-meeting-20251105-001@example.com'}"
+        ],
+        "missing_fields": [
+          "events"
+        ],
+        "extra_fields": [
+          "meeting"
+        ]
+      },
+      "diagnostics": {
+        "http_port": 56635,
+        "lite_port": 60895,
+        "ics_source_url": "http://127.0.0.1:56635/single-meeting.ics",
+        "datetime_override": "2025-11-05T08:00:00-07:00",
+        "note": "Captured from pytest assertion output: actual top-level contained 'meeting' field instead of expected 'events'. See test logs."
+      }
+    },
+    {
+      "test_id": "daily_recurring_202511",
+      "pass": false,
+      "expected": {
+        "events": [
+          {
+            "start_datetime": "2025-11-03T17:00:00Z",
+            "end_datetime": "2025-11-03T17:30:00Z",
+            "summary": "Daily Sync",
+            "uid": "daily-recurring-202511-001@example.com"
+          }
+        ]
+      },
+      "actual": null,
+      "diff": {
+        "differences_count": 2,
+        "note": "Runner logged 'Comparison failed: 2 differences' but detailed diff not captured in pytest stdout"
+      },
+      "diagnostics": {
+        "note": "See pytest logs: tests.lite_tests.runner: Test daily_recurring_202511 FAILED: Comparison failed: 2 differences"
+      }
+    },
+    {
+      "test_id": "recurring_with_exdate_202511",
+      "pass": false,
+      "expected": {
+        "events": [
+          {
+            "start_datetime": "2025-11-03T18:00:00Z",
+            "end_datetime": "2025-11-03T19:00:00Z",
+            "summary": "Weekly Planning",
+            "uid": "weekly-planning-202511-001@example.com"
+          },
+          {
+            "start_datetime": "2025-11-17T18:00:00Z",
+            "end_datetime": "2025-11-17T19:00:00Z",
+            "summary": "Weekly Planning",
+            "uid": "weekly-planning-202511-001@example.com"
+          }
+        ]
+      },
+      "actual": null,
+      "diff": {
+        "differences_count": 3,
+        "note": "Runner logged 'Comparison failed: 3 differences' but detailed diff not captured in pytest stdout"
+      },
+      "diagnostics": {
+        "note": "See pytest logs: tests.lite_tests.runner: Test recurring_with_exdate_202511 FAILED: Comparison failed: 3 differences"
+      }
+    },
+    {
+      "test_id": "timezone_event_202511",
+      "pass": false,
+      "expected": {
+        "events": [
+          {
+            "start_datetime": "2025-11-15T15:00:00Z",
+            "end_datetime": "2025-11-15T16:00:00Z",
+            "summary": "Cross-Timezone Call",
+            "uid": "tz-event-202511-001@example.com"
+          }
+        ]
+      },
+      "actual": null,
+      "diff": {
+        "differences_count": 2,
+        "note": "Runner logged 'Comparison failed: 2 differences' but detailed diff not captured in pytest stdout"
+      },
+      "diagnostics": {
+        "note": "See pytest logs: tests.lite_tests.runner: Test timezone_event_202511 FAILED: Comparison failed: 2 differences"
+      }
+    },
+    {
+      "test_id": "all_day_event_202511",
+      "pass": false,
+      "expected": {
+        "events": [
+          {
+            "start_datetime": "2025-11-10T00:00:00Z",
+            "end_datetime": "2025-11-11T00:00:00Z",
+            "summary": "Company Holiday",
+            "uid": "all-day-20251110-001@example.com"
+          }
+        ]
+      },
+      "actual": null,
+      "diff": {
+        "differences_count": 2,
+        "note": "Runner logged 'Comparison failed: 2 differences' but detailed diff not captured in pytest stdout"
+      },
+      "diagnostics": {
+        "note": "See pytest logs: tests.lite_tests.runner: Test all_day_event_202511 FAILED: Comparison failed: 2 differences"
+      }
+    },
+    {
+      "test_id": "dst_transition_timezone_202511",
+      "pass": false,
+      "expected": {
+        "events": [
+          {
+            "start_datetime": "2025-11-02T08:30:00Z",
+            "end_datetime": "2025-11-02T09:30:00Z",
+            "summary": "DST Ambiguous Meeting A",
+            "uid": "dst-event-1@example.com"
+          }
+        ]
+      },
+      "actual": null,
+      "diff": {
+        "differences_count": 2,
+        "note": "Runner logged 'Comparison failed: 2 differences' but detailed diff not captured in pytest stdout"
+      },
+      "diagnostics": {
+        "note": "See pytest logs: tests.lite_tests.runner: Test dst_transition_timezone_202511 FAILED: Comparison failed: 2 differences"
+      }
+    },
+    {
+      "test_id": "dst_transition_overlapping_202511",
+      "pass": false,
+      "expected": {
+        "events": [
+          {
+            "start_datetime": "2025-11-02T08:30:00Z",
+            "end_datetime": "2025-11-02T09:30:00Z",
+            "summary": "DST Ambiguous Meeting A",
+            "uid": "dst-event-1@example.com"
+          },
+          {
+            "start_datetime": "2025-11-02T08:30:00Z",
+            "end_datetime": "2025-11-02T09:30:00Z",
+            "summary": "DST Ambiguous Meeting B",
+            "uid": "dst-event-2@example.com"
+          }
+        ]
+      },
+      "actual": null,
+      "diff": {
+        "differences_count": 3,
+        "note": "Runner logged 'Comparison failed: 3 differences' but detailed diff not captured in pytest stdout"
+      },
+      "diagnostics": {
+        "note": "See pytest logs: tests.lite_tests.runner: Test dst_transition_overlapping_202511 FAILED: Comparison failed: 3 differences"
+      }
+    }
+  ]
+}

@@ -249,8 +249,8 @@ class TestRRuleStreamingOptimization:
             f"Expected 4 events from valid RRULEs, got {len(expanded_events)}"
         )
 
-        # Should have logged warning for invalid RRULE
-        mock_logger.warning.assert_called()
+        # Should have logged exception for invalid RRULE
+        mock_logger.exception.assert_called()
 
     @pytest.mark.asyncio
     async def test_expand_rrule_stream_memory_efficiency(self, mock_settings, sample_event):

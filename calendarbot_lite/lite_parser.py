@@ -1,628 +1,37 @@
 """iCalendar parser with Microsoft Outlook compatibility - CalendarBot Lite version."""
 
 import asyncio
-import codecs
 import logging
-import uuid
-from collections.abc import AsyncGenerator, AsyncIterator, Generator
 from datetime import datetime, timedelta, timezone
-from io import StringIO
-from pathlib import Path
-from typing import Any, BinaryIO, Optional, TextIO, Union, cast
+from typing import Any, Optional, cast
 
 from icalendar import Calendar, Event as ICalEvent
 
+from .lite_attendee_parser import LiteAttendeeParser
+from .lite_datetime_utils import LiteDateTimeParser
+from .lite_event_merger import LiteEventMerger
+from .lite_event_parser import LiteEventComponentParser
 from .lite_models import (
     LiteAttendee,
-    LiteAttendeeType,
     LiteCalendarEvent,
-    LiteDateTimeInfo,
-    LiteEventStatus,
     LiteICSParseResult,
-    LiteLocation,
-    LiteResponseStatus,
 )
 from .lite_rrule_expander import LiteRRuleExpander
+from .lite_streaming_parser import (
+    MAX_ICS_SIZE_BYTES,
+    MAX_ICS_SIZE_WARNING,
+    STREAMING_THRESHOLD,
+    LiteICSContentTooLargeError,
+    LiteStreamingICSParser,
+)
 
 logger = logging.getLogger(__name__)
 
-# Size validation constants from design specification
-MAX_ICS_SIZE_BYTES = 50 * 1024 * 1024  # 50MB limit
-MAX_ICS_SIZE_WARNING = 10 * 1024 * 1024  # 10MB warning threshold
-
-# Streaming parser constants
-DEFAULT_CHUNK_SIZE = 8192  # 8KB chunks for streaming
-STREAMING_THRESHOLD = 10 * 1024 * 1024  # 10MB threshold for streaming vs traditional
-
-# Streaming pipeline configuration constants
-DEFAULT_READ_CHUNK_SIZE_BYTES = 8192  # 8KB chunks for stream reading
-DEFAULT_MAX_LINE_LENGTH_BYTES = 32768  # 32KB max line length
-DEFAULT_STREAM_DECODE_ERRORS = "replace"  # UTF-8 decode error handling
-
-
-class LiteICSContentTooLargeError(Exception):
-    """Raised when ICS content exceeds size limits."""
-
-
-class LiteStreamingICSParser:
-    """Memory-efficient streaming ICS parser for large files.
-
-    Processes ICS files in chunks to minimize memory usage, handling
-    event boundaries and line folding across chunk boundaries.
-    """
-
-    def __init__(self, chunk_size: int = DEFAULT_CHUNK_SIZE) -> None:
-        """Initialize streaming parser.
-
-        Args:
-            chunk_size: Size of chunks to read in bytes
-        """
-        self.chunk_size = chunk_size
-        self._line_buffer = ""  # Buffer for incomplete lines
-        self._current_event_lines: list[str] = []  # Buffer for current event
-        self._in_event = False  # Track if we're inside a VEVENT
-        self._calendar_metadata: dict[str, str] = {}  # Store calendar properties
-        self._pending_folded_line = ""  # Buffer for incomplete folded lines across chunks
-
-        # Additional configuration attributes
-        self.read_chunk_size_bytes = DEFAULT_READ_CHUNK_SIZE_BYTES
-        self.max_line_length_bytes = DEFAULT_MAX_LINE_LENGTH_BYTES
-        self.stream_decode_errors = DEFAULT_STREAM_DECODE_ERRORS
-
-    def parse_stream(
-        self,
-        file_source: Union[str, BinaryIO, TextIO],
-    ) -> Generator[dict[str, Any], None, None]:
-        """Parse ICS content from file stream, yielding events as they are found.
-
-        Args:
-            file_source: File path, file object, or ICS content string
-
-        Yields:
-            Dictionary containing parsed event data and metadata
-
-        Raises:
-            LiteICSContentTooLargeError: If content exceeds size limits
-        """
-        try:
-            # Handle different input types
-            if isinstance(file_source, str):
-                if not file_source or not file_source.strip():
-                    # Empty content - no events to yield
-                    return
-                elif file_source.startswith(("BEGIN:VCALENDAR", "BEGIN:VEVENT")):
-                    # It's ICS content, not a file path
-                    yield from self._parse_content_stream(file_source)
-                else:
-                    # It's a file path
-                    with Path(file_source).open(encoding="utf-8") as f:
-                        yield from self._parse_file_stream(f)
-            else:
-                # It's a file object
-                yield from self._parse_file_stream(file_source)
-
-        except Exception as e:
-            logger.exception("Failed to parse ICS stream")
-            yield {"type": "error", "error": str(e), "metadata": self._calendar_metadata.copy()}
-
-    def _parse_content_stream(self, content: str) -> Generator[dict[str, Any], None, None]:
-        """Parse ICS content string in chunks."""
-        content_io = StringIO(content)
-        yield from self._parse_file_stream(content_io)
-
-    def _parse_file_stream(
-        self,
-        file_obj: BinaryIO | TextIO,
-    ) -> Generator[dict[str, Any], None, None]:
-        """Parse ICS file stream in chunks."""
-        while True:
-            chunk = file_obj.read(self.chunk_size)
-            if not chunk:
-                break
-
-            # Convert bytes to string if needed
-            if isinstance(chunk, bytes):
-                chunk = chunk.decode("utf-8", errors="replace")
-
-            # Process chunk and yield any complete events
-            yield from self._process_chunk(chunk)
-
-        # Process any remaining buffered content
-        yield from self._finalize_parsing()
-
-    async def parse_from_bytes_iter(
-        self,
-        byte_stream: AsyncIterator[bytes],
-    ) -> AsyncGenerator[dict[str, Any], None]:
-        """Parse ICS content from async byte stream, yielding events as they are found.
-
-        This method implements the streaming pipeline for parsing bytes directly from
-        HTTP responses, using incremental UTF-8 decoding to handle chunk boundaries
-        properly.
-
-        Args:
-            byte_stream: Async iterator yielding byte chunks
-
-        Yields:
-            Dictionary containing parsed event data and metadata
-
-        Raises:
-            LiteICSContentTooLargeError: If content exceeds size limits
-        """
-        try:
-            # Initialize incremental UTF-8 decoder
-            decoder = codecs.getincrementaldecoder("utf-8")(errors=self.stream_decode_errors)
-            total_bytes_processed = 0
-
-            logger.debug("Starting streaming parser with incremental UTF-8 decoder")
-
-            async for chunk in byte_stream:
-                if not chunk:
-                    continue
-
-                # Track total bytes for size validation
-                total_bytes_processed += len(chunk)
-                if total_bytes_processed > MAX_ICS_SIZE_BYTES:
-                    logger.error(
-                        f"Streaming content too large: {total_bytes_processed} bytes exceeds {MAX_ICS_SIZE_BYTES} limit"
-                    )
-                    raise LiteICSContentTooLargeError(  # noqa: TRY301
-                        f"Streaming content too large: {total_bytes_processed} bytes exceeds {MAX_ICS_SIZE_BYTES} limit"
-                    )
-
-                # Warn about large content
-                if total_bytes_processed > MAX_ICS_SIZE_WARNING:
-                    logger.warning(
-                        f"Large streaming content detected: {total_bytes_processed} bytes "
-                        f"(threshold: {MAX_ICS_SIZE_WARNING})"
-                    )
-
-                # Decode bytes to text incrementally
-                text_chunk = decoder.decode(chunk, final=False)
-
-                if text_chunk:
-                    # Process the decoded text chunk and yield events
-                    for item in self._process_chunk(text_chunk):
-                        yield item
-
-            # Finalize the decoder to handle any remaining bytes
-            final_text = decoder.decode(b"", final=True)
-            if final_text:
-                for item in self._process_chunk(final_text):
-                    yield item
-
-            # Process any remaining buffered content
-            for item in self._finalize_parsing():
-                yield item
-
-            logger.debug(f"Streaming parser completed, processed {total_bytes_processed} bytes")
-
-        except Exception as e:
-            logger.exception("Failed to parse ICS stream")
-            yield {"type": "error", "error": str(e), "metadata": self._calendar_metadata.copy()}
-
-    def _process_chunk(self, chunk: str) -> Generator[dict[str, Any], None, None]:
-        """Process a chunk of ICS data, handling line and event boundaries."""
-        # Combine with buffered incomplete line
-        content = self._line_buffer + chunk
-        lines = content.split("\n")
-
-        # Keep last line in buffer if chunk doesn't end with newline
-        if not chunk.endswith("\n"):
-            self._line_buffer = lines[-1]
-            lines = lines[:-1]
-        else:
-            self._line_buffer = ""
-
-        # Process complete lines
-        yield from self._process_lines(lines)
-
-    def _process_lines(self, lines: list[str]) -> Generator[dict[str, Any], None, None]:
-        """Process ICS lines, handling line folding and event boundaries across chunks."""
-        for raw_line in lines:
-            line = raw_line.rstrip("\r")
-
-            # Handle pending folded line from previous chunk
-            if self._pending_folded_line:
-                if line.startswith((" ", "\t")):
-                    # This is a continuation line - add to pending
-                    self._pending_folded_line += (
-                        " " + line[1:]
-                    )  # Remove leading whitespace, add space
-                    continue
-                else:
-                    # Pending line is complete, process it
-                    yield from self._process_line(self._pending_folded_line)
-                    self._pending_folded_line = ""
-                    # Fall through to process current line
-
-            # Check if this line starts a folded sequence that might span chunks
-            if line and not line.startswith((" ", "\t")):
-                # This is a potential start of a folded line
-                self._pending_folded_line = line
-            elif line.startswith((" ", "\t")) and self._pending_folded_line:
-                # This is a continuation of an existing folded line
-                self._pending_folded_line += " " + line[1:]  # Add continuation
-                # If no pending line, this is an orphaned continuation (shouldn't happen in valid ICS)
-
-    def _process_line(self, line: str) -> Generator[dict[str, Any], None, None]:
-        """Process a single complete ICS line."""
-        line = line.strip()
-        if not line:
-            return
-
-        # Handle calendar metadata
-        if not self._in_event and ":" in line:
-            prop, value = line.split(":", 1)
-            prop = prop.upper()
-
-            if prop in ("X-WR-CALNAME", "X-WR-CALDESC", "X-WR-TIMEZONE", "PRODID", "VERSION"):
-                self._calendar_metadata[prop] = value
-
-        # Handle event boundaries
-        if line == "BEGIN:VEVENT":
-            self._in_event = True
-            self._current_event_lines = [line]
-        elif line == "END:VEVENT":
-            if self._in_event:
-                self._current_event_lines.append(line)
-                yield from self._parse_complete_event()
-                self._current_event_lines = []
-            self._in_event = False
-        elif self._in_event:
-            self._current_event_lines.append(line)
-
-    def _parse_complete_event(self) -> Generator[dict[str, Any], None, None]:
-        """Parse a complete event from buffered lines."""
-        try:
-            # Create minimal ICS content for this event
-            event_ics = "BEGIN:VCALENDAR\n"
-            event_ics += "VERSION:2.0\n"
-            event_ics += "PRODID:CalendarBot-Lite-Streaming\n"
-            event_ics += "\n".join(self._current_event_lines) + "\n"
-            event_ics += "END:VCALENDAR\n"
-
-            # Parse using icalendar library
-            calendar = Calendar.from_ical(event_ics)
-
-            for component in calendar.walk():
-                if component.name == "VEVENT":
-                    # DEBUG: log raw VEVENT fields to validate streaming/folding behavior
-                    try:
-                        raw_summary = component.get("SUMMARY")
-                        raw_description = component.get("DESCRIPTION")
-                        raw_attendees = component.get("ATTENDEE")
-                        # Normalize debug-friendly representations
-                        attendees_repr = (
-                            [str(raw_attendees)]
-                            if not getattr(raw_attendees, "__iter__", None)
-                            else [str(a) for a in raw_attendees]
-                        )
-                        logger.debug(
-                            "Streaming parsed VEVENT raw fields - "
-                            f"SUMMARY={raw_summary!r}, DESCRIPTION_present={bool(raw_description)}, "
-                            f"ATTENDEE={attendees_repr}"
-                        )
-                    except Exception:
-                        logger.debug(
-                            "Streaming parsed VEVENT - failed to extract raw fields", exc_info=True
-                        )
-
-                    yield {
-                        "type": "event",
-                        "component": component,
-                        "metadata": self._calendar_metadata.copy(),
-                    }
-                    break
-
-        except Exception as e:
-            logger.warning(f"Failed to parse event: {e}")
-            yield {
-                "type": "error",
-                "error": f"Failed to parse event: {e}",
-                "raw_lines": self._current_event_lines.copy(),
-                "metadata": self._calendar_metadata.copy(),
-            }
-
-    def _finalize_parsing(self) -> Generator[dict[str, Any], None, None]:
-        """Process any remaining buffered content at end of file."""
-        # Process any pending folded line from cross-chunk folding
-        if self._pending_folded_line:
-            yield from self._process_line(self._pending_folded_line)
-            self._pending_folded_line = ""
-
-        # Process any remaining line buffer
-        if self._line_buffer.strip():
-            yield from self._process_line(self._line_buffer)
-
-        # Process any incomplete event
-        if self._in_event and self._current_event_lines:
-            logger.warning("Incomplete event at end of file")
-            yield {
-                "type": "error",
-                "error": "Incomplete event at end of file",
-                "raw_lines": self._current_event_lines.copy(),
-                "metadata": self._calendar_metadata.copy(),
-            }
-
-
-async def parse_ics_stream(
-    stream: AsyncIterator[bytes],
-    source_url: Optional[str] = None,
-    read_chunk_size_bytes: int = DEFAULT_READ_CHUNK_SIZE_BYTES,
-    max_line_length_bytes: int = DEFAULT_MAX_LINE_LENGTH_BYTES,
-    stream_decode_errors: str = DEFAULT_STREAM_DECODE_ERRORS,
-) -> LiteICSParseResult:
-    """Parse ICS content from async byte stream, returning structured result.
-
-    This is the main entry point for streaming ICS parsing that accepts AsyncIterator[bytes]
-    from HTTP responses and handles chunk boundaries with incremental UTF-8 decoding.
-
-    Args:
-        stream: Async iterator yielding byte chunks from HTTP response
-        source_url: Optional source URL for audit trail
-        read_chunk_size_bytes: Size of chunks for stream reading
-        max_line_length_bytes: Maximum line length to prevent memory issues
-        stream_decode_errors: UTF-8 decode error handling ('strict' or 'replace')
-
-    Returns:
-        LiteICSParseResult with parsed events and metadata
-
-    Raises:
-        LiteICSContentTooLargeError: If content exceeds size limits
-    """
-    try:
-        logger.debug("Starting streaming ICS parse from byte stream")
-
-        # Create streaming parser instance with configuration
-        parser = LiteStreamingICSParser(
-            chunk_size=read_chunk_size_bytes,
-        )
-        # Set additional configuration
-        parser.read_chunk_size_bytes = read_chunk_size_bytes
-        parser.max_line_length_bytes = max_line_length_bytes
-        parser.stream_decode_errors = stream_decode_errors
-
-        # Process the stream and collect results
-        events = []
-        warnings = []
-        errors = []
-        total_components = 0
-        event_count = 0
-        recurring_event_count = 0
-        calendar_metadata = {}
-
-        # Parse stream with memory-bounded processing
-        max_stored_events = 1000  # Increased to handle calendars with many recurring events
-
-        # Debug counters for network corruption detection
-        total_items_processed = 0
-        event_items_processed = 0
-        duplicate_event_ids = set()
-        warning_count = 0
-
-        async for item in parser.parse_from_bytes_iter(stream):
-            total_items_processed += 1
-
-            if item["type"] == "event":
-                event_items_processed += 1
-                try:
-                    # Convert raw component to LiteCalendarEvent using existing parser logic
-                    component = item["component"]
-                    calendar_metadata.update(item["metadata"])
-
-                    # Check for duplicate event processing (indicates network corruption)
-                    # NOTE: Events with RECURRENCE-ID share the same UID as their master event,
-                    # so we need to include RECURRENCE-ID in the uniqueness check
-                    event_uid = str(component.get("UID", f"no-uid-{event_items_processed}"))
-                    recurrence_id = component.get("RECURRENCE-ID")
-                    if recurrence_id:
-                        # Modified instance - create unique key with UID + RECURRENCE-ID
-                        if hasattr(recurrence_id, "to_ical"):
-                            recurrence_id_str = recurrence_id.to_ical().decode("utf-8")
-                        else:
-                            recurrence_id_str = str(recurrence_id)
-                        unique_event_key = f"{event_uid}::{recurrence_id_str}"
-                    else:
-                        # Master event or standalone event
-                        unique_event_key = event_uid
-
-                    if unique_event_key in duplicate_event_ids:
-                        # Enhanced duplicate detection logging with context
-                        content_size_estimate = total_items_processed * 100  # Rough estimate
-                        logger.warning(
-                            "Duplicate event UID detected during streaming parse - "
-                            f"uid={event_uid}, source_url={source_url or 'unknown'}, "
-                            f"content_size_est={content_size_estimate}bytes, "
-                            f"total_items={total_items_processed}, events_processed={event_items_processed}, "
-                            f"unique_uids={len(duplicate_event_ids)}, duplicate_count={total_items_processed - len(duplicate_event_ids)}"
-                        )
-                        warning_count += 1
-                    else:
-                        duplicate_event_ids.add(unique_event_key)
-                        # Log parsing progress every 10 events for telemetry
-                        if event_items_processed % 10 == 0:
-                            logger.debug(
-                                "Streaming parse progress - source_url=%s, events_processed=%d, "
-                                "unique_uids=%d, duplicate_ratio=%.2f%%",
-                                source_url or "unknown",
-                                event_items_processed,
-                                len(duplicate_event_ids),
-                                (
-                                    (total_items_processed - len(duplicate_event_ids))
-                                    / max(total_items_processed, 1)
-                                )
-                                * 100,
-                            )
-
-                    # Use a minimal settings object for event parsing
-                    class _MinimalSettings:
-                        enable_rrule_expansion = True
-                        rrule_expansion_days = 14
-                        rrule_max_occurrences = 1000
-
-                    # Create temporary parser instance for event conversion
-                    temp_parser = LiteICSParser(_MinimalSettings())
-                    event = temp_parser._parse_event_component(  # noqa: SLF001
-                        component,
-                        calendar_metadata.get("X-WR-TIMEZONE"),
-                    )
-
-                    if event:
-                        event_count += 1
-                        total_components += 1
-
-                        if event.is_recurring:
-                            recurring_event_count += 1
-
-                        # Apply filtering and bounds
-                        if event.is_busy_status and not event.is_cancelled:
-                            if len(events) < max_stored_events:
-                                events.append(event)
-                            elif len(events) == max_stored_events:
-                                warning_count += 1
-                                warning = (
-                                    f"Event limit reached ({max_stored_events}), truncating results"
-                                )
-                                warnings.append(warning)
-
-                                # Enhanced warning logging with telemetry data
-                                duplicate_ratio = (
-                                    (total_items_processed - len(duplicate_event_ids))
-                                    / max(total_items_processed, 1)
-                                ) * 100
-                                logger.warning(
-                                    "Event limit warning - source_url=%s, limit=%d, warning_count=%d, "
-                                    "total_items=%d, events_processed=%d, unique_uids=%d, duplicate_ratio=%.2f%%",
-                                    source_url or "unknown",
-                                    max_stored_events,
-                                    warning_count,
-                                    total_items_processed,
-                                    event_items_processed,
-                                    len(duplicate_event_ids),
-                                    duplicate_ratio,
-                                )
-
-                                # Circuit breaker: if we're seeing repeated warnings, terminate parsing
-                                # Increased threshold to 50 to handle large calendars with recurring events
-                                # Only trigger if we also have duplicates (corruption indicator)
-                                if warning_count > 50 and duplicate_ratio > 10:
-                                    # Circuit breaker activation with comprehensive diagnostic data
-                                    content_size_estimate = (
-                                        total_items_processed * 100
-                                    )  # Rough estimate
-                                    corruption_severity = (
-                                        "HIGH" if duplicate_ratio > 50 else "MEDIUM"
-                                    )
-
-                                    logger.error(
-                                        "CIRCUIT BREAKER ACTIVATED - Network corruption detected during streaming parse. "
-                                        "source_url=%s, severity=%s, warning_count=%d, content_size_est=%dbytes, "
-                                        "total_items=%d, unique_events=%d, processed_events=%d, duplicate_ratio=%.2f%%, "
-                                        "events_collected=%d. TERMINATING PARSING TO PREVENT INFINITE LOOP.",
-                                        source_url or "unknown",
-                                        corruption_severity,
-                                        warning_count,
-                                        content_size_estimate,
-                                        total_items_processed,
-                                        len(duplicate_event_ids),
-                                        event_items_processed,
-                                        duplicate_ratio,
-                                        len(events),
-                                    )
-
-                                    # Return failure when corruption is detected to trigger fallback logic
-                                    logger.error(
-                                        "Corruption mitigation: Returning failure to preserve %d events collected before corruption",
-                                        len(events),
-                                    )
-                                    return LiteICSParseResult(
-                                        success=False,
-                                        error_message=f"Circuit breaker: Network corruption detected ({warning_count} warnings, {duplicate_ratio:.1f}% duplicates)",
-                                        warnings=warnings,
-                                        source_url=source_url,
-                                        event_count=event_count,
-                                        recurring_event_count=recurring_event_count,
-                                        total_components=total_components,
-                                    )
-
-                        # Explicit cleanup for memory management
-                        del event
-
-                except Exception as e:
-                    warning = f"Failed to parse streamed event: {e}"
-                    warnings.append(warning)
-                    logger.warning(warning)
-
-            elif item["type"] == "error":
-                errors.append(item["error"])
-
-        # Return failure if errors occurred during streaming
-        if errors:
-            return LiteICSParseResult(
-                success=False,
-                error_message="; ".join(errors),
-                warnings=warnings,
-                source_url=source_url,
-            )
-
-        # Log comprehensive parsing telemetry at completion
-        duplicate_count = total_items_processed - len(duplicate_event_ids)
-        duplicate_ratio = (duplicate_count / max(total_items_processed, 1)) * 100
-        content_size_estimate = total_items_processed * 100  # Rough estimate
-
-        logger.debug(
-            "Streaming parse completed successfully - source_url=%s, content_size_est=%dbytes, "
-            "total_items=%d, events_processed=%d, unique_uids=%d, duplicate_count=%d, "
-            "duplicate_ratio=%.2f%%, final_events=%d, warnings=%d",
-            source_url or "unknown",
-            content_size_estimate,
-            total_items_processed,
-            event_items_processed,
-            len(duplicate_event_ids),
-            duplicate_count,
-            duplicate_ratio,
-            len(events),
-            len(warnings),
-        )
-
-        return LiteICSParseResult(
-            success=True,
-            events=events,
-            calendar_name=calendar_metadata.get("X-WR-CALNAME"),
-            calendar_description=calendar_metadata.get("X-WR-CALDESC"),
-            timezone=calendar_metadata.get("X-WR-TIMEZONE"),
-            total_components=total_components,
-            event_count=event_count,
-            recurring_event_count=recurring_event_count,
-            warnings=warnings,
-            ics_version=calendar_metadata.get("VERSION"),
-            prodid=calendar_metadata.get("PRODID"),
-            raw_content=None,  # Don't store raw content for streaming
-            source_url=source_url,
-        )
-
-    except Exception as e:
-        logger.exception("Failed to parse ICS stream")
-        return LiteICSParseResult(
-            success=False,
-            error_message=str(e),
-            source_url=source_url,
-        )
-
-
-def _ensure_timezone_aware(dt: datetime) -> datetime:
-    """Ensure datetime is timezone-aware (lightweight version for calendarbot_lite).
-
-    Args:
-        dt: Datetime to make timezone-aware
-
-    Returns:
-        Timezone-aware datetime (UTC if originally naive)
-    """
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt
+# NOTE: LiteStreamingICSParser has been moved to lite_streaming_parser module
+# and is now imported at the top of this file
+
+# NOTE: _ensure_timezone_aware has been moved to lite_datetime_utils module
+# and is now imported at the top of this file
 
 
 def _is_production_mode() -> bool:
@@ -644,6 +53,12 @@ class LiteICSParser:
         self.settings = settings
         self.rrule_expander = LiteRRuleExpander(settings)
         self._streaming_parser = LiteStreamingICSParser()
+        self._datetime_parser = LiteDateTimeParser()
+        self._attendee_parser = LiteAttendeeParser()
+        self._event_parser = LiteEventComponentParser(
+            self._datetime_parser, self._attendee_parser, settings
+        )
+        self._event_merger = LiteEventMerger()
         logger.debug("Lite ICS parser initialized")
 
     def _should_use_streaming(self, ics_content: str) -> bool:
@@ -1050,8 +465,10 @@ class LiteICSParser:
         self,
         component: ICalEvent,
         default_timezone: Optional[str] = None,
-    ) -> LiteCalendarEvent | None:
+    ) -> Optional[LiteCalendarEvent]:
         """Parse a single VEVENT component into LiteCalendarEvent.
+
+        Delegates to LiteEventComponentParser for actual parsing logic.
 
         Args:
             component: iCalendar VEVENT component
@@ -1060,218 +477,12 @@ class LiteICSParser:
         Returns:
             Parsed LiteCalendarEvent or None if parsing fails
         """
-        try:
-            # Required properties
-            uid = str(component.get("UID", str(uuid.uuid4())))
-            summary = str(component.get("SUMMARY", "No Title"))
-
-            # Time information
-            dtstart = component.get("DTSTART")
-            dtend = component.get("DTEND")
-
-            if not dtstart:
-                logger.warning(f"Event {uid} missing DTSTART, skipping")
-                return None
-
-            # Parse start time
-            start_dt = self._parse_datetime(dtstart, default_timezone)
-            start_info = LiteDateTimeInfo(
-                date_time=start_dt,
-                time_zone=str(start_dt.tzinfo) if start_dt.tzinfo else "UTC",
-            )
-
-            # Parse end time
-            if dtend:
-                end_dt = self._parse_datetime(dtend, default_timezone)
-            else:
-                # Use duration if available, otherwise default to 1 hour
-                duration = component.get("DURATION")
-                end_dt = start_dt + duration.dt if duration else start_dt + timedelta(hours=1)
-
-            end_info = LiteDateTimeInfo(
-                date_time=end_dt,
-                time_zone=str(end_dt.tzinfo) if end_dt.tzinfo else "UTC",
-            )
-
-            # Event status and visibility
-            status = self._parse_status(component.get("STATUS"))
-            transp = component.get("TRANSP", "OPAQUE")
-
-            show_as = self._map_transparency_to_status(transp, status, component)
-
-            # All-day events
-            is_all_day = not hasattr(dtstart.dt, "hour")
-
-            # Description
-            description = component.get("DESCRIPTION")
-            body_preview = None
-            if description:
-                body_preview = str(description)[:200]  # Truncate for preview
-
-            # Location
-            location = None
-            location_str = component.get("LOCATION")
-            if location_str:
-                location = LiteLocation(display_name=str(location_str))
-
-            # Organizer and attendees
-            organizer = component.get("ORGANIZER")
-            is_organizer = False
-            attendees = []
-
-            if organizer:
-                # Simple organizer detection (could be enhanced)
-                is_organizer = True
-
-            # Parse attendees
-            for attendee_prop in component.get("ATTENDEE", []):
-                attendee_list = (
-                    attendee_prop if isinstance(attendee_prop, list) else [attendee_prop]
-                )
-
-                for att in attendee_list:
-                    attendee = self._parse_attendee(att)
-                    if attendee:
-                        attendees.append(attendee)
-
-            # Recurrence
-            rrule_prop = component.get("RRULE")
-            is_recurring = rrule_prop is not None
-
-            # RFC 5545 RECURRENCE-ID detection for Microsoft ICS bug
-            # When a recurring instance is moved, the original slot should be excluded
-            recurrence_id_raw = component.get("RECURRENCE-ID")
-            is_moved_instance = recurrence_id_raw is not None  # noqa
-
-            # Convert RECURRENCE-ID to string properly (fix for icalendar object bug)
-            if recurrence_id_raw is not None:
-                if hasattr(recurrence_id_raw, "to_ical"):
-                    # icalendar object - convert to iCal format then decode
-                    recurrence_id = recurrence_id_raw.to_ical().decode("utf-8")
-                else:
-                    # Already a string or other type - convert to string
-                    recurrence_id = str(recurrence_id_raw)
-            else:
-                recurrence_id = None
-
-            # Check if this event should be excluded due to EXDATE
-            # Use the defensive collector to handle getall(), dict-like access, and param-preserving props
-            exdate_props = self._collect_exdate_props(component)
-            if not isinstance(exdate_props, list):
-                exdate_props = [exdate_props] if exdate_props else []
-
-            # Additional metadata
-            created = self._parse_datetime_optional(component.get("CREATED"))
-            last_modified = self._parse_datetime_optional(component.get("LAST-MODIFIED"))
-
-            # Online meeting detection (Microsoft-specific)
-            is_online_meeting = False
-            online_meeting_url = None
-
-            # Check for Microsoft Teams or other online meeting indicators
-            if description:
-                desc_str = str(description).lower()
-                if any(
-                    indicator in desc_str
-                    for indicator in ["teams.microsoft.com", "zoom.us", "meet.google.com"]
-                ):
-                    is_online_meeting = True
-                    # Try to extract URL (basic implementation)
-                    import re
-
-                    url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
-                    urls = re.findall(url_pattern, str(description))
-                    if urls:
-                        online_meeting_url = urls[0]
-
-            # Create LiteCalendarEvent
-            calendar_event = LiteCalendarEvent(
-                id=uid,
-                subject=summary,
-                body_preview=body_preview,
-                start=start_info,
-                end=end_info,
-                is_all_day=is_all_day,
-                show_as=show_as,
-                is_cancelled=status == "CANCELLED",
-                is_organizer=is_organizer,
-                location=location,
-                attendees=attendees if attendees else None,
-                is_recurring=is_recurring,
-                recurrence_id=recurrence_id,
-                created_date_time=created,
-                last_modified_date_time=last_modified,
-                is_online_meeting=is_online_meeting,
-                online_meeting_url=online_meeting_url,
-            )
-
-            # Attach RRULE and EXDATE metadata onto the parsed event so downstream
-            # helpers (debug scripts and expanders) can discover RRULEs directly
-            # from the parsed event object. This is defensive and preserves the
-            # existing expansion flow which may use raw components in other codepaths.
-            try:
-                rrule_string = None
-                if rrule_prop:
-                    if hasattr(rrule_prop, "to_ical"):
-                        rrule_string = rrule_prop.to_ical().decode("utf-8")
-                    else:
-                        rrule_string = str(rrule_prop)
-
-                exdates_list: list[str] = []
-                if exdate_props:
-                    if not isinstance(exdate_props, list):
-                        exdate_props = [exdate_props]
-                    for exdate in exdate_props:
-                        try:
-                            if hasattr(exdate, "to_ical"):
-                                exdate_str = exdate.to_ical().decode("utf-8")
-                                tzid = None
-                                if hasattr(exdate, "params") and "TZID" in exdate.params:
-                                    tzid = exdate.params["TZID"]
-
-                                parts = [p.strip() for p in exdate_str.split(",") if p.strip()]
-                                for p in parts:
-                                    if tzid:
-                                        exdates_list.append(f"TZID={tzid}:{p}")
-                                    else:
-                                        exdates_list.append(p)
-                            else:
-                                exdate_str = str(exdate)
-                                exdates_list.extend([q.strip() for q in exdate_str.split(",") if q.strip()])
-                        except Exception:
-                            continue
-
-                # Attach metadata to the underlying model dict so we don't trigger
-                # Pydantic unknown-field errors when assigning to a BaseModel.
-                try:
-                    calendar_event.__dict__["rrule_string"] = rrule_string
-                    calendar_event.__dict__["exdates"] = exdates_list if exdates_list else None
-                except Exception:
-                    # As a final fallback, create a lightweight metadata map on the object
-                    import contextlib
-                    with contextlib.suppress(Exception):
-                        object.__setattr__(
-                            calendar_event,
-                            "_metadata",
-                            {
-                                "rrule_string": rrule_string,
-                                "exdates": (exdates_list if exdates_list else None),
-                            },
-                        )
-            except Exception:
-                # Non-fatal: expansion code will fall back to raw component mapping if needed
-                logger.debug(
-                    "Failed to attach rrule/exdate metadata to parsed event", exc_info=True
-                )
-
-        except Exception:
-            logger.exception("Failed to parse event component")
-            return None
-        else:
-            return calendar_event
+        return self._event_parser.parse_event_component(component, default_timezone)
 
     def _parse_datetime(self, dt_prop: Any, default_timezone: Optional[str] = None) -> datetime:
         """Parse iCalendar datetime property.
+
+        Delegates to LiteDateTimeParser for actual parsing logic.
 
         Args:
             dt_prop: iCalendar datetime property
@@ -1280,36 +491,12 @@ class LiteICSParser:
         Returns:
             Parsed datetime with timezone
         """
-        dt = dt_prop.dt
-
-        # Handle date-only (all-day events)
-        if isinstance(dt, datetime):
-            if dt.tzinfo is None:
-                # No timezone specified, use lightweight timezone handling
-                if default_timezone:
-                    try:
-                        # Use lightweight timezone service to handle timezone conversion
-                        dt = _ensure_timezone_aware(dt)
-                        logger.debug(
-                            f"Parsed naive datetime {dt} with default timezone: {default_timezone}",
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to apply timezone {default_timezone}: {e}",
-                        )
-                        dt = _ensure_timezone_aware(dt)  # Fallback to UTC
-                else:
-                    # Use lightweight timezone awareness
-                    dt = _ensure_timezone_aware(dt)
-            else:
-                # Already has timezone info, ensure it's properly handled
-                dt = _ensure_timezone_aware(dt)
-            return dt
-        # Date object - convert to datetime at midnight with proper timezone
-        return _ensure_timezone_aware(datetime.combine(dt, datetime.min.time()))
+        return self._datetime_parser.parse_datetime(dt_prop, default_timezone)
 
     def _parse_datetime_optional(self, dt_prop: Any) -> Optional[datetime]:
         """Parse optional datetime property.
+
+        Delegates to LiteDateTimeParser for actual parsing logic.
 
         Args:
             dt_prop: iCalendar datetime property or None
@@ -1317,88 +504,15 @@ class LiteICSParser:
         Returns:
             Parsed datetime or None
         """
-        if dt_prop is None:
-            return None
+        return self._datetime_parser.parse_datetime_optional(dt_prop)
 
-        try:
-            return self._parse_datetime(dt_prop)
-        except Exception:
-            return None
+    # NOTE: _parse_status has been moved to LiteEventComponentParser in lite_event_parser.py
+    # NOTE: _map_transparency_to_status has been moved to LiteEventComponentParser in lite_event_parser.py
 
-    def _parse_status(self, status_prop: Any) -> Optional[str]:
-        """Parse event status.
-
-        Args:
-            status_prop: iCalendar STATUS property
-
-        Returns:
-            Status string or None
-        """
-        if status_prop is None:
-            return None
-
-        return str(status_prop).upper()
-
-    def _map_transparency_to_status(
-        self,
-        transparency: str,
-        status: Optional[str],
-        component: Any,
-    ) -> LiteEventStatus:
-        """Map iCalendar transparency and status to LiteEventStatus with Microsoft phantom event filtering.
-
-        Args:
-            transparency: TRANSP property value
-            status: STATUS property value
-            component: Raw iCalendar component for Microsoft marker access
-
-        Returns:
-            LiteEventStatus enum value
-        """
-        # Check Microsoft deletion markers for phantom event filtering
-        ms_deleted = component.get("X-OUTLOOK-DELETED")
-        ms_busystatus = component.get("X-MICROSOFT-CDO-BUSYSTATUS")
-
-        # Filter out Microsoft phantom deleted events
-        if ms_deleted and str(ms_deleted).upper() == "TRUE":
-            return LiteEventStatus.FREE  # Will be filtered out by busy status check
-
-        # Check if this is a "Following:" meeting by parsing the event title
-        summary = component.get("SUMMARY")
-        is_following_meeting = summary and "Following:" in str(summary)
-
-        # Use Microsoft busy status override if available
-        if ms_busystatus:
-            ms_status = str(ms_busystatus).upper()
-            if ms_status == "FREE":
-                # Special case: "Following:" meetings should be TENTATIVE, not FREE
-                if is_following_meeting:
-                    return LiteEventStatus.TENTATIVE
-                # All other FREE busy status events should be filtered out
-                return LiteEventStatus.FREE
-
-        if status == "CANCELLED":
-            mapped_status = LiteEventStatus.FREE
-        elif status == "TENTATIVE":
-            mapped_status = LiteEventStatus.TENTATIVE
-        elif transparency == "TRANSPARENT":
-            # Special handling for transparent + confirmed meetings (e.g., "Following" meetings)
-            # These should appear on calendar but with different visual treatment
-            mapped_status = (
-                LiteEventStatus.TENTATIVE if status == "CONFIRMED" else LiteEventStatus.FREE
-            )
-        elif is_following_meeting:
-            # "Following:" meetings should appear on calendar regardless of other properties
-            mapped_status = LiteEventStatus.TENTATIVE
-            logger.debug(f"  → APPLIED FOLLOWING LOGIC: {mapped_status}")
-        else:
-            # OPAQUE or default
-            mapped_status = LiteEventStatus.BUSY
-
-        return mapped_status
-
-    def _parse_attendee(self, attendee_prop: Any) -> LiteAttendee | None:
+    def _parse_attendee(self, attendee_prop: Any) -> Optional[LiteAttendee]:
         """Parse attendee from iCalendar property.
+
+        Delegates to LiteAttendeeParser for actual parsing logic.
 
         Args:
             attendee_prop: iCalendar ATTENDEE property
@@ -1406,48 +520,7 @@ class LiteICSParser:
         Returns:
             Parsed LiteAttendee or None
         """
-        try:
-            # Extract email from the property
-            email = str(attendee_prop).replace("mailto:", "")
-
-            # Get parameters
-            params = getattr(attendee_prop, "params", {})
-
-            # Name
-            name = params.get("CN", email.split("@")[0])
-
-            # Role/Type
-            role = params.get("ROLE", "REQ-PARTICIPANT")
-            attendee_type = LiteAttendeeType.REQUIRED
-            if role == "OPT-PARTICIPANT":
-                attendee_type = LiteAttendeeType.OPTIONAL
-            elif role == "NON-PARTICIPANT":
-                attendee_type = LiteAttendeeType.RESOURCE
-
-            # Response status
-            partstat = params.get("PARTSTAT", "NEEDS-ACTION")
-            response_status = LiteResponseStatus.NOT_RESPONDED
-
-            status_map = {
-                "ACCEPTED": LiteResponseStatus.ACCEPTED,
-                "DECLINED": LiteResponseStatus.DECLINED,
-                "TENTATIVE": LiteResponseStatus.TENTATIVELY_ACCEPTED,
-                "DELEGATED": LiteResponseStatus.NOT_RESPONDED,
-                "NEEDS-ACTION": LiteResponseStatus.NOT_RESPONDED,
-            }
-
-            response_status = status_map.get(partstat, LiteResponseStatus.NOT_RESPONDED)
-
-            return LiteAttendee(
-                name=name,
-                email=email,
-                type=attendee_type,
-                response_status=response_status,
-            )
-
-        except Exception as e:
-            logger.debug(f"Failed to parse attendee: {e}")
-            return None
+        return self._attendee_parser.parse_attendee(attendee_prop)
 
     def _get_calendar_property(self, calendar: Calendar, prop_name: str) -> Optional[str]:
         """Get calendar-level property.
@@ -1509,63 +582,7 @@ class LiteICSParser:
             logger.debug(f"ICS validation failed: {e}")
             return False
 
-    def _collect_exdate_props(self, component: ICalEvent) -> list[Any]:
-        """Robustly collect EXDATE properties from an icalendar VEVENT component.
-
-        The icalendar library exposes EXDATE in a few different ways depending on
-        version and how the calendar was authored:
-        - component.getall("EXDATE")
-        - component["EXDATE"]
-        - multiple property entries accessible via component.property_items() or items()
-
-        This helper normalizes all those patterns into a list of property objects
-        (the raw objects returned by the icalendar parser) so callers can convert
-        them into strings/timestamps while preserving any TZID params.
-        """
-        exdate_props: list[Any] = []
-
-        # Preferred: getall() (returns list of matching props)
-        try:
-            props = component.getall("EXDATE")  # type: ignore
-            if props:
-                exdate_props.extend(props)
-        except Exception:
-            pass
-
-        # Fallback: dict-like access component["EXDATE"]
-        if not exdate_props and "EXDATE" in component:
-            try:
-                val = component["EXDATE"]
-                # component["EXDATE"] may be a single prop or a list-like structure
-                if isinstance(val, list):
-                    exdate_props.extend(val)
-                else:
-                    exdate_props.append(val)
-            except Exception:
-                pass
-
-        # Last resort: scan property items for keys equal to EXDATE (case-insensitive)
-        if not exdate_props:
-            try:
-                for key, val in getattr(component, "property_items", list)():
-                    if str(key).upper() == "EXDATE":
-                        if isinstance(val, list):
-                            exdate_props.extend(val)
-                        else:
-                            exdate_props.append(val)
-            except Exception:
-                # property_items may not exist on some icalendar types; try items()
-                try:
-                    for key, val in component.items():
-                        if str(key).upper() == "EXDATE":
-                            if isinstance(val, list):
-                                exdate_props.extend(val)
-                            else:
-                                exdate_props.append(val)
-                except Exception:
-                    pass
-
-        return exdate_props
+    # NOTE: _collect_exdate_props has been moved to LiteEventComponentParser in lite_event_parser.py
 
     def _expand_recurring_events(
         self,
@@ -1613,9 +630,23 @@ class LiteICSParser:
 
         # Build a list of RRULE expansion candidates by scanning the component_map first.
         # This ensures recurring masters are discovered even if parsed events were filtered/capped.
-        events_by_id: dict[str, LiteCalendarEvent] = {
-            event_id: e for e in events if (event_id := getattr(e, "id", None)) is not None
-        }
+        # IMPORTANT: When multiple events have the same UID (e.g., master + RECURRENCE-ID instances),
+        # we need to prefer the recurring master (is_recurring=True) over instances.
+        events_by_id: dict[str, LiteCalendarEvent] = {}
+        for e in events:
+            event_id = getattr(e, "id", None)
+            if not event_id:
+                continue
+
+            # If we haven't seen this UID yet, add it
+            if event_id not in events_by_id:
+                events_by_id[event_id] = e
+            else:
+                # Prefer recurring masters over instances
+                existing = events_by_id[event_id]
+                if not getattr(existing, "is_recurring", False) and getattr(e, "is_recurring", False):
+                    events_by_id[event_id] = e
+
         current_candidates: list[tuple[Any, str, Optional[list[str]]]] = []
 
         for comp_uid, component in component_map.items():
@@ -1631,8 +662,8 @@ class LiteICSParser:
                 else:
                     rrule_string = str(rrule_prop)
 
-                # Collect EXDATE props using existing helper
-                exdate_props = self._collect_exdate_props(component) or []
+                # Collect EXDATE props using event parser helper
+                exdate_props = self._event_parser._collect_exdate_props(component) or []  # noqa: SLF001
                 exdates: list[str] = []
                 if exdate_props:
                     if not isinstance(exdate_props, list):
@@ -1654,6 +685,17 @@ class LiteICSParser:
                         except Exception:
                             continue
 
+                # Add RECURRENCE-ID instances to exdates to exclude them from normal expansion
+                # These will be handled separately by the event merger
+                for event in events:
+                    if (getattr(event, "id", None) == comp_uid and
+                        hasattr(event, "recurrence_id") and event.recurrence_id):
+                        # Add the RECURRENCE-ID time to exdates
+                        exdates.append(event.recurrence_id)
+                        logger.debug(
+                            f"Adding RECURRENCE-ID to exdates for {comp_uid}: {event.recurrence_id}"
+                        )
+
                 # Prefer using the parsed event if present (has richer metadata)
                 parsed_event = events_by_id.get(comp_uid)
                 if parsed_event:
@@ -1661,7 +703,7 @@ class LiteICSParser:
                 else:
                     # Synthesize a lightweight master_event object with minimal attributes
                     class _SimpleEvent:
-                        def __init__(self):
+                        def __init__(self) -> None:
                             self.start: Any = None
                             self.end: Any = None
                             self.id: Any = None
@@ -1674,7 +716,7 @@ class LiteICSParser:
                             self.online_meeting_url: Any = None
                             self.last_modified_date_time: Any = None
 
-                    candidate_event = _SimpleEvent()
+                    candidate_event = _SimpleEvent()  # type: ignore[assignment]
                     # Decode DTSTART/DTEND from the raw component where possible
                     try:
                         dtstart_raw = component.decoded("DTSTART")
@@ -1682,25 +724,25 @@ class LiteICSParser:
 
                         # Wrap start and end in simple containers expected by expander
                         class _DT:
-                            def __init__(self, dt):
+                            def __init__(self, dt: Any) -> None:
                                 self.date_time = dt
                                 # preserve tz info if present, else UTC
                                 self.time_zone = getattr(dt, "tzinfo", timezone.utc)
 
                         if isinstance(dtstart_raw, datetime):
-                            candidate_event.start = _DT(dtstart_raw)
+                            candidate_event.start = _DT(dtstart_raw)  # type: ignore[assignment]
                         else:
                             # fallback parse string
-                            candidate_event.start = _DT(
+                            candidate_event.start = _DT(  # type: ignore[assignment]
                                 self._parse_datetime(component.get("DTSTART"))
                             )
                         if dtend_raw and isinstance(dtend_raw, datetime):
-                            candidate_event.end = _DT(dtend_raw)
+                            candidate_event.end = _DT(dtend_raw)  # type: ignore[assignment]
                         elif dtend_raw:
-                            candidate_event.end = _DT(self._parse_datetime(component.get("DTEND")))
+                            candidate_event.end = _DT(self._parse_datetime(component.get("DTEND")))  # type: ignore[assignment]
                         else:
                             # If DTEND missing, approximate using duration of one hour
-                            candidate_event.end = _DT(
+                            candidate_event.end = _DT(  # type: ignore[assignment]
                                 candidate_event.start.date_time + timedelta(hours=1)
                             )
                     except Exception:
@@ -1708,12 +750,12 @@ class LiteICSParser:
                         now = datetime.now(timezone.utc)
 
                         class _DTdef:
-                            def __init__(self, dt):
+                            def __init__(self, dt: Any) -> None:
                                 self.date_time = dt
                                 self.time_zone = timezone.utc
 
-                        candidate_event.start = _DTdef(now)
-                        candidate_event.end = _DTdef(now + timedelta(hours=1))
+                        candidate_event.start = _DTdef(now)  # type: ignore[assignment]
+                        candidate_event.end = _DTdef(now + timedelta(hours=1))  # type: ignore[assignment]
 
                     # Minimal metadata to make expansion operate
                     candidate_event.id = comp_uid
@@ -1742,11 +784,11 @@ class LiteICSParser:
             try:
                 from .lite_rrule_expander import expand_events_streaming
             except Exception:
-                expand_events_streaming = None
+                expand_events_streaming = None  # type: ignore[assignment]
 
-            if expand_events_streaming:
+            if expand_events_streaming:  # type: ignore[truthy-function]
 
-                async def _collect_expansions(candidates):
+                async def _collect_expansions(candidates):  # type: ignore[no-untyped-def]
                     instances = []
                     try:
                         instances.extend(
@@ -1761,16 +803,29 @@ class LiteICSParser:
 
                 # Execute the async collector safely from sync context.
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
+                    # Check if there's a running event loop
+                    try:
+                        asyncio.get_running_loop()
+                        # There's a running loop, we need to run in a separate thread
+                        # with its own event loop to avoid nested event loop issues
                         import concurrent.futures
 
+                        def run_in_new_loop():  # type: ignore[no-untyped-def]
+                            """Run coroutine in a new event loop in separate thread."""
+                            new_loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(new_loop)
+                            try:
+                                return new_loop.run_until_complete(
+                                    _collect_expansions(current_candidates)
+                                )
+                            finally:
+                                new_loop.close()
+
                         with concurrent.futures.ThreadPoolExecutor() as executor:
-                            future = executor.submit(
-                                asyncio.run, _collect_expansions(current_candidates)
-                            )
+                            future = executor.submit(run_in_new_loop)
                             instances = future.result()
-                    else:
+                    except RuntimeError:
+                        # No running loop, we can use asyncio.run() directly
                         instances = asyncio.run(_collect_expansions(current_candidates))
                 except Exception as e:
                     logger.warning("Failed to expand RRULE candidates: %s", e)
@@ -1793,6 +848,8 @@ class LiteICSParser:
     ) -> list[LiteCalendarEvent]:
         """Merge expanded events with original events.
 
+        Delegates to LiteEventMerger for actual merging logic.
+
         Args:
             original_events: Original parsed events
             expanded_events: Expanded recurring event instances
@@ -1800,90 +857,12 @@ class LiteICSParser:
         Returns:
             Combined list of events
         """
-        # First, collect RECURRENCE-ID events and their original times for suppression
-        recurrence_overrides = {}  # Maps (master_uid, original_time) -> moved_event
-
-        for event in original_events:
-            if hasattr(event, "recurrence_id") and event.recurrence_id:
-                # Extract master UID from the event
-                master_uid = event.id.split("::")[0] if "::" in event.id else event.id.split("_")[0]
-
-                # Parse the RECURRENCE-ID to get the original time being overridden
-                try:
-                    # RECURRENCE-ID format: "TZID=Pacific Standard Time:20251028T143000"
-                    recurrence_id_str = str(event.recurrence_id)
-                    if ":" in recurrence_id_str and "T" in recurrence_id_str:
-                        # Extract the datetime part after the colon
-                        datetime_part = recurrence_id_str.split(":")[-1]  # "20251028T143000"
-
-                        # Create a key for the original time slot being overridden
-                        override_key = (master_uid, datetime_part)
-                        recurrence_overrides[override_key] = event
-
-                        logger.debug(
-                            f"RECURRENCE-ID override detected: {event.subject} "
-                            f"moves {datetime_part} to {event.start.date_time.strftime('%Y%m%dT%H%M%S')}"
-                        )
-                except Exception as e:
-                    logger.warning(f"Failed to parse RECURRENCE-ID {event.recurrence_id}: {e}")
-
-        # Filter expanded events to exclude those overridden by RECURRENCE-ID
-        filtered_expanded = []
-        suppressed_count = 0
-
-        for event in expanded_events:
-            master_uid = getattr(event, "rrule_master_uid", None)
-            if master_uid and hasattr(event, "start") and event.start:
-                # Create key for this expanded occurrence
-                event_time_key = event.start.date_time.strftime("%Y%m%dT%H%M%S")
-                override_key = (master_uid, event_time_key)
-
-                if override_key in recurrence_overrides:
-                    # This expanded occurrence is overridden by a RECURRENCE-ID event
-                    override_event = recurrence_overrides[override_key]
-                    logger.debug(
-                        f"Suppressing expanded occurrence: {event.subject} at {event_time_key} "
-                        f"(overridden by RECURRENCE-ID event at {override_event.start.date_time})"
-                    )
-                    suppressed_count += 1
-                    continue
-
-            filtered_expanded.append(event)
-
-        if suppressed_count > 0:
-            logger.info(
-                f"RECURRENCE-ID processing: Suppressed {suppressed_count} expanded occurrences "
-                f"that were overridden by moved meetings"
-            )
-
-        # Start with filtered expanded events (suppressed overrides removed)
-        merged_events = filtered_expanded.copy()
-
-        # Create a set of master UIDs that were successfully expanded
-        expanded_master_uids = {
-            getattr(event, "rrule_master_uid", None)
-            for event in filtered_expanded
-            if getattr(event, "rrule_master_uid", None)
-        }
-
-        # Add original events, but skip recurring masters that were successfully expanded
-        for event in original_events:
-            if event.is_recurring:
-                # Keep recurring masters that weren't expanded (e.g., due to unsupported RRULE)
-                if event.id not in expanded_master_uids:
-                    merged_events.append(event)
-            else:
-                # Always keep non-recurring events (including moved instances with RECURRENCE-ID)
-                # Modified instances have recurrence_id set and should be included
-                merged_events.append(event)
-
-        logger.debug(
-            f"Merged {len(original_events)} original + {len(filtered_expanded)} expanded = {len(merged_events)} total events"
-        )
-        return merged_events
+        return self._event_merger.merge_expanded_events(original_events, expanded_events)
 
     def _deduplicate_events(self, events: list[LiteCalendarEvent]) -> list[LiteCalendarEvent]:
         """Remove duplicate events based on UID and start time.
+
+        Delegates to LiteEventMerger for actual deduplication logic.
 
         Args:
             events: List of calendar events to deduplicate
@@ -1891,27 +870,4 @@ class LiteICSParser:
         Returns:
             Deduplicated list of events
         """
-        seen = set()
-        deduplicated = []
-
-        for event in events:
-            # Create a unique key based on UID, start time, and basic properties
-            # Two events with different UIDs are by definition different events,
-            # even if they have the same subject and time (e.g., two separate recurring series)
-            # Use start time as string to avoid timezone comparison issues
-            key = (
-                event.id,  # Include UID to avoid incorrectly deduplicating separate events
-                event.subject,
-                event.start.date_time.isoformat(),
-                event.end.date_time.isoformat(),
-                event.is_all_day,
-            )
-
-            if key not in seen:
-                seen.add(key)
-                deduplicated.append(event)
-
-        if len(events) != len(deduplicated):
-            logger.debug(f"Removed {len(events) - len(deduplicated)} duplicate events")
-
-        return deduplicated
+        return self._event_merger.deduplicate_events(events)

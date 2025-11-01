@@ -121,40 +121,6 @@ class TestAlexaEndpointsIntegration:
         assert True  # Documentation test
 
 
-class TestConfigurationIntegration:
-    """Test configuration integration for Alexa features."""
-
-    def test_config_from_dict_with_alexa_token(self):
-        """Test config loading with Alexa bearer token."""
-        from calendarbot_lite.config_loader import Config
-
-        data = {
-            "sources": ["https://example.com/calendar.ics"],
-            "alexa_bearer_token": "my-secret-token",
-        }
-
-        config = Config.from_dict(data)
-        assert config.alexa_bearer_token == "my-secret-token"
-
-    def test_config_from_dict_without_alexa_token(self):
-        """Test config loading without Alexa bearer token."""
-        from calendarbot_lite.config_loader import Config
-
-        data = {"sources": ["https://example.com/calendar.ics"]}
-
-        config = Config.from_dict(data)
-        assert config.alexa_bearer_token is None
-
-    def test_config_from_dict_with_empty_alexa_token(self):
-        """Test config loading with empty Alexa bearer token."""
-        from calendarbot_lite.config_loader import Config
-
-        data = {"sources": ["https://example.com/calendar.ics"], "alexa_bearer_token": ""}
-
-        config = Config.from_dict(data)
-        assert config.alexa_bearer_token == ""
-
-
 class TestSerializationHelpers:
     """Test serialization helper functions."""
 

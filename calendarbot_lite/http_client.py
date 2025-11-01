@@ -33,6 +33,23 @@ _PI_ZERO_TIMEOUT = httpx.Timeout(
     pool=30.0,  # Pool timeout to prevent hanging connections
 )
 
+# Browser-like headers to avoid automated client detection (e.g., Office365)
+# Centralized here to ensure consistency across shared and individual clients
+DEFAULT_BROWSER_HEADERS: dict[str, str] = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/calendar, text/plain, application/octet-stream, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "DNT": "1",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Cache-Control": "no-cache",
+}
+
 # Buffer threshold for streaming vs buffering decision (50 KiB)
 BUFFER_THRESHOLD_BYTES = 50 * 1024
 
@@ -110,10 +127,7 @@ async def get_shared_client(
                     timeout=effective_timeout,
                     follow_redirects=True,
                     verify=True,  # SSL verification
-                    headers={
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    },
+                    headers=DEFAULT_BROWSER_HEADERS,
                 )
 
                 # Initialize health tracking
@@ -253,10 +267,7 @@ async def get_fallback_client(
         timeout=effective_timeout,
         follow_redirects=True,
         verify=True,
-        headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        },
+        headers=DEFAULT_BROWSER_HEADERS,
     )
 
 

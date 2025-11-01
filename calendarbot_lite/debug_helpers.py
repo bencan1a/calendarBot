@@ -22,8 +22,8 @@ from typing import Any, Optional
 import httpx
 
 from .lite_models import LiteCalendarEvent
-from .lite_parser import parse_ics_stream
 from .lite_rrule_expander import expand_events_async
+from .lite_streaming_parser import parse_ics_stream
 
 logger = logging.getLogger(__name__)
 

@@ -286,7 +286,7 @@ class MorningSummaryService:
     performance optimization and caching (Story 8).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the service."""
         self._cache: dict[str, tuple[MorningSummaryResult, float]] = {}
 
@@ -442,11 +442,11 @@ class MorningSummaryService:
             except Exception:
                 logger.exception("Pacific fallback also failed, using UTC as last resort")
                 # Last resort fallback to UTC (should rarely happen)
-                tz = timezone.utc
+                utc_tz = timezone.utc
                 base_date = (
-                    tomorrow_date.replace(tzinfo=tz)
+                    tomorrow_date.replace(tzinfo=utc_tz)
                     if tomorrow_date.tzinfo is None
-                    else tomorrow_date.astimezone(tz)
+                    else tomorrow_date.astimezone(utc_tz)
                 )
                 timeframe_start = base_date.replace(
                     hour=MORNING_START_HOUR, minute=0, second=0, microsecond=0

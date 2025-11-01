@@ -100,7 +100,6 @@ def run_server(args: Optional[object] = None) -> None:
     import importlib
     import logging
     import traceback
-    from typing import cast
 
     logger = logging.getLogger(__name__)
 
@@ -124,7 +123,7 @@ def run_server(args: Optional[object] = None) -> None:
         if callable(builder):
             maybe_cfg = builder()
             if isinstance(maybe_cfg, dict):
-                cfg = cast(dict, maybe_cfg)
+                cfg = maybe_cfg
     except Exception:
         cfg = {}
 
