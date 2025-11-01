@@ -77,7 +77,9 @@ class WatchdogState:
                 'reboots': [],
                 'last_recovery_time': None,
                 'consecutive_failures': 0,
-                'degraded_mode': False
+                'degraded_mode': False,
+                'browser_escalation_level': 0,
+                'browser_escalation_time': None
             }
         
         try:
@@ -364,15 +366,111 @@ class RecoveryManager:
         intervals = self.recovery_config.get('retry_intervals', [10, 20, 40])
         if attempt >= len(intervals):
             return False
-        
+
         wait_time = intervals[attempt]
         self.logger.log_event('INFO', 'recovery', 'transient.retry',
                             {'attempt': attempt + 1, 'wait_time_s': wait_time},
                             action_taken=True)
-        
+
         time.sleep(wait_time)
         return True
-    
+
+    def reset_browser_escalation(self, state: dict[str, Any]) -> None:
+        """Reset browser escalation level after successful recovery."""
+        state['browser_escalation_level'] = 0
+        state['browser_escalation_time'] = None
+        self.state_mgr.save_state(state)
+        self.logger.log_event('INFO', 'recovery', 'browser.escalation.reset')
+
+    def soft_reload_browser(self, user: str, state: dict[str, Any]) -> bool:
+        """Level 1: Soft browser reload using xdotool to send F5 key."""
+        self.logger.log_event('INFO', 'recovery', 'browser.soft_reload.start', action_taken=True)
+
+        try:
+            # Use xdotool to send F5 key to browser window
+            reload_cmd = self.recovery_config.get('browser_soft_reload', {}).get('reload_cmd',
+                'DISPLAY=:0 xdotool search --class chromium windowactivate --sync key F5')
+
+            result = subprocess.run(reload_cmd.format(user=user), check=False, shell=True,
+                                  capture_output=True, timeout=10)
+
+            if result.returncode == 0:
+                # Wait for page to reload
+                reload_delay = self.recovery_config.get('browser_soft_reload', {}).get('reload_delay_s', 15)
+                time.sleep(reload_delay)
+
+                state['last_recovery_time'] = time.time()
+                self.state_mgr.save_state(state)
+
+                self.logger.log_event('INFO', 'recovery', 'browser.soft_reload.complete')
+                return True
+
+            self.logger.log_event('WARN', 'recovery', 'browser.soft_reload.failed',
+                                {'returncode': result.returncode,
+                                 'stderr': result.stderr.decode('utf-8', errors='ignore')[:200]})
+            return False
+
+        except subprocess.TimeoutExpired:
+            self.logger.log_event('ERROR', 'recovery', 'browser.soft_reload.timeout')
+            return False
+        except Exception as e:
+            self.logger.log_event('ERROR', 'recovery', 'browser.soft_reload.error',
+                                {'error': str(e)})
+            return False
+
+    def progressive_browser_recovery(self, user: str, state: dict[str, Any]) -> bool:
+        """Progressive browser recovery with 3-level escalation.
+
+        Level 1: Soft reload (F5 via xdotool)
+        Level 2: Browser restart (kill and relaunch)
+        Level 3: X session restart (kill X, triggers full restart)
+
+        Args:
+            user: Username for kiosk service
+            state: Current watchdog state
+
+        Returns:
+            True if recovery action succeeded, False otherwise
+        """
+        # Get current escalation level
+        level = state.get('browser_escalation_level', 0)
+
+        self.logger.log_event('INFO', 'recovery', 'browser.progressive_recovery.start',
+                            {'current_level': level})
+
+        # Try recovery at current level
+        success = False
+        if level == 0:
+            # Level 1: Soft reload
+            success = self.soft_reload_browser(user, state)
+        elif level == 1:
+            # Level 2: Browser restart
+            success = self.restart_browser(user, state)
+        elif level == 2:
+            # Level 3: X session restart
+            success = self.restart_x_session(user, state)
+        else:
+            # Exceeded max level, escalate to service restart
+            self.logger.log_event('ERROR', 'recovery', 'browser.progressive_recovery.max_exceeded',
+                                {'level': level})
+            return self.restart_service(user, state)
+
+        # Update escalation state
+        if success:
+            # Record escalation attempt
+            state['browser_escalation_level'] = level + 1
+            state['browser_escalation_time'] = time.time()
+            self.state_mgr.save_state(state)
+            return True
+
+        # If action failed, immediately escalate to next level
+        self.logger.log_event('WARN', 'recovery', 'browser.progressive_recovery.failed_escalate',
+                            {'failed_level': level, 'next_level': level + 1})
+        state['browser_escalation_level'] = level + 1
+        state['browser_escalation_time'] = time.time()
+        self.state_mgr.save_state(state)
+        return False
+
     def restart_browser(self, user: str, state: dict[str, Any]) -> bool:
         """Level 1: Restart browser process."""
         if not self.can_perform_action('browser_restart', state):
@@ -414,25 +512,30 @@ class RecoveryManager:
             return False
     
     def restart_x_session(self, user: str, state: dict[str, Any]) -> bool:
-        """Level 2: Restart X session/window manager."""
+        """Level 3: Restart X session by killing X server.
+
+        This kills the X server (Xorg), which causes startx to exit.
+        The kiosk systemd service should detect this and restart the full stack:
+        .bash_profile → startx → .xinitrc → browser
+        """
         self.logger.log_event('INFO', 'recovery', 'x.restart.start', action_taken=True)
-        
+
         try:
             restart_cmd = self.recovery_config.get('x_restart', {}).get('restart_cmd',
-                'systemctl --user restart graphical-session.target')
-            
+                'pkill -TERM Xorg || pkill -TERM X')
+
             subprocess.run(restart_cmd.format(user=user), check=False, shell=True, timeout=30)
-            
-            # Verification delay
-            verify_delay = self.recovery_config.get('x_restart', {}).get('verification_delay_s', 45)
+
+            # Verification delay - X restart takes longer as service needs to restart full stack
+            verify_delay = self.recovery_config.get('x_restart', {}).get('verification_delay_s', 60)
             time.sleep(verify_delay)
-            
+
             state['last_recovery_time'] = time.time()
             self.state_mgr.save_state(state)
-            
+
             self.logger.log_event('INFO', 'recovery', 'x.restart.complete')
             return True
-            
+
         except subprocess.TimeoutExpired:
             self.logger.log_event('ERROR', 'recovery', 'x.restart.timeout')
             return False
@@ -712,18 +815,28 @@ def main() -> int:
                             heartbeat_failures += 1
                             structured_logger.log_event('WARN', 'watchdog', 'browser.heartbeat.stale',
                                                       {'heartbeat_failures': heartbeat_failures,
-                                                       'age_s': age_s})
+                                                       'age_s': age_s,
+                                                       'escalation_level': state.get('browser_escalation_level', 0)})
 
                             # Escalate after threshold
                             fail_threshold = _config.get('thresholds', {}).get('browser_heartbeat_fail_count', 2)
                             if heartbeat_failures >= fail_threshold:
                                 structured_logger.log_event('ERROR', 'watchdog', 'browser.heartbeat.escalate',
                                                           {'heartbeat_failures': heartbeat_failures,
-                                                           'threshold': fail_threshold})
-                                if recovery_mgr.restart_browser(args.user, state):
+                                                           'threshold': fail_threshold,
+                                                           'escalation_level': state.get('browser_escalation_level', 0)})
+                                # Use progressive recovery instead of direct browser restart
+                                if recovery_mgr.progressive_browser_recovery(args.user, state):
                                     heartbeat_failures = 0
+                                    # Don't reset escalation yet - wait for heartbeat to be OK
                         else:
+                            # Heartbeat is OK - reset failures and escalation
+                            if heartbeat_failures > 0 or state.get('browser_escalation_level', 0) > 0:
+                                structured_logger.log_event('INFO', 'watchdog', 'browser.heartbeat.recovered',
+                                                          {'previous_failures': heartbeat_failures,
+                                                           'previous_escalation': state.get('browser_escalation_level', 0)})
                             heartbeat_failures = 0
+                            recovery_mgr.reset_browser_escalation(state)
 
             # Render probe check
             if current_time - last_render_check >= render_interval:
