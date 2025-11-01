@@ -11,6 +11,10 @@ monitor:
     render_probe_interval_s: 60
     # X session responsiveness check interval (seconds)
     x_health_interval_s: 120
+    # Browser heartbeat check interval (seconds) - check for stuck browsers
+    browser_heartbeat_check_interval_s: 60
+    # Browser heartbeat timeout (seconds) - consider stale after this time
+    browser_heartbeat_timeout_s: 120
     # Maximum retries for transient failures before escalating
     max_retries: 3
     # Request timeout for health checks (seconds)
@@ -26,6 +30,8 @@ monitor:
     refresh_miss_factor: 2
     # Number of consecutive render probe failures before escalation
     render_fail_count: 2
+    # Number of consecutive browser heartbeat failures before escalation
+    browser_heartbeat_fail_count: 2
     # Maximum browser restarts per hour before escalating
     max_browser_restarts_per_hour: 4
     # Maximum service restarts per hour before escalating  
