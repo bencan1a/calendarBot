@@ -120,18 +120,24 @@ monitor:
   recovery:
     # Level 0: Transient retry backoff intervals (seconds)
     retry_intervals: [10, 20, 40]
-    # Level 1: Browser restart settings
+    # Browser progressive recovery - Level 1: Soft reload via xdotool F5
+    browser_soft_reload:
+      # Command to send F5 key to browser (xdotool must be installed)
+      reload_cmd: "DISPLAY=:0 xdotool search --class chromium windowactivate --sync key F5"
+      # Wait time after reload before verification (seconds)
+      reload_delay_s: 15
+    # Browser progressive recovery - Level 2: Browser restart
     browser_restart:
       # Grace period for browser to exit after TERM signal (seconds)
       term_grace_period_s: 8
       # Wait time after restart before verification (seconds)
       restart_verification_delay_s: 30
-    # Level 2: X session restart settings
+    # Browser progressive recovery - Level 3: X session restart
     x_restart:
-      # Command to restart X session/window manager (for kiosk mode without systemd user session)
-      restart_cmd: "pkill -f 'openbox|matchbox-window-manager'; sleep 2"
-      # Verification delay after X restart (seconds)
-      verification_delay_s: 45
+      # Command to kill X server (triggers full kiosk service restart via .bash_profile → startx → .xinitrc)
+      restart_cmd: "pkill -TERM Xorg || pkill -TERM X"
+      # Verification delay after X restart (seconds) - longer as full stack restarts
+      verification_delay_s: 60
     # Level 3: Service restart settings
     service_restart:
       # Verification delay after service restart (seconds)

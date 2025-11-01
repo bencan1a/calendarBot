@@ -1,13 +1,25 @@
 # CalendarBot Kiosk Watchdog Installation Guide
 
 ## Overview
-Automatic recovery system for CalendarBot_Lite on Raspberry Pi Zero 2. Provides 4-level escalation recovery: browser restart → X restart → systemd service restart → reboot.
+Automatic recovery system for CalendarBot_Lite on Raspberry Pi Zero 2.
+
+**Browser Heartbeat Recovery** (progressive 3-level escalation):
+- Level 1: Soft page reload (F5 via xdotool)
+- Level 2: Browser restart (kill and relaunch)
+- Level 3: X session restart (kill X server, triggers full kiosk restart)
+
+**System Health Recovery** (4-level escalation for server failures):
+- Level 1: Browser restart
+- Level 2: X session restart
+- Level 3: Systemd service restart
+- Level 4: System reboot
 
 ## Prerequisites
 - Raspberry Pi Zero 2 with Debian/Raspbian
 - CalendarBot_Lite installed and working
 - systemd for service management
 - Python 3.7+ with PyYAML package
+- xdotool for soft browser reload (install with: `sudo apt-get install xdotool`)
 
 ## Installation Steps
 
@@ -118,6 +130,14 @@ ps aux | grep calendarbot
 6. **False heartbeat failures**:
    - Increase `browser_heartbeat_timeout_s` in monitor.yaml (currently 120s)
    - Check system clock is synchronized (NTP)
+7. **Soft reload not working**:
+   - Verify xdotool is installed: `sudo apt-get install xdotool`
+   - Test manually: `DISPLAY=:0 xdotool search --class chromium windowactivate --sync key F5`
+   - Check browser window class matches (chromium, epiphany, etc.)
+8. **X restart leaves system at command prompt**:
+   - Verify kiosk service is configured to restart on failure
+   - Check `.bash_profile` launches `startx` correctly
+   - Ensure systemd service has `Restart=always` setting
 
 ### Debug Mode
 ```bash
@@ -138,11 +158,23 @@ curl -s http://127.0.0.1:8080/ | grep 'calendarbot-ready'
 curl -X POST http://127.0.0.1:8080/api/browser-heartbeat
 curl -s http://127.0.0.1:8080/api/health | jq '.display_probe'
 
+# Test soft reload (xdotool F5)
+DISPLAY=:0 xdotool search --class chromium windowactivate --sync key F5
+
+# Test browser process detection
+pgrep -f 'chromium.*--kiosk' || pgrep -f 'epiphany.*--kiosk'
+
+# Test X server kill (WARNING: will restart X!)
+pkill -TERM Xorg || pkill -TERM X
+
 # Test port cleanup
 ./kiosk/scripts/cleanup-port.sh 8080
 
 # Test browser launcher
 ./kiosk/scripts/launch-browser.sh
+
+# Check browser escalation state
+cat /var/local/calendarbot-watchdog/state.json | jq '{browser_escalation_level, browser_escalation_time}'
 ```
 
 ## Integration with Existing Kiosk Setup
@@ -162,9 +194,37 @@ The browser heartbeat system provides robust detection of stuck or frozen browse
 1. **JavaScript Heartbeat** ([`whatsnext.js`](../calendarbot_lite/whatsnext.js)): Sends POST request to `/api/browser-heartbeat` every 30 seconds
 2. **Server Tracking** ([`routes/api_routes.py`](../calendarbot_lite/routes/api_routes.py)): Records heartbeat timestamps in health tracker
 3. **Watchdog Verification**: Checks `display_probe.last_render_probe_iso` in `/api/health` response
-4. **Stale Detection**: If last heartbeat > 2 minutes old, browser is considered stuck and will be restarted
+4. **Stale Detection**: If last heartbeat > 2 minutes old, browser is considered stuck
 
 This solves the problem of browsers showing blank pages while the server remains healthy.
+
+### Progressive Browser Recovery
+
+When browser heartbeat failures are detected, the watchdog uses a progressive 3-level escalation:
+
+**Level 1: Soft Reload (Least Disruptive)**
+- Uses `xdotool` to send F5 key to browser window
+- Reloads the page without killing the browser process
+- Takes ~15 seconds to verify
+- Ideal for: Page rendering issues, JavaScript freezes
+
+**Level 2: Browser Restart (Moderate Disruption)**
+- Kills browser process with SIGTERM
+- Relaunches browser via configured launch command
+- Takes ~30 seconds to verify
+- Ideal for: Browser memory leaks, crashed tabs
+
+**Level 3: X Session Restart (Full Recovery)**
+- Kills X server (Xorg) with SIGTERM
+- Triggers full kiosk service restart chain: `.bash_profile` → `startx` → `.xinitrc` → browser
+- Takes ~60 seconds to verify
+- Ideal for: X server issues, display problems, complete browser hangs
+
+**Escalation Logic**:
+- After 2 consecutive heartbeat failures, escalation begins at Level 1
+- If recovery succeeds and heartbeat resumes, escalation level resets to 0
+- If recovery fails or heartbeat fails again, escalates to next level
+- After Level 3, if problems persist, escalates to systemd service restart
 
 ## Performance
 
