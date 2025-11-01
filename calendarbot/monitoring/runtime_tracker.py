@@ -667,7 +667,7 @@ _runtime_tracker: Optional[RuntimeResourceTracker] = None
 
 def get_runtime_tracker(settings: Optional[Any] = None) -> RuntimeResourceTracker:
     """Get or create global runtime tracker instance."""
-    from . import NoOpRuntimeResourceTracker, _is_monitoring_enabled  # noqa: PLC0415
+    from . import NoOpRuntimeResourceTracker, _is_monitoring_enabled
 
     # Access module-level variable without using 'global'
     # This pattern allows reading the variable without the global keyword
@@ -682,7 +682,7 @@ def get_runtime_tracker(settings: Optional[Any] = None) -> RuntimeResourceTracke
 
 def init_runtime_tracking(settings: Any, **kwargs: Any) -> RuntimeResourceTracker:
     """Initialize runtime tracking system with settings."""
-    from . import NoOpRuntimeResourceTracker, _is_monitoring_enabled  # noqa: PLC0415
+    from . import NoOpRuntimeResourceTracker, _is_monitoring_enabled
 
     # Access module-level variable without using 'global'
     if _is_monitoring_enabled():
