@@ -1,8 +1,9 @@
 # CALENDARBOT DEVELOPMENT RULES
 
 ## ENVIRONMENT & EXECUTION
-IMPORTANT - you must ALWAYS active the python venv BEFORE Running python code. 
+IMPORTANT - you must ALWAYS active the python venv BEFORE Running python code
 IMPORTANT - if a module appears to not be installed, this is usually because the venv has not been activated.
+run `. venv/bin/activate` every time!!
 - **App Execution**: `calendarbot --web --port PORT`
 - **Browser Testing**: Use host IP, not localhost
 

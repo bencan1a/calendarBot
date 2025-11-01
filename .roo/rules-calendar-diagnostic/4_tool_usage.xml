@@ -4,18 +4,31 @@
   </overview>
 
   <run_commands>
-    <command_description>Activate venv and set env</command_description>
+    <command_description>Activate venv and set env (use temporary environment variables for diagnostics)</command_description>
     <command><![CDATA[
 . venv/bin/activate
-cp .env.example .env
-# set DATETIME_OVERRIDE and enable debug
+# Do NOT overwrite .env for quick diagnostics. Instead set temporary environment variables in your shell:
+export CALENDARBOT_ICS_URL="https://calendar.example.com/cal.ics"
 export DATETIME_OVERRIDE="2025-10-30T00:00:00Z"
 export CALENDARBOT_DEBUG=true
+# Run debug scripts in the same shell so they inherit these variables
 ]]></command>
 
-    <command_description>Fetch raw ICS to file</command_description>
+    <command_description>Fetch raw ICS to file (use debug helper)</command_description>
     <command><![CDATA[
-python -c "from calendarbot_lite import lite_fetcher; print(lite_fetcher.fetch_raw_ics())" > /tmp/raw.ics
+# Streams ICS using calendarbot_lite.debug_helpers.fetch_ics_stream
+python - <<'PY' > /tmp/raw.ics
+import asyncio,sys
+from calendarbot_lite.debug_helpers import read_env, fetch_ics_stream
+env = read_env('.env')
+src = env.get('ICS_SOURCE') or os.environ.get('CALENDARBOT_ICS_URL')
+if not src:
+    print('No ICS source configured'); sys.exit(1)
+async def main():
+    async for chunk in fetch_ics_stream(src):
+        sys.stdout.buffer.write(chunk)
+asyncio.run(main())
+PY
 ]]></command>
 
     <command_description>Run expansion debug script</command_description>

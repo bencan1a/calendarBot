@@ -5,17 +5,17 @@
 
   <prerequisites>
     <prerequisite>Activate python virtualenv: . venv/bin/activate</prerequisite>
-    <prerequisite>Configured .env in workspace root with ICS_SOURCE and optional DATETIME_OVERRIDE</prerequisite>
+    <prerequisite>Configured .env in workspace root with CALENDARBOT_ICS_URL and optional DATETIME_OVERRIDE (do not overwrite .env for short diagnostics; prefer temporary shell environment variables)</prerequisite>
     <prerequisite>Enable CALENDARBOT_DEBUG=true to increase logging</prerequisite>
   </prerequisites>
 
   <initialization_steps>
     <step number="1">
       <title>Load ICS source</title>
-      <description>Read the ICS URL/path from the project's .env file and treat it as the source of truth.</description>
+      <description>Read the ICS URL/path from the project's .env file (CALENDARBOT_ICS_URL) or provide it as a temporary environment variable for diagnostic runs.</description>
       <actions>
-        <action>Open .env and locate ICS_SOURCE (or equivalent setting used by calendarbot_lite/config_loader.py)</action>
-        <action>If ICS_SOURCE is a URL, fetch it via lite_fetcher; if a local file, read directly.</action>
+        <action>Open .env and locate CALENDARBOT_ICS_URL, or set a temporary shell environment variable for diagnostics (export CALENDARBOT_ICS_URL="https://example.com/cal.ics"); avoid permanently editing .env for short tests</action>
+        <action>If CALENDARBOT_ICS_URL is a URL, use <code>calendarbot_lite.debug_helpers.fetch_ics_stream</code> (async) or <code>calendarbot_lite.LiteICSFetcher.fetch_ics</code>; if it's a local file path, read the file and pass its bytes to <code>calendarbot_lite.debug_helpers.parse_stream_via_parser</code>.</action>
       </actions>
     </step>
 
