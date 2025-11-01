@@ -18,7 +18,6 @@ import contextlib
 import datetime
 import logging
 import signal
-from collections.abc import AsyncIterator
 from typing import Any
 
 # Import shared HTTP client for connection reuse optimization
@@ -35,6 +34,7 @@ except ImportError:
     logging.basicConfig(level=logging.INFO)
 
 # Import enhanced monitoring logging
+monitoring_logger: Any = None  # Type: Optional[MonitoringLogger] but we use Any to avoid circular imports
 try:
     from .monitoring_logging import get_logger
 
@@ -49,7 +49,7 @@ except ImportError:
     logger.debug("calendarbot_lite.server module loaded (monitoring logging not available)")
 
 
-def log_monitoring_event(event: str, message: str, level: str = "INFO", **kwargs) -> None:
+def log_monitoring_event(event: str, message: str, level: str = "INFO", **kwargs: Any) -> None:
     """Log monitoring event with fallback to standard logging."""
     if monitoring_logger:
         monitoring_logger.log(level, event, message, **kwargs)
@@ -61,18 +61,12 @@ def log_monitoring_event(event: str, message: str, level: str = "INFO", **kwargs
 
 # Health tracking infrastructure - lightweight in-memory tracking for monitoring
 import os
-import time
 from typing import Optional
 
-# Global health tracking variables (thread-safe with atomic operations)
-_server_start_time: float = time.time()
-_last_refresh_attempt: Optional[float] = None
-_last_refresh_success: Optional[float] = None
-_current_event_count: int = 0
-_background_task_heartbeat: Optional[float] = None
-_last_render_probe: Optional[float] = None
-_last_render_probe_ok: bool = False
-_last_render_probe_notes: Optional[str] = None
+# Initialize health tracker (replaces global health variables)
+from .health_tracker import HealthTracker
+
+_health_tracker = HealthTracker()
 
 # Import SSML generation for Alexa endpoints
 try:
@@ -150,7 +144,7 @@ def _update_health_tracking(
     render_probe_ok: Optional[bool] = None,
     render_probe_notes: Optional[str] = None,
 ) -> None:
-    """Update health tracking variables atomically.
+    """Update health tracking (delegates to HealthTracker instance).
 
     Args:
         refresh_attempt: Mark a refresh attempt timestamp
@@ -160,24 +154,14 @@ def _update_health_tracking(
         render_probe_ok: Update render probe status
         render_probe_notes: Update render probe notes
     """
-    global _last_refresh_attempt, _last_refresh_success, _current_event_count
-    global _background_task_heartbeat, _last_render_probe, _last_render_probe_ok
-    global _last_render_probe_notes
-
-    now = time.time()
-
-    if refresh_attempt:
-        _last_refresh_attempt = now
-    if refresh_success:
-        _last_refresh_success = now
-    if event_count is not None:
-        _current_event_count = event_count
-    if background_heartbeat:
-        _background_task_heartbeat = now
-    if render_probe_ok is not None:
-        _last_render_probe = now
-        _last_render_probe_ok = render_probe_ok
-        _last_render_probe_notes = render_probe_notes
+    _health_tracker.update(
+        refresh_attempt=refresh_attempt,
+        refresh_success=refresh_success,
+        event_count=event_count,
+        background_heartbeat=background_heartbeat,
+        render_probe_ok=render_probe_ok,
+        render_probe_notes=render_probe_notes,
+    )
 
 
 def _handle_port_conflict(host: str, port: int) -> bool:
@@ -776,6 +760,58 @@ def _compute_last_meeting_end_for_today(
     return result
 
 
+def _lite_event_to_dict(event: Any, source_name: str = "") -> EventDict:
+    """Convert LiteCalendarEvent to EventDict format for server compatibility.
+
+    Args:
+        event: LiteCalendarEvent object from parser
+        source_name: Source name for tracking origin
+
+    Returns:
+        EventDict with normalized fields
+    """
+    # Calculate duration in seconds
+    duration_seconds = 0
+    try:
+        if hasattr(event, "start") and hasattr(event, "end"):
+            start_dt = event.start.date_time if hasattr(event.start, "date_time") else event.start
+            end_dt = event.end.date_time if hasattr(event.end, "date_time") else event.end
+            if start_dt and end_dt:
+                duration_seconds = int((end_dt - start_dt).total_seconds())
+    except Exception as e:
+        logger.debug("Failed to calculate duration for event %s: %s", getattr(event, "id", ""), e)
+        duration_seconds = 3600  # Default to 1 hour
+
+    # Extract start datetime
+    start_dt = None
+    if hasattr(event, "start"):
+        start_dt = event.start.date_time if hasattr(event.start, "date_time") else event.start
+
+    # Extract location
+    location_value = ""
+    if hasattr(event, "location") and event.location:
+        if hasattr(event.location, "display_name"):
+            location_value = str(event.location.display_name)
+        else:
+            location_value = str(event.location)
+
+    # Extract attendees/participants
+    participants = []
+    if hasattr(event, "attendees") and event.attendees:
+        participants = event.attendees
+
+    return {
+        "meeting_id": str(getattr(event, "id", "")),
+        "subject": str(getattr(event, "subject", "")),
+        "description": str(getattr(event, "body_preview", "") or ""),
+        "participants": participants,
+        "start": start_dt,
+        "duration_seconds": duration_seconds,
+        "location": location_value,
+        "raw_source": source_name,
+    }
+
+
 async def _fetch_and_parse_source(
     semaphore: asyncio.Semaphore,
     src_cfg: Any,
@@ -783,267 +819,108 @@ async def _fetch_and_parse_source(
     rrule_days: int,
     shared_http_client: Any = None,
 ) -> list[EventDict]:
-    """Fetch and parse a single source with bounded concurrency.
+    """Fetch and parse a single source using existing lite_fetcher and lite_parser abstractions.
+
+    This function uses the well-tested LiteICSFetcher and LiteICSParser modules instead of
+    duplicating their logic. RRULE expansion is handled automatically by the parser.
 
     Args:
         semaphore: Semaphore to limit concurrent fetches
-        src_cfg: Source configuration
+        src_cfg: Source configuration (string URL, dict, or LiteICSSource object)
         config: Application configuration
-        rrule_days: Days to expand RRULE patterns
+        rrule_days: Days to expand RRULE patterns (passed to parser settings)
         shared_http_client: Optional shared HTTP client for connection reuse
 
     Returns:
-        List of parsed events from the source
+        List of parsed events in EventDict format
     """
     async with semaphore:
-        logger.debug(" Processing source configuration: %r", src_cfg)
+        logger.debug("Processing source configuration: %r", src_cfg)
         try:
-            # Lazy imports
-            from calendarbot.sources import (
-                ics_source as ics_source_module,  # type: ignore
-            )
+            # Import required modules
+            from .lite_fetcher import LiteICSFetcher
+            from .lite_models import LiteICSSource
+            from .lite_parser import LiteICSParser
 
-            from . import (
-                lite_parser as ics_parser,  # type: ignore
-                lite_rrule_expander as rrule_expander,  # type: ignore
-            )
-
-            # Try to construct an IcsSource
-            ics_source_ctor = getattr(ics_source_module, "IcsSource", None)
-            if ics_source_ctor is None:
-                try:
-                    from . import lite_models as ics_models  # type: ignore
-
-                    ics_source_ctor = getattr(ics_models, "LiteICSSource", None)
-                except Exception:
-                    ics_source_ctor = None
-
-            if ics_source_ctor is None:
-                logger.debug("IcsSource class not found, skipping source %r", src_cfg)
-                return []
-
-            # Get the fetcher
-            try:
-                from . import lite_models as ics_models  # type: ignore
-                from .lite_fetcher import (
-                    LiteICSFetcher as ICSFetcher,  # type: ignore
+            # Build source object from various input formats
+            if isinstance(src_cfg, LiteICSSource):
+                source = src_cfg
+            elif isinstance(src_cfg, dict):
+                source = LiteICSSource(**src_cfg)
+            elif isinstance(src_cfg, str):
+                source = LiteICSSource(name=src_cfg, url=src_cfg)
+            else:
+                # Handle objects with name/url attributes
+                source = LiteICSSource(
+                    name=getattr(src_cfg, "name", str(src_cfg)),
+                    url=getattr(src_cfg, "url", str(src_cfg)),
                 )
-            except Exception as e:
-                logger.warning("CalendarBot Lite ICS models/fetcher not available: %s", e)
-                return []
 
-            icssrc_model = getattr(ics_models, "LiteICSSource", None)
-            if icssrc_model is None:
-                logger.debug("LiteICSSource model not present, skipping source %r", src_cfg)
-                return []
-
-            # Build ICSSource instance
-            try:
-                if isinstance(src_cfg, icssrc_model):
-                    icssrc = src_cfg
-                elif isinstance(src_cfg, dict):
-                    icssrc = icssrc_model(**src_cfg)
-                elif isinstance(src_cfg, str):
-                    icssrc = icssrc_model(name=str(src_cfg), url=str(src_cfg))
-                else:
-                    icssrc = icssrc_model(
-                        name=getattr(src_cfg, "name", str(src_cfg)),
-                        url=getattr(src_cfg, "url", str(src_cfg)),
-                    )
-            except Exception as e:
-                logger.warning("Failed to construct ICSSource for %r: %s", src_cfg, e)
-                return []
-
-            # Fetch data
+            # Create settings object for fetcher and parser
             class _Settings:
                 request_timeout = int(_get_config_value(config, "request_timeout", 30))
                 max_retries = int(_get_config_value(config, "max_retries", 3))
                 retry_backoff_factor = float(_get_config_value(config, "retry_backoff_factor", 1.5))
+                rrule_expansion_days = rrule_days
+                enable_rrule_expansion = True
 
-            logger.debug(" Starting ICS fetch for source: %r", src_cfg)
-            fetcher_client = ICSFetcher(_Settings(), shared_http_client)
-            async with fetcher_client as client:
-                response = await client.fetch_ics(icssrc, conditional_headers=None)
+            # Fetch ICS data using LiteICSFetcher
+            logger.debug("Fetching ICS data from source: %r", source.url)
+            fetcher = LiteICSFetcher(_Settings(), shared_http_client)
+            async with fetcher:
+                response = await fetcher.fetch_ics(source, conditional_headers=None)
 
-            logger.debug(
-                " ICS fetch response - success: %r, has_content: %r",
-                getattr(response, "success", False) if response else False,
-                bool(getattr(response, "content", None) or getattr(response, "stream_handle", None))
-                if response
-                else False,
-            )
-
-            if not response or not getattr(response, "success", False):
-                logger.error("DEBUG: ICSFetcher did not return content for %r", src_cfg)
+            if not response or not response.success:
+                logger.warning("Fetch failed for source %r", src_cfg)
                 return []
 
-            # Check for streaming vs buffered content
-            stream_handle = getattr(response, "stream_handle", None)
-            logger.debug(
-                " Content type - streaming: %r, buffered content size: %d",
-                stream_handle is not None,
-                len(getattr(response, "content", "")) if getattr(response, "content", None) else 0,
-            )
-
-            if stream_handle is not None:
-                # Use streaming parser
+            # Get ICS content (handle both streaming and buffered responses)
+            ics_content = None
+            if hasattr(response, "stream_handle") and response.stream_handle:
+                # For streaming responses, read all content
+                logger.debug("Reading streaming content from source %r", source.url)
                 try:
-                    logger.debug(" Using streaming parser")
-
-                    # Create async iterator from StreamHandle
-                    async def byte_iter() -> AsyncIterator[bytes]:  # type: ignore[misc]
-                        async for chunk in stream_handle.iter_bytes():
-                            yield chunk
-
-                    parsed = await ics_parser.parse_ics_stream(
-                        byte_iter(), source_url=getattr(icssrc, "url", None)
-                    )
-                    logger.debug(" Streaming parser result type: %r", type(parsed))
-                except Exception:
-                    logger.exception("DEBUG: Streaming parser failed for %r", src_cfg)
+                    ics_content = await response.stream_handle.read_all()  # type: ignore[attr-defined]
+                except Exception as e:
+                    logger.warning("Failed to read streaming content: %s", e)
                     return []
+            elif hasattr(response, "content") and response.content:
+                ics_content = response.content
             else:
-                # Use buffered content
-                raw_ics = getattr(response, "content", None)
-                if not raw_ics:
-                    logger.error("DEBUG: No ICS data from source %r", src_cfg)
-                    return []
-
-                logger.debug(" Using buffered parser, content preview: %r...", str(raw_ics)[:200])
-
-                # Create parser instance and parse with correct method
-                try:
-                    # Create parser instance with minimal settings
-                    class _MinimalSettings:
-                        pass
-
-                    parser_instance = getattr(ics_parser, "LiteICSParser", None)
-                    if parser_instance is None:
-                        logger.error(
-                            "DEBUG: LiteICSParser class not found, skipping source %r", src_cfg
-                        )
-                        return []
-
-                    parser = parser_instance(_MinimalSettings())
-
-                    # Use the optimized parsing method
-                    parsed = parser.parse_ics_content_optimized(raw_ics)
-                    logger.debug(" Buffered parser result type: %r", type(parsed))
-                except Exception:
-                    logger.exception("DEBUG: Parser failed for source %r", src_cfg)
-                    return []
-
-            if not parsed:
-                logger.error("DEBUG: Parsing produced no result for source %r", src_cfg)
+                logger.warning("No content in response from source %r", src_cfg)
                 return []
 
-            # Extract events list
-            events_list: list[EventDict] = (  # type: ignore[unreachable]
-                parsed if isinstance(parsed, list) else getattr(parsed, "events", []) or []
-            )
+            # Parse ICS content using LiteICSParser (includes automatic RRULE expansion)
+            logger.debug("Parsing ICS content from source %r (%d bytes)", source.url, len(ics_content))
+            parser = LiteICSParser(_Settings())
+            parse_result = parser.parse_ics_content_optimized(ics_content, source_url=source.url)
+
+            if not parse_result.success:
+                logger.warning(
+                    "Parse failed for source %r: %s", src_cfg, parse_result.error_message or "Unknown error"
+                )
+                return []
+
+            if not parse_result.events:
+                logger.debug("No events found in source %r", src_cfg)
+                return []
+
+            # Convert LiteCalendarEvent objects to EventDict format
             logger.debug(
-                " Extracted events list length: %d, events_list type: %r",
-                len(events_list),
-                type(events_list),
+                "Converting %d LiteCalendarEvent objects to EventDict format", len(parse_result.events)
             )
+            normalized_events = [
+                _lite_event_to_dict(event, source_name=source.name) for event in parse_result.events
+            ]
 
-            # Log first few events for debugging
-            for i, event in enumerate(events_list[:3]):
-                logger.debug(" Raw event %d: %r", i, event)
-
-            # RRULE expansion using worker-based system for better performance
-            expand_fn = getattr(rrule_expander, "expand", None)
-            if callable(expand_fn):
-                try:
-                    # Use existing synchronous expansion for now
-                    # Future enhancement: integrate async worker-based expansion
-                    expanded = expand_fn(events_list, days=rrule_days)
-                    if expanded is not None:
-                        events_list = list(expanded)  # type: ignore[arg-type]
-                except Exception as e:
-                    logger.warning("RRule expansion failed: %s", e)
-
-            # Normalize events to EventDict format
-            normalized_events = []
-            for ev in events_list:
-                try:
-                    # Extract basic fields
-                    def _get(o, *names, default=None):  # type: ignore[no-untyped-def]
-                        for n in names:
-                            if isinstance(o, dict) and n in o:
-                                return o[n]
-                            if hasattr(o, n):
-                                return getattr(o, n)
-                        return default
-
-                    start = _get(ev, "start", "dtstart")
-                    end = _get(ev, "end", "dtend")
-                    uid = _get(ev, "uid", "id")
-                    summary = _get(ev, "summary", "subject", "title", "name")
-
-                    # Normalize start datetime
-                    start_dt = None
-                    if isinstance(start, dict):
-                        s = start.get("date_time") or start.get("dtstart") or start.get("dt")
-                        start_dt = datetime.datetime.fromisoformat(s) if isinstance(s, str) else s
-                    elif hasattr(start, "date_time"):
-                        start_dt = getattr(start, "date_time", None)
-                    elif isinstance(start, str):
-                        start_dt = datetime.datetime.fromisoformat(start)
-                    else:
-                        start_dt = start
-
-                    if start_dt is None:
-                        continue  # Skip events without valid start time
-
-                    # Compute duration
-                    duration_seconds = 0
-                    if isinstance(end, dict):
-                        e = end.get("date_time") or end.get("dtend") or end.get("dt")  # type: ignore[misc]
-                        end_dt = datetime.datetime.fromisoformat(e) if isinstance(e, str) else e  # type: ignore[misc]
-                    elif hasattr(end, "date_time"):
-                        end_dt = getattr(end, "date_time", None)  # type: ignore[assignment]
-                    elif isinstance(end, str):
-                        end_dt = datetime.datetime.fromisoformat(end)
-                    else:
-                        end_dt = end
-
-                    if start_dt is not None and end_dt is not None:
-                        try:
-                            duration_seconds = int((end_dt - start_dt).total_seconds())
-                        except Exception:
-                            duration_seconds = 0
-
-                    meeting_id = str(uid) if uid else f"{src_cfg}:{_serialize_iso(start_dt)}"
-                    raw_source = (
-                        ev.get("raw") if isinstance(ev, dict) else getattr(ev, "raw", str(src_cfg))
-                    )
-
-                    normalized_events.append(
-                        {
-                            "meeting_id": meeting_id,
-                            "subject": str(summary) if summary else "",
-                            "description": str(
-                                _get(ev, "description", "body", "body_preview") or ""
-                            ),
-                            "participants": _get(ev, "attendees", "participants", "attendee_list")
-                            or [],
-                            "start": start_dt,
-                            "duration_seconds": duration_seconds,
-                            "location": "",
-                            "raw_source": raw_source or str(src_cfg),
-                        }
-                    )
-
-                except Exception as e:
-                    logger.warning("Failed to normalize event: %s", e)
-                    continue
-
-            logger.debug(" Normalized %d events from source %r", len(normalized_events), src_cfg)
+            logger.debug("Successfully processed %d events from source %r", len(normalized_events), src_cfg)
             return normalized_events
 
+        except ImportError:
+            logger.exception("Required modules not available")
+            return []
         except Exception:
-            logger.exception("DEBUG: Unexpected error while processing source %r", src_cfg)
+            logger.exception("Unexpected error while processing source %r", src_cfg)
             return []
 
 
@@ -1131,141 +1008,62 @@ async def _refresh_once(
 
     logger.debug(" Total parsed events from all sources: %d", len(parsed_events))
 
-    # Check if we got any new events from sources
-    if not parsed_events:
-        # All sources failed - preserve existing window to avoid "No upcoming meetings"
-        async with window_lock:
-            existing_window = event_window_ref[0]
-            existing_count = len(existing_window)
+    # Use event filter and window manager for smart filtering and fallback
+    from .event_filter import EventFilter, EventWindowManager, SmartFallbackHandler
 
-        logger.warning(
-            "All ICS sources failed - preserving existing window with %d events to avoid clearing display",
-            existing_count,
-        )
+    # Initialize filter components
+    fallback_handler = SmartFallbackHandler()
+    event_filter = EventFilter(_get_server_timezone, _get_fallback_timezone)
+    window_manager = EventWindowManager(event_filter, fallback_handler)
 
-        # Log monitoring event for source failures
-        log_monitoring_event(
-            "refresh.sources.all_failed",
-            f"All ICS sources failed - preserving {existing_count} existing events",
-            "ERROR",
-            details={"existing_events": existing_count, "sources_count": len(sources_cfg)},
-            include_system_state=True,
-        )
-
-        if existing_count > 0:
-            logger.info(
-                "Fallback: Using cached events - %d upcoming events preserved from last successful refresh",
-                existing_count,
-            )
-            return  # Exit early, preserving existing window
-
-        logger.error(
-            "All sources failed and no cached events available - will show 'No upcoming meetings'"
-        )
-        log_monitoring_event(
-            "refresh.sources.critical_failure",
-            "All sources failed with no cached events - service degraded",
-            "CRITICAL",
-            include_system_state=True,
-        )
-        # Continue with empty window since we have no choice
-    else:
-        # SMART FALLBACK: Check if we received 0 events from "successful" parsing
-        async with window_lock:
-            existing_window = event_window_ref[0]
-            existing_count = len(existing_window)
-
-        logger.debug(
-            f"DIAGNOSIS: Received {len(parsed_events)} events from sources. "
-            f"Existing window has {existing_count} events. "
-            f"Will process new events (potentially clearing existing data)."
-        )
-
-        # SMART FALLBACK: If we get 0 events but had events before, this is suspicious
-        if len(parsed_events) == 0 and existing_count > 0:
-            logger.warning(
-                f"SMART FALLBACK: Suspicious 0 events from 'successful' parsing when we had {existing_count} events before. "
-                f"This likely indicates network corruption that bypassed failure detection. "
-                f"Preserving existing window to avoid showing 'No upcoming meetings'."
-            )
-            # Preserve existing window - don't clear it
-            logger.info(
-                f"Smart fallback: Preserved {existing_count} existing events instead of clearing to 0 events"
-            )
-            return  # Exit early, preserving existing window
-
-    # Filter out past events and skipped ones, sort and trim window size.
+    # Get current time and window size
     now = _now_utc()
-    server_tz_name = _get_server_timezone()
-
-    upcoming = []
-    for e in parsed_events:
-        start_dt = e.get("start")
-        if not isinstance(start_dt, datetime.datetime):
-            continue
-
-        # Handle timezone-aware vs timezone-naive datetime comparison
-        try:
-            if start_dt.tzinfo is None:
-                # Event is timezone-naive - assume it's in server timezone
-                try:
-                    import zoneinfo
-
-                    server_tz = zoneinfo.ZoneInfo(server_tz_name)
-                    start_dt_aware = start_dt.replace(tzinfo=server_tz)
-                except Exception:
-                    # Fallback: assume naive datetime is in server timezone
-                    server_tz = _get_fallback_timezone()
-                    try:
-                        import zoneinfo
-
-                        fallback_tz = zoneinfo.ZoneInfo(server_tz)
-                        start_dt_aware = start_dt.replace(tzinfo=fallback_tz)
-                    except Exception:
-                        # Last resort: treat as UTC
-                        start_dt_aware = start_dt.replace(tzinfo=datetime.timezone.utc)
-            else:
-                # Event is already timezone-aware
-                start_dt_aware = start_dt
-
-            # Now we can safely compare timezone-aware datetimes
-            if start_dt_aware >= now:
-                upcoming.append(e)
-
-        except Exception as ex:
-            logger.warning("Failed to process event start time %s: %s", start_dt, ex)
-            continue
-
-    if skipped_store is not None:
-        is_skipped_fn = getattr(skipped_store, "is_skipped", None)
-        if callable(is_skipped_fn):
-            try:
-                upcoming = [e for e in upcoming if not is_skipped_fn(e["meeting_id"])]
-            except Exception as e:
-                logger.warning("skipped_store.is_skipped raised: %s", e)
-
-    upcoming.sort(key=lambda e: e["start"])
-
     window_size = int(_get_config_value(config, "event_window_size", 50))
-    pruned = upcoming[:window_size]
 
-    # Store atomically (replace the single reference inside event_window_ref list).
-    async with window_lock:
-        event_window_ref[0] = tuple(pruned)
+    # Update window with smart fallback logic
+    updated, final_count, message = await window_manager.update_window(
+        event_window_ref,
+        window_lock,
+        parsed_events,
+        now,
+        skipped_store,
+        window_size,
+        len(sources_cfg),
+    )
+
+    # Log appropriate monitoring events based on outcome
+    if not updated:
+        # Window was preserved due to fallback logic
+        if final_count > 0:
+            log_monitoring_event(
+                "refresh.sources.fallback",
+                message,
+                "WARNING",
+                details={"existing_events": final_count, "sources_count": len(sources_cfg)},
+                include_system_state=True,
+            )
+        else:
+            log_monitoring_event(
+                "refresh.sources.critical_failure",
+                message,
+                "CRITICAL",
+                include_system_state=True,
+            )
+        return  # Exit early when using fallback
 
     # Track successful refresh and log monitoring event
-    _update_health_tracking(refresh_success=True, event_count=len(pruned))
+    _update_health_tracking(refresh_success=True, event_count=final_count)
 
-    logger.debug(" Refresh complete; stored %d events in window", len(pruned))
+    logger.debug(" Refresh complete; stored %d events in window", final_count)
 
     # Log structured monitoring event for refresh success
     log_monitoring_event(
         "refresh.cycle.complete",
-        f"Refresh cycle completed successfully - {len(pruned)} events in window",
+        f"Refresh cycle completed successfully - {final_count} events in window",
         "INFO",
         details={
             "events_parsed": len(parsed_events),
-            "events_in_window": len(pruned),
+            "events_in_window": final_count,
             "sources_processed": len(_get_config_value(config, "ics_sources", []) or []),
         },
         include_system_state=True,
@@ -1275,16 +1073,19 @@ async def _refresh_once(
     if parsed_events:
         logger.info(
             "ICS data successfully parsed and refreshed - %d upcoming events available for serving",
-            len(pruned),
+            final_count,
         )
     else:
         logger.info(
             "No events from sources - using fallback behavior (%d events in window)",
-            len(pruned),
+            final_count,
         )
 
-    # Log event details for debugging
-    for i, event in enumerate(pruned[:3]):  # Log first 3 events
+    # Log event details for debugging (read window for logging)
+    async with window_lock:
+        window_for_logging = event_window_ref[0]
+
+    for i, event in enumerate(window_for_logging[:3]):  # Log first 3 events
         logger.debug(
             " Event %d - ID: %r, Subject: %r, Start: %r",
             i,
@@ -1383,63 +1184,52 @@ async def _make_app(  # type: ignore[no-untyped-def]
         now_iso = now.isoformat() + "Z"
 
         # Server uptime calculation
-        uptime_seconds = int(time.time() - _server_start_time)
+        uptime_seconds = _health_tracker.get_uptime_seconds()
 
         # Last refresh delta calculation
-        last_success_delta_s = None
-        if _last_refresh_success is not None:
-            last_success_delta_s = int(time.time() - _last_refresh_success)
+        last_success_delta_s = _health_tracker.get_last_refresh_age_seconds()
 
         # Determine overall status
-        status = "ok"
-        if _last_refresh_success is None:
-            status = "degraded"  # Never had successful refresh
-        elif last_success_delta_s is not None and last_success_delta_s > 900:  # 15 minutes
-            status = "degraded"  # No successful refresh in 15+ minutes
+        status = _health_tracker.determine_overall_status()
 
         # Background task status
-        background_tasks = []
-        if _background_task_heartbeat is not None:
-            heartbeat_age = int(time.time() - _background_task_heartbeat)
-            background_tasks.append(
-                {
-                    "name": "refresher_task",
-                    "status": "running" if heartbeat_age < 600 else "stale",  # 10 minutes
-                    "last_heartbeat_age_s": heartbeat_age,
-                }
-            )
+        background_tasks = [_health_tracker.get_background_task_status()]
 
         # Get system diagnostics
         diag = _get_system_diagnostics()
 
         # Build comprehensive health response
+        last_refresh_success = _health_tracker.get_last_refresh_success_timestamp()
+        last_refresh_attempt = _health_tracker.get_last_refresh_attempt_timestamp()
+        last_render_probe = _health_tracker.get_last_render_probe_timestamp()
+
         health_data = {
             "status": status,
             "server_time_iso": now_iso,
             "server_status": {"uptime_s": uptime_seconds, "pid": os.getpid()},
             "last_refresh": {
-                "last_success_iso": _last_refresh_success
+                "last_success_iso": last_refresh_success
                 and datetime.datetime.fromtimestamp(
-                    _last_refresh_success, tz=datetime.timezone.utc
+                    last_refresh_success, tz=datetime.timezone.utc
                 ).isoformat()
                 + "Z",
-                "last_attempt_iso": _last_refresh_attempt
+                "last_attempt_iso": last_refresh_attempt
                 and datetime.datetime.fromtimestamp(
-                    _last_refresh_attempt, tz=datetime.timezone.utc
+                    last_refresh_attempt, tz=datetime.timezone.utc
                 ).isoformat()
                 + "Z",
                 "last_success_delta_s": last_success_delta_s,
-                "event_count": _current_event_count,
+                "event_count": _health_tracker.get_event_count(),
             },
             "background_tasks": background_tasks,
             "display_probe": {
-                "last_render_probe_iso": _last_render_probe
+                "last_render_probe_iso": last_render_probe
                 and datetime.datetime.fromtimestamp(
-                    _last_render_probe, tz=datetime.timezone.utc
+                    last_render_probe, tz=datetime.timezone.utc
                 ).isoformat()
                 + "Z",
-                "last_probe_ok": _last_render_probe_ok,
-                "last_probe_notes": _last_render_probe_notes,
+                "last_probe_ok": _health_tracker.get_last_render_probe_ok(),
+                "last_probe_notes": _health_tracker.get_last_render_probe_notes(),
             },
             "diag": diag,
         }
@@ -1449,95 +1239,31 @@ async def _make_app(  # type: ignore[no-untyped-def]
         return web.json_response(health_data, status=http_status)
 
     async def whats_next(_request):  # type: ignore[no-untyped-def]
+        """Find the next upcoming event with smart prioritization logic."""
+        from .event_prioritizer import EventPrioritizer
+
         now = _now_utc()
-        # Read window with lock to be consistent.
+
+        # Read window with lock to be consistent
         async with window_lock:
             window = tuple(event_window_ref[0])
 
         logger.debug(" /api/whats-next called - window has %d events", len(window))
 
-        # Find first non-skipped upcoming meeting and compute seconds_until_start now.
-        # FIX: Prioritize business meetings over generic "Lunch" events when they occur at same time
-        candidate_events = []
+        # Use event prioritizer to find next event with business logic
+        prioritizer = EventPrioritizer(_is_focus_time_event)
+        result = prioritizer.find_next_event(window, now, skipped_store)
 
-        for i, ev in enumerate(window):
-            logger.debug(
-                " Checking event %d - ID: %r, Start: %r", i, ev.get("meeting_id"), ev.get("start")
-            )
-            start = ev.get("start")
-            if not isinstance(start, datetime.datetime):
-                continue
+        if result is None:
+            # No upcoming events found
+            return web.json_response({"meeting": None}, status=200)
 
-            seconds_until = int((start - now).total_seconds())
+        # Unpack result and build response
+        event, seconds_until = result
+        model = _event_to_api_model(event)
+        model["seconds_until_start"] = seconds_until
 
-            if seconds_until < 0:
-                continue
-
-            # Skip focus time events - treat as free time
-            if _is_focus_time_event(ev):
-                logger.debug("Skipping focus time event: %r", ev.get("subject"))
-                continue
-
-            if skipped_store is not None:
-                is_skipped = getattr(skipped_store, "is_skipped", None)
-                try:
-                    if callable(is_skipped) and is_skipped(ev["meeting_id"]):
-                        continue
-                except Exception as e:
-                    logger.warning("skipped_store.is_skipped raised during api call: %s", e)
-
-            candidate_events.append((ev, seconds_until))
-
-            # If we have multiple candidates, check if any occur at nearly the same time
-            if len(candidate_events) >= 2:
-                # Group events by time (within 30 minutes)
-                current_time_group = [candidate_events[-1]]  # Latest event
-                for prev_ev, prev_seconds in candidate_events[:-1]:
-                    if abs(seconds_until - prev_seconds) <= 1800:  # Within 30 minutes
-                        current_time_group.append((prev_ev, prev_seconds))
-
-                if len(current_time_group) > 1:
-                    # Multiple events at similar time - prioritize non-lunch business events
-                    logger.debug(
-                        "PRIORITY FIX: Multiple events at similar time, applying prioritization"
-                    )
-
-                    business_events = []
-                    lunch_events = []
-
-                    for cand_ev, cand_seconds in current_time_group:
-                        subject = cand_ev.get("subject", "").lower()
-                        if "lunch" in subject and len(subject) <= 10:  # Generic lunch events
-                            lunch_events.append((cand_ev, cand_seconds))
-                            logger.debug(f"PRIORITY FIX: Categorized as lunch event: {subject}")
-                        else:
-                            business_events.append((cand_ev, cand_seconds))
-                            logger.debug(f"PRIORITY FIX: Categorized as business event: {subject}")
-
-                    # Prioritize business events over lunch, taking the earliest business event
-                    if business_events:
-                        # Sort business events by time and take the earliest
-                        business_events.sort(key=lambda x: x[1])  # Sort by seconds_until
-                        selected_ev, selected_seconds = business_events[0]
-                        logger.debug("PRIORITY FIX: Selected earliest business event over lunch")
-                    else:
-                        selected_ev, selected_seconds = current_time_group[0][0], current_time_group[0][1]
-                        logger.debug(
-                            "PRIORITY FIX: No business events found, using first available"
-                        )
-
-                    model = _event_to_api_model(selected_ev)
-                    model["seconds_until_start"] = selected_seconds
-                    return web.json_response({"meeting": model}, status=200)
-
-        # Default behavior: return first qualifying event
-        if candidate_events:
-            ev, seconds_until = candidate_events[0]
-            model = _event_to_api_model(ev)
-            model["seconds_until_start"] = seconds_until
-            return web.json_response({"meeting": model}, status=200)
-
-        return web.json_response({"meeting": None}, status=200)
+        return web.json_response({"meeting": model}, status=200)
 
     async def post_skip(request):  # type: ignore[no-untyped-def]
         if skipped_store is None:
@@ -2608,7 +2334,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
         "server.shutdown.start",
         "Server shutdown initiated",
         "INFO",
-        details={"uptime_seconds": int(time.time() - _server_start_time)},
+        details={"uptime_seconds": _health_tracker.get_uptime_seconds()},
     )
 
     # Cancel refresher and wait for it to finish

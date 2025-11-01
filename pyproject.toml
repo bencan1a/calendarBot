@@ -275,6 +275,15 @@ module = [
 ]
 ignore_missing_imports = true
 
+# Relax strict type checking for calendarbot_lite modules with complex parser types
+# These modules deal with dynamic icalendar parsing and complex type inference
+[[tool.mypy.overrides]]
+module = "calendarbot_lite.*"
+# Allow returning Any where type system can't infer complex types
+warn_return_any = false
+# Allow unreachable code for defensive programming patterns
+warn_unreachable = false
+
 [tool.pytest.ini_options]
 # Consolidated pytest configuration (migrated from pytest.ini)
 minversion = "7.0"

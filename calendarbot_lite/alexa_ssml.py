@@ -575,7 +575,7 @@ def render_morning_summary_ssml(
         return None
 
 
-def validate_ssml(ssml: str, max_chars: int = 500, allowed_tags: set[str] | None = None) -> bool:
+def validate_ssml(ssml: str, max_chars: int = 500, allowed_tags: Optional[set[str]] = None) -> bool:
     """Fast, linear SSML validation for server-side safety.
 
     Args:
@@ -717,7 +717,7 @@ def _basic_tag_balance_check(ssml: str, allowed_tags: set[str]) -> bool:
     Returns:
         True if tags are balanced and allowed, False otherwise
     """
-    tag_stack = []
+    tag_stack: list[str] = []
     i = 0
 
     while i < len(ssml):

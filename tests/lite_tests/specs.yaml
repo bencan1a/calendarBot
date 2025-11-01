@@ -1,0 +1,501 @@
+version: '1.0'
+description: Integration test suite for calendarbot_lite API (generated fixtures)
+tests:
+- test_id: single_meeting_20251105
+  description: Single meeting scheduled for future execution
+  category: single_meeting
+  ics_file: single-meeting.ics
+  datetime_override: '2025-11-05T08:00:00-07:00'
+  expected:
+    meeting:
+      meeting_id: single-meeting-20251105-001@example.com
+      subject: Team Standup
+      description: One-off team standup for testing whats-next selection
+      attendees: []
+      start_iso: '2025-11-05T16:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+  metadata:
+    source: generated
+    author: roo-code
+- test_id: daily_recurring_202511
+  description: Daily recurring meeting pattern (COUNT=5)
+  category: recurring
+  ics_file: daily-recurring.ics
+  datetime_override: '2025-11-03T16:00:00Z'
+  expected:
+    meeting:
+      meeting_id: daily-recurring-202511-001@example.com_20251103T170000_*
+      subject: Daily Sync
+      description: ''
+      attendees: []
+      start_iso: '2025-11-03T17:00:00Z'
+      duration_seconds: 1800
+      location: ''
+      raw_source: ''
+  metadata:
+    source: generated
+    author: roo-code
+- test_id: recurring_with_exdate_202511
+  description: Weekly recurring meeting with EXDATE excluding 2025-11-10
+  category: exception
+  ics_file: recurring-with-exdate.ics
+  datetime_override: '2025-11-03T10:00:00Z'
+  expected:
+    meeting:
+      meeting_id: weekly-planning-202511-001@example.com_20251103T180000_*
+      subject: Weekly Planning
+      description: ''
+      attendees: []
+      start_iso: '2025-11-03T18:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+  metadata:
+    source: generated
+    author: roo-code
+- test_id: timezone_event_202511
+  description: Event stored in America/New_York timezone; expectation normalized to
+    UTC
+  category: timezone
+  ics_file: tz-event.ics
+  datetime_override: '2025-11-15T09:00:00-05:00'
+  expected:
+    meeting:
+      meeting_id: tz-event-202511-001@example.com
+      subject: Cross-Timezone Call
+      description: ''
+      attendees: []
+      start_iso: '2025-11-15T15:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+  metadata:
+    source: generated
+    author: roo-code
+- test_id: all_day_event_202511
+  description: Single all-day event using DATE values
+  category: all_day
+  ics_file: all-day-event.ics
+  datetime_override: '2025-11-09T12:00:00-07:00'
+  expected:
+    meeting:
+      meeting_id: all-day-20251110-001@example.com
+      subject: Company Holiday
+      description: ''
+      attendees: []
+      start_iso: '2025-11-10T00:00:00Z'
+      duration_seconds: 86400
+      location: ''
+      raw_source: ''
+  metadata:
+    source: generated
+    author: roo-code
+- test_id: dst_transition_timezone_202511
+  description: Events scheduled at the ambiguous 01:30 local time on DST end date
+    (timezone transition)
+  category: timezone_transition
+  ics_file: dst-transition.ics
+  datetime_override: '2025-10-30T00:00:00-07:00'
+  expected:
+    meeting:
+      meeting_id: dst-event-2@example.com
+      subject: DST Ambiguous Meeting B
+      description: ''
+      attendees: []
+      start_iso: '2025-11-02T08:30:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+  metadata:
+    source: generated
+    author: roo-code
+    notes: Expect the expander to pick the first occurrence mapping to UTC; verify
+      handling of ambiguous local times
+- test_id: dst_transition_overlapping_202511
+  description: Two events that overlap at the same local time across DST boundary
+  category: overlapping
+  ics_file: dst-transition.ics
+  datetime_override: '2025-10-30T00:00:00-07:00'
+  expected:
+    meeting:
+      meeting_id: dst-event-2@example.com
+      subject: DST Ambiguous Meeting B
+      description: ''
+      attendees: []
+      start_iso: '2025-11-02T08:30:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+  metadata:
+    source: generated
+    author: roo-code
+- test_id: recurring_cancelled_replaced_202511
+  description: Recurring with cancelled occurrence replaced by different meeting
+  category: recurring_modified
+  ics_file: recurring-cancelled-replaced.ics
+  datetime_override: '2025-11-09T14:00:00Z'
+  expected:
+    meeting:
+      meeting_id: one-off-replacement@example.com
+      subject: Extended Planning Session
+      description: Replaces cancelled standup
+      attendees: []
+      start_iso: '2025-11-10T16:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+- test_id: recurring_modified_time_202511
+  description: Recurring meeting with one occurrence moved to different time
+  category: recurring_modified
+  ics_file: recurring-modified-time.ics
+  datetime_override: '2025-11-05T13:00:00Z'
+  expected:
+    meeting:
+      meeting_id: daily-meeting@example.com_20251105T140000_*
+      subject: Daily Sync
+      description: ''
+      attendees: []
+      start_iso: '2025-11-05T14:00:00Z'
+      duration_seconds: 1800
+      location: ''
+      raw_source: ''
+- test_id: recurring_modified_subject_202511
+  description: Recurring meeting with one occurrence having different title
+  category: recurring_modified
+  ics_file: recurring-modified-subject.ics
+  datetime_override: '2025-11-09T17:00:00Z'
+  expected:
+    meeting:
+      meeting_id: weekly-review@example.com
+      subject: Special Q4 Review
+      description: ''
+      attendees: []
+      start_iso: '2025-11-10T18:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+- test_id: recurring_multiple_weekdays_202511
+  description: Weekly recurring on Mon/Wed/Fri pattern
+  category: recurring_pattern
+  ics_file: recurring-multiple-weekdays.ics
+  datetime_override: '2025-11-02T14:00:00Z'
+  expected:
+    meeting:
+      meeting_id: mwf-standup@example.com_20251103T150000_*
+      subject: MWF Standup
+      description: ''
+      attendees: []
+      start_iso: '2025-11-03T15:00:00Z'
+      duration_seconds: 900
+      location: ''
+      raw_source: ''
+- test_id: recurring_monthly_day_202511
+  description: Monthly recurring on specific day of month (5th)
+  category: recurring_pattern
+  ics_file: recurring-monthly-day.ics
+  datetime_override: '2025-11-04T16:00:00Z'
+  expected:
+    meeting:
+      meeting_id: monthly-all-hands@example.com_20251105T170000_*
+      subject: Monthly All Hands
+      description: ''
+      attendees: []
+      start_iso: '2025-11-05T17:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+- test_id: recurring_monthly_weekday_202511
+  description: Monthly recurring on 2nd Tuesday of month
+  category: recurring_pattern
+  ics_file: recurring-monthly-weekday.ics
+  datetime_override: '2025-11-10T18:00:00Z'
+  expected:
+    meeting:
+      meeting_id: second-tuesday@example.com_20251111T190000_*
+      subject: Second Tuesday Review
+      description: ''
+      attendees: []
+      start_iso: '2025-11-11T19:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+- test_id: recurring_until_date_202511
+  description: Recurring with UNTIL instead of COUNT
+  category: recurring_pattern
+  ics_file: recurring-until-date.ics
+  datetime_override: '2025-11-02T15:00:00Z'
+  expected:
+    meeting:
+      meeting_id: project-sync@example.com_20251103T160000_*
+      subject: Project Sync
+      description: ''
+      attendees: []
+      start_iso: '2025-11-03T16:00:00Z'
+      duration_seconds: 1800
+      location: ''
+      raw_source: ''
+- test_id: recurring_old_master_202511
+  description: Recurring series started months ago, still has future occurrences
+  category: recurring_edge
+  ics_file: recurring-old-master.ics
+  datetime_override: '2025-11-03T13:00:00Z'
+  expected:
+    meeting:
+      meeting_id: long-running-meeting@example.com_20251106T140000_*
+      subject: Long Running Weekly
+      description: ''
+      attendees: []
+      start_iso: '2025-11-06T14:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+- test_id: recurring_biweekly_202511
+  description: Biweekly (every 2 weeks) recurring pattern
+  category: recurring_pattern
+  ics_file: recurring-biweekly.ics
+  datetime_override: '2025-11-02T14:00:00Z'
+  expected:
+    meeting:
+      meeting_id: biweekly-sprint@example.com_20251103T150000_*
+      subject: Biweekly Sprint Planning
+      description: ''
+      attendees: []
+      start_iso: '2025-11-03T15:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+- test_id: recurring_short_duration_202511
+  description: Recurring meeting with very short duration (15 minutes)
+  category: recurring_edge
+  ics_file: recurring-short-duration.ics
+  datetime_override: '2025-11-04T14:00:00Z'
+  expected:
+    meeting:
+      meeting_id: quick-check@example.com_20251105T150000_*
+      subject: 15min Quick Check
+      description: ''
+      attendees: []
+      start_iso: '2025-11-05T15:00:00Z'
+      duration_seconds: 900
+      location: ''
+      raw_source: ''
+- test_id: recurring_multiple_exdates_202511
+  description: Recurring with multiple non-consecutive cancelled occurrences
+  category: recurring_exception
+  ics_file: recurring-multiple-exdates.ics
+  datetime_override: '2025-11-02T13:00:00Z'
+  expected:
+    meeting:
+      meeting_id: daily-scrum@example.com_20251103T140000_*
+      subject: Daily Scrum
+      description: ''
+      attendees: []
+      start_iso: '2025-11-03T14:00:00Z'
+      duration_seconds: 900
+      location: ''
+      raw_source: ''
+- test_id: recurring_ended_202511
+  description: Recurring series that already ended (no future occurrences)
+  category: recurring_edge
+  ics_file: recurring-ended.ics
+  datetime_override: '2025-11-01T14:00:00Z'
+  expected:
+    meeting: null
+- test_id: recurring_modified_duration_202511
+  description: Recurring with one occurrence having extended duration
+  category: recurring_modified
+  ics_file: recurring-modified-duration.ics
+  datetime_override: '2025-11-09T12:00:00Z'
+  expected:
+    meeting:
+      meeting_id: team-meeting@example.com
+      subject: Team Meeting
+      description: Extended session
+      attendees: []
+      start_iso: '2025-11-10T16:00:00Z'
+      duration_seconds: 7200
+      location: ''
+      raw_source: ''
+- test_id: recurring_modified_location_202511
+  description: Recurring with one occurrence in different location
+  category: recurring_modified
+  ics_file: recurring-modified-location.ics
+  datetime_override: '2025-11-16T13:00:00Z'
+  expected:
+    meeting:
+      meeting_id: office-hours@example.com_20251117T170000_*
+      subject: Office Hours
+      description: ''
+      attendees: []
+      start_iso: '2025-11-17T17:00:00Z'
+      duration_seconds: 3600
+      location: Room 101
+      raw_source: ''
+- test_id: recurring_complex_multi_mod_202511
+  description: Recurring with multiple different modifications and cancellations
+  category: recurring_complex
+  ics_file: recurring-complex-multi-mod.ics
+  datetime_override: '2025-11-02T12:00:00Z'
+  expected:
+    meeting:
+      meeting_id: weekly-sync@example.com_20251103T150000_*
+      subject: Weekly Sync
+      description: ''
+      attendees: []
+      start_iso: '2025-11-03T15:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+- test_id: recurring_every_other_month_202511
+  description: Bimonthly (every 2 months) recurring pattern
+  category: recurring_pattern
+  ics_file: recurring-every-other-month.ics
+  datetime_override: '2025-11-02T17:00:00Z'
+  expected:
+    meeting:
+      meeting_id: bimonthly-review@example.com_20251103T180000_*
+      subject: Bimonthly Review
+      description: ''
+      attendees: []
+      start_iso: '2025-11-03T18:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+- test_id: recurring_gap_future_202511
+  description: Recurring with large gap between occurrences (4 weeks)
+  category: recurring_edge
+  ics_file: recurring-gap-future.ics
+  datetime_override: '2025-11-04T13:00:00Z'
+  expected:
+    meeting:
+      meeting_id: rare-meeting@example.com_20251105T140000_*
+      subject: Monthly (4-week) Check-in
+      description: ''
+      attendees: []
+      start_iso: '2025-11-05T14:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+- test_id: recurring_two_same_time_202511
+  description: Two different recurring meetings at exact same time (conflict)
+  category: recurring_conflict
+  ics_file: recurring-two-same-time.ics
+  datetime_override: '2025-11-04T14:00:00Z'
+  expected:
+    meeting:
+      meeting_id: meeting-b@example.com_20251105T150000_*
+      subject: B-Team Standup
+      description: ''
+      attendees: []
+      start_iso: '2025-11-05T15:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+- test_id: recurring_hourly_limited_202511
+  description: Hourly recurring pattern (high frequency)
+  category: recurring_pattern
+  ics_file: recurring-hourly-limited.ics
+  datetime_override: '2025-11-05T13:30:00Z'
+  expected:
+    meeting:
+      meeting_id: hourly-sync@example.com_20251105T140000_*
+      subject: Hourly Status Check
+      description: ''
+      attendees: []
+      start_iso: '2025-11-05T14:00:00Z'
+      duration_seconds: 600
+      location: ''
+      raw_source: ''
+- test_id: recurring_last_weekday_month_202511
+  description: Monthly recurring on last Friday of month
+  category: recurring_pattern
+  ics_file: recurring-last-weekday-month.ics
+  datetime_override: '2025-11-27T16:00:00Z'
+  expected:
+    meeting:
+      meeting_id: last-friday@example.com_20251128T170000_*
+      subject: Last Friday Demo
+      description: ''
+      attendees: []
+      start_iso: '2025-11-28T17:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+- test_id: recurring_dst_crossing_weekly_202510
+  description: Weekly recurring meeting that crosses DST fall-back boundary (Nov 2, 2025)
+  category: recurring_timezone
+  ics_file: recurring-dst-crossing-weekly.ics
+  datetime_override: '2025-10-19T15:00:00Z'
+  expected:
+    meeting:
+      meeting_id: weekly-team-sync@example.com_20251020T160000_*
+      subject: Weekly Team Sync
+      description: Crosses DST boundary on Nov 2, 2025
+      attendees: []
+      start_iso: '2025-10-20T16:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+  metadata:
+    source: manual
+    author: claude-code
+    notes: Validates that recurring events maintain local time (9am Pacific) across DST transition. UTC offset changes from -7 to -8 on Nov 2.
+- test_id: recurring_pacific_queried_eastern_202511
+  description: Recurring event in Pacific timezone queried from Eastern timezone context
+  category: recurring_timezone
+  ics_file: recurring-pacific-queried-eastern.ics
+  datetime_override: '2025-11-03T10:00:00-05:00'
+  expected:
+    meeting:
+      meeting_id: cross-timezone-standup@example.com_20251103T160000_*
+      subject: West Coast Standup
+      description: Meeting scheduled in Pacific time, queried from Eastern context
+      attendees: []
+      start_iso: '2025-11-03T16:00:00Z'
+      duration_seconds: 1800
+      location: ''
+      raw_source: ''
+  metadata:
+    source: manual
+    author: claude-code
+    notes: Tests cross-timezone handling. Meeting at 8am Pacific = 11am Eastern = 16:00 UTC
+- test_id: recurring_dst_spring_forward_202603
+  description: Weekly recurring meeting that crosses DST spring-forward boundary (Mar 8, 2026)
+  category: recurring_timezone
+  ics_file: recurring-dst-spring-forward.ics
+  datetime_override: '2026-03-01T12:00:00-05:00'
+  expected:
+    meeting:
+      meeting_id: spring-dst-meeting@example.com_20260302T140000_*
+      subject: Monday Morning Review
+      description: Crosses spring forward DST on March 8, 2026
+      attendees: []
+      start_iso: '2026-03-02T14:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+  metadata:
+    source: manual
+    author: claude-code
+    notes: Validates DST spring forward handling. Meeting stays at 9am Eastern local time. UTC offset changes from -5 to -4 on Mar 8.
+- test_id: recurring_eastern_dst_exdate_202510
+  description: Recurring meeting in Eastern timezone with EXDATE that spans DST boundary
+  category: recurring_timezone
+  ics_file: recurring-eastern-dst-exdate.ics
+  datetime_override: '2025-10-26T12:00:00-04:00'
+  expected:
+    meeting:
+      meeting_id: eastern-weekly@example.com_20251027T180000_*
+      subject: Eastern Team Meeting
+      description: Weekly meeting with EXDATE crossing DST boundary
+      attendees: []
+      start_iso: '2025-10-27T18:00:00Z'
+      duration_seconds: 3600
+      location: ''
+      raw_source: ''
+  metadata:
+    source: manual
+    author: claude-code
+    notes: Tests EXDATE handling across DST boundary. Nov 3 occurrence is excluded, next is Nov 10 with DST adjustment.

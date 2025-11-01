@@ -2,7 +2,7 @@
 
 # ruff: noqa: I001
 import asyncio
-import contextlib
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import logging
 import time
@@ -10,24 +10,52 @@ from typing import Any, Optional
 from collections.abc import AsyncIterator
 import uuid
 
-from dateutil.rrule import (
-    DAILY,
-    HOURLY,
-    MINUTELY,
-    MONTHLY,
-    SECONDLY,
-    WEEKLY,
-    YEARLY,
-    rrule,
-    rrulestr,
-    rruleset,
-)
+from dateutil.rrule import rrulestr, rruleset
 
 from .lite_models import LiteCalendarEvent, LiteDateTimeInfo
 
 UTC = timezone.utc
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RRuleExpanderConfig:
+    """Configuration for RRULE expansion.
+
+    Consolidates all RRULE-related settings with explicit defaults.
+    """
+
+    # Worker pool settings
+    rrule_worker_concurrency: int = 1
+    max_occurrences_per_rule: int = 250
+    expansion_days_window: int = 365
+    expansion_time_budget_ms_per_rule: int = 200
+    expansion_yield_frequency: int = 50
+
+    # Legacy expander settings
+    rrule_expansion_days: int = 365
+    enable_rrule_expansion: bool = True
+
+    @classmethod
+    def from_settings(cls, settings: Any) -> "RRuleExpanderConfig":
+        """Extract RRULE configuration from settings object.
+
+        Args:
+            settings: Configuration object with RRULE settings
+
+        Returns:
+            RRuleExpanderConfig with values from settings or defaults
+        """
+        return cls(
+            rrule_worker_concurrency=getattr(settings, "rrule_worker_concurrency", 1),
+            max_occurrences_per_rule=getattr(settings, "max_occurrences_per_rule", 250),
+            expansion_days_window=getattr(settings, "expansion_days_window", 365),
+            expansion_time_budget_ms_per_rule=getattr(settings, "expansion_time_budget_ms_per_rule", 200),
+            expansion_yield_frequency=getattr(settings, "expansion_yield_frequency", 50),
+            rrule_expansion_days=getattr(settings, "rrule_expansion_days", 365),
+            enable_rrule_expansion=getattr(settings, "enable_rrule_expansion", True),
+        )
 
 
 class RRuleWorkerPool:
@@ -43,11 +71,14 @@ class RRuleWorkerPool:
             settings: Configuration object with worker pool settings
         """
         self.settings = settings
-        self.concurrency = getattr(settings, "rrule_worker_concurrency", 1)
-        self.max_occurrences = getattr(settings, "max_occurrences_per_rule", 250)
-        self.expansion_days = getattr(settings, "expansion_days_window", 365)
-        self.time_budget_ms = getattr(settings, "expansion_time_budget_ms_per_rule", 200)
-        self.yield_frequency = getattr(settings, "expansion_yield_frequency", 50)
+
+        # Extract configuration using centralized config class
+        config = RRuleExpanderConfig.from_settings(settings)
+        self.concurrency = config.rrule_worker_concurrency
+        self.max_occurrences = config.max_occurrences_per_rule
+        self.expansion_days = config.expansion_days_window
+        self.time_budget_ms = config.expansion_time_budget_ms_per_rule
+        self.yield_frequency = config.expansion_yield_frequency
 
         self._semaphore = asyncio.Semaphore(self.concurrency)
         self._active_tasks: set[asyncio.Task] = set()
@@ -89,30 +120,36 @@ class RRuleWorkerPool:
                 event_subject,
             )
 
-            # Check if this might be the missing Ani/Ben recurring event
             start_time = time.time()
 
             try:
                 # Set up expansion window
-                start_date = master_event.start.date_time
-                end_date = start_date + timedelta(days=self.expansion_days)
+                # For recurring events, we expand from the master event start to a future window.
+                # This ensures old recurring series still show future occurrences.
+
+                # Get current time, respecting test overrides
+                now = self._get_current_time()
+                master_start = master_event.start.date_time
+
+                # Normalize master_start to UTC for comparison
+                if master_start.tzinfo is None:
+                    master_start_utc = master_start.replace(tzinfo=UTC)
+                else:
+                    master_start_utc = master_start.astimezone(UTC)
+
+                # Start from master event start date (to respect RRULE semantics)
+                # End at now + expansion window (to get future occurrences)
+                start_date = master_start_utc
+                end_date = now + timedelta(days=self.expansion_days)
 
                 # Parse RRULE and build rruleset with exdates
                 rule_set = rruleset()
 
-                try:
-                    parsed_rule = rrulestr(rrule_string, dtstart=master_event.start.date_time)
-                    if isinstance(parsed_rule, rruleset):
-                        rule_set = parsed_rule
-                    else:
-                        rule_set.rrule(parsed_rule)
-                except Exception:
-                    # Fallback parsing
-                    parsed_rule = rrulestr(rrule_string, dtstart=master_event.start.date_time)
-                    if isinstance(parsed_rule, rruleset):
-                        rule_set = parsed_rule
-                    else:
-                        rule_set.rrule(parsed_rule)
+                parsed_rule = rrulestr(rrule_string, dtstart=master_event.start.date_time)
+                if isinstance(parsed_rule, rruleset):
+                    rule_set = parsed_rule
+                else:
+                    rule_set.rrule(parsed_rule)
 
                 # Apply EXDATEs if provided
                 logger.debug("EXDATE processing for event %s: exdates=%r", event_subject, exdates)
@@ -120,7 +157,7 @@ class RRuleWorkerPool:
                     logger.debug("Processing %d EXDATE entries", len(exdates))
                     for i, ex in enumerate(exdates):
                         try:
-                            ex_dt = self._parse_datetime_for_streaming(ex)
+                            ex_dt = self._parse_datetime(ex)
                             logger.debug(
                                 "EXDATE %d: raw='%s' parsed=%r tzinfo=%r",
                                 i,
@@ -262,11 +299,33 @@ class RRuleWorkerPool:
         async for event in self.expand_rrule_stream(master_event, rrule_string, exdates):
             yield event
 
-    def _parse_datetime_for_streaming(self, datetime_str: str) -> datetime:
-        """Parse datetime string for streaming operations (lightweight version).
+    def _get_current_time(self) -> datetime:
+        """Get current time, respecting test time overrides.
+
+        Returns:
+            Current datetime in UTC timezone
+        """
+        import os
+
+        # Check for test time override
+        test_time = os.environ.get("CALENDARBOT_TEST_TIME")
+        if test_time:
+            try:
+                from dateutil import parser
+                # Parse the test time and convert to UTC
+                dt = parser.parse(test_time)
+                return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
+            except Exception as e:
+                logger.warning(f"Invalid CALENDARBOT_TEST_TIME: {test_time}, error: {e}")
+
+        # Return current UTC time
+        return datetime.now(UTC)
+
+    def _parse_datetime(self, datetime_str: str) -> datetime:
+        """Parse datetime string in various formats.
 
         Args:
-            datetime_str: Datetime string in various formats
+            datetime_str: Datetime string (ISO format, RRULE format, or timezone-aware EXDATE)
 
         Returns:
             Parsed datetime object
@@ -274,10 +333,12 @@ class RRuleWorkerPool:
         Raises:
             ValueError: If datetime format is invalid
         """
-        # Handle timezone-aware EXDATE format: TZID=Pacific Standard Time:20251031T090000
+        # Handle timezone-aware EXDATE format: TZID=Pacific Standard Time:20250623T083000
         if datetime_str.startswith("TZID="):
+            logger.debug(f"TZID parsing started for: {datetime_str}")
             try:
                 # Find the last colon that separates timezone from datetime
+                # EXDATE format: TZID=Pacific Standard Time:20251031T090000
                 if ":2" in datetime_str:  # Look for pattern ":20" to find datetime start
                     last_colon_pos = datetime_str.rfind(":", datetime_str.find(":2"))
                     tzid_part = datetime_str[:last_colon_pos]
@@ -285,7 +346,7 @@ class RRuleWorkerPool:
                 else:
                     # Fallback to original split if pattern not found
                     tzid_part, dt_part = datetime_str.split(":", 1)
-                    
+
                 tzid = tzid_part.replace("TZID=", "").strip()
 
                 # Handle "Z" suffix (UTC indicator)
@@ -296,43 +357,59 @@ class RRuleWorkerPool:
 
                 # Handle special timezone cases
                 if tzid == "UTC" or dt_part.endswith("Z"):
+                    # UTC timezone - simple case
                     return dt.replace(tzinfo=UTC)
-                    
-                # Map timezone names
-                timezone_name = "America/Los_Angeles" if tzid == "Pacific Standard Time" else tzid
+
+                # Try to convert Windows timezone names to IANA format
+                from .timezone_utils import windows_tz_to_iana
+
+                timezone_name = windows_tz_to_iana(tzid)
+                if timezone_name is None:
+                    # Not a known Windows timezone, use as-is (might be IANA already)
+                    timezone_name = tzid
 
                 # Apply timezone and convert to UTC
                 try:
+                    # Try zoneinfo first (preferred)
                     from zoneinfo import ZoneInfo
+
                     tz = ZoneInfo(timezone_name)
                     dt_with_tz = dt.replace(tzinfo=tz)
                     return dt_with_tz.astimezone(UTC)
-                except Exception:
-                    # Fallback - assume UTC
-                    logger.warning(f"Could not parse timezone {tzid}, assuming UTC")
-                    return dt.replace(tzinfo=UTC)
-                    
-            except Exception:
-                # Fall through to standard parsing
-                pass
+                except (ImportError, Exception):
+                    try:
+                        # Fallback to pytz
+                        import pytz
 
-        # Standard parsing for streaming (optimized)
+                        tz_pytz = pytz.timezone(timezone_name)
+                        dt_with_tz = tz_pytz.localize(dt)
+                        return dt_with_tz.astimezone(UTC)
+                    except Exception:
+                        # Last fallback - assume UTC
+                        logger.warning(f"Could not parse timezone {tzid}, assuming UTC")
+                        return dt.replace(tzinfo=UTC)
+
+            except Exception as e:
+                logger.warning(f"Failed to parse timezone-aware EXDATE {datetime_str}: {e}")
+                import traceback
+                logger.debug(f"TZID parsing exception traceback: {traceback.format_exc()}")
+                # Fall through to standard parsing
+
+        # Remove timezone suffix for basic parsing
         dt_str = datetime_str.rstrip("Z")
 
-        # Try most common format first
-        try:
-            dt = datetime.strptime(dt_str, "%Y%m%dT%H%M%S")
-            if datetime_str.endswith("Z"):
-                dt = dt.replace(tzinfo=UTC)
-            return dt
-        except ValueError:
-            pass
+        # Try various datetime formats
+        formats = [
+            "%Y%m%dT%H%M%S",  # 20250623T083000
+            "%Y-%m-%dT%H:%M:%S",  # 2025-06-23T08:30:00
+            "%Y%m%d",  # 20250623
+            "%Y-%m-%d",  # 2025-06-23
+        ]
 
-        # Fallback to other formats
-        formats = ["%Y-%m-%dT%H:%M:%S", "%Y%m%d", "%Y-%m-%d"]
         for fmt in formats:
             try:
                 dt = datetime.strptime(dt_str, fmt)
+                # If original string had 'Z', assume UTC
                 if datetime_str.endswith("Z"):
                     dt = dt.replace(tzinfo=UTC)
                 return dt
@@ -426,311 +503,60 @@ async def expand_events_streaming(
 
 
 class LiteRRuleExpander(RRuleWorkerPool):
-    """Compatibility subclass exposing legacy method names expected by callers."""
+    """RRULE expander with both async and sync interfaces.
+
+    Provides:
+    - Async streaming expansion (from RRuleWorkerPool)
+    - Legacy sync methods for backward compatibility
+    - Helper methods for parsing and event generation
+    """
 
     def __init__(self, settings: Any):
+        """Initialize expander with settings.
+
+        Args:
+            settings: Configuration object with RRULE expansion settings
+        """
         super().__init__(settings)
 
-    def expand_event(self, master_event: Any, rrule_string: str, exdates: Optional[list[str]] = None):
+        # Additional settings for legacy methods
+        config = RRuleExpanderConfig.from_settings(settings)
+        self.expansion_window_days = config.rrule_expansion_days
+        self.enable_expansion = config.enable_rrule_expansion
+
+    def expand_event(self, master_event: Any, rrule_string: str, exdates: Optional[list[str]] = None) -> list[Any]:
         """Legacy synchronous-style wrapper returning a list of expanded events.
 
         Delegates to expand_event_to_list via asyncio.run for callers that expect a blocking call.
+
+        Note: Cannot be called from within an async context. Use expand_event_async() instead.
         """
+        def check_not_in_event_loop() -> None:
+            """Ensure we're not already in an event loop."""
+            try:
+                asyncio.get_running_loop()
+                # If we get here, we're already in an event loop - can't use asyncio.run()
+                raise RuntimeError(  # noqa: TRY301
+                    "expand_event() cannot be called from async context. "
+                    "Use expand_event_async() or await expand_event_to_list() instead."
+                )
+            except RuntimeError as e:
+                # Check if this is the "no running event loop" error (which is what we want)
+                if "no running event loop" not in str(e).lower():
+                    # This is our custom error about being in async context
+                    raise
+                # No event loop running - safe to proceed
+
         try:
+            check_not_in_event_loop()
             return asyncio.run(self.expand_event_to_list(master_event, rrule_string, exdates))
         except Exception:
             logger.exception("LiteRRuleExpander.expand_event failed for master %s", getattr(master_event, "id", None))
             return []
 
-    def expand_rrule(self, master_event: Any, rrule_string: str, exdates: Optional[list[str]] = None):
+    def expand_rrule(self, master_event: Any, rrule_string: str, exdates: Optional[list[str]] = None) -> list[Any]:
         """Alias for expand_event to support older callers that used expand_rrule."""
         return self.expand_event(master_event, rrule_string, exdates)
-
-
-async def expand_events_async(
-    events_with_rrules: list[tuple[Any, str, Optional[list[str]]]],
-    settings: Any,
-) -> list[Any]:
-    """Expand multiple events with RRULE patterns using streaming worker pool.
-
-    Args:
-        events_with_rrules: List of (event, rrule_string, exdates) tuples
-        settings: Configuration settings
-
-    Returns:
-        List of all expanded events (flattened)
-    """
-    if not events_with_rrules:
-        return []
-
-    worker_pool = get_worker_pool(settings)
-    all_expanded = []
-
-    # Process events with streaming consumption to avoid memory spikes
-    for i, (event, rrule_str, exdates) in enumerate(events_with_rrules):
-        try:
-            # Stream events one by one for incremental memory usage
-            async for expanded_event in worker_pool.expand_rrule_stream(event, rrule_str, exdates):
-                all_expanded.append(expanded_event)
-
-                # Yield control periodically for large expansions
-                if len(all_expanded) % 50 == 0:
-                    await asyncio.sleep(0)
-
-        except Exception as ex:
-            logger.warning("RRULE expansion failed for event %d: %s", i, ex)
-            continue
-
-    return all_expanded
-
-
-class LiteRRuleExpansionError(Exception):
-    """Base exception for RRULE expansion errors."""
-
-
-class LiteRRuleParseError(LiteRRuleExpansionError):
-    """Error parsing RRULE string."""
-    """Client-side RRULE expansion for CalendarBot Lite.
-
-    This class handles expansion of RRULE patterns into individual LiteCalendarEvent
-    instances using python-dateutil. It supports WEEKLY patterns with EXDATE
-    exclusions and proper timezone handling.
-    """
-
-    def __init__(self, settings: object):
-        """Initialize LiteRRuleExpander with settings.
-
-        Args:
-            settings: CalendarBot configuration settings object
-        """
-        self.settings = settings
-        self.expansion_window_days = getattr(settings, "rrule_expansion_days", 365)
-        self.enable_expansion = getattr(settings, "enable_rrule_expansion", True)
-
-    def expand_rrule(
-        self,
-        master_event: LiteCalendarEvent,
-        rrule_string: str,
-        exdates: Optional[list[str]] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> list[LiteCalendarEvent]:
-        """Expand RRULE pattern into individual event instances using dateutil's rruleset/rrulestr.
-
-        This implementation defers full RRULE parsing to dateutil to preserve all
-        standard RRULE fields (BYDAY, BYMONTHDAY, BYMONTH, UNTIL, COUNT, etc.)
-        and uses an rruleset so EXDATE exclusions are applied precisely.
-        """
-        if not self.enable_expansion:
-            return []
-
-        try:
-            # Establish expansion window
-            if start_date is None:
-                start_date = master_event.start.date_time
-            if end_date is None:
-                # Preserve timezone awareness when creating the expansion window.
-                # Previously we deliberately stripped tzinfo which produced
-                # offset-naive end_date and caused comparisons to fail inside
-                # dateutil. Use timezone-aware arithmetic instead.
-                end_date = start_date + timedelta(days=self.expansion_window_days)
-
-            # Build an rruleset and parse the RRULE with the correct dtstart
-            rule_set = rruleset()
-
-            try:
-                parsed_rule = rrulestr(rrule_string, dtstart=master_event.start.date_time)
-                # rrulestr can return either an rrule or an rruleset.
-                # If it's an rruleset already, use it directly; otherwise add the rrule to our set.
-                if isinstance(parsed_rule, rruleset):
-                    rule_set = parsed_rule
-                else:
-                    rule_set.rrule(parsed_rule)
-            except Exception:
-                # Fallback: try parsing again and treat result similarly
-                parsed_rule = rrulestr(rrule_string, dtstart=master_event.start.date_time)
-                if isinstance(parsed_rule, rruleset):
-                    rule_set = parsed_rule
-                else:
-                    rule_set.rrule(parsed_rule)
-
-            # Defensive normalization of internal rruleset/rrule datetimes:
-            # dateutil may store naive datetimes inside the parsed rrule/rruleset.
-            # Normalize internal dt values (dtstart, _until, _exdate items) to timezone-aware UTC
-            try:
-                # If rule_set is a rruleset instance, it may contain internal lists of exdates and rrules
-                exlist = getattr(rule_set, "_exdate", None)
-                if exlist:
-                    normalized_exlist = []
-                    for ex in exlist:
-                        try:
-                            if ex is None:
-                                continue
-                            if ex.tzinfo is None:
-                                normalized_ex = ex.replace(tzinfo=UTC)
-                            else:
-                                normalized_ex = ex.astimezone(UTC)
-                            normalized_exlist.append(normalized_ex)
-                        except Exception:
-                            normalized_exlist.append(ex)
-                    # Assign normalized exdate list; suppress assignment errors
-                    with contextlib.suppress(Exception):
-                        rule_set._exdate = normalized_exlist  # type: ignore[attr-defined]  # noqa: SLF001
-
-                # Normalize any rrules contained in the set
-                rrules_internal = getattr(rule_set, "_rrule", None)
-                if rrules_internal:
-                    # Normalize dtstart/until for all internal rules (single try to avoid try/except in loop)
-                    try:
-                        for rr in rrules_internal:
-                            dtstart = getattr(rr, "_dtstart", None)
-                            if dtstart is not None:
-                                normalized_dtstart = (
-                                    dtstart.replace(tzinfo=UTC)
-                                    if dtstart.tzinfo is None
-                                    else dtstart.astimezone(UTC)
-                                )
-                                rr._dtstart = normalized_dtstart  # type: ignore[attr-defined]  # noqa: SLF001
-                            until = getattr(rr, "_until", None)
-                            if until is not None:
-                                normalized_until = (
-                                    until.replace(tzinfo=UTC)
-                                    if until.tzinfo is None
-                                    else until.astimezone(UTC)
-                                )
-                                rr._until = normalized_until  # type: ignore[attr-defined]  # noqa: SLF001
-                    except Exception:
-                        # Defensive: continue if normalization fails for the group
-                        pass
-            except Exception:
-                # Defensive: do not let normalization errors stop expansion; proceed and rely on later normalization
-                logger.debug(
-                    "RRULE expansion: internal normalization of parsed rule failed, continuing"
-                )
-
-            # Apply EXDATEs precisely by parsing each EXDATE string and normalizing to UTC-aware datetimes
-            if exdates:
-                for ex in exdates:
-                    try:
-                        ex_dt = self._parse_datetime(ex)
-                        # Normalize EXDATE to timezone-aware UTC to avoid naive/aware comparisons inside dateutil
-                        if ex_dt.tzinfo is None:
-                            ex_dt = ex_dt.replace(tzinfo=UTC)
-                        else:
-                            ex_dt = ex_dt.astimezone(UTC)
-                        rule_set.exdate(ex_dt)
-                    except Exception as ex_e:
-                        logger.warning(f"Failed to parse or normalize EXDATE '{ex}': {ex_e}")
-                        continue
-
-            # Normalize window datetimes to timezone-aware UTC to avoid
-            # "can't compare offset-naive and offset-aware datetimes" errors
-            def _ensure_utc_aware(dt: datetime) -> datetime:
-                if dt.tzinfo is None:
-                    return dt.replace(tzinfo=UTC)
-                return dt.astimezone(UTC)
-
-            start_window = _ensure_utc_aware(start_date)
-            end_window = _ensure_utc_aware(end_date)
-
-            # Collect occurrences within the date window
-            try:
-                # Debug: log RRULE expansion inputs
-                # TARGETED DEBUG: Enhanced logging for Ani/Ben meeting
-                event_subject = getattr(master_event, "subject", "")
-                is_ani_ben_meeting = "Ani" in str(event_subject) and "Ben" in str(event_subject)
-
-                if is_ani_ben_meeting:
-                    logger.info("🔍 TARGETED DEBUG: Ani/Ben meeting RRULE expansion:")
-                    logger.info("  Subject: %r", event_subject)
-                    logger.info("  UID: %s", getattr(master_event, "id", "<no-id>"))
-                    logger.info(
-                        "  Master event start: %s", master_event.start.date_time.isoformat()
-                    )
-                    logger.info(
-                        "  Master event timezone: %s",
-                        getattr(master_event.start.date_time, "tzinfo", "None"),
-                    )
-                    logger.info("  RRULE: %s", rrule_string)
-                    logger.info("  EXDATEs: %s", exdates)
-                    logger.info(
-                        "  Expansion window start: %s",
-                        start_window.isoformat() if start_window else "<none>",
-                    )
-                    logger.info(
-                        "  Expansion window end: %s",
-                        end_window.isoformat() if end_window else "<none>",
-                    )
-
-                    # Check if target time (8:30 AM PDT on 2025-10-27) is in expansion window
-                    import zoneinfo
-
-                    target_time_pdt = datetime(2025, 10, 27, 8, 30).replace(
-                        tzinfo=zoneinfo.ZoneInfo("America/Los_Angeles")
-                    )
-                    target_time_utc = target_time_pdt.astimezone(UTC)
-                    logger.info(
-                        "  Target time we're looking for (PDT): %s", target_time_pdt.isoformat()
-                    )
-                    logger.info(
-                        "  Target time we're looking for (UTC): %s", target_time_utc.isoformat()
-                    )
-
-                    if start_window and end_window:
-                        in_window = start_window <= target_time_utc <= end_window
-                        logger.info("  Is target time in expansion window? %s", in_window)
-                        if not in_window:
-                            logger.warning("  ❌ TARGET TIME IS OUTSIDE EXPANSION WINDOW!")
-                else:
-                    logger.debug(
-                        "RRULE expansion: uid=%s dtstart=%s rrule=%s exdates=%s window_start=%s window_end=%s",
-                        getattr(master_event, "id", "<no-id>"),
-                        master_event.start.date_time.isoformat(),
-                        rrule_string,
-                        exdates,
-                        start_window.isoformat() if start_window else "<none>",
-                        end_window.isoformat() if end_window else "<none>",
-                    )
-            except Exception:
-                logger.debug("RRULE expansion: failed to serialize debug metadata for master_event")
-
-            raw_occurrences = list(rule_set.between(start_window, end_window, inc=True))
-
-            # Normalize occurrences to timezone-aware UTC to avoid naive/aware comparison issues
-            occurrences = []
-            for occ in raw_occurrences:
-                # Normalize occurrences deterministically; avoid try/except in loop for performance
-                if not isinstance(occ, datetime):
-                    continue
-                normalized = occ.replace(tzinfo=UTC) if occ.tzinfo is None else occ.astimezone(UTC)
-                occurrences.append(normalized)
-
-            # Debug: log number of occurrences and first few values
-            try:
-                sample_occurrences = [dt.isoformat() for dt in occurrences[:10]]
-                logger.debug(
-                    "RRULE expansion result: uid=%s occurrences=%d sample=%s",
-                    getattr(master_event, "id", "<no-id>"),
-                    len(occurrences),
-                    sample_occurrences,
-                )
-            except Exception:
-                logger.debug(
-                    "RRULE expansion: failed to serialize occurrence datetimes for logging"
-                )
-
-            # Limit number of occurrences
-            max_occurrences = getattr(self.settings, "rrule_max_occurrences", 1000)
-            if len(occurrences) > max_occurrences:
-                logger.warning(f"Limiting RRULE expansion to {max_occurrences} occurrences")
-                occurrences = occurrences[:max_occurrences]
-
-            # Generate LiteCalendarEvent instances
-            return self.generate_event_instances(master_event, occurrences)
-
-        except Exception as e:
-            logger.exception("RRULE expansion failed")
-            raise LiteRRuleExpansionError(f"Failed to expand RRULE: {e}") from e
 
     def parse_rrule_string(self, rrule_string: str) -> dict:
         """Parse RRULE string into components.
@@ -890,261 +716,47 @@ class LiteRRuleParseError(LiteRRuleExpansionError):
 
         return events
 
-    def _generate_occurrences_streaming(
-        self,
-        master_event: LiteCalendarEvent,
-        rrule_params: dict,
-        start_date: datetime,
-        end_date: datetime,
-        max_occurrences: int = 250,
-        time_budget_ms: int = 200,
-    ) -> list[datetime]:
-        """Generate occurrence datetimes using dateutil.rrule with Pi Zero 2W limits.
 
-        Args:
-            master_event: Master event with start time
-            rrule_params: Parsed RRULE parameters
-            start_date: Window start (unused in current implementation)
-            end_date: Window end (unused in current implementation)
-            max_occurrences: Maximum occurrences to generate (Pi Zero 2W limit)
-            time_budget_ms: Time budget in milliseconds (Pi Zero 2W limit)
+async def expand_events_async(
+    events_with_rrules: list[tuple[Any, str, Optional[list[str]]]],
+    settings: Any,
+) -> list[Any]:
+    """Expand multiple events with RRULE patterns using streaming worker pool.
 
-        Returns:
-            List of occurrence datetimes (limited by Pi Zero 2W constraints)
-        """
+    Args:
+        events_with_rrules: List of (event, rrule_string, exdates) tuples
+        settings: Configuration settings
+
+    Returns:
+        List of all expanded events (flattened)
+    """
+    if not events_with_rrules:
+        return []
+
+    worker_pool = get_worker_pool(settings)
+    all_expanded = []
+
+    # Process events with streaming consumption to avoid memory spikes
+    for i, (event, rrule_str, exdates) in enumerate(events_with_rrules):
         try:
-            start_time = time.time()
+            # Stream events one by one for incremental memory usage
+            async for expanded_event in worker_pool.expand_rrule_stream(event, rrule_str, exdates):
+                all_expanded.append(expanded_event)
 
-            # Map frequency to dateutil constants
-            freq_map = {
-                "SECONDLY": SECONDLY,
-                "MINUTELY": MINUTELY,
-                "HOURLY": HOURLY,
-                "DAILY": DAILY,
-                "WEEKLY": WEEKLY,
-                "MONTHLY": MONTHLY,
-                "YEARLY": YEARLY,
-            }
+                # Yield control periodically for large expansions
+                if len(all_expanded) % 50 == 0:
+                    await asyncio.sleep(0)
 
-            freq = freq_map.get(rrule_params["freq"])
-            if freq is None:
-                raise LiteRRuleExpansionError(f"Unsupported frequency: {rrule_params['freq']}")  # noqa: TRY301
+        except Exception as ex:
+            logger.warning("RRULE expansion failed for event %d: %s", i, ex)
+            continue
 
-            # Map weekdays to dateutil constants
-            weekday_map = {
-                "MO": 0,
-                "TU": 1,
-                "WE": 2,
-                "TH": 3,
-                "FR": 4,
-                "SA": 5,
-                "SU": 6,
-            }
+    return all_expanded
 
-            # Build rrule parameters
-            kwargs = {
-                "freq": freq,
-                "dtstart": master_event.start.date_time,
-                "interval": rrule_params.get("interval", 1),
-            }
 
-            # Add UNTIL or COUNT if specified
-            if "until" in rrule_params:
-                kwargs["until"] = rrule_params["until"]
-            elif "count" in rrule_params:
-                kwargs["count"] = rrule_params["count"]
+class LiteRRuleExpansionError(Exception):
+    """Base exception for RRULE expansion errors."""
 
-            # Add BYDAY if specified
-            if "byday" in rrule_params:
-                byweekday = [
-                    weekday_map[day] for day in rrule_params["byday"] if day in weekday_map
-                ]
-                if byweekday:
-                    kwargs["byweekday"] = byweekday
 
-            # Generate occurrences using iterator to avoid memory spike
-            rule = rrule(**kwargs)
-            occurrences = []
-
-            for i, occurrence in enumerate(rule):
-                # Check time budget
-                elapsed_ms = (time.time() - start_time) * 1000
-                if elapsed_ms > time_budget_ms:
-                    logger.warning(
-                        "RRULE occurrence generation exceeded time budget (%dms > %dms) after %d items",
-                        elapsed_ms,
-                        time_budget_ms,
-                        i,
-                    )
-                    break
-
-                # Check occurrence limit
-                if i >= max_occurrences:
-                    logger.warning(
-                        "RRULE occurrence generation limited to %d occurrences for Pi Zero 2W",
-                        max_occurrences,
-                    )
-                    break
-
-                occurrences.append(occurrence)
-
-            return occurrences
-
-        except Exception as e:
-            raise LiteRRuleExpansionError(f"Failed to generate occurrences: {e}") from e
-
-    def _generate_occurrences(
-        self,
-        master_event: LiteCalendarEvent,
-        rrule_params: dict,
-        start_date: datetime,
-        end_date: datetime,
-    ) -> list[datetime]:
-        """Generate occurrence datetimes using dateutil.rrule.
-
-        Args:
-            master_event: Master event with start time
-            rrule_params: Parsed RRULE parameters
-            start_date: Window start (unused in current implementation)
-            end_date: Window end (unused in current implementation)
-
-        Returns:
-            List of occurrence datetimes
-        """
-        # Use streaming version with Pi Zero 2W defaults
-        max_occurrences = getattr(self.settings, "rrule_max_occurrences_per_rule", 250)
-        time_budget_ms = getattr(self.settings, "expansion_time_budget_ms_per_rule", 200)
-
-        return self._generate_occurrences_streaming(
-            master_event,
-            rrule_params,
-            start_date,
-            end_date,
-            max_occurrences,
-            time_budget_ms,
-        )
-
-    def _filter_by_date_range(
-        self,
-        occurrences: list[datetime],
-        start_date: datetime,
-        end_date: datetime,
-    ) -> list[datetime]:
-        """Filter occurrences by date range.
-
-        Args:
-            occurrences: List of occurrence datetimes
-            start_date: Range start
-            end_date: Range end
-
-        Returns:
-            Filtered list of occurrences
-        """
-
-        # Normalize timezone handling - convert all to same timezone awareness
-        def normalize_datetime(dt: datetime) -> datetime:
-            """Normalize datetime to timezone-aware UTC if needed."""
-            if dt.tzinfo is None:
-                # Naive datetime - assume UTC
-                return dt.replace(tzinfo=UTC)
-            return dt
-
-        start_date_normalized = normalize_datetime(start_date)
-        end_date_normalized = normalize_datetime(end_date)
-
-        return [
-            occurrence
-            for occurrence in occurrences
-            if start_date_normalized <= normalize_datetime(occurrence) <= end_date_normalized
-        ]
-
-    def _parse_datetime(self, datetime_str: str) -> datetime:
-        """Parse datetime string in various formats.
-
-        Args:
-            datetime_str: Datetime string (ISO format, RRULE format, or timezone-aware EXDATE)
-
-        Returns:
-            Parsed datetime object
-
-        Raises:
-            ValueError: If datetime format is invalid
-        """
-        # Handle timezone-aware EXDATE format: TZID=Pacific Standard Time:20250623T083000
-        if datetime_str.startswith("TZID="):
-            logger.debug(f"TZID parsing started for: {datetime_str}")
-            try:
-                # Find the last colon that separates timezone from datetime
-                # EXDATE format: TZID=Pacific Standard Time:20251031T090000
-                if ":2" in datetime_str:  # Look for pattern ":20" to find datetime start
-                    last_colon_pos = datetime_str.rfind(":", datetime_str.find(":2"))
-                    tzid_part = datetime_str[:last_colon_pos]
-                    dt_part = datetime_str[last_colon_pos + 1:]
-                else:
-                    # Fallback to original split if pattern not found
-                    tzid_part, dt_part = datetime_str.split(":", 1)
-                    
-                tzid = tzid_part.replace("TZID=", "").strip()
-
-                # Handle "Z" suffix (UTC indicator)
-                dt_part_clean = dt_part.rstrip("Z")
-
-                # Parse the datetime part
-                dt = datetime.strptime(dt_part_clean, "%Y%m%dT%H%M%S")
-
-                # Handle special timezone cases
-                if tzid == "UTC" or dt_part.endswith("Z"):
-                    # UTC timezone - simple case
-                    return dt.replace(tzinfo=UTC)
-                # previous branch returned; use separate if to avoid unreachable elif warning
-                timezone_name = "America/Los_Angeles" if tzid == "Pacific Standard Time" else tzid
-
-                # Apply timezone and convert to UTC
-                try:
-                    # Try zoneinfo first (preferred)
-                    from zoneinfo import ZoneInfo
-
-                    tz = ZoneInfo(timezone_name)
-                    dt_with_tz = dt.replace(tzinfo=tz)
-                    return dt_with_tz.astimezone(UTC)
-                except (ImportError, Exception):
-                    try:
-                        # Fallback to pytz
-                        import pytz
-
-                        tz_pytz = pytz.timezone(timezone_name)
-                        dt_with_tz = tz_pytz.localize(dt)
-                        return dt_with_tz.astimezone(UTC)
-                    except Exception:
-                        # Last fallback - assume UTC
-                        logger.warning(f"Could not parse timezone {tzid}, assuming UTC")
-                        return dt.replace(tzinfo=UTC)
-
-            except Exception as e:
-                logger.warning(f"Failed to parse timezone-aware EXDATE {datetime_str}: {e}")
-                import traceback
-                logger.debug(f"TZID parsing exception traceback: {traceback.format_exc()}")
-                # Fall through to standard parsing
-
-        # Remove timezone suffix for basic parsing
-        dt_str = datetime_str.rstrip("Z")
-
-        # Try various datetime formats
-        formats = [
-            "%Y%m%dT%H%M%S",  # 20250623T083000
-            "%Y-%m-%dT%H:%M:%S",  # 2025-06-23T08:30:00
-            "%Y%m%d",  # 20250623
-            "%Y-%m-%d",  # 2025-06-23
-        ]
-
-        for fmt in formats:
-            try:
-                dt = datetime.strptime(dt_str, fmt)
-                # If original string had 'Z', assume UTC
-                if datetime_str.endswith("Z"):
-                    dt = dt.replace(tzinfo=UTC)
-                return dt
-            except ValueError:
-                continue
-
-        raise ValueError(f"Unable to parse datetime: {datetime_str}")
+class LiteRRuleParseError(LiteRRuleExpansionError):
+    """Error parsing RRULE string."""

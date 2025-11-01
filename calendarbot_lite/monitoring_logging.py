@@ -80,7 +80,7 @@ class LogEntry:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary following the standard schema."""
-        entry = {
+        entry: dict[str, Any] = {
             "timestamp": self.timestamp.isoformat(),
             "component": self.component,
             "level": self.level,
@@ -325,23 +325,23 @@ class MonitoringLogger:
 
         return True
 
-    def debug(self, event: str, message: str, **kwargs) -> bool:
+    def debug(self, event: str, message: str, **kwargs: Any) -> bool:
         """Log debug event."""
         return self.log("DEBUG", event, message, **kwargs)
 
-    def info(self, event: str, message: str, **kwargs) -> bool:
+    def info(self, event: str, message: str, **kwargs: Any) -> bool:
         """Log info event."""
         return self.log("INFO", event, message, **kwargs)
 
-    def warning(self, event: str, message: str, **kwargs) -> bool:
+    def warning(self, event: str, message: str, **kwargs: Any) -> bool:
         """Log warning event."""
         return self.log("WARN", event, message, **kwargs)
 
-    def error(self, event: str, message: str, **kwargs) -> bool:
+    def error(self, event: str, message: str, **kwargs: Any) -> bool:
         """Log error event."""
         return self.log("ERROR", event, message, **kwargs)
 
-    def critical(self, event: str, message: str, **kwargs) -> bool:
+    def critical(self, event: str, message: str, **kwargs: Any) -> bool:
         """Log critical event."""
         return self.log("CRITICAL", event, message, **kwargs)
 
@@ -437,6 +437,7 @@ def configure_monitoring_logging(
     """
     # Determine log level with environment override
     log_level = level or os.environ.get("CALENDARBOT_LOG_LEVEL", "INFO")
+    assert log_level is not None  # Guaranteed by the or expression with default
     if os.environ.get("CALENDARBOT_DEBUG", "").lower() in ("true", "1", "yes"):
         log_level = "DEBUG"
 
@@ -479,26 +480,26 @@ def get_logger(component: str) -> MonitoringLogger:
 
 
 # Convenience functions for common usage patterns
-def log_server_event(event: str, message: str, level: str = "INFO", **kwargs) -> bool:
+def log_server_event(event: str, message: str, level: str = "INFO", **kwargs: Any) -> bool:
     """Log a server component event."""
     logger = get_logger("server")
     return logger.log(level, event, message, **kwargs)
 
 
-def log_watchdog_event(event: str, message: str, level: str = "INFO", **kwargs) -> bool:
+def log_watchdog_event(event: str, message: str, level: str = "INFO", **kwargs: Any) -> bool:
     """Log a watchdog component event."""
     logger = get_logger("watchdog")
     return logger.log(level, event, message, **kwargs)
 
 
-def log_health_event(event: str, message: str, level: str = "INFO", **kwargs) -> bool:
+def log_health_event(event: str, message: str, level: str = "INFO", **kwargs: Any) -> bool:
     """Log a health check component event."""
     logger = get_logger("health")
     return logger.log(level, event, message, **kwargs)
 
 
 def log_recovery_event(
-    event: str, message: str, level: str = "INFO", recovery_level: int = 0, **kwargs
+    event: str, message: str, level: str = "INFO", recovery_level: int = 0, **kwargs: Any
 ) -> bool:
     """Log a recovery component event."""
     logger = get_logger("recovery")

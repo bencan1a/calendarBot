@@ -3,12 +3,14 @@
 # Standard library imports
 import asyncio
 import logging
+import random
 from typing import Any, NoReturn, Optional
 from urllib.parse import urlparse
 
 import httpx
 
 from .http_client import (
+    DEFAULT_BROWSER_HEADERS,
     get_shared_client,
     record_client_error,
     record_client_success,
@@ -17,8 +19,10 @@ from .lite_models import LiteICSResponse, LiteICSSource
 
 logger = logging.getLogger(__name__)
 
-# HTTP client defaults
-READ_CHUNK_SIZE_BYTES = 8192  # Still used for some internal operations
+# Backoff calculation constants
+MAX_BACKOFF_SECONDS = 30.0  # Maximum backoff time for corruption scenarios
+JITTER_MIN_FACTOR = 0.1  # Minimum jitter multiplier
+JITTER_MAX_FACTOR = 0.3  # Maximum jitter multiplier
 
 
 # Lite exceptions for CalendarBot Lite
@@ -83,24 +87,7 @@ class LiteICSFetcher:
             settings: Application settings
             shared_client: Optional shared HTTP client for connection reuse
         """
-        # Assign settings and ensure it exposes the small surface the fetcher expects.
-        # Some callers construct minimal ad-hoc settings objects; provide safe defaults
-        # on the settings object so older/compact callers won't trigger AttributeError.
         self.settings = settings
-        try:
-            if not hasattr(self.settings, "request_timeout"):
-                # Prefer direct attribute assignment over setattr for clarity and ruff B010.
-                # Use type: ignore because settings can be a dynamic/mapping-like object in tests.
-                self.settings.request_timeout = 30  # type: ignore[attr-defined]
-            if not hasattr(self.settings, "max_retries"):
-                self.settings.max_retries = 3  # type: ignore[attr-defined]
-            if not hasattr(self.settings, "retry_backoff_factor"):
-                self.settings.retry_backoff_factor = 1.5  # type: ignore[attr-defined]
-        except Exception:
-            # settings may be an immutable type or Mock; in that case other code paths
-            # already use getattr(..., default) fallbacks, so it's safe to ignore.
-            pass
-
         self.client: Optional[httpx.AsyncClient] = shared_client
         self._use_shared_client = shared_client is not None
         self._client_id = "lite_fetcher"
@@ -147,9 +134,8 @@ class LiteICSFetcher:
 
         # Individual client path (fallback or when shared client not provided)
         if self.client is None or self.client.is_closed:
-            timeout = httpx.Timeout(
-                connect=10.0, read=self.settings.request_timeout, write=10.0, pool=30.0
-            )
+            request_timeout = getattr(self.settings, "request_timeout", 30)
+            timeout = httpx.Timeout(connect=10.0, read=request_timeout, write=10.0, pool=30.0)
 
             # Create IPv4-only transport to prevent IPv6 DNS resolution issues on Pi Zero 2W
             # This fixes "temporary failure in name resolution" when IPv6 is configured
@@ -165,20 +151,31 @@ class LiteICSFetcher:
                 timeout=timeout,
                 follow_redirects=True,
                 verify=True,  # SSL verification
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Accept": "text/calendar, text/plain, application/octet-stream, */*",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Accept-Encoding": "gzip, deflate, br",
-                    "DNT": "1",
-                    "Connection": "keep-alive",
-                    "Upgrade-Insecure-Requests": "1",
-                    "Sec-Fetch-Dest": "document",
-                    "Sec-Fetch-Mode": "navigate",
-                    "Sec-Fetch-Site": "none",
-                    "Cache-Control": "no-cache",
-                },
+                headers=DEFAULT_BROWSER_HEADERS,
             )
+
+    def _log_validation_event(
+        self, url: str, result: str, description: str, severity: str = "LOW"
+    ) -> None:
+        """Log URL validation security event.
+
+        Args:
+            url: The URL being validated
+            result: Validation result ("blocked" or "error")
+            description: Human-readable description of the validation outcome
+            severity: Event severity level (default: "LOW")
+        """
+        event = {
+            "event_type": "INPUT_VALIDATION_FAILURE",
+            "severity": severity,
+            "resource": url,
+            "action": "url_validation",
+            "result": result,
+            "details": {
+                "description": description,
+            },
+        }
+        self.security_logger.log_event(event)
 
     def _validate_url_for_ssrf(self, url: str) -> bool:
         """Validate URL for basic format and security - simplified for single-user hobby application.
@@ -199,33 +196,13 @@ class LiteICSFetcher:
             # Only allow HTTP/HTTPS schemes
             if parsed.scheme not in ["http", "https"]:
                 logger.debug(f"Blocked non-HTTP(S) URL: {url}")
-                event = {
-                    "event_type": "INPUT_VALIDATION_FAILURE",
-                    "severity": "LOW",
-                    "resource": url,
-                    "action": "url_validation",
-                    "result": "blocked",
-                    "details": {
-                        "description": f"Invalid URL scheme: {parsed.scheme}",
-                    },
-                }
-                self.security_logger.log_event(event)
+                self._log_validation_event(url, "blocked", f"Invalid URL scheme: {parsed.scheme}")
                 return False
 
             # Require valid hostname
             if not parsed.hostname:
                 logger.debug(f"Blocked URL with missing hostname: {url}")
-                event = {
-                    "event_type": "INPUT_VALIDATION_FAILURE",
-                    "severity": "LOW",
-                    "resource": url,
-                    "action": "url_validation",
-                    "result": "blocked",
-                    "details": {
-                        "description": "URL missing hostname",
-                    },
-                }
-                self.security_logger.log_event(event)
+                self._log_validation_event(url, "blocked", "URL missing hostname")
                 return False
 
             # URL passed basic validation
@@ -234,17 +211,7 @@ class LiteICSFetcher:
 
         except Exception as e:
             logger.debug(f"URL validation error for {url}: {e}")
-            event = {
-                "event_type": "INPUT_VALIDATION_FAILURE",
-                "severity": "LOW",
-                "resource": url,
-                "action": "url_validation",
-                "result": "error",
-                "details": {
-                    "description": f"URL validation error: {e}",
-                },
-            }
-            self.security_logger.log_event(event)
+            self._log_validation_event(url, "error", f"URL validation error: {e}")
             return False
 
     async def fetch_ics(
@@ -358,9 +325,7 @@ class LiteICSFetcher:
                 headers.update(conditional_headers)
 
             # Make request with retry logic and possible streaming
-            response = await self._make_request_with_retry(
-                source.url, headers, source.timeout, source.validate_ssl
-            )
+            response = await self._make_request_with_retry(source.url, headers, source.timeout)
 
             return self._create_response(response)
 
@@ -396,8 +361,40 @@ class LiteICSFetcher:
             logger.exception(f"Unexpected error fetching ICS from {source.url}")
             raise LiteICSFetchError(f"Unexpected error: {e}") from e
 
+    def _calculate_backoff(
+        self,
+        attempt: int,
+        corruption_detected: bool,
+        max_retries: int,
+        backoff_factor: float,
+    ) -> float:
+        """Calculate exponential backoff time with jitter.
+
+        Implements exponential backoff with optional corruption-detection multiplier
+        and randomized jitter to prevent thundering herd problems.
+
+        Args:
+            attempt: Current retry attempt number (0-indexed)
+            corruption_detected: Whether network corruption has been detected
+            max_retries: Maximum number of retries allowed (used for context)
+            backoff_factor: Base factor for exponential backoff calculation
+
+        Returns:
+            float: Calculated backoff time in seconds including jitter
+        """
+        # Calculate base exponential backoff
+        base_backoff = backoff_factor**attempt
+
+        # Double backoff and apply cap for corruption scenarios
+        if corruption_detected:
+            base_backoff = min(base_backoff * 2, MAX_BACKOFF_SECONDS)
+
+        # Add jitter to prevent thundering herd
+        jitter = random.uniform(JITTER_MIN_FACTOR, JITTER_MAX_FACTOR) * base_backoff
+        return base_backoff + jitter
+
     async def _make_request_with_retry(
-        self, url: str, headers: dict[str, str], timeout: int, _verify_ssl: bool
+        self, url: str, headers: dict[str, str], timeout: int
     ) -> Any:
         """Make HTTP request with retry logic and streaming decision.
 
@@ -407,7 +404,6 @@ class LiteICSFetcher:
             Either an httpx.Response (buffered) or a StreamHandle (streaming).
         """
         last_exception = None
-        corruption_indicators = 0  # Track signs of network issues
 
         attempt = 0
         max_retries = int(getattr(self.settings, "max_retries", 3))
@@ -421,22 +417,8 @@ class LiteICSFetcher:
                 if self.client is None:
                     _raise_client_not_initialized()
 
-                # Add browser-like headers to avoid automated client detection by Office365
-                browser_headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Accept": "text/calendar,text/plain,*/*",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Accept-Encoding": "gzip, deflate, br",
-                    "DNT": "1",
-                    "Connection": "keep-alive",
-                    "Upgrade-Insecure-Requests": "1",
-                    "Sec-Fetch-Dest": "document",
-                    "Sec-Fetch-Mode": "navigate",
-                    "Sec-Fetch-Site": "none",
-                    "Cache-Control": "max-age=0",
-                }
                 # Merge existing headers with browser headers (browser headers take precedence)
-                combined_headers = {**headers, **browser_headers}
+                combined_headers = {**headers, **DEFAULT_BROWSER_HEADERS}
 
                 # DEAD SIMPLE: Use httpx.get() to download entire file at once like a browser
                 logger.debug("Using dead simple GET request for %s", url)
@@ -475,7 +457,6 @@ class LiteICSFetcher:
                     await record_client_error(self._client_id)
 
                 # Detect potential network corruption indicators
-                corruption_indicators += 1
                 if (
                     "Connection broken" in str(e)
                     or "Broken pipe" in str(e)
@@ -486,17 +467,10 @@ class LiteICSFetcher:
 
                 last_exception = e
                 if attempt < max_retries:
-                    # Enhanced backoff with jitter for network corruption scenarios
-                    base_backoff = backoff_factor**attempt
-                    if corruption_detected:
-                        # Longer backoff for corruption scenarios
-                        base_backoff = min(base_backoff * 2, 30.0)  # Cap at 30 seconds
-
-                    # Add jitter to prevent thundering herd
-                    import random
-
-                    jitter = random.uniform(0.1, 0.3) * base_backoff
-                    backoff_time = base_backoff + jitter
+                    # Calculate backoff with jitter for network corruption scenarios
+                    backoff_time = self._calculate_backoff(
+                        attempt, corruption_detected, max_retries, backoff_factor
+                    )
 
                     logger.warning(
                         f"Request failed (attempt {attempt + 1}/{max_retries + 1}), "

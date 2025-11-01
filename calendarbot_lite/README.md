@@ -22,14 +22,27 @@ reuse the following existing parser modules from the main project:
 NOTE: Those modules will be imported only at runtime (inside server or workers) to avoid heavy
 startup costs and ensure the package remains lightweight when inspected.
 
-Next steps
-----------
-Planned immediate next tasks:
+Configuration
+-------------
+calendarbot_lite uses environment variables for configuration. Create a `.env` file in the repository root or set environment variables directly:
 
-- Implement `calendarbot_lite/server.py` with a small HTTP API and background refresher.
-- Add a `skipped-store` lightweight cache implementation tailored for the lite app.
-- Implement a small config loader that overlays defaults for quick developer setup.
-- Add unit tests for new modules under `tests/test_calendarbot_lite_*.py`.
+**Core Settings:**
+- `CALENDARBOT_ICS_URL` - ICS calendar feed URL (required)
+- `CALENDARBOT_WEB_HOST` - Web server bind address (default: 0.0.0.0)
+- `CALENDARBOT_WEB_PORT` - Web server port (default: 8080)
+- `CALENDARBOT_REFRESH_INTERVAL` - Refresh interval in seconds (default: 300)
+
+**Optional Settings:**
+- `CALENDARBOT_ALEXA_BEARER_TOKEN` - Alexa API authentication token
+- `CALENDARBOT_DEBUG` - Enable debug logging (true/false)
+- `CALENDARBOT_LOG_LEVEL` - Log level override (DEBUG, INFO, WARNING, ERROR)
+
+**Advanced/Testing:**
+- `CALENDARBOT_NONINTERACTIVE` - Disable interactive prompts (true/false)
+- `CALENDARBOT_TEST_TIME` - Override current time for testing (ISO format)
+- `CALENDARBOT_PRODUCTION` - Enable production mode optimizations (true/false)
+
+See `.env.example` for a complete reference with full CalendarBot vs calendarbot_lite variables.
 
 Developer quickstart
 --------------------
@@ -37,14 +50,11 @@ In development you can run the package with:
 
 python -m calendarbot_lite
 
-Since the server is not implemented yet, this will print a friendly message explaining how to proceed.
-
 Where to add files
 ------------------
 Add the runtime code under the package directory:
 
 - `calendarbot_lite/server.py` - HTTP server and background tasks
-- `calendarbot_lite/config.py` - configuration loader & defaults
 - `calendarbot_lite/store.py` - lightweight skipped-store cache
 - `tests/test_calendarbot_lite_server.py` - tests for server behavior
 

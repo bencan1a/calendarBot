@@ -18,53 +18,51 @@ class TestHealthTracking:
 
     def setup_method(self) -> None:
         """Reset health tracking variables before each test."""
-        server_module._server_start_time = time.time()
-        server_module._last_refresh_attempt = None
-        server_module._last_refresh_success = None
-        server_module._current_event_count = 0
-        server_module._background_task_heartbeat = None
-        server_module._last_render_probe = None
-        server_module._last_render_probe_ok = False
-        server_module._last_render_probe_notes = None
+        # Reset the health tracker to a fresh state
+        server_module._health_tracker = server_module.HealthTracker()
 
     def test_update_health_tracking_when_refresh_attempt_then_sets_timestamp(self) -> None:
         """Test that refresh attempt updates timestamp."""
+        start_time = time.time()
         server_module._update_health_tracking(refresh_attempt=True)
-        
-        assert server_module._last_refresh_attempt is not None
-        assert isinstance(server_module._last_refresh_attempt, float)
-        assert server_module._last_refresh_attempt > server_module._server_start_time
+
+        timestamp = server_module._health_tracker.get_last_refresh_attempt_timestamp()
+        assert timestamp is not None
+        assert isinstance(timestamp, float)
+        assert timestamp >= start_time
 
     def test_update_health_tracking_when_refresh_success_then_sets_timestamp(self) -> None:
         """Test that refresh success updates timestamp."""
         server_module._update_health_tracking(refresh_success=True)
-        
-        assert server_module._last_refresh_success is not None
-        assert isinstance(server_module._last_refresh_success, float)
+
+        timestamp = server_module._health_tracker.get_last_refresh_success_timestamp()
+        assert timestamp is not None
+        assert isinstance(timestamp, float)
 
     def test_update_health_tracking_when_event_count_then_sets_count(self) -> None:
         """Test that event count is updated correctly."""
         server_module._update_health_tracking(event_count=42)
-        
-        assert server_module._current_event_count == 42
+
+        assert server_module._health_tracker.get_event_count() == 42
 
     def test_update_health_tracking_when_background_heartbeat_then_sets_timestamp(self) -> None:
         """Test that background heartbeat updates timestamp."""
         server_module._update_health_tracking(background_heartbeat=True)
-        
-        assert server_module._background_task_heartbeat is not None
-        assert isinstance(server_module._background_task_heartbeat, float)
+
+        status = server_module._health_tracker.get_background_task_status()
+        assert status["last_heartbeat_age_s"] is not None
+        assert isinstance(status["last_heartbeat_age_s"], int)
 
     def test_update_health_tracking_when_render_probe_then_sets_all_fields(self) -> None:
         """Test that render probe updates all related fields."""
         server_module._update_health_tracking(
-            render_probe_ok=True, 
+            render_probe_ok=True,
             render_probe_notes="Test successful"
         )
-        
-        assert server_module._last_render_probe is not None
-        assert server_module._last_render_probe_ok is True
-        assert server_module._last_render_probe_notes == "Test successful"
+
+        assert server_module._health_tracker.get_last_render_probe_timestamp() is not None
+        assert server_module._health_tracker.get_last_render_probe_ok() is True
+        assert server_module._health_tracker.get_last_render_probe_notes() == "Test successful"
 
     def test_update_health_tracking_when_multiple_updates_then_all_set(self) -> None:
         """Test that multiple updates can be applied atomically."""
@@ -74,11 +72,11 @@ class TestHealthTracking:
             event_count=10,
             background_heartbeat=True
         )
-        
-        assert server_module._last_refresh_attempt is not None
-        assert server_module._last_refresh_success is not None
-        assert server_module._current_event_count == 10
-        assert server_module._background_task_heartbeat is not None
+
+        assert server_module._health_tracker.get_last_refresh_attempt_timestamp() is not None
+        assert server_module._health_tracker.get_last_refresh_success_timestamp() is not None
+        assert server_module._health_tracker.get_event_count() == 10
+        assert server_module._health_tracker.get_background_task_status()["last_heartbeat_age_s"] is not None
 
 
 class TestSystemDiagnostics:
@@ -142,14 +140,8 @@ class TestHealthEndpoint:
 
     def setup_method(self) -> None:
         """Reset health tracking variables before each test."""
-        server_module._server_start_time = time.time()
-        server_module._last_refresh_attempt = None
-        server_module._last_refresh_success = None
-        server_module._current_event_count = 0
-        server_module._background_task_heartbeat = None
-        server_module._last_render_probe = None
-        server_module._last_render_probe_ok = False
-        server_module._last_render_probe_notes = None
+        # Reset the health tracker to a fresh state
+        server_module._health_tracker = server_module.HealthTracker()
 
     @pytest.mark.asyncio
     async def test_health_check_when_no_refresh_then_returns_degraded(self) -> None:
@@ -183,23 +175,20 @@ class TestHealthEndpoint:
             # Instead, let's directly test by creating a mock response that mimics what we expect
             
             # We'll test by calling the health check logic directly via mocked components
-            # Simulate no refresh state
-            server_module._last_refresh_success = None
-            
+            # Simulate no refresh state (already set in setup_method)
+
             # Mock the web.json_response function to capture what would be returned
             with patch("aiohttp.web.json_response") as mock_json_response:
                 mock_response = MagicMock()
                 mock_response.status = 503
                 mock_json_response.return_value = mock_response
-                
+
                 # Create health handler by accessing app's router (simplified approach)
                 # Since the internal structure is complex, we'll test the health logic components separately
-                
-                # Test status determination logic directly
-                status = "ok"
-                if server_module._last_refresh_success is None:
-                    status = "degraded"
-                
+
+                # Test status determination logic directly using the health tracker
+                status = server_module._health_tracker.determine_overall_status()
+
                 assert status == "degraded"
                 
                 # Test that health data structure is correct
@@ -232,89 +221,63 @@ class TestHealthEndpoint:
 
     def test_health_status_logic_when_recent_success_then_returns_ok(self) -> None:
         """Test that health status logic returns ok when recent refresh succeeded."""
-        # Set up successful refresh state
-        current_time = time.time()
-        server_module._last_refresh_success = current_time - 60  # 1 minute ago
-        server_module._last_refresh_attempt = current_time - 60
-        server_module._current_event_count = 5
-        server_module._background_task_heartbeat = current_time - 30  # 30 seconds ago
-        
+        # Set up successful refresh state using the health tracker
+        server_module._health_tracker.update(
+            refresh_attempt=True,
+            refresh_success=True,
+            event_count=5,
+            background_heartbeat=True
+        )
+
         # Test status determination logic
-        status = "ok"
-        last_success_delta_s = None
-        if server_module._last_refresh_success is not None:
-            last_success_delta_s = int(time.time() - server_module._last_refresh_success)
-        
-        if server_module._last_refresh_success is None:
-            status = "degraded"
-        elif last_success_delta_s is not None and last_success_delta_s > 900:  # 15 minutes
-            status = "degraded"
-        
+        status = server_module._health_tracker.determine_overall_status()
+        last_success_delta_s = server_module._health_tracker.get_last_refresh_age_seconds()
+
         assert status == "ok"
         assert last_success_delta_s is not None
         assert last_success_delta_s < 900
 
     def test_health_status_logic_when_stale_success_then_returns_degraded(self) -> None:
         """Test that health status logic returns degraded when last success is too old."""
-        # Set up stale refresh state (16 minutes ago)
+        # Set up stale refresh state (16 minutes ago) by directly modifying internal state
         current_time = time.time()
-        server_module._last_refresh_success = current_time - 960  # 16 minutes ago
-        server_module._last_refresh_attempt = current_time - 960
-        
+        server_module._health_tracker._last_refresh_success = current_time - 960  # 16 minutes ago
+        server_module._health_tracker._last_refresh_attempt = current_time - 960
+
         # Test status determination logic
-        status = "ok"
-        last_success_delta_s = None
-        if server_module._last_refresh_success is not None:
-            last_success_delta_s = int(time.time() - server_module._last_refresh_success)
-        
-        if server_module._last_refresh_success is None:
-            status = "degraded"
-        elif last_success_delta_s is not None and last_success_delta_s > 900:  # 15 minutes
-            status = "degraded"
-        
+        status = server_module._health_tracker.determine_overall_status()
+        last_success_delta_s = server_module._health_tracker.get_last_refresh_age_seconds()
+
         assert status == "degraded"
         assert last_success_delta_s is not None
         assert last_success_delta_s > 900
 
     def test_background_task_status_when_recent_heartbeat_then_running(self) -> None:
         """Test that background task status shows running when heartbeat is recent."""
-        current_time = time.time()
-        server_module._background_task_heartbeat = current_time - 30  # 30 seconds ago
-        
+        # Set up recent heartbeat using the health tracker
+        server_module._health_tracker.update(background_heartbeat=True)
+
         # Test background task logic
-        background_tasks = []
-        if server_module._background_task_heartbeat is not None:
-            heartbeat_age = int(time.time() - server_module._background_task_heartbeat)
-            background_tasks.append({
-                "name": "refresher_task",
-                "status": "running" if heartbeat_age < 600 else "stale",  # 10 minutes
-                "last_heartbeat_age_s": heartbeat_age
-            })
-        
-        assert len(background_tasks) == 1
-        assert background_tasks[0]["name"] == "refresher_task"
-        assert background_tasks[0]["status"] == "running"
-        assert background_tasks[0]["last_heartbeat_age_s"] < 600
+        task_status = server_module._health_tracker.get_background_task_status()
+
+        assert task_status["name"] == "refresher_task"
+        assert task_status["status"] == "running"
+        assert task_status["last_heartbeat_age_s"] is not None
+        assert task_status["last_heartbeat_age_s"] < 600
 
     def test_background_task_status_when_stale_heartbeat_then_stale(self) -> None:
         """Test that background task status shows stale when heartbeat is old."""
+        # Set up stale heartbeat (11+ minutes ago) by directly modifying internal state
         current_time = time.time()
-        server_module._background_task_heartbeat = current_time - 700  # 11+ minutes ago
-        
+        server_module._health_tracker._background_task_heartbeat = current_time - 700  # 11+ minutes ago
+
         # Test background task logic
-        background_tasks = []
-        if server_module._background_task_heartbeat is not None:
-            heartbeat_age = int(time.time() - server_module._background_task_heartbeat)
-            background_tasks.append({
-                "name": "refresher_task",
-                "status": "running" if heartbeat_age < 600 else "stale",  # 10 minutes
-                "last_heartbeat_age_s": heartbeat_age
-            })
-        
-        assert len(background_tasks) == 1
-        assert background_tasks[0]["name"] == "refresher_task"
-        assert background_tasks[0]["status"] == "stale"
-        assert background_tasks[0]["last_heartbeat_age_s"] >= 600
+        task_status = server_module._health_tracker.get_background_task_status()
+
+        assert task_status["name"] == "refresher_task"
+        assert task_status["status"] == "stale"
+        assert task_status["last_heartbeat_age_s"] is not None
+        assert task_status["last_heartbeat_age_s"] >= 600
 
 
 class TestPortConflictHandling:
