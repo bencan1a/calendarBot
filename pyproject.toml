@@ -120,6 +120,11 @@ calendarbot = [
     "theme-images/*.bmp",
     "config/config.yaml.example",
 ]
+calendarbot_lite = [
+    "*.html",
+    "*.css",
+    "*.js",
+]
 
 [tool.setuptools.dynamic]
 version = {attr = "calendarbot.__version__"}
