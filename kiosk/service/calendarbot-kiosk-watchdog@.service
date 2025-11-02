@@ -4,6 +4,9 @@ Documentation=https://github.com/user/calendarbot
 After=network-online.target
 Wants=network-online.target
 PartOf=calendarbot-kiosk@%i.service
+# Prevent rapid restart loops
+StartLimitBurst=5
+StartLimitIntervalSec=600
 
 [Service]
 Type=simple
@@ -26,11 +29,10 @@ ExecReload=/bin/kill -HUP $MAINPID
 # Process management
 Restart=on-failure
 RestartSec=10
-StartLimitBurst=5
-StartLimitIntervalSec=600
 
 # Security and resource limits
-NoNewPrivileges=yes
+# NOTE: NoNewPrivileges MUST be 'no' to allow sudo for service restarts
+NoNewPrivileges=no
 PrivateTmp=yes
 ProtectHome=read-only
 ProtectSystem=strict
