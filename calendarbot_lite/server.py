@@ -818,7 +818,7 @@ async def _fetch_and_parse_source(
     config: Any,
     rrule_days: int,
     shared_http_client: Any = None,
-) -> list[EventDict]:
+) -> list[Any]:
     """Fetch and parse a single source using existing lite_fetcher and lite_parser abstractions.
 
     This function uses the well-tested LiteICSFetcher and LiteICSParser modules instead of
@@ -832,7 +832,7 @@ async def _fetch_and_parse_source(
         shared_http_client: Optional shared HTTP client for connection reuse
 
     Returns:
-        List of parsed events in EventDict format
+        List of parsed events as LiteCalendarEvent objects (not yet converted to EventDict)
     """
     async with semaphore:
         logger.debug("Processing source configuration: %r", src_cfg)
@@ -890,31 +890,63 @@ async def _fetch_and_parse_source(
                 logger.warning("No content in response from source %r", src_cfg)
                 return []
 
-            # Parse ICS content using LiteICSParser (includes automatic RRULE expansion)
-            logger.debug("Parsing ICS content from source %r (%d bytes)", source.url, len(ics_content))
-            parser = LiteICSParser(_Settings())
-            parse_result = parser.parse_ics_content_optimized(ics_content, source_url=source.url)
+            # Parse ICS content using EventProcessingPipeline
+            # This is Pipeline 1 (per-source): processes each ICS source independently
+            logger.info("=== Source Pipeline: Processing ICS from %r ===", source.name)
+            logger.debug("ICS content size: %d bytes from %r", len(ics_content), source.url)
 
-            if not parse_result.success:
+            from .pipeline import EventProcessingPipeline, ProcessingContext
+            from .pipeline_stages import (
+                ParseStage,
+                DeduplicationStage,
+                SortStage
+            )
+
+            # Create per-source processing pipeline (runs once per ICS source)
+            # This pipeline handles: parsing raw ICS → expanding RRULEs → removing source-internal duplicates → sorting
+            # Note: Filtering/windowing/limiting happen later in _refresh_once after all sources are combined
+            parser = LiteICSParser(_Settings())
+            pipeline = (
+                EventProcessingPipeline()
+                .add_stage(ParseStage(parser))       # Parse ICS + expand RRULEs
+                .add_stage(DeduplicationStage())     # Remove source-internal duplicates
+                .add_stage(SortStage())              # Sort by time
+            )
+
+            # Create processing context
+            context = ProcessingContext(
+                raw_content=ics_content,
+                source_url=source.url,
+                source_name=source.name,
+                rrule_expansion_days=rrule_days,
+                enable_streaming=True
+            )
+
+            # Process through pipeline
+            result = await pipeline.process(context)
+
+            if not result.success:
                 logger.warning(
-                    "Parse failed for source %r: %s", src_cfg, parse_result.error_message or "Unknown error"
+                    "Pipeline processing failed for source %r: %s",
+                    src_cfg,
+                    "; ".join(result.errors) if result.errors else "Unknown error"
                 )
                 return []
 
-            if not parse_result.events:
+            if not context.events:
                 logger.debug("No events found in source %r", src_cfg)
                 return []
 
-            # Convert LiteCalendarEvent objects to EventDict format
+            # Log pipeline statistics
             logger.debug(
-                "Converting %d LiteCalendarEvent objects to EventDict format", len(parse_result.events)
+                "Pipeline processed %d events from source %r (warnings: %d)",
+                len(context.events), src_cfg, len(result.warnings)
             )
-            normalized_events = [
-                _lite_event_to_dict(event, source_name=source.name) for event in parse_result.events
-            ]
 
-            logger.debug("Successfully processed %d events from source %r", len(normalized_events), src_cfg)
-            return normalized_events
+            # Return tuple of (source_name, events) to preserve source information
+            # Conversion to EventDict happens later after all sources are processed and filtered
+            logger.debug("Successfully processed %d events from source %r", len(context.events), src_cfg)
+            return (source.name, context.events)
 
         except ImportError:
             logger.exception("Required modules not available")
@@ -984,6 +1016,11 @@ async def _refresh_once(
         )
         return
 
+    # Import AsyncOrchestrator for centralized async patterns
+    from .async_utils import get_global_orchestrator
+
+    orchestrator = get_global_orchestrator()
+
     # Use bounded concurrency for fetching sources
     semaphore = asyncio.Semaphore(fetch_concurrency)
     fetch_tasks = [
@@ -993,43 +1030,125 @@ async def _refresh_once(
         for src_cfg in sources_cfg
     ]
 
-    # Execute all fetch tasks concurrently and gather results
-    fetch_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+    # Execute all fetch tasks concurrently with timeout management
+    # Use 120s timeout for fetching all sources (reasonable for multiple ICS fetches)
+    fetch_results = await orchestrator.gather_with_timeout(
+        *fetch_tasks,
+        timeout=120.0,
+        return_exceptions=True
+    )
 
-    # Process results and collect parsed events
-    parsed_events: list[EventDict] = []
+    # Process results and collect parsed LiteCalendarEvent objects
+    from .lite_models import LiteCalendarEvent
+
+    parsed_events: list[LiteCalendarEvent] = []
+    event_source_map: dict[str, str] = {}  # event_id -> source_name
+
     for i, result in enumerate(fetch_results):
         if isinstance(result, Exception):
             logger.error("DEBUG: Source %r failed: %s", sources_cfg[i], result)
             continue
-        if isinstance(result, list):
-            logger.debug(" Source %r returned %d events", sources_cfg[i], len(result))
-            parsed_events.extend(result)
+        if isinstance(result, tuple) and len(result) == 2:
+            source_name, events = result
+            logger.debug(" Source %r returned %d events", sources_cfg[i], len(events))
+            for event in events:
+                parsed_events.append(event)
+                event_source_map[event.id] = source_name
+        elif isinstance(result, list):
+            # Fallback for old return format (should not happen in production)
+            # Skip dict objects (EventDict) - only process LiteCalendarEvent objects
+            logger.debug(" Source %r returned %d items (checking types)", sources_cfg[i], len(result))
+            for item in result:
+                if isinstance(item, LiteCalendarEvent):
+                    parsed_events.append(item)
+                elif isinstance(item, dict):
+                    # Skip EventDict objects - these are from old code paths
+                    logger.warning("Skipping EventDict from source %r - not compatible with pipeline", sources_cfg[i])
+                    continue
 
     logger.debug(" Total parsed events from all sources: %d", len(parsed_events))
 
-    # Use event filter and window manager for smart filtering and fallback
-    from .event_filter import EventFilter, EventWindowManager, SmartFallbackHandler
-
-    # Initialize filter components
-    fallback_handler = SmartFallbackHandler()
-    event_filter = EventFilter(_get_server_timezone, _get_fallback_timezone)
-    window_manager = EventWindowManager(event_filter, fallback_handler)
-
-    # Get current time and window size
+    # Get current time and window size for pipeline configuration
     now = _now_utc()
     window_size = int(_get_config_value(config, "event_window_size", 50))
 
-    # Update window with smart fallback logic
-    updated, final_count, message = await window_manager.update_window(
-        event_window_ref,
-        window_lock,
-        parsed_events,
-        now,
-        skipped_store,
-        window_size,
-        len(sources_cfg),
+    # Get skipped event IDs from store if available
+    skipped_event_ids: set[str] = set()
+    if skipped_store is not None:
+        try:
+            active_list_fn = getattr(skipped_store, "active_list", None)
+            if callable(active_list_fn):
+                active_skips = active_list_fn()
+                if active_skips:
+                    skipped_event_ids = set(active_skips.keys())
+                    logger.debug("Loaded %d skipped event IDs from store", len(skipped_event_ids))
+        except Exception as e:
+            logger.warning("Failed to get skipped event IDs: %s", e)
+
+    # Pipeline 2 (multi-source post-processing): processes combined events from all sources
+    logger.info("=== Post-Processing Pipeline: Filtering and limiting %d combined events ===", len(parsed_events))
+
+    from .pipeline import EventProcessingPipeline, ProcessingContext
+    from .pipeline_stages import (
+        SkippedEventsFilterStage,
+        TimeWindowStage,
+        EventLimitStage
     )
+
+    # Create multi-source post-processing pipeline (runs once after combining all sources)
+    # This pipeline handles: filtering skipped events → applying time window → limiting to display size
+    post_pipeline = (
+        EventProcessingPipeline()
+        .add_stage(SkippedEventsFilterStage())
+        .add_stage(TimeWindowStage())
+        .add_stage(EventLimitStage())
+    )
+
+    # Create context for post-processing
+    post_context = ProcessingContext(
+        events=parsed_events,
+        skipped_event_ids=skipped_event_ids,
+        window_start=now,  # Start from current time
+        window_end=None,  # No end limit (TimeWindowStage will handle)
+        event_window_size=window_size,
+        now=now
+    )
+
+    # Process through post-processing pipeline
+    post_result = await post_pipeline.process(post_context)
+
+    if not post_result.success:
+        logger.warning(
+            "Post-processing pipeline failed: %s",
+            "; ".join(post_result.errors) if post_result.errors else "Unknown error"
+        )
+        # Fall back to using all parsed events if post-processing fails
+        final_events = parsed_events
+    else:
+        final_events = post_context.events
+        logger.debug(
+            "Post-processing pipeline complete: %d → %d events (filtered: %d, warnings: %d)",
+            post_result.events_in, post_result.events_out,
+            post_result.events_in - post_result.events_out, len(post_result.warnings)
+        )
+
+    # Convert LiteCalendarEvent objects to EventDict format for compatibility
+    event_dicts: list[EventDict] = []
+    for event in final_events:
+        # Get source name from mapping (fallback to "Unknown" if not found)
+        source_name = event_source_map.get(event.id, "Unknown")
+        event_dict = _lite_event_to_dict(event, source_name=source_name)
+        event_dicts.append(event_dict)
+
+    logger.debug("Converted %d LiteCalendarEvent objects to EventDict format", len(event_dicts))
+
+    # Update the event window atomically
+    async with window_lock:
+        event_window_ref[0] = tuple(event_dicts)
+        final_count = len(event_dicts)
+
+    updated = True  # We successfully updated the window
+    message = f"Updated event window with {final_count} events"
 
     # Log appropriate monitoring events based on outcome
     if not updated:

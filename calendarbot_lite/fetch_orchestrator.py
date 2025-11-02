@@ -41,6 +41,8 @@ class FetchOrchestrator:
     ) -> list[dict[str, Any]]:
         """Fetch and parse all sources with bounded concurrency.
 
+        Now uses AsyncOrchestrator for consistent async patterns and timeout management.
+
         Args:
             sources_cfg: List of source configurations
             fetch_concurrency: Maximum number of concurrent fetches
@@ -54,6 +56,11 @@ class FetchOrchestrator:
             logger.error("No sources configured, skipping fetch")
             return []
 
+        # Import AsyncOrchestrator for centralized async patterns
+        from .async_utils import get_global_orchestrator
+
+        orchestrator = get_global_orchestrator()
+
         # Use bounded concurrency for fetching sources
         semaphore = asyncio.Semaphore(fetch_concurrency)
         fetch_tasks = [
@@ -63,8 +70,13 @@ class FetchOrchestrator:
             for src_cfg in sources_cfg
         ]
 
-        # Execute all fetch tasks concurrently and gather results
-        fetch_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+        # Execute all fetch tasks concurrently with timeout management
+        # Use 120s timeout for fetching all sources (reasonable for multiple ICS fetches)
+        fetch_results = await orchestrator.gather_with_timeout(
+            *fetch_tasks,
+            timeout=120.0,
+            return_exceptions=True
+        )
 
         # Process results and collect parsed events
         parsed_events = []
