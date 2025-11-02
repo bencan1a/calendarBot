@@ -1,14 +1,19 @@
 [Unit]
 Description=CalendarBot Kiosk X Session for %i
 After=network.target
+# Prevent rapid restart loops
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 [Service]
 Type=simple
 User=%i
 WorkingDirectory=/home/%i
-# Start X session which will run .xinitrc
-# Note: startx is typically in .bash_profile, but for systemd we call it directly
-ExecStart=/usr/bin/startx
+# Run X server directly (no VT switching, no console requirements)
+# -nolisten tcp: Don't listen on TCP (security)
+# -novtswitch: Don't switch VTs
+# -sharevts: Share current VT
+ExecStart=/bin/sh -c 'exec /usr/bin/Xorg :0 -nolisten tcp -novtswitch -sharevts & sleep 2 && DISPLAY=:0 exec /home/%i/.xinitrc'
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -17,9 +22,12 @@ StandardError=journal
 # Environment variables
 Environment=DISPLAY=:0
 
-# Prevent rapid restart loops
-StartLimitBurst=5
-StartLimitIntervalSec=60
+# Grant access to devices needed for X
+SupplementaryGroups=video input tty
+
+# Grant capability to access TTY devices
+AmbientCapabilities=CAP_SYS_TTY_CONFIG
+CapabilityBoundingSet=CAP_SYS_TTY_CONFIG
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target

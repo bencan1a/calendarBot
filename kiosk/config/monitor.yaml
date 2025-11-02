@@ -135,11 +135,11 @@ monitor:
       term_grace_period_s: 8
       # Wait time after restart before verification (seconds)
       restart_verification_delay_s: 30
-    # Browser progressive recovery - Level 3: X session restart
+    # Browser progressive recovery - Level 2: X session restart
     x_restart:
-      # Command to restart X session via systemd service
-      # The service manages X server lifecycle: startx → .xinitrc → browser
-      restart_cmd: "sudo systemctl restart calendarbot-kiosk-x@{user}.service"
+      # Command to restart X session (with auto-login enabled)
+      # Kills X server, getty auto-login restarts it: login → .bash_profile → startx → .xinitrc → browser
+      restart_cmd: "pkill -TERM Xorg"
       # Verification delay after X restart (seconds) - longer as full stack restarts
       verification_delay_s: 60
     # Level 3: Service restart settings
