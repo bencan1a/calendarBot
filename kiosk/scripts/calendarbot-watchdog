@@ -227,8 +227,12 @@ class HealthChecker:
 
                     return status_ok, data
 
-                self.logger.log_event('WARN', 'healthcheck', 'health.endpoint.http_error',
-                                    {'status_code': response.status})
+                self.logger.log_event(
+                    "WARNING",
+                    "healthcheck",
+                    "health.endpoint.http_error",
+                    {"status_code": response.status},
+                )
                 return False, None
 
         except urllib.error.HTTPError as e:
@@ -239,13 +243,18 @@ class HealthChecker:
                                      int(self.startup_grace_period_s - (time.time() - self.startup_time))})
                 return True, None  # Treat as healthy during startup
 
-            self.logger.log_event('WARN', 'healthcheck', 'health.endpoint.fail',
-                                {'error': f'HTTP Error {e.code}: {e.reason}'})
+            self.logger.log_event(
+                "WARNING",
+                "healthcheck",
+                "health.endpoint.fail",
+                {"error": f"HTTP Error {e.code}: {e.reason}"},
+            )
             return False, None
 
         except (urllib.error.URLError, json.JSONDecodeError, KeyError) as e:
-            self.logger.log_event('WARN', 'healthcheck', 'health.endpoint.fail',
-                                {'error': str(e)})
+            self.logger.log_event(
+                "WARNING", "healthcheck", "health.endpoint.fail", {"error": str(e)}
+            )
             return False, None
     
     def check_render_probe(self) -> bool:
@@ -263,13 +272,16 @@ class HealthChecker:
                                         {'marker_found': marker_found, 'html_length': len(html)})
                     
                     return marker_found
-                self.logger.log_event('WARN', 'healthcheck', 'render.probe.http_error',
-                                    {'status_code': response.status})
+                self.logger.log_event(
+                    "WARNING",
+                    "healthcheck",
+                    "render.probe.http_error",
+                    {"status_code": response.status},
+                )
                 return False
                     
         except urllib.error.URLError as e:
-            self.logger.log_event('WARN', 'healthcheck', 'render.probe.fail',
-                                {'error': str(e)})
+            self.logger.log_event("WARNING", "healthcheck", "render.probe.fail", {"error": str(e)})
             return False
     
     def check_browser_process(self) -> bool:
@@ -284,7 +296,7 @@ class HealthChecker:
             
             return running
         except subprocess.TimeoutExpired:
-            self.logger.log_event('WARN', 'healthcheck', 'browser.process.timeout')
+            self.logger.log_event("WARNING", "healthcheck", "browser.process.timeout")
             return False
     
     def check_browser_heartbeat(self, health_data: Optional[dict[str, Any]]) -> tuple[bool, Optional[int]]:
@@ -303,8 +315,12 @@ class HealthChecker:
         last_heartbeat_iso = display_probe.get('last_render_probe_iso')
 
         if not last_heartbeat_iso:
-            self.logger.log_event('WARN', 'healthcheck', 'browser.heartbeat.missing',
-                                {'notes': 'No heartbeat timestamp in health data'})
+            self.logger.log_event(
+                "WARNING",
+                "healthcheck",
+                "browser.heartbeat.missing",
+                {"notes": "No heartbeat timestamp in health data"},
+            )
             return False, None
 
         try:
@@ -341,7 +357,7 @@ class HealthChecker:
             
             return running
         except subprocess.TimeoutExpired:
-            self.logger.log_event('WARN', 'healthcheck', 'x.server.timeout')
+            self.logger.log_event("WARNING", "healthcheck", "x.server.timeout")
             return False
 
 
@@ -428,9 +444,15 @@ class RecoveryManager:
                 self.logger.log_event('INFO', 'recovery', 'browser.soft_reload.complete')
                 return True
 
-            self.logger.log_event('WARN', 'recovery', 'browser.soft_reload.failed',
-                                {'returncode': result.returncode,
-                                 'stderr': result.stderr.decode('utf-8', errors='ignore')[:200]})
+            self.logger.log_event(
+                "WARNING",
+                "recovery",
+                "browser.soft_reload.failed",
+                {
+                    "returncode": result.returncode,
+                    "stderr": result.stderr.decode("utf-8", errors="ignore")[:200],
+                },
+            )
             return False
 
         except subprocess.TimeoutExpired:
@@ -491,10 +513,14 @@ class RecoveryManager:
             self.logger.log_event('INFO', 'recovery', 'browser.progressive_recovery.action_succeeded',
                                 {'level': level, 'action': ['soft_reload', 'browser_restart', 'x_restart'][level]})
             return True
-        else:
+        else:  # noqa: RET505
             # Action failed - escalate immediately to next level
-            self.logger.log_event('WARN', 'recovery', 'browser.progressive_recovery.action_failed_escalating',
-                                {'failed_level': level, 'next_level': level + 1})
+            self.logger.log_event(
+                "WARNING",
+                "recovery",
+                "browser.progressive_recovery.action_failed_escalating",
+                {"failed_level": level, "next_level": level + 1},
+            )
             state['browser_escalation_level'] = level + 1
             state['browser_escalation_time'] = time.time()
             self.state_mgr.save_state(state)
@@ -503,7 +529,7 @@ class RecoveryManager:
     def restart_browser(self, user: str, state: dict[str, Any]) -> bool:
         """Level 1: Restart browser process."""
         if not self.can_perform_action('browser_restart', state):
-            self.logger.log_event('WARN', 'recovery', 'browser.restart.rate_limited')
+            self.logger.log_event("WARNING", "recovery", "browser.restart.rate_limited")
             return False
         
         self.logger.log_event('INFO', 'recovery', 'browser.restart.start', action_taken=True)
@@ -583,7 +609,7 @@ class RecoveryManager:
     def restart_service(self, user: str, state: dict[str, Any]) -> bool:
         """Level 3: Restart systemd kiosk service."""
         if not self.can_perform_action('service_restart', state):
-            self.logger.log_event('WARN', 'recovery', 'service.restart.rate_limited')
+            self.logger.log_event("WARNING", "recovery", "service.restart.rate_limited")
             return False
         
         self.logger.log_event('INFO', 'recovery', 'service.restart.start', action_taken=True)
@@ -622,7 +648,7 @@ class RecoveryManager:
     def reboot_system(self, state: dict[str, Any]) -> bool:
         """Level 4: System reboot (last resort)."""
         if not self.can_perform_action('reboot', state):
-            self.logger.log_event('WARN', 'recovery', 'reboot.rate_limited')
+            self.logger.log_event("WARNING", "recovery", "reboot.rate_limited")
             return False
         
         self.logger.log_event('ERROR', 'recovery', 'reboot.start',
@@ -792,7 +818,7 @@ def main() -> int:
             # Check for degraded mode
             degraded = _config.get('degraded_mode', False) or SystemDiagnostics.should_degrade(_config)
             if degraded:
-                structured_logger.log_event('WARN', 'watchdog', 'degraded.mode.active')
+                structured_logger.log_event("WARNING", "watchdog", "degraded.mode.active")
             
             # Determine check intervals (double if degraded)
             health_interval = _config.get('health_check', {}).get('interval_s', 30)
@@ -812,8 +838,12 @@ def main() -> int:
                 
                 if not health_ok:
                     consecutive_failures += 1
-                    structured_logger.log_event('WARN', 'watchdog', 'health.check.fail',
-                                              {'consecutive_failures': consecutive_failures})
+                    structured_logger.log_event(
+                        "WARNING",
+                        "watchdog",
+                        "health.check.fail",
+                        {"consecutive_failures": consecutive_failures},
+                    )
                     
                     # Start recovery escalation
                     max_retries = _config.get('health_check', {}).get('max_retries', 3)
@@ -850,10 +880,16 @@ def main() -> int:
                         if not heartbeat_ok:
                             heartbeat_failures += 1
                             current_level = state.get('browser_escalation_level', 0)
-                            structured_logger.log_event('WARN', 'watchdog', 'browser.heartbeat.stale',
-                                                      {'heartbeat_failures': heartbeat_failures,
-                                                       'age_s': age_s,
-                                                       'escalation_level': current_level})
+                            structured_logger.log_event(
+                                "WARNING",
+                                "watchdog",
+                                "browser.heartbeat.stale",
+                                {
+                                    "heartbeat_failures": heartbeat_failures,
+                                    "age_s": age_s,
+                                    "escalation_level": current_level,
+                                },
+                            )
 
                             # Check if we need to trigger recovery
                             fail_threshold = _config.get('thresholds', {}).get('browser_heartbeat_fail_count', 2)
@@ -867,10 +903,16 @@ def main() -> int:
                                 last_recovery_time = state.get('browser_escalation_time')
                                 if last_recovery_time and (time.time() - last_recovery_time) < 120:
                                     # Recent recovery at this level didn't fix it - escalate
-                                    structured_logger.log_event('WARN', 'watchdog', 'browser.heartbeat.escalating',
-                                                              {'reason': 'recovery_failed_to_fix',
-                                                               'current_level': current_level,
-                                                               'next_level': current_level + 1})
+                                    structured_logger.log_event(
+                                        "WARNING",
+                                        "watchdog",
+                                        "browser.heartbeat.escalating",
+                                        {
+                                            "reason": "recovery_failed_to_fix",
+                                            "current_level": current_level,
+                                            "next_level": current_level + 1,
+                                        },
+                                    )
                                     state['browser_escalation_level'] = current_level + 1
                                     state['browser_escalation_time'] = None
                                     state_mgr.save_state(state)
@@ -895,8 +937,12 @@ def main() -> int:
                 if not render_ok:
                     render_failures += 1
                     if render_failures >= _config.get('thresholds', {}).get('render_fail_count', 2):
-                        structured_logger.log_event('WARN', 'watchdog', 'render.probe.escalate',
-                                                  {'render_failures': render_failures})
+                        structured_logger.log_event(
+                            "WARNING",
+                            "watchdog",
+                            "render.probe.escalate",
+                            {"render_failures": render_failures},
+                        )
                         if recovery_mgr.restart_browser(args.user, state):
                             render_failures = 0
                 else:
@@ -908,12 +954,12 @@ def main() -> int:
                 last_x_check = current_time
                 
                 if not x_ok:
-                    structured_logger.log_event('WARN', 'watchdog', 'x.server.fail')
+                    structured_logger.log_event("WARNING", "watchdog", "x.server.fail")
                     recovery_mgr.restart_x_session(args.user, state)
             
             # Browser process check
             if not health_checker.check_browser_process():
-                structured_logger.log_event('WARN', 'watchdog', 'browser.process.missing')
+                structured_logger.log_event("WARNING", "watchdog", "browser.process.missing")
                 recovery_mgr.restart_browser(args.user, state)
             
             # Sleep until next check
