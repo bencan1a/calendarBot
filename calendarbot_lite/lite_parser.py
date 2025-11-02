@@ -103,6 +103,11 @@ class LiteICSParser:
             self._datetime_parser, self._attendee_parser, settings
         )
         self._event_merger = LiteEventMerger()
+
+        # Initialize RRULE orchestrator for centralized expansion logic
+        from .lite_rrule_expander import RRuleOrchestrator
+        self._rrule_orchestrator = RRuleOrchestrator(settings, self._event_parser)
+
         logger.debug("Lite ICS parser initialized")
 
     def _build_component_and_event_maps(
@@ -340,7 +345,7 @@ class LiteICSParser:
     ) -> list[LiteCalendarEvent]:
         """Execute RRULE expansion for candidates using async streaming.
 
-        Handles both running and non-running event loop scenarios safely.
+        Now uses AsyncOrchestrator to handle event loop detection and execution.
 
         Args:
             candidates: List of (event, rrule_string, exdates) tuples
@@ -362,6 +367,11 @@ class LiteICSParser:
         if not expand_events_streaming:  # type: ignore[truthy-function]
             return expanded_instances
 
+        # Import AsyncOrchestrator for centralized async execution
+        from .async_utils import get_global_orchestrator
+
+        orchestrator = get_global_orchestrator()
+
         # Define async collector
         async def _collect_expansions(cands):  # type: ignore[no-untyped-def]
             instances = []
@@ -376,29 +386,12 @@ class LiteICSParser:
                 logger.exception("expand_events_streaming failed: %s")
             return instances
 
-        # Execute the async collector safely from sync context
+        # Execute the async collector using orchestrator from sync context
         try:
-            # Check if there's a running event loop
-            try:
-                asyncio.get_running_loop()
-                # There's a running loop, run in a separate thread with its own loop
-                import concurrent.futures
-
-                def run_in_new_loop():  # type: ignore[no-untyped-def]
-                    """Run coroutine in a new event loop in separate thread."""
-                    new_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(new_loop)
-                    try:
-                        return new_loop.run_until_complete(_collect_expansions(candidates))
-                    finally:
-                        new_loop.close()
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(run_in_new_loop)
-                    instances = future.result()
-            except RuntimeError:
-                # No running loop, use asyncio.run() directly
-                instances = asyncio.run(_collect_expansions(candidates))
+            instances = orchestrator.run_coroutine_from_sync(
+                lambda: _collect_expansions(candidates),
+                timeout=None  # No timeout for RRULE expansion
+            )
         except Exception as e:
             logger.warning("Failed to expand RRULE candidates: %s", e)
             instances = []
@@ -941,12 +934,13 @@ class LiteICSParser:
         events: list[LiteCalendarEvent],
         raw_components: list[ICalEvent],
     ) -> list[LiteCalendarEvent]:
-        """Expand recurring events using LiteRRuleExpander.
+        """Expand recurring events using RRuleOrchestrator.
 
-        Delegates to helper methods for better testability and maintainability:
-        1. Build component and event maps
-        2. Collect expansion candidates
-        3. Execute async RRULE expansion
+        This method now delegates all RRULE expansion logic to the centralized
+        RRuleOrchestrator, which handles:
+        1. Building component and event maps
+        2. Collecting expansion candidates
+        3. Executing async RRULE expansion
 
         Args:
             events: List of parsed calendar events
@@ -955,22 +949,8 @@ class LiteICSParser:
         Returns:
             List of expanded event instances
         """
-        expanded_events = []
-
-        # Phase 1: Build mappings of UIDs to components and events
-        component_map, events_by_id = self._build_component_and_event_maps(
-            events, raw_components
-        )
-
-        # Phase 2: Collect RRULE expansion candidates
-        current_candidates = self._collect_expansion_candidates(
-            component_map, events_by_id, events
-        )
-
-        # Phase 3: Execute async RRULE expansion
-        expanded_events = self._orchestrate_rrule_expansion(current_candidates)
-
-        return expanded_events
+        # Delegate to RRuleOrchestrator for centralized RRULE expansion
+        return self._rrule_orchestrator.expand_recurring_events(events, raw_components)
 
     def _merge_expanded_events(
         self,

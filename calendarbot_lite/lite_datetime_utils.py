@@ -89,6 +89,116 @@ def format_time_for_speech(dt: datetime, target_tz: Optional[ZoneInfo] = None) -
     return f"{hour} {minute:02d} AM"
 
 
+class TimezoneParser:
+    """Parse datetime strings with timezone handling.
+
+    Handles TZID formats like: TZID=Pacific Standard Time:20251031T090000
+    Supports Windows timezone names with automatic conversion to IANA format.
+    """
+
+    def parse_datetime_with_tzid(self, datetime_str: str) -> datetime:
+        """Parse datetime string with TZID prefix.
+
+        Args:
+            datetime_str: String in format "TZID=<timezone>:<datetime>"
+                         Example: "TZID=Pacific Standard Time:20251031T090000"
+
+        Returns:
+            Datetime in UTC
+
+        Raises:
+            ValueError: If parsing fails
+        """
+        if not datetime_str.startswith("TZID="):
+            raise ValueError(f"Expected TZID prefix, got: {datetime_str}")
+
+        try:
+            # Extract TZID and datetime parts
+            # Format: TZID=<timezone>:<datetime>
+            # Find the colon before the datetime (datetime starts with year: 20XX)
+            colon_idx = datetime_str.rfind(":", 0, datetime_str.find(":2"))
+            if colon_idx == -1:
+                # Fallback: simple split
+                tzid_part, dt_part = datetime_str.split(":", 1)
+            else:
+                tzid_part = datetime_str[:colon_idx]
+                dt_part = datetime_str[colon_idx + 1:]
+
+            # Extract timezone ID
+            tzid = tzid_part.replace("TZID=", "").strip()
+
+            # Parse datetime part (remove Z suffix if present)
+            dt_str_clean = dt_part.rstrip("Z")
+            dt_naive = datetime.strptime(dt_str_clean, "%Y%m%dT%H%M%S")
+
+            # Handle UTC explicitly
+            if tzid == "UTC" or dt_part.endswith("Z"):
+                return dt_naive.replace(tzinfo=timezone.utc)
+
+            # Convert Windows timezone to IANA format
+            from .timezone_utils import windows_tz_to_iana
+
+            iana_tz = windows_tz_to_iana(tzid) or tzid
+
+            # Apply timezone using zoneinfo (Python 3.9+ standard library)
+            tz = ZoneInfo(iana_tz)
+            dt_with_tz = dt_naive.replace(tzinfo=tz)
+            return dt_with_tz.astimezone(timezone.utc)
+
+        except Exception as e:
+            # Fallback to UTC if timezone parsing fails
+            logger.warning(f"Failed to parse TZID datetime {datetime_str}: {e}, assuming UTC")
+            # Try to extract just the datetime part
+            try:
+                dt_str = datetime_str.split(":")[-1].rstrip("Z")
+                dt = datetime.strptime(dt_str, "%Y%m%dT%H%M%S")
+                return dt.replace(tzinfo=timezone.utc)
+            except Exception:
+                raise ValueError(f"Unable to parse datetime: {datetime_str}") from e
+
+    def parse_datetime(self, datetime_str: str) -> datetime:
+        """Parse datetime string in various formats.
+
+        Handles:
+        - TZID format: TZID=Pacific Standard Time:20251031T090000
+        - ISO format: 2025-06-23T08:30:00Z
+        - RRULE format: 20250623T083000
+
+        Args:
+            datetime_str: Datetime string in supported format
+
+        Returns:
+            Parsed datetime (UTC if timezone specified)
+
+        Raises:
+            ValueError: If format is invalid
+        """
+        # Handle TZID format
+        if datetime_str.startswith("TZID="):
+            return self.parse_datetime_with_tzid(datetime_str)
+
+        # Handle standard formats
+        dt_str = datetime_str.rstrip("Z")
+        has_utc_marker = datetime_str.endswith("Z")
+
+        # Try common datetime formats
+        for fmt in [
+            "%Y%m%dT%H%M%S",  # 20250623T083000
+            "%Y-%m-%dT%H:%M:%S",  # 2025-06-23T08:30:00
+            "%Y%m%d",  # 20250623
+            "%Y-%m-%d",  # 2025-06-23
+        ]:
+            try:
+                dt = datetime.strptime(dt_str, fmt)
+                if has_utc_marker:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
+            except ValueError:
+                continue
+
+        raise ValueError(f"Unable to parse datetime: {datetime_str}")
+
+
 class LiteDateTimeParser:
     """Parser for iCalendar datetime properties with timezone handling."""
 
