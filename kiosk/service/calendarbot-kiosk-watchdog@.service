@@ -32,11 +32,12 @@ RestartSec=10
 
 # Security and resource limits
 # NOTE: NoNewPrivileges MUST be 'no' to allow sudo for service restarts
+# NOTE: ProtectHome MUST be 'no' so browser can write to user home dir when launched by watchdog
 NoNewPrivileges=no
 PrivateTmp=yes
-ProtectHome=read-only
+ProtectHome=no
 ProtectSystem=strict
-ReadWritePaths=/var/log/calendarbot-watchdog /var/local/calendarbot-watchdog /tmp
+ReadWritePaths=/var/log/calendarbot-watchdog /var/local/calendarbot-watchdog /tmp /home
 
 # Capability restrictions (minimal sudo access for reboot/service restart)
 AmbientCapabilities=
