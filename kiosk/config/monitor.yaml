@@ -15,6 +15,9 @@ monitor:
     browser_heartbeat_check_interval_s: 60
     # Browser heartbeat timeout (seconds) - consider stale after this time
     browser_heartbeat_timeout_s: 120
+    # Startup grace period (seconds) - treat HTTP 503 as OK during this time after watchdog starts
+    # This prevents false failures while server loads calendar data on boot
+    startup_grace_period_s: 300
     # Maximum retries for transient failures before escalating
     max_retries: 3
     # Request timeout for health checks (seconds)
@@ -134,8 +137,9 @@ monitor:
       restart_verification_delay_s: 30
     # Browser progressive recovery - Level 3: X session restart
     x_restart:
-      # Command to kill X server (triggers full kiosk service restart via .bash_profile → startx → .xinitrc)
-      restart_cmd: "pkill -TERM Xorg || pkill -TERM X"
+      # Command to restart X session via systemd service
+      # The service manages X server lifecycle: startx → .xinitrc → browser
+      restart_cmd: "sudo systemctl restart calendarbot-kiosk-x@{user}.service"
       # Verification delay after X restart (seconds) - longer as full stack restarts
       verification_delay_s: 60
     # Level 3: Service restart settings

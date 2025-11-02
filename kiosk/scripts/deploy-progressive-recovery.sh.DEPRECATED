@@ -1,0 +1,18 @@
+# DEPRECATED - DO NOT USE
+#
+# This deployment script is DEPRECATED and uses the old .bash_profile approach
+# for managing the X session, which requires auto-login.
+#
+# Please use the NEW systemd approach instead:
+#   ./deploy-systemd-x-session.sh
+#
+# The systemd approach provides:
+# - No auto-login required
+# - Better process management via systemd
+# - Cleaner X restart via systemctl restart
+# - Automatic restart with Restart=always
+#
+# See DEPLOYMENT_GUIDE.md and X_RESTART_FIX.md for details.
+#
+# This file has been renamed to .DEPRECATED to prevent accidental use.
+# The original script content has been removed.

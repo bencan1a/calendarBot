@@ -3,14 +3,17 @@
 ## Overview
 Automatic recovery system for CalendarBot_Lite on Raspberry Pi Zero 2.
 
+**IMPORTANT**: This watchdog now uses **systemd to manage the X session**.
+See [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) for complete deployment instructions.
+
 **Browser Heartbeat Recovery** (progressive 3-level escalation):
-- Level 1: Soft page reload (F5 via xdotool)
-- Level 2: Browser restart (kill and relaunch)
-- Level 3: X session restart (kill X server, triggers full kiosk restart)
+- Level 0: Soft page reload (F5 via xdotool)
+- Level 1: Browser restart (kill and relaunch)
+- Level 2: X session restart (via systemctl restart, managed by systemd)
 
 **System Health Recovery** (4-level escalation for server failures):
 - Level 1: Browser restart
-- Level 2: X session restart
+- Level 2: X session restart (via systemd)
 - Level 3: Systemd service restart
 - Level 4: System reboot
 
@@ -26,8 +29,7 @@ Automatic recovery system for CalendarBot_Lite on Raspberry Pi Zero 2.
 ### 1. Install System Components
 ```bash
 # Copy watchdog script
-sudo cp kiosk/scripts/calendarbot-watchdog /usr/local/bin/
-sudo chmod +x /usr/local/bin/calendarbot-watchdog
+
 
 # Copy systemd service
 sudo cp kiosk/service/calendarbot-kiosk-watchdog@.service /etc/systemd/system/
@@ -52,15 +54,21 @@ sudo chown bencan:bencan /var/log/calendarbot-watchdog /var/local/calendarbot-wa
 pip install PyYAML
 ```
 
-### 3. Configure Sudo Privileges (if needed for reboot)
+### 3. Configure Sudo Privileges (for service management)
 ```bash
-# Create sudoers file for reboot privileges
+# Create sudoers file for watchdog privileges
 sudo tee /etc/sudoers.d/calendarbot-watchdog << EOF
 # CalendarBot watchdog privileges
 bencan ALL=NOPASSWD: /sbin/reboot
-bencan ALL=NOPASSWD: /bin/systemctl restart calendarbot-kiosk@bencan.service
+bencan ALL=NOPASSWD: /bin/systemctl restart calendarbot-kiosk@*.service
+bencan ALL=NOPASSWD: /bin/systemctl restart calendarbot-kiosk-x@*.service
+bencan ALL=NOPASSWD: /bin/systemctl status calendarbot-kiosk@*.service
+bencan ALL=NOPASSWD: /bin/systemctl status calendarbot-kiosk-x@*.service
 EOF
+sudo chmod 440 /etc/sudoers.d/calendarbot-watchdog
 ```
+
+**Note**: The X session is now managed by systemd service `calendarbot-kiosk-x@bencan.service`, so the watchdog needs permission to restart it.
 
 ### 4. Enable and Start Watchdog
 ```bash
@@ -134,10 +142,11 @@ ps aux | grep calendarbot
    - Verify xdotool is installed: `sudo apt-get install xdotool`
    - Test manually: `DISPLAY=:0 xdotool search --class chromium windowactivate --sync key F5`
    - Check browser window class matches (chromium, epiphany, etc.)
-8. **X restart leaves system at command prompt**:
-   - Verify kiosk service is configured to restart on failure
-   - Check `.bash_profile` launches `startx` correctly
-   - Ensure systemd service has `Restart=always` setting
+8. **X restart issues**:
+   - Verify X session systemd service exists: `systemctl status calendarbot-kiosk-x@bencan.service`
+   - Check service has `Restart=always` setting: `systemctl cat calendarbot-kiosk-x@bencan.service`
+   - View X session logs: `journalctl -u calendarbot-kiosk-x@bencan.service -n 50`
+   - Test manual restart: `sudo systemctl restart calendarbot-kiosk-x@bencan.service`
 
 ### Debug Mode
 ```bash
@@ -214,17 +223,36 @@ When browser heartbeat failures are detected, the watchdog uses a progressive 3-
 - Takes ~30 seconds to verify
 - Ideal for: Browser memory leaks, crashed tabs
 
-**Level 3: X Session Restart (Full Recovery)**
-- Kills X server (Xorg) with SIGTERM
-- Triggers full kiosk service restart chain: `.bash_profile` → `startx` → `.xinitrc` → browser
+**Level 2: X Session Restart (Full Recovery)**
+- Restarts X session via systemd: `systemctl restart calendarbot-kiosk-x@bencan.service`
+- Systemd manages full restart chain: `startx` → `.xinitrc` → browser
 - Takes ~60 seconds to verify
 - Ideal for: X server issues, display problems, complete browser hangs
 
+**Systemd X Session Management**:
+- X runs as systemd service `calendarbot-kiosk-x@bencan.service`
+- Service has `Restart=always` for automatic crash recovery
+- No auto-login required - X runs directly as systemd service
+- See [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) for setup details
+
 **Escalation Logic**:
-- After 2 consecutive heartbeat failures, escalation begins at Level 1
-- If recovery succeeds and heartbeat resumes, escalation level resets to 0
-- If recovery fails or heartbeat fails again, escalates to next level
-- After Level 3, if problems persist, escalates to systemd service restart
+- After 2 consecutive heartbeat failures, recovery begins at **Level 0** (soft reload)
+- If action **succeeds**:
+  - Heartbeat failures reset to 0
+  - Stay at current level and wait
+  - If heartbeat fails again within 2 minutes → escalate to next level
+- If action **fails to execute**:
+  - Immediately escalate to next level and retry
+- If heartbeat resumes → escalation level resets to 0
+- After Level 2, if problems persist → escalates to systemd service restart
+
+**Example Scenario**:
+1. Heartbeat stale → Try soft reload (Level 0) → **succeeds** → wait for next check
+2. Heartbeat still stale (page didn't fix it) → Escalate to browser restart (Level 1) → **succeeds** → wait
+3. Heartbeat still stale (browser issue persists) → Escalate to X restart (Level 2 via systemctl) → **succeeds**
+4. Heartbeat OK → Reset to level 0
+
+This ensures we try the least disruptive fix first and only escalate when necessary.
 
 ## Performance
 

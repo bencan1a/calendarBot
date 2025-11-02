@@ -1,0 +1,25 @@
+[Unit]
+Description=CalendarBot Kiosk X Session for %i
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/home/%i
+# Start X session which will run .xinitrc
+# Note: startx is typically in .bash_profile, but for systemd we call it directly
+ExecStart=/usr/bin/startx
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables
+Environment=DISPLAY=:0
+
+# Prevent rapid restart loops
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Install]
+WantedBy=graphical.target
