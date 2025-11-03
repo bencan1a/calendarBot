@@ -171,6 +171,10 @@ jobs:
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout
 
+    - name: Install package in editable mode
+      run: |
+        venv/bin/pip install -e .
+
     - name: Run full test suite
       run: |
         # venv/bin/python handles activation
@@ -243,6 +247,10 @@ jobs:
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt
 
+    - name: Install package in editable mode
+      run: |
+        venv/bin/pip install -e .
+
     - name: Run Pi Zero2 performance gate (50 events)
       run: |
         # venv/bin/python handles activation
@@ -298,6 +306,10 @@ jobs:
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt pytest pytest-asyncio pytest-cov
 
+    - name: Install package in editable mode
+      run: |
+        venv/bin/pip install -e .
+
     - name: Validate coverage threshold
       run: |
         # venv/bin/python handles activation
@@ -348,6 +360,10 @@ jobs:
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt bandit
 
+    - name: Install package in editable mode
+      run: |
+        venv/bin/pip install -e .
+
     - name: Run security tests
       run: |
         # venv/bin/python handles activation
@@ -394,6 +410,10 @@ jobs:
         # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt
+
+    - name: Install package in editable mode
+      run: |
+        venv/bin/pip install -e .
 
     - name: Validate calendarbot_lite startup
       run: |

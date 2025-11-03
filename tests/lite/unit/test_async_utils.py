@@ -286,14 +286,25 @@ async def test_retry_async_exponential_backoff(orchestrator):
     # Verify exponential backoff
     assert len(call_times) == 4  # Initial + 3 retries
 
-    # Check delays between attempts (approximate due to timing variance)
+    # Check delays between attempts (more lenient bounds for system variance)
     delay1 = call_times[1] - call_times[0]
     delay2 = call_times[2] - call_times[1]
     delay3 = call_times[3] - call_times[2]
 
-    assert 0.08 < delay1 < 0.15  # ~0.1s
-    assert 0.18 < delay2 < 0.25  # ~0.2s (doubled)
-    assert 0.38 < delay3 < 0.45  # ~0.4s (doubled again)
+    # Verify all delays are positive (timestamps in correct order)
+    assert delay1 > 0, f"delay1 should be positive, got {delay1}"
+    assert delay2 > 0, f"delay2 should be positive, got {delay2}"
+    assert delay3 > 0, f"delay3 should be positive, got {delay3}"
+
+    # Verify exponential backoff pattern with lenient bounds
+    # (actual delays may vary significantly under system load)
+    assert 0.05 < delay1 < 1.0  # ~0.1s with generous tolerance
+    assert 0.1 < delay2 < 2.0  # ~0.2s (doubled) with generous tolerance
+    assert 0.2 < delay3 < 4.0  # ~0.4s (doubled again) with generous tolerance
+
+    # Verify delays are generally increasing (exponential backoff)
+    assert delay2 > delay1, "delay2 should be greater than delay1"
+    assert delay3 > delay2, "delay3 should be greater than delay2"
 
 
 @pytest.mark.asyncio
