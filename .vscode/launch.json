@@ -2,57 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Calendar Bot - Web Mode",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "args": ["--web"],
-            "console": "integratedTerminal",
-            "python": "${workspaceFolder}/venv/bin/python",
-            "cwd": "${workspaceFolder}",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            }
-        },
-        {
-            "name": "Calendar Bot - Setup Mode",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "args": ["--setup"],
-            "console": "integratedTerminal",
-            "python": "${workspaceFolder}/venv/bin/python",
-            "cwd": "${workspaceFolder}",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            }
-        },
-        {
-            "name": "Calendar Bot - Console Mode",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "console": "integratedTerminal",
-            "python": "${workspaceFolder}/venv/bin/python",
-            "cwd": "${workspaceFolder}",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            }
-        },
-        {
-            "name": "Calendar Bot - Debug Mode",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "args": ["--debug"],
-            "console": "integratedTerminal",
-            "python": "${workspaceFolder}/venv/bin/python",
-            "cwd": "${workspaceFolder}",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            }
-        },
-        {
             "type": "node",
             "name": "Debug Jest Tests",
             "request": "launch",

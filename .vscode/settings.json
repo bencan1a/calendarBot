@@ -26,5 +26,6 @@
         "sh": {
             "path": "/usr/bin/bash"
         }
-    }
+    },
+    "testing.coverageToolbarEnabled": true
 }

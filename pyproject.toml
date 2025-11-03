@@ -408,6 +408,8 @@ omit = [
     "setup.py",
     "manage.py",
     "format_and_stage.py",
+    # Exclude archived calendarbot directory (deprecated - use calendarbot_lite)
+    "calendarbot/*",
 ]
 
 [tool.coverage.report]

@@ -1,5 +1,9 @@
 # Debug Mode Rules (Non-Obvious Only)
 
+## File Organization
+- **Debug Scripts**: ALL temporary debugging scripts go in `tmp/` (gitignored, not `/scripts/`)
+- **Test Artifacts**: Temporary test files go in `tmp/` (not root directory)
+
 ## Environment Variables
 - **CALENDARBOT_DEBUG=true**: Forces DEBUG logging without code changes - use this first
 - **Module Imports**: If imports fail, usually means venv not activated - check this before debugging code
