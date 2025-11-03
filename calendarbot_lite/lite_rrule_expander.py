@@ -560,7 +560,7 @@ class LiteRRuleExpander(RRuleWorkerPool):
                 excluded_datetimes.add(exdate)
             except Exception as e:
                 logger.warning(f"Failed to parse EXDATE {exdate_str}: {e}")
-                continue
+                continue  # nosec B112 - skip malformed EXDATE, logged above
 
         # Filter out excluded datetimes with tolerance for minor time differences
         filtered_occurrences = []
@@ -889,7 +889,7 @@ class RRuleOrchestrator:
                         exdate_str = str(exdate)
                         exdates.extend([q.strip() for q in exdate_str.split(",") if q.strip()])
                 except Exception:
-                    continue
+                    continue  # nosec B112 - skip malformed EXDATE values
 
         # Add RECURRENCE-ID instances to exdates to exclude them from normal expansion
         for event in events:
@@ -1029,6 +1029,6 @@ class RRuleOrchestrator:
                 expanded_instances.append(inst)
             except Exception:
                 # Defensive: skip malformed instances
-                continue
+                continue  # nosec B112 - skip malformed expanded instances
 
         return expanded_instances

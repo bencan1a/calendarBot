@@ -221,7 +221,7 @@ class LiteEventComponentParser:
             if props:
                 exdate_props.extend(props)
         except Exception:
-            pass
+            pass  # nosec B110 - graceful degradation for different calendar formats
 
         # Fallback: dict-like access component["EXDATE"]
         if not exdate_props and "EXDATE" in component:
@@ -233,7 +233,7 @@ class LiteEventComponentParser:
                 else:
                     exdate_props.append(val)
             except Exception:
-                pass
+                pass  # nosec B110 - graceful degradation for different calendar formats
 
         # Last resort: scan property items for keys equal to EXDATE (case-insensitive)
         if not exdate_props:
@@ -254,7 +254,7 @@ class LiteEventComponentParser:
                             else:
                                 exdate_props.append(val)
                 except Exception:
-                    pass
+                    pass  # nosec B110 - graceful degradation for different calendar formats
 
         return exdate_props
 

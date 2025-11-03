@@ -125,7 +125,7 @@ async def measure_connection_reuse_benefit() -> dict[str, Any]:
                 # This will create a new client each time
                 pass
         except Exception:
-            pass  # Ignore errors for timing measurement
+            pass  # nosec B110 - ignore errors for timing measurement
 
         elapsed = time.time() - start_time
         individual_times.append(elapsed)
@@ -156,7 +156,7 @@ async def measure_connection_reuse_benefit() -> dict[str, Any]:
                     # This will reuse the shared client
                     pass
             except Exception:
-                pass  # Ignore errors for timing measurement
+                pass  # nosec B110 - ignore errors for timing measurement
 
             elapsed = time.time() - start_time
             shared_times.append(elapsed)
@@ -243,7 +243,7 @@ async def wait_for_server_refresh(server_port: int, timeout: int = 30) -> bool:
                         return True
             except Exception:
                 # Server not ready yet
-                pass
+                pass  # nosec B110 - polling for server readiness
             await asyncio.sleep(0.5)
 
     logger.warning("Server did not become ready within %d seconds", timeout)
@@ -625,7 +625,7 @@ async def fetch_phase(
                 except Exception:
                     bytes_hint = None
     except Exception:
-        pass
+        pass  # nosec B110 - best effort content-length extraction
     # Memory tracking removed to fix linting
     return resp, elapsed, bytes_hint
 
@@ -934,7 +934,7 @@ async def run_scenario(
 
         # Need to check if calendarbot_lite can be imported and run
         try:
-            import subprocess
+            import subprocess  # nosec B404 - legitimate use for benchmark testing
 
             # Generate expected events for validation
             expected_events = generate_expected_event_data(name, bool(total_recurring))
@@ -996,7 +996,7 @@ async def run_scenario(
                         lite_process.kill()
                         lite_process.wait(timeout=2)
                     except Exception:
-                        pass
+                        pass  # nosec B110 - best effort process cleanup
 
                 # No config file cleanup needed when using environment variables
 
@@ -1047,7 +1047,7 @@ async def http_probe_loop(base: str, interval_s: float = 0.5, duration_s: float 
                 async with sess.get(url, timeout=2) as resp:
                     _ = await resp.text()
             except Exception:
-                pass
+                pass  # nosec B110 - stress testing, ignore individual failures
             await asyncio.sleep(interval_s)
 
 

@@ -197,7 +197,7 @@ def register_api_routes(
                 config, skipped_store, event_window_ref, window_lock, shared_http_client
             )
             logger.debug("Refreshed event cache after clearing %d skipped meetings", count)
-        except Exception:
+        except Exception:  # nosec B110 - error logged and handled below
             logger.exception("Failed to refresh cache after clearing skips")
             return web.json_response(
                 {"error": "cleared skips but failed to refresh cache"}, status=500

@@ -82,7 +82,7 @@ class ResponseCache:
         param_str = json.dumps(params, sort_keys=True)
         # MD5 is used here for speed, not security - cache keys don't need
         # cryptographic properties, just collision resistance for deduplication
-        param_hash = hashlib.md5(param_str.encode()).hexdigest()
+        param_hash = hashlib.md5(param_str.encode(), usedforsecurity=False).hexdigest()
         return f"{handler_name}:{self.current_window_version}:{param_hash}"
 
     def get(self, key: str) -> Optional[dict[str, Any]]:

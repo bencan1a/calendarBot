@@ -79,7 +79,7 @@ def _create_ipv4_transport(limits: httpx.Limits) -> httpx.AsyncHTTPTransport:
     return httpx.AsyncHTTPTransport(
         limits=limits,
         # Force IPv4 resolution by binding to IPv4 address
-        local_address="0.0.0.0",
+        local_address="0.0.0.0",  # nosec B104 - intentional IPv4 binding for client
     )
 
 

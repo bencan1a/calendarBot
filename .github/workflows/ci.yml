@@ -50,20 +50,23 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        . venv/bin/activate
+        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout ruff mypy bandit
 
     - name: Verify cache restoration
       run: |
-        . venv/bin/activate
+        # venv/bin/python handles activation
         python --version
         pip --version
 
+    - name: Install package in editable mode
+      run: |
+        venv/bin/pip install -e .
+
     - name: Run critical path tests
       run: |
-        . venv/bin/activate
-        python tests/ci_test_runner.py --critical-path
+        venv/bin/python tests/ci_test_runner.py --critical-path
 
     - name: Upload coverage reports (critical path)
       uses: codecov/codecov-action@v4
@@ -109,24 +112,22 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        . venv/bin/activate
+        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt ruff mypy bandit types-pytz types-python-dateutil
 
-    - name: Run linting
+    - name: Install package in editable mode
       run: |
-        . venv/bin/activate
-        python tests/ci_test_runner.py --lint
+        venv/bin/pip install -e .
+
+    - name: Run linting
+      run: venv/bin/python tests/ci_test_runner.py --lint
 
     - name: Run type checking
-      run: |
-        . venv/bin/activate
-        python tests/ci_test_runner.py --type-check
+      run: venv/bin/python tests/ci_test_runner.py --type-check
 
     - name: Run security analysis
-      run: |
-        . venv/bin/activate
-        python tests/ci_test_runner.py --security
+      run: venv/bin/python tests/ci_test_runner.py --security
 
   # Full test suite (only on pull requests and main branch)
   full-tests:
@@ -166,19 +167,19 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        . venv/bin/activate
+        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout
 
     - name: Run full test suite
       run: |
-        . venv/bin/activate
-        python tests/ci_test_runner.py --full-regression
+        # venv/bin/python handles activation
+        venv/bin/python tests/ci_test_runner.py --full-regression
 
     - name: Generate coverage report
       run: |
-        . venv/bin/activate
-        python tests/ci_test_runner.py --coverage-report
+        # venv/bin/python handles activation
+        venv/bin/python tests/ci_test_runner.py --coverage-report
 
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4
@@ -238,14 +239,14 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        . venv/bin/activate
+        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt
 
     - name: Run Pi Zero2 performance gate (50 events)
       run: |
-        . venv/bin/activate
-        python tests/ci_performance_benchmark.py --run fifty --output pi_zero_perf_check.json
+        # venv/bin/python handles activation
+        venv/bin/python tests/ci_performance_benchmark.py --run fifty --output pi_zero_perf_check.json
 
     - name: Upload Pi Zero2 performance results
       uses: actions/upload-artifact@v4
@@ -293,19 +294,19 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        . venv/bin/activate
+        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt pytest pytest-asyncio pytest-cov
 
     - name: Validate coverage threshold
       run: |
-        . venv/bin/activate
-        python tests/ci_test_runner.py --coverage --coverage-fail-under ${{ env.COVERAGE_THRESHOLD }}
+        # venv/bin/python handles activation
+        venv/bin/python tests/ci_test_runner.py --coverage --coverage-fail-under ${{ env.COVERAGE_THRESHOLD }}
 
     - name: Coverage differential analysis
       run: |
-        . venv/bin/activate
-        python tests/ci_test_runner.py --coverage-diff
+        # venv/bin/python handles activation
+        venv/bin/python tests/ci_test_runner.py --coverage-diff
 
   # Security tests (always run on PRs)
   security:
@@ -343,14 +344,14 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        . venv/bin/activate
+        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt bandit
 
     - name: Run security tests
       run: |
-        . venv/bin/activate
-        python tests/ci_test_runner.py --security
+        # venv/bin/python handles activation
+        venv/bin/python tests/ci_test_runner.py --security
 
   # Deployment readiness check
   deployment-check:
@@ -390,14 +391,14 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        . venv/bin/activate
+        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -r requirements.txt
 
     - name: Validate calendarbot_lite startup
       run: |
-        . venv/bin/activate
-        timeout 30 python -m calendarbot_lite --help || true
+        # venv/bin/python handles activation
+        timeout 30 venv/bin/python -m calendarbot_lite --help || true
 
     - name: Upload deployment artifacts
       uses: actions/upload-artifact@v4
