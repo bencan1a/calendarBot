@@ -297,8 +297,17 @@ async def test_done_for_day_precompute_no_meetings():
 async def test_precompute_pipeline_integration():
     """Test the full precomputation pipeline."""
     now = datetime.datetime.now(datetime.timezone.utc)
-    future_time = now + datetime.timedelta(hours=1)
+
+    # Try to schedule meeting at 2 PM today, or if that's passed, 1 hour from now
+    future_time = now.replace(hour=14, minute=0, second=0, microsecond=0)
+    if future_time < now:
+        future_time = now + datetime.timedelta(hours=1)
     end_time = future_time + datetime.timedelta(minutes=30)
+
+    # Determine if meeting ends today (for done-for-day assertion)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow_start = today_start + datetime.timedelta(days=1)
+    meeting_ends_today = end_time < tomorrow_start
 
     # Create test event
     event = create_test_event("Important Meeting", future_time, end_time)
@@ -338,4 +347,4 @@ async def test_precompute_pipeline_integration():
 
     # Verify done for day response
     done_for_day_response = responses["DoneForDayHandler:UTC"]
-    assert done_for_day_response["has_meetings_today"] is True
+    assert done_for_day_response["has_meetings_today"] is meeting_ends_today

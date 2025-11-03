@@ -24,9 +24,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business :: Scheduling",
     "Topic :: System :: Hardware",
@@ -45,7 +42,7 @@ keywords = [
     "web-interface",
     "async"
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "icalendar>=5.0.0",
     "httpx>=0.25.0",
@@ -260,6 +257,7 @@ warn_unreachable = true
 strict_equality = true
 explicit_package_bases = true
 # Exclude build artifacts, test files, and utility scripts from strict type checking
+# Also exclude the archived calendarbot/ directory (active project is calendarbot_lite/)
 exclude = [
     "venv/",
     ".venv/",
@@ -268,7 +266,7 @@ exclude = [
     "tests/",
     "backup/",
     "scripts/",
-    "calendarbot/display/epaper/drivers/"
+    "calendarbot/"
 ]
 
 [[tool.mypy.overrides]]
