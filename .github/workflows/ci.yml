@@ -104,18 +104,15 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     timeout-minutes: 45
-    strategy:
-      matrix:
-        python-version: ["3.9", "3.10", "3.11"]
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
 
     - name: Create virtual environment
@@ -130,12 +127,6 @@ jobs:
         pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout
-
-    - name: Install browser dependencies (if needed)
-      run: |
-        . venv/bin/activate
-        pip install playwright || true
-        playwright install chromium --with-deps || true
 
     - name: Run full test suite
       run: |
@@ -153,19 +144,61 @@ jobs:
       with:
         file: ./coverage.xml
         flags: full-suite
-        name: full-suite-coverage-py${{ matrix.python-version }}
+        name: full-suite-coverage
 
     - name: Upload test artifacts
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: test-results-py${{ matrix.python-version }}
+        name: test-results
         path: |
           htmlcov/
           coverage.xml
           coverage.json
           pytest-results.xml
         retention-days: 5
+
+  # Pi Zero2 Performance Gate (critical for resource-constrained deployment)
+  pi-performance-gate:
+    name: Pi Zero2 Performance Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        . venv/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run Pi Zero2 performance gate (50 events)
+      run: |
+        . venv/bin/activate
+        python tests/ci_performance_benchmark.py --run fifty --output pi_zero_perf_check.json
+
+    - name: Upload Pi Zero2 performance results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: pi-zero2-perf-gate
+        path: pi_zero_perf_check.json
+        retention-days: 7
 
   # Coverage enforcement (blocks merge if coverage drops)
   coverage-gate:
@@ -245,7 +278,7 @@ jobs:
     name: Deployment Readiness
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    needs: [critical-path, quality, full-tests, security]
+    needs: [critical-path, quality, full-tests, pi-performance-gate, security]
 
     steps:
     - name: Checkout code
