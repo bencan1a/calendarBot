@@ -143,7 +143,7 @@ class LiteICSFetcher:
             limits = httpx.Limits(max_connections=10, max_keepalive_connections=5)
             transport = httpx.AsyncHTTPTransport(
                 limits=limits,
-                local_address="0.0.0.0",  # Force IPv4 binding
+                local_address="0.0.0.0",  # nosec B104 - intentional IPv4 binding for client
             )
 
             self.client = httpx.AsyncClient(
@@ -390,7 +390,7 @@ class LiteICSFetcher:
             base_backoff = min(base_backoff * 2, MAX_BACKOFF_SECONDS)
 
         # Add jitter to prevent thundering herd
-        jitter = random.uniform(JITTER_MIN_FACTOR, JITTER_MAX_FACTOR) * base_backoff
+        jitter = random.uniform(JITTER_MIN_FACTOR, JITTER_MAX_FACTOR) * base_backoff  # nosec B311 - jitter not cryptographic
         return base_backoff + jitter
 
     async def _make_request_with_retry(

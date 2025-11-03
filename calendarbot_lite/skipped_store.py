@@ -106,7 +106,7 @@ class SkippedStore:
                     store[k] = expiry
                 except Exception:
                     # skip malformed entries
-                    continue
+                    continue  # nosec B112 - skip malformed entries in persisted store
 
             self._store = store
             logger.debug(
@@ -148,7 +148,7 @@ class SkippedStore:
                 if tmp_path and tmp_path.exists():
                     tmp_path.unlink()
             except Exception:
-                pass
+                pass  # nosec B110 - best effort cleanup of temp file
 
     def add_skip(self, meeting_id: str) -> str:
         """Add meeting_id with expiry 24 hours from now and persist.

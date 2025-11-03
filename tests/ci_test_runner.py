@@ -46,9 +46,10 @@ def run_lint() -> int:
 def run_type_check() -> int:
     """Run type checking."""
     print("Running type checking...")
-    
-    # Focus on calendarbot_lite
-    cmd = "mypy calendarbot_lite/ --ignore-missing-imports"
+
+    # Focus on calendarbot_lite only
+    # Archived calendarbot/ directory is excluded via pyproject.toml configuration
+    cmd = "mypy calendarbot_lite/ --no-error-summary"
     return run_command(cmd, "Type Checking with MyPy")
 
 
