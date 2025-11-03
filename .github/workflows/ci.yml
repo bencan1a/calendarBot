@@ -111,7 +111,7 @@ jobs:
       run: |
         . venv/bin/activate
         pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -r requirements.txt ruff mypy bandit
+        pip install --prefer-binary -r requirements.txt ruff mypy bandit types-pytz types-python-dateutil
 
     - name: Run linting
       run: |
