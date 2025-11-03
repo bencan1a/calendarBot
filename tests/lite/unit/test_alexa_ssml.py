@@ -1,24 +1,21 @@
 """Tests for calendarbot_lite.alexa_ssml module."""
 
-import logging
 from unittest.mock import patch
 
 import pytest
 
 from calendarbot_lite.alexa_ssml import (
     DEFAULT_CONFIG,
-    URGENCY_FAST_THRESHOLD,
-    URGENCY_STANDARD_THRESHOLD,
-    render_meeting_ssml,
-    render_time_until_ssml,
-    render_done_for_day_ssml,
-    validate_ssml,
     _basic_tag_balance_check,
     _compose_fragments,
     _escape_text_for_ssml,
     _select_urgency,
     _should_include_duration,
     _truncate_title,
+    render_done_for_day_ssml,
+    render_meeting_ssml,
+    render_time_until_ssml,
+    validate_ssml,
 )
 
 pytestmark = pytest.mark.unit
@@ -493,7 +490,7 @@ class TestRenderTimeUntilSsml:
         assert result is not None
         assert "45 seconds" in result
 
-        # Test minutes  
+        # Test minutes
         result = render_time_until_ssml(120)
         assert result is not None
         assert "2 minute" in result
@@ -576,12 +573,8 @@ class TestSsmlPerformanceConstraints:
     def test_template_constants_are_efficient(self):
         """Test that SSML templates are pre-defined for efficiency."""
         from calendarbot_lite.alexa_ssml import (
-            BREAK,
-            EMPHASIS_MODERATE,
-            EMPHASIS_REDUCED,
             EMPHASIS_STRONG,
             PROSODY,
-            PROSODY_RATE,
             WRAP_SPEAK,
         )
         

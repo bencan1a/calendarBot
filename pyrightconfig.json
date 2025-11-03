@@ -1,10 +1,12 @@
 {
     "include": [
-        "calendarbot"
+        "calendarbot_lite",
+        "tests/lite"
     ],
     "exclude": [
-        "calendarbot/display/epaper/drivers",
+        "calendarbot",
         "scripts",
+        "calendarbot_lite/scripts",
         "**/__pycache__",
         "**/.pytest_cache",
         "**/node_modules",

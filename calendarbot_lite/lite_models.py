@@ -6,8 +6,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-# Import the central datetime override function
-from .server import _now_utc
+# Import the central datetime override function from timezone_utils
+from .timezone_utils import now_utc as _now_utc
 
 
 class LiteAuthType(str, Enum):

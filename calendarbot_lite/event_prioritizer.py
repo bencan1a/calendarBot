@@ -7,9 +7,11 @@ import logging
 from enum import Enum
 from typing import Any
 
+from .lite_models import LiteCalendarEvent
+
 logger = logging.getLogger(__name__)
 
-# Type alias for event dictionaries
+# Type alias for backwards compatibility (deprecated - use LiteCalendarEvent)
 EventDict = dict[str, Any]
 
 
@@ -35,10 +37,10 @@ class EventPrioritizer:
 
     def find_next_event(
         self,
-        events: tuple[EventDict, ...],
+        events: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
         skipped_store: object | None,
-    ) -> tuple[EventDict, int] | None:
+    ) -> tuple[LiteCalendarEvent, int] | None:
         """Find the next event to show, applying prioritization logic.
 
         Business rules:
@@ -48,19 +50,19 @@ class EventPrioritizer:
         4. If multiple events occur at similar time (within 30 min), prioritize business over lunch
 
         Args:
-            events: Tuple of event dictionaries
+            events: Tuple of LiteCalendarEvent objects
             now: Current time
             skipped_store: Optional skipped store
 
         Returns:
             Tuple of (event, seconds_until) or None if no events found
         """
-        candidate_events: list[tuple[EventDict, int]] = []
+        candidate_events: list[tuple[LiteCalendarEvent, int]] = []
 
         for i, ev in enumerate(events):
-            logger.debug(" Checking event %d - ID: %r, Start: %r", i, ev.get("meeting_id"), ev.get("start"))
+            logger.debug(" Checking event %d - ID: %r, Start: %r", i, ev.id, ev.start.date_time)
 
-            start = ev.get("start")
+            start = ev.start.date_time
             if not isinstance(start, datetime.datetime):
                 continue
 
@@ -72,7 +74,7 @@ class EventPrioritizer:
 
             # Skip focus time events
             if self.is_focus_time_event(ev):
-                logger.debug("Skipping focus time event: %r", ev.get("subject"))
+                logger.debug("Skipping focus time event: %r", ev.subject)
                 continue
 
             # Skip user-skipped events
@@ -93,11 +95,11 @@ class EventPrioritizer:
 
         return None
 
-    def _is_skipped(self, event: EventDict, skipped_store: object | None) -> bool:
+    def _is_skipped(self, event: LiteCalendarEvent, skipped_store: object | None) -> bool:
         """Check if event is skipped by user.
 
         Args:
-            event: Event dictionary
+            event: LiteCalendarEvent object
             skipped_store: Optional skipped store
 
         Returns:
@@ -111,16 +113,17 @@ class EventPrioritizer:
             return False
 
         try:
-            return is_skipped_fn(event["meeting_id"])
+            result = is_skipped_fn(event.id)
+            return bool(result)
         except Exception as e:
             logger.warning("skipped_store.is_skipped raised: %s", e)
             return False
 
     def _apply_priority_logic(
         self,
-        candidate_events: list[tuple[EventDict, int]],
+        candidate_events: list[tuple[LiteCalendarEvent, int]],
         current_seconds_until: int,
-    ) -> tuple[EventDict, int] | None:
+    ) -> tuple[LiteCalendarEvent, int] | None:
         """Apply prioritization logic when multiple events occur at similar time.
 
         Args:
@@ -152,10 +155,10 @@ class EventPrioritizer:
 
             if category == EventCategory.LUNCH:
                 lunch_events.append((cand_ev, cand_seconds))
-                logger.debug(f"PRIORITY: Categorized as lunch event: {cand_ev.get('subject', '')}")
+                logger.debug(f"PRIORITY: Categorized as lunch event: {cand_ev.subject or ''}")
             else:
                 business_events.append((cand_ev, cand_seconds))
-                logger.debug(f"PRIORITY: Categorized as business event: {cand_ev.get('subject', '')}")
+                logger.debug(f"PRIORITY: Categorized as business event: {cand_ev.subject or ''}")
 
         # Prioritize business events over lunch
         if business_events:
@@ -170,16 +173,16 @@ class EventPrioritizer:
         logger.debug("PRIORITY: No business events found, using first available")
         return selected_ev, selected_seconds
 
-    def _categorize_event(self, event: EventDict) -> EventCategory:
+    def _categorize_event(self, event: LiteCalendarEvent) -> EventCategory:
         """Categorize event as business or lunch.
 
         Args:
-            event: Event dictionary
+            event: LiteCalendarEvent object
 
         Returns:
             EventCategory enum value
         """
-        subject = event.get("subject", "").lower()
+        subject = (event.subject or "").lower()
 
         # Check for generic lunch events (short subject containing "lunch")
         if "lunch" in subject and len(subject) <= 10:

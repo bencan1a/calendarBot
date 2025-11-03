@@ -150,7 +150,11 @@ class TestAlexaSsmlIntegration:
     def test_alexa_ssml_module_imports_correctly(self):
         """Test that SSML module can be imported."""
         try:
-            from calendarbot_lite.alexa_ssml import render_meeting_ssml, render_time_until_ssml, validate_ssml
+            from calendarbot_lite.alexa_ssml import (
+                render_meeting_ssml,
+                render_time_until_ssml,
+                validate_ssml,
+            )
             assert render_meeting_ssml is not None
             assert render_time_until_ssml is not None
             assert validate_ssml is not None
@@ -206,8 +210,9 @@ class TestAlexaSsmlIntegration:
 
     def test_ssml_performance_constraints_integration(self):
         """Test SSML generation meets performance constraints."""
-        from calendarbot_lite.alexa_ssml import render_meeting_ssml, render_time_until_ssml
         import time
+
+        from calendarbot_lite.alexa_ssml import render_meeting_ssml
         
         # Test data for performance measurement
         meeting_data = {
@@ -254,7 +259,7 @@ class TestAlexaSsmlIntegration:
 
     def test_urgency_mapping_integration(self):
         """Test urgency-based SSML generation across time thresholds."""
-        from calendarbot_lite.alexa_ssml import render_meeting_ssml, _select_urgency
+        from calendarbot_lite.alexa_ssml import _select_urgency, render_meeting_ssml
         
         # Test urgency threshold boundaries
         test_cases = [
@@ -287,7 +292,7 @@ class TestAlexaSsmlIntegration:
 
     def test_special_character_escaping_integration(self):
         """Test that special characters are properly escaped in SSML output."""
-        from calendarbot_lite.alexa_ssml import render_meeting_ssml, _escape_text_for_ssml
+        from calendarbot_lite.alexa_ssml import _escape_text_for_ssml, render_meeting_ssml
         
         # Test characters that need escaping
         special_chars_test = {
@@ -340,7 +345,7 @@ class TestAlexaSsmlIntegration:
 
     def test_title_truncation_integration(self):
         """Test title truncation functionality in SSML generation."""
-        from calendarbot_lite.alexa_ssml import render_meeting_ssml, _truncate_title
+        from calendarbot_lite.alexa_ssml import _truncate_title, render_meeting_ssml
         
         # Test word boundary truncation
         long_title = "Very Long Meeting Title That Should Be Truncated At Word Boundaries"
@@ -364,7 +369,11 @@ class TestAlexaSsmlIntegration:
 
     def test_validation_integration_with_generated_ssml(self):
         """Test that generated SSML passes validation checks."""
-        from calendarbot_lite.alexa_ssml import render_meeting_ssml, render_time_until_ssml, validate_ssml
+        from calendarbot_lite.alexa_ssml import (
+            render_meeting_ssml,
+            render_time_until_ssml,
+            validate_ssml,
+        )
         
         # Test various meeting scenarios generate valid SSML
         test_meetings = [

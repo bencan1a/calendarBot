@@ -1,9 +1,10 @@
 """Unit tests for health_tracker module."""
 
 import time
+
 import pytest
 
-from calendarbot_lite.health_tracker import HealthStatus, HealthTracker
+from calendarbot_lite.health_tracker import HealthTracker
 
 pytestmark = pytest.mark.unit
 
@@ -89,6 +90,7 @@ class TestHealthTracker:
         status = self.tracker.get_health_status(current_iso)
 
         assert status.status == "degraded"
+        assert status.last_refresh_success_age_seconds is not None
         assert status.last_refresh_success_age_seconds > 900  # More than 15 minutes
 
     def test_get_health_status_background_tasks(self):

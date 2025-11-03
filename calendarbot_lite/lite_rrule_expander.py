@@ -738,9 +738,8 @@ class RRuleOrchestrator:
         )
 
         # Phase 3: Execute async RRULE expansion
-        expanded_events = self._execute_expansion(candidates)
+        return self._execute_expansion(candidates)
 
-        return expanded_events
 
     def _build_component_and_event_maps(
         self,
@@ -990,7 +989,7 @@ class RRuleOrchestrator:
         Returns:
             List of expanded event instances
         """
-        expanded_instances = []
+        expanded_instances: list[dict[str, Any]] = []
 
         if not candidates:
             return expanded_instances

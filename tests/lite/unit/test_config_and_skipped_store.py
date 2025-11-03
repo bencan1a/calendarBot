@@ -9,6 +9,7 @@ Run with:
 
 import json
 from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from calendarbot_lite.skipped_store import SkippedStore

@@ -8,10 +8,13 @@ into an EventProcessingPipeline for flexible event processing.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .lite_models import LiteCalendarEvent
-from .pipeline import EventProcessor, ProcessingContext, ProcessingResult
+from .pipeline import ProcessingContext, ProcessingResult
+
+if TYPE_CHECKING:
+    from .pipeline import EventProcessingPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -445,7 +448,7 @@ class ExpansionStage:
             # Use existing RRULE expansion logic from parser
             # The parser's _expand_recurring_events needs both events and raw components
             if hasattr(self.parser, '_expand_recurring_events'):
-                expanded = self.parser._expand_recurring_events(
+                expanded = self.parser._expand_recurring_events(  # noqa: SLF001
                     context.events,
                     context.raw_components
                 )
@@ -525,7 +528,7 @@ class SortStage:
 
 # Example pipeline factory functions:
 
-def create_basic_pipeline() -> "EventProcessingPipeline":
+def create_basic_pipeline() -> EventProcessingPipeline:
     """Create a basic post-processing pipeline for already-parsed events.
 
     This pipeline handles deduplication, filtering, windowing, and limiting
@@ -549,7 +552,7 @@ def create_basic_pipeline() -> "EventProcessingPipeline":
     return pipeline
 
 
-def create_complete_pipeline(parser: Any) -> "EventProcessingPipeline":
+def create_complete_pipeline(parser: Any) -> EventProcessingPipeline:
     """Create a complete event processing pipeline.
 
     This pipeline handles the full event processing flow:

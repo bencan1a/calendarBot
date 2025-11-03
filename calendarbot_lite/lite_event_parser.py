@@ -59,103 +59,26 @@ class LiteEventComponentParser:
             Parsed LiteCalendarEvent or None if parsing fails
         """
         try:
-            # Required properties
-            uid = str(component.get("UID", str(uuid.uuid4())))
-            summary = str(component.get("SUMMARY", "No Title"))
+            # Extract basic properties
+            basic_props = self._extract_basic_properties(component)
 
-            # Time information
-            dtstart = component.get("DTSTART")
-            dtend = component.get("DTEND")
-
-            if not dtstart:
-                logger.warning(f"Event {uid} missing DTSTART, skipping")
+            # Parse event times
+            try:
+                start_info, end_info = self._parse_event_times(component, default_timezone)
+            except ValueError as e:
+                logger.warning(f"Event {basic_props['uid']} {e}, skipping")
                 return None
-
-            # Parse start time
-            start_dt = self.datetime_parser.parse_datetime(dtstart, default_timezone)
-            start_info = LiteDateTimeInfo(
-                date_time=start_dt,
-                time_zone=str(start_dt.tzinfo) if start_dt.tzinfo else "UTC",
-            )
-
-            # Parse end time
-            if dtend:
-                end_dt = self.datetime_parser.parse_datetime(dtend, default_timezone)
-            else:
-                # Use duration if available, otherwise default to 1 hour
-                duration = component.get("DURATION")
-                if duration and hasattr(duration, "dt"):
-                    end_dt = start_dt + duration.dt
-                else:
-                    end_dt = start_dt + timedelta(hours=1)
-
-            end_info = LiteDateTimeInfo(
-                date_time=end_dt,
-                time_zone=str(end_dt.tzinfo) if end_dt.tzinfo else "UTC",
-            )
 
             # Event status and visibility
             status = self._parse_status(component.get("STATUS"))
             transp = component.get("TRANSP", "OPAQUE")
-
             show_as = self._map_transparency_to_status(transp, status, component)
 
-            # All-day events
-            is_all_day = not hasattr(dtstart.dt, "hour")
+            # Extract attendee info
+            attendee_info = self._extract_attendee_info(component)
 
-            # Description
-            description = component.get("DESCRIPTION")
-            body_preview = None
-            if description:
-                body_preview = str(description)[:200]  # Truncate for preview
-
-            # Location
-            location = None
-            location_str = component.get("LOCATION")
-            if location_str:
-                location = LiteLocation(display_name=str(location_str))
-
-            # Organizer and attendees
-            organizer = component.get("ORGANIZER")
-            is_organizer = False
-
-            if organizer and hasattr(self.settings, "user_email"):
-                # Enhanced organizer detection - check if organizer email matches user
-                organizer_str = str(organizer).replace("mailto:", "").strip().lower()
-                user_email = str(self.settings.user_email).strip().lower()
-                is_organizer = (organizer_str == user_email)
-            elif organizer:
-                # Fallback: if no user_email in settings, assume not organizer
-                # (more conservative than always True)
-                is_organizer = False
-
-            # Parse attendees using the dedicated parser
-            attendees = self.attendee_parser.parse_attendees(component)
-
-            # Recurrence
-            rrule_prop = component.get("RRULE")
-            is_recurring = rrule_prop is not None
-
-            # RFC 5545 RECURRENCE-ID detection for Microsoft ICS bug
-            # When a recurring instance is moved, the original slot should be excluded
-            recurrence_id_raw = component.get("RECURRENCE-ID")
-
-            # Convert RECURRENCE-ID to string properly (fix for icalendar object bug)
-            if recurrence_id_raw is not None:
-                if hasattr(recurrence_id_raw, "to_ical"):
-                    # icalendar object - convert to iCal format then decode
-                    recurrence_id = recurrence_id_raw.to_ical().decode("utf-8")
-                else:
-                    # Already a string or other type - convert to string
-                    recurrence_id = str(recurrence_id_raw)
-            else:
-                recurrence_id = None
-
-            # Check if this event should be excluded due to EXDATE
-            # Use the defensive collector to handle getall(), dict-like access, and param-preserving props
-            exdate_props = self._collect_exdate_props(component)
-            if not isinstance(exdate_props, list):
-                exdate_props = [exdate_props] if exdate_props else []
+            # Extract recurrence info
+            recurrence_info = self._extract_recurrence_info(component)
 
             # Additional metadata
             created = self.datetime_parser.parse_datetime_optional(component.get("CREATED"))
@@ -164,23 +87,25 @@ class LiteEventComponentParser:
             )
 
             # Online meeting detection (Microsoft-specific)
-            is_online_meeting, online_meeting_url = self._detect_online_meeting(description)
+            is_online_meeting, online_meeting_url = self._detect_online_meeting(
+                basic_props["description"]
+            )
 
             # Create LiteCalendarEvent
             calendar_event = LiteCalendarEvent(
-                id=uid,
-                subject=summary,
-                body_preview=body_preview,
+                id=basic_props["uid"],
+                subject=basic_props["summary"],
+                body_preview=basic_props["body_preview"],
                 start=start_info,
                 end=end_info,
-                is_all_day=is_all_day,
+                is_all_day=basic_props["is_all_day"],
                 show_as=show_as,
                 is_cancelled=status == "CANCELLED",
-                is_organizer=is_organizer,
-                location=location,
-                attendees=attendees if attendees else None,
-                is_recurring=is_recurring,
-                recurrence_id=recurrence_id,
+                is_organizer=attendee_info["is_organizer"],
+                location=basic_props["location"],
+                attendees=attendee_info["attendees"],
+                is_recurring=recurrence_info["is_recurring"],
+                recurrence_id=recurrence_info["recurrence_id"],
                 created_date_time=created,
                 last_modified_date_time=last_modified,
                 is_online_meeting=is_online_meeting,
@@ -191,7 +116,11 @@ class LiteEventComponentParser:
             # helpers (debug scripts and expanders) can discover RRULEs directly
             # from the parsed event object. This is defensive and preserves the
             # existing expansion flow which may use raw components in other codepaths.
-            self._attach_rrule_metadata(calendar_event, rrule_prop, exdate_props)
+            self._attach_rrule_metadata(
+                calendar_event,
+                recurrence_info["rrule_prop"],
+                recurrence_info["exdate_props"],
+            )
 
         except Exception:
             logger.exception("Failed to parse event component")
@@ -430,3 +359,164 @@ class LiteEventComponentParser:
         except Exception:
             # Non-fatal: expansion code will fall back to raw component mapping if needed
             logger.debug("Failed to attach rrule/exdate metadata to parsed event", exc_info=True)
+
+    def _extract_basic_properties(self, component: ICalEvent) -> dict[str, Any]:
+        """Extract basic event properties from component.
+
+        Args:
+            component: iCalendar VEVENT component
+
+        Returns:
+            Dictionary with basic properties: uid, summary, description, body_preview,
+            location, is_all_day
+        """
+        uid = str(component.get("UID", str(uuid.uuid4())))
+        summary = str(component.get("SUMMARY", "No Title"))
+
+        # Description
+        description = component.get("DESCRIPTION")
+        body_preview = None
+        if description:
+            body_preview = str(description)[:200]  # Truncate for preview
+
+        # Location
+        location = None
+        location_str = component.get("LOCATION")
+        if location_str:
+            location = LiteLocation(display_name=str(location_str))
+
+        # All-day events
+        dtstart = component.get("DTSTART")
+        is_all_day = False
+        if dtstart:
+            is_all_day = not hasattr(dtstart.dt, "hour")
+
+        return {
+            "uid": uid,
+            "summary": summary,
+            "description": description,
+            "body_preview": body_preview,
+            "location": location,
+            "is_all_day": is_all_day,
+        }
+
+    def _parse_event_times(
+        self,
+        component: ICalEvent,
+        default_timezone: Optional[str],
+    ) -> tuple[LiteDateTimeInfo, LiteDateTimeInfo]:
+        """Parse event start and end times from component.
+
+        Args:
+            component: iCalendar VEVENT component
+            default_timezone: Default timezone for the calendar
+
+        Returns:
+            Tuple of (start_info, end_info) as LiteDateTimeInfo objects
+
+        Raises:
+            ValueError: If DTSTART is missing
+        """
+        # Time information
+        dtstart = component.get("DTSTART")
+        dtend = component.get("DTEND")
+
+        if not dtstart:
+            raise ValueError("Event missing DTSTART")
+
+        # Parse start time
+        start_dt = self.datetime_parser.parse_datetime(dtstart, default_timezone)
+        start_info = LiteDateTimeInfo(
+            date_time=start_dt,
+            time_zone=str(start_dt.tzinfo) if start_dt.tzinfo else "UTC",
+        )
+
+        # Parse end time
+        if dtend:
+            end_dt = self.datetime_parser.parse_datetime(dtend, default_timezone)
+        else:
+            # Use duration if available, otherwise default to 1 hour
+            duration = component.get("DURATION")
+            if duration and hasattr(duration, "dt"):
+                end_dt = start_dt + duration.dt
+            else:
+                end_dt = start_dt + timedelta(hours=1)
+
+        end_info = LiteDateTimeInfo(
+            date_time=end_dt,
+            time_zone=str(end_dt.tzinfo) if end_dt.tzinfo else "UTC",
+        )
+
+        return start_info, end_info
+
+    def _extract_attendee_info(self, component: ICalEvent) -> dict[str, Any]:
+        """Extract attendee and organizer information from component.
+
+        Args:
+            component: iCalendar VEVENT component
+
+        Returns:
+            Dictionary with attendee info: is_organizer, attendees
+        """
+        # Organizer and attendees
+        organizer = component.get("ORGANIZER")
+        is_organizer = False
+
+        if organizer and hasattr(self.settings, "user_email"):
+            # Enhanced organizer detection - check if organizer email matches user
+            organizer_str = str(organizer).replace("mailto:", "").strip().lower()
+            user_email = str(self.settings.user_email).strip().lower()
+            is_organizer = (organizer_str == user_email)
+        elif organizer:
+            # Fallback: if no user_email in settings, assume not organizer
+            # (more conservative than always True)
+            is_organizer = False
+
+        # Parse attendees using the dedicated parser
+        attendees = self.attendee_parser.parse_attendees(component)
+
+        return {
+            "is_organizer": is_organizer,
+            "attendees": attendees if attendees else None,
+        }
+
+    def _extract_recurrence_info(self, component: ICalEvent) -> dict[str, Any]:
+        """Extract recurrence information from component.
+
+        Args:
+            component: iCalendar VEVENT component
+
+        Returns:
+            Dictionary with recurrence info: is_recurring, recurrence_id, exdate_props
+        """
+        # Recurrence
+        rrule_prop = component.get("RRULE")
+        is_recurring = rrule_prop is not None
+
+        # RFC 5545 RECURRENCE-ID detection for Microsoft ICS bug
+        # When a recurring instance is moved, the original slot should be excluded
+        recurrence_id_raw = component.get("RECURRENCE-ID")
+
+        # Convert RECURRENCE-ID to string properly (fix for icalendar object bug)
+        if recurrence_id_raw is not None:
+            if hasattr(recurrence_id_raw, "to_ical"):
+                # icalendar object - convert to iCal format then decode
+                recurrence_id = recurrence_id_raw.to_ical().decode("utf-8")
+            else:
+                # Already a string or other type - convert to string
+                recurrence_id = str(recurrence_id_raw)
+        else:
+            recurrence_id = None
+
+        # Check if this event should be excluded due to EXDATE
+        # Use the defensive collector to handle getall(), dict-like access, and param-preserving props
+        exdate_props = self._collect_exdate_props(component)
+        if not isinstance(exdate_props, list):
+            exdate_props = [exdate_props] if exdate_props else []
+
+        return {
+            "is_recurring": is_recurring,
+            "recurrence_id": recurrence_id,
+            "rrule_prop": rrule_prop,
+            "exdate_props": exdate_props,
+        }

@@ -14,11 +14,11 @@ from typing import List
 
 import pytest
 
+from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo, LiteEventStatus
 from calendarbot_lite.lite_rrule_expander import (
     LiteRRuleExpander,
     LiteRRuleParseError,
 )
-from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo, LiteEventStatus
 
 pytestmark = pytest.mark.unit
 
@@ -146,7 +146,7 @@ def test_generate_event_instances_with_malformed_occurrence_raises(simple_settin
     master = _build_master_event(start, end)
     # Intentionally provide a bad occurrence value
     with pytest.raises(Exception):
-        expander.generate_event_instances(master, ["not-a-datetime"])  # type: ignore[arg-type]
+        expander.generate_event_instances(master, ["not-a-datetime"])  # type: ignore[arg-type,list-item]
 
 
 def test_integration_parse_apply_generate(simple_settings: SimpleNamespace) -> None:

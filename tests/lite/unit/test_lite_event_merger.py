@@ -1,7 +1,7 @@
 """Unit tests for lite_event_merger module."""
 
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from typing import Optional
 
 import pytest
 
@@ -25,7 +25,7 @@ class TestLiteEventMerger:
         start: datetime,
         end: datetime,
         is_recurring: bool = False,
-        recurrence_id: str = None,
+        recurrence_id: Optional[str] = None,
     ) -> LiteCalendarEvent:
         """Create a test calendar event."""
         return LiteCalendarEvent(

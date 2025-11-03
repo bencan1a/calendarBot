@@ -1,16 +1,16 @@
 """Tests for event processing pipeline architecture."""
 
-import pytest
 from datetime import datetime, timezone
-from types import SimpleNamespace
 
-from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo
-from calendarbot_lite.pipeline import ProcessingContext, ProcessingResult, EventProcessingPipeline
+import pytest
+
+from calendarbot_lite.lite_models import LiteAttendee, LiteCalendarEvent, LiteDateTimeInfo
+from calendarbot_lite.pipeline import EventProcessingPipeline, ProcessingContext, ProcessingResult
 from calendarbot_lite.pipeline_stages import (
     DeduplicationStage,
+    EventLimitStage,
     SkippedEventsFilterStage,
     TimeWindowStage,
-    EventLimitStage,
 )
 
 pytestmark = pytest.mark.unit
@@ -34,7 +34,7 @@ def create_test_event(
             date_time=start_time,
             time_zone="UTC",
         ),
-        attendees=[{"name": "Test User", "email": "test@example.com"}] if has_attendees else None,
+        attendees=[LiteAttendee(name="Test User", email="test@example.com")] if has_attendees else None,
     )
 
 

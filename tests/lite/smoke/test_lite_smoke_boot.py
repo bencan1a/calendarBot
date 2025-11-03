@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import socket
 import subprocess
 import sys
 import threading
@@ -17,11 +18,10 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, cast
-from contextlib import suppress
-import socket
-from tests.fixtures.mock_ics_data import ICSDataFactory  # type: ignore
 
 import pytest
+
+from tests.fixtures.mock_ics_data import ICSDataFactory  # type: ignore
 
 aiohttp = pytest.importorskip("aiohttp")
 
@@ -60,7 +60,7 @@ async def test_lite_smoke_boot_inprocess_no_errors(caplog: Any) -> None:
             self.end_headers()
             self.wfile.write(ics_content)
 
-        def log_message(self, format: str, *args: Any) -> None:  # noqa: D401
+        def log_message(self, format: str, *args: Any) -> None:
             return
 
     httpd_in = HTTPServer(("127.0.0.1", 0), _ICSHandlerForInProcess)
@@ -137,7 +137,7 @@ def test_lite_smoke_boot_subprocess_no_errors(tmp_path: Path) -> None:
             self.end_headers()
             self.wfile.write(ics_content)
 
-        def log_message(self, format: str, *args: Any) -> None:  # noqa: D401
+        def log_message(self, format: str, *args: Any) -> None:
             # Suppress default logging to keep test output clean
             return
 
@@ -156,7 +156,6 @@ def test_lite_smoke_boot_subprocess_no_errors(tmp_path: Path) -> None:
     # Choose a free ephemeral port for the subprocess server to avoid collisions.
     # We bind a temporary socket to get an available port and immediately close it.
     # This reduces the chance of the server prompting on port conflicts in CI/dev.
-    import socket  # local import to avoid top-level dependency
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as _sock:
         _sock.bind(("127.0.0.1", 0))
         free_port = _sock.getsockname()[1]

@@ -1,6 +1,5 @@
 """iCalendar parser with Microsoft Outlook compatibility - CalendarBot Lite version."""
 
-import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, cast
@@ -353,7 +352,7 @@ class LiteICSParser:
         Returns:
             List of expanded event instances
         """
-        expanded_instances = []
+        expanded_instances: list[LiteCalendarEvent] = []
 
         if not candidates:
             return expanded_instances

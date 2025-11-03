@@ -16,15 +16,15 @@ Usage:
 - Run all: pytest tests/lite/test_recurring_scenarios.py -q
 - Run single scenario (example): pytest tests/lite/test_recurring_scenarios.py::test_daily_recurring -q -s
 """
-from datetime import datetime, timezone, timedelta
-from types import SimpleNamespace
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import List
 
 import pytest
 
-from calendarbot_lite.lite_parser import LiteICSParser
 from calendarbot_lite.lite_models import LiteCalendarEvent
+from calendarbot_lite.lite_parser import LiteICSParser
 
 pytestmark = pytest.mark.integration
 

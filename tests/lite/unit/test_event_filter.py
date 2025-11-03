@@ -2,6 +2,7 @@
 
 import asyncio
 import datetime
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -167,7 +168,7 @@ class TestEventWindowManager:
 
     async def test_update_window_with_valid_events(self):
         """Should update window with valid upcoming events."""
-        event_window_ref = [()]
+        event_window_ref: list[tuple[Any, ...]] = [()]
         window_lock = asyncio.Lock()
 
         now = datetime.datetime(2025, 11, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
@@ -215,7 +216,7 @@ class TestEventWindowManager:
 
     async def test_update_window_with_window_size_limit(self):
         """Should limit window to specified size."""
-        event_window_ref = [()]
+        event_window_ref: list[tuple[Any, ...]] = [()]
         window_lock = asyncio.Lock()
 
         now = datetime.datetime(2025, 11, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
@@ -237,7 +238,7 @@ class TestEventWindowManager:
 
     async def test_update_window_sorts_by_start_time(self):
         """Should sort events by start time."""
-        event_window_ref = [()]
+        event_window_ref: list[tuple[Any, ...]] = [()]
         window_lock = asyncio.Lock()
 
         now = datetime.datetime(2025, 11, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)

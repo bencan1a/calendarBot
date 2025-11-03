@@ -128,25 +128,25 @@ def call_calendarbot_api(endpoint_path: str) -> dict[str, Any]:
     request.add_header("User-Agent", "AlexaSkill/1.0 CalendarBot")
 
     try:
-        logger.info(f"Calling calendarbot API: {url}")
+        logger.info("Calling calendarbot API: %s", url)
         response = urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT)  # nosec
 
         if response.status == 200:
             data = json.loads(response.read().decode("utf-8"))
-            logger.info(f"API response received: status={response.status}")
-            logger.info(f"API response data: {json.dumps(data)}")
+            logger.info("API response received: status=%d", response.status)
+            logger.info("API response data: %s", json.dumps(data))
             return data
-        logger.error(f"API returned non-200 status: {response.status}")
+        logger.error("API returned non-200 status: %d", response.status)
         raise Exception(f"API returned status {response.status}")  # noqa: TRY002, TRY301
 
     except urllib.error.HTTPError as e:
-        logger.exception(f"HTTP error calling API: {e.code} {e.reason}")
+        logger.exception("HTTP error calling API: %d %s", e.code, e.reason)
         if e.code == 401:
             raise Exception("Authentication failed - check bearer token")  # noqa: B904, TRY002
         raise Exception(f"API request failed: {e.code} {e.reason}")  # noqa: B904, TRY002
 
     except urllib.error.URLError as e:
-        logger.exception(f"URL error calling API: {e.reason}")
+        logger.exception("URL error calling API: %s", e.reason)
         raise Exception(f"Cannot reach calendarbot server: {e.reason}")  # noqa: B904, TRY002
 
     except Exception:
@@ -168,12 +168,12 @@ def handle_get_next_meeting_intent() -> AlexaResponse:
             speech_text = meeting.get("speech_text", "You have a meeting coming up.")
             ssml = meeting.get("ssml")  # Meeting-level SSML
 
-        logger.info(f"Extracted speech text: {speech_text}")
+        logger.info("Extracted speech text: %s", speech_text)
         if ssml:
-            logger.info(f"Extracted SSML: {ssml}")
+            logger.info("Extracted SSML: %s", ssml)
 
         alexa_response = AlexaResponse(speech_text, ssml=ssml)
-        logger.info(f"Alexa response: {json.dumps(alexa_response.to_dict())}")
+        logger.info("Alexa response: %s", json.dumps(alexa_response.to_dict()))
         return alexa_response
 
     except Exception:
@@ -192,9 +192,9 @@ def handle_get_time_until_next_meeting_intent() -> AlexaResponse:
         speech_text = data.get("speech_text", "You have no upcoming meetings.")
         ssml = data.get("ssml")  # SSML for time-until response
 
-        logger.info(f"Extracted speech text: {speech_text}")
+        logger.info("Extracted speech text: %s", speech_text)
         if ssml:
-            logger.info(f"Extracted SSML: {ssml}")
+            logger.info("Extracted SSML: %s", ssml)
 
         return AlexaResponse(speech_text, ssml=ssml)
 
@@ -214,9 +214,9 @@ def handle_get_done_for_day_intent() -> AlexaResponse:
         speech_text = data.get("speech_text", "You have no meetings today.")
         ssml = data.get("ssml")  # SSML for done-for-day response
 
-        logger.info(f"Extracted speech text: {speech_text}")
+        logger.info("Extracted speech text: %s", speech_text)
         if ssml:
-            logger.info(f"Extracted SSML: {ssml}")
+            logger.info("Extracted SSML: %s", ssml)
 
         return AlexaResponse(speech_text, ssml=ssml, card_title="Done For The Day")
 
@@ -279,15 +279,15 @@ def handle_launch_intent() -> AlexaResponse:
                 )
                 ssml = morning_data.get("ssml")
 
-                logger.info(f"Morning summary speech text: {speech_text}")
+                logger.info("Morning summary speech text: %s", speech_text)
                 if ssml:
-                    logger.info(f"Morning summary SSML generated: {len(ssml)} characters")
+                    logger.info("Morning summary SSML generated: %d characters", len(ssml))
 
                 return AlexaResponse(speech_text, ssml=ssml, card_title="Tomorrow Morning Summary")
 
             except Exception as e:
                 logger.warning(
-                    f"Failed to get morning summary, falling back to launch summary: {e}"
+                    "Failed to get morning summary, falling back to launch summary: %s", e
                 )
                 # Fall back to regular launch summary if morning summary fails
                 speech_text = launch_data.get(
@@ -305,9 +305,9 @@ def handle_launch_intent() -> AlexaResponse:
             )
             ssml = launch_data.get("ssml")  # SSML for launch summary response
 
-            logger.info(f"Extracted launch summary speech text: {speech_text}")
+            logger.info("Extracted launch summary speech text: %s", speech_text)
             if ssml:
-                logger.info(f"Extracted launch summary SSML: {len(ssml)} characters")
+                logger.info("Extracted launch summary SSML: %d characters", len(ssml))
 
             return AlexaResponse(speech_text, ssml=ssml, card_title="Calendar Summary")
 
@@ -343,7 +343,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
         Alexa response dictionary
     """
     try:
-        logger.info(f"Received Alexa request: {json.dumps(event, default=str)}")
+        logger.info("Received Alexa request: %s", json.dumps(event, default=str))
 
         # Validate request structure
         if "request" not in event:
@@ -355,7 +355,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
 
         if request_type == "LaunchRequest":
             alexa_response = handle_launch_intent().to_dict()
-            logger.info(f"Lambda returning launch response: {json.dumps(alexa_response)}")
+            logger.info("Lambda returning launch response: %s", json.dumps(alexa_response))
             return alexa_response
 
         if request_type == "IntentRequest":
@@ -363,7 +363,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
 
             if intent_name == "GetNextMeetingIntent":
                 alexa_response = handle_get_next_meeting_intent().to_dict()
-                logger.info(f"Lambda returning response: {json.dumps(alexa_response)}")
+                logger.info("Lambda returning response: %s", json.dumps(alexa_response))
                 return alexa_response
 
             if intent_name == "GetTimeUntilNextMeetingIntent":
@@ -378,7 +378,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
             if intent_name in ["AMAZON.StopIntent", "AMAZON.CancelIntent"]:
                 return handle_stop_intent().to_dict()
 
-            logger.warning(f"Unknown intent: {intent_name}")
+            logger.warning("Unknown intent: %s", intent_name)
             speech_text = (
                 "I don't understand that request. You can ask me what's your next meeting, "
                 "how long until your next meeting, or if you're done for the day."
@@ -389,7 +389,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
             # No response needed for session end
             return {}
 
-        logger.warning(f"Unknown request type: {request_type}")
+        logger.warning("Unknown request type: %s", request_type)
         return AlexaResponse("Sorry, I don't understand that type of request.").to_dict()
 
     except Exception:

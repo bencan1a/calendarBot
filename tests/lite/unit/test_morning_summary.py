@@ -1,10 +1,8 @@
 """Unit tests for morning summary service functionality."""
 
-import asyncio
 import time
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
-from types import SimpleNamespace
 
 import pytest
 
@@ -15,18 +13,12 @@ from calendarbot_lite.lite_models import (
     LiteLocation,
 )
 from calendarbot_lite.morning_summary import (
-    BACK_TO_BACK_GAP_MINUTES,
-    EARLY_START_THRESHOLD_HOUR,
     FOCUS_TIME_KEYWORDS,
     MAX_EVENTS_LIMIT,
-    MIN_FREE_BLOCK_MINUTES,
     MORNING_END_HOUR,
     MORNING_START_HOUR,
     PERFORMANCE_TARGET_SECONDS,
     SIGNIFICANT_FREE_BLOCK_MINUTES,
-    VERY_EARLY_THRESHOLD_HOUR,
-    VERY_EARLY_THRESHOLD_MINUTE,
-    WAKE_UP_BUFFER_MINUTES,
     DensityLevel,
     FreeBlock,
     MeetingInsight,

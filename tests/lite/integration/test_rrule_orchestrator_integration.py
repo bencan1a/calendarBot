@@ -8,8 +8,9 @@ returns the expected combined events list.
 Marked as integration because they exercise multiple components end-to-end.
 """
 
-from types import SimpleNamespace
 from textwrap import dedent
+from types import SimpleNamespace
+
 import pytest
 
 from calendarbot_lite.lite_parser import LiteICSParser
