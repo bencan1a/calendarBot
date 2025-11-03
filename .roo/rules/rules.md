@@ -1,5 +1,14 @@
 # CALENDARBOT DEVELOPMENT RULES
 
+## FILE ORGANIZATION
+**CRITICAL: Follow these conventions when creating files:**
+- **Temporary/Debug Scripts**: Write to `tmp/` directory (debugging scripts, temporary analysis)
+- **Project Reports/Analysis**: Write to `tmp/` directory (refactoring plans, code analysis, work item tracking)
+- **Permanent Documentation**: Write to `docs/` directory (API docs, architecture guides, deployment guides)
+- **Configuration Files**: Root directory only (CLAUDE.md, AGENTS.md, README.md)
+
+The `tmp/` directory is gitignored. Do NOT create analysis reports or temporary files in the project root.
+
 ## ENVIRONMENT & EXECUTION
 IMPORTANT - you must ALWAYS active the python venv BEFORE Running python code
 IMPORTANT - if a module appears to not be installed, this is usually because the venv has not been activated.

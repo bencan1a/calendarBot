@@ -1,5 +1,9 @@
 # Ask Mode Rules (Non-Obvious Only)
 
+## File Organization
+- **Temporary Files**: Use `tmp/` for any temporary analysis or debug files (gitignored)
+- **Documentation**: Permanent docs in `docs/`, temporary reports in `tmp/`
+
 ## Documentation Context
 - **CLAUDE.md**: Comprehensive existing documentation - refer to this for standard patterns and commands
 - **Dual Architecture**: Separate `calendarbot/` (full) and `calendarbot_lite/` (minimal) codebases with different capabilities
