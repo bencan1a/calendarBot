@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline (Optimized)
 
 on:
   push:
@@ -14,7 +14,7 @@ env:
 jobs:
   # Quick feedback - Critical path tests (runs on every commit)
   critical-path:
-    name: Critical Path Tests (<5min)
+    name: Critical Path Tests (<3min target)
     runs-on: ubuntu-latest
     timeout-minutes: 8
 
@@ -26,21 +26,39 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+
+    # OPTIMIZATION: Cache the entire venv directory
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
     - name: Create virtual environment
-      run: |
-        python -m venv venv
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
-        echo "$PWD/venv/bin" >> $GITHUB_PATH
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
 
+    - name: Set venv in PATH
+      run: |
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+
+    # OPTIMIZATION: Consolidated pip install, only runs on cache miss
     - name: Install dependencies
+      if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
         . venv/bin/activate
-        pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout
-        pip install ruff mypy bandit
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -r requirements.txt pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout ruff mypy bandit
+
+    - name: Verify cache restoration
+      run: |
+        . venv/bin/activate
+        python --version
+        pip --version
 
     - name: Run critical path tests
       run: |
@@ -68,20 +86,32 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+
+    # OPTIMIZATION: Reuse venv cache
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
     - name: Create virtual environment
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
+
+    - name: Set venv in PATH
       run: |
-        python -m venv venv
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
         echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
 
     - name: Install dependencies
+      if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
         . venv/bin/activate
-        pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install ruff mypy bandit
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -r requirements.txt ruff mypy bandit
 
     - name: Run linting
       run: |
@@ -113,20 +143,32 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+
+    # OPTIMIZATION: Reuse venv cache
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
     - name: Create virtual environment
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
+
+    - name: Set venv in PATH
       run: |
-        python -m venv venv
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
         echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
 
     - name: Install dependencies
+      if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
         . venv/bin/activate
-        pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -r requirements.txt pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout
 
     - name: Run full test suite
       run: |
@@ -173,19 +215,32 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+
+    # OPTIMIZATION: Reuse venv cache
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
     - name: Create virtual environment
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
+
+    - name: Set venv in PATH
       run: |
-        python -m venv venv
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
         echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
 
     - name: Install dependencies
+      if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
         . venv/bin/activate
-        pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -r requirements.txt
 
     - name: Run Pi Zero2 performance gate (50 events)
       run: |
@@ -215,20 +270,32 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+
+    # OPTIMIZATION: Reuse venv cache
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
     - name: Create virtual environment
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
+
+    - name: Set venv in PATH
       run: |
-        python -m venv venv
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
         echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
 
     - name: Install dependencies
+      if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
         . venv/bin/activate
-        pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-asyncio pytest-cov
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -r requirements.txt pytest pytest-asyncio pytest-cov
 
     - name: Validate coverage threshold
       run: |
@@ -253,20 +320,32 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+
+    # OPTIMIZATION: Reuse venv cache
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
     - name: Create virtual environment
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
+
+    - name: Set venv in PATH
       run: |
-        python -m venv venv
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
         echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
 
     - name: Install dependencies
+      if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
         . venv/bin/activate
-        pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install bandit
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -r requirements.txt bandit
 
     - name: Run security tests
       run: |
@@ -288,19 +367,32 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+
+    # OPTIMIZATION: Reuse venv cache
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
     - name: Create virtual environment
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
+
+    - name: Set venv in PATH
       run: |
-        python -m venv venv
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
         echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
 
     - name: Install dependencies
+      if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
         . venv/bin/activate
-        pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -r requirements.txt
 
     - name: Validate calendarbot_lite startup
       run: |
