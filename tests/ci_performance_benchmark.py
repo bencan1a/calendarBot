@@ -91,7 +91,7 @@ def make_ics_with_n_events(n: int, start_dt: datetime) -> str:
             [
                 "BEGIN:VEVENT",
                 f"UID:{uid}",
-                f"DTSTAMP:{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}",
+                f"DTSTAMP:{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
                 f"DTSTART:{s.strftime('%Y%m%dT%H%M%SZ')}",
                 f"DTEND:{e.strftime('%Y%m%dT%H%M%SZ')}",
                 f"SUMMARY:CI Test Event {i}",

@@ -35,6 +35,7 @@ jobs:
       - name: Run performance harness (50 events)
         run: |
           . venv/bin/activate
+          export PYTHONPATH="${PYTHONPATH}:${PWD}"
           python tests/ci_performance_benchmark.py --run fifty --output calendarbot_lite_perf_results.json
           
       - name: Upload performance results
