@@ -90,9 +90,10 @@ Async Patterns Audit (conducted 2025-11-01):
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Any, Callable, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -261,10 +262,7 @@ class AsyncOrchestrator:
 
         try:
             # Wrap function with kwargs if needed
-            if kwargs:
-                wrapped_func = lambda: func(*args, **kwargs)  # noqa: E731
-            else:
-                wrapped_func = lambda: func(*args)  # noqa: E731
+            wrapped_func = (lambda: func(*args, **kwargs)) if kwargs else lambda: func(*args)
 
             loop = asyncio.get_event_loop()
             coro = loop.run_in_executor(executor, wrapped_func)
@@ -272,7 +270,7 @@ class AsyncOrchestrator:
             result = await self.run_with_timeout(coro, timeout=timeout)
             self._record_operation(success=True)
             return result
-        except Exception as e:
+        except Exception:
             self._record_operation(success=False)
             logger.exception("Error running function in executor")
             raise
@@ -396,10 +394,9 @@ class AsyncOrchestrator:
                 # Check if we have retries left
                 if attempt >= max_retries:
                     self._record_operation(success=False)
-                    logger.error(
-                        "Retry exhausted after %d attempts: %s",
-                        max_retries + 1,
-                        e
+                    logger.exception(
+                        "Retry exhausted after %d attempts",
+                        max_retries + 1
                     )
                     break
 
@@ -426,7 +423,7 @@ class AsyncOrchestrator:
         ) from last_exception
 
     @asynccontextmanager
-    async def bounded_concurrency(self, max_concurrent: int):
+    async def bounded_concurrency(self, max_concurrent: int) -> AsyncIterator[asyncio.Semaphore]:
         """Create async context manager with semaphore for bounded concurrency.
 
         Args:
@@ -593,11 +590,11 @@ class AsyncOrchestrator:
                 self._executor = None
                 logger.info("AsyncOrchestrator shutdown complete")
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "AsyncOrchestrator":
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
         await self.shutdown()
 

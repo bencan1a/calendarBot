@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, List, Optional, Protocol
+from typing import Any, Optional, Protocol
 
 from .lite_models import LiteCalendarEvent
 
@@ -50,9 +50,9 @@ class ProcessingContext:
 
     # Processing state (modified by stages)
     raw_content: Optional[str] = None  # Raw ICS content
-    raw_components: List[Any] = field(default_factory=list)  # iCalendar components
-    events: List[LiteCalendarEvent] = field(default_factory=list)  # Parsed events
-    filtered_events: List[LiteCalendarEvent] = field(default_factory=list)  # After filtering
+    raw_components: list[Any] = field(default_factory=list)  # iCalendar components
+    events: list[LiteCalendarEvent] = field(default_factory=list)  # Parsed events
+    filtered_events: list[LiteCalendarEvent] = field(default_factory=list)  # After filtering
 
     # Metadata
     source_url: Optional[str] = None
@@ -75,9 +75,9 @@ class ProcessingResult:
     """
 
     success: bool = True
-    events: List[LiteCalendarEvent] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    events: list[LiteCalendarEvent] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Statistics
@@ -155,10 +155,10 @@ class EventProcessingPipeline:
 
     def __init__(self) -> None:
         """Initialize empty pipeline."""
-        self.stages: List[EventProcessor] = []
+        self.stages: list[EventProcessor] = []
         self._enable_telemetry: bool = True
 
-    def add_stage(self, stage: EventProcessor) -> "EventProcessingPipeline":
+    def add_stage(self, stage: EventProcessor) -> EventProcessingPipeline:
         """Add a processing stage to the pipeline (builder pattern).
 
         Args:

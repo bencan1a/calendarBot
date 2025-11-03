@@ -13,7 +13,7 @@ def register_api_routes(
     app: Any,
     config: Any,
     skipped_store: object | None,
-    event_window_ref: list[tuple[dict[str, Any], ...]],
+    event_window_ref: list[tuple[Any, ...]],
     window_lock: Any,
     shared_http_client: Any,
     health_tracker: Any,
@@ -22,6 +22,8 @@ def register_api_routes(
     is_focus_time_event: Any,
     serialize_iso: Any,
     get_system_diagnostics: Any,
+    compute_last_meeting_end_for_today: Any,
+    get_server_timezone: Any,
 ) -> None:
     """Register main API routes.
 
@@ -38,6 +40,8 @@ def register_api_routes(
         is_focus_time_event: Function to check if event is focus time
         serialize_iso: Function to serialize datetime to ISO string
         get_system_diagnostics: Function to get system diagnostics
+        compute_last_meeting_end_for_today: Function to compute last meeting end time
+        get_server_timezone: Function to get server timezone
     """
     from aiohttp import web
 
@@ -218,6 +222,140 @@ def register_api_routes(
 
         return web.json_response({"status": "ok", "timestamp": now_iso}, status=200)
 
+    async def done_for_day(request: Any) -> Any:
+        """API endpoint for getting last meeting end time for today."""
+        now = time_provider()
+
+        # Get timezone parameter from query string
+        request_tz = request.query.get("tz")
+
+        # Read window with lock to be consistent
+        async with window_lock:
+            window = tuple(event_window_ref[0])
+
+        logger.debug(
+            "/api/done-for-day called - window has %d events, tz=%s", len(window), request_tz
+        )
+
+        # Compute last meeting end for today
+        result = compute_last_meeting_end_for_today(request_tz, window, skipped_store)
+
+        # Build full response with current time and timezone info
+        response = {
+            "now_iso": serialize_iso(now),
+            "tz": request_tz,
+            **result,
+        }
+
+        return web.json_response(response, status=200)
+
+    async def morning_summary(request: Any) -> Any:
+        """General API endpoint for morning summary with full structured data.
+
+        Returns comprehensive morning summary data for programmatic consumption,
+        excluding Alexa-specific fields like speech_text and ssml.
+
+        Query Parameters:
+            date (str, optional): ISO date for summary (defaults to tomorrow)
+            timezone (str, optional): IANA timezone identifier (default: UTC)
+            detail_level (str, optional): Detail level: brief|normal|detailed (default: normal)
+            max_events (int, optional): Maximum events to process (default: 50)
+
+        Returns:
+            JSON response with complete summary structure including timeframe,
+            meeting analysis, free blocks, density metrics, and metadata.
+        """
+
+        try:
+            # Parse request parameters
+            target_date = request.query.get("date")  # ISO date for summary (defaults to tomorrow)
+            timezone_str = request.query.get("timezone", get_server_timezone())
+            detail_level = request.query.get("detail_level", "normal")
+            max_events = int(request.query.get("max_events", "50"))
+
+            logger.debug(
+                "Morning summary called with tz=%s, detail_level=%s", timezone_str, detail_level
+            )
+
+            # Read window with lock to be consistent
+            async with window_lock:
+                window = tuple(event_window_ref[0])
+
+            # Window now contains LiteCalendarEvent objects directly (no conversion needed)
+            from ..morning_summary import MorningSummaryRequest, MorningSummaryService
+
+            # Events are already LiteCalendarEvent objects from the event window
+            lite_events = list(window)
+
+            # Create morning summary request (no prefer_ssml for general API)
+            summary_request = MorningSummaryRequest(
+                date=target_date,
+                timezone=timezone_str,
+                detail_level=detail_level,
+                prefer_ssml=False,  # General API doesn't need SSML
+                max_events=max_events,
+            )
+
+            # Generate morning summary
+            service = MorningSummaryService()
+            summary_result = await service.generate_summary(lite_events, summary_request)
+
+            # Build response with full structured data (exclude Alexa-specific fields)
+            summary_data = {
+                "timeframe_start": summary_result.timeframe_start.isoformat(),
+                "timeframe_end": summary_result.timeframe_end.isoformat(),
+                "analysis_time": summary_result.analysis_time.isoformat(),
+                "total_meetings_equivalent": summary_result.total_meetings_equivalent,
+                "early_start_flag": summary_result.early_start_flag,
+                "density": summary_result.density,
+                "back_to_back_count": summary_result.back_to_back_count,
+                "meeting_insights": [
+                    {
+                        "meeting_id": insight.meeting_id,
+                        "subject": insight.subject,
+                        "start_time": insight.start_time.isoformat(),
+                        "end_time": insight.end_time.isoformat(),
+                        "time_until_minutes": insight.time_until_minutes,
+                        "preparation_needed": insight.preparation_needed,
+                        "is_online": insight.is_online,
+                        "attendees_count": insight.attendees_count,
+                        "short_note": insight.short_note,
+                    }
+                    for insight in summary_result.meeting_insights
+                ],
+                "free_blocks": [
+                    {
+                        "start_time": block.start_time.isoformat(),
+                        "end_time": block.end_time.isoformat(),
+                        "duration_minutes": block.duration_minutes,
+                        "recommended_action": block.recommended_action,
+                        "is_significant": block.is_significant,
+                    }
+                    for block in summary_result.free_blocks
+                ],
+                "metadata": summary_result.metadata,
+            }
+
+            # Add wake-up recommendation if available
+            if summary_result.wake_up_recommendation_time:
+                summary_data["wake_up_recommendation_time"] = (
+                    summary_result.wake_up_recommendation_time.isoformat()
+                )
+
+            response_data = {"summary": summary_data}
+
+            return web.json_response(response_data, status=200)
+
+        except Exception:
+            logger.exception("Morning summary endpoint failed")
+            return web.json_response(
+                {
+                    "error": "Internal server error",
+                    "message": "Failed to generate morning summary. Please try again later.",
+                },
+                status=500,
+            )
+
     # Register API routes
     app.router.add_get("/api/health", health_check)
     app.router.add_post("/api/browser-heartbeat", browser_heartbeat)
@@ -225,5 +363,7 @@ def register_api_routes(
     app.router.add_post("/api/skip", post_skip)
     app.router.add_delete("/api/skip", delete_skip)
     app.router.add_get("/api/clear_skips", clear_skips)
+    app.router.add_get("/api/done-for-day", done_for_day)
+    app.router.add_post("/api/morning-summary", morning_summary)
 
     logger.debug("API routes registered")

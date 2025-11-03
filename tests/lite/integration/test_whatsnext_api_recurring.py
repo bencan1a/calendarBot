@@ -27,6 +27,7 @@ import sys
 import threading
 import time
 from typing import Tuple
+
 import pytest
 
 pytestmark = pytest.mark.integration
@@ -110,7 +111,9 @@ def http_request(host: str, port: int, method: str, path: str, body: object | No
     return resp.status, parsed
 
 
-from typing import Optional, Any
+from typing import Optional
+
+
 def _print_summary(scenario: str, expected: dict, api_output: Optional[dict], passed: bool) -> None:
     """Print a concise per-scenario summary for whats-next integration tests."""
     print(f"\nSCENARIO: {scenario}")
@@ -131,17 +134,17 @@ def test_whatsnext_returns_next_recurring_event(tmp_path):
     """Set time to 08:45 and a daily recurring meeting at 09:00 -> whats-next should return the 09:00 occurrence."""
     # ICS with daily recurring meeting at 09:00Z
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
-        "BEGIN:VEVENT\n"
-        "UID:daily-api-test@example.com\n"
-        "SUMMARY:Daily Team Sync\n"
-        "DTSTART:20251101T090000Z\n"
-        "DTEND:20251101T100000Z\n"
-        "RRULE:FREQ=DAILY;COUNT=3\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:daily-api-test@example.com\n"
+        b"SUMMARY:Daily Team Sync\n"
+        b"DTSTART:20251101T090000Z\n"
+        b"DTEND:20251101T100000Z\n"
+        b"RRULE:FREQ=DAILY;COUNT=3\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -247,20 +250,20 @@ def test_whatsnext_dst_transition(tmp_path):
     We assert the whats-next API returns the subject (meeting exists) and print a summary.
     """
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
-        "BEGIN:VTIMEZONE\n"
-        "TZID:America/Los_Angeles\n"
-        "END:VTIMEZONE\n"
-        "BEGIN:VEVENT\n"
-        "UID:dst-test@example.com\n"
-        "SUMMARY:DST Local Meeting\n"
-        "DTSTART;TZID=America/Los_Angeles:20251102T013000\n"
-        "DTEND;TZID=America/Los_Angeles:20251102T020000\n"
-        "RRULE:FREQ=DAILY;COUNT=2\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
+        b"BEGIN:VTIMEZONE\n"
+        b"TZID:America/Los_Angeles\n"
+        b"END:VTIMEZONE\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:dst-test@example.com\n"
+        b"SUMMARY:DST Local Meeting\n"
+        b"DTSTART;TZID=America/Los_Angeles:20251102T013000\n"
+        b"DTEND;TZID=America/Los_Angeles:20251102T020000\n"
+        b"RRULE:FREQ=DAILY;COUNT=2\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -331,17 +334,17 @@ def test_whatsnext_dst_transition(tmp_path):
 def test_whatsnext_monthly_31st_edgecase(tmp_path):
     """Monthly edge-case: event on 31st of month (server should return upcoming instance if present)."""
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
-        "BEGIN:VEVENT\n"
-        "UID:monthly-31-test@example.com\n"
-        "SUMMARY:Monthly 31st Event\n"
-        "DTSTART:20250131T100000Z\n"
-        "DTEND:20250131T110000Z\n"
-        "RRULE:FREQ=MONTHLY;COUNT=3\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:monthly-31-test@example.com\n"
+        b"SUMMARY:Monthly 31st Event\n"
+        b"DTSTART:20250131T100000Z\n"
+        b"DTEND:20250131T110000Z\n"
+        b"RRULE:FREQ=MONTHLY;COUNT=3\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -410,24 +413,24 @@ def test_whatsnext_monthly_31st_edgecase(tmp_path):
 def test_whatsnext_overlapping_series_priority(tmp_path):
     """Overlapping series: two recurring series at same start time - whats-next should return one of them."""
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
-        "BEGIN:VEVENT\n"
-        "UID:overlap1@example.com\n"
-        "SUMMARY:Project Sync A\n"
-        "DTSTART:20251105T090000Z\n"
-        "DTEND:20251105T100000Z\n"
-        "RRULE:FREQ=DAILY;COUNT=2\n"
-        "END:VEVENT\n"
-        "BEGIN:VEVENT\n"
-        "UID:overlap2@example.com\n"
-        "SUMMARY:Project Sync B\n"
-        "DTSTART:20251105T090000Z\n"
-        "DTEND:20251105T100000Z\n"
-        "RRULE:FREQ=DAILY;COUNT=2\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:overlap1@example.com\n"
+        b"SUMMARY:Project Sync A\n"
+        b"DTSTART:20251105T090000Z\n"
+        b"DTEND:20251105T100000Z\n"
+        b"RRULE:FREQ=DAILY;COUNT=2\n"
+        b"END:VEVENT\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:overlap2@example.com\n"
+        b"SUMMARY:Project Sync B\n"
+        b"DTSTART:20251105T090000Z\n"
+        b"DTEND:20251105T100000Z\n"
+        b"RRULE:FREQ=DAILY;COUNT=2\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -495,25 +498,25 @@ def test_whatsnext_overlapping_series_priority(tmp_path):
 def test_whatsnext_skips_cancelled_occurrence_and_falls_back(tmp_path):
     """A recurring meeting at 09:00 is cancelled (EXDATE) -> whats-next should return the next available meeting (09:30 single event)."""
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
-        "BEGIN:VEVENT\n"
-        "UID:recancel-test@example.com\n"
-        "SUMMARY:Morning Recurring\n"
-        "DTSTART:20251101T090000Z\n"
-        "DTEND:20251101T100000Z\n"
-        "RRULE:FREQ=DAILY;COUNT=3\n"
-        "EXDATE:20251101T090000Z\n"
-        "END:VEVENT\n"
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:recancel-test@example.com\n"
+        b"SUMMARY:Morning Recurring\n"
+        b"DTSTART:20251101T090000Z\n"
+        b"DTEND:20251101T100000Z\n"
+        b"RRULE:FREQ=DAILY;COUNT=3\n"
+        b"EXDATE:20251101T090000Z\n"
+        b"END:VEVENT\n"
         # A separate single event later that should be the next meeting
-        "BEGIN:VEVENT\n"
-        "UID:ad_hoc@example.com\n"
-        "SUMMARY:Standby Meeting\n"
-        "DTSTART:20251101T093000Z\n"
-        "DTEND:20251101T100000Z\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"BEGIN:VEVENT\n"
+        b"UID:ad_hoc@example.com\n"
+        b"SUMMARY:Standby Meeting\n"
+        b"DTSTART:20251101T093000Z\n"
+        b"DTEND:20251101T100000Z\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -611,26 +614,26 @@ def test_whatsnext_skips_cancelled_occurrence_and_falls_back(tmp_path):
 def test_whatsnext_handles_recurring_moved_instance(tmp_path):
     """A recurring meeting has a RECURRENCE-ID moved instance -> whats-next should return the moved instance and suppress the original slot."""
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
         # Master recurring series at 09:00 daily
-        "BEGIN:VEVENT\n"
-        "UID:move-api-test@example.com\n"
-        "SUMMARY:Standup Meeting\n"
-        "DTSTART:20251102T090000Z\n"
-        "DTEND:20251102T091500Z\n"
-        "RRULE:FREQ=DAILY;COUNT=3\n"
-        "END:VEVENT\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:move-api-test@example.com\n"
+        b"SUMMARY:Standup Meeting\n"
+        b"DTSTART:20251102T090000Z\n"
+        b"DTEND:20251102T091500Z\n"
+        b"RRULE:FREQ=DAILY;COUNT=3\n"
+        b"END:VEVENT\n"
         # Moved second occurrence (original 20251103T090000Z) -> new time 11:00 and renamed.
-        "BEGIN:VEVENT\n"
-        "UID:move-api-test@example.com\n"
-        "RECURRENCE-ID:20251103T090000Z\n"
-        "SUMMARY:Standup Meeting (Rescheduled)\n"
-        "DTSTART:20251103T110000Z\n"
-        "DTEND:20251103T111500Z\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"BEGIN:VEVENT\n"
+        b"UID:move-api-test@example.com\n"
+        b"RECURRENCE-ID:20251103T090000Z\n"
+        b"SUMMARY:Standup Meeting (Rescheduled)\n"
+        b"DTSTART:20251103T110000Z\n"
+        b"DTEND:20251103T111500Z\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -731,18 +734,18 @@ def test_whatsnext_handles_recurring_moved_instance(tmp_path):
 def test_whatsnext_until_precedence_over_count(tmp_path):
     """RRULE contains COUNT and UNTIL; UNTIL should limit occurrences."""
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
-        "BEGIN:VEVENT\n"
-        "UID:until-count-test@example.com\n"
-        "SUMMARY:Until vs Count Meeting\n"
-        "DTSTART:20251101T090000Z\n"
-        "DTEND:20251101T100000Z\n"
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:until-count-test@example.com\n"
+        b"SUMMARY:Until vs Count Meeting\n"
+        b"DTSTART:20251101T090000Z\n"
+        b"DTEND:20251101T100000Z\n"
         # COUNT=10 but UNTIL limits to 2025-11-03T09:00Z inclusive
-        "RRULE:FREQ=DAILY;COUNT=10;UNTIL=20251103T090000Z\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"RRULE:FREQ=DAILY;COUNT=10;UNTIL=20251103T090000Z\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -809,18 +812,18 @@ def test_whatsnext_until_precedence_over_count(tmp_path):
 def test_whatsnext_floating_time_interpreted_localtz(tmp_path):
     """DTSTART without TZID (floating time) is currently treated as UTC by the parser."""
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
-        "BEGIN:VEVENT\n"
-        "UID:floating-local-test@example.com\n"
-        "SUMMARY:Local Floating Meeting\n"
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:floating-local-test@example.com\n"
+        b"SUMMARY:Local Floating Meeting\n"
         # Floating time (no 'Z' and no TZID) -- currently treated as UTC
-        "DTSTART:20251101T090000\n"
-        "DTEND:20251101T100000\n"
-        "RRULE:FREQ=DAILY;COUNT=2\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"DTSTART:20251101T090000\n"
+        b"DTEND:20251101T100000\n"
+        b"RRULE:FREQ=DAILY;COUNT=2\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -889,21 +892,21 @@ def test_whatsnext_floating_time_interpreted_localtz(tmp_path):
 def test_whatsnext_exdate_with_tzid_matching(tmp_path):
     """EXDATE with TZID should match and remove the occurrence from the recurring series."""
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
-        "BEGIN:VTIMEZONE\n"
-        "TZID:America/Los_Angeles\n"
-        "END:VTIMEZONE\n"
-        "BEGIN:VEVENT\n"
-        "UID:exdate-tzid-test@example.com\n"
-        "SUMMARY:Tz EXDATE Meeting\n"
-        "DTSTART;TZID=America/Los_Angeles:20251101T090000\n"
-        "DTEND;TZID=America/Los_Angeles:20251101T100000\n"
-        "RRULE:FREQ=DAILY;COUNT=3\n"
-        "EXDATE;TZID=America/Los_Angeles:20251102T090000\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
+        b"BEGIN:VTIMEZONE\n"
+        b"TZID:America/Los_Angeles\n"
+        b"END:VTIMEZONE\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:exdate-tzid-test@example.com\n"
+        b"SUMMARY:Tz EXDATE Meeting\n"
+        b"DTSTART;TZID=America/Los_Angeles:20251101T090000\n"
+        b"DTEND;TZID=America/Los_Angeles:20251101T100000\n"
+        b"RRULE:FREQ=DAILY;COUNT=3\n"
+        b"EXDATE;TZID=America/Los_Angeles:20251102T090000\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -969,16 +972,16 @@ def test_whatsnext_exdate_with_tzid_matching(tmp_path):
 def test_whatsnext_all_day_recurring(tmp_path):
     """All-day recurring VEVENTs (VALUE=DATE) should be discovered and returned as upcoming."""
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
-        "BEGIN:VEVENT\n"
-        "UID:allday-test@example.com\n"
-        "SUMMARY:All Day Weekly\n"
-        "DTSTART;VALUE=DATE:20251105\n"
-        "RRULE:FREQ=WEEKLY;COUNT=2\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:allday-test@example.com\n"
+        b"SUMMARY:All Day Weekly\n"
+        b"DTSTART;VALUE=DATE:20251105\n"
+        b"RRULE:FREQ=WEEKLY;COUNT=2\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -1044,17 +1047,17 @@ def test_whatsnext_all_day_recurring(tmp_path):
 def test_whatsnext_monthly_byday_ordinal(tmp_path):
     """RRULE with BYDAY=1MO (first Monday) should expand and return upcoming first-Monday occurrence."""
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
-        "BEGIN:VEVENT\n"
-        "UID:monthly-ordinal-test@example.com\n"
-        "SUMMARY:Monthly First Monday\n"
-        "DTSTART:20251103T090000Z\n"  # 2025-11-03 is a Monday (first Monday example)
-        "DTEND:20251103T100000Z\n"
-        "RRULE:FREQ=MONTHLY;BYDAY=1MO;COUNT=3\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:monthly-ordinal-test@example.com\n"
+        b"SUMMARY:Monthly First Monday\n"
+        b"DTSTART:20251103T090000Z\n"  # 2025-11-03 is a Monday (first Monday example)
+        b"DTEND:20251103T100000Z\n"
+        b"RRULE:FREQ=MONTHLY;BYDAY=1MO;COUNT=3\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -1119,28 +1122,28 @@ def test_whatsnext_monthly_byday_ordinal(tmp_path):
 def test_whatsnext_moved_instance_different_tz(tmp_path):
     """Master series in UTC; one recurrence is moved and represented with RECURRENCE-ID (UTC) but DTSTART with TZID."""
     ics = (
-        "BEGIN:VCALENDAR\n"
-        "VERSION:2.0\n"
-        "BEGIN:VEVENT\n"
-        "UID:move-tz-test@example.com\n"
-        "SUMMARY:Team Huddle\n"
-        "DTSTART:20251102T090000Z\n"
-        "DTEND:20251102T091500Z\n"
-        "RRULE:FREQ=DAILY;COUNT=3\n"
-        "END:VEVENT\n"
+        b"BEGIN:VCALENDAR\n"
+        b"VERSION:2.0\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:move-tz-test@example.com\n"
+        b"SUMMARY:Team Huddle\n"
+        b"DTSTART:20251102T090000Z\n"
+        b"DTEND:20251102T091500Z\n"
+        b"RRULE:FREQ=DAILY;COUNT=3\n"
+        b"END:VEVENT\n"
         # Moved second occurrence originally 2025-11-03T09:00Z -> moved to 11:00 America/Los_Angeles
-        "BEGIN:VTIMEZONE\n"
-        "TZID:America/Los_Angeles\n"
-        "END:VTIMEZONE\n"
-        "BEGIN:VEVENT\n"
-        "UID:move-tz-test@example.com\n"
-        "RECURRENCE-ID:20251103T090000Z\n"
-        "SUMMARY:Team Huddle (Moved TZ)\n"
-        "DTSTART;TZID=America/Los_Angeles:20251103T110000\n"
-        "DTEND;TZID=America/Los_Angeles:20251103T111500\n"
-        "END:VEVENT\n"
-        "END:VCALENDAR\n"
-    ).encode("utf-8")
+        b"BEGIN:VTIMEZONE\n"
+        b"TZID:America/Los_Angeles\n"
+        b"END:VTIMEZONE\n"
+        b"BEGIN:VEVENT\n"
+        b"UID:move-tz-test@example.com\n"
+        b"RECURRENCE-ID:20251103T090000Z\n"
+        b"SUMMARY:Team Huddle (Moved TZ)\n"
+        b"DTSTART;TZID=America/Los_Angeles:20251103T110000\n"
+        b"DTEND;TZID=America/Los_Angeles:20251103T111500\n"
+        b"END:VEVENT\n"
+        b"END:VCALENDAR\n"
+    )
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:

@@ -4,10 +4,11 @@ Fast, isolated tests that don't require external components.
 Remember to activate the venv before running: `. venv/bin/activate`
 """
 
-import pytest
 from pathlib import Path
 
-from tests.lite_tests.runner import LiteTestRunner, LiteTestResult
+import pytest
+
+from tests.lite_tests.runner import LiteTestRunner
 
 pytestmark = pytest.mark.unit
 

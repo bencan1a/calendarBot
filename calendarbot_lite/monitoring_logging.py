@@ -193,7 +193,29 @@ class SystemMetricsCollector:
 
 
 class MonitoringLogger:
-    """Enhanced monitoring logger with structured JSON output."""
+    """Enhanced monitoring logger with structured JSON output.
+
+    IMPORTANT - Exception Handling:
+        This logger does NOT have an exception() method. When logging errors
+        within exception handlers, use the standard Python logger for traceback
+        capture, then use MonitoringLogger.error() for structured event logging:
+
+        Example:
+            try:
+                risky_operation()
+            except Exception as e:
+                logger.exception("Operation failed")  # Captures full traceback
+                monitoring_logger.error(  # Structured event data only
+                    "operation.failed",
+                    "Operation encountered error",
+                    details={"error_type": type(e).__name__, "error": str(e)}
+                )
+
+        This separation of concerns ensures:
+        - Full exception tracebacks are logged to standard logs
+        - Structured event data is logged for monitoring/alerting
+        - MonitoringLogger maintains a clean, structured format
+    """
 
     def __init__(
         self,

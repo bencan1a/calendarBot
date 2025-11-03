@@ -25,7 +25,8 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .lite_models import LiteCalendarEvent
-from .server import _get_fallback_timezone, _get_server_timezone, _now_utc
+from .server import _get_server_timezone, _now_utc
+from .timezone_utils import get_fallback_timezone as _get_fallback_timezone
 
 logger = logging.getLogger(__name__)
 

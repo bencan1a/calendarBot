@@ -3,11 +3,11 @@
 Remember to activate the venv before running: `. venv/bin/activate`
 """
 
-import pytest
 from pathlib import Path
-from typing import List
 
-from tests.lite_tests.runner import LiteTestRunner, LiteTestResult
+import pytest
+
+from tests.lite_tests.runner import LiteTestResult, LiteTestRunner
 
 pytestmark = pytest.mark.integration
 
@@ -143,7 +143,7 @@ def test_lite_runner_json_report_generation_when_results_exist_then_generates_va
             passed=True,
         ),
         LiteTestResult(
-            test_id="test_2", 
+            test_id="test_2",
             description="Mock test 2",
             category="recurring",
             expected={"events": []},
@@ -194,7 +194,7 @@ def test_lite_runner_summary_string_generation_when_results_exist_then_generates
         ),
         LiteTestResult(
             test_id="test_2",
-            description="Mock test 2", 
+            description="Mock test 2",
             category="recurring",
             expected={"events": []},
             passed=False,

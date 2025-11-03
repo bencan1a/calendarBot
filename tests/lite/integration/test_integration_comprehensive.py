@@ -10,22 +10,22 @@ Marked as @pytest.mark.integration for selective execution.
 """
 
 import asyncio
-from datetime import datetime, timezone, timedelta
+import threading
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from textwrap import dedent
 from types import SimpleNamespace
 from typing import Any
-import threading
+
 import pytest
 
-from calendarbot_lite.lite_parser import LiteICSParser
 from calendarbot_lite.lite_fetcher import LiteICSFetcher
-from calendarbot_lite.fetch_orchestrator import FetchOrchestrator
+from calendarbot_lite.lite_parser import LiteICSParser
 from calendarbot_lite.pipeline import EventProcessingPipeline, ProcessingContext
 from calendarbot_lite.pipeline_stages import (
     DeduplicationStage,
-    TimeWindowStage,
     SortStage,
+    TimeWindowStage,
 )
 
 pytestmark = pytest.mark.integration

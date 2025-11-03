@@ -5,6 +5,7 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import Mock
+
 import pytest
 
 from calendarbot_lite.config_manager import ConfigManager, get_config_value

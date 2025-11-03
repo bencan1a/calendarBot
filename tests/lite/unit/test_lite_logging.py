@@ -3,6 +3,7 @@
 import logging
 import os
 from unittest.mock import patch
+
 import pytest
 
 from calendarbot_lite.lite_logging import (

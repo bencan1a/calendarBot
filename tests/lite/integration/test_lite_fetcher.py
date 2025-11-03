@@ -2,6 +2,7 @@
 
 import logging
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
@@ -43,11 +44,11 @@ class TestSSRFProtection:
         logged_events = []
 
         class RecordingSecurityLogger:
-            def log_event(self, event_data: dict) -> None:
+            def log_event(self, event_data: dict[str, Any]) -> None:
                 logged_events.append(event_data)
 
         # Replace security logger with test double
-        test_fetcher.security_logger = RecordingSecurityLogger()
+        test_fetcher.security_logger = RecordingSecurityLogger()  # type: ignore[assignment]
 
         # Call _validate_url_for_ssrf with FTP URL (non-HTTP scheme)
         result = test_fetcher._validate_url_for_ssrf("ftp://example.com/file.ics")
@@ -75,10 +76,10 @@ class TestSSRFProtection:
         logged_events = []
 
         class RecordingSecurityLogger:
-            def log_event(self, event_data: dict) -> None:
+            def log_event(self, event_data: dict[str, Any]) -> None:
                 logged_events.append(event_data)
 
-        test_fetcher.security_logger = RecordingSecurityLogger()
+        test_fetcher.security_logger = RecordingSecurityLogger()  # type: ignore[assignment]
 
         # Call with URL missing hostname
         result = test_fetcher._validate_url_for_ssrf("http:///path")
@@ -101,10 +102,10 @@ class TestSSRFProtection:
         logged_events = []
 
         class RecordingSecurityLogger:
-            def log_event(self, event_data: dict) -> None:
+            def log_event(self, event_data: dict[str, Any]) -> None:
                 logged_events.append(event_data)
 
-        test_fetcher.security_logger = RecordingSecurityLogger()
+        test_fetcher.security_logger = RecordingSecurityLogger()  # type: ignore[assignment]
 
         # Patch urlparse to simulate exception during URL parsing
         from unittest.mock import Mock
@@ -660,6 +661,7 @@ async def test_fetcher_uses_default_browser_headers() -> None:
 
     # Ensure fetch executed successfully and content returned
     assert response.success is True
+    assert response.content is not None
     assert "BEGIN:VCALENDAR" in response.content
 
     captured_headers = captured["headers"]
@@ -710,6 +712,7 @@ async def test_fetcher_with_immutable_settings() -> None:
     response = await fetcher.fetch_ics(source)
 
     assert response.success is True
+    assert response.content is not None
     assert "BEGIN:VCALENDAR" in response.content
     # Verify settings object was not mutated
     assert "request_timeout" not in base_settings
@@ -851,6 +854,7 @@ async def test_fetcher_merges_conditional_and_auth_headers() -> None:
     response = await fetcher.fetch_ics(source, conditional_headers=conditional_headers)
 
     assert response.success is True
+    assert response.content is not None
     assert "BEGIN:VCALENDAR" in response.content
 
     headers = captured["headers"]

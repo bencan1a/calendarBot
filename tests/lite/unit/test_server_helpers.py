@@ -13,78 +13,94 @@ from typing import Any
 import pytest
 
 from calendarbot_lite import server
+from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo
 
 pytestmark = pytest.mark.unit
 
 
+def make_lite_event(subject: str) -> LiteCalendarEvent:
+    """Helper to create LiteCalendarEvent for focus time tests."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    return LiteCalendarEvent(
+        id="test-id",
+        subject=subject,
+        start=LiteDateTimeInfo(date_time=now, time_zone="UTC"),
+        end=LiteDateTimeInfo(date_time=now + datetime.timedelta(hours=1), time_zone="UTC"),
+    )
+
+
 def test_is_focus_time_event_when_exact_keyword_match_then_true():
     """Focus time keywords should be detected exactly."""
-    focus_events = [
-        {"subject": "focus time"},
-        {"subject": "Focus Time"},
-        {"subject": "FOCUS TIME"},
-        {"subject": "focus"},
-        {"subject": "deep work"},
-        {"subject": "thinking time"},
-        {"subject": "planning time"},
+    focus_subjects = [
+        "focus time",
+        "Focus Time",
+        "FOCUS TIME",
+        "focus",
+        "deep work",
+        "thinking time",
+        "planning time",
     ]
-    
-    for event in focus_events:
-        assert server._is_focus_time_event(event), f"Event {event} should be focus time"
+
+    for subject in focus_subjects:
+        event = make_lite_event(subject)
+        assert server._is_focus_time_event(event), f"Event with subject '{subject}' should be focus time"
 
 
 def test_is_focus_time_event_when_keyword_in_longer_subject_then_true():
     """Focus time keywords within longer subjects should be detected."""
-    focus_events = [
-        {"subject": "Morning focus time block"},
-        {"subject": "focus time - project planning"},
-        {"subject": "Team deep work session"},
-        {"subject": "Personal thinking time"},
-        {"subject": "Planning time for Q4"},
-        {"subject": "focus session"},
+    focus_subjects = [
+        "Morning focus time block",
+        "focus time - project planning",
+        "Team deep work session",
+        "Personal thinking time",
+        "Planning time for Q4",
+        "focus session",
     ]
-    
-    for event in focus_events:
-        assert server._is_focus_time_event(event), f"Event {event} should be focus time"
+
+    for subject in focus_subjects:
+        event = make_lite_event(subject)
+        assert server._is_focus_time_event(event), f"Event with subject '{subject}' should be focus time"
 
 
 def test_is_focus_time_event_when_non_focus_subject_then_false():
     """Non-focus time events should not be detected as focus time."""
-    non_focus_events = [
-        {"subject": "Team standup"},
-        {"subject": "Client meeting"},
-        {"subject": "1:1 with manager"},
-        {"subject": "Project review"},
-        {"subject": "Lunch"},
-        {"subject": "All hands meeting"},
-        {"subject": "discussion meeting"},  # does not contain focus keywords
-        {"subject": "work session"},  # partial but not complete keyword
-        {"subject": "development sync"},
-        {"subject": "code review"},
+    non_focus_subjects = [
+        "Team standup",
+        "Client meeting",
+        "1:1 with manager",
+        "Project review",
+        "Lunch",
+        "All hands meeting",
+        "discussion meeting",  # does not contain focus keywords
+        "work session",  # partial but not complete keyword
+        "development sync",
+        "code review",
     ]
-    
-    for event in non_focus_events:
-        assert not server._is_focus_time_event(event), f"Event {event} should not be focus time"
+
+    for subject in non_focus_subjects:
+        event = make_lite_event(subject)
+        assert not server._is_focus_time_event(event), f"Event with subject '{subject}' should not be focus time"
 
 
 def test_is_focus_time_event_when_missing_subject_then_false():
-    """Events without subject should not be considered focus time."""
-    assert not server._is_focus_time_event({})
-    assert not server._is_focus_time_event({"subject": ""})
+    """Events with empty subject should not be considered focus time."""
+    event = make_lite_event("")
+    assert not server._is_focus_time_event(event)
 
 
 def test_is_focus_time_event_when_case_insensitive_then_detected():
     """Focus time detection should be case insensitive."""
-    mixed_case_events = [
-        {"subject": "Focus Time"},
-        {"subject": "DEEP WORK"},
-        {"subject": "Thinking Time"},
-        {"subject": "PLANNING TIME"},
-        {"subject": "Morning FOCUS session"},
+    mixed_case_subjects = [
+        "Focus Time",
+        "DEEP WORK",
+        "Thinking Time",
+        "PLANNING TIME",
+        "Morning FOCUS session",
     ]
-    
-    for event in mixed_case_events:
-        assert server._is_focus_time_event(event), f"Event {event} should be focus time"
+
+    for subject in mixed_case_subjects:
+        event = make_lite_event(subject)
+        assert server._is_focus_time_event(event), f"Event with subject '{subject}' should be focus time"
 
 
 def test_format_duration_spoken_seconds_under_minute_then_seconds():

@@ -1,10 +1,8 @@
 """Tests for calendarbot_lite health check functionality."""
 
 import datetime
-import json
 import os
 import time
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -107,7 +105,7 @@ class TestSystemDiagnostics:
         mock_file.__enter__.return_value = mock_file
         mock_file.__iter__.return_value = iter([
             "MemTotal:        8192000 kB\n",
-            "MemFree:         4096000 kB\n", 
+            "MemFree:         4096000 kB\n",
             "MemAvailable:    6144000 kB\n",
             "Buffers:          256000 kB\n"
         ])
@@ -149,7 +147,6 @@ class TestHealthEndpoint:
     async def test_health_check_when_no_refresh_then_returns_degraded(self) -> None:
         """Test that health check returns degraded status when no refresh has occurred."""
         # Test health check function directly by creating it within the _make_app context
-        from aiohttp import web
         
         # Create a minimal mock request
         mock_request = MagicMock()

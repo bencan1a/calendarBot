@@ -13,9 +13,8 @@ Run with:
 
 import asyncio
 import datetime
-import json
 from typing import Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from aiohttp import web
@@ -209,7 +208,7 @@ class TestComputeLastMeetingEndForToday:
             "meeting_id": "yesterday-id",
         }
         
-        # Meeting today 
+        # Meeting today
         today_start = datetime.datetime(2025, 1, 15, 14, 0, 0, tzinfo=datetime.timezone.utc)
         today_event: dict[str, Any] = {
             "start": today_start,
@@ -397,7 +396,7 @@ class TestDoneForDayAPIEndpoints(AioHTTPTestCase):
 
     async def get_application(self) -> web.Application:
         """Create test aiohttp application with done-for-day endpoints."""
-        from calendarbot_lite.server import _compute_last_meeting_end_for_today, _now_utc, _serialize_iso
+        from calendarbot_lite.server import _compute_last_meeting_end_for_today, _serialize_iso
         
         app = web.Application()
         
@@ -506,7 +505,6 @@ class TestDoneForDayAPIEndpoints(AioHTTPTestCase):
     async def test_alexa_done_for_day_endpoint_when_has_meetings_then_returns_done_message(self):
         """Test /api/alexa/done-for-day endpoint with meetings returns done message."""
         # Add test meeting to the app's event window with today's date
-        from calendarbot_lite.server import _now_utc
         now = _now_utc()
         today = now.date()
         
@@ -658,7 +656,7 @@ class TestDoneForDayEdgeCases:
         }
         
         event2: dict[str, Any] = {
-            "start": meeting2_start, 
+            "start": meeting2_start,
             "duration_seconds": 3600,  # 1 hour -> ends at 15:30
             "subject": "Meeting 2",
             "meeting_id": "id-2",

@@ -20,16 +20,17 @@ from __future__ import annotations
 
 import contextlib
 import http.client
+import http.server
 import json
 import os
 import socket
+import socketserver
 import subprocess
 import sys
-import time
 import threading
-import http.server
-import socketserver
+import time
 from typing import Tuple
+
 import pytest
 
 from tests.fixtures.mock_ics_data import ICSDataFactory

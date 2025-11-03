@@ -6,6 +6,7 @@ import datetime
 import logging
 import os
 import time
+from functools import lru_cache
 from typing import ClassVar
 
 logger = logging.getLogger(__name__)
@@ -329,3 +330,34 @@ def convert_to_timezone(dt: datetime.datetime, tz_str: str) -> datetime.datetime
 
     target_tz = zoneinfo.ZoneInfo(tz_str)
     return dt.astimezone(target_tz)
+
+
+@lru_cache(maxsize=20)
+def parse_request_timezone(tz_str: str | None) -> datetime.tzinfo:
+    """Parse timezone string from request, with fallback to UTC.
+
+    This utility consolidates the common pattern in Alexa handlers where a timezone
+    string is parsed from a request parameter and needs fallback handling.
+
+    Args:
+        tz_str: Optional IANA timezone identifier (e.g., "America/Los_Angeles")
+                If None or invalid, falls back to UTC
+
+    Returns:
+        Timezone info object (either ZoneInfo or timezone.utc)
+
+    Examples:
+        >>> tz = parse_request_timezone("America/New_York")
+        >>> tz = parse_request_timezone(None)  # Returns UTC
+        >>> tz = parse_request_timezone("Invalid/Timezone")  # Returns UTC with warning
+    """
+    if not tz_str:
+        return datetime.timezone.utc
+
+    try:
+        import zoneinfo
+
+        return zoneinfo.ZoneInfo(tz_str)
+    except Exception:
+        logger.warning("Invalid timezone %r, falling back to UTC", tz_str)
+        return datetime.timezone.utc

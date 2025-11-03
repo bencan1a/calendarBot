@@ -4,20 +4,62 @@ from __future__ import annotations
 
 import datetime
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
+from pydantic import BaseModel, ValidationError
+
+from .alexa_exceptions import (
+    AlexaAuthenticationError,
+    AlexaDataAccessError,
+    AlexaEventProcessingError,
+    AlexaHandlerError,
+    AlexaResponseGenerationError,
+    AlexaValidationError,
+)
+from .alexa_models import (
+    AlexaRequestParams,
+    MorningSummaryRequestParams,
+)
+from .alexa_registry import AlexaHandlerRegistry
+from .alexa_types import (
+    AlexaDoneForDayInfo,
+    AlexaDoneForDayResponse,
+    AlexaLaunchSummaryResponse,
+    AlexaMeetingInfo,
+    AlexaMorningSummaryMetadata,
+    AlexaMorningSummaryResponse,
+    AlexaNextMeetingResponse,
+    AlexaTimeUntilResponse,
+)
+from .lite_models import LiteCalendarEvent
+from .monitoring_logging import get_logger
+from .timezone_utils import parse_request_timezone
+
+# Import response cache (optional dependency)
+try:
+    from .alexa_response_cache import ResponseCache
+except ImportError:
+    ResponseCache = None  # type: ignore[assignment, misc]
+
 logger = logging.getLogger(__name__)
+monitoring_logger = get_logger("alexa_handlers")
 
 
 class AlexaEndpointBase(ABC):
     """Base class for Alexa endpoints with common authentication and meeting search logic."""
+
+    # Subclasses can override this to specify their parameter model
+    param_model: type[BaseModel] = AlexaRequestParams
 
     def __init__(
         self,
         bearer_token: Optional[str],
         time_provider: Any,
         skipped_store: object | None,
+        response_cache: Optional[Any] = None,
+        precompute_getter: Optional[Any] = None,
     ):
         """Initialize Alexa endpoint handler.
 
@@ -25,32 +67,55 @@ class AlexaEndpointBase(ABC):
             bearer_token: Required bearer token for authentication
             time_provider: Callable that returns current UTC time
             skipped_store: Optional store for skipped events
+            response_cache: Optional ResponseCache for caching responses
+            precompute_getter: Optional function to get precomputed responses
         """
         self.bearer_token = bearer_token
         self.time_provider = time_provider
         self.skipped_store = skipped_store
+        self.response_cache = response_cache
+        self.precompute_getter = precompute_getter
 
-    def check_auth(self, request: Any) -> bool:
-        """Check if request has valid bearer token.
+    def validate_params(self, request: Any) -> BaseModel:
+        """Validate request query parameters using the handler's param model.
 
         Args:
             request: aiohttp request object
 
         Returns:
-            True if authorized, False otherwise
+            Validated parameters as a Pydantic model
+
+        Raises:
+            AlexaValidationError: If validation fails
+        """
+        try:
+            params = dict(request.query)
+            return self.param_model(**params)
+        except ValidationError as e:
+            raise AlexaValidationError(f"Invalid request parameters: {e}") from e
+
+    def check_auth(self, request: Any) -> None:
+        """Check if request has valid bearer token.
+
+        Args:
+            request: aiohttp request object
+
+        Raises:
+            AlexaAuthenticationError: If authentication fails
         """
         if not self.bearer_token:
-            return True  # No token configured, allow all requests
+            return  # No token configured, allow all requests
 
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
-            return False
+            raise AlexaAuthenticationError("Missing or malformed Authorization header")
 
         token = auth_header[7:]  # Remove "Bearer " prefix
-        return token == self.bearer_token
+        if token != self.bearer_token:
+            raise AlexaAuthenticationError("Invalid bearer token")
 
     async def handle(self, request: Any, event_window_ref: Any, window_lock: Any) -> Any:
-        """Main handler with auth check and common setup.
+        """Main handler with auth check, validation, telemetry, and common setup.
 
         Args:
             request: aiohttp request object
@@ -63,27 +128,197 @@ class AlexaEndpointBase(ABC):
         # Import web here to avoid circular imports
         from aiohttp import web
 
-        # Check authentication
-        if not self.check_auth(request):
-            return web.json_response({"error": "Unauthorized"}, status=401)
+        # Start timing for telemetry
+        start_time = time.time()
+        handler_name = self.__class__.__name__
 
-        # Get current time
-        now = self.time_provider()
-
-        # Read event window with lock
-        async with window_lock:
-            window = tuple(event_window_ref[0])
-
-        # Delegate to subclass-specific logic
         try:
-            return await self.handle_request(request, window, now)
-        except Exception as e:
-            logger.exception("Alexa endpoint %s failed", self.__class__.__name__)
-            return web.json_response(
-                {
-                    "error": "Internal server error",
-                    "message": str(e),
+            # Check authentication - raises AlexaAuthenticationError if invalid
+            try:
+                self.check_auth(request)
+            except AlexaAuthenticationError as e:
+                logger.warning("Authentication failed for %s: %s", handler_name, e)
+                monitoring_logger.warning(  # noqa: PLE1205
+                    "alexa.auth.failed",
+                    f"Authentication failed for {handler_name}",
+                    details={"handler": handler_name, "error": str(e)},
+                )
+                return web.json_response({"error": "Unauthorized"}, status=401)
+
+            # Validate request parameters - raises AlexaValidationError if invalid
+            try:
+                self.validate_params(request)
+            except AlexaValidationError as e:
+                logger.warning("Validation failed for %s: %s", handler_name, e)
+                monitoring_logger.warning(  # noqa: PLE1205
+                    "alexa.validation.failed",
+                    f"Validation failed for {handler_name}",
+                    details={"handler": handler_name, "error": str(e), "params": dict(request.query)},
+                )
+                return web.json_response({"error": "Bad request", "message": str(e)}, status=400)
+
+            # Check precomputed responses first (fastest path - <10ms)
+            if self.precompute_getter:
+                # Generate precompute key from handler name and query params
+                tz_param = request.query.get("tz", "UTC")
+                precompute_key = f"{handler_name}:{tz_param}"
+                precomputed = self.precompute_getter(precompute_key)
+                if precomputed:
+                    logger.debug("Precomputed response hit for %s", handler_name)
+                    latency_ms = (time.time() - start_time) * 1000
+                    monitoring_logger.info(  # noqa: PLE1205
+                        "alexa.request.completed",
+                        f"Request completed for {handler_name}",
+                        details={
+                            "handler": handler_name,
+                            "latency_ms": round(latency_ms, 2),
+                            "precompute_hit": True,
+                            "cache_hit": False,
+                            "timezone": tz_param,
+                            "status": 200,
+                        },
+                    )
+                    return web.json_response(precomputed)
+
+            # Check cache before processing (if cache is enabled)
+            cache_key = None
+            if self.response_cache:
+                # Generate cache key from handler name and query params
+                params = dict(request.query)
+                cache_key = self.response_cache.generate_key(handler_name, params)
+                cached = self.response_cache.get(cache_key)
+                if cached:
+                    logger.debug("Cache hit for %s", handler_name)
+                    latency_ms = (time.time() - start_time) * 1000
+                    monitoring_logger.info(  # noqa: PLE1205
+                        "alexa.request.completed",
+                        f"Request completed for {handler_name}",
+                        details={
+                            "handler": handler_name,
+                            "latency_ms": round(latency_ms, 2),
+                            "precompute_hit": False,
+                            "cache_hit": True,
+                            "timezone": params.get("tz", "UTC"),
+                            "status": 200,
+                        },
+                    )
+                    return web.json_response(cached)
+
+            # Get current time
+            now = self.time_provider()
+
+            # Read event window with lock
+            async with window_lock:
+                window = tuple(event_window_ref[0])
+
+            # Delegate to subclass-specific logic with exception handling
+            response = await self.handle_request(request, window, now)
+
+            # Cache the response data (if cache is enabled and response is json)
+            if self.response_cache and cache_key and hasattr(response, 'body'):
+                # Extract response data from aiohttp response
+                # The response should already be a web.json_response
+                import json as json_lib
+                try:
+                    response_data = json_lib.loads(response.body)
+                    self.response_cache.set(cache_key, response_data)
+                except Exception as e:
+                    logger.debug("Could not cache response: %s", e)
+
+            # Log successful completion with telemetry
+            latency_ms = (time.time() - start_time) * 1000
+            monitoring_logger.info(  # noqa: PLE1205
+                "alexa.request.completed",
+                f"Request completed for {handler_name}",
+                details={
+                    "handler": handler_name,
+                    "latency_ms": round(latency_ms, 2),
+                    "precompute_hit": False,
+                    "cache_hit": False,
+                    "timezone": request.query.get("tz", "UTC"),
+                    "status": 200,
                 },
+            )
+
+            return response
+        except AlexaValidationError as e:
+            latency_ms = (time.time() - start_time) * 1000
+            logger.warning("Validation error in %s: %s", handler_name, e)
+            monitoring_logger.error(  # noqa: PLE1205, TRY400
+                "alexa.request.failed",
+                f"Validation error in {handler_name}",
+                details={
+                    "handler": handler_name,
+                    "latency_ms": round(latency_ms, 2),
+                    "error_type": "ValidationError",
+                    "error": str(e),
+                    "status": 400,
+                },
+            )
+            return web.json_response({"error": "Bad request", "message": str(e)}, status=400)
+        except AlexaAuthenticationError as e:
+            latency_ms = (time.time() - start_time) * 1000
+            logger.warning("Auth error in %s: %s", handler_name, e)
+            monitoring_logger.error(  # noqa: PLE1205, TRY400
+                "alexa.request.failed",
+                f"Authentication error in {handler_name}",
+                details={
+                    "handler": handler_name,
+                    "latency_ms": round(latency_ms, 2),
+                    "error_type": "AuthenticationError",
+                    "error": str(e),
+                    "status": 401,
+                },
+            )
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        except (AlexaEventProcessingError, AlexaDataAccessError, AlexaResponseGenerationError) as e:
+            latency_ms = (time.time() - start_time) * 1000
+            logger.error("Handler error in %s: %s", handler_name, e, exc_info=True)
+            monitoring_logger.error(  # noqa: PLE1205, TRY400
+                "alexa.request.failed",
+                f"Handler error in {handler_name}",
+                details={
+                    "handler": handler_name,
+                    "latency_ms": round(latency_ms, 2),
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                    "status": 500,
+                },
+            )
+            return web.json_response({"error": "Internal server error", "message": str(e)}, status=500)
+        except AlexaHandlerError as e:
+            # Catch any other custom exceptions
+            latency_ms = (time.time() - start_time) * 1000
+            logger.error("Handler exception in %s: %s", handler_name, e, exc_info=True)
+            monitoring_logger.error(  # noqa: PLE1205, TRY400
+                "alexa.request.failed",
+                f"Handler exception in {handler_name}",
+                details={
+                    "handler": handler_name,
+                    "latency_ms": round(latency_ms, 2),
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                    "status": 500,
+                },
+            )
+            return web.json_response({"error": "Internal server error", "message": str(e)}, status=500)
+        except Exception as e:
+            # Catch unexpected exceptions
+            latency_ms = (time.time() - start_time) * 1000
+            logger.exception("Unexpected error in %s", handler_name)
+            monitoring_logger.error(  # noqa: PLE1205, TRY400
+                "alexa.request.failed",
+                f"Unexpected error in {handler_name}",
+                details={
+                    "handler": handler_name,
+                    "latency_ms": round(latency_ms, 2),
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                    "status": 500,
+                },
+            )
+            return web.json_response(
+                {"error": "Internal server error", "message": "An unexpected error occurred"},
                 status=500,
             )
 
@@ -91,14 +326,14 @@ class AlexaEndpointBase(ABC):
     async def handle_request(
         self,
         request: Any,
-        window: tuple[dict[str, Any], ...],
+        window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
     ) -> Any:
         """Handle the specific endpoint request (implemented by subclasses).
 
         Args:
             request: aiohttp request object
-            window: Tuple of event dictionaries
+            window: Tuple of LiteCalendarEvent objects
             now: Current UTC time
 
         Returns:
@@ -107,14 +342,14 @@ class AlexaEndpointBase(ABC):
 
     def find_next_meeting(
         self,
-        window: tuple[dict[str, Any], ...],
+        window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
         skip_focus_time: bool = False,
-    ) -> tuple[dict[str, Any], int] | None:
+    ) -> tuple[LiteCalendarEvent, int] | None:
         """Find the next upcoming non-skipped meeting.
 
         Args:
-            window: Tuple of event dictionaries
+            window: Tuple of LiteCalendarEvent objects
             now: Current UTC time
             skip_focus_time: Whether to skip focus time events
 
@@ -122,7 +357,7 @@ class AlexaEndpointBase(ABC):
             Tuple of (event, seconds_until) or None if no meetings found
         """
         for ev in window:
-            start = ev.get("start")
+            start = ev.start.date_time
             if not isinstance(start, datetime.datetime):
                 continue
 
@@ -144,14 +379,17 @@ class AlexaEndpointBase(ABC):
 
         return None
 
-    def _is_skipped(self, event: dict[str, Any]) -> bool:
+    def _is_skipped(self, event: LiteCalendarEvent) -> bool:
         """Check if event is skipped by user.
 
         Args:
-            event: Event dictionary
+            event: LiteCalendarEvent object
 
         Returns:
             True if skipped, False otherwise
+
+        Raises:
+            AlexaDataAccessError: If skipped store access fails critically
         """
         if self.skipped_store is None:
             return False
@@ -161,23 +399,82 @@ class AlexaEndpointBase(ABC):
             return False
 
         try:
-            return is_skipped_fn(event["meeting_id"])
+            result = is_skipped_fn(event.id)
+            return bool(result)
         except Exception as e:
-            logger.warning("skipped_store.is_skipped raised: %s", e)
+            # Log warning but don't fail - treat as not skipped
+            logger.warning("Skipped store access failed for event %s: %s", event.id, e)
             return False
 
-    def _is_focus_time(self, event: dict[str, Any]) -> bool:
+    def _is_focus_time(self, event: LiteCalendarEvent) -> bool:
         """Check if event is a focus time event.
 
         Args:
-            event: Event dictionary
+            event: LiteCalendarEvent object
 
         Returns:
             True if focus time, False otherwise
         """
-        subject = event.get("subject", "").lower()
+        subject = event.subject.lower()
         focus_keywords = ["focus time", "focus block", "do not schedule"]
         return any(keyword in subject for keyword in focus_keywords)
+
+    async def _filter_events_with_pipeline(
+        self,
+        events: list[LiteCalendarEvent] | tuple[LiteCalendarEvent, ...],
+        window_start: Optional[datetime.datetime] = None,
+        window_end: Optional[datetime.datetime] = None,
+        apply_skipped_filter: bool = True,
+        apply_time_window_filter: bool = True,
+    ) -> list[LiteCalendarEvent]:
+        """Filter events using pipeline stages.
+
+        This method uses the existing pipeline infrastructure (SkippedEventsFilterStage
+        and TimeWindowStage) to filter events consistently across all handlers.
+
+        Args:
+            events: Events to filter
+            window_start: Optional start time for time window filtering
+            window_end: Optional end time for time window filtering
+            apply_skipped_filter: Whether to filter out skipped events
+            apply_time_window_filter: Whether to apply time window filtering
+
+        Returns:
+            Filtered list of LiteCalendarEvent objects
+        """
+        from .pipeline import ProcessingContext
+        from .pipeline_stages import SkippedEventsFilterStage, TimeWindowStage
+
+        # Create processing context
+        context = ProcessingContext(
+            events=list(events),
+            window_start=window_start,
+            window_end=window_end,
+        )
+
+        # Add skipped event IDs to context if available
+        if apply_skipped_filter and self.skipped_store:
+            try:
+                active_list_fn = getattr(self.skipped_store, "active_list", None)
+                if callable(active_list_fn):
+                    active_list_result = active_list_fn()
+                    # active_list() returns dict[str, str] per skipped_store.py
+                    if isinstance(active_list_result, dict):
+                        context.skipped_event_ids = set(active_list_result.keys())
+            except Exception as e:
+                logger.warning("Failed to get skipped events list: %s", e)
+
+        # Apply skipped events filter
+        if apply_skipped_filter and context.skipped_event_ids:
+            skipped_stage = SkippedEventsFilterStage()
+            await skipped_stage.process(context)
+
+        # Apply time window filter
+        if apply_time_window_filter and (window_start or window_end):
+            time_stage = TimeWindowStage()
+            await time_stage.process(context)
+
+        return context.events
 
     def _build_response_with_ssml(
         self,
@@ -211,6 +508,14 @@ class AlexaEndpointBase(ABC):
         return response
 
 
+@AlexaHandlerRegistry.register(
+    intent="GetNextMeetingIntent",
+    route="/api/alexa/next-meeting",
+    description="Returns information about the next upcoming meeting",
+    ssml_enabled=True,
+    cache_enabled=True,
+    precompute_enabled=True,
+)
 class NextMeetingHandler(AlexaEndpointBase):
     """Handler for /api/alexa/next-meeting endpoint."""
 
@@ -219,32 +524,38 @@ class NextMeetingHandler(AlexaEndpointBase):
         bearer_token: Optional[str],
         time_provider: Any,
         skipped_store: object | None,
-        ssml_renderer: Any = None,
+        response_cache: Optional[Any] = None,
+        precompute_getter: Optional[Any] = None,
+        presenter: Any = None,
         duration_formatter: Any = None,
         iso_serializer: Any = None,
     ):
-        """Initialize next meeting handler with SSML support.
+        """Initialize next meeting handler with presenter support.
 
         Args:
             bearer_token: Bearer token for auth
             time_provider: Time provider callable
             skipped_store: Skipped events store
-            ssml_renderer: Optional SSML rendering function
+            response_cache: Optional ResponseCache for caching responses
+            precompute_getter: Optional function to get precomputed responses
+            presenter: Optional presenter for formatting responses (AlexaPresenter)
             duration_formatter: Function to format duration in speech
             iso_serializer: Function to serialize datetime to ISO string
         """
-        super().__init__(bearer_token, time_provider, skipped_store)
-        self.ssml_renderer = ssml_renderer
+        super().__init__(bearer_token, time_provider, skipped_store, response_cache, precompute_getter)
+        from .alexa_presentation import PlainTextPresenter
+
+        self.presenter = presenter or PlainTextPresenter()
         self.duration_formatter = duration_formatter
         self.iso_serializer = iso_serializer
 
     async def handle_request(
         self,
         request: Any,
-        window: tuple[dict[str, Any], ...],
+        window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
     ) -> Any:
-        """Handle next meeting request with SSML generation."""
+        """Handle next meeting request with presenter-based formatting."""
         from aiohttp import web
 
         logger.debug("Alexa /api/alexa/next-meeting called - window has %d events", len(window))
@@ -252,82 +563,63 @@ class NextMeetingHandler(AlexaEndpointBase):
         # Find next meeting
         result = self.find_next_meeting(window, now)
 
-        if result is None:
-            # No upcoming meetings
-            speech_text = "You have no upcoming meetings."
-            ssml_output = self._generate_no_meeting_ssml()
+        response_data: AlexaNextMeetingResponse
 
-            response_data = {"meeting": None, "speech_text": speech_text}
+        if result is None:
+            # No upcoming meetings - use presenter for formatting
+            speech_text, ssml_output = self.presenter.format_next_meeting(None)
+
+            response_data = {
+                "meeting": None,
+                "speech_text": speech_text,
+            }
             if ssml_output:
                 response_data["ssml"] = ssml_output
 
             return web.json_response(response_data, status=200)
 
-        # Found a meeting
+        # Found a meeting - prepare data for presenter
         event, seconds_until = result
-        subject = event.get("subject", "Untitled meeting")
-        start = event.get("start")
+        subject = event.subject
+        start = event.start.date_time
         duration_spoken = self.duration_formatter(seconds_until) if self.duration_formatter else ""
 
-        # Simple speech text
-        speech_text = f"Your next meeting is {subject} {duration_spoken}."
-
-        # Generate SSML
-        meeting_data = {
+        meeting_data: dict[str, Any] = {
             "subject": subject,
             "seconds_until_start": seconds_until,
             "duration_spoken": duration_spoken,
-            "location": event.get("location", ""),
-            "is_online_meeting": event.get("is_online_meeting", False),
+            "location": event.location.display_name if event.location else "",
+            "is_online_meeting": event.is_online_meeting,
         }
-        ssml_output = self._generate_meeting_ssml(meeting_data)
 
-        # Build response
-        response_data = {
-            "meeting": {  # type: ignore[dict-item]
-                "subject": subject,
-                "start_iso": self.iso_serializer(start) if self.iso_serializer else str(start),
-                "seconds_until_start": seconds_until,
-                "speech_text": speech_text,
-                "duration_spoken": duration_spoken,
-            }
+        # Use presenter to format response
+        speech_text, ssml_output = self.presenter.format_next_meeting(meeting_data)
+
+        # Build response with typed meeting info
+        meeting_info: AlexaMeetingInfo = {
+            "subject": subject,
+            "start_iso": self.iso_serializer(start) if self.iso_serializer else start.isoformat(),
+            "seconds_until_start": seconds_until,
+            "speech_text": speech_text,
+            "duration_spoken": duration_spoken,
         }
 
         if ssml_output:
-            response_data["meeting"]["ssml"] = ssml_output  # type: ignore[index]
+            meeting_info["ssml"] = ssml_output
+
+        response_data = {"meeting": meeting_info}
 
         return web.json_response(response_data, status=200)
 
-    def _generate_meeting_ssml(self, meeting_data: dict[str, Any]) -> Optional[str]:
-        """Generate SSML for meeting data."""
-        if not self.ssml_renderer:
-            return None
 
-        try:
-            ssml = self.ssml_renderer(meeting_data)
-            if ssml:
-                logger.info("SSML generated successfully: %d characters", len(ssml))
-            return ssml
-        except Exception as e:
-            logger.error("SSML generation failed: %s", e, exc_info=True)
-            return None
-
-    def _generate_no_meeting_ssml(self) -> Optional[str]:
-        """Generate SSML for no meetings case."""
-        if not self.ssml_renderer:
-            return None
-
-        try:
-            empty_meeting = {"subject": "", "seconds_until_start": 0, "duration_spoken": ""}
-            ssml = self.ssml_renderer(empty_meeting)
-            if ssml:
-                logger.info("No-meetings SSML generated: %d characters", len(ssml))
-            return ssml
-        except Exception as e:
-            logger.error("No-meetings SSML generation failed: %s", e, exc_info=True)
-            return None
-
-
+@AlexaHandlerRegistry.register(
+    intent="GetTimeUntilNextMeetingIntent",
+    route="/api/alexa/time-until-next",
+    description="Returns time remaining until the next meeting",
+    ssml_enabled=True,
+    cache_enabled=True,
+    precompute_enabled=True,
+)
 class TimeUntilHandler(AlexaEndpointBase):
     """Handler for /api/alexa/time-until-next endpoint."""
 
@@ -336,29 +628,35 @@ class TimeUntilHandler(AlexaEndpointBase):
         bearer_token: Optional[str],
         time_provider: Any,
         skipped_store: object | None,
-        ssml_renderer: Any = None,
+        response_cache: Optional[Any] = None,
+        precompute_getter: Optional[Any] = None,
+        presenter: Any = None,
         duration_formatter: Any = None,
     ):
-        """Initialize time until handler.
+        """Initialize time until handler with presenter support.
 
         Args:
             bearer_token: Bearer token for auth
             time_provider: Time provider callable
             skipped_store: Skipped events store
-            ssml_renderer: Optional SSML rendering function
+            response_cache: Optional ResponseCache for caching responses
+            precompute_getter: Optional function to get precomputed responses
+            presenter: Optional presenter for formatting responses (AlexaPresenter)
             duration_formatter: Function to format duration in speech
         """
-        super().__init__(bearer_token, time_provider, skipped_store)
-        self.ssml_renderer = ssml_renderer
+        super().__init__(bearer_token, time_provider, skipped_store, response_cache, precompute_getter)
+        from .alexa_presentation import PlainTextPresenter
+
+        self.presenter = presenter or PlainTextPresenter()
         self.duration_formatter = duration_formatter
 
     async def handle_request(
         self,
         request: Any,
-        window: tuple[dict[str, Any], ...],
+        window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
     ) -> Any:
-        """Handle time until next meeting request."""
+        """Handle time until next meeting request with presenter-based formatting."""
         from aiohttp import web
 
         logger.debug("Alexa /api/alexa/time-until-next called - window has %d events", len(window))
@@ -366,32 +664,37 @@ class TimeUntilHandler(AlexaEndpointBase):
         # Find next meeting
         result = self.find_next_meeting(window, now)
 
-        if result is None:
-            # No upcoming meetings
-            speech_text = "You have no upcoming meetings."
-            ssml_output = self._generate_ssml(0, None)
+        response_data: AlexaTimeUntilResponse
 
-            response_data = {"seconds_until_start": None, "speech_text": speech_text}
+        if result is None:
+            # No upcoming meetings - use presenter for formatting
+            speech_text, ssml_output = self.presenter.format_time_until(0, None)
+
+            response_data = {
+                "seconds_until_start": None,
+                "speech_text": speech_text,
+                "duration_spoken": "",
+            }
             if ssml_output:
                 response_data["ssml"] = ssml_output
 
             return web.json_response(response_data, status=200)
 
-        # Found a meeting
+        # Found a meeting - prepare data for presenter
         event, seconds_until = result
         duration_spoken = self.duration_formatter(seconds_until) if self.duration_formatter else ""
-        speech_text = f"Your next meeting is {duration_spoken}."
 
-        # Generate SSML
-        meeting_data = {
-            "subject": event.get("subject", ""),
+        meeting_data: dict[str, Any] = {
+            "subject": event.subject,
             "duration_spoken": duration_spoken,
         }
-        ssml_output = self._generate_ssml(seconds_until, meeting_data)
+
+        # Use presenter to format response
+        speech_text, ssml_output = self.presenter.format_time_until(seconds_until, meeting_data)
 
         # Build response
         response_data = {
-            "seconds_until_start": seconds_until,  # type: ignore[dict-item]
+            "seconds_until_start": seconds_until,
             "duration_spoken": duration_spoken,
             "speech_text": speech_text,
         }
@@ -401,25 +704,15 @@ class TimeUntilHandler(AlexaEndpointBase):
 
         return web.json_response(response_data, status=200)
 
-    def _generate_ssml(
-        self,
-        seconds_until: int,
-        meeting_data: Optional[dict[str, Any]],
-    ) -> Optional[str]:
-        """Generate SSML for time until response."""
-        if not self.ssml_renderer:
-            return None
 
-        try:
-            ssml = self.ssml_renderer(seconds_until, meeting_data)
-            if ssml:
-                logger.info("Time-until SSML generated: %d characters", len(ssml))
-            return ssml
-        except Exception as e:
-            logger.error("Time-until SSML generation failed: %s", e, exc_info=True)
-            return None
-
-
+@AlexaHandlerRegistry.register(
+    intent="GetDoneForDayIntent",
+    route="/api/alexa/done-for-day",
+    description="Returns when the user will be done with meetings for the day",
+    ssml_enabled=True,
+    cache_enabled=True,
+    precompute_enabled=True,
+)
 class DoneForDayHandler(AlexaEndpointBase):
     """Handler for /api/alexa/done-for-day endpoint."""
 
@@ -428,29 +721,35 @@ class DoneForDayHandler(AlexaEndpointBase):
         bearer_token: Optional[str],
         time_provider: Any,
         skipped_store: object | None,
-        ssml_renderer: Any = None,
+        response_cache: Optional[Any] = None,
+        precompute_getter: Optional[Any] = None,
+        presenter: Any = None,
         iso_serializer: Any = None,
         get_server_timezone: Any = None,
     ):
-        """Initialize done-for-day handler.
+        """Initialize done-for-day handler with presenter support.
 
         Args:
             bearer_token: Bearer token for auth
             time_provider: Time provider callable
             skipped_store: Skipped events store
-            ssml_renderer: Optional SSML rendering function
+            response_cache: Optional ResponseCache for caching responses
+            precompute_getter: Optional function to get precomputed responses
+            presenter: Optional presenter for formatting responses (AlexaPresenter)
             iso_serializer: Function to serialize datetime to ISO string
             get_server_timezone: Function to get server timezone
         """
-        super().__init__(bearer_token, time_provider, skipped_store)
-        self.ssml_renderer = ssml_renderer
+        super().__init__(bearer_token, time_provider, skipped_store, response_cache, precompute_getter)
+        from .alexa_presentation import PlainTextPresenter
+
+        self.presenter = presenter or PlainTextPresenter()
         self.iso_serializer = iso_serializer
         self.get_server_timezone = get_server_timezone
 
     async def handle_request(
         self,
         request: Any,
-        window: tuple[dict[str, Any], ...],
+        window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
     ) -> Any:
         """Handle done-for-day request."""
@@ -466,30 +765,26 @@ class DoneForDayHandler(AlexaEndpointBase):
         )
 
         # Compute last meeting end for today
-        result = self._compute_last_meeting_end_for_today(request_tz, window)
+        result = await self._compute_last_meeting_end_for_today(request_tz, window)
 
         # Generate speech text based on results
         speech_text = self._generate_speech_text(result, request_tz, now)
 
-        # Generate SSML if available
-        ssml_output = None
-        if self.ssml_renderer:
-            logger.debug("Attempting SSML generation for done-for-day")
-            try:
-                ssml_output = self.ssml_renderer(result["has_meetings_today"], speech_text)
-                if ssml_output:
-                    logger.info("Done-for-day SSML generated: %d characters", len(ssml_output))
-                else:
-                    logger.warning("Done-for-day SSML generation returned None")
-            except Exception as e:
-                logger.error("Done-for-day SSML generation failed: %s", e, exc_info=True)
+        # Use presenter to format response (returns speech_text and optional SSML)
+        speech_text, ssml_output = self.presenter.format_done_for_day(
+            result["has_meetings_today"], speech_text
+        )
 
         # Build response
-        response_data = {
+        response_data: AlexaDoneForDayResponse = {
             "now_iso": self.iso_serializer(now) if self.iso_serializer else now.isoformat() + "Z",
             "tz": request_tz,
-            **result,
+            "has_meetings_today": result["has_meetings_today"],
+            "last_meeting_start_iso": result["last_meeting_start_iso"],
+            "last_meeting_end_iso": result["last_meeting_end_iso"],
+            "last_meeting_end_local_iso": result["last_meeting_end_local_iso"],
             "speech_text": speech_text,
+            "note": result.get("note"),
         }
 
         # Add SSML and card data for Alexa if available
@@ -502,108 +797,51 @@ class DoneForDayHandler(AlexaEndpointBase):
 
         return web.json_response(response_data, status=200)
 
-    def _compute_last_meeting_end_for_today(
+    async def _compute_last_meeting_end_for_today(
         self,
         request_tz: str | None,
-        event_window: tuple[dict[str, Any], ...],
-    ) -> dict[str, Any]:
+        event_window: tuple[LiteCalendarEvent, ...],
+    ) -> AlexaDoneForDayInfo:
         """Compute the last meeting end time for today from the event window.
+
+        Uses shared utility function with pipeline stages for consistent event filtering.
 
         Args:
             request_tz: Optional timezone string for date comparison
-            event_window: Tuple of event dictionaries from the in-memory window
+            event_window: Tuple of LiteCalendarEvent objects from the in-memory window
 
         Returns:
             Dictionary with has_meetings_today, last_meeting_start_iso, last_meeting_end_iso, etc.
         """
+        from . import alexa_utils
+
         now_utc = self.time_provider()
 
-        # Parse timezone or fallback to UTC
-        try:
-            if request_tz:
-                import zoneinfo
+        # Use shared utility to compute done-for-day info
+        computation_result = await alexa_utils.compute_done_for_day_info(
+            events=event_window,
+            request_tz=request_tz,
+            now=now_utc,
+            filter_events_fn=self._filter_events_with_pipeline,
+        )
 
-                tz = zoneinfo.ZoneInfo(request_tz)
-            else:
-                tz = datetime.timezone.utc  # type: ignore[assignment]
-        except Exception:
-            logger.warning("Invalid timezone %r, falling back to UTC", request_tz)
-            tz = datetime.timezone.utc  # type: ignore[assignment]
-
-        # Get today's date in the target timezone
-        today_date = now_utc.astimezone(tz).date()
-
-        latest_end_utc = None
-        latest_start_utc = None
-        meetings_found = 0
-
-        # Process events in the window
-        for ev in event_window:
-            try:
-                # Get event start time
-                start = ev.get("start")
-                if not isinstance(start, datetime.datetime):
-                    continue
-
-                # Convert to target timezone for date comparison
-                start_local = start.astimezone(tz)
-                if start_local.date() != today_date:
-                    continue  # Not today
-
-                # Check if meeting is skipped
-                if self._is_skipped(ev):
-                    continue
-
-                meetings_found += 1
-
-                # Calculate event end time with 1-hour fallback
-                duration_seconds = ev.get("duration_seconds")
-                if not isinstance(duration_seconds, int) or duration_seconds <= 0:
-                    duration_seconds = 3600  # 1-hour fallback
-
-                end_utc = start + datetime.timedelta(seconds=duration_seconds)
-
-                # Track latest end time
-                if latest_end_utc is None or end_utc > latest_end_utc:
-                    latest_end_utc = end_utc
-                    latest_start_utc = start
-
-            except Exception as e:
-                logger.warning("Error processing event for done-for-day: %s", e)
-                continue
-
-        # Build result
-        has_meetings = meetings_found > 0
-
-        result = {
-            "has_meetings_today": has_meetings,
-            "last_meeting_start_iso": (
-                self.iso_serializer(latest_start_utc)
-                if self.iso_serializer and latest_start_utc
-                else (latest_start_utc.isoformat() + "Z" if latest_start_utc else None)
-            ),
-            "last_meeting_end_iso": (
-                self.iso_serializer(latest_end_utc)
-                if self.iso_serializer and latest_end_utc
-                else (latest_end_utc.isoformat() + "Z" if latest_end_utc else None)
-            ),
-            "last_meeting_end_local_iso": (
-                latest_end_utc.astimezone(tz).isoformat() if latest_end_utc else None
-            ),
-            "note": None,
-        }
+        # Format result for Alexa response
+        result = alexa_utils.format_done_for_day_result(
+            computation_result,
+            iso_serializer=self.iso_serializer,
+        )
 
         logger.debug(
-            "Done-for-day result: has_meetings=%s, meetings_found=%d",
-            has_meetings,
-            meetings_found,
+            "Done-for-day result: has_meetings=%s, meetings_found=%d (shared-utility)",
+            result["has_meetings_today"],
+            computation_result["meetings_count"],
         )
 
         return result
 
     def _generate_speech_text(
         self,
-        result: dict[str, Any],
+        result: AlexaDoneForDayInfo,
         request_tz: str | None,
         now: datetime.datetime,
     ) -> str:
@@ -612,22 +850,19 @@ class DoneForDayHandler(AlexaEndpointBase):
             if result["last_meeting_end_iso"]:
                 # Parse the end time for speech formatting
                 try:
-                    import zoneinfo
-
                     end_utc = datetime.datetime.fromisoformat(
                         result["last_meeting_end_iso"].replace("Z", "+00:00")
                     )
 
                     # Convert to local time for speech
+                    tz = parse_request_timezone(request_tz)
+                    end_local = end_utc.astimezone(tz)
+
+                    # Format time string (show UTC if no timezone provided)
                     if request_tz:
-                        try:
-                            tz = zoneinfo.ZoneInfo(request_tz)
-                            end_local = end_utc.astimezone(tz)
-                            time_str = end_local.strftime("%-I:%M %p").lower()
-                        except Exception:
-                            time_str = end_utc.strftime("%-I:%M %p UTC").lower()
+                        time_str = end_local.strftime("%-I:%M %p").lower()
                     else:
-                        time_str = end_utc.strftime("%-I:%M %p UTC").lower()
+                        time_str = end_local.strftime("%-I:%M %p UTC").lower()
 
                     # Compare current time with last meeting end time
                     if now >= end_utc:
@@ -636,8 +871,11 @@ class DoneForDayHandler(AlexaEndpointBase):
                     # Still have meetings, will be done at end time
                     return f"You'll be done at {time_str}."
 
-                except Exception as e:
+                except (ValueError, AttributeError) as e:
                     logger.warning("Error formatting end time for speech: %s", e)
+                    return "You have meetings today, but I couldn't determine when your last one ends."
+                except Exception as e:
+                    logger.error("Unexpected error formatting end time: %s", e, exc_info=True)
                     return "You have meetings today, but I couldn't determine when your last one ends."
             else:
                 return "You have meetings today, but I couldn't determine when your last one ends."
@@ -645,6 +883,14 @@ class DoneForDayHandler(AlexaEndpointBase):
             return "You have no meetings today. Enjoy your free day!"
 
 
+@AlexaHandlerRegistry.register(
+    intent="LaunchIntent",
+    route="/api/alexa/launch-summary",
+    description="Provides comprehensive summary when Alexa skill is launched",
+    ssml_enabled=True,
+    cache_enabled=True,
+    precompute_enabled=False,  # Launch summary combines multiple data sources
+)
 class LaunchSummaryHandler(AlexaEndpointBase):
     """Handler for /api/alexa/launch-summary endpoint."""
 
@@ -653,31 +899,131 @@ class LaunchSummaryHandler(AlexaEndpointBase):
         bearer_token: Optional[str],
         time_provider: Any,
         skipped_store: object | None,
-        ssml_renderers: dict[str, Any] | None = None,
+        response_cache: Optional[Any] = None,
+        precompute_getter: Optional[Any] = None,
+        presenter: Any = None,
         duration_formatter: Any = None,
         iso_serializer: Any = None,
         get_server_timezone: Any = None,
     ):
-        """Initialize launch summary handler.
+        """Initialize launch summary handler with presenter support.
 
         Args:
             bearer_token: Bearer token for auth
             time_provider: Time provider callable
             skipped_store: Skipped events store
-            ssml_renderers: Dictionary of SSML rendering functions
+            response_cache: Optional ResponseCache for caching responses
+            precompute_getter: Optional function to get precomputed responses
+            presenter: Optional presenter for formatting responses (AlexaPresenter)
             duration_formatter: Function to format duration for speech
             iso_serializer: Function to serialize datetime to ISO string
             get_server_timezone: Function to get server timezone
         """
-        super().__init__(bearer_token, time_provider, skipped_store)
-        self.ssml_renderers = ssml_renderers or {}
+        super().__init__(bearer_token, time_provider, skipped_store, response_cache, precompute_getter)
+        from .alexa_presentation import PlainTextPresenter
+
+        self.presenter = presenter or PlainTextPresenter()
         self.duration_formatter = duration_formatter
         self.iso_serializer = iso_serializer
         self.get_server_timezone = get_server_timezone
 
+    def _get_timezone(self, request_tz: Optional[str]) -> Any:
+        """Parse timezone from request.
+
+        Args:
+            request_tz: Optional timezone string from request
+
+        Returns:
+            Timezone object (from parse_request_timezone)
+        """
+        return parse_request_timezone(request_tz)
+
+    async def _get_done_for_day_info(
+        self,
+        window: tuple[LiteCalendarEvent, ...],
+        request_tz: Optional[str],
+    ) -> AlexaDoneForDayInfo:
+        """Get done-for-day information using shared utility.
+
+        Uses the shared alexa_utils module instead of creating a DoneForDayHandler
+        instance, eliminating cross-handler coupling.
+
+        Args:
+            window: Event window
+            request_tz: Optional timezone string
+
+        Returns:
+            Done-for-day information dictionary
+        """
+        from . import alexa_utils
+
+        now_utc = self.time_provider()
+
+        # Use shared utility to compute done-for-day info
+        computation_result = await alexa_utils.compute_done_for_day_info(
+            events=window,
+            request_tz=request_tz,
+            now=now_utc,
+            filter_events_fn=self._filter_events_with_pipeline,
+        )
+
+        # Format result for Alexa response
+        return alexa_utils.format_done_for_day_result(
+            computation_result,
+            iso_serializer=self.iso_serializer,
+        )
+
+    def _build_launch_summary_response(
+        self,
+        speech_text: str,
+        has_meetings_today: bool,
+        primary_meeting: Optional[dict[str, Any]],
+        done_info: AlexaDoneForDayInfo,
+        ssml_output: Optional[str],
+    ) -> AlexaLaunchSummaryResponse:
+        """Build the final launch summary response.
+
+        Args:
+            speech_text: Generated speech text
+            has_meetings_today: Whether user has meetings today
+            primary_meeting: Primary meeting to include (or None)
+            done_info: Done-for-day calculation results
+            ssml_output: Optional SSML markup
+
+        Returns:
+            Formatted Alexa launch summary response
+        """
+        # Build next meeting info if available
+        next_meeting_info: Optional[AlexaMeetingInfo] = None
+        if primary_meeting:
+            next_meeting_info = {
+                "subject": primary_meeting["subject"],
+                "start_iso": (
+                    self.iso_serializer(primary_meeting["event"].start.date_time)
+                    if self.iso_serializer
+                    else primary_meeting["event"].start.date_time.isoformat()
+                ),
+                "seconds_until_start": primary_meeting["seconds_until"],
+                "duration_spoken": primary_meeting["duration_spoken"],
+                "speech_text": speech_text,
+            }
+
+        # Build response
+        response_data: AlexaLaunchSummaryResponse = {
+            "speech_text": speech_text,
+            "has_meetings_today": has_meetings_today,
+            "next_meeting": next_meeting_info,
+            "done_for_day": done_info,
+        }
+
+        if ssml_output:
+            response_data["ssml"] = ssml_output
+
+        return response_data
+
     def _find_next_meeting(
         self,
-        window: tuple[dict[str, Any], ...],
+        window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
         tz: Any,
         today_date: datetime.date,
@@ -696,7 +1042,7 @@ class LaunchSummaryHandler(AlexaEndpointBase):
             Dictionary with meeting details or None if no meeting found
         """
         for ev in window:
-            start = ev.get("start")
+            start = ev.start.date_time
             if not isinstance(start, datetime.datetime):
                 continue
 
@@ -706,9 +1052,8 @@ class LaunchSummaryHandler(AlexaEndpointBase):
             if include_today:
                 if start_local.date() != today_date:
                     continue  # Skip non-today meetings
-            else:
-                if start_local.date() <= today_date:
-                    continue  # Skip today's and past meetings
+            elif start_local.date() <= today_date:
+                continue  # Skip today's and past meetings
 
             # Skip past meetings
             seconds_until = int((start - now).total_seconds())
@@ -723,7 +1068,7 @@ class LaunchSummaryHandler(AlexaEndpointBase):
             return {
                 "event": ev,
                 "seconds_until": seconds_until,
-                "subject": ev.get("subject", "Untitled meeting"),
+                "subject": ev.subject,
                 "duration_spoken": (
                     self.duration_formatter(seconds_until) if self.duration_formatter else ""
                 ),
@@ -734,14 +1079,20 @@ class LaunchSummaryHandler(AlexaEndpointBase):
     async def handle_request(
         self,
         request: Any,
-        window: tuple[dict[str, Any], ...],
+        window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
     ) -> Any:
-        """Handle launch summary request."""
+        """Handle launch summary request - orchestrates helper methods.
+
+        This method has been refactored to delegate to focused helper methods,
+        reducing complexity from 181 lines to <50 lines.
+        """
         from aiohttp import web
 
-        # Get timezone parameter from query string
+        # 1. Parse timezone
         request_tz = request.query.get("tz")
+        tz = self._get_timezone(request_tz)
+        today_date = now.astimezone(tz).date()
 
         logger.debug(
             "Alexa /api/alexa/launch-summary called - window has %d events, tz=%s",
@@ -749,195 +1100,78 @@ class LaunchSummaryHandler(AlexaEndpointBase):
             request_tz,
         )
 
-        # Create a temporary DoneForDayHandler instance to reuse the computation logic
-        done_handler = DoneForDayHandler(
-            self.bearer_token,
-            self.time_provider,
-            self.skipped_store,
-            None,
-            self.iso_serializer,
-            self.get_server_timezone,
-        )
-        done_for_day_result = done_handler._compute_last_meeting_end_for_today(request_tz, window)  # noqa: SLF001
+        # 2. Get done-for-day info
+        done_info = await self._get_done_for_day_info(window, request_tz)
 
-        # Parse timezone for date comparison
-        try:
-            if request_tz:
-                import zoneinfo
-
-                tz = zoneinfo.ZoneInfo(request_tz)
-            else:
-                tz = datetime.timezone.utc  # type: ignore[assignment]
-        except Exception:
-            tz = datetime.timezone.utc  # type: ignore[assignment]
-
-        today_date = now.astimezone(tz).date()
-
-        # Initialize meeting variables
-        next_meeting_today = None
-        future_meeting = None
-
-        # Build speech response based on whether there are meetings today
-        if not done_for_day_result["has_meetings_today"]:
-            # No meetings today case - find next future meeting beyond today
-            future_meeting = self._find_next_meeting(
-                window, now, tz, today_date, include_today=False
-            )
-
-            if future_meeting:
-                speech_text = f"No meetings today, you're free until {future_meeting['subject']} {future_meeting['duration_spoken']}."
-            else:
-                speech_text = "No meetings today. You have no upcoming meetings scheduled."
-
+        # 3. Find appropriate meeting based on whether there are meetings today
+        if done_info["has_meetings_today"]:
+            primary_meeting = self._find_next_meeting(window, now, tz, today_date, include_today=True)
         else:
-            # Have meetings today case - find next meeting today
-            next_meeting_today = self._find_next_meeting(
-                window, now, tz, today_date, include_today=True
-            )
+            primary_meeting = self._find_next_meeting(window, now, tz, today_date, include_today=False)
 
-            if next_meeting_today:
-                speech_text = f"Your next meeting is {next_meeting_today['subject']} {next_meeting_today['duration_spoken']}."
-            else:
-                speech_text = "You have no more meetings today."
+        # 4. Use presenter to generate speech text AND SSML
+        # Presenter now handles all speech generation logic
+        speech_text, ssml_output = self.presenter.format_launch_summary(
+            done_info, primary_meeting, tz, request_tz, now
+        )
 
-            # Add done-for-day information if we have meetings today
-            if done_for_day_result["last_meeting_end_iso"]:
-                try:
-                    import zoneinfo
-
-                    end_utc = datetime.datetime.fromisoformat(
-                        done_for_day_result["last_meeting_end_iso"].replace("Z", "+00:00")
-                    )
-
-                    # Convert to local time for speech
-                    if request_tz:
-                        try:
-                            tz = zoneinfo.ZoneInfo(request_tz)
-                            end_local = end_utc.astimezone(tz)
-                            time_str = end_local.strftime("%-I:%M %p").lower()
-                        except Exception:
-                            time_str = end_utc.strftime("%-I:%M %p UTC").lower()
-                    else:
-                        time_str = end_utc.strftime("%-I:%M %p UTC").lower()
-
-                    if now >= end_utc:
-                        speech_text += " You're all done for today!"
-                    else:
-                        speech_text += f" You'll be done for the day at {time_str}."
-
-                except Exception as e:
-                    logger.warning("Error formatting end time for launch summary: %s", e)
-                    speech_text += " I couldn't determine when your last meeting ends today."
-
-        # Determine which meeting to use for SSML and response building
-        primary_meeting = None
-        if done_for_day_result["has_meetings_today"] and next_meeting_today is not None:
-            primary_meeting = next_meeting_today
-        elif not done_for_day_result["has_meetings_today"] and future_meeting is not None:
-            primary_meeting = future_meeting
-
-        # Generate SSML if available - reuse existing SSML functions
-        ssml_output = None
-        if (
-            done_for_day_result["has_meetings_today"]
-            and primary_meeting
-            and "meeting" in self.ssml_renderers
-        ):
-            # Meetings today case - use meeting SSML
-            logger.debug("Attempting SSML generation for launch summary with meetings today")
-            try:
-                meeting_data = {
-                    "subject": primary_meeting["subject"],
-                    "seconds_until_start": primary_meeting["seconds_until"],
-                    "duration_spoken": primary_meeting["duration_spoken"],
-                    "location": primary_meeting["event"].get("location", ""),
-                    "is_online_meeting": primary_meeting["event"].get("is_online_meeting", False),
-                }
-                # Use the meeting SSML renderer for meetings today
-                base_ssml = self.ssml_renderers["meeting"](meeting_data)
-                if base_ssml:
-                    ssml_output = base_ssml
-                    logger.info(
-                        "Launch summary (meetings today) SSML generated: %d characters",
-                        len(ssml_output),
-                    )
-            except Exception as e:
-                logger.error(
-                    "Launch summary (meetings today) SSML generation failed: %s", e, exc_info=True
-                )
-        elif "done_for_day" in self.ssml_renderers:
-            # No meetings today case - use done-for-day SSML
-            logger.debug("Attempting SSML generation for launch summary (no meetings today)")
-            try:
-                ssml_output = self.ssml_renderers["done_for_day"](
-                    done_for_day_result["has_meetings_today"], speech_text
-                )
-                if ssml_output:
-                    logger.info(
-                        "Launch summary (no meetings today) SSML generated: %d characters",
-                        len(ssml_output),
-                    )
-            except Exception as e:
-                logger.error(
-                    "Launch summary (no meetings today) SSML generation failed: %s",
-                    e,
-                    exc_info=True,
-                )
-
-        # Build response
-        response_data = {
-            "speech_text": speech_text,
-            "has_meetings_today": done_for_day_result["has_meetings_today"],
-            "next_meeting": {
-                "subject": primary_meeting["subject"],
-                "start_iso": (
-                    self.iso_serializer(primary_meeting["event"].get("start"))
-                    if self.iso_serializer
-                    else primary_meeting["event"].get("start").isoformat() + "Z"
-                ),
-                "seconds_until_start": primary_meeting["seconds_until"],
-                "duration_spoken": primary_meeting["duration_spoken"],
-            }
-            if primary_meeting
-            else None,
-            "done_for_day": done_for_day_result,
-        }
-
-        # Add SSML to response if generated
-        if ssml_output:
-            response_data["ssml"] = ssml_output
+        # 5. Build and return response
+        response_data = self._build_launch_summary_response(
+            speech_text=speech_text,
+            has_meetings_today=done_info["has_meetings_today"],
+            primary_meeting=primary_meeting,
+            done_info=done_info,
+            ssml_output=ssml_output,
+        )
 
         return web.json_response(response_data, status=200)
 
 
+@AlexaHandlerRegistry.register(
+    intent="GetMorningSummaryIntent",
+    route="/api/alexa/morning-summary",
+    description="Provides detailed morning summary of upcoming events",
+    ssml_enabled=True,
+    cache_enabled=True,
+    precompute_enabled=False,  # Morning summary has complex parameters
+)
 class MorningSummaryHandler(AlexaEndpointBase):
     """Handler for /api/alexa/morning-summary endpoint."""
+
+    # Use specialized validation model for morning summary
+    param_model = MorningSummaryRequestParams
 
     def __init__(
         self,
         bearer_token: Optional[str],
         time_provider: Any,
         skipped_store: object | None,
-        ssml_renderer: Any = None,
+        response_cache: Optional[Any] = None,
+        precompute_getter: Optional[Any] = None,
+        presenter: Any = None,
         get_server_timezone: Any = None,
     ):
-        """Initialize morning summary handler.
+        """Initialize morning summary handler with presenter support.
 
         Args:
             bearer_token: Bearer token for auth
             time_provider: Time provider callable
             skipped_store: Skipped events store
-            ssml_renderer: Optional SSML rendering function for morning summary
+            response_cache: Optional ResponseCache for caching responses
+            precompute_getter: Optional function to get precomputed responses
+            presenter: Optional presenter for formatting responses (AlexaPresenter)
             get_server_timezone: Function to get server timezone
         """
-        super().__init__(bearer_token, time_provider, skipped_store)
-        self.ssml_renderer = ssml_renderer
+        super().__init__(bearer_token, time_provider, skipped_store, response_cache, precompute_getter)
+        from .alexa_presentation import PlainTextPresenter
+
+        self.presenter = presenter or PlainTextPresenter()
         self.get_server_timezone = get_server_timezone
 
     async def handle_request(
         self,
         request: Any,
-        window: tuple[dict[str, Any], ...],
+        window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
     ) -> Any:
         """Handle morning summary request."""
@@ -958,46 +1192,8 @@ class MorningSummaryHandler(AlexaEndpointBase):
                 "Alexa morning summary called with tz=%s, prefer_ssml=%s", timezone_str, prefer_ssml
             )
 
-            # Convert raw events to LiteCalendarEvent objects for morning summary service
-            from .lite_models import (
-                LiteCalendarEvent,
-                LiteDateTimeInfo,
-                LiteEventStatus,
-                LiteLocation,
-            )
+            # Events are already LiteCalendarEvent objects - use directly!
             from .morning_summary import MorningSummaryRequest, MorningSummaryService
-
-            lite_events = []
-            for ev in window:
-                try:
-                    # Convert raw event dict to LiteCalendarEvent
-                    start_dt = ev.get("start")
-                    duration_seconds = ev.get("duration_seconds", 3600)  # Default 1 hour
-
-                    if not isinstance(start_dt, datetime.datetime):
-                        continue
-
-                    end_dt = start_dt + datetime.timedelta(seconds=duration_seconds)
-
-                    # Create location object if location exists
-                    location_obj = None
-                    if ev.get("location"):
-                        location_obj = LiteLocation(display_name=ev.get("location", ""))
-
-                    lite_event = LiteCalendarEvent(
-                        id=ev.get("meeting_id", f"event_{id(ev)}"),  # Use meeting_id or fallback
-                        subject=ev.get("subject", "Untitled meeting"),
-                        start=LiteDateTimeInfo(date_time=start_dt),
-                        end=LiteDateTimeInfo(date_time=end_dt),
-                        location=location_obj,
-                        is_online_meeting=ev.get("is_online_meeting", False),
-                        is_cancelled=False,  # Assume not cancelled if in window
-                        show_as=LiteEventStatus.BUSY,  # Default to busy
-                    )
-                    lite_events.append(lite_event)
-                except Exception as e:
-                    logger.warning("Failed to convert event to LiteCalendarEvent: %s", e)
-                    continue
 
             # Create morning summary request
             summary_request = MorningSummaryRequest(
@@ -1008,37 +1204,31 @@ class MorningSummaryHandler(AlexaEndpointBase):
                 max_events=max_events,
             )
 
-            # Generate morning summary
+            # Generate morning summary (window is already LiteCalendarEvent objects)
             service = MorningSummaryService()
-            summary_result = await service.generate_summary(lite_events, summary_request)
+            summary_result = await service.generate_summary(list(window), summary_request)
 
-            # Generate SSML if requested and available
-            ssml_output = None
-            if prefer_ssml and summary_result.speech_text and self.ssml_renderer:
-                try:
-                    ssml_output = self.ssml_renderer(summary_result)
-                    if ssml_output:
-                        logger.info(
-                            "Morning summary SSML generated: %d characters", len(ssml_output)
-                        )
-                except Exception as e:
-                    logger.error("Morning summary SSML generation failed: %s", e, exc_info=True)
+            # Use presenter to format response (returns speech_text and optional SSML)
+            # Note: We use the speech_text from summary_result, presenter just adds SSML if requested
+            _, ssml_output = self.presenter.format_morning_summary(summary_result)
 
             # Build response following existing Alexa endpoint patterns
-            response_data = {
+            summary_metadata: AlexaMorningSummaryMetadata = {
+                "preview_for": summary_result.metadata.get("preview_for", "tomorrow_morning"),
+                "total_meetings_equivalent": summary_result.total_meetings_equivalent,
+                "early_start_flag": summary_result.early_start_flag,
+                "density": summary_result.density,
+                "back_to_back_count": summary_result.back_to_back_count,
+                "timeframe_start": summary_result.timeframe_start.isoformat(),
+                "timeframe_end": summary_result.timeframe_end.isoformat(),
+                "wake_up_recommendation": summary_result.wake_up_recommendation_time.isoformat()
+                if summary_result.wake_up_recommendation_time
+                else None,
+            }
+
+            response_data: AlexaMorningSummaryResponse = {
                 "speech_text": summary_result.speech_text,
-                "summary": {
-                    "preview_for": summary_result.metadata.get("preview_for", "tomorrow_morning"),
-                    "total_meetings_equivalent": summary_result.total_meetings_equivalent,
-                    "early_start_flag": summary_result.early_start_flag,
-                    "density": summary_result.density,
-                    "back_to_back_count": summary_result.back_to_back_count,
-                    "timeframe_start": summary_result.timeframe_start.isoformat(),
-                    "timeframe_end": summary_result.timeframe_end.isoformat(),
-                    "wake_up_recommendation": summary_result.wake_up_recommendation_time.isoformat()
-                    if summary_result.wake_up_recommendation_time
-                    else None,
-                },
+                "summary": summary_metadata,
             }
 
             # Add SSML to response if generated
@@ -1047,12 +1237,54 @@ class MorningSummaryHandler(AlexaEndpointBase):
 
             return web.json_response(response_data, status=200)
 
-        except Exception as e:
-            logger.error("Morning summary endpoint failed: %s", e, exc_info=True)
-            return web.json_response(
-                {
-                    "error": "Internal server error",
-                    "speech_text": "Sorry, I couldn't generate your morning summary right now. Please try again later.",
+        except AlexaValidationError as e:
+            logger.warning("Morning summary validation error: %s", e)
+            error_response: AlexaMorningSummaryResponse = {
+                "error": "Bad request",
+                "speech_text": "Sorry, I couldn't understand your request. Please try again.",
+                "summary": {
+                    "preview_for": "",
+                    "total_meetings_equivalent": 0.0,
+                    "early_start_flag": False,
+                    "density": "",
+                    "back_to_back_count": 0,
+                    "timeframe_start": "",
+                    "timeframe_end": "",
+                    "wake_up_recommendation": None,
                 },
-                status=500,
-            )
+            }
+            return web.json_response(error_response, status=400)
+        except AlexaHandlerError as e:
+            logger.error("Morning summary handler error: %s", e, exc_info=True)
+            error_response = {
+                "error": "Internal server error",
+                "speech_text": "Sorry, I couldn't generate your morning summary right now. Please try again later.",
+                "summary": {
+                    "preview_for": "",
+                    "total_meetings_equivalent": 0.0,
+                    "early_start_flag": False,
+                    "density": "",
+                    "back_to_back_count": 0,
+                    "timeframe_start": "",
+                    "timeframe_end": "",
+                    "wake_up_recommendation": None,
+                },
+            }
+            return web.json_response(error_response, status=500)
+        except Exception:
+            logger.exception("Unexpected error in morning summary")
+            error_response = {
+                "error": "Internal server error",
+                "speech_text": "Sorry, I couldn't generate your morning summary right now. Please try again later.",
+                "summary": {
+                    "preview_for": "",
+                    "total_meetings_equivalent": 0.0,
+                    "early_start_flag": False,
+                    "density": "",
+                    "back_to_back_count": 0,
+                    "timeframe_start": "",
+                    "timeframe_end": "",
+                    "wake_up_recommendation": None,
+                },
+            }
+            return web.json_response(error_response, status=500)

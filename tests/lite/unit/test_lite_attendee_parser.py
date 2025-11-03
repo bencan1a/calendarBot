@@ -19,7 +19,7 @@ class TestLiteAttendeeParser:
 
         # Mock attendee property
         attendee_prop = MagicMock()
-        attendee_prop.__str__ = lambda self: "mailto:john.doe@example.com"
+        attendee_prop.__str__ = MagicMock(return_value="mailto:john.doe@example.com")
         attendee_prop.params = {
             "CN": "John Doe",
             "ROLE": "REQ-PARTICIPANT",
@@ -39,7 +39,7 @@ class TestLiteAttendeeParser:
         parser = LiteAttendeeParser()
 
         attendee_prop = MagicMock()
-        attendee_prop.__str__ = lambda self: "mailto:jane.smith@example.com"
+        attendee_prop.__str__ = MagicMock(return_value="mailto:jane.smith@example.com")
         attendee_prop.params = {
             "CN": "Jane Smith",
             "ROLE": "OPT-PARTICIPANT",
@@ -59,7 +59,7 @@ class TestLiteAttendeeParser:
         parser = LiteAttendeeParser()
 
         attendee_prop = MagicMock()
-        attendee_prop.__str__ = lambda self: "mailto:conference-room@example.com"
+        attendee_prop.__str__ = MagicMock(return_value="mailto:conference-room@example.com")
         attendee_prop.params = {
             "CN": "Conference Room A",
             "ROLE": "NON-PARTICIPANT",
@@ -79,7 +79,7 @@ class TestLiteAttendeeParser:
         parser = LiteAttendeeParser()
 
         attendee_prop = MagicMock()
-        attendee_prop.__str__ = lambda self: "mailto:bob@example.com"
+        attendee_prop.__str__ = MagicMock(return_value="mailto:bob@example.com")
         attendee_prop.params = {
             "CN": "Bob",
             "ROLE": "REQ-PARTICIPANT",
@@ -96,7 +96,7 @@ class TestLiteAttendeeParser:
         parser = LiteAttendeeParser()
 
         attendee_prop = MagicMock()
-        attendee_prop.__str__ = lambda self: "mailto:alice@example.com"
+        attendee_prop.__str__ = MagicMock(return_value="mailto:alice@example.com")
         attendee_prop.params = {
             "CN": "Alice",
             "ROLE": "REQ-PARTICIPANT",
@@ -113,7 +113,7 @@ class TestLiteAttendeeParser:
         parser = LiteAttendeeParser()
 
         attendee_prop = MagicMock()
-        attendee_prop.__str__ = lambda self: "mailto:delegated@example.com"
+        attendee_prop.__str__ = MagicMock(return_value="mailto:delegated@example.com")
         attendee_prop.params = {
             "CN": "Delegated User",
             "ROLE": "REQ-PARTICIPANT",
@@ -130,7 +130,7 @@ class TestLiteAttendeeParser:
         parser = LiteAttendeeParser()
 
         attendee_prop = MagicMock()
-        attendee_prop.__str__ = lambda self: "mailto:noname@example.com"
+        attendee_prop.__str__ = MagicMock(return_value="mailto:noname@example.com")
         attendee_prop.params = {}
 
         result = parser.parse_attendee(attendee_prop)
@@ -144,7 +144,7 @@ class TestLiteAttendeeParser:
         parser = LiteAttendeeParser()
 
         attendee_prop = MagicMock()
-        attendee_prop.__str__ = lambda self: "mailto:test@example.com"
+        attendee_prop.__str__ = MagicMock(return_value="mailto:test@example.com")
         attendee_prop.params = {"CN": "Test User"}
 
         result = parser.parse_attendee(attendee_prop)
@@ -173,11 +173,11 @@ class TestLiteAttendeeParser:
         component = MagicMock()
 
         attendee1 = MagicMock()
-        attendee1.__str__ = lambda self: "mailto:john@example.com"
+        attendee1.__str__ = MagicMock(return_value="mailto:john@example.com")
         attendee1.params = {"CN": "John", "ROLE": "REQ-PARTICIPANT", "PARTSTAT": "ACCEPTED"}
 
         attendee2 = MagicMock()
-        attendee2.__str__ = lambda self: "mailto:jane@example.com"
+        attendee2.__str__ = MagicMock(return_value="mailto:jane@example.com")
         attendee2.params = {"CN": "Jane", "ROLE": "OPT-PARTICIPANT", "PARTSTAT": "DECLINED"}
 
         component.get = MagicMock(return_value=[attendee1, attendee2])
@@ -198,7 +198,7 @@ class TestLiteAttendeeParser:
         component = MagicMock()
 
         attendee = MagicMock()
-        attendee.__str__ = lambda self: "mailto:single@example.com"
+        attendee.__str__ = MagicMock(return_value="mailto:single@example.com")
         attendee.params = {"CN": "Single User"}
 
         component.get = MagicMock(return_value=attendee)
@@ -228,11 +228,11 @@ class TestLiteAttendeeParser:
         component = MagicMock()
 
         attendee1 = MagicMock()
-        attendee1.__str__ = lambda self: "mailto:user1@example.com"
+        attendee1.__str__ = MagicMock(return_value="mailto:user1@example.com")
         attendee1.params = {"CN": "User 1"}
 
         attendee2 = MagicMock()
-        attendee2.__str__ = lambda self: "mailto:user2@example.com"
+        attendee2.__str__ = MagicMock(return_value="mailto:user2@example.com")
         attendee2.params = {"CN": "User 2"}
 
         # Nested list structure
@@ -252,7 +252,7 @@ class TestLiteAttendeeParser:
         component = MagicMock()
 
         valid_attendee = MagicMock()
-        valid_attendee.__str__ = lambda self: "mailto:valid@example.com"
+        valid_attendee.__str__ = MagicMock(return_value="mailto:valid@example.com")
         valid_attendee.params = {"CN": "Valid User"}
 
         invalid_attendee = MagicMock()
