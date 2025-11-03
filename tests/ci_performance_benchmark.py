@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 """
-Lightweight performance benchmark harness for calendarbot_lite.
+CI Performance Benchmark Runner for CalendarBot GitHub Actions workflows.
 
-This rewritten harness is intentionally smaller and matches the current
-calendarbot_lite implementation surface: it uses aiohttp to serve generated
-ICS payloads, fetches them with aiohttp client, and feeds the bytes into
-calendarbot_lite.lite_parser.parse_ics_stream for parsing/measurement.
+Lightweight performance benchmark harness for calendarbot_lite that uses aiohttp 
+to serve generated ICS payloads, fetches them with aiohttp client, and feeds the 
+bytes into calendarbot_lite.lite_streaming_parser.parse_ics_stream for parsing/measurement.
 
 Features:
-- Scenarios: small, medium, large, concurrent (configurable event counts)
+- Scenarios: small, medium, large, concurrent, fifty (configurable event counts)
 - Measures: fetch elapsed, parse elapsed, and RSS (psutil) before/after parse
 - Outputs JSON results to the specified file
 
 Usage:
-  . venv/bin/activate && python3 scripts/performance_benchmark_rewrite.py --run all --output calendarbot_lite_perf_results.json
+  . venv/bin/activate && python tests/ci_performance_benchmark.py --run fifty --output calendarbot_lite_perf_results.json
 """
 from __future__ import annotations
 
@@ -21,12 +20,12 @@ import argparse
 import asyncio
 import json
 import logging
-import os
 import time
+from collections.abc import AsyncIterator
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, Optional
 
 import aiohttp
 from aiohttp import web
@@ -39,12 +38,12 @@ except Exception:
 
 # Import parser from calendarbot_lite
 try:
-    from calendarbot_lite.lite_parser import parse_ics_stream
+    from calendarbot_lite.lite_streaming_parser import parse_ics_stream
 except Exception as e:
-    raise RuntimeError("Failed to import parse_ics_stream from calendarbot_lite.lite_parser") from e
+    raise RuntimeError("Failed to import parse_ics_stream from calendarbot_lite.lite_streaming_parser") from e
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("perf_rewrite")
+logger = logging.getLogger("ci_perf_benchmark")
 
 
 @dataclass
@@ -60,10 +59,10 @@ class PhaseResult:
 class ScenarioResult:
     scenario: str
     overall_elapsed_s: float
-    phases: List[PhaseResult]
+    phases: list[PhaseResult]
     events_parsed: int
     recurring_instances: int
-    warnings: List[str]
+    warnings: list[str]
     error: Optional[str] = None
 
 
@@ -82,7 +81,7 @@ def make_ics_with_n_events(n: int, start_dt: datetime) -> str:
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
-        "PRODID:-//calendarbot//perf//EN",
+        "PRODID:-//calendarbot//ci-perf//EN",
     ]
     for i in range(n):
         s = start_dt + timedelta(minutes=30 * i)
@@ -95,7 +94,7 @@ def make_ics_with_n_events(n: int, start_dt: datetime) -> str:
                 f"DTSTAMP:{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}",
                 f"DTSTART:{s.strftime('%Y%m%dT%H%M%SZ')}",
                 f"DTEND:{e.strftime('%Y%m%dT%H%M%SZ')}",
-                f"SUMMARY:Test Event {i}",
+                f"SUMMARY:CI Test Event {i}",
                 "END:VEVENT",
             ]
         )
@@ -105,12 +104,13 @@ def make_ics_with_n_events(n: int, start_dt: datetime) -> str:
 
 from contextlib import asynccontextmanager
 
+
 @asynccontextmanager
-async def run_test_server(port: int, path_to_content: Dict[str, str]):
+async def run_test_server(port: int, path_to_content: dict[str, str]):
     app = web.Application()
 
     for p, content in path_to_content.items():
-        async def handler(request, c=content):  # capture
+        async def handler(_request, c=content):  # capture, request unused but required by aiohttp
             return web.Response(text=c, content_type="text/calendar")
         app.router.add_get(p, handler)
 
@@ -118,11 +118,11 @@ async def run_test_server(port: int, path_to_content: Dict[str, str]):
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", port)
     await site.start()
-    logger.info("Test server started on 127.0.0.1:%d", port)
+    logger.info("CI test server started on 127.0.0.1:%d", port)
     try:
         yield
     finally:
-        logger.info("Shutting down test server...")
+        logger.info("Shutting down CI test server...")
         await runner.cleanup()
 
 
@@ -132,8 +132,8 @@ async def byte_iter_from_text(text: str, chunk_size: int = 8192) -> AsyncIterato
         yield b[i : i + chunk_size]
 
 
-async def fetch_and_parse(url: str, session: aiohttp.ClientSession) -> Dict[str, Any]:
-    result: Dict[str, Any] = {"url": url, "fetch_elapsed": 0.0, "parse_elapsed": 0.0, "events": 0}
+async def fetch_and_parse(url: str, session: aiohttp.ClientSession) -> dict[str, Any]:
+    result: dict[str, Any] = {"url": url, "fetch_elapsed": 0.0, "parse_elapsed": 0.0, "events": 0}
     t0 = time.perf_counter()
     timeout_obj = aiohttp.ClientTimeout(total=30)
     async with session.get(url, timeout=timeout_obj) as resp:
@@ -165,11 +165,11 @@ async def fetch_and_parse(url: str, session: aiohttp.ClientSession) -> Dict[str,
     return result
 
 
-async def run_scenario(scenario: str, server_base: str, endpoints: List[str]) -> ScenarioResult:
-    phases: List[PhaseResult] = []
+async def run_scenario(scenario: str, server_base: str, endpoints: list[str]) -> ScenarioResult:
+    phases: list[PhaseResult] = []
     total_events = 0
     total_recurring = 0
-    warnings: List[str] = []
+    warnings: list[str] = []
     error = None
     t0 = time.perf_counter()
     async with aiohttp.ClientSession() as sess:
@@ -188,7 +188,7 @@ async def run_scenario(scenario: str, server_base: str, endpoints: List[str]) ->
                 total_events += int(detail.get("events", 0))
                 total_recurring += int(detail.get("recurring_instances", 0))
             except Exception as e:
-                logger.exception("Error in scenario endpoint %s: %s", ep, e)
+                logger.exception("Error in CI scenario endpoint %s", ep)
                 warnings.append(f"{ep}: exception {e}")
     overall_elapsed = time.perf_counter() - t0
     return ScenarioResult(
@@ -203,7 +203,7 @@ async def run_scenario(scenario: str, server_base: str, endpoints: List[str]) ->
 
 
 def build_args():
-    p = argparse.ArgumentParser(description="calendarbot_lite lightweight performance harness")
+    p = argparse.ArgumentParser(description="CalendarBot CI Performance Benchmark")
     p.add_argument("--port", type=int, default=0)
     # Added "fifty" option to run a dedicated 50-event scenario
     p.add_argument(
@@ -223,7 +223,7 @@ def generate_content_map():
     cm["/small.ics"] = make_ics_with_n_events(10, now)
     cm["/medium.ics"] = make_ics_with_n_events(200, now)
     cm["/large.ics"] = make_ics_with_n_events(1200, now)
-    # dedicated 50-event scenario for acceptance testing of the 3s requirement
+    # dedicated 50-event scenario for CI acceptance testing
     cm["/fifty.ics"] = make_ics_with_n_events(50, now)
     # concurrent endpoints
     cm["/s1.ics"] = make_ics_with_n_events(200, now)
@@ -247,22 +247,19 @@ async def main_async(args):
     server_base = f"http://127.0.0.1:{port}"
     content_map = generate_content_map()
 
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
     # run server
     # Use the asynccontextmanager run_test_server directly
     async with run_test_server(port, content_map):
         await asyncio.sleep(0.25)  # warmup
         scenarios = ["small", "medium", "large", "concurrent"] if args.run == "all" else [args.run]
         for sc in scenarios:
-            logger.info("Running scenario: %s", sc)
-            if sc == "concurrent":
-                eps = ["/s1.ics", "/s2.ics", "/s3.ics"]
-            else:
-                eps = [f"/{sc}.ics"]
+            logger.info("Running CI scenario: %s", sc)
+            eps = ["/s1.ics", "/s2.ics", "/s3.ics"] if sc == "concurrent" else [f"/{sc}.ics"]
             res = await run_scenario(sc, server_base, eps)
             results[sc] = asdict(res)
             logger.info(
-                "Scenario %s: elapsed=%.2fs events=%d recurring=%d warnings=%d",
+                "CI Scenario %s: elapsed=%.2fs events=%d recurring=%d warnings=%d",
                 sc,
                 res.overall_elapsed_s,
                 res.events_parsed,
@@ -274,9 +271,9 @@ async def main_async(args):
     try:
         with Path(args.output).open("w", encoding="utf-8") as fh:
             json.dump(results, fh, indent=2)
-        logger.info("Results written to %s", args.output)
+        logger.info("CI performance results written to %s", args.output)
     except Exception as e:
-        logger.warning("Failed to write results: %s", e)
+        logger.warning("Failed to write CI performance results: %s", e)
 
 
 def main():
@@ -284,7 +281,7 @@ def main():
     try:
         asyncio.run(main_async(args))
     except KeyboardInterrupt:
-        logger.info("Interrupted")
+        logger.info("CI Performance benchmark interrupted")
 
 
 if __name__ == "__main__":
