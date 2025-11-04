@@ -793,7 +793,9 @@ class DoneForDayHandler(AlexaEndpointBase):
 
         # Build response
         response_data: AlexaDoneForDayResponse = {
-            "now_iso": self.iso_serializer(now) if self.iso_serializer else serialize_datetime_utc(now),
+            "now_iso": self.iso_serializer(now)
+            if self.iso_serializer
+            else serialize_datetime_utc(now),
             "tz": request_tz,
             "has_meetings_today": result["has_meetings_today"],
             "last_meeting_start_iso": result["last_meeting_start_iso"],
