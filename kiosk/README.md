@@ -2,48 +2,100 @@
 
 ## Overview
 
-CalendarBot Kiosk Mode provides a robust, self-healing calendar display system for Raspberry Pi devices. The system uses **systemd-managed X sessions** with progressive recovery monitoring to ensure 24/7 uptime.
+CalendarBot Kiosk Mode provides a robust, self-healing calendar display system for Raspberry Pi devices. The system uses **auto-login with .bash_profile** with progressive recovery monitoring to ensure 24/7 uptime.
+
+## 🚀 Automated Installation (Recommended)
+
+The **automated installer** (`install-kiosk.sh`) deploys and configures all kiosk components with idempotent, one-command installation:
+
+```bash
+# 1. Configure
+cd ~/calendarBot/kiosk
+cp install-config.example.yaml install-config.yaml
+nano install-config.yaml  # Set your username and ICS URL
+
+# 2. Preview changes
+sudo ./install-kiosk.sh --config install-config.yaml --dry-run
+
+# 3. Install
+sudo ./install-kiosk.sh --config install-config.yaml
+
+# 4. Reboot for kiosk mode
+sudo reboot
+```
+
+**Features:**
+- ✅ Idempotent (safe to re-run)
+- ✅ Automatic backups
+- ✅ Modular sections (base, kiosk, alexa, monitoring)
+- ✅ Dry-run mode
+- ✅ Update mode for existing installations
+
+**See:** [**Automated Installation Guide**](docs/AUTOMATED_INSTALLATION.md) for complete usage instructions.
+
+## Documentation
+
+**📘 For complete deployment instructions**, see the comprehensive guides in [docs/](docs/):
+
+### Installation Guides
+
+**Automated Installation (Recommended):**
+- **[Automated Installation Guide](docs/AUTOMATED_INSTALLATION.md)** - Complete automation guide
+- **[Manual Steps Guide](docs/MANUAL_STEPS.md)** - DNS, AWS Lambda, Alexa skill setup
+
+**Manual Installation (Step-by-Step):**
+- **[Installation Overview](docs/INSTALLATION_OVERVIEW.md)** - Architecture & workflow
+- **[Section 1: Base Installation](docs/1_BASE_INSTALL.md)** - CalendarBot server setup
+- **[Section 2: Kiosk & Watchdog](docs/2_KIOSK_WATCHDOG.md)** - Automatic display & recovery
+- **[Section 3: Alexa Integration](docs/3_ALEXA_INTEGRATION.md)** - HTTPS reverse proxy
+- **[Section 4: Log Management](docs/4_LOG_MANAGEMENT.md)** - Rotation, aggregation, monitoring
+
+### Quick Reference
+
+- **[Deployment Checklist](docs/DEPLOYMENT_CHECKLIST.md)** - Verification checklists
+- **[File Inventory](docs/FILE_INVENTORY.md)** - Complete file reference
 
 ## Quick Start
 
-For new deployments, use the automated deployment script:
+**For first-time setup**, use the [**Automated Installation**](docs/AUTOMATED_INSTALLATION.md):
 
 ```bash
-cd /home/bencan/calendarBot
-sudo ./kiosk/scripts/deploy-systemd-x-session.sh bencan
+cd ~/calendarBot/kiosk
+sudo ./install-kiosk.sh --config install-config.yaml --dry-run  # Preview
+sudo ./install-kiosk.sh --config install-config.yaml            # Install
+sudo reboot                                                       # Start kiosk
 ```
 
-See **[DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md)** for complete deployment instructions.
+**For manual step-by-step setup**, see [Section 2: Kiosk & Watchdog](docs/2_KIOSK_WATCHDOG.md).
 
 ## Architecture
 
 ```
 Boot → systemd
-  ├─> calendarbot-kiosk@bencan.service (CalendarBot server)
-  ├─> calendarbot-kiosk-x@bencan.service (X session + browser)
+  ├─> calendarbot-lite@bencan.service (CalendarBot server)
+  ├─> Auto-login to tty1 → .bash_profile → startx → .xinitrc → Chromium
   └─> calendarbot-kiosk-watchdog@bencan.service (monitoring)
 ```
 
 ### Key Features
 
-✅ **Systemd X Session Management** - X runs as a systemd service, no auto-login required
+✅ **Auto-Login X Session Management** - Console auto-login triggers `.bash_profile` which starts X via `.xinitrc`
 ✅ **Progressive Recovery** - 3-level escalation (soft reload → browser restart → X restart)
 ✅ **Browser Heartbeat Monitoring** - Detects stuck/frozen browsers via JavaScript heartbeats
 ✅ **Startup Grace Period** - No false failures during server boot
-✅ **Automatic Restart** - systemd `Restart=always` policy handles crashes
+✅ **Watchdog Monitoring** - Health checks with automatic recovery actions
 ✅ **Resource Monitoring** - Degraded mode under system load
 
 ## Components
 
 ### Services
 
-- **calendarbot-kiosk@.service** - CalendarBot_Lite server (port 8080)
-- **calendarbot-kiosk-x@.service** - X session management (startx → .xinitrc → browser)
+- **calendarbot-lite@.service** - CalendarBot_Lite server (port 8080)
 - **calendarbot-kiosk-watchdog@.service** - Health monitoring and recovery
+- **Auto-login + .bash_profile** - Triggers X session startup on console login
 
 ### Scripts
 
-- **deploy-systemd-x-session.sh** - Automated deployment script (recommended)
 - **calendarbot-watchdog** - Watchdog monitoring daemon
 - **deploy-progressive-recovery.sh.OLD_BACKUP** - Deprecated (old .bash_profile approach)
 
@@ -67,7 +119,7 @@ When browser heartbeat fails, the watchdog uses 3-level escalation:
 - **Use Case**: Browser memory leaks, crashed tabs
 
 ### Level 2: X Session Restart
-- **Action**: `systemctl restart calendarbot-kiosk-x@bencan.service`
+- **Action**: `systemctl restart auto-login + .bash_profile + X session`
 - **Duration**: ~60 seconds
 - **Use Case**: X server issues, display problems
 
@@ -85,8 +137,8 @@ When browser heartbeat fails, the watchdog uses 3-level escalation:
 
 ```bash
 # Check all services
-systemctl status calendarbot-kiosk@bencan.service
-systemctl status calendarbot-kiosk-x@bencan.service
+systemctl status calendarbot-lite@bencan.service
+systemctl status auto-login + .bash_profile + X session
 systemctl status calendarbot-kiosk-watchdog@bencan.service
 
 # View logs
@@ -97,23 +149,23 @@ journalctl -u calendarbot-kiosk-watchdog@bencan.service -f
 
 ```bash
 # Restart X session
-sudo systemctl restart calendarbot-kiosk-x@bencan.service
+sudo systemctl restart auto-login + .bash_profile + X session
 
 # Restart watchdog
 sudo systemctl restart calendarbot-kiosk-watchdog@bencan.service
 
 # Stop all services
 sudo systemctl stop calendarbot-kiosk-watchdog@bencan.service
-sudo systemctl stop calendarbot-kiosk-x@bencan.service
-sudo systemctl stop calendarbot-kiosk@bencan.service
+sudo systemctl stop auto-login + .bash_profile + X session
+sudo systemctl stop calendarbot-lite@bencan.service
 ```
 
 ### Enable/Disable Auto-Start
 
 ```bash
 # Enable (start on boot)
-sudo systemctl enable calendarbot-kiosk@bencan.service
-sudo systemctl enable calendarbot-kiosk-x@bencan.service
+sudo systemctl enable calendarbot-lite@bencan.service
+sudo systemctl enable auto-login + .bash_profile + X session
 sudo systemctl enable calendarbot-kiosk-watchdog@bencan.service
 
 # Disable
@@ -163,10 +215,10 @@ The watchdog requires sudo privileges for service management.
 Location: `/etc/sudoers.d/calendarbot-watchdog`
 
 ```
-bencan ALL=NOPASSWD: /bin/systemctl restart calendarbot-kiosk@*.service
-bencan ALL=NOPASSWD: /bin/systemctl restart calendarbot-kiosk-x@*.service
-bencan ALL=NOPASSWD: /bin/systemctl status calendarbot-kiosk@*.service
-bencan ALL=NOPASSWD: /bin/systemctl status calendarbot-kiosk-x@*.service
+bencan ALL=NOPASSWD: /bin/systemctl restart calendarbot-lite@*.service
+bencan ALL=NOPASSWD: /bin/systemctl restart [removed - not used]
+bencan ALL=NOPASSWD: /bin/systemctl status calendarbot-lite@*.service
+bencan ALL=NOPASSWD: /bin/systemctl status [removed - not used]
 bencan ALL=NOPASSWD: /sbin/reboot
 ```
 
@@ -192,7 +244,7 @@ sudo journalctl -u calendarbot-kiosk-watchdog@bencan.service -f
 
 ```bash
 # Restart X
-sudo systemctl restart calendarbot-kiosk-x@bencan.service
+sudo systemctl restart auto-login + .bash_profile + X session
 
 # Verify processes after 10 seconds
 sleep 10
@@ -216,10 +268,10 @@ curl -s http://127.0.0.1:8080/api/health | jq '.display_probe'
 
 ```bash
 # Check service status
-systemctl status calendarbot-kiosk-x@bencan.service
+systemctl status auto-login + .bash_profile + X session
 
 # View logs
-journalctl -u calendarbot-kiosk-x@bencan.service -n 50
+journalctl -u auto-login + .bash_profile + X session -n 50
 
 # Check .xinitrc
 ls -la /home/bencan/.xinitrc
@@ -257,26 +309,27 @@ sudo systemctl start calendarbot-kiosk-watchdog@bencan.service
 curl -X POST http://127.0.0.1:8080/api/browser-heartbeat
 
 # Restart server if endpoint missing
-sudo systemctl restart calendarbot-kiosk@bencan.service
+sudo systemctl restart calendarbot-lite@bencan.service
 ```
 
 ## Migration from Old Approach
 
 If upgrading from the .bash_profile auto-login approach:
 
-1. Use deployment script: `sudo ./kiosk/scripts/deploy-systemd-x-session.sh bencan`
 2. Disable auto-login (remove startx from .bash_profile)
 3. Reboot system
 4. Verify services started correctly
 
-See **[SYSTEMD_MIGRATION.md](../SYSTEMD_MIGRATION.md)** for detailed migration guide.
+See [Section 2: Kiosk & Watchdog](docs/2_KIOSK_WATCHDOG.md) for detailed setup instructions.
 
-## Documentation
+## Additional Documentation
 
-- **[DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md)** - Complete deployment guide
-- **[X_RESTART_FIX.md](../X_RESTART_FIX.md)** - Technical details of X restart fix
-- **[SYSTEMD_MIGRATION.md](../SYSTEMD_MIGRATION.md)** - Migration guide from old approach
-- **[WATCHDOG_INSTALLATION.md](WATCHDOG_INSTALLATION.md)** - Watchdog installation reference
+- **[Installation Overview](docs/INSTALLATION_OVERVIEW.md)** - Complete deployment guide (start here)
+- **[Deployment Checklist](docs/DEPLOYMENT_CHECKLIST.md)** - Verification checklists
+- **[File Inventory](docs/FILE_INVENTORY.md)** - Complete file reference
+- **[Watchdog Installation](WATCHDOG_INSTALLATION.md)** - Legacy watchdog reference
+- **[AGENTS.md](../AGENTS.md)** - Development guide
+- **[docs/ALEXA_DEPLOYMENT_GUIDE.md](../docs/ALEXA_DEPLOYMENT_GUIDE.md)** - Alexa skill setup
 
 ## Performance
 

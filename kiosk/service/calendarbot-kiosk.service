@@ -1,19 +1,28 @@
 [Unit]
-Description=CalendarBot Python Web Server for %i
-After=network.target
+Description=CalendarBot Lite Calendar Display Server for %i
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=%i
-Environment=DISPLAY=:0
-WorkingDirectory=/home/%i/calendarbot
-# Use the venv python to run the calendarbot module directly and include
-# the --pi-optimized flag so the service runs with Pi-specific optimizations.
-ExecStart=/home/%i/calendarbot/venv/bin/python -m calendarbot --web --port 8080 --pi-optimized
+Group=%i
+WorkingDirectory=/home/%i/calendarBot
+Environment="PATH=/home/%i/calendarBot/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/%i/calendarBot/venv/bin/python -m calendarbot_lite
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+
+# Resource limits (Pi Zero 2 optimized)
+MemoryHigh=200M
+MemoryMax=300M
+CPUQuota=50%
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

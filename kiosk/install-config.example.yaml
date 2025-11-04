@@ -1,0 +1,202 @@
+# CalendarBot Kiosk Installation Configuration
+# Copy this file to install-config.yaml and customize for your deployment
+# Usage: sudo ./install-kiosk.sh --config install-config.yaml
+
+# ============================================================================
+# DEPLOYMENT PATH
+# ============================================================================
+# Options: minimal, full, production
+#   minimal: Sections 1+2 (local kiosk only, no Alexa)
+#   full: Sections 1+2+3 (local kiosk + Alexa integration)
+#   production: Sections 1+2+3+4 (everything + monitoring)
+deployment_path: minimal
+
+# ============================================================================
+# SECTION ENABLEMENT
+# ============================================================================
+# Enable/disable specific sections (overrides deployment_path if set)
+sections:
+  section_1_base: true          # CalendarBot base installation (required)
+  section_2_kiosk: true          # Kiosk mode & watchdog (required for kiosk)
+  section_3_alexa: false         # Alexa integration (optional)
+  section_4_monitoring: false    # Monitoring & log management (optional)
+
+# ============================================================================
+# SYSTEM CONFIGURATION
+# ============================================================================
+system:
+  # User account that will run CalendarBot (must already exist)
+  username: bencan
+
+  # Home directory (auto-detected if empty)
+  home_dir: /home/bencan
+
+  # CalendarBot repository location
+  repo_dir: /home/bencan/calendarBot
+
+  # Virtual environment location
+  venv_dir: /home/bencan/calendarBot/venv
+
+# ============================================================================
+# SECTION 1: BASE CALENDARBOT CONFIGURATION
+# ============================================================================
+calendarbot:
+  # ICS calendar feed URL (REQUIRED)
+  ics_url: "https://outlook.office365.com/owa/calendar/YOUR_CALENDAR_ID/calendar.ics"
+
+  # Server configuration
+  web_host: "0.0.0.0"
+  web_port: 8080
+
+  # Calendar refresh interval (seconds)
+  refresh_interval: 300
+
+  # Logging configuration
+  debug: false
+  log_level: "INFO"
+
+  # Systemd mode
+  noninteractive: true
+
+# ============================================================================
+# SECTION 2: KIOSK & WATCHDOG CONFIGURATION
+# ============================================================================
+kiosk:
+  # Browser URL to display
+  browser_url: "http://localhost:8080/whatsnext.html"
+
+  # Watchdog monitoring configuration
+  watchdog:
+    # Health check interval (seconds)
+    health_check_interval: 30
+
+    # Browser heartbeat timeout (seconds)
+    browser_heartbeat_timeout: 120
+
+    # Startup grace period (seconds)
+    startup_grace_period: 300
+
+    # Recovery thresholds
+    thresholds:
+      browser_heartbeat_fail_count: 2
+      max_browser_restarts_per_hour: 4
+      max_service_restarts_per_hour: 2
+      max_reboots_per_day: 1
+      recovery_cooldown_s: 60
+
+    # Recovery delays
+    recovery:
+      reload_delay_s: 15
+      browser_restart_delay_s: 30
+      x_restart_delay_s: 60
+
+# ============================================================================
+# SECTION 3: ALEXA INTEGRATION CONFIGURATION
+# ============================================================================
+alexa:
+  # Domain name for HTTPS access (REQUIRED for Alexa)
+  domain: "ashwoodgrove.net"
+
+  # Bearer token for API authentication
+  # Leave empty to auto-generate during installation
+  # WARNING: If you regenerate this, you must update AWS Lambda!
+  bearer_token: ""
+
+  # Firewall configuration
+  firewall:
+    enabled: true
+    allow_ssh: true
+
+  # Note: The following must be configured manually:
+  # - DNS A record pointing to your public IP
+  # - Router port forwarding (80, 443)
+  # - AWS Lambda function deployment
+  # - Alexa skill creation
+  # See kiosk/docs/MANUAL_STEPS.md for details
+
+# ============================================================================
+# SECTION 4: MONITORING & LOG MANAGEMENT
+# ============================================================================
+monitoring:
+  # Log rotation
+  logrotate:
+    enabled: true
+    watchdog_retention_days: 7
+    state_retention_weeks: 4
+    browser_retention_days: 3
+
+  # rsyslog structured logging
+  rsyslog:
+    enabled: false  # Optional, for advanced logging
+
+  # Automated reporting
+  reports:
+    enabled: true
+    daily_report_time: "01:00"    # HH:MM format
+    weekly_report_day: "monday"
+    weekly_report_time: "02:00"
+    cleanup_time: "03:00"
+    retention_days: 30
+
+  # Monitoring status updates
+  status_updates:
+    enabled: true
+    interval_minutes: 5
+    output_file: "/var/www/html/calendarbot-status.json"
+
+  # Remote log shipping (optional)
+  log_shipping:
+    enabled: false
+    webhook_url: ""
+    webhook_token: ""
+    webhook_timeout: 10
+    webhook_insecure: false
+
+# ============================================================================
+# INSTALLATION OPTIONS
+# ============================================================================
+installation:
+  # Create backups of existing configuration files
+  backup_enabled: true
+  backup_dir: "/var/backups/calendarbot"
+
+  # Skip package installation if already installed
+  skip_installed_packages: true
+
+  # Auto-reboot after installation (recommended for kiosk mode)
+  auto_reboot: false
+
+  # Verification tests
+  run_verification: true
+
+  # Update mode: update existing installation instead of fresh install
+  update_mode: false
+
+# ============================================================================
+# ADVANCED OPTIONS
+# ============================================================================
+advanced:
+  # Python version to use
+  python_executable: "python3"
+
+  # Package manager update before installation
+  apt_update: true
+  apt_upgrade: false  # Set to true for full system upgrade (slow)
+
+  # Git repository configuration
+  git:
+    auto_pull: false  # Pull latest changes if repo exists
+    branch: "main"
+
+  # Systemd service name suffix
+  service_suffix: ""  # e.g., "@USERNAME" is added automatically
+
+# ============================================================================
+# NOTES
+# ============================================================================
+# 1. Required fields must be filled before running the installer
+# 2. Bearer token is auto-generated if empty (Section 3 only)
+# 3. Some steps cannot be automated (DNS, router, AWS) - see MANUAL_STEPS.md
+# 4. The installer is idempotent - safe to run multiple times
+# 5. Use --dry-run flag to preview changes without applying them
+# 6. Use --update flag to update an existing installation
