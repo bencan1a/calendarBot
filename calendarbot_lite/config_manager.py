@@ -10,6 +10,13 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Input validation limits for event fields
+# These limits prevent resource exhaustion from oversized calendar data
+MAX_EVENT_SUBJECT_LENGTH = 200  # ~20 words - reasonable meeting title
+MAX_EVENT_LOCATION_LENGTH = 100  # ~10 words - reasonable location name
+MAX_EVENT_DESCRIPTION_LENGTH = 500  # ~50 words - reasonable description
+MAX_EVENTS_PER_REQUEST = 100  # Pagination limit for API requests
+
 
 class ConfigManager:
     """Manages application configuration from environment variables and .env files."""
