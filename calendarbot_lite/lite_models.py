@@ -4,10 +4,17 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 # Import the central datetime override function from timezone_utils
 from .timezone_utils import now_utc as _now_utc
+
+# Import validation constants
+from .config_manager import (
+    MAX_EVENT_DESCRIPTION_LENGTH,
+    MAX_EVENT_LOCATION_LENGTH,
+    MAX_EVENT_SUBJECT_LENGTH,
+)
 
 
 class LiteAuthType(str, Enum):
@@ -246,9 +253,34 @@ class LiteDateTimeInfo(BaseModel):
 class LiteLocation(BaseModel):
     """Location information for calendar events."""
 
-    display_name: str = Field(..., description="Display name of the location")
+    display_name: str = Field(
+        ...,
+        max_length=MAX_EVENT_LOCATION_LENGTH,
+        description="Display name of the location",
+    )
     address: Optional[str] = Field(default=None, description="Physical address")
     coordinates: Optional[dict[str, float]] = Field(default=None, description="GPS coordinates")
+
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def strip_and_validate_display_name(cls, v: Any) -> str:
+        """Strip whitespace and validate display name is not empty.
+
+        Args:
+            v: Raw display name value
+
+        Returns:
+            Stripped display name
+
+        Raises:
+            ValueError: If display name is empty after stripping
+        """
+        if v is None:
+            raise ValueError("Location display name cannot be None")
+        stripped = str(v).strip()
+        if not stripped:
+            raise ValueError("Location display name cannot be empty")
+        return stripped
 
 
 class LiteAttendee(BaseModel):
@@ -267,8 +299,17 @@ class LiteCalendarEvent(BaseModel):
 
     # Core properties
     id: str = Field(..., description="Event ID")
-    subject: str = Field(..., description="Event subject/title")
-    body_preview: Optional[str] = Field(default=None, description="Event body preview")
+    subject: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_EVENT_SUBJECT_LENGTH,
+        description="Event subject/title",
+    )
+    body_preview: Optional[str] = Field(
+        default=None,
+        max_length=MAX_EVENT_DESCRIPTION_LENGTH,
+        description="Event body preview",
+    )
 
     # Time information
     start: LiteDateTimeInfo = Field(..., description="Event start time")
@@ -307,6 +348,43 @@ class LiteCalendarEvent(BaseModel):
     # Online meeting
     is_online_meeting: bool = Field(default=False, description="Online meeting flag")
     online_meeting_url: Optional[str] = Field(default=None, description="Online meeting URL")
+
+    @field_validator("subject", mode="before")
+    @classmethod
+    def strip_and_validate_subject(cls, v: Any) -> str:
+        """Strip whitespace and validate subject is not empty.
+
+        Args:
+            v: Raw subject value
+
+        Returns:
+            Stripped subject
+
+        Raises:
+            ValueError: If subject is empty after stripping
+        """
+        if v is None:
+            raise ValueError("Event subject cannot be None")
+        stripped = str(v).strip()
+        if not stripped:
+            raise ValueError("Event subject cannot be empty")
+        return stripped
+
+    @field_validator("body_preview", mode="before")
+    @classmethod
+    def strip_body_preview(cls, v: Any) -> Optional[str]:
+        """Strip whitespace from body preview.
+
+        Args:
+            v: Raw body preview value
+
+        Returns:
+            Stripped body preview or None
+        """
+        if v is None:
+            return None
+        stripped = str(v).strip()
+        return stripped if stripped else None
 
     @property
     def is_busy_status(self) -> bool:
