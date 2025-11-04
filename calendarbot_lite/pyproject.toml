@@ -15,7 +15,7 @@ extend-ignore = [
 
 [tool.mypy]
 # Type checking configuration for calendarbot_lite
-python_version = "3.9"
+python_version = "3.12"
 strict = false
 warn_return_any = false
 warn_unused_ignores = true
