@@ -296,7 +296,7 @@ def convert_to_server_tz(dt: datetime.datetime) -> datetime.datetime:
     Examples:
         >>> import datetime
         >>> from zoneinfo import ZoneInfo
-        >>> utc_time = datetime.datetime(2025, 11, 1, 20, 0, tzinfo=datetime.timezone.utc)
+        >>> utc_time = datetime.datetime(2025, 11, 1, 20, 0, tzinfo=datetime.UTC)
         >>> local_time = convert_to_server_tz(utc_time)
         >>> # Returns time converted to server's timezone (e.g., Pacific)
     """
@@ -323,7 +323,7 @@ def convert_to_timezone(dt: datetime.datetime, tz_str: str) -> datetime.datetime
     Examples:
         >>> import datetime
         >>> from zoneinfo import ZoneInfo
-        >>> utc_time = datetime.datetime(2025, 11, 1, 20, 0, tzinfo=datetime.timezone.utc)
+        >>> utc_time = datetime.datetime(2025, 11, 1, 20, 0, tzinfo=datetime.UTC)
         >>> ny_time = convert_to_timezone(utc_time, "America/New_York")
     """
     import zoneinfo
@@ -344,7 +344,7 @@ def parse_request_timezone(tz_str: str | None) -> datetime.tzinfo:
                 If None or invalid, falls back to UTC
 
     Returns:
-        Timezone info object (either ZoneInfo or timezone.utc)
+        Timezone info object (either ZoneInfo or datetime.UTC)
 
     Examples:
         >>> tz = parse_request_timezone("America/New_York")
