@@ -26,6 +26,67 @@ def ensure_timezone_aware(dt: datetime) -> datetime:
     return dt
 
 
+def serialize_datetime_utc(dt: datetime) -> str:
+    """Serialize datetime to ISO 8601 UTC string with Z suffix.
+
+    This function replaces manual string concatenation (dt.isoformat() + "Z")
+    with proper datetime handling that validates timezone awareness and ensures
+    consistent UTC serialization.
+
+    Args:
+        dt: Datetime to serialize (timezone-aware or naive)
+
+    Returns:
+        ISO 8601 string with Z suffix (e.g., "2024-11-04T16:30:00Z")
+
+    Raises:
+        ValueError: If datetime is None
+
+    Examples:
+        >>> from datetime import datetime, timezone
+        >>> dt = datetime(2024, 11, 4, 16, 30, 0, tzinfo=timezone.utc)
+        >>> serialize_datetime_utc(dt)
+        '2024-11-04T16:30:00Z'
+        >>> dt_naive = datetime(2024, 11, 4, 16, 30, 0)
+        >>> serialize_datetime_utc(dt_naive)
+        '2024-11-04T16:30:00Z'
+    """
+    if dt is None:
+        raise ValueError("Cannot serialize None datetime")
+
+    # Convert to UTC if timezone-aware, assume UTC if naive
+    if dt.tzinfo is not None:
+        dt_utc = dt.astimezone(UTC)
+    else:
+        dt_utc = dt.replace(tzinfo=UTC)
+
+    # Use proper ISO format with Z suffix
+    return dt_utc.isoformat().replace("+00:00", "Z")
+
+
+def serialize_datetime_optional(dt: Optional[datetime]) -> Optional[str]:
+    """Serialize optional datetime to ISO 8601 UTC string, returning None if input is None.
+
+    This is a convenience wrapper around serialize_datetime_utc() for handling
+    optional datetimes without explicit null checks in calling code.
+
+    Args:
+        dt: Optional datetime to serialize (timezone-aware, naive, or None)
+
+    Returns:
+        ISO 8601 string with Z suffix if dt is not None, otherwise None
+
+    Examples:
+        >>> from datetime import datetime, timezone
+        >>> dt = datetime(2024, 11, 4, 16, 30, 0, tzinfo=timezone.utc)
+        >>> serialize_datetime_optional(dt)
+        '2024-11-04T16:30:00Z'
+        >>> serialize_datetime_optional(None)
+        None
+    """
+    return serialize_datetime_utc(dt) if dt is not None else None
+
+
 def format_time_cross_platform(dt: datetime, suffix: str = "") -> str:
     """Format time in 12-hour format without leading zeros (cross-platform).
 
