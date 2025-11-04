@@ -1,0 +1,13 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CalendarBot Test//Alexa Test Calendar//EN
+BEGIN:VEVENT
+UID:daily-standup-recurring@example.com
+DTSTART:20251101T180000Z
+DTEND:20251101T183000Z
+SUMMARY:Daily Standup
+DESCRIPTION:Recurring daily standup meeting
+LOCATION:Conference Room A
+RRULE:FREQ=DAILY;COUNT=30
+END:VEVENT
+END:VCALENDAR

@@ -1,0 +1,11 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CalendarBot Test//Alexa Test Calendar//EN
+BEGIN:VEVENT
+UID:meeting-later-week@example.com
+DTSTART:20251110T180000Z
+DTEND:20251110T190000Z
+SUMMARY:Future Meeting
+DESCRIPTION:Meeting later in the week
+END:VEVENT
+END:VCALENDAR

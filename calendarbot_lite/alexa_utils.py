@@ -67,11 +67,21 @@ async def compute_done_for_day_info(
         try:
             # Get event start and end times
             start = ev.start.date_time
-            if not isinstance(start, datetime.datetime):
+            end_utc = ev.end.date_time
+
+            # Handle both datetime and date objects (for all-day events)
+            if isinstance(start, datetime.date) and not isinstance(start, datetime.datetime):
+                # All-day event: convert date to datetime at start of day in local timezone, then to UTC
+                local_start = datetime.datetime.combine(start, datetime.time.min, tzinfo=tz)
+                start = local_start.astimezone(datetime.timezone.utc)
+            elif not isinstance(start, datetime.datetime):
                 continue
 
-            end_utc = ev.end.date_time
-            if not isinstance(end_utc, datetime.datetime):
+            if isinstance(end_utc, datetime.date) and not isinstance(end_utc, datetime.datetime):
+                # All-day event: convert date to datetime at start of day in local timezone, then to UTC
+                local_end = datetime.datetime.combine(end_utc, datetime.time.min, tzinfo=tz)
+                end_utc = local_end.astimezone(datetime.timezone.utc)
+            elif not isinstance(end_utc, datetime.datetime):
                 continue
 
             # Track latest end time

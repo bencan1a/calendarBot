@@ -415,10 +415,11 @@ Configure test runs using pytest markers:
 
 - `unit` - Fast unit tests for individual functions
 - `integration` - Cross-component tests with external dependencies
-- `smoke` - Quick startup validation tests
+- `smoke` - Quick startup validation tests (includes Alexa API smoke suite)
 - `slow` - Tests that take >5 seconds
 - `fast` - Quick tests (<1 second)
 - `network` - Tests requiring network access
+- `regression` - Full regression testing (includes Alexa API comprehensive suite)
 
 ### Running Specific Test Categories
 
@@ -435,6 +436,89 @@ pytest tests/lite/ -m "unit"
 # Integration tests
 pytest tests/lite/ -m "integration"
 ```
+
+### Alexa API Integration Tests
+
+The Alexa API test harness provides comprehensive E2E testing for Alexa endpoints with flexible validation of speech text and SSML output.
+
+**Test Suites:**
+- **Smoke Suite** (5 tests, ~10s): Fast validation of core functionality, included in CI critical path
+- **Regression Suite** (24 tests, ~45s): Thorough testing of edge cases, runs in nightly builds
+
+**✨ Alexa tests use standard pytest markers and are automatically included in all test runs:**
+
+```bash
+# Standard commands automatically include Alexa tests:
+
+# Critical path (includes Alexa smoke tests)
+python tests/ci_test_runner.py --critical-path
+
+# Full regression (includes all Alexa regression tests)
+python tests/ci_test_runner.py --full-regression
+
+# Run smoke tests directly (includes 5 Alexa smoke tests)
+pytest tests/lite/ calendarbot_lite/ -m smoke -v
+
+# Run all tests in tests/lite/ (includes all Alexa tests)
+pytest tests/lite/ -v
+```
+
+**Running Alexa Tests Specifically:**
+```bash
+# Alexa smoke tests only
+pytest tests/lite/integration/test_alexa_runner.py -m smoke -v
+
+# Alexa regression tests only
+pytest tests/lite/integration/test_alexa_runner.py -m regression -v
+
+# All Alexa tests (29 tests)
+pytest tests/lite/integration/test_alexa_runner.py -v
+
+# Specific test by ID
+pytest tests/lite/integration/test_alexa_runner.py -k "smoke_launch_summary_with_meeting"
+
+# Formatted report (optional)
+python tmp/run_alexa_tests_report.py --suite smoke
+python tmp/run_alexa_tests_report.py --suite comprehensive
+```
+
+**Tested Endpoints:**
+- `/api/alexa/launch-summary` - Comprehensive summary when Alexa skill launches
+- `/api/alexa/done-for-day` - When user's meetings end for the day
+- `/api/alexa/morning-summary` - Detailed morning preview of upcoming day
+
+**Adding New Tests:**
+1. Create ICS fixture in `tests/fixtures/ics/alexa/`
+2. Add test specification to `tests/lite_tests/alexa_specs.yaml`
+3. Set `suite: smoke` or `suite: comprehensive`
+4. Run pytest - test is automatically discovered
+
+**Test Specification Format:**
+```yaml
+- test_id: unique_test_identifier
+  description: Human-readable description
+  category: launch_summary | done_for_day | morning_summary
+  suite: smoke | comprehensive
+  endpoint: /api/alexa/launch-summary
+  ics_file: alexa/fixture-file.ics
+  datetime_override: '2025-11-05T08:00:00-08:00'
+  query_params:
+    tz: America/Los_Angeles
+  expected:
+    field_exact_match:
+      has_meetings_today: true
+    speech_text_patterns:
+      - "Team Standup"
+    ssml_validation:
+      required: false
+      max_chars: 8000
+```
+
+**Validation Features:**
+- Exact field matching for booleans, integers, nested objects
+- Speech text pattern matching (substring and regex)
+- SSML structure validation (XML well-formedness, character limits, required tags)
+- Flexible nested object validation with wildcards
 
 ### Coverage Configuration
 
