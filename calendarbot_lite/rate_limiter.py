@@ -108,6 +108,7 @@ class RateLimiter:
             try:
                 await self._cleanup_task
             except asyncio.CancelledError:
+                # Expected when cancelling the cleanup task; safe to ignore.
                 pass
             logger.debug("Rate limiter cleanup task stopped")
 
