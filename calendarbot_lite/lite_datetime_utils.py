@@ -164,7 +164,7 @@ class TimezoneParser:
                 tzid_part, dt_part = datetime_str.split(":", 1)
             else:
                 tzid_part = datetime_str[:colon_idx]
-                dt_part = datetime_str[colon_idx + 1:]
+                dt_part = datetime_str[colon_idx + 1 :]
 
             # Extract timezone ID
             tzid = tzid_part.replace("TZID=", "").strip()
@@ -252,9 +252,7 @@ class LiteDateTimeParser:
         """
         self.default_timezone = default_timezone
 
-    def parse_datetime(
-        self, dt_prop: Any, default_timezone: Optional[str] = None
-    ) -> datetime:
+    def parse_datetime(self, dt_prop: Any, default_timezone: Optional[str] = None) -> datetime:
         """Parse iCalendar datetime property.
 
         Args:
