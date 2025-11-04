@@ -148,6 +148,9 @@ pytest tests/lite/ -v
 
 # Run fast tests only
 pytest tests/lite/ -m "fast"
+
+# Skip slow tests
+pytest tests/lite/ -m "not slow"
 ```
 
 ### Project Structure
