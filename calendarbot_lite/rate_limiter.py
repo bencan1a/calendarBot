@@ -233,7 +233,7 @@ class RateLimiter:
         allowed = current_count < limit
 
         # Calculate remaining and reset time
-        remaining = max(0, limit - current_count - 1)  # -1 for current request
+        remaining = max(0, limit - current_count)
         reset_seconds = window_seconds
 
         if entry.requests:
