@@ -5,9 +5,106 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from calendarbot_lite.lite_datetime_utils import LiteDateTimeParser, ensure_timezone_aware
+from calendarbot_lite.lite_datetime_utils import (
+    LiteDateTimeParser,
+    ensure_timezone_aware,
+    format_time_cross_platform,
+)
 
 pytestmark = pytest.mark.unit
+
+
+class TestFormatTimeCrossPlatform:
+    """Tests for format_time_cross_platform utility function.
+
+    This function must work identically on Windows, Linux, and macOS,
+    replacing the Unix-specific strftime format code %-I.
+    """
+
+    def test_morning_single_digit_hour(self):
+        """Test formatting single-digit morning hour without leading zero."""
+        dt = datetime(2025, 11, 4, 9, 30, 0)
+        result = format_time_cross_platform(dt)
+        assert result == "9:30 am"
+
+    def test_afternoon_single_digit_hour(self):
+        """Test formatting single-digit afternoon hour (1 PM)."""
+        dt = datetime(2025, 11, 4, 13, 15, 0)
+        result = format_time_cross_platform(dt)
+        assert result == "1:15 pm"
+
+    def test_morning_double_digit_hour(self):
+        """Test formatting double-digit morning hour."""
+        dt = datetime(2025, 11, 4, 10, 45, 0)
+        result = format_time_cross_platform(dt)
+        assert result == "10:45 am"
+
+    def test_afternoon_double_digit_hour(self):
+        """Test formatting double-digit afternoon hour."""
+        dt = datetime(2025, 11, 4, 15, 20, 0)
+        result = format_time_cross_platform(dt)
+        assert result == "3:20 pm"
+
+    def test_midnight(self):
+        """Test formatting midnight as 12:00 AM."""
+        dt = datetime(2025, 11, 4, 0, 0, 0)
+        result = format_time_cross_platform(dt)
+        assert result == "12:00 am"
+
+    def test_noon(self):
+        """Test formatting noon as 12:00 PM."""
+        dt = datetime(2025, 11, 4, 12, 0, 0)
+        result = format_time_cross_platform(dt)
+        assert result == "12:00 pm"
+
+    def test_with_utc_suffix(self):
+        """Test formatting with UTC suffix."""
+        dt = datetime(2025, 11, 4, 9, 30, 0)
+        result = format_time_cross_platform(dt, " UTC")
+        assert result == "9:30 am utc"
+
+    def test_with_custom_suffix(self):
+        """Test formatting with custom suffix."""
+        dt = datetime(2025, 11, 4, 14, 15, 0)
+        result = format_time_cross_platform(dt, " PST")
+        assert result == "2:15 pm pst"
+
+    def test_zero_minutes(self):
+        """Test formatting with zero minutes."""
+        dt = datetime(2025, 11, 4, 8, 0, 0)
+        result = format_time_cross_platform(dt)
+        assert result == "8:00 am"
+
+    def test_single_digit_minutes_with_leading_zero(self):
+        """Test that minutes always have leading zeros."""
+        dt = datetime(2025, 11, 4, 9, 5, 0)
+        result = format_time_cross_platform(dt)
+        assert result == "9:05 am"
+
+    def test_timezone_aware_datetime(self):
+        """Test formatting timezone-aware datetime."""
+        dt = datetime(2025, 11, 4, 9, 30, 0, tzinfo=timezone.utc)
+        result = format_time_cross_platform(dt)
+        assert result == "9:30 am"
+
+    def test_edge_case_11pm(self):
+        """Test formatting 11 PM."""
+        dt = datetime(2025, 11, 4, 23, 59, 0)
+        result = format_time_cross_platform(dt)
+        assert result == "11:59 pm"
+
+    def test_edge_case_1am(self):
+        """Test formatting 1 AM."""
+        dt = datetime(2025, 11, 4, 1, 0, 0)
+        result = format_time_cross_platform(dt)
+        assert result == "1:00 am"
+
+    def test_suffix_case_handling(self):
+        """Test that suffix is lowercased."""
+        dt = datetime(2025, 11, 4, 9, 30, 0)
+        result = format_time_cross_platform(dt, " UTC")
+        assert "utc" in result
+        assert "UTC" not in result
 
 
 class TestEnsureTimezoneAware:

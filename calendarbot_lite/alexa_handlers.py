@@ -33,6 +33,7 @@ from .alexa_types import (
     AlexaNextMeetingResponse,
     AlexaTimeUntilResponse,
 )
+from .lite_datetime_utils import format_time_cross_platform
 from .lite_models import LiteCalendarEvent
 from .monitoring_logging import get_logger
 from .timezone_utils import parse_request_timezone
@@ -860,9 +861,9 @@ class DoneForDayHandler(AlexaEndpointBase):
 
                     # Format time string (show UTC if no timezone provided)
                     if request_tz:
-                        time_str = end_local.strftime("%-I:%M %p").lower()
+                        time_str = format_time_cross_platform(end_local)
                     else:
-                        time_str = end_local.strftime("%-I:%M %p UTC").lower()
+                        time_str = format_time_cross_platform(end_local, " UTC")
 
                     # Compare current time with last meeting end time
                     if now >= end_utc:

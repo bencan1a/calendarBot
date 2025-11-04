@@ -11,6 +11,8 @@ import datetime
 import logging
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
+from .lite_datetime_utils import format_time_cross_platform
+
 if TYPE_CHECKING:
     from .alexa_types import AlexaDoneForDayInfo
 
@@ -198,9 +200,9 @@ class PlainTextPresenter:
 
             # Format time string (show UTC if no timezone provided)
             if request_tz:
-                time_str = end_local.strftime("%-I:%M %p").lower()
+                time_str = format_time_cross_platform(end_local)
             else:
-                time_str = end_local.strftime("%-I:%M %p UTC").lower()
+                time_str = format_time_cross_platform(end_local, " UTC")
 
             if now >= end_utc:
                 return " You're all done for today!"
