@@ -1064,13 +1064,13 @@ class LaunchSummaryHandler(AlexaEndpointBase):
         for ev in window:
             start = ev.start.date_time
             end = ev.end.date_time
-            
+
             # Skip if not datetime events
             if not isinstance(start, datetime.datetime) or not isinstance(end, datetime.datetime):
                 continue
 
             start_local = start.astimezone(tz)
-            
+
             # Only check today's meetings
             if start_local.date() != today_date:
                 continue
@@ -1080,10 +1080,10 @@ class LaunchSummaryHandler(AlexaEndpointBase):
                 # Check if skipped
                 if self._is_skipped(ev):
                     continue
-                
+
                 # Calculate seconds until end (for duration display)
                 seconds_until_end = int((end - now).total_seconds())
-                
+
                 # Found a meeting in progress
                 return {
                     "event": ev,
