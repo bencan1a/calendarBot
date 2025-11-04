@@ -278,7 +278,7 @@ class RateLimiter:
             burst_info.get("reset_seconds", 10),
             token_info.get("reset_seconds", 60),
         ]
-        return max(1, min(retry_times))  # At least 1 second, max of shortest reset
+        return max(1, min(retry_times))  # At least 1 second, minimum of reset times
 
     async def _cleanup_loop(self) -> None:
         """Background task to cleanup expired entries.
