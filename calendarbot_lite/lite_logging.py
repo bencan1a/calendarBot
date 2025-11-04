@@ -88,8 +88,8 @@ def configure_lite_logging(debug_mode: bool = False, force_debug: Optional[bool]
         root_logger.addHandler(handler)
     else:
         # Add filter to existing handlers
-        for handler in root_logger.handlers:
-            handler.addFilter(correlation_filter)
+        for existing_handler in root_logger.handlers:
+            existing_handler.addFilter(correlation_filter)
 
     # Logger level configuration for Pi Zero 2W optimization
     logger_config: dict[str, int] = {
