@@ -33,6 +33,30 @@ CALENDARBOT_BEARER_TOKEN = os.environ.get("CALENDARBOT_BEARER_TOKEN", "")
 REQUEST_TIMEOUT = int(os.environ.get("REQUEST_TIMEOUT", "10"))
 
 
+def get_default_timezone() -> str:
+    """Get default timezone from environment with validation.
+
+    Returns:
+        Valid IANA timezone string (defaults to America/Los_Angeles)
+
+    Note:
+        This function validates the timezone and falls back gracefully
+        if the configured timezone is invalid.
+    """
+    import zoneinfo
+
+    # Get timezone from environment, default to Pacific time
+    timezone = os.environ.get("CALENDARBOT_DEFAULT_TIMEZONE", "America/Los_Angeles")
+
+    # Validate timezone
+    try:
+        zoneinfo.ZoneInfo(timezone)
+        return timezone
+    except Exception:
+        logger.warning("Invalid timezone %r, falling back to America/Los_Angeles", timezone)
+        return "America/Los_Angeles"
+
+
 class AlexaResponse:
     """Helper class to build Alexa response format with SSML support."""
 
@@ -265,7 +289,7 @@ def handle_launch_intent() -> AlexaResponse:
 
                 query_params = {
                     "date": tomorrow_date,
-                    "timezone": "America/Los_Angeles",  # Default timezone, could be made configurable
+                    "timezone": get_default_timezone(),
                     "prefer_ssml": "true",
                     "detail_level": "normal",
                     "max_events": "50",
