@@ -55,10 +55,7 @@ def serialize_datetime_utc(dt: datetime) -> str:
         raise ValueError("Cannot serialize None datetime")
 
     # Convert to UTC if timezone-aware, assume UTC if naive
-    if dt.tzinfo is not None:
-        dt_utc = dt.astimezone(UTC)
-    else:
-        dt_utc = dt.replace(tzinfo=UTC)
+    dt_utc = dt.astimezone(UTC) if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
     # Use proper ISO format with Z suffix
     return dt_utc.isoformat().replace("+00:00", "Z")

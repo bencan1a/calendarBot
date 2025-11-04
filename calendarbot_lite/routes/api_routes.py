@@ -60,7 +60,11 @@ def register_api_routes(
 
         # Get display probe data
         last_probe_ts = health_tracker.get_last_render_probe_timestamp()
-        last_probe_iso = None if last_probe_ts is None else serialize_iso(time_provider().replace(microsecond=0).fromtimestamp(last_probe_ts))
+        last_probe_iso = (
+            None
+            if last_probe_ts is None
+            else serialize_iso(time_provider().replace(microsecond=0).fromtimestamp(last_probe_ts))
+        )
 
         # Build comprehensive health response
         health_data = {
@@ -194,6 +198,7 @@ def register_api_routes(
         # Force immediate cache refresh to restore previously skipped meetings
         # Import refresh function dynamically to avoid circular imports
         from .. import server as server_module
+
         try:
             await server_module._refresh_once(  # noqa: SLF001
                 config, skipped_store, event_window_ref, window_lock, shared_http_client
