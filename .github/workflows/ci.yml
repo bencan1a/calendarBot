@@ -202,7 +202,7 @@ jobs:
   pi-performance-gate:
     name: Pi Zero2 Performance Check
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     timeout-minutes: 10
 
     steps:
@@ -262,7 +262,7 @@ jobs:
   coverage-gate:
     name: Coverage Enforcement
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     needs: [critical-path, full-tests]
 
     steps:
