@@ -76,6 +76,7 @@ class AlexaPresenter(Protocol):
         tz: Any = None,
         request_tz: Optional[str] = None,
         now: Optional[datetime.datetime] = None,
+        current_meeting: Optional[dict[str, Any]] = None,
     ) -> tuple[str, Optional[str]]:
         """Format launch summary into speech and optional SSML.
 
@@ -85,6 +86,7 @@ class AlexaPresenter(Protocol):
             tz: Timezone object for formatting times (optional)
             request_tz: Original timezone string from request (optional)
             now: Current datetime for time comparisons (optional)
+            current_meeting: Currently in-progress meeting or None
 
         Returns:
             Tuple of (speech_text, optional_ssml)
@@ -145,15 +147,24 @@ class PlainTextPresenter:
         tz: Any = None,
         request_tz: Optional[str] = None,
         now: Optional[datetime.datetime] = None,
+        current_meeting: Optional[dict[str, Any]] = None,
     ) -> tuple[str, Optional[str]]:
         """Format launch summary as plain text with full speech generation.
 
         This method generates the complete speech text including done-for-day information.
+
+        Args:
+            done_info: Done-for-day information
+            primary_meeting: Next upcoming meeting (or None)
+            tz: Timezone object
+            request_tz: Timezone string from request
+            now: Current datetime
+            current_meeting: Currently in-progress meeting (or None)
         """
         # Generate speech based on whether user has meetings today
         if done_info["has_meetings_today"]:
             speech_text = self._format_has_meetings_speech(
-                primary_meeting, done_info, tz, request_tz, now
+                primary_meeting, done_info, tz, request_tz, now, current_meeting
             )
         else:
             speech_text = self._format_no_meetings_speech(primary_meeting)
@@ -167,9 +178,26 @@ class PlainTextPresenter:
         tz: Any,
         request_tz: Optional[str],
         now: Optional[datetime.datetime],
+        current_meeting: Optional[dict[str, Any]] = None,
     ) -> str:
-        """Generate speech for when user has meetings today."""
-        if next_meeting:
+        """Generate speech for when user has meetings today.
+
+        Args:
+            next_meeting: Next upcoming meeting (or None)
+            done_info: Done-for-day information
+            tz: Timezone object
+            request_tz: Timezone string from request
+            now: Current datetime
+            current_meeting: Currently in-progress meeting (or None)
+        """
+        # If there's a current meeting, acknowledge it first
+        if current_meeting:
+            speech_text = f"You're currently in {current_meeting['subject']}."
+
+            # Add next meeting info if available
+            if next_meeting:
+                speech_text += f" After this, your next meeting is {next_meeting['subject']} {next_meeting['duration_spoken']}."
+        elif next_meeting:
             speech_text = (
                 f"Your next meeting is {next_meeting['subject']} {next_meeting['duration_spoken']}."
             )
@@ -307,15 +335,24 @@ class SSMLPresenter:
         tz: Any = None,
         request_tz: Optional[str] = None,
         now: Optional[datetime.datetime] = None,
+        current_meeting: Optional[dict[str, Any]] = None,
     ) -> tuple[str, Optional[str]]:
         """Format launch summary with SSML if available.
 
         This uses either the meeting renderer (if meetings today) or done-for-day
         renderer (if no meetings today).
+
+        Args:
+            done_info: Done-for-day information
+            primary_meeting: Next upcoming meeting (or None)
+            tz: Timezone object
+            request_tz: Timezone string from request
+            now: Current datetime
+            current_meeting: Currently in-progress meeting (or None)
         """
         # Generate plain text fallback with full parameters
         speech_text, _ = self.plain_text_fallback.format_launch_summary(
-            done_info, primary_meeting, tz, request_tz, now
+            done_info, primary_meeting, tz, request_tz, now, current_meeting
         )
 
         # Try to generate SSML based on scenario
