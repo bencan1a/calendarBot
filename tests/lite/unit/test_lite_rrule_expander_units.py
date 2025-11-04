@@ -149,6 +149,7 @@ def test_generate_event_instances_with_malformed_occurrence_raises(simple_settin
         expander.generate_event_instances(master, ["not-a-datetime"])  # type: ignore[arg-type,list-item]
 
 
+@pytest.mark.smoke  # Critical path: RRULE expansion validation
 def test_integration_parse_apply_generate(simple_settings: SimpleNamespace) -> None:
     """Integration flow: parse RRULE, remove EXDATEs, and generate instances deterministically."""
     expander = LiteRRuleExpander(simple_settings)

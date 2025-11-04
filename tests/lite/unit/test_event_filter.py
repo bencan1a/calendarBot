@@ -87,6 +87,7 @@ class TestEventFilter:
         self.get_fallback_tz = Mock(return_value="UTC")
         self.filter = EventFilter(self.get_server_tz, self.get_fallback_tz)
 
+    @pytest.mark.smoke  # Critical path: Event filtering validation
     def test_filter_upcoming_events_removes_past_events(self):
         """Should filter out past events."""
         now = datetime.datetime(2025, 11, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)

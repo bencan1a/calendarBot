@@ -205,6 +205,7 @@ class TestTimezoneConversion:
         else:
             assert local_time != utc_time  # Should be different time in non-UTC TZ
 
+    @pytest.mark.smoke  # Critical path: Timezone conversion validation
     def test_convert_to_timezone_with_valid_tz(self):
         """Test converting datetime to specific timezone."""
         utc_time = datetime.datetime(2025, 1, 1, 20, 0, tzinfo=datetime.timezone.utc)

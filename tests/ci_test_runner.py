@@ -7,6 +7,7 @@ Supports both the active calendarbot_lite and legacy calendarbot projects.
 """
 
 import argparse
+import glob
 import subprocess
 import sys
 import os
@@ -26,12 +27,28 @@ def run_command(cmd: str, description: str = "") -> int:
 
 
 def run_critical_path_tests() -> int:
-    """Run fast, critical path tests for immediate feedback."""
-    print("Running critical path tests (fast feedback)...")
-    
-    # Run calendarbot_lite tests with fast markers
-    cmd = "pytest tests/lite/ calendarbot_lite/ -m 'not slow' -x --tb=short --cov=calendarbot_lite --cov-report=xml:coverage.xml"
-    return run_command(cmd, "Critical Path Tests")
+    """Run fast, critical path tests for immediate feedback.
+
+    Runs only smoke tests - essential functionality checks that complete in <2 minutes.
+    These tests verify:
+    - Server can start
+    - Core parsing works
+    - Basic API endpoints respond
+    - Essential Alexa handlers function
+    """
+    print("Running critical path tests (smoke tests only)...")
+
+    # Clean coverage data to prevent conflicts
+    import glob
+    for f in glob.glob(".coverage*"):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+
+    # Run ONLY smoke tests for critical path (<2 minutes target)
+    cmd = "pytest tests/lite/ calendarbot_lite/ -m 'smoke' -x --tb=short --cov=calendarbot_lite --cov-report=xml:coverage.xml"
+    return run_command(cmd, "Critical Path Tests (Smoke)")
 
 
 def run_lint() -> int:

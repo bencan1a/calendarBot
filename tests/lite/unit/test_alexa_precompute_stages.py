@@ -5,6 +5,8 @@ from typing import Optional
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from calendarbot_lite.alexa_precompute_stages import (
     DoneForDayPrecomputeStage,
     NextMeetingPrecomputeStage,
