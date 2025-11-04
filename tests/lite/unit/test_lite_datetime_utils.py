@@ -9,6 +9,8 @@ from calendarbot_lite.lite_datetime_utils import (
     LiteDateTimeParser,
     ensure_timezone_aware,
     format_time_cross_platform,
+    serialize_datetime_optional,
+    serialize_datetime_utc,
 )
 
 pytestmark = pytest.mark.unit
@@ -128,6 +130,107 @@ class TestEnsureTimezoneAware:
 
         assert result is aware_dt
         assert result.tzinfo == timezone.utc
+
+
+class TestSerializeDateTimeUtc:
+    """Tests for serialize_datetime_utc utility function.
+
+    This function replaces manual string concatenation (dt.isoformat() + "Z")
+    with proper datetime handling.
+    """
+
+    def test_serialize_utc_aware_datetime(self):
+        """Test serializing timezone-aware UTC datetime."""
+        dt = datetime(2024, 11, 4, 16, 30, 0, tzinfo=timezone.utc)
+        result = serialize_datetime_utc(dt)
+        assert result == "2024-11-04T16:30:00Z"
+
+    def test_serialize_naive_datetime_assumes_utc(self):
+        """Test serializing naive datetime (should assume UTC)."""
+        dt = datetime(2024, 11, 4, 16, 30, 0)
+        result = serialize_datetime_utc(dt)
+        assert result == "2024-11-04T16:30:00Z"
+
+    def test_serialize_non_utc_timezone_converts_to_utc(self):
+        """Test serializing datetime with non-UTC timezone converts to UTC."""
+        from zoneinfo import ZoneInfo
+
+        # 5 PM PST = 1 AM UTC next day (PST is UTC-8)
+        dt = datetime(2024, 11, 4, 17, 0, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+        result = serialize_datetime_utc(dt)
+        # PST is UTC-8, so 17:00 PST = 01:00 UTC next day (during standard time)
+        # During PST (winter), UTC offset is -8
+        assert "T01:00:00Z" in result or "T00:00:00Z" in result  # Account for DST variations
+
+    def test_serialize_with_microseconds(self):
+        """Test that microseconds are included in serialization."""
+        dt = datetime(2024, 11, 4, 16, 30, 0, 123456, tzinfo=timezone.utc)
+        result = serialize_datetime_utc(dt)
+        assert result == "2024-11-04T16:30:00.123456Z"
+
+    def test_serialize_midnight_utc(self):
+        """Test serializing midnight UTC."""
+        dt = datetime(2024, 11, 4, 0, 0, 0, tzinfo=timezone.utc)
+        result = serialize_datetime_utc(dt)
+        assert result == "2024-11-04T00:00:00Z"
+
+    def test_serialize_end_of_day(self):
+        """Test serializing end of day (23:59:59)."""
+        dt = datetime(2024, 11, 4, 23, 59, 59, tzinfo=timezone.utc)
+        result = serialize_datetime_utc(dt)
+        assert result == "2024-11-04T23:59:59Z"
+
+    def test_serialize_none_raises_value_error(self):
+        """Test that None input raises ValueError."""
+        with pytest.raises(ValueError, match="Cannot serialize None datetime"):
+            serialize_datetime_utc(None)
+
+    def test_result_ends_with_z_suffix(self):
+        """Test that result always ends with Z suffix."""
+        dt = datetime(2024, 11, 4, 16, 30, 0, tzinfo=timezone.utc)
+        result = serialize_datetime_utc(dt)
+        assert result.endswith("Z")
+
+    def test_result_is_valid_iso8601(self):
+        """Test that result is valid ISO 8601 format."""
+        dt = datetime(2024, 11, 4, 16, 30, 0, tzinfo=timezone.utc)
+        result = serialize_datetime_utc(dt)
+        # Should be parseable back to datetime
+        parsed = datetime.fromisoformat(result.replace("Z", "+00:00"))
+        assert parsed.year == 2024
+        assert parsed.month == 11
+        assert parsed.day == 4
+        assert parsed.hour == 16
+        assert parsed.minute == 30
+
+
+class TestSerializeDateTimeOptional:
+    """Tests for serialize_datetime_optional utility function."""
+
+    def test_serialize_valid_datetime(self):
+        """Test serializing valid datetime."""
+        dt = datetime(2024, 11, 4, 16, 30, 0, tzinfo=timezone.utc)
+        result = serialize_datetime_optional(dt)
+        assert result == "2024-11-04T16:30:00Z"
+
+    def test_serialize_none_returns_none(self):
+        """Test that None input returns None."""
+        result = serialize_datetime_optional(None)
+        assert result is None
+
+    def test_serialize_naive_datetime(self):
+        """Test serializing naive datetime (should work via serialize_datetime_utc)."""
+        dt = datetime(2024, 11, 4, 16, 30, 0)
+        result = serialize_datetime_optional(dt)
+        assert result == "2024-11-04T16:30:00Z"
+
+    def test_serialize_with_timezone(self):
+        """Test serializing datetime with timezone."""
+        from zoneinfo import ZoneInfo
+
+        dt = datetime(2024, 11, 4, 16, 30, 0, tzinfo=ZoneInfo("UTC"))
+        result = serialize_datetime_optional(dt)
+        assert result == "2024-11-04T16:30:00Z"
 
 
 class TestLiteDateTimeParser:

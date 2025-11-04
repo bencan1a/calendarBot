@@ -33,7 +33,7 @@ from .alexa_types import (
     AlexaNextMeetingResponse,
     AlexaTimeUntilResponse,
 )
-from .lite_datetime_utils import format_time_cross_platform
+from .lite_datetime_utils import format_time_cross_platform, serialize_datetime_utc
 from .lite_models import LiteCalendarEvent
 from .monitoring_logging import get_logger
 from .timezone_utils import parse_request_timezone
@@ -793,7 +793,9 @@ class DoneForDayHandler(AlexaEndpointBase):
 
         # Build response
         response_data: AlexaDoneForDayResponse = {
-            "now_iso": self.iso_serializer(now) if self.iso_serializer else now.isoformat() + "Z",
+            "now_iso": self.iso_serializer(now)
+            if self.iso_serializer
+            else serialize_datetime_utc(now),
             "tz": request_tz,
             "has_meetings_today": result["has_meetings_today"],
             "last_meeting_start_iso": result["last_meeting_start_iso"],

@@ -6,6 +6,8 @@ import asyncio
 import logging
 from typing import Any
 
+from ..lite_datetime_utils import serialize_datetime_utc
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,7 +50,7 @@ def register_api_routes(
     async def health_check(_request: Any) -> Any:
         """Health check endpoint for monitoring system status."""
         now = time_provider()
-        now_iso = now.isoformat() + "Z"
+        now_iso = serialize_datetime_utc(now)
 
         # Get health status from tracker
         health_status = health_tracker.get_health_status(now_iso)
@@ -58,7 +60,11 @@ def register_api_routes(
 
         # Get display probe data
         last_probe_ts = health_tracker.get_last_render_probe_timestamp()
-        last_probe_iso = None if last_probe_ts is None else serialize_iso(time_provider().replace(microsecond=0).fromtimestamp(last_probe_ts))
+        last_probe_iso = (
+            None
+            if last_probe_ts is None
+            else serialize_iso(time_provider().replace(microsecond=0).fromtimestamp(last_probe_ts))
+        )
 
         # Build comprehensive health response
         health_data = {
@@ -192,6 +198,7 @@ def register_api_routes(
         # Force immediate cache refresh to restore previously skipped meetings
         # Import refresh function dynamically to avoid circular imports
         from .. import server as server_module
+
         try:
             await server_module._refresh_once(  # noqa: SLF001
                 config, skipped_store, event_window_ref, window_lock, shared_http_client
@@ -214,7 +221,7 @@ def register_api_routes(
         Called periodically by JavaScript in the browser to prove the page is
         alive and rendering. Watchdog can check this to detect blank pages."""
         now = time_provider()
-        now_iso = now.isoformat() + "Z"
+        now_iso = serialize_datetime_utc(now)
 
         # Record that browser sent a heartbeat
         health_tracker.record_render_probe(ok=True, notes="browser-heartbeat")
