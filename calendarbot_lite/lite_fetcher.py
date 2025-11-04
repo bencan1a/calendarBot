@@ -11,7 +11,6 @@ import httpx
 
 from .http_client import (
     DEFAULT_BROWSER_HEADERS,
-    _get_headers_with_correlation_id,
     get_shared_client,
     record_client_error,
     record_client_success,
@@ -419,8 +418,18 @@ class LiteICSFetcher:
                     _raise_client_not_initialized()
 
                 # Merge existing headers with browser headers (browser headers take precedence)
-                # Use helper to include correlation ID for request tracing
-                combined_headers = {**headers, **_get_headers_with_correlation_id()}
+                combined_headers = {**headers, **DEFAULT_BROWSER_HEADERS}
+                
+                # Add correlation ID for request tracing (if available, doesn't override existing)
+                try:
+                    from .middleware import get_request_id
+                    request_id = get_request_id()
+                    if request_id and request_id != "no-request-id":
+                        # Only add if not already present (allows client override)
+                        combined_headers.setdefault("X-Request-ID", request_id)
+                except (ImportError, AttributeError):
+                    # Middleware not available or no request context
+                    pass
 
                 # DEAD SIMPLE: Use httpx.get() to download entire file at once like a browser
                 logger.debug("Using dead simple GET request for %s", url)
