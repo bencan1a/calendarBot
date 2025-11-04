@@ -55,6 +55,7 @@ class LogEntry:
         action_taken: Optional[str] = None,
         recovery_level: int = 0,
         system_state: Optional[dict[str, Any]] = None,
+        request_id: Optional[str] = None,
     ):
         """Initialize log entry.
 
@@ -67,6 +68,7 @@ class LogEntry:
             action_taken: Description of any action taken
             recovery_level: Recovery escalation level (0-4)
             system_state: Current system metrics
+            request_id: Request correlation ID for distributed tracing
         """
         self.timestamp = datetime.now(UTC)
         self.component = component
@@ -77,6 +79,16 @@ class LogEntry:
         self.action_taken = action_taken
         self.recovery_level = recovery_level
         self.system_state = system_state or {}
+        
+        # Get request ID from context if not provided
+        if request_id is None:
+            try:
+                from .middleware import get_request_id
+                self.request_id = get_request_id()
+            except (ImportError, AttributeError):
+                self.request_id = "no-request-id"
+        else:
+            self.request_id = request_id
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary following the standard schema."""
@@ -86,6 +98,7 @@ class LogEntry:
             "level": self.level,
             "event": self.event,
             "message": self.message,
+            "request_id": self.request_id,
             "details": self.details,
             "schema_version": SCHEMA_VERSION,
         }

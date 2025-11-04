@@ -218,6 +218,7 @@ See [.env.example](.env.example) for complete reference.
 - `health_tracker.py` - System health monitoring (8KB)
 - `config_manager.py` - Configuration management (5KB)
 - `dependencies.py` - Dependency injection helpers
+- `middleware/correlation_id.py` - Request correlation ID tracking for distributed tracing
 
 **Debugging:**
 - `debug_helpers.py` - Debugging utilities and diagnostics
@@ -643,6 +644,92 @@ python scripts/performance_benchmark.py --run all
 # Kill all calendarbot processes
 ./scripts/kill_calendarbot.sh --force
 ```
+
+### Request Correlation ID Tracing
+
+**CalendarBot Lite includes request correlation ID tracking for distributed tracing and debugging.**
+
+All requests are assigned a correlation ID that flows through:
+- Incoming HTTP requests (Alexa → API Gateway → Lambda → CalendarBot)
+- Application logs (all log messages include `[request_id]`)
+- Outgoing HTTP requests (CalendarBot → Calendar Service)
+- Response headers (`X-Request-ID`)
+
+**Correlation ID Priority:**
+1. `X-Amzn-Trace-Id` - AWS ALB/API Gateway trace ID
+2. `X-Request-ID` - Client-provided request ID
+3. `X-Correlation-ID` - Alternative correlation header
+4. Auto-generated UUID if no header present
+
+**Example Debugging Workflow:**
+
+```bash
+# 1. User reports: "Alexa said 'Something went wrong' at 2:34 PM"
+# 2. Check logs for errors around that time
+grep "2025-11-04 14:34" /var/log/calendarbot.log
+
+# Sample log output:
+# [2025-11-04 14:34:12] [abc123-def456] ERROR - Fetch failed: HTTP 503
+
+# 3. Find all related logs using the correlation ID
+grep "abc123-def456" /var/log/calendarbot.log
+
+# Output shows full request flow:
+# [14:34:11] [abc123-def456] INFO - Processing Alexa request
+# [14:34:11] [abc123-def456] INFO - Fetching calendar from ICS_URL
+# [14:34:12] [abc123-def456] ERROR - HTTP 503 from calendar service
+# [14:34:12] [abc123-def456] ERROR - Cannot process request: service unavailable
+# [14:34:12] [abc123-def456] INFO - Returning error response to Alexa
+
+# 4. Root cause identified: Calendar service was down
+```
+
+**Testing Correlation IDs:**
+
+```bash
+# Test with custom correlation ID
+curl -H "X-Request-ID: test-12345" http://localhost:8080/api/health
+
+# Response includes the correlation ID
+# X-Request-ID: test-12345
+
+# Check logs for this specific request
+grep "test-12345" server.log
+```
+
+**Integration with AWS:**
+
+When deployed behind AWS API Gateway/ALB:
+- AWS automatically provides `X-Amzn-Trace-Id` header
+- This ID is used as the correlation ID throughout CalendarBot
+- Same ID appears in AWS CloudWatch, X-Ray, and CalendarBot logs
+- Enables end-to-end tracing: Alexa → Lambda → CalendarBot → Calendar Service
+
+**Structured Logging:**
+
+All structured JSON logs include `request_id` field:
+
+```json
+{
+  "timestamp": "2025-11-04T14:34:12Z",
+  "component": "server",
+  "level": "INFO",
+  "event": "refresh.cycle.complete",
+  "message": "Refresh cycle completed successfully",
+  "request_id": "abc123-def456-ghi789",
+  "details": {
+    "events_parsed": 42,
+    "events_in_window": 15
+  }
+}
+```
+
+**Implementation Details:**
+
+- **Middleware**: `calendarbot_lite/middleware/correlation_id.py`
+- **Context Storage**: Uses Python `contextvars` for async-safe request tracking
+- **Log Integration**: `CorrelationIdFilter` in `lite_logging.py`
+- **External Propagation**: `lite_fetcher.py` adds `X-Request-ID` to calendar fetch requests
 
 ---
 

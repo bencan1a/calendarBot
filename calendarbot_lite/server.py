@@ -1188,7 +1188,11 @@ async def _make_app(  # type: ignore[no-untyped-def]
     else:
         logger.debug("aiohttp successfully imported; building web.Application")
 
-    app = web.Application()
+    # Import correlation ID middleware
+    from .middleware import correlation_id_middleware
+
+    # Create app with correlation ID middleware
+    app = web.Application(middlewares=[correlation_id_middleware])
 
     # Get the package directory for static file serving
     from pathlib import Path
