@@ -26,6 +26,48 @@ def ensure_timezone_aware(dt: datetime) -> datetime:
     return dt
 
 
+def format_time_cross_platform(dt: datetime, suffix: str = "") -> str:
+    """Format time in 12-hour format without leading zeros (cross-platform).
+
+    This function provides cross-platform compatible time formatting that works
+    on both Unix/Linux and Windows systems. The Unix-specific strftime format
+    code %-I is not supported on Windows, causing runtime errors.
+
+    Args:
+        dt: Datetime to format
+        suffix: Optional suffix to append (e.g., " UTC")
+
+    Returns:
+        Time string in format "H:MM AM/PM" without leading zeros on hour
+        Examples: "9:30 am", "12:45 pm", "10:00 am utc"
+
+    Examples:
+        >>> from datetime import datetime
+        >>> dt = datetime(2025, 11, 4, 9, 30)
+        >>> format_time_cross_platform(dt)
+        '9:30 am'
+        >>> dt = datetime(2025, 11, 4, 14, 45)
+        >>> format_time_cross_platform(dt)
+        '2:45 pm'
+        >>> dt = datetime(2025, 11, 4, 9, 30)
+        >>> format_time_cross_platform(dt, " UTC")
+        '9:30 am utc'
+    """
+    # Convert to 12-hour format
+    hour = dt.hour % 12 or 12  # Convert 0 to 12, keep 1-12 as is
+    minute = dt.minute
+    am_pm = "am" if dt.hour < 12 else "pm"
+
+    # Format without leading zeros
+    time_str = f"{hour}:{minute:02d} {am_pm}"
+
+    # Add suffix if provided
+    if suffix:
+        time_str += suffix.lower()
+
+    return time_str
+
+
 def format_time_for_speech(dt: datetime, target_tz: Optional[ZoneInfo] = None) -> str:
     """Format a datetime for natural speech output.
 
