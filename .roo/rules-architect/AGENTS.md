@@ -1,5 +1,16 @@
 # Architect Mode Rules (Non-Obvious Only)
 
+## Application Context & Scale
+
+**Personal project for single developer, deployed on Raspberry Pi Zero 2W:**
+- **User Scale**: 1-5 users max, no need for enterprise architecture patterns
+- **Hardware**: Pi Zero 2W (1GB RAM, quad-core ARM) - design for resource efficiency
+- **Simplicity**: Avoid over-engineering, prefer direct solutions over abstractions
+- **No Backward Compatibility**: Breaking changes acceptable, no versioning/migration overhead
+- **Dependency Weight**: Each library costs memory - critical for 1GB total RAM constraint
+
+See main [AGENTS.md](../../AGENTS.md#-application-context--scale) for complete guidance.
+
 ## File Organization
 - **Analysis Reports**: Write refactoring plans, code analysis to `tmp/` (gitignored)
 - **Architecture Docs**: Write permanent architecture docs to `docs/` (version controlled)
