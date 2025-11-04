@@ -715,6 +715,71 @@ async def test_launch_summary_handler_when_no_meetings_then_returns_free_message
     assert "speech_text" in data
 
 
+@pytest.mark.unit
+async def test_launch_summary_handler_when_meeting_in_progress_then_acknowledges_current_meeting(
+    mock_skipped_store: Mock,
+    mock_presenter: Mock,
+    mock_request: Mock,
+    sample_event: LiteCalendarEvent,
+) -> None:
+    """Test LaunchSummaryHandler acknowledges when user is in a meeting."""
+    # Test at 10:15 AM, during a 10:00-11:00 AM meeting
+    test_time = datetime.datetime(2024, 1, 15, 10, 15, 0, tzinfo=datetime.timezone.utc)
+    mock_time_provider = Mock(return_value=test_time)
+    
+    # Create a meeting that's currently in progress (10:00-11:00 AM)
+    current_meeting = LiteCalendarEvent(
+        id="current-meeting",
+        subject="Morning Standup",
+        start={"date_time": datetime.datetime(2024, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)},
+        end={"date_time": datetime.datetime(2024, 1, 15, 11, 0, 0, tzinfo=datetime.timezone.utc)},
+        is_all_day=False,
+    )
+    
+    # Create a future meeting (1:00-2:00 PM)
+    next_meeting = LiteCalendarEvent(
+        id="next-meeting",
+        subject="Afternoon Meeting",
+        start={"date_time": datetime.datetime(2024, 1, 15, 13, 0, 0, tzinfo=datetime.timezone.utc)},
+        end={"date_time": datetime.datetime(2024, 1, 15, 14, 0, 0, tzinfo=datetime.timezone.utc)},
+        is_all_day=False,
+    )
+
+    handler = LaunchSummaryHandler(  # type: ignore[call-arg]
+        bearer_token=None,
+        time_provider=mock_time_provider,
+        skipped_store=mock_skipped_store,
+        response_cache=None,
+        precompute_getter=None,
+        presenter=mock_presenter,  # type: ignore
+        duration_formatter=lambda s: f"in {s // 60} minutes",  # type: ignore
+        iso_serializer=lambda dt: dt.isoformat(),  # type: ignore
+    )
+
+    mock_request.query = {"tz": "UTC"}
+    now = mock_time_provider()
+
+    response = await handler.handle_request(mock_request, (current_meeting, next_meeting), now)
+
+    assert response.status == 200
+    
+    # Verify that format_launch_summary was called with current_meeting parameter
+    mock_presenter.format_launch_summary.assert_called_once()
+    call_args = mock_presenter.format_launch_summary.call_args
+    
+    # Check that current_meeting was passed (positional or keyword arg)
+    if call_args.args and len(call_args.args) > 5:
+        # Positional argument
+        passed_current_meeting = call_args.args[5]
+    else:
+        # Keyword argument
+        passed_current_meeting = call_args.kwargs.get("current_meeting")
+    
+    assert passed_current_meeting is not None
+    assert passed_current_meeting["subject"] == "Morning Standup"
+    assert passed_current_meeting["is_current"] is True
+
+
 # ============================================================================
 # MorningSummaryHandler Tests
 # ============================================================================
