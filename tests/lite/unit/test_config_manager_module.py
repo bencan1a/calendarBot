@@ -26,6 +26,7 @@ def clean_env(**env_vars):
         "CALENDARBOT_REFRESH_INTERVAL",
         "CALENDARBOT_REFRESH_INTERVAL_SECONDS",
         "CALENDARBOT_ALEXA_BEARER_TOKEN",
+        "CALENDARBOT_DEFAULT_TIMEZONE",
     ]
 
     # Save original values
@@ -194,3 +195,75 @@ class TestGetConfigValue:
         # Don't set key2, so getattr will fail with AttributeError
 
         assert get_config_value(mock_config, "key2", "default") == "default"
+
+
+class TestTimezoneConfiguration:
+    """Tests for timezone configuration functionality."""
+
+    def test_build_config_with_default_timezone(self):
+        """Should build config with default timezone from environment."""
+        with clean_env(CALENDARBOT_DEFAULT_TIMEZONE="America/New_York"):
+            manager = ConfigManager()
+            config = manager.build_config_from_env()
+
+            assert "default_timezone" in config
+            assert config["default_timezone"] == "America/New_York"
+
+    def test_build_config_without_timezone_configured(self):
+        """Should not include timezone in config if not set in environment."""
+        with clean_env():
+            manager = ConfigManager()
+            config = manager.build_config_from_env()
+
+            assert "default_timezone" not in config
+
+    def test_get_default_timezone_with_valid_timezone(self):
+        """Should return configured timezone when valid."""
+        from calendarbot_lite.config_manager import get_default_timezone
+
+        with clean_env(CALENDARBOT_DEFAULT_TIMEZONE="Europe/London"):
+            timezone = get_default_timezone()
+            assert timezone == "Europe/London"
+
+    def test_get_default_timezone_with_default_fallback(self):
+        """Should return fallback timezone when not configured."""
+        from calendarbot_lite.config_manager import get_default_timezone
+
+        with clean_env():
+            timezone = get_default_timezone()
+            assert timezone == "America/Los_Angeles"
+
+    def test_get_default_timezone_with_custom_fallback(self):
+        """Should return custom fallback when provided."""
+        from calendarbot_lite.config_manager import get_default_timezone
+
+        with clean_env():
+            timezone = get_default_timezone(fallback="UTC")
+            assert timezone == "UTC"
+
+    def test_get_default_timezone_with_invalid_timezone(self):
+        """Should fall back to default when timezone is invalid."""
+        from calendarbot_lite.config_manager import get_default_timezone
+
+        with clean_env(CALENDARBOT_DEFAULT_TIMEZONE="Invalid/Timezone"):
+            timezone = get_default_timezone()
+            assert timezone == "America/Los_Angeles"
+
+    def test_get_default_timezone_validates_iana_format(self):
+        """Should validate IANA timezone format."""
+        from calendarbot_lite.config_manager import get_default_timezone
+
+        # Test with valid IANA timezones
+        valid_timezones = [
+            "America/Los_Angeles",
+            "America/New_York",
+            "Europe/London",
+            "Asia/Tokyo",
+            "UTC",
+            "Australia/Sydney",
+        ]
+
+        for tz in valid_timezones:
+            with clean_env(CALENDARBOT_DEFAULT_TIMEZONE=tz):
+                result = get_default_timezone()
+                assert result == tz, f"Failed to validate timezone: {tz}"
