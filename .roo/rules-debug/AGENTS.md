@@ -1,5 +1,14 @@
 # Debug Mode Rules (Non-Obvious Only)
 
+## Application Context
+
+**Personal project, resource-constrained deployment (Pi Zero 2W: 1GB RAM):**
+- Focus debugging on resource usage and efficiency, not scalability
+- Memory leaks matter more than load balancing
+- Single-instance debugging, no distributed tracing needed
+
+See main [AGENTS.md](../../AGENTS.md#-application-context--scale) for complete guidance.
+
 ## File Organization
 - **Debug Scripts**: ALL temporary debugging scripts go in `tmp/` (gitignored, not `/scripts/`)
 - **Test Artifacts**: Temporary test files go in `tmp/` (not root directory)

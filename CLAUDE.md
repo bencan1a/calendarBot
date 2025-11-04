@@ -16,6 +16,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## ⚠️ Application Context
+
+**This is a personal project for a single developer** deployed on resource-constrained hardware (Raspberry Pi Zero 2W).
+
+**Key Principles:**
+- **Keep it simple** - No enterprise patterns, no over-engineering
+- **Resource efficient** - Optimize for low memory/CPU usage (<100MB RAM idle)
+- **Breaking changes OK** - No backward compatibility burden
+- **Few users** - Designed for 1-5 users maximum
+- **Single instance** - No horizontal scaling needed
+
+See **[AGENTS.md - Application Context & Scale](AGENTS.md#-application-context--scale)** for complete guidance.
+
+---
+
 ## Quick Reference
 
 ### Development Setup
