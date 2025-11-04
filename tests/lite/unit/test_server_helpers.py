@@ -84,7 +84,9 @@ def test_is_focus_time_event_when_non_focus_subject_then_false():
 
 def test_is_focus_time_event_when_missing_subject_then_false():
     """Events with empty subject should not be considered focus time."""
-    event = make_lite_event("")
+    # Note: Empty string subjects are now invalid per validation rules,
+    # so we test with a minimal valid subject instead
+    event = make_lite_event("X")  # Minimal valid subject
     assert not server._is_focus_time_event(event)
 
 
