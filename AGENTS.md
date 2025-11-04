@@ -40,6 +40,60 @@ This file provides essential context, patterns, and commands for AI agents worki
 
 ---
 
+## ⚠️ Application Context & Scale
+
+**CalendarBot Lite is a personal application with a single developer.** This fundamentally shapes how we approach development:
+
+### Scale & Performance Expectations
+
+- **User Count**: Designed for a few users at most (typically 1-5)
+- **Deployment Target**: Primarily Raspberry Pi Zero 2W (1GB RAM, quad-core ARM Cortex-A53)
+- **Resource Constraints**: Optimize for low memory footprint and efficient CPU usage
+- **Network Load**: Minimal concurrent requests (1-2 typical, 5-10 maximum)
+
+### Development Philosophy
+
+**Keep It Simple:**
+- ❌ **Don't** add enterprise patterns (circuit breakers, distributed tracing, service mesh, etc.)
+- ❌ **Don't** implement staged rollouts, blue-green deployments, or canary releases
+- ❌ **Don't** add complex caching layers or CDN integration
+- ❌ **Don't** over-engineer for horizontal scaling or high availability
+- ✅ **Do** prioritize simplicity and maintainability
+- ✅ **Do** focus on single-instance reliability
+- ✅ **Do** optimize for resource efficiency on constrained hardware
+- ✅ **Do** prefer straightforward solutions over clever abstractions
+
+**Backward Compatibility:**
+- **Breaking changes are acceptable** - this is a personal project with controlled deployment
+- No need for API versioning, deprecation warnings, or migration paths
+- Update docs and deploy - version bumps are fine
+
+**Performance Considerations:**
+- Optimize for **low resource usage** (memory, CPU) over raw throughput
+- Target: Idle server uses <100MB RAM, handles 1-2 requests/sec comfortably
+- Raspberry Pi Zero 2W constraints: 1GB RAM total, ~400MHz-1GHz CPU per core
+- Avoid heavy dependencies that inflate memory footprint
+- Prefer async I/O for efficiency, but don't over-complicate with parallelization
+
+**Code Patterns:**
+- Simple, direct implementations over abstraction layers
+- Minimal dependencies - each new library costs memory and startup time
+- Clear, readable code beats clever optimization (unless resource-critical)
+- Built-in Python stdlib preferred over third-party when feasible
+
+### When to Ignore This Guidance
+
+You **should** still apply professional practices for:
+- Error handling and graceful degradation
+- Security best practices (input validation, authentication, etc.)
+- Testing critical functionality
+- Clear documentation
+- Type safety and linting
+
+But scale them appropriately - test what matters, document what's complex, secure what's exposed.
+
+---
+
 ## Quick Start
 
 ### Development Setup

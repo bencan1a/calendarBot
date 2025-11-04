@@ -1,5 +1,15 @@
 # Ask Mode Rules (Non-Obvious Only)
 
+## Application Context
+
+**Personal project with single developer:**
+- When asked about architecture: Suggest simple solutions, not enterprise patterns
+- When asked about scaling: Remind that it's 1-5 users max on Pi Zero 2W
+- When asked about compatibility: Breaking changes are acceptable
+- When asked about dependencies: Emphasize resource efficiency (1GB RAM total)
+
+See main [AGENTS.md](../../AGENTS.md#-application-context--scale) for complete guidance.
+
 ## File Organization
 - **Temporary Files**: Use `tmp/` for any temporary analysis or debug files (gitignored)
 - **Documentation**: Permanent docs in `docs/`, temporary reports in `tmp/`
