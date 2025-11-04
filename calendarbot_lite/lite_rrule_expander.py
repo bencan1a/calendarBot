@@ -3,7 +3,7 @@
 # ruff: noqa: I001
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 import logging
 import time
 from typing import Any, Optional
@@ -13,8 +13,6 @@ import uuid
 from dateutil.rrule import rrulestr, rruleset
 
 from .lite_models import LiteCalendarEvent, LiteDateTimeInfo
-
-UTC = timezone.utc
 
 logger = logging.getLogger(__name__)
 
@@ -941,14 +939,14 @@ class RRuleOrchestrator:
                 # fallback parse string - use simple UTC conversion
                 dt_str = str(component.get("DTSTART"))
                 dt = datetime.strptime(dt_str.rstrip("Z"), "%Y%m%dT%H%M%S")
-                candidate_event.start = _DateTimeWrapper(dt.replace(tzinfo=timezone.utc))
+                candidate_event.start = _DateTimeWrapper(dt.replace(tzinfo=UTC))
 
             if dtend_raw and isinstance(dtend_raw, datetime):
                 candidate_event.end = _DateTimeWrapper(dtend_raw)
             elif dtend_raw:
                 dt_str = str(component.get("DTEND"))
                 dt = datetime.strptime(dt_str.rstrip("Z"), "%Y%m%dT%H%M%S")
-                candidate_event.end = _DateTimeWrapper(dt.replace(tzinfo=timezone.utc))
+                candidate_event.end = _DateTimeWrapper(dt.replace(tzinfo=UTC))
             else:
                 # If DTEND missing, approximate using duration of one hour
                 candidate_event.end = _DateTimeWrapper(
@@ -956,7 +954,7 @@ class RRuleOrchestrator:
                 )
         except Exception:
             # Last-resort defaults
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             candidate_event.start = _DateTimeWrapper(now)
             candidate_event.end = _DateTimeWrapper(now + timedelta(hours=1))
 

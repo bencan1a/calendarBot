@@ -33,7 +33,7 @@ import sys
 import time
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +50,7 @@ try:
 except ImportError:
     # Fallback if import fails (shouldn't happen in normal usage)
     def _now_utc():
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
 
 import aiohttp

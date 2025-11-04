@@ -10,7 +10,7 @@ import logging
 from collections.abc import AsyncGenerator, AsyncIterator, Generator
 from io import StringIO
 from pathlib import Path
-from typing import Any, BinaryIO, Optional, TextIO, Union
+from typing import Any, BinaryIO, Optional, TextIO
 
 from icalendar import Calendar
 
@@ -67,7 +67,7 @@ class LiteStreamingICSParser:
 
     def parse_stream(
         self,
-        file_source: Union[str, BinaryIO, TextIO],
+        file_source: str | BinaryIO | TextIO,
     ) -> Generator[dict[str, Any], None, None]:
         """Parse ICS content from file stream, yielding events as they are found.
 
@@ -108,7 +108,7 @@ class LiteStreamingICSParser:
 
     def _parse_file_stream(
         self,
-        file_obj: Union[BinaryIO, TextIO],
+        file_obj: BinaryIO | TextIO,
     ) -> Generator[dict[str, Any], None, None]:
         """Parse ICS file stream in chunks."""
         while True:

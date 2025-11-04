@@ -5,7 +5,7 @@ Extracted from lite_parser.py to improve modularity and testability.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
@@ -22,7 +22,7 @@ def ensure_timezone_aware(dt: datetime) -> datetime:
         Timezone-aware datetime (UTC if originally naive)
     """
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -133,7 +133,7 @@ class TimezoneParser:
 
             # Handle UTC explicitly
             if tzid == "UTC" or dt_part.endswith("Z"):
-                return dt_naive.replace(tzinfo=timezone.utc)
+                return dt_naive.replace(tzinfo=UTC)
 
             # Convert Windows timezone to IANA format
             from .timezone_utils import windows_tz_to_iana
@@ -143,7 +143,7 @@ class TimezoneParser:
             # Apply timezone using zoneinfo (Python 3.12+ standard library)
             tz = ZoneInfo(iana_tz)
             dt_with_tz = dt_naive.replace(tzinfo=tz)
-            return dt_with_tz.astimezone(timezone.utc)
+            return dt_with_tz.astimezone(UTC)
 
         except Exception as e:
             # Fallback to UTC if timezone parsing fails
@@ -152,7 +152,7 @@ class TimezoneParser:
             try:
                 dt_str = datetime_str.split(":")[-1].rstrip("Z")
                 dt = datetime.strptime(dt_str, "%Y%m%dT%H%M%S")
-                return dt.replace(tzinfo=timezone.utc)
+                return dt.replace(tzinfo=UTC)
             except Exception:
                 raise ValueError(f"Unable to parse datetime: {datetime_str}") from e
 
@@ -191,7 +191,7 @@ class TimezoneParser:
             try:
                 dt = datetime.strptime(dt_str, fmt)
                 if has_utc_marker:
-                    dt = dt.replace(tzinfo=timezone.utc)
+                    dt = dt.replace(tzinfo=UTC)
                 return dt
             except ValueError:
                 continue
