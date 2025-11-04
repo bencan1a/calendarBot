@@ -6,7 +6,7 @@ UID:late-night-meeting@example.com
 DTSTART:20251106T050000Z
 DTEND:20251106T070000Z
 SUMMARY:Late Night Call
-DESCRIPTION:International call ending at 11 PM PST (7 AM UTC next day)
+DESCRIPTION:International call ending at 11 PM PST (7 AM UTC)
 LOCATION:Virtual
 END:VEVENT
 END:VCALENDAR
