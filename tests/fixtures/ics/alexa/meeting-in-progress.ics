@@ -1,0 +1,20 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CalendarBot Test//Alexa Test Calendar//EN
+BEGIN:VEVENT
+UID:meeting-in-progress@example.com
+DTSTART:20251105T180000Z
+DTEND:20251105T190000Z
+SUMMARY:Current Meeting
+DESCRIPTION:Meeting happening now (test time: 10:15 AM PST = 18:15 UTC)
+LOCATION:Conference Room A
+END:VEVENT
+BEGIN:VEVENT
+UID:meeting-later@example.com
+DTSTART:20251105T210000Z
+DTEND:20251105T220000Z
+SUMMARY:Afternoon Meeting
+DESCRIPTION:Meeting later today
+LOCATION:Conference Room B
+END:VEVENT
+END:VCALENDAR

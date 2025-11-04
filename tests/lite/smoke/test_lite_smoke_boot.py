@@ -152,6 +152,12 @@ def test_lite_smoke_boot_subprocess_no_errors(tmp_path: Path) -> None:
     env.pop("CALENDARBOT_TEST_TIME", None)
     env.pop("CALENDARBOT_REFRESH_INTERVAL", None)
     env.pop("CALENDARBOT_REFRESH_INTERVAL_SECONDS", None)
+    # Disable coverage in subprocess to prevent coverage data conflicts
+    env.pop("COV_CORE_SOURCE", None)
+    env.pop("COV_CORE_CONFIG", None)
+    env.pop("COV_CORE_DATAFILE", None)
+    env.pop("COVERAGE_PROCESS_START", None)
+    env["COVERAGE_PROCESS_START"] = ""  # Explicitly disable coverage.py subprocess hook
     env["CALENDARBOT_ICS_URL"] = f"http://127.0.0.1:{port}/calendar.ics"
     # Choose a free ephemeral port for the subprocess server to avoid collisions.
     # We bind a temporary socket to get an available port and immediately close it.

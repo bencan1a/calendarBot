@@ -13,19 +13,17 @@ tests/
 │
 ├── lite/                      # CalendarBot Lite tests (251 tests)
 │   ├── README.md              # Lite test documentation
-│   ├── test_lite_fetcher.py   # HTTP client and ICS fetching
-│   ├── test_http_client.py    # Shared HTTP client and connection pool
-│   ├── test_lite_parser_streaming.py # ICS parser streaming
-│   ├── test_rrule_streaming_optimization.py # RRule expansion and worker pool
-│   ├── test_lite_done_for_day.py # Done-for-day functionality
-│   ├── test_lite_logging.py   # Lite logging functionality
-│   ├── test_alexa_launch_intent.py # Alexa launch intent handler
-│   ├── test_alexa_integration.py # Alexa skill integration tests
-│   ├── test_alexa_ssml.py     # SSML generation and formatting
-│   ├── test_concurrency_system.py # Concurrency system and worker pool
-│   ├── test_config_and_skipped_store.py # Config and skipped events
-│   ├── test_calendarbot_lite_harness.py # Integration test harness
-│   └── test_server_port_conflict.py # Server port conflict handling
+│   ├── unit/                  # Unit tests for lite components
+│   │   ├── test_monitoring_logging.py # Monitoring/logging functionality
+│   │   └── ...                # Other unit tests
+│   ├── integration/           # Integration tests
+│   ├── performance/           # Performance tests
+│   └── smoke/                 # Quick smoke tests
+│
+├── kiosk/                     # Kiosk deployment tests
+│   ├── README.md              # Kiosk test documentation
+│   ├── test_watchdog.py       # Watchdog monitoring and recovery
+│   └── test_scripts_integration.py # Bash script integration tests
 │
 ├── fixtures/                  # Test fixtures and mock data
 │   ├── mock_ics_data.py      # ICS calendar data factories
@@ -88,6 +86,21 @@ pytest tests/lite/ --cov=calendarbot_lite   # With coverage
 ```bash
 pytest tests/ --ignore=tests/lite/
 ```
+
+### Kiosk Deployment Tests (`tests/kiosk/`)
+Test the kiosk deployment monitoring, watchdog, and logging infrastructure.
+
+- **`test_watchdog.py`**: Watchdog monitoring and recovery system (WatchdogState, HealthChecker, RecoveryManager)
+- **`test_scripts_integration.py`**: Kiosk bash scripts (log-shipper.sh, log-aggregator.sh, critical-event-filter.sh, monitoring-status.sh)
+
+**Run kiosk tests only:**
+```bash
+pytest tests/kiosk/                          # All kiosk tests
+pytest tests/kiosk/ -m smoke                 # Quick validation tests
+pytest tests/kiosk/ -m integration           # Integration tests
+```
+
+See [tests/kiosk/README.md](kiosk/README.md) for detailed documentation.
 
 ### Unit Tests (`tests/unit/`)
 Test individual components in isolation with mocked dependencies.

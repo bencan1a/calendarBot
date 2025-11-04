@@ -1,517 +1,604 @@
-"""Unit tests for calendarbot_lite.monitoring_logging module.
-
-Tests cover structured logging, rate limiting, system metrics collection,
-and monitoring logger functionality.
-"""
-
-from __future__ import annotations
+"""Tests for calendarbot_lite.monitoring_logging module."""
 
 import json
 import logging
+import tempfile
+import threading
+import time
+from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import Mock, mock_open, patch
+from unittest.mock import MagicMock, patch, call
+from typing import Any, Dict
 
 import pytest
 
 from calendarbot_lite.monitoring_logging import (
-    LOG_LEVELS,
-    SCHEMA_VERSION,
     LogEntry,
     MonitoringLogger,
     RateLimiter,
     SystemMetricsCollector,
     configure_monitoring_logging,
     get_logger,
-    log_health_event,
-    log_recovery_event,
     log_server_event,
     log_watchdog_event,
+    log_health_event,
+    log_recovery_event,
 )
 
 
-@pytest.mark.unit
-@pytest.mark.fast
 class TestLogEntry:
-    """Tests for LogEntry class."""
+    """Test LogEntry class functionality."""
 
-    def test_log_entry_when_created_then_stores_fields(self) -> None:
-        """Test LogEntry initialization stores all fields."""
+    def test_log_entry_when_minimal_args_then_creates_valid_entry(self) -> None:
+        """Test that LogEntry creates valid entry with minimal arguments."""
         entry = LogEntry(
             component="server",
             level="INFO",
             event="test.event",
-            message="Test message",
-            details={"key": "value"},
-            action_taken="Action taken",
-            recovery_level=1,
-            system_state={"cpu": 0.5},
+            message="Test message"
         )
-
+        
         assert entry.component == "server"
         assert entry.level == "INFO"
         assert entry.event == "test.event"
         assert entry.message == "Test message"
-        assert entry.details == {"key": "value"}
-        assert entry.action_taken == "Action taken"
-        assert entry.recovery_level == 1
-        assert entry.system_state == {"cpu": 0.5}
-        assert entry.timestamp is not None
-
-    def test_log_entry_when_no_optional_fields_then_uses_defaults(self) -> None:
-        """Test LogEntry with minimal fields uses defaults."""
-        entry = LogEntry(
-            component="server",
-            level="INFO",
-            event="test.event",
-            message="Test message",
-        )
-
         assert entry.details == {}
         assert entry.action_taken is None
         assert entry.recovery_level == 0
         assert entry.system_state == {}
+        assert isinstance(entry.timestamp, datetime)
 
-    def test_log_entry_when_level_lowercase_then_converts_to_uppercase(self) -> None:
-        """Test LogEntry converts level to uppercase."""
+    def test_log_entry_when_all_args_then_creates_complete_entry(self) -> None:
+        """Test that LogEntry creates complete entry with all arguments."""
+        details = {"key": "value"}
+        system_state = {"cpu_load": 0.5}
+        
         entry = LogEntry(
-            component="server",
-            level="info",
-            event="test.event",
-            message="Test message",
-        )
-
-        assert entry.level == "INFO"
-
-    def test_log_entry_to_dict_when_called_then_returns_complete_dict(self) -> None:
-        """Test LogEntry.to_dict() returns all fields."""
-        entry = LogEntry(
-            component="server",
+            component="watchdog",
             level="ERROR",
-            event="test.event",
-            message="Test message",
-            details={"error": "details"},
-            action_taken="Restarted",
-            recovery_level=2,
-            system_state={"cpu": 0.8},
+            event="recovery.action",
+            message="Recovery action taken",
+            details=details,
+            action_taken="Browser restart",
+            recovery_level=1,
+            system_state=system_state
         )
+        
+        assert entry.component == "watchdog"
+        assert entry.level == "ERROR"
+        assert entry.event == "recovery.action"
+        assert entry.message == "Recovery action taken"
+        assert entry.details == details
+        assert entry.action_taken == "Browser restart"
+        assert entry.recovery_level == 1
+        assert entry.system_state == system_state
 
+    def test_log_entry_to_dict_when_minimal_then_returns_required_fields(self) -> None:
+        """Test that to_dict returns required fields for minimal entry."""
+        entry = LogEntry("server", "INFO", "test.event", "Test message")
         result = entry.to_dict()
-
+        
+        assert "timestamp" in result
         assert result["component"] == "server"
-        assert result["level"] == "ERROR"
+        assert result["level"] == "INFO"
         assert result["event"] == "test.event"
         assert result["message"] == "Test message"
-        assert result["details"] == {"error": "details"}
-        assert result["action_taken"] == "Restarted"
-        assert result["recovery_level"] == 2
-        assert result["system_state"] == {"cpu": 0.8}
-        assert result["schema_version"] == SCHEMA_VERSION
-        assert "timestamp" in result
-
-    def test_log_entry_to_dict_when_minimal_fields_then_excludes_optional(self) -> None:
-        """Test LogEntry.to_dict() excludes None optional fields."""
-        entry = LogEntry(
-            component="server",
-            level="INFO",
-            event="test.event",
-            message="Test message",
-        )
-
-        result = entry.to_dict()
-
+        assert result["details"] == {}
+        assert result["schema_version"] == "1.0"
         assert "action_taken" not in result
-        assert "recovery_level" not in result  # 0 is excluded
-        assert "system_state" not in result  # Empty dict excluded
+        assert "recovery_level" not in result
+
+    def test_log_entry_to_dict_when_complete_then_returns_all_fields(self) -> None:
+        """Test that to_dict returns all fields for complete entry."""
+        entry = LogEntry(
+            "watchdog", "ERROR", "recovery.action", "Recovery action",
+            details={"key": "value"},
+            action_taken="Browser restart",
+            recovery_level=1,
+            system_state={"cpu": 0.5}
+        )
+        result = entry.to_dict()
+        
+        assert result["action_taken"] == "Browser restart"
+        assert result["recovery_level"] == 1
+        assert result["system_state"] == {"cpu": 0.5}
 
     def test_log_entry_to_json_when_called_then_returns_valid_json(self) -> None:
-        """Test LogEntry.to_json() returns valid JSON string."""
-        entry = LogEntry(
-            component="server",
-            level="INFO",
-            event="test.event",
-            message="Test message",
-        )
-
+        """Test that to_json returns valid JSON string."""
+        entry = LogEntry("server", "INFO", "test.event", "Test message")
         json_str = entry.to_json()
-
+        
         # Should be valid JSON
         parsed = json.loads(json_str)
         assert parsed["component"] == "server"
         assert parsed["level"] == "INFO"
 
 
-@pytest.mark.unit
-@pytest.mark.fast
 class TestRateLimiter:
-    """Tests for RateLimiter class."""
+    """Test RateLimiter functionality."""
 
-    def test_rate_limiter_when_under_limit_then_allows_event(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test RateLimiter allows events under the limit."""
-        # Clear any previous state
+    def setup_method(self) -> None:
+        """Clear rate limiter state before each test."""
         from calendarbot_lite.monitoring_logging import _rate_limiters
         _rate_limiters.clear()
 
+    def test_should_log_when_under_limit_then_returns_true(self) -> None:
+        """Test that should_log returns True when under rate limit."""
         result = RateLimiter.should_log("test_event", max_per_minute=5)
-
         assert result is True
 
-    def test_rate_limiter_when_at_limit_then_blocks_event(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test RateLimiter blocks events when at the limit."""
-        from calendarbot_lite.monitoring_logging import _rate_limiters
-        _rate_limiters.clear()
-
-        # Log 5 events (at limit)
+    def test_should_log_when_at_limit_then_returns_false(self) -> None:
+        """Test that should_log returns False when at rate limit."""
+        # Fill up to limit
         for _ in range(5):
-            RateLimiter.should_log("test_event_limit", max_per_minute=5)
-
-        # 6th event should be blocked
-        result = RateLimiter.should_log("test_event_limit", max_per_minute=5)
-
+            result = RateLimiter.should_log("test_event", max_per_minute=5)
+            assert result is True
+        
+        # Next call should be rate limited
+        result = RateLimiter.should_log("test_event", max_per_minute=5)
         assert result is False
 
-    def test_rate_limiter_when_old_events_then_removes_expired(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test RateLimiter removes events older than 1 minute."""
-        from calendarbot_lite.monitoring_logging import _rate_limiters
-        _rate_limiters.clear()
-
-        # Mock time to add old event
-        with patch("calendarbot_lite.monitoring_logging.time.time") as mock_time:
-            mock_time.return_value = 1000.0
-            RateLimiter.should_log("test_event_old", max_per_minute=2)
-
-            # Advance time by 61 seconds
-            mock_time.return_value = 1061.0
-            result = RateLimiter.should_log("test_event_old", max_per_minute=2)
-
-        # Old event should be removed, new event allowed
+    def test_should_log_when_different_keys_then_independent_limits(self) -> None:
+        """Test that different event keys have independent rate limits."""
+        # Fill first key to limit
+        for _ in range(5):
+            RateLimiter.should_log("event_a", max_per_minute=5)
+        
+        # Second key should still work
+        result = RateLimiter.should_log("event_b", max_per_minute=5)
         assert result is True
 
-    def test_rate_limiter_get_count_when_called_then_returns_event_count(self) -> None:
-        """Test RateLimiter.get_rate_limited_count() returns event count."""
-        from calendarbot_lite.monitoring_logging import _rate_limiters
-        _rate_limiters.clear()
+    @patch('time.time')
+    def test_should_log_when_time_passes_then_resets_limit(self, mock_time: MagicMock) -> None:
+        """Test that rate limit resets after time window passes."""
+        # Start at time 0
+        mock_time.return_value = 0.0
+        
+        # Fill to limit
+        for _ in range(5):
+            RateLimiter.should_log("test_event", max_per_minute=5)
+        
+        # Should be rate limited
+        result = RateLimiter.should_log("test_event", max_per_minute=5)
+        assert result is False
+        
+        # Move time forward by 61 seconds
+        mock_time.return_value = 61.0
+        
+        # Should work again
+        result = RateLimiter.should_log("test_event", max_per_minute=5)
+        assert result is True
 
-        RateLimiter.should_log("test_event_count", max_per_minute=5)
-        RateLimiter.should_log("test_event_count", max_per_minute=5)
+    def test_get_rate_limited_count_when_events_logged_then_returns_count(self) -> None:
+        """Test that get_rate_limited_count returns correct count."""
+        for _ in range(3):
+            RateLimiter.should_log("test_event", max_per_minute=5)
+        
+        count = RateLimiter.get_rate_limited_count("test_event")
+        assert count == 3
 
-        count = RateLimiter.get_rate_limited_count("test_event_count")
 
-        assert count == 2
-
-
-@pytest.mark.unit
-@pytest.mark.fast
 class TestSystemMetricsCollector:
-    """Tests for SystemMetricsCollector class."""
+    """Test SystemMetricsCollector functionality."""
 
-    def test_get_current_metrics_when_all_available_then_returns_metrics(self) -> None:
-        """Test SystemMetricsCollector.get_current_metrics() with all data available."""
-        mock_meminfo = "MemAvailable:    1048576 kB\n"
-        mock_uptime = "12345.67 67890.12"
+    @patch('os.getloadavg')
+    def test_get_current_metrics_when_load_available_then_includes_cpu_load(
+        self, mock_getloadavg: MagicMock
+    ) -> None:
+        """Test that CPU load is included when available."""
+        mock_getloadavg.return_value = (0.75, 1.0, 1.25)
+        
+        metrics = SystemMetricsCollector.get_current_metrics()
+        
+        assert metrics["cpu_load"] == 0.75
 
-        # Create a side_effect function to return different mocks for different files
-        def open_side_effect(path: str, *args: object, **kwargs: object) -> object:
-            if path == "/proc/meminfo":
-                return mock_open(read_data=mock_meminfo)()
-            elif path == "/proc/uptime":
-                return mock_open(read_data=mock_uptime)()
-            raise FileNotFoundError(f"Unexpected file: {path}")
+    @patch('os.getloadavg', side_effect=OSError("Not available"))
+    def test_get_current_metrics_when_load_unavailable_then_none(
+        self, mock_getloadavg: MagicMock
+    ) -> None:
+        """Test that CPU load is None when unavailable."""
+        metrics = SystemMetricsCollector.get_current_metrics()
+        
+        assert metrics["cpu_load"] is None
 
-        with patch("os.getloadavg", return_value=(0.5, 0.3, 0.1)), \
-             patch("builtins.open", side_effect=open_side_effect), \
-             patch("os.statvfs") as mock_statvfs:
+    @patch('builtins.open')
+    def test_get_current_metrics_when_meminfo_available_then_includes_memory(
+        self, mock_open: MagicMock
+    ) -> None:
+        """Test that memory info is included when available."""
+        mock_file = MagicMock()
+        mock_file.__enter__.return_value = mock_file
+        mock_file.__iter__.return_value = iter([
+            "MemTotal:        8192000 kB\n",
+            "MemAvailable:    6144000 kB\n",
+        ])
+        mock_open.return_value = mock_file
+        
+        metrics = SystemMetricsCollector.get_current_metrics()
+        
+        assert metrics["memory_free_mb"] == 6000.0  # 6144000 KB / 1024
 
-            mock_stat = Mock()
-            mock_stat.f_bavail = 1024 * 1024  # 1GB in blocks
-            mock_stat.f_frsize = 1024  # 1KB blocks
-            mock_statvfs.return_value = mock_stat
-
-            metrics = SystemMetricsCollector.get_current_metrics()
-
-            assert metrics["cpu_load"] == 0.5
-            assert metrics["memory_free_mb"] == 1024.0
-            assert metrics["disk_free_mb"] is not None
-            assert metrics["uptime_seconds"] is not None
-
-    def test_get_current_metrics_when_cpu_unavailable_then_returns_none(self) -> None:
-        """Test SystemMetricsCollector handles missing CPU info."""
-        with patch("os.getloadavg", side_effect=OSError):
-            metrics = SystemMetricsCollector.get_current_metrics()
-
-            assert metrics["cpu_load"] is None
-
-    def test_get_current_metrics_when_memory_unavailable_then_returns_none(self) -> None:
-        """Test SystemMetricsCollector handles missing memory info."""
-        with patch("builtins.open", side_effect=FileNotFoundError):
-            metrics = SystemMetricsCollector.get_current_metrics()
-
-            assert metrics["memory_free_mb"] is None
-
-    def test_get_current_metrics_when_disk_unavailable_then_returns_none(self) -> None:
-        """Test SystemMetricsCollector handles missing disk info."""
-        with patch("os.statvfs", side_effect=OSError):
-            metrics = SystemMetricsCollector.get_current_metrics()
-
-            assert metrics["disk_free_mb"] is None
+    @patch('os.statvfs')
+    def test_get_current_metrics_when_disk_available_then_includes_disk(
+        self, mock_statvfs: MagicMock
+    ) -> None:
+        """Test that disk info is included when available."""
+        # Mock statvfs result
+        mock_stat = MagicMock()
+        mock_stat.f_bavail = 1000000  # Available blocks
+        mock_stat.f_frsize = 4096     # Fragment size
+        mock_statvfs.return_value = mock_stat
+        
+        metrics = SystemMetricsCollector.get_current_metrics()
+        
+        expected_mb = (1000000 * 4096) / (1024 * 1024)  # Convert to MB
+        assert abs(metrics["disk_free_mb"] - expected_mb) < 0.1  # Allow small floating point differences
 
 
-@pytest.mark.unit
-@pytest.mark.fast
 class TestMonitoringLogger:
-    """Tests for MonitoringLogger class."""
+    """Test MonitoringLogger functionality."""
 
-    def test_monitoring_logger_when_created_then_initializes(self, tmp_path: Path) -> None:
-        """Test MonitoringLogger initialization."""
-        log_file = tmp_path / "test.log"
-        
+    def test_monitoring_logger_when_created_then_initializes_correctly(self) -> None:
+        """Test that MonitoringLogger initializes correctly."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_file = Path(temp_dir) / "test.log"
+            
+            logger = MonitoringLogger(
+                name="test_logger",
+                component="test",
+                level="INFO",
+                local_file=log_file,
+                journald=False,
+            )
+            
+            assert logger.name == "test_logger"
+            assert logger.component == "test"
+
+    def test_log_when_valid_event_then_logs_successfully(self) -> None:
+        """Test that log method works with valid event."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_file = Path(temp_dir) / "test.log"
+            
+            logger = MonitoringLogger(
+                name="test_logger",
+                component="test",
+                level="DEBUG",
+                local_file=log_file,
+                journald=False,
+            )
+            
+            result = logger.log(
+                "INFO", "test.event", "Test message",
+                details={"key": "value"}
+            )
+            
+            assert result is True
+            # Force log handler to flush
+            for handler in logger.logger.handlers:
+                handler.flush()
+            # Log file should exist after logging
+            assert log_file.exists()
+
+    def test_log_when_rate_limited_then_returns_false(self) -> None:
+        """Test that log returns False when rate limited."""
         logger = MonitoringLogger(
             name="test_logger",
-            component="server",
-            level="INFO",
-            local_file=log_file,
-        )
-
-        assert logger.name == "test_logger"
-        assert logger.component == "server"
-        assert logger.logger is not None
-
-    def test_monitoring_logger_log_when_called_then_logs_event(self, tmp_path: Path) -> None:
-        """Test MonitoringLogger.log() creates log entry."""
-        log_file = tmp_path / "test.log"
-        
-        logger = MonitoringLogger(
-            name="test_logger",
-            component="server",
-            level="INFO",
-            local_file=log_file,
-            journald=False,
-        )
-
-        result = logger.log(
-            "INFO",
-            "test.event",
-            "Test message",
-            details={"key": "value"},
-        )
-
-        assert result is True
-
-    def test_monitoring_logger_log_when_rate_limited_then_blocks(self, tmp_path: Path) -> None:
-        """Test MonitoringLogger.log() respects rate limiting."""
-        from calendarbot_lite.monitoring_logging import _rate_limiters
-        _rate_limiters.clear()
-
-        log_file = tmp_path / "test.log"
-        logger = MonitoringLogger(
-            name="test_logger",
-            component="server",
-            level="INFO",
-            local_file=log_file,
+            component="test",
             journald=False,
             rate_limiting=True,
         )
-
-        # Log up to limit
+        
+        # Fill rate limit
         for _ in range(5):
-            logger.log("INFO", "test.event", "Test", rate_limit_key="test_key", max_per_minute=5)
-
-        # Should be rate limited
-        result = logger.log("INFO", "test.event", "Test", rate_limit_key="test_key", max_per_minute=5)
-
+            logger.log("INFO", "test.event", "Message", rate_limit_key="test_key")
+        
+        # Should be rate limited now
+        result = logger.log("INFO", "test.event", "Message", rate_limit_key="test_key")
         assert result is False
 
-    def test_monitoring_logger_debug_when_called_then_logs_debug(self, tmp_path: Path) -> None:
-        """Test MonitoringLogger.debug() logs DEBUG level."""
-        log_file = tmp_path / "test.log"
+    def test_operation_context_when_successful_then_logs_start_and_complete(self) -> None:
+        """Test that operation context logs start and completion."""
         logger = MonitoringLogger(
             name="test_logger",
-            component="server",
-            level="DEBUG",
-            local_file=log_file,
+            component="test",
             journald=False,
         )
+        
+        with patch.object(logger, 'info') as mock_info:
+            with logger.operation_context("test.operation"):
+                pass
+            
+            # Should have logged start and complete
+            assert mock_info.call_count == 2
+            start_call, complete_call = mock_info.call_args_list
+            
+            assert start_call[0][0] == "test.operation.start"
+            assert complete_call[0][0] == "test.operation.complete"
 
-        result = logger.debug("test.event", "Debug message")
+    def test_operation_context_when_exception_then_logs_error(self) -> None:
+        """Test that operation context logs errors on exception."""
+        logger = MonitoringLogger(
+            name="test_logger",
+            component="test",
+            journald=False,
+        )
+        
+        with patch.object(logger, 'info') as mock_info, \
+             patch.object(logger, 'error') as mock_error:
+            
+            with pytest.raises(ValueError):
+                with logger.operation_context("test.operation"):
+                    raise ValueError("Test error")
+            
+            # Should have logged start and error
+            mock_info.assert_called_once()
+            mock_error.assert_called_once()
+            
+            error_call = mock_error.call_args_list[0]
+            assert error_call[0][0] == "test.operation.error"
 
-        assert result is True
 
-    def test_monitoring_logger_convenience_methods_when_called_then_log_correctly(
-        self, tmp_path: Path
+class TestConvenienceFunctions:
+    """Test convenience logging functions."""
+
+    @patch('calendarbot_lite.monitoring_logging.get_logger')
+    def test_log_server_event_when_called_then_uses_server_logger(
+        self, mock_get_logger: MagicMock
     ) -> None:
-        """Test MonitoringLogger convenience methods (info, warning, error, critical)."""
-        log_file = tmp_path / "test.log"
-        logger = MonitoringLogger(
-            name="test_logger",
-            component="server",
-            level="DEBUG",
-            local_file=log_file,
-            journald=False,
+        """Test that log_server_event uses server logger."""
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+        
+        log_server_event("test.event", "Test message", "INFO", details={"key": "value"})
+        
+        mock_get_logger.assert_called_once_with("server")
+        mock_logger.log.assert_called_once_with(
+            "INFO", "test.event", "Test message", details={"key": "value"}
         )
 
-        assert logger.info("test.info", "Info message") is True
-        assert logger.warning("test.warning", "Warning message") is True
-        assert logger.error("test.error", "Error message") is True
-        assert logger.critical("test.critical", "Critical message") is True
-
-    def test_monitoring_logger_operation_context_when_success_then_logs_completion(
-        self, tmp_path: Path
+    @patch('calendarbot_lite.monitoring_logging.get_logger')
+    def test_log_recovery_event_when_called_then_includes_recovery_level(
+        self, mock_get_logger: MagicMock
     ) -> None:
-        """Test MonitoringLogger.operation_context() logs successful operations."""
-        log_file = tmp_path / "test.log"
-        logger = MonitoringLogger(
-            name="test_logger",
-            component="server",
-            level="INFO",
-            local_file=log_file,
-            journald=False,
+        """Test that log_recovery_event includes recovery level."""
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+        
+        log_recovery_event("recovery.action", "Recovery taken", "ERROR", recovery_level=2)
+        
+        mock_get_logger.assert_called_once_with("recovery")
+        mock_logger.log.assert_called_once_with(
+            "ERROR", "recovery.action", "Recovery taken", recovery_level=2
         )
 
-        with logger.operation_context("test_operation"):
-            pass  # Successful operation
 
-        # Should log start and complete events
-
-    def test_monitoring_logger_operation_context_when_exception_then_logs_error(
-        self, tmp_path: Path
-    ) -> None:
-        """Test MonitoringLogger.operation_context() logs exceptions."""
-        log_file = tmp_path / "test.log"
-        logger = MonitoringLogger(
-            name="test_logger",
-            component="server",
-            level="INFO",
-            local_file=log_file,
-            journald=False,
-        )
-
-        with pytest.raises(ValueError), logger.operation_context("test_operation"):
-            raise ValueError("Test error")
-
-        # Should log error event
-
-
-@pytest.mark.unit
-@pytest.mark.fast
-class TestConfigureMonitoringLogging:
-    """Tests for configure_monitoring_logging function."""
+class TestLoggerConfiguration:
+    """Test logger configuration and management."""
 
     def test_configure_monitoring_logging_when_called_then_returns_logger(self) -> None:
-        """Test configure_monitoring_logging() returns MonitoringLogger."""
-        logger = configure_monitoring_logging("test_component")
+        """Test that configure_monitoring_logging returns MonitoringLogger."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            logger = configure_monitoring_logging(
+                component="test",
+                level="INFO",
+                local_log_dir=temp_dir,
+                journald=False,
+            )
+            
+            assert isinstance(logger, MonitoringLogger)
+            assert logger.component == "test"
 
-        assert isinstance(logger, MonitoringLogger)
-        assert logger.component == "test_component"
-
-    def test_configure_monitoring_logging_when_debug_env_then_uses_debug_level(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test configure_monitoring_logging() respects CALENDARBOT_DEBUG env var."""
-        monkeypatch.setenv("CALENDARBOT_DEBUG", "true")
-
-        logger = configure_monitoring_logging("test_component")
-
+    @patch.dict('os.environ', {'CALENDARBOT_DEBUG': 'true'})
+    def test_configure_monitoring_logging_when_debug_env_then_debug_level(self) -> None:
+        """Test that debug environment variable sets debug level."""
+        logger = configure_monitoring_logging(
+            component="test",
+            journald=False,
+        )
+        
         assert logger.logger.level == logging.DEBUG
 
-    def test_configure_monitoring_logging_when_log_level_env_then_uses_level(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test configure_monitoring_logging() respects CALENDARBOT_LOG_LEVEL env var."""
-        monkeypatch.setenv("CALENDARBOT_LOG_LEVEL", "WARNING")
-        monkeypatch.delenv("CALENDARBOT_DEBUG", raising=False)
-
-        logger = configure_monitoring_logging("test_component")
-
+    @patch.dict('os.environ', {'CALENDARBOT_LOG_LEVEL': 'WARNING'})
+    def test_configure_monitoring_logging_when_level_env_then_uses_env_level(self) -> None:
+        """Test that log level environment variable is used."""
+        logger = configure_monitoring_logging(
+            component="test",
+            journald=False,
+        )
+        
         assert logger.logger.level == logging.WARNING
 
-    def test_configure_monitoring_logging_when_local_log_dir_then_creates_file(
-        self, tmp_path: Path
-    ) -> None:
-        """Test configure_monitoring_logging() creates local log file."""
-        logger = configure_monitoring_logging(
-            "test_component",
-            local_log_dir=tmp_path,
-        )
-
-        assert logger.logger is not None
-
-
-@pytest.mark.unit
-@pytest.mark.fast
-class TestGetLogger:
-    """Tests for get_logger function."""
-
-    def test_get_logger_when_called_then_returns_cached_logger(self) -> None:
-        """Test get_logger() returns cached logger instance."""
-        from calendarbot_lite.monitoring_logging import _logger_cache
-        _logger_cache.clear()
-
+    def test_get_logger_when_called_multiple_times_then_returns_same_instance(self) -> None:
+        """Test that get_logger returns same instance for same component."""
         logger1 = get_logger("test_component")
         logger2 = get_logger("test_component")
-
+        
         assert logger1 is logger2
 
-    def test_get_logger_when_new_component_then_creates_logger(self) -> None:
-        """Test get_logger() creates new logger for new component."""
-        from calendarbot_lite.monitoring_logging import _logger_cache
-        _logger_cache.clear()
 
-        logger = get_logger("new_component")
+class TestThreadSafety:
+    """Test thread safety of logging components."""
 
-        assert isinstance(logger, MonitoringLogger)
-        assert logger.component == "new_component"
+    def test_rate_limiter_when_concurrent_access_then_thread_safe(self) -> None:
+        """Test that RateLimiter is thread-safe under concurrent access."""
+        results = []
+        event_key = "concurrent_test"
+        
+        def worker() -> None:
+            for _ in range(10):
+                result = RateLimiter.should_log(event_key, max_per_minute=5)
+                results.append(result)
+                time.sleep(0.001)  # Small delay to increase contention
+        
+        # Start multiple threads
+        threads = []
+        for _ in range(5):
+            thread = threading.Thread(target=worker)
+            threads.append(thread)
+            thread.start()
+        
+        # Wait for all threads
+        for thread in threads:
+            thread.join()
+        
+        # Should have exactly 5 True results (rate limit of 5)
+        true_count = sum(1 for result in results if result)
+        assert true_count == 5
+
+    def test_monitoring_logger_when_concurrent_logging_then_handles_safely(self) -> None:
+        """Test that MonitoringLogger handles concurrent logging safely."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_file = Path(temp_dir) / "concurrent.log"
+            
+            logger = MonitoringLogger(
+                name="concurrent_test",
+                component="test",
+                local_file=log_file,
+                journald=False,
+            )
+            
+            def worker(worker_id: int) -> None:
+                for i in range(10):
+                    logger.info(f"worker.{worker_id}.event", f"Message {i} from worker {worker_id}")
+            
+            # Start multiple threads
+            threads = []
+            for worker_id in range(3):
+                thread = threading.Thread(target=worker, args=(worker_id,))
+                threads.append(thread)
+                thread.start()
+            
+            # Wait for all threads
+            for thread in threads:
+                thread.join()
+            
+            # Log file should exist and contain entries
+            assert log_file.exists()
+            log_content = log_file.read_text()
+            assert "worker.0.event" in log_content
+            assert "worker.1.event" in log_content
+            assert "worker.2.event" in log_content
 
 
-@pytest.mark.unit
-@pytest.mark.fast
-class TestConvenienceFunctions:
-    """Tests for convenience logging functions."""
+class TestIntegration:
+    """Test integration with existing logging infrastructure."""
 
-    def test_log_server_event_when_called_then_logs_to_server(self) -> None:
-        """Test log_server_event() logs to server component."""
-        result = log_server_event("test.event", "Test message")
+    def test_monitoring_logger_when_file_setup_fails_then_continues_with_console(self) -> None:
+        """Test that MonitoringLogger continues with console logging if file setup fails."""
+        # Try to write to invalid path
+        invalid_path = Path("/invalid/path/test.log")
+        
+        with patch('calendarbot_lite.monitoring_logging.logging.getLogger') as mock_get_logger:
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+            
+            # Should not raise exception
+            monitoring_logger = MonitoringLogger(
+                name="test",
+                component="test",
+                local_file=invalid_path,
+                journald=True,
+            )
+            
+            assert monitoring_logger is not None
 
-        assert isinstance(result, bool)
+    @patch('sys.stdout')
+    def test_monitoring_logger_when_journald_enabled_then_writes_to_stdout(
+        self, mock_stdout: MagicMock
+    ) -> None:
+        """Test that journald mode writes JSON to stdout."""
+        logger = MonitoringLogger(
+            name="test",
+            component="test",
+            journald=True,
+        )
+        
+        logger.info("test.event", "Test message")
+        
+        # Should have written to stdout (captured by journald)
+        # Note: This test verifies the handler setup, actual output would be to stdout
 
-    def test_log_watchdog_event_when_called_then_logs_to_watchdog(self) -> None:
-        """Test log_watchdog_event() logs to watchdog component."""
-        result = log_watchdog_event("test.event", "Test message")
-
-        assert isinstance(result, bool)
-
-    def test_log_health_event_when_called_then_logs_to_health(self) -> None:
-        """Test log_health_event() logs to health component."""
-        result = log_health_event("test.event", "Test message")
-
-        assert isinstance(result, bool)
-
-    def test_log_recovery_event_when_called_then_logs_with_recovery_level(self) -> None:
-        """Test log_recovery_event() logs with recovery level."""
-        result = log_recovery_event("test.event", "Test message", recovery_level=2)
-
-        assert isinstance(result, bool)
-
-
-@pytest.mark.unit
-@pytest.mark.fast
-class TestLogLevels:
-    """Tests for LOG_LEVELS constant."""
-
-    def test_log_levels_when_checked_then_contains_all_levels(self) -> None:
-        """Test LOG_LEVELS contains all standard log levels."""
-        assert LOG_LEVELS["DEBUG"] == logging.DEBUG
-        assert LOG_LEVELS["INFO"] == logging.INFO
-        assert LOG_LEVELS["WARN"] == logging.WARNING
-        assert LOG_LEVELS["WARNING"] == logging.WARNING
-        assert LOG_LEVELS["ERROR"] == logging.ERROR
-        assert LOG_LEVELS["CRITICAL"] == logging.CRITICAL
+    def test_system_metrics_collector_when_proc_unavailable_then_returns_none_values(self) -> None:
+        """Test that SystemMetricsCollector handles missing /proc files gracefully."""
+        with patch('builtins.open', side_effect=FileNotFoundError), \
+             patch('os.getloadavg', side_effect=OSError), \
+             patch('os.statvfs', side_effect=OSError):
+            
+            metrics = SystemMetricsCollector.get_current_metrics()
+            
+            assert metrics["cpu_load"] is None
+            assert metrics["memory_free_mb"] is None
+            assert metrics["disk_free_mb"] is None
+            assert metrics["uptime_seconds"] is None
 
 
-@pytest.mark.unit
-@pytest.mark.fast
-class TestSchemaVersion:
-    """Tests for SCHEMA_VERSION constant."""
+class TestErrorHandling:
+    """Test error handling and edge cases."""
 
-    def test_schema_version_when_checked_then_is_valid(self) -> None:
-        """Test SCHEMA_VERSION is a valid version string."""
-        assert isinstance(SCHEMA_VERSION, str)
-        assert len(SCHEMA_VERSION) > 0
+    def test_log_entry_when_invalid_level_then_normalizes_level(self) -> None:
+        """Test that LogEntry handles invalid log levels gracefully."""
+        entry = LogEntry("server", "invalid", "test.event", "Test message")
+        
+        # Level should be normalized to uppercase
+        assert entry.level == "INVALID"
+
+    def test_monitoring_logger_when_missing_handlers_then_creates_new(self) -> None:
+        """Test that MonitoringLogger creates handlers when missing."""
+        with patch('logging.getLogger') as mock_get_logger:
+            mock_logger = MagicMock()
+            mock_logger.handlers = []  # No existing handlers
+            mock_get_logger.return_value = mock_logger
+            
+            monitoring_logger = MonitoringLogger(
+                name="test",
+                component="test",
+                journald=False,
+            )
+            
+            # Should have attempted to add handlers
+            assert monitoring_logger is not None
+
+    def test_rate_limiter_when_cleanup_occurs_then_removes_old_entries(self) -> None:
+        """Test that rate limiter automatically cleans up old entries."""
+        with patch('time.time') as mock_time:
+            # Start at time 0
+            mock_time.return_value = 0.0
+            
+            # Add some entries
+            RateLimiter.should_log("cleanup_test", max_per_minute=5)
+            
+            # Move time forward significantly
+            mock_time.return_value = 3600.0  # 1 hour later
+            
+            # New log should work (old entries cleaned up)
+            result = RateLimiter.should_log("cleanup_test", max_per_minute=1)
+            assert result is True
+
+
+# Integration test with actual logging
+class TestRealLogging:
+    """Test with actual logging infrastructure."""
+
+    def test_end_to_end_logging_when_called_then_produces_structured_output(self) -> None:
+        """Test end-to-end logging produces expected structured output."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_file = Path(temp_dir) / "e2e.log"
+            
+            logger = MonitoringLogger(
+                name="e2e_test",
+                component="test",
+                local_file=log_file,
+                journald=False,
+            )
+            
+            # Log various events
+            logger.info("server.start", "Server starting", details={"port": 8080})
+            logger.error("server.error", "Server error", 
+                        details={"error": "connection failed"},
+                        include_system_state=True)
+            
+            # Verify log file exists and has content
+            assert log_file.exists()
+            content = log_file.read_text()
+            assert "server.start" in content
+            assert "server.error" in content

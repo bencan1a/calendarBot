@@ -1,0 +1,12 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CalendarBot Test//Alexa Test Calendar//EN
+BEGIN:VEVENT
+UID:next-week-meeting@example.com
+DTSTART:20251110T180000Z
+DTEND:20251110T190000Z
+SUMMARY:Next Week Planning
+DESCRIPTION:Planning meeting for next week (Monday Nov 10)
+LOCATION:Conference Room A
+END:VEVENT
+END:VCALENDAR

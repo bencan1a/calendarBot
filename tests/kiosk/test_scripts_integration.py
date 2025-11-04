@@ -12,6 +12,7 @@ from unittest.mock import patch
 import pytest
 
 
+@pytest.mark.integration
 class TestLogShipperScript:
     """Test log-shipper.sh script functionality."""
 
@@ -106,6 +107,7 @@ class TestLogShipperScript:
             assert "Testing webhook configuration" in result.stderr or "Sending test payload" in result.stderr or result.returncode == 0
 
 
+@pytest.mark.integration
 class TestLogAggregatorScript:
     """Test log-aggregator.sh script functionality."""
 
@@ -165,6 +167,7 @@ class TestLogAggregatorScript:
             assert "requires date argument" in result.stderr or "Missing required tools" in result.stderr
 
 
+@pytest.mark.integration
 class TestCriticalEventFilterScript:
     """Test critical-event-filter.sh script functionality."""
 
@@ -241,6 +244,7 @@ class TestCriticalEventFilterScript:
             assert "Critical Event Filter Statistics" in result.stdout
 
 
+@pytest.mark.integration
 class TestMonitoringStatusScript:
     """Test monitoring-status.sh script functionality."""
 
@@ -308,6 +312,7 @@ class TestMonitoringStatusScript:
                 pass
 
 
+@pytest.mark.smoke
 class TestScriptPermissions:
     """Test that scripts have proper permissions and dependencies."""
 
@@ -342,6 +347,7 @@ class TestScriptPermissions:
             assert first_line == "#!/bin/bash", f"Script {script_path} has incorrect shebang: {first_line}"
 
 
+@pytest.mark.integration
 class TestMonitoringIntegration:
     """Test integration between monitoring components."""
 
@@ -408,6 +414,7 @@ class TestMonitoringIntegration:
         assert result is False
 
 
+@pytest.mark.integration
 class TestScriptDependencies:
     """Test script dependencies and error handling."""
 
@@ -452,6 +459,7 @@ class TestScriptDependencies:
         assert isinstance(result.returncode, int)
 
 
+@pytest.mark.integration
 class TestEndToEndMonitoring:
     """Test end-to-end monitoring functionality."""
 
@@ -535,6 +543,7 @@ class TestEndToEndMonitoring:
             assert result.returncode == 0 or "Processing critical event" in result.stderr
 
 
+@pytest.mark.unit
 class TestConfigurationFiles:
     """Test configuration files and integration."""
 
@@ -585,6 +594,7 @@ class TestConfigurationFiles:
             assert "logging:" in content
 
 
+@pytest.mark.smoke
 class TestScriptExecutability:
     """Test that scripts are properly executable and have required tools."""
 

@@ -1,0 +1,585 @@
+version: '1.0'
+description: Alexa API integration test suite for calendarbot_lite
+metadata:
+  created: 2025-11-04
+  author: claude-code
+  purpose: E2E testing of Alexa API endpoints (launch-summary, done-for-day, morning-summary)
+
+tests:
+  # ============================================================================
+  # SMOKE SUITE - Fast validation of core functionality (~30 seconds)
+  # ============================================================================
+
+  - test_id: smoke_launch_summary_with_meeting_today
+    description: Launch summary when there's a meeting today
+    category: launch_summary
+    suite: smoke
+    endpoint: /api/alexa/launch-summary
+    ics_file: alexa/single-meeting-today.ics
+    datetime_override: '2025-11-05T08:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "Team Standup"
+      nested_objects:
+        next_meeting:
+          required: true
+          required_fields: [subject, start_iso, seconds_until_start]
+          field_values:
+            subject: "Team Standup"
+    metadata:
+      source: manual
+      notes: Core smoke test for launch summary with upcoming meeting
+
+  - test_id: smoke_launch_summary_no_meetings_today
+    description: Launch summary when there are no meetings today
+    category: launch_summary
+    suite: smoke
+    endpoint: /api/alexa/launch-summary
+    ics_file: alexa/no-meetings-today.ics
+    datetime_override: '2025-11-05T08:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: false
+      speech_text_patterns:
+        - "No meetings"
+    metadata:
+      source: manual
+      notes: Core smoke test for launch summary with no meetings
+
+  - test_id: smoke_done_for_day_with_meetings
+    description: Done for day when user has meetings today
+    category: done_for_day
+    suite: smoke
+    endpoint: /api/alexa/done-for-day
+    ics_file: alexa/multiple-meetings-today.ics
+    datetime_override: '2025-11-05T09:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "5:00 pm"
+      field_contains:
+        speech_text: ["done"]
+    metadata:
+      source: manual
+      notes: Core smoke test for done-for-day with active schedule
+
+  - test_id: smoke_done_for_day_no_meetings
+    description: Done for day when user has no meetings
+    category: done_for_day
+    suite: smoke
+    endpoint: /api/alexa/done-for-day
+    ics_file: alexa/no-meetings-today.ics
+    datetime_override: '2025-11-05T09:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: false
+      speech_text_patterns:
+        - "no meetings"
+    metadata:
+      source: manual
+      notes: Core smoke test for done-for-day with empty calendar
+
+  - test_id: smoke_morning_summary_basic
+    description: Morning summary for tomorrow with few meetings
+    category: morning_summary
+    suite: smoke
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/tomorrow-few-meetings.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      timezone: America/Los_Angeles
+      detail_level: normal
+    expected:
+      speech_text_patterns:
+        - "tomorrow"
+        - "meeting"
+      nested_objects:
+        summary:
+          required: true
+          required_fields: [preview_for, total_meetings_equivalent]
+    metadata:
+      source: manual
+      notes: Core smoke test for morning summary
+
+  # ============================================================================
+  # COMPREHENSIVE SUITE - Thorough validation of all scenarios (2-3 minutes)
+  # ============================================================================
+
+  # Launch Summary - Comprehensive Tests
+  # ---------------------------------------------------------------------------
+
+  - test_id: comprehensive_launch_summary_multiple_meetings
+    description: Launch summary with multiple meetings throughout the day
+    category: launch_summary
+    suite: comprehensive
+    endpoint: /api/alexa/launch-summary
+    ics_file: alexa/multiple-meetings-today.ics
+    datetime_override: '2025-11-05T08:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "Team Standup"
+      nested_objects:
+        next_meeting:
+          required: true
+          required_fields: [subject, start_iso, seconds_until_start, duration_spoken]
+        done_for_day:
+          required: true
+          required_fields: [has_meetings_today]
+    metadata:
+      source: manual
+      notes: Test with busy schedule - validates next meeting selection
+
+  - test_id: comprehensive_launch_summary_all_day_event
+    description: Launch summary with all-day event today
+    category: launch_summary
+    suite: comprehensive
+    endpoint: /api/alexa/launch-summary
+    ics_file: alexa/all-day-event.ics
+    datetime_override: '2025-11-05T08:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "Company Holiday"
+    metadata:
+      source: manual
+      notes: Validates handling of all-day events
+
+  - test_id: comprehensive_launch_summary_meeting_in_progress
+    description: Launch summary during an active meeting
+    category: launch_summary
+    suite: comprehensive
+    endpoint: /api/alexa/launch-summary
+    ics_file: alexa/meeting-in-progress.ics
+    datetime_override: '2025-11-05T10:15:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "currently"
+    metadata:
+      source: manual
+      notes: Test behavior when asking during a meeting
+
+  - test_id: comprehensive_launch_summary_end_of_day
+    description: Launch summary at end of workday after all meetings
+    category: launch_summary
+    suite: comprehensive
+    endpoint: /api/alexa/launch-summary
+    ics_file: alexa/multiple-meetings-today.ics
+    datetime_override: '2025-11-05T18:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "done"
+    metadata:
+      source: manual
+      notes: Test after all meetings completed
+
+  - test_id: comprehensive_launch_summary_with_ssml
+    description: Launch summary with SSML output enabled
+    category: launch_summary
+    suite: comprehensive
+    endpoint: /api/alexa/launch-summary
+    ics_file: alexa/single-meeting-today.ics
+    datetime_override: '2025-11-05T08:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+      prefer_ssml: "true"
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      ssml_validation:
+        required: true
+        max_chars: 8000
+        required_tags: [speak]
+    metadata:
+      source: manual
+      notes: Validates SSML generation and structure
+
+  - test_id: comprehensive_launch_summary_timezone_conversion
+    description: Launch summary with timezone different from server
+    category: launch_summary
+    suite: comprehensive
+    endpoint: /api/alexa/launch-summary
+    ics_file: alexa/utc-meeting.ics
+    datetime_override: '2025-11-05T16:00:00+00:00'
+    query_params:
+      tz: America/New_York
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "Executive Meeting"
+    metadata:
+      source: manual
+      notes: Test timezone conversion logic
+
+  - test_id: comprehensive_launch_summary_recurring_event
+    description: Launch summary with recurring event instance today
+    category: launch_summary
+    suite: comprehensive
+    endpoint: /api/alexa/launch-summary
+    ics_file: alexa/daily-standup-recurring.ics
+    datetime_override: '2025-11-05T08:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "Daily Standup"
+    metadata:
+      source: manual
+      notes: Validates recurring event expansion
+
+  # Done For Day - Comprehensive Tests
+  # ---------------------------------------------------------------------------
+
+  - test_id: comprehensive_done_for_day_early_morning
+    description: Done for day query early in the morning
+    category: done_for_day
+    suite: comprehensive
+    endpoint: /api/alexa/done-for-day
+    ics_file: alexa/multiple-meetings-today.ics
+    datetime_override: '2025-11-05T06:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "5:00 pm"
+      field_contains:
+        speech_text: ["done"]
+    metadata:
+      source: manual
+      notes: Test early morning query before first meeting
+
+  - test_id: comprehensive_done_for_day_between_meetings
+    description: Done for day query between meetings
+    category: done_for_day
+    suite: comprehensive
+    endpoint: /api/alexa/done-for-day
+    ics_file: alexa/multiple-meetings-today.ics
+    datetime_override: '2025-11-05T11:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      nested_objects:
+        last_meeting_end_iso:
+          required: false
+    metadata:
+      source: manual
+      notes: Test query mid-day with more meetings ahead
+
+  - test_id: comprehensive_done_for_day_after_last_meeting
+    description: Done for day query after last meeting ended
+    category: done_for_day
+    suite: comprehensive
+    endpoint: /api/alexa/done-for-day
+    ics_file: alexa/multiple-meetings-today.ics
+    datetime_override: '2025-11-05T18:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "done"
+        - "5 PM"
+    metadata:
+      source: manual
+      notes: Test query after all meetings completed
+
+  - test_id: comprehensive_done_for_day_late_night_meeting
+    description: Done for day with meeting ending after 10 PM
+    category: done_for_day
+    suite: comprehensive
+    endpoint: /api/alexa/done-for-day
+    ics_file: alexa/late-night-meeting.ics
+    datetime_override: '2025-11-05T09:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "11:00 pm"
+    metadata:
+      source: manual
+      notes: Test with unusually late meeting
+
+  - test_id: comprehensive_done_for_day_all_day_event
+    description: Done for day with all-day event
+    category: done_for_day
+    suite: comprehensive
+    endpoint: /api/alexa/done-for-day
+    ics_file: alexa/all-day-event.ics
+    datetime_override: '2025-11-05T09:00:00-08:00'
+    query_params:
+      tz: America/Los_Angeles
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+      speech_text_patterns:
+        - "Company Holiday"
+    metadata:
+      source: manual
+      notes: Test handling of all-day events for done-for-day
+
+  - test_id: comprehensive_done_for_day_timezone_conversion
+    description: Done for day with timezone conversion
+    category: done_for_day
+    suite: comprehensive
+    endpoint: /api/alexa/done-for-day
+    ics_file: alexa/multiple-meetings-today.ics
+    datetime_override: '2025-11-05T09:00:00-08:00'
+    query_params:
+      tz: America/New_York
+    expected:
+      field_exact_match:
+        has_meetings_today: true
+    metadata:
+      source: manual
+      notes: Test timezone conversion for done-for-day
+
+  # Morning Summary - Comprehensive Tests
+  # ---------------------------------------------------------------------------
+
+  - test_id: comprehensive_morning_summary_dense_schedule
+    description: Morning summary for day with dense meeting schedule
+    category: morning_summary
+    suite: comprehensive
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/tomorrow-dense-schedule.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      timezone: America/Los_Angeles
+      detail_level: normal
+    expected:
+      speech_text_patterns:
+        - "tomorrow"
+        - "back-to-back"
+      nested_objects:
+        summary:
+          required: true
+          required_fields: [total_meetings_equivalent, density]
+    metadata:
+      source: manual
+      notes: Test with back-to-back meetings
+
+  - test_id: comprehensive_morning_summary_back_to_back
+    description: Morning summary highlighting back-to-back meetings
+    category: morning_summary
+    suite: comprehensive
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/tomorrow-back-to-back.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      timezone: America/Los_Angeles
+      detail_level: verbose
+    expected:
+      speech_text_patterns:
+        - "back-to-back"
+      nested_objects:
+        summary:
+          required: true
+          required_fields: [back_to_back_count]
+    metadata:
+      source: manual
+      notes: Test back-to-back meeting detection
+
+  - test_id: comprehensive_morning_summary_early_start
+    description: Morning summary with early morning meeting
+    category: morning_summary
+    suite: comprehensive
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/tomorrow-early-start.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      timezone: America/Los_Angeles
+      detail_level: normal
+    expected:
+      speech_text_patterns:
+        - "early"
+        - "7:00 am"
+      nested_objects:
+        summary:
+          required: true
+          required_fields: [early_start_flag]
+    metadata:
+      source: manual
+      notes: Test early meeting flag and wake-up recommendation
+
+  - test_id: comprehensive_morning_summary_light_day
+    description: Morning summary for day with few meetings
+    category: morning_summary
+    suite: comprehensive
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/tomorrow-few-meetings.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      timezone: America/Los_Angeles
+      detail_level: normal
+    expected:
+      speech_text_patterns:
+        - "tomorrow"
+        - "light"
+    metadata:
+      source: manual
+      notes: Test with light schedule
+
+  - test_id: comprehensive_morning_summary_no_meetings
+    description: Morning summary when no meetings tomorrow
+    category: morning_summary
+    suite: comprehensive
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/no-meetings-tomorrow.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      timezone: America/Los_Angeles
+      detail_level: normal
+    expected:
+      speech_text_patterns:
+        - "free morning"
+        - "tomorrow"
+    metadata:
+      source: manual
+      notes: Test with empty calendar tomorrow
+
+  - test_id: comprehensive_morning_summary_brief_detail
+    description: Morning summary with brief detail level
+    category: morning_summary
+    suite: comprehensive
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/tomorrow-few-meetings.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      timezone: America/Los_Angeles
+      detail_level: brief
+    expected:
+      speech_text_patterns:
+        - "tomorrow"
+    metadata:
+      source: manual
+      notes: Test brief detail level for concise output
+
+  - test_id: comprehensive_morning_summary_verbose_detail
+    description: Morning summary with verbose detail level
+    category: morning_summary
+    suite: comprehensive
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/tomorrow-dense-schedule.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      timezone: America/Los_Angeles
+      detail_level: verbose
+    expected:
+      speech_text_patterns:
+        - "tomorrow"
+        - "meeting"
+    metadata:
+      source: manual
+      notes: Test verbose detail level for detailed output
+
+  - test_id: comprehensive_morning_summary_with_ssml
+    description: Morning summary with SSML output
+    category: morning_summary
+    suite: comprehensive
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/tomorrow-few-meetings.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      timezone: America/Los_Angeles
+      prefer_ssml: "true"
+    expected:
+      ssml_validation:
+        required: true
+        max_chars: 8000
+        required_tags: [speak]
+    metadata:
+      source: manual
+      notes: Validates SSML generation for morning summary
+
+  - test_id: comprehensive_morning_summary_specific_date
+    description: Morning summary for specific date (not tomorrow)
+    category: morning_summary
+    suite: comprehensive
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/next-week-meeting.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      date: '2025-11-10'
+      timezone: America/Los_Angeles
+    expected:
+      speech_text_patterns:
+        - "Monday"
+      nested_objects:
+        summary:
+          required: true
+          required_fields: [preview_for]
+    metadata:
+      source: manual
+      notes: Test specifying custom date parameter
+
+  - test_id: comprehensive_morning_summary_all_day_events
+    description: Morning summary with all-day events tomorrow
+    category: morning_summary
+    suite: comprehensive
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/tomorrow-all-day.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      timezone: America/Los_Angeles
+      detail_level: normal
+    expected:
+      speech_text_patterns:
+        - "tomorrow"
+        - "all day"
+    metadata:
+      source: manual
+      notes: Test handling of all-day events in morning summary
+
+  - test_id: comprehensive_morning_summary_recurring_events
+    description: Morning summary with recurring events tomorrow
+    category: morning_summary
+    suite: comprehensive
+    endpoint: /api/alexa/morning-summary
+    ics_file: alexa/daily-standup-recurring.ics
+    datetime_override: '2025-11-05T20:00:00-08:00'
+    query_params:
+      timezone: America/Los_Angeles
+    expected:
+      speech_text_patterns:
+        - "tomorrow"
+        - "Daily Standup"
+    metadata:
+      source: manual
+      notes: Test recurring event expansion for tomorrow
+
+# End of test specifications
