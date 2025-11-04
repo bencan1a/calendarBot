@@ -28,7 +28,7 @@ This file provides essential context, patterns, and commands for AI agents worki
 - Serves a web API for calendar data and health monitoring
 - Handles timezone conversions and event prioritization
 
-**Key Technologies**: Python 3.9+, aiohttp, icalendar, python-dateutil, pydantic
+**Key Technologies**: Python 3.12+, aiohttp, icalendar, python-dateutil, pydantic
 
 ---
 
@@ -294,7 +294,7 @@ CALENDARBOT_TEST_TIME=2024-01-01T12:00:00 python -m pytest
 
 ### Ruff Configuration
 - **Line Length**: 100 characters
-- **Target**: Python 3.9+
+- **Target**: Python 3.12+
 - **Replaces**: black (formatting) + flake8 (linting)
 - **Import Style**: Combined imports, split on trailing comma
 - **First-Party**: `calendarbot_lite` package
