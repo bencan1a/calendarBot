@@ -113,17 +113,23 @@ class FreeBlock(BaseModel):
             return f"{hours}-hour"
         return f"{hours}-hour {minutes}-minute"
 
-    def get_spoken_start_time(self) -> str:
-        """Get conversational start time (Story 5)."""
-        # Convert to server timezone for speech display
+    def get_spoken_start_time(self, timezone_str: Optional[str] = None) -> str:
+        """Get conversational start time (Story 5).
+
+        Args:
+            timezone_str: IANA timezone identifier for conversion (defaults to server timezone)
+        """
+        # Convert to requested timezone for speech display
         try:
             import zoneinfo
 
             from .lite_datetime_utils import format_time_for_speech
             from .server import _get_server_timezone
 
-            server_tz = zoneinfo.ZoneInfo(_get_server_timezone())
-            return format_time_for_speech(self.start_time, server_tz)
+            # Use provided timezone or fallback to server timezone
+            tz_name = timezone_str or _get_server_timezone()
+            target_tz = zoneinfo.ZoneInfo(tz_name)
+            return format_time_for_speech(self.start_time, target_tz)
         except Exception:
             # Fallback to formatting without timezone conversion
             from .lite_datetime_utils import format_time_for_speech
@@ -153,17 +159,23 @@ class MeetingInsight(BaseModel):
             return self.subject
         return " ".join(words[:6])
 
-    def get_spoken_start_time(self) -> str:
-        """Get conversational start time (Story 5)."""
-        # Convert to server timezone for speech display
+    def get_spoken_start_time(self, timezone_str: Optional[str] = None) -> str:
+        """Get conversational start time (Story 5).
+
+        Args:
+            timezone_str: IANA timezone identifier for conversion (defaults to server timezone)
+        """
+        # Convert to requested timezone for speech display
         try:
             import zoneinfo
 
             from .lite_datetime_utils import format_time_for_speech
             from .server import _get_server_timezone
 
-            server_tz = zoneinfo.ZoneInfo(_get_server_timezone())
-            return format_time_for_speech(self.start_time, server_tz)
+            # Use provided timezone or fallback to server timezone
+            tz_name = timezone_str or _get_server_timezone()
+            target_tz = zoneinfo.ZoneInfo(tz_name)
+            return format_time_for_speech(self.start_time, target_tz)
         except Exception:
             # Fallback to formatting without timezone conversion
             from .lite_datetime_utils import format_time_for_speech
@@ -294,12 +306,25 @@ class MorningSummaryService:
                 logger.debug("Returning cached morning summary")
                 return cached_result
 
-            # Generate tomorrow's date in target timezone
-            tomorrow_date = await self._get_tomorrow_date(request.timezone)
+            # Get target date (use specified date or default to tomorrow)
+            if request.date:
+                # Parse the provided date (expected format: YYYY-MM-DD)
+                try:
+                    import zoneinfo
+                    from datetime import datetime as dt
+                    date_obj = dt.fromisoformat(request.date).date()
+                    tz = zoneinfo.ZoneInfo(request.timezone)
+                    target_date = dt.combine(date_obj, dt.min.time()).replace(tzinfo=tz)
+                except Exception as e:
+                    logger.warning(f"Failed to parse date parameter '{request.date}': {e}, using tomorrow")
+                    target_date = await self._get_tomorrow_date(request.timezone)
+            else:
+                # Default to tomorrow's date in target timezone
+                target_date = await self._get_tomorrow_date(request.timezone)
 
-            # Create time window (6 AM to 12 PM tomorrow) (Story 1)
+            # Create time window (6 AM to 12 PM for target date) (Story 1)
             timeframe_start, timeframe_end = self._create_time_window(
-                tomorrow_date, request.timezone
+                target_date, request.timezone
             )
 
             # Filter and process events
@@ -580,6 +605,7 @@ class MorningSummaryService:
             back_to_back_count=back_to_back_count,
             total_meetings=meeting_equivalents,
             has_any_events=(len(events) > 0),  # Pass whether there are any events at all
+            timezone_str=request.timezone,  # Pass the user's requested timezone
         )
 
         return MorningSummaryResult(
@@ -783,8 +809,13 @@ class MorningSummaryService:
         back_to_back_count: int,
         total_meetings: float,
         has_any_events: bool = False,
+        timezone_str: Optional[str] = None,
     ) -> str:
-        """Generate natural language speech text for evening delivery (Story 5)."""
+        """Generate natural language speech text for evening delivery (Story 5).
+
+        Args:
+            timezone_str: IANA timezone identifier for time formatting in speech
+        """
         # Handle no meetings scenario (Story 7) - truly no events at all
         if not meeting_insights and not all_day_events and not has_any_events:
             return (
@@ -798,7 +829,7 @@ class MorningSummaryService:
         # Early start handling (Story 2)
         if early_start_flag and meeting_insights:
             earliest_meeting = min(meeting_insights, key=lambda m: m.start_time)
-            start_time_spoken = earliest_meeting.get_spoken_start_time()
+            start_time_spoken = earliest_meeting.get_spoken_start_time(timezone_str)
 
             if earliest_meeting.start_time.hour < VERY_EARLY_THRESHOLD_HOUR or (
                 earliest_meeting.start_time.hour == VERY_EARLY_THRESHOLD_HOUR
@@ -844,14 +875,14 @@ class MorningSummaryService:
 
         if longest_block and longest_block.is_significant:
             duration_text = longest_block.get_spoken_duration()
-            start_time_text = longest_block.get_spoken_start_time()
+            start_time_text = longest_block.get_spoken_start_time(timezone_str)
             parts.append(f"You have a {duration_text} window starting at {start_time_text}.")
 
         # First meeting details (if exists and not already mentioned in early start)
         if meeting_insights and not early_start_flag:
             first_meeting = meeting_insights[0]
             subject = first_meeting.get_short_subject()
-            start_time = first_meeting.get_spoken_start_time()
+            start_time = first_meeting.get_spoken_start_time(timezone_str)
 
             if first_meeting.start_time.hour >= MORNING_START_HOUR:
                 parts.append(f"Your first meeting is {subject} at {start_time}.")

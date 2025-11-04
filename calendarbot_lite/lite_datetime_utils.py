@@ -111,24 +111,21 @@ def format_time_for_speech(dt: datetime, target_tz: Optional[ZoneInfo] = None) -
         hour = dt.hour
         minute = dt.minute
 
-    # Format based on time values
-    if minute == 0:
-        if hour == 12:
-            return "noon"
-        if hour > 12:
-            return f"{hour - 12} PM"
-        return f"{hour} AM"
-    if minute == 30:
-        if hour == 12:
-            return "twelve thirty PM"
-        if hour > 12:
-            return f"{hour - 12} thirty PM"
-        return f"{hour} thirty AM"
+    # Format based on time values (always include minutes for consistency)
     if hour == 12:
-        return f"twelve {minute:02d} PM"
-    if hour > 12:
-        return f"{hour - 12} {minute:02d} PM"
-    return f"{hour} {minute:02d} AM"
+        if minute == 0:
+            return "noon"
+        return f"12:{minute:02d} pm"
+
+    # Convert to 12-hour format
+    display_hour = hour if hour <= 12 else hour - 12
+    if display_hour == 0:
+        display_hour = 12
+
+    # Use lowercase am/pm for consistency
+    period = "am" if hour < 12 else "pm"
+
+    return f"{display_hour}:{minute:02d} {period}"
 
 
 class TimezoneParser:

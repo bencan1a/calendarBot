@@ -308,6 +308,7 @@ RecoveryManager = MockRecoveryManager
 load_config = mock_load_config
 
 
+@pytest.mark.unit
 class TestWatchdogState:
     """Test persistent state management functionality."""
 
@@ -394,6 +395,7 @@ class TestWatchdogState:
             assert result is False
 
 
+@pytest.mark.unit
 class TestStructuredLogger:
     """Test structured JSON logging functionality."""
 
@@ -440,6 +442,7 @@ class TestStructuredLogger:
         self.mock_logger.info.assert_called_once()
 
 
+@pytest.mark.unit
 class TestSystemDiagnostics:
     """Test system resource monitoring functionality."""
 
@@ -525,6 +528,7 @@ Buffers:          256000 kB""")
             assert result is False
 
 
+@pytest.mark.unit
 class TestHealthChecker:
     """Test health monitoring and failure detection."""
 
@@ -622,6 +626,7 @@ class TestHealthChecker:
             assert result is False
 
 
+@pytest.mark.unit
 class TestRecoveryManager:
     """Test escalating recovery actions with rate limiting."""
 
@@ -751,6 +756,7 @@ class TestRecoveryManager:
         assert len(state['reboots']) == 1
 
 
+@pytest.mark.unit
 class TestConfigurationLoading:
     """Test configuration loading and validation."""
 
@@ -805,6 +811,7 @@ monitor:
         assert 'logging' in config
 
 
+@pytest.mark.integration
 class TestIntegrationScenarios:
     """Test integrated watchdog scenarios."""
 
