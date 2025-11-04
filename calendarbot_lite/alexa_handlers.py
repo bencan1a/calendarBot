@@ -33,6 +33,7 @@ from .alexa_types import (
     AlexaNextMeetingResponse,
     AlexaTimeUntilResponse,
 )
+from .lite_datetime_utils import format_time_cross_platform
 from .lite_models import LiteCalendarEvent
 from .monitoring_logging import get_logger
 from .timezone_utils import parse_request_timezone
@@ -153,7 +154,11 @@ class AlexaEndpointBase(ABC):
                 monitoring_logger.warning(  # noqa: PLE1205
                     "alexa.validation.failed",
                     f"Validation failed for {handler_name}",
-                    details={"handler": handler_name, "error": str(e), "params": dict(request.query)},
+                    details={
+                        "handler": handler_name,
+                        "error": str(e),
+                        "params": dict(request.query),
+                    },
                 )
                 return web.json_response({"error": "Bad request", "message": str(e)}, status=400)
 
@@ -215,10 +220,11 @@ class AlexaEndpointBase(ABC):
             response = await self.handle_request(request, window, now)
 
             # Cache the response data (if cache is enabled and response is json)
-            if self.response_cache and cache_key and hasattr(response, 'body'):
+            if self.response_cache and cache_key and hasattr(response, "body"):
                 # Extract response data from aiohttp response
                 # The response should already be a web.json_response
                 import json as json_lib
+
                 try:
                     response_data = json_lib.loads(response.body)
                     self.response_cache.set(cache_key, response_data)
@@ -285,7 +291,9 @@ class AlexaEndpointBase(ABC):
                     "status": 500,
                 },
             )
-            return web.json_response({"error": "Internal server error", "message": str(e)}, status=500)
+            return web.json_response(
+                {"error": "Internal server error", "message": str(e)}, status=500
+            )
         except AlexaHandlerError as e:
             # Catch any other custom exceptions
             latency_ms = (time.time() - start_time) * 1000
@@ -301,7 +309,9 @@ class AlexaEndpointBase(ABC):
                     "status": 500,
                 },
             )
-            return web.json_response({"error": "Internal server error", "message": str(e)}, status=500)
+            return web.json_response(
+                {"error": "Internal server error", "message": str(e)}, status=500
+            )
         except Exception as e:
             # Catch unexpected exceptions
             latency_ms = (time.time() - start_time) * 1000
@@ -542,7 +552,9 @@ class NextMeetingHandler(AlexaEndpointBase):
             duration_formatter: Function to format duration in speech
             iso_serializer: Function to serialize datetime to ISO string
         """
-        super().__init__(bearer_token, time_provider, skipped_store, response_cache, precompute_getter)
+        super().__init__(
+            bearer_token, time_provider, skipped_store, response_cache, precompute_getter
+        )
         from .alexa_presentation import PlainTextPresenter
 
         self.presenter = presenter or PlainTextPresenter()
@@ -644,7 +656,9 @@ class TimeUntilHandler(AlexaEndpointBase):
             presenter: Optional presenter for formatting responses (AlexaPresenter)
             duration_formatter: Function to format duration in speech
         """
-        super().__init__(bearer_token, time_provider, skipped_store, response_cache, precompute_getter)
+        super().__init__(
+            bearer_token, time_provider, skipped_store, response_cache, precompute_getter
+        )
         from .alexa_presentation import PlainTextPresenter
 
         self.presenter = presenter or PlainTextPresenter()
@@ -739,7 +753,9 @@ class DoneForDayHandler(AlexaEndpointBase):
             iso_serializer: Function to serialize datetime to ISO string
             get_server_timezone: Function to get server timezone
         """
-        super().__init__(bearer_token, time_provider, skipped_store, response_cache, precompute_getter)
+        super().__init__(
+            bearer_token, time_provider, skipped_store, response_cache, precompute_getter
+        )
         from .alexa_presentation import PlainTextPresenter
 
         self.presenter = presenter or PlainTextPresenter()
@@ -860,9 +876,9 @@ class DoneForDayHandler(AlexaEndpointBase):
 
                     # Format time string (show UTC if no timezone provided)
                     if request_tz:
-                        time_str = end_local.strftime("%-I:%M %p").lower()
+                        time_str = format_time_cross_platform(end_local)
                     else:
-                        time_str = end_local.strftime("%-I:%M %p UTC").lower()
+                        time_str = format_time_cross_platform(end_local, " UTC")
 
                     # Compare current time with last meeting end time
                     if now >= end_utc:
@@ -873,10 +889,14 @@ class DoneForDayHandler(AlexaEndpointBase):
 
                 except (ValueError, AttributeError) as e:
                     logger.warning("Error formatting end time for speech: %s", e)
-                    return "You have meetings today, but I couldn't determine when your last one ends."
+                    return (
+                        "You have meetings today, but I couldn't determine when your last one ends."
+                    )
                 except Exception as e:
                     logger.error("Unexpected error formatting end time: %s", e, exc_info=True)
-                    return "You have meetings today, but I couldn't determine when your last one ends."
+                    return (
+                        "You have meetings today, but I couldn't determine when your last one ends."
+                    )
             else:
                 return "You have meetings today, but I couldn't determine when your last one ends."
         else:
@@ -919,7 +939,9 @@ class LaunchSummaryHandler(AlexaEndpointBase):
             iso_serializer: Function to serialize datetime to ISO string
             get_server_timezone: Function to get server timezone
         """
-        super().__init__(bearer_token, time_provider, skipped_store, response_cache, precompute_getter)
+        super().__init__(
+            bearer_token, time_provider, skipped_store, response_cache, precompute_getter
+        )
         from .alexa_presentation import PlainTextPresenter
 
         self.presenter = presenter or PlainTextPresenter()
@@ -1105,9 +1127,13 @@ class LaunchSummaryHandler(AlexaEndpointBase):
 
         # 3. Find appropriate meeting based on whether there are meetings today
         if done_info["has_meetings_today"]:
-            primary_meeting = self._find_next_meeting(window, now, tz, today_date, include_today=True)
+            primary_meeting = self._find_next_meeting(
+                window, now, tz, today_date, include_today=True
+            )
         else:
-            primary_meeting = self._find_next_meeting(window, now, tz, today_date, include_today=False)
+            primary_meeting = self._find_next_meeting(
+                window, now, tz, today_date, include_today=False
+            )
 
         # 4. Use presenter to generate speech text AND SSML
         # Presenter now handles all speech generation logic
@@ -1162,7 +1188,9 @@ class MorningSummaryHandler(AlexaEndpointBase):
             presenter: Optional presenter for formatting responses (AlexaPresenter)
             get_server_timezone: Function to get server timezone
         """
-        super().__init__(bearer_token, time_provider, skipped_store, response_cache, precompute_getter)
+        super().__init__(
+            bearer_token, time_provider, skipped_store, response_cache, precompute_getter
+        )
         from .alexa_presentation import PlainTextPresenter
 
         self.presenter = presenter or PlainTextPresenter()

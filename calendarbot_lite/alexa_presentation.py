@@ -11,6 +11,8 @@ import datetime
 import logging
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
+from .lite_datetime_utils import format_time_cross_platform
+
 if TYPE_CHECKING:
     from .alexa_types import AlexaDoneForDayInfo
 
@@ -25,7 +27,9 @@ class AlexaPresenter(Protocol):
     on data gathering while presenters handle formatting.
     """
 
-    def format_next_meeting(self, meeting_data: Optional[dict[str, Any]]) -> tuple[str, Optional[str]]:
+    def format_next_meeting(
+        self, meeting_data: Optional[dict[str, Any]]
+    ) -> tuple[str, Optional[str]]:
         """Format next meeting data into speech and optional SSML.
 
         Args:
@@ -106,7 +110,9 @@ class PlainTextPresenter:
     SSML is not required or supported.
     """
 
-    def format_next_meeting(self, meeting_data: Optional[dict[str, Any]]) -> tuple[str, Optional[str]]:
+    def format_next_meeting(
+        self, meeting_data: Optional[dict[str, Any]]
+    ) -> tuple[str, Optional[str]]:
         """Format next meeting as plain text."""
         if not meeting_data:
             return "You have no upcoming meetings.", None
@@ -164,7 +170,9 @@ class PlainTextPresenter:
     ) -> str:
         """Generate speech for when user has meetings today."""
         if next_meeting:
-            speech_text = f"Your next meeting is {next_meeting['subject']} {next_meeting['duration_spoken']}."
+            speech_text = (
+                f"Your next meeting is {next_meeting['subject']} {next_meeting['duration_spoken']}."
+            )
         else:
             speech_text = "You have no more meetings today."
 
@@ -198,9 +206,9 @@ class PlainTextPresenter:
 
             # Format time string (show UTC if no timezone provided)
             if request_tz:
-                time_str = end_local.strftime("%-I:%M %p").lower()
+                time_str = format_time_cross_platform(end_local)
             else:
-                time_str = end_local.strftime("%-I:%M %p UTC").lower()
+                time_str = format_time_cross_platform(end_local, " UTC")
 
             if now >= end_utc:
                 return " You're all done for today!"
@@ -238,7 +246,9 @@ class SSMLPresenter:
         self.renderers = ssml_renderers or {}
         self.plain_text_fallback = PlainTextPresenter()
 
-    def format_next_meeting(self, meeting_data: Optional[dict[str, Any]]) -> tuple[str, Optional[str]]:
+    def format_next_meeting(
+        self, meeting_data: Optional[dict[str, Any]]
+    ) -> tuple[str, Optional[str]]:
         """Format next meeting with SSML if available."""
         # Generate plain text first
         speech_text, _ = self.plain_text_fallback.format_next_meeting(meeting_data)
@@ -310,11 +320,7 @@ class SSMLPresenter:
 
         # Try to generate SSML based on scenario
         ssml_output = None
-        if (
-            done_info["has_meetings_today"]
-            and primary_meeting
-            and "meeting" in self.renderers
-        ):
+        if done_info["has_meetings_today"] and primary_meeting and "meeting" in self.renderers:
             # Meetings today - use meeting SSML
             try:
                 event = primary_meeting["event"]
@@ -327,9 +333,13 @@ class SSMLPresenter:
                 }
                 ssml_output = self.renderers["meeting"](meeting_data)
                 if ssml_output:
-                    logger.info("Launch summary (meetings) SSML generated: %d characters", len(ssml_output))
+                    logger.info(
+                        "Launch summary (meetings) SSML generated: %d characters", len(ssml_output)
+                    )
             except Exception as e:
-                logger.error("Launch summary (meetings) SSML generation failed: %s", e, exc_info=True)
+                logger.error(
+                    "Launch summary (meetings) SSML generation failed: %s", e, exc_info=True
+                )
         elif "done_for_day" in self.renderers:
             # No meetings today - use done-for-day SSML
             try:
@@ -337,9 +347,14 @@ class SSMLPresenter:
                     done_info["has_meetings_today"], speech_text
                 )
                 if ssml_output:
-                    logger.info("Launch summary (no meetings) SSML generated: %d characters", len(ssml_output))
+                    logger.info(
+                        "Launch summary (no meetings) SSML generated: %d characters",
+                        len(ssml_output),
+                    )
             except Exception as e:
-                logger.error("Launch summary (no meetings) SSML generation failed: %s", e, exc_info=True)
+                logger.error(
+                    "Launch summary (no meetings) SSML generation failed: %s", e, exc_info=True
+                )
 
         return speech_text, ssml_output
 
