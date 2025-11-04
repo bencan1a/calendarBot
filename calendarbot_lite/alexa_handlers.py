@@ -1045,6 +1045,57 @@ class LaunchSummaryHandler(AlexaEndpointBase):
 
         return response_data
 
+    def _find_current_meeting(
+        self,
+        window: tuple[LiteCalendarEvent, ...],
+        now: datetime.datetime,
+        tz: Any,
+        today_date: datetime.date,
+    ) -> Optional[dict[str, Any]]:
+        """Find a meeting that is currently in progress.
+
+        Args:
+            window: Event window to search
+            now: Current time
+            tz: Timezone for date comparison
+            today_date: Today's date in the target timezone
+
+        Returns:
+            Dictionary with current meeting details or None if no meeting is in progress
+        """
+        for ev in window:
+            start = ev.start.date_time
+            end = ev.end.date_time
+
+            # Skip if not datetime events
+            if not isinstance(start, datetime.datetime) or not isinstance(end, datetime.datetime):
+                continue
+
+            start_local = start.astimezone(tz)
+
+            # Only check today's meetings
+            if start_local.date() != today_date:
+                continue
+
+            # Check if meeting is currently in progress (start <= now < end)
+            if start <= now < end:
+                # Check if skipped
+                if self._is_skipped(ev):
+                    continue
+
+                # Calculate seconds until end (for duration display)
+                seconds_until_end = int((end - now).total_seconds())
+
+                # Found a meeting in progress
+                return {
+                    "event": ev,
+                    "seconds_until_end": seconds_until_end,
+                    "subject": ev.subject,
+                    "is_current": True,
+                }
+
+        return None
+
     def _find_next_meeting(
         self,
         window: tuple[LiteCalendarEvent, ...],
@@ -1127,7 +1178,10 @@ class LaunchSummaryHandler(AlexaEndpointBase):
         # 2. Get done-for-day info
         done_info = await self._get_done_for_day_info(window, request_tz)
 
-        # 3. Find appropriate meeting based on whether there are meetings today
+        # 3. Check for current meeting in progress
+        current_meeting = self._find_current_meeting(window, now, tz, today_date)
+
+        # 4. Find next meeting based on whether there are meetings today
         if done_info["has_meetings_today"]:
             primary_meeting = self._find_next_meeting(
                 window, now, tz, today_date, include_today=True
@@ -1137,10 +1191,10 @@ class LaunchSummaryHandler(AlexaEndpointBase):
                 window, now, tz, today_date, include_today=False
             )
 
-        # 4. Use presenter to generate speech text AND SSML
-        # Presenter now handles all speech generation logic
+        # 5. Use presenter to generate speech text AND SSML
+        # Presenter now handles all speech generation logic, including current meeting
         speech_text, ssml_output = self.presenter.format_launch_summary(
-            done_info, primary_meeting, tz, request_tz, now
+            done_info, primary_meeting, tz, request_tz, now, current_meeting
         )
 
         # 5. Build and return response
