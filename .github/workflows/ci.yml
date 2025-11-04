@@ -278,17 +278,17 @@ jobs:
 
     - name: Validate coverage threshold
       run: |
-        # Check that coverage meets minimum threshold
-        venv/bin/python -c "
-import json
-with open('coverage.json') as f:
-    cov = json.load(f)
-    total = cov['totals']['percent_covered']
-    threshold = ${{ env.COVERAGE_THRESHOLD }}
-    print(f'Coverage: {total:.2f}% (threshold: {threshold}%)')
-    if total < threshold:
-        raise SystemExit(f'Coverage {total:.2f}% is below threshold {threshold}%')
-"
+        cat > check_coverage.py << 'EOF'
+        import json
+        with open("coverage.json") as f:
+            cov = json.load(f)
+            total = cov["totals"]["percent_covered"]
+            threshold = ${{ env.COVERAGE_THRESHOLD }}
+            print(f"Coverage: {total:.2f}% (threshold: {threshold}%)")
+            if total < threshold:
+                raise SystemExit(f"Coverage {total:.2f}% is below threshold {threshold}%")
+        EOF
+        venv/bin/python check_coverage.py
 
     - name: Coverage differential analysis
       run: |
