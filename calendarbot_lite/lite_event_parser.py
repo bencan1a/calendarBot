@@ -12,6 +12,11 @@ from typing import Any, Optional
 
 from icalendar import Event as ICalEvent
 
+from .config_manager import (
+    MAX_EVENT_DESCRIPTION_LENGTH,
+    MAX_EVENT_LOCATION_LENGTH,
+    MAX_EVENT_SUBJECT_LENGTH,
+)
 from .lite_attendee_parser import LiteAttendeeParser
 from .lite_datetime_utils import LiteDateTimeParser
 from .lite_models import (
@@ -373,7 +378,6 @@ class LiteEventComponentParser:
         uid = str(component.get("UID", str(uuid.uuid4())))
         summary_raw = str(component.get("SUMMARY", "No Title"))
         # Truncate subject to maximum length (validation will strip whitespace)
-        from .config_manager import MAX_EVENT_SUBJECT_LENGTH
         summary = summary_raw[:MAX_EVENT_SUBJECT_LENGTH] if len(summary_raw) > MAX_EVENT_SUBJECT_LENGTH else summary_raw
 
         # Description
@@ -381,7 +385,6 @@ class LiteEventComponentParser:
         body_preview = None
         if description:
             # Truncate description to maximum length (validation allows 500 chars)
-            from .config_manager import MAX_EVENT_DESCRIPTION_LENGTH
             desc_str = str(description)
             body_preview = desc_str[:MAX_EVENT_DESCRIPTION_LENGTH] if len(desc_str) > MAX_EVENT_DESCRIPTION_LENGTH else desc_str
 
@@ -390,7 +393,6 @@ class LiteEventComponentParser:
         location_str = component.get("LOCATION")
         if location_str:
             # Truncate location to maximum length
-            from .config_manager import MAX_EVENT_LOCATION_LENGTH
             loc_str = str(location_str)
             loc_truncated = loc_str[:MAX_EVENT_LOCATION_LENGTH] if len(loc_str) > MAX_EVENT_LOCATION_LENGTH else loc_str
             if loc_truncated.strip():  # Only create location if non-empty after truncation
