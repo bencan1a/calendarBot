@@ -6,15 +6,15 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
-# Import the central datetime override function from timezone_utils
-from .timezone_utils import now_utc as _now_utc
-
 # Import validation constants
 from .config_manager import (
     MAX_EVENT_DESCRIPTION_LENGTH,
     MAX_EVENT_LOCATION_LENGTH,
     MAX_EVENT_SUBJECT_LENGTH,
 )
+
+# Import the central datetime override function from timezone_utils
+from .timezone_utils import now_utc as _now_utc
 
 
 class LiteAuthType(str, Enum):
