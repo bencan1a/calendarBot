@@ -68,6 +68,7 @@ dev = [
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
     "pytest-timeout>=2.1.0",
+    "pytest-testmon>=2.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "bandit>=1.7.0",
@@ -395,17 +396,29 @@ parallel = true
 
 # Files to exclude from coverage analysis
 omit = [
+    # Exclude all test directories and files
+    "tests/*",
+    "tests/lite/*",
+    "tests/lite_tests/*",
     "*/tests/*",
     "*/test_*",
+    "test_*.py",
+    "**/test_*.py",
     "*/conftest.py",
+    "conftest.py",
+
+    # Exclude build artifacts and environments
     "*/__pycache__/*",
     "*/venv/*",
     "*/env/*",
     "*/migrations/*",
+
+    # Exclude scripts and setup files
     "scripts/*",
     "setup.py",
     "manage.py",
     "format_and_stage.py",
+
     # Exclude archived calendarbot directory (deprecated - use calendarbot_lite)
     "calendarbot/*",
 ]
