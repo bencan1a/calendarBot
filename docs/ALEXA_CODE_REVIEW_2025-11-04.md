@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document provides a high-level summary of the comprehensive Alexa integration code review. For detailed findings, see `/tmp/alexa_integration_review.md` and `/tmp/github_issues_to_create.md`.
+This document provides a high-level summary of the comprehensive Alexa integration code review. For detailed GitHub issues ready for creation, see `docs/ALEXA_GITHUB_ISSUES_2025-11-04.md`.
 
 ## Executive Summary
 
@@ -169,7 +169,7 @@ This document provides a high-level summary of the comprehensive Alexa integrati
 ## Recommendations
 
 1. **Immediate Actions**
-   - Create GitHub issues from `/tmp/github_issues_to_create.md`
+   - Create GitHub issues from `docs/ALEXA_GITHUB_ISSUES_2025-11-04.md`
    - Prioritize high-priority issues for next sprint
    - Assign issues to development team
 
@@ -195,8 +195,7 @@ The issues identified are not fundamental design flaws but rather opportunities 
 
 ## Related Documents
 
-- **Full Review:** `/tmp/alexa_integration_review.md` (17KB, comprehensive analysis)
-- **GitHub Issues:** `/tmp/github_issues_to_create.md` (16KB, ready-to-create issues)
+- **GitHub Issues:** `docs/ALEXA_GITHUB_ISSUES_2025-11-04.md` (1,731 lines, ready-to-create issues)
 - **Deployment Guide:** `docs/ALEXA_DEPLOYMENT_GUIDE.md`
 - **Module README:** `calendarbot_lite/README.md`
 
