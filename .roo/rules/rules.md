@@ -26,10 +26,14 @@ run `. venv/bin/activate` every time!!
   - Then use `get-library-docs` with the ID and topic
 
 ## PROJECT CONTEXT
-1. This is a single user stateless application
-2. Never worry about backward compatibility or migration
-3. Never build code as optional to preserve existing code paths
-4. Always replace existing code with new code when making improvements
+1. **Personal Application**: Single developer, 1-5 users max, deployed on Raspberry Pi Zero 2W (1GB RAM)
+2. **No Backward Compatibility**: Breaking changes acceptable, no versioning/migration needed
+3. **Always Replace**: Never build optional code to preserve existing paths
+4. **Resource Efficiency**: Optimize for low memory (<100MB idle) and CPU usage on constrained hardware
+5. **Simplicity Over Patterns**: Avoid enterprise patterns (circuit breakers, service mesh, complex caching)
+6. **Minimal Dependencies**: Each library costs RAM - critical for Pi Zero 2W deployment
+
+See [AGENTS.md](../AGENTS.md#-application-context--scale) for complete scale and context guidance.
 
 ## TESTING WORKFLOW
 1. **Smoke Test**: Run (with timeout for safety) `calendarbot --web`, fix errors first

@@ -1,5 +1,16 @@
 # Code Mode Rules (Non-Obvious Only)
 
+## Application Context & Scale
+
+**Personal project, single developer, resource-constrained deployment (Pi Zero 2W):**
+- **Scale**: 1-5 users max, single instance, no enterprise patterns needed
+- **Resources**: Optimize for <100MB RAM idle, efficient CPU usage on 1GB total RAM
+- **Simplicity First**: Direct solutions over abstractions, minimal dependencies
+- **Breaking Changes OK**: No backward compatibility burden, update and deploy
+- **Heavy Deps**: Avoid - each library costs RAM and startup time on Pi Zero 2W
+
+See main [AGENTS.md](../../AGENTS.md#-application-context--scale) for complete guidance.
+
 ## File Organization
 - **Temporary Files**: ALL debug/test scripts go in `tmp/` (gitignored)
 - **Project Reports**: Refactoring plans, analysis reports go in `tmp/` (not root)
