@@ -1,7 +1,7 @@
 """iCalendar parser with Microsoft Outlook compatibility - CalendarBot Lite version."""
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Optional, cast
 
 from icalendar import Calendar, Event as ICalEvent
@@ -81,7 +81,7 @@ class _DateTimeWrapper:
         """
         self.date_time = dt
         # Preserve timezone info if present, else default to UTC
-        self.time_zone = getattr(dt, "tzinfo", timezone.utc)
+        self.time_zone = getattr(dt, "tzinfo", UTC)
 
 
 class LiteICSParser:
@@ -319,7 +319,7 @@ class LiteICSParser:
                 )
         except Exception:
             # Last-resort defaults
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             candidate_event.start = _DateTimeWrapper(now)  # type: ignore[assignment]
             candidate_event.end = _DateTimeWrapper(now + timedelta(hours=1))  # type: ignore[assignment]
 
