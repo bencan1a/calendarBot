@@ -70,7 +70,8 @@ class NextMeetingPrecomputeStage:
             return False
         try:
             return self.skipped_store.is_skipped(event.id)
-        except Exception as e:
+        except (AttributeError, KeyError, TypeError) as e:
+            # Non-critical: If skipped store access fails, treat event as not skipped
             logger.warning("Failed to check if event %s is skipped: %s", event.id, e)
             return False
 
@@ -163,9 +164,11 @@ class NextMeetingPrecomputeStage:
             result.metadata["precomputed_key"] = cache_key
             result.metadata["has_meeting"] = next_meeting is not None
 
-        except Exception as e:
+        except (ValueError, AttributeError, KeyError, TypeError) as e:
+            # Expected errors: Invalid data, missing attributes, etc.
+            # Non-fatal: Precomputation failures shouldn't break the system
             result.add_error(f"Precomputation failed: {e}")
-            logger.exception("Error precomputing next meeting")
+            logger.warning("Error precomputing next meeting: %s", e, exc_info=True)
 
         return result
 
@@ -209,7 +212,8 @@ class TimeUntilPrecomputeStage:
             return False
         try:
             return self.skipped_store.is_skipped(event.id)
-        except Exception as e:
+        except (AttributeError, KeyError, TypeError) as e:
+            # Non-critical: If skipped store access fails, treat event as not skipped
             logger.warning("Failed to check if event %s is skipped: %s", event.id, e)
             return False
 
@@ -284,9 +288,11 @@ class TimeUntilPrecomputeStage:
             result.metadata["precomputed_key"] = cache_key
             result.metadata["has_meeting"] = seconds_until is not None
 
-        except Exception as e:
+        except (ValueError, AttributeError, KeyError, TypeError) as e:
+            # Expected errors: Invalid data, missing attributes, etc.
+            # Non-fatal: Precomputation failures shouldn't break the system
             result.add_error(f"Precomputation failed: {e}")
-            logger.exception("Error precomputing time until")
+            logger.warning("Error precomputing time until: %s", e, exc_info=True)
 
         return result
 
@@ -333,7 +339,8 @@ class DoneForDayPrecomputeStage:
             return False
         try:
             return self.skipped_store.is_skipped(event.id)
-        except Exception as e:
+        except (AttributeError, KeyError, TypeError) as e:
+            # Non-critical: If skipped store access fails, treat event as not skipped
             logger.warning("Failed to check if event %s is skipped: %s", event.id, e)
             return False
 
@@ -430,9 +437,11 @@ class DoneForDayPrecomputeStage:
             result.metadata["precomputed_key"] = cache_key
             result.metadata["has_meetings_today"] = has_meetings_today
 
-        except Exception as e:
+        except (ValueError, AttributeError, KeyError, TypeError) as e:
+            # Expected errors: Invalid data, missing attributes, etc.
+            # Non-fatal: Precomputation failures shouldn't break the system
             result.add_error(f"Precomputation failed: {e}")
-            logger.exception("Error precomputing done-for-day")
+            logger.warning("Error precomputing done-for-day: %s", e, exc_info=True)
 
         return result
 

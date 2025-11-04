@@ -228,7 +228,8 @@ class AlexaEndpointBase(ABC):
                 try:
                     response_data = json_lib.loads(response.body)
                     self.response_cache.set(cache_key, response_data)
-                except Exception as e:
+                except (ValueError, TypeError, AttributeError) as e:
+                    # Non-critical: Cache failures shouldn't break the response
                     logger.debug("Could not cache response: %s", e)
 
             # Log successful completion with telemetry
@@ -313,7 +314,9 @@ class AlexaEndpointBase(ABC):
                 {"error": "Internal server error", "message": str(e)}, status=500
             )
         except Exception as e:
-            # Catch unexpected exceptions
+            # JUSTIFIED BROAD CATCH: Last-resort safety net for truly unexpected system errors
+            # (e.g., MemoryError, system failures) that aren't covered by specific handlers.
+            # All expected error paths should use specific exception types above.
             latency_ms = (time.time() - start_time) * 1000
             logger.exception("Unexpected error in %s", handler_name)
             monitoring_logger.error(  # noqa: PLE1205, TRY400
@@ -411,8 +414,9 @@ class AlexaEndpointBase(ABC):
         try:
             result = is_skipped_fn(event.id)
             return bool(result)
-        except Exception as e:
-            # Log warning but don't fail - treat as not skipped
+        except (AttributeError, KeyError, TypeError) as e:
+            # Non-critical: If skipped store access fails, treat event as not skipped
+            # to avoid breaking the core event display functionality
             logger.warning("Skipped store access failed for event %s: %s", event.id, e)
             return False
 
@@ -471,7 +475,8 @@ class AlexaEndpointBase(ABC):
                     # active_list() returns dict[str, str] per skipped_store.py
                     if isinstance(active_list_result, dict):
                         context.skipped_event_ids = set(active_list_result.keys())
-            except Exception as e:
+            except (AttributeError, KeyError, TypeError) as e:
+                # Non-critical: If we can't get the skipped list, continue without it
                 logger.warning("Failed to get skipped events list: %s", e)
 
         # Apply skipped events filter
@@ -887,13 +892,9 @@ class DoneForDayHandler(AlexaEndpointBase):
                     # Still have meetings, will be done at end time
                     return f"You'll be done at {time_str}."
 
-                except (ValueError, AttributeError) as e:
+                except (ValueError, AttributeError, KeyError, TypeError) as e:
+                    # Expected errors: Invalid datetime format, missing attributes, etc.
                     logger.warning("Error formatting end time for speech: %s", e)
-                    return (
-                        "You have meetings today, but I couldn't determine when your last one ends."
-                    )
-                except Exception as e:
-                    logger.error("Unexpected error formatting end time: %s", e, exc_info=True)
                     return (
                         "You have meetings today, but I couldn't determine when your last one ends."
                     )
@@ -1300,6 +1301,8 @@ class MorningSummaryHandler(AlexaEndpointBase):
             }
             return web.json_response(error_response, status=500)
         except Exception:
+            # JUSTIFIED BROAD CATCH: Last-resort safety net for morning summary endpoint
+            # All expected errors (auth, validation, processing) are handled above
             logger.exception("Unexpected error in morning summary")
             error_response = {
                 "error": "Internal server error",
