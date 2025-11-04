@@ -113,7 +113,7 @@ class CustomSource(BaseSource):
 ## Development
 
 ### Key Technologies
-- **Python 3.9+** with modern async patterns
+- **Python 3.12+** with modern async patterns
 - **icalendar**: RFC 5545 compliant parsing
 - **httpx**: Async HTTP client
 - **aiosqlite**: Async SQLite with WAL mode

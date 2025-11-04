@@ -186,7 +186,7 @@ REST API endpoints for calendar data and health monitoring.
   },
   "system_diagnostics": {
     "platform": "Linux",
-    "python_version": "3.9.7",
+    "python_version": "3.12.3",
     "event_loop_running": true
   }
 }

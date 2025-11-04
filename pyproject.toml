@@ -131,7 +131,7 @@ version = {attr = "calendarbot.__version__"}
 [tool.ruff]
 # Ruff configuration for linting and formatting
 line-length = 100
-target-version = "py39"
+target-version = "py312"
 
 # Exclude directories
 exclude = [
@@ -243,7 +243,7 @@ severity = "medium"  # Flag medium and high severity issues
 confidence = "medium"  # Flag medium and high confidence issues
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

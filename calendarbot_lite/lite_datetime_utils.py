@@ -140,7 +140,7 @@ class TimezoneParser:
 
             iana_tz = windows_tz_to_iana(tzid) or tzid
 
-            # Apply timezone using zoneinfo (Python 3.9+ standard library)
+            # Apply timezone using zoneinfo (Python 3.12+ standard library)
             tz = ZoneInfo(iana_tz)
             dt_with_tz = dt_naive.replace(tzinfo=tz)
             return dt_with_tz.astimezone(timezone.utc)
