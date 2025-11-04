@@ -90,10 +90,10 @@ Async Patterns Audit (conducted 2025-11-01):
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +225,7 @@ class AsyncOrchestrator:
             result = await asyncio.wait_for(coro, timeout=effective_timeout)
             self._record_operation(success=True)
             return result
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             self._record_operation(success=False, timeout=True)
             logger.warning(
                 "Operation timed out after %.1fs",

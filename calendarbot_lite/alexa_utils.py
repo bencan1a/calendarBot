@@ -7,7 +7,8 @@ just to access their computation logic.
 
 import datetime
 import logging
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any, Optional
 
 from .alexa_types import AlexaDoneForDayInfo
 from .lite_models import LiteCalendarEvent

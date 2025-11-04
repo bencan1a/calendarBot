@@ -17,7 +17,7 @@ import time
 from collections import defaultdict, deque
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -68,7 +68,7 @@ class LogEntry:
             recovery_level: Recovery escalation level (0-4)
             system_state: Current system metrics
         """
-        self.timestamp = datetime.now(timezone.utc)
+        self.timestamp = datetime.now(UTC)
         self.component = component
         self.level = level.upper()
         self.event = event

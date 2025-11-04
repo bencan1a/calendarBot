@@ -17,7 +17,7 @@ All user stories from the Morning Summary Feature specification are implemented:
 
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from functools import lru_cache
 from typing import Any, Optional
@@ -407,7 +407,7 @@ class MorningSummaryService:
             except Exception:
                 logger.exception("Pacific fallback also failed, using UTC as last resort")
                 # Last resort fallback to UTC (should rarely happen)
-                utc_tz = timezone.utc
+                utc_tz = UTC
                 base_date = (
                     tomorrow_date.replace(tzinfo=utc_tz)
                     if tomorrow_date.tzinfo is None
@@ -432,8 +432,8 @@ class MorningSummaryService:
         filtered_events = []
 
         # Convert timeframe boundaries to UTC for consistent comparison
-        timeframe_start_utc = timeframe_start.astimezone(timezone.utc)
-        timeframe_end_utc = timeframe_end.astimezone(timezone.utc)
+        timeframe_start_utc = timeframe_start.astimezone(UTC)
+        timeframe_end_utc = timeframe_end.astimezone(UTC)
 
         logger.debug(f"Morning window UTC: {timeframe_start_utc} to {timeframe_end_utc}")
 
@@ -457,7 +457,7 @@ class MorningSummaryService:
                     import zoneinfo
 
                     server_tz = zoneinfo.ZoneInfo(_get_server_timezone())
-                    event_start = event_start.replace(tzinfo=server_tz).astimezone(timezone.utc)
+                    event_start = event_start.replace(tzinfo=server_tz).astimezone(UTC)
                 except Exception:
                     # Fallback to Pacific timezone
                     try:
@@ -465,32 +465,32 @@ class MorningSummaryService:
 
                         fallback_tz = zoneinfo.ZoneInfo(_get_fallback_timezone())
                         event_start = event_start.replace(tzinfo=fallback_tz).astimezone(
-                            timezone.utc
+                            UTC
                         )
                     except Exception:
                         # Last resort: treat as UTC (should rarely happen)
-                        event_start = event_start.replace(tzinfo=timezone.utc)
+                        event_start = event_start.replace(tzinfo=UTC)
             else:
-                event_start = event_start.astimezone(timezone.utc)
+                event_start = event_start.astimezone(UTC)
 
             if event_end.tzinfo is None:
                 try:
                     import zoneinfo
 
                     server_tz = zoneinfo.ZoneInfo(_get_server_timezone())
-                    event_end = event_end.replace(tzinfo=server_tz).astimezone(timezone.utc)
+                    event_end = event_end.replace(tzinfo=server_tz).astimezone(UTC)
                 except Exception:
                     # Fallback to Pacific timezone
                     try:
                         import zoneinfo
 
                         fallback_tz = zoneinfo.ZoneInfo(_get_fallback_timezone())
-                        event_end = event_end.replace(tzinfo=fallback_tz).astimezone(timezone.utc)
+                        event_end = event_end.replace(tzinfo=fallback_tz).astimezone(UTC)
                     except Exception:
                         # Last resort: treat as UTC (should rarely happen)
-                        event_end = event_end.replace(tzinfo=timezone.utc)
+                        event_end = event_end.replace(tzinfo=UTC)
             else:
-                event_end = event_end.astimezone(timezone.utc)
+                event_end = event_end.astimezone(UTC)
 
             # Check overlap with morning window (both in UTC now)
             overlaps = event_start < timeframe_end_utc and event_end > timeframe_start_utc
@@ -628,7 +628,7 @@ class MorningSummaryService:
         for event in timed_events:
             event_start = event.start.date_time
             if event_start.tzinfo is None:
-                event_start = event_start.replace(tzinfo=timezone.utc)
+                event_start = event_start.replace(tzinfo=UTC)
 
             if event_start < early_threshold:
                 return True
@@ -663,13 +663,13 @@ class MorningSummaryService:
         for event in sorted_events:
             event_start = event.start.date_time
             if event_start.tzinfo is None:
-                event_start = event_start.replace(tzinfo=timezone.utc)
+                event_start = event_start.replace(tzinfo=UTC)
 
             # Skip events that start before current time
             if event_start <= current_time:
                 event_end = event.end.date_time
                 if event_end.tzinfo is None:
-                    event_end = event_end.replace(tzinfo=timezone.utc)
+                    event_end = event_end.replace(tzinfo=UTC)
                 current_time = max(current_time, event_end)
                 continue
 
@@ -697,7 +697,7 @@ class MorningSummaryService:
             # Update current time to end of this event
             event_end = event.end.date_time
             if event_end.tzinfo is None:
-                event_end = event_end.replace(tzinfo=timezone.utc)
+                event_end = event_end.replace(tzinfo=UTC)
             current_time = event_end
 
         # Check for free time after last event
@@ -728,9 +728,9 @@ class MorningSummaryService:
             next_start = sorted_events[i + 1].start.date_time
 
             if current_end.tzinfo is None:
-                current_end = current_end.replace(tzinfo=timezone.utc)
+                current_end = current_end.replace(tzinfo=UTC)
             if next_start.tzinfo is None:
-                next_start = next_start.replace(tzinfo=timezone.utc)
+                next_start = next_start.replace(tzinfo=UTC)
 
             gap_minutes = (next_start - current_end).total_seconds() / 60
             if gap_minutes < BACK_TO_BACK_GAP_MINUTES:
@@ -751,7 +751,7 @@ class MorningSummaryService:
 
             event_start = event.start.date_time
             if event_start.tzinfo is None:
-                event_start = event_start.replace(tzinfo=timezone.utc)
+                event_start = event_start.replace(tzinfo=UTC)
 
             # Calculate time until meeting
             time_until_minutes = None
