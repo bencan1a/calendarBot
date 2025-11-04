@@ -11,6 +11,7 @@ from collections.abc import Callable
 from typing import Any, Optional
 
 from .alexa_types import AlexaDoneForDayInfo
+from .lite_datetime_utils import serialize_datetime_optional
 from .lite_models import LiteCalendarEvent
 from .timezone_utils import parse_request_timezone
 
@@ -117,12 +118,12 @@ def format_done_for_day_result(
         "last_meeting_start_iso": (
             iso_serializer(latest_start_utc)
             if iso_serializer and latest_start_utc
-            else (latest_start_utc.isoformat() + "Z" if latest_start_utc else None)
+            else serialize_datetime_optional(latest_start_utc)
         ),
         "last_meeting_end_iso": (
             iso_serializer(latest_end_utc)
             if iso_serializer and latest_end_utc
-            else (latest_end_utc.isoformat() + "Z" if latest_end_utc else None)
+            else serialize_datetime_optional(latest_end_utc)
         ),
         "last_meeting_end_local_iso": (
             latest_end_utc.astimezone(tz).isoformat() if latest_end_utc else None
