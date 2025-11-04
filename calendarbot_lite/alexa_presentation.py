@@ -152,7 +152,7 @@ class PlainTextPresenter:
         """Format launch summary as plain text with full speech generation.
 
         This method generates the complete speech text including done-for-day information.
-        
+
         Args:
             done_info: Done-for-day information
             primary_meeting: Next upcoming meeting (or None)
@@ -181,7 +181,7 @@ class PlainTextPresenter:
         current_meeting: Optional[dict[str, Any]] = None,
     ) -> str:
         """Generate speech for when user has meetings today.
-        
+
         Args:
             next_meeting: Next upcoming meeting (or None)
             done_info: Done-for-day information
@@ -193,7 +193,7 @@ class PlainTextPresenter:
         # If there's a current meeting, acknowledge it first
         if current_meeting:
             speech_text = f"You're currently in {current_meeting['subject']}."
-            
+
             # Add next meeting info if available
             if next_meeting:
                 speech_text += f" After this, your next meeting is {next_meeting['subject']} {next_meeting['duration_spoken']}."
@@ -341,7 +341,7 @@ class SSMLPresenter:
 
         This uses either the meeting renderer (if meetings today) or done-for-day
         renderer (if no meetings today).
-        
+
         Args:
             done_info: Done-for-day information
             primary_meeting: Next upcoming meeting (or None)
