@@ -11,6 +11,7 @@ This file provides essential context, patterns, and commands for AI agents worki
 ### Active vs Archived Codebases
 
 - **ACTIVE PROJECT**: [`calendarbot_lite/`](calendarbot_lite/) - Alexa skill backend with ICS calendar processing
+- **KIOSK DEPLOYMENT**: [`kiosk/`](kiosk/) - Production-ready Raspberry Pi kiosk system (PRIMARY use case)
 - **ARCHIVED PROJECT**: [`calendarbot/`](calendarbot/) - Legacy terminal/web UI application (deprecated, no longer maintained)
 
 **DEFAULT BEHAVIOR**: Unless explicitly instructed otherwise, ALL development work should be in `calendarbot_lite/`.
@@ -27,6 +28,13 @@ This file provides essential context, patterns, and commands for AI agents worki
 - Provides natural language calendar responses via Alexa
 - Serves a web API for calendar data and health monitoring
 - Handles timezone conversions and event prioritization
+
+**kiosk** provides a production-ready Raspberry Pi deployment system:
+- Automated installation with `install-kiosk.sh`
+- Auto-login and X session management
+- Watchdog monitoring with progressive recovery
+- Browser heartbeat detection for frozen displays
+- 24/7 calendar display operation
 
 **Key Technologies**: Python 3.12+, aiohttp, icalendar, python-dateutil, pydantic
 
@@ -80,6 +88,7 @@ pytest tests/lite/ -m "not slow"
 
 - **Production Code**: `calendarbot_lite/*.py` - Core application modules
 - **Routes/Endpoints**: `calendarbot_lite/routes/*.py` - HTTP route handlers
+- **Kiosk Deployment**: `kiosk/` - Raspberry Pi kiosk deployment system and documentation
 - **Tests**: `tests/lite/` or `tests/lite_tests/` - Test modules
 - **Temporary Files**: `tmp/` - Debug scripts, analysis reports (gitignored)
 - **Documentation**: `docs/` - Permanent documentation and guides
@@ -220,6 +229,126 @@ mypy calendarbot_lite
 **Security scanning:**
 ```bash
 bandit -r calendarbot_lite
+```
+
+---
+
+## Raspberry Pi Kiosk Deployment
+
+### Overview
+
+The **`kiosk/`** directory provides a production-ready Raspberry Pi kiosk deployment system designed for 24/7 calendar display operation. **This is a PRIMARY use case** for CalendarBot Lite.
+
+### Quick Start
+
+**Automated Installation (Recommended):**
+```bash
+# 1. Configure
+cd ~/calendarBot/kiosk
+cp install-config.example.yaml install-config.yaml
+nano install-config.yaml  # Set username and ICS URL
+
+# 2. Preview changes
+sudo ./install-kiosk.sh --config install-config.yaml --dry-run
+
+# 3. Install
+sudo ./install-kiosk.sh --config install-config.yaml
+
+# 4. Reboot to start kiosk
+sudo reboot
+```
+
+### Architecture
+
+```
+Boot → systemd
+  ├─> calendarbot-lite@user.service (server on port 8080)
+  ├─> Auto-login to tty1 → .bash_profile → startx → .xinitrc → Chromium
+  └─> calendarbot-kiosk-watchdog@user.service (health monitoring)
+```
+
+### Key Features
+
+- **Automated Installation**: One-command idempotent deployment
+- **Auto-Login & X Session**: Console auto-login triggers kiosk display on boot
+- **Watchdog Monitoring**: Health checks with progressive recovery
+- **Browser Heartbeat**: Detects stuck/frozen browsers via JavaScript
+- **Progressive Recovery**: 3-level escalation (soft reload → browser restart → X restart)
+- **Resource Monitoring**: Degraded mode under system load
+
+### Service Management
+
+```bash
+# Check service status
+systemctl status calendarbot-lite@bencan.service
+systemctl status calendarbot-kiosk-watchdog@bencan.service
+
+# View watchdog logs
+journalctl -u calendarbot-kiosk-watchdog@bencan.service -f
+
+# Restart X session (full kiosk restart)
+sudo systemctl restart auto-login-x-session
+
+# Test browser heartbeat
+curl -X POST http://127.0.0.1:8080/api/browser-heartbeat
+curl -s http://127.0.0.1:8080/api/health | jq '.display_probe'
+```
+
+### Kiosk Directory Structure
+
+```
+kiosk/
+├── README.md                    # Kiosk deployment overview
+├── install-kiosk.sh            # Automated installer (main entry point)
+├── install-config.example.yaml # Configuration template
+├── docs/                       # Comprehensive installation guides
+│   ├── AUTOMATED_INSTALLATION.md
+│   ├── INSTALLATION_OVERVIEW.md
+│   ├── DEPLOYMENT_CHECKLIST.md
+│   ├── MANUAL_STEPS.md
+│   └── 1_BASE_INSTALL.md through 4_LOG_MANAGEMENT.md
+├── config/                     # Configuration files
+│   ├── calendarbot-watchdog    # Watchdog script
+│   ├── monitor.yaml            # Watchdog config
+│   └── *.service files
+├── scripts/                    # Helper scripts
+└── service/                    # systemd unit files
+```
+
+### Documentation
+
+See **[kiosk/README.md](kiosk/README.md)** for complete kiosk documentation:
+- **[Automated Installation Guide](kiosk/docs/AUTOMATED_INSTALLATION.md)** - Complete automation guide
+- **[Installation Overview](kiosk/docs/INSTALLATION_OVERVIEW.md)** - Architecture & workflow
+- **[Deployment Checklist](kiosk/docs/DEPLOYMENT_CHECKLIST.md)** - Verification checklists
+- **[Manual Steps Guide](kiosk/docs/MANUAL_STEPS.md)** - DNS, AWS Lambda, Alexa setup
+
+### Progressive Recovery System
+
+When browser heartbeat fails, watchdog uses 3-level escalation:
+
+1. **Level 0: Soft Reload** (~15s) - Send F5 key for page rendering issues
+2. **Level 1: Browser Restart** (~30s) - Kill/relaunch for memory leaks
+3. **Level 2: X Session Restart** (~60s) - Full X restart for display problems
+
+Recovery escalates after **2 consecutive** heartbeat failures, de-escalates when health resumes.
+
+### Troubleshooting
+
+```bash
+# Check service logs
+journalctl -u calendarbot-kiosk-watchdog@bencan.service -n 50
+
+# Check watchdog state
+cat /var/local/calendarbot-watchdog/state.json | jq
+
+# Reset watchdog state (stop watchdog first)
+sudo systemctl stop calendarbot-kiosk-watchdog@bencan.service
+# Edit /var/local/calendarbot-watchdog/state.json
+sudo systemctl start calendarbot-kiosk-watchdog@bencan.service
+
+# Test soft reload
+DISPLAY=:0 xdotool search --class chromium windowactivate --sync key F5
 ```
 
 ---
@@ -428,12 +557,19 @@ For details on the archived architecture, see legacy sections in [CLAUDE.md](CLA
 
 ## Additional Resources
 
+### Core Documentation
 - **[README.md](README.md)** - Project overview and quick start
 - **[calendarbot_lite/README.md](calendarbot_lite/README.md)** - Module documentation
 - **[docs/](docs/)** - Additional documentation and guides
 - **[.env.example](.env.example)** - Environment configuration reference
 - **[pyproject.toml](pyproject.toml)** - Build configuration and dependencies
 - **[pytest-lite.ini](pytest-lite.ini)** - Pytest configuration for lite tests
+
+### Kiosk Deployment Resources
+- **[kiosk/README.md](kiosk/README.md)** - Kiosk deployment overview
+- **[kiosk/docs/AUTOMATED_INSTALLATION.md](kiosk/docs/AUTOMATED_INSTALLATION.md)** - Automated installation
+- **[kiosk/docs/INSTALLATION_OVERVIEW.md](kiosk/docs/INSTALLATION_OVERVIEW.md)** - Architecture & workflow
+- **[kiosk/docs/DEPLOYMENT_CHECKLIST.md](kiosk/docs/DEPLOYMENT_CHECKLIST.md)** - Verification checklists
 
 ---
 
@@ -458,6 +594,7 @@ For details on the archived architecture, see legacy sections in [CLAUDE.md](CLA
 
 ---
 
-**Last Updated**: 2025-11-03
+**Last Updated**: 2025-11-04
 **Active Project**: calendarbot_lite/
+**Kiosk Deployment**: kiosk/ (PRIMARY use case for production)
 **Archived Project**: calendarbot/ (deprecated)
