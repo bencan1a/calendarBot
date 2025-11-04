@@ -1,4 +1,4 @@
-name: CI/CD Pipeline (Optimized)
+name: CI/CD Pipeline (Fail-Fast Sequential)
 
 on:
   push:
@@ -12,70 +12,11 @@ env:
   COVERAGE_THRESHOLD: 70
 
 jobs:
-  # Quick feedback - Critical path tests (runs on every commit)
-  critical-path:
-    name: Critical Path Tests (<3min target)
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    # OPTIMIZATION: Cache the entire venv directory
-    - name: Cache virtual environment
-      uses: actions/cache@v4
-      id: venv-cache
-      with:
-        path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-        restore-keys: |
-          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
-
-    - name: Create virtual environment
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: python -m venv venv
-
-    - name: Set venv in PATH
-      run: |
-        echo "$PWD/venv/bin" >> $GITHUB_PATH
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
-
-    # OPTIMIZATION: Consolidated pip install, only runs on cache miss
-    - name: Install dependencies
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: |
-        # venv/bin/python handles activation
-        pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -e .[dev]
-
-    - name: Verify cache restoration
-      run: |
-        # venv/bin/python handles activation
-        python --version
-        pip --version
-
-    - name: Run critical path tests
-      run: |
-        venv/bin/python tests/ci_test_runner.py --critical-path
-
-    - name: Upload coverage reports (critical path)
-      uses: codecov/codecov-action@v4
-      if: always()
-      with:
-        file: ./coverage.xml
-        flags: critical-path
-        name: critical-path-coverage
-
-  # Code quality checks
+  # STAGE 1: Static analysis (fail fast on code quality issues)
   quality:
-    name: Code Quality
+    name: Code Quality (lint/type/security)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
     - name: Checkout code
@@ -86,7 +27,6 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    # OPTIMIZATION: Reuse venv cache
     - name: Cache virtual environment
       uses: actions/cache@v4
       id: venv-cache
@@ -108,7 +48,6 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -e .[dev] types-pytz types-python-dateutil
 
@@ -121,12 +60,12 @@ jobs:
     - name: Run security analysis
       run: venv/bin/python tests/ci_test_runner.py --security
 
-  # Full test suite (only on pull requests and main branch)
-  full-tests:
-    name: Full Test Suite
+  # STAGE 2: Critical path smoke tests (fail fast on core functionality)
+  critical-path:
+    name: Critical Path Tests (~2min)
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-    timeout-minutes: 45
+    needs: [quality]
+    timeout-minutes: 8
 
     steps:
     - name: Checkout code
@@ -137,7 +76,6 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    # OPTIMIZATION: Reuse venv cache
     - name: Cache virtual environment
       uses: actions/cache@v4
       id: venv-cache
@@ -159,26 +97,69 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -e .[dev]
 
-    - name: Verify cache restoration
-      run: |
-        python --version
-        pip --version
+    - name: Run critical path tests
+      run: venv/bin/python tests/ci_test_runner.py --critical-path
 
-    - name: Run full test suite
+    - name: Upload critical path coverage
+      uses: codecov/codecov-action@v4
+      if: always()
+      with:
+        file: ./coverage.xml
+        flags: critical-path
+        name: critical-path-coverage
+
+  # STAGE 3: Full test suite WITH coverage (single run, no redundancy)
+  full-tests-with-coverage:
+    name: Full Test Suite + Coverage (~5min)
+    runs-on: ubuntu-latest
+    needs: [critical-path]
+    timeout-minutes: 45
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
+
+    - name: Create virtual environment
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
+
+    - name: Set venv in PATH
       run: |
-        # venv/bin/python handles activation
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+
+    - name: Install dependencies
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: |
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -e .[dev]
+
+    - name: Run full test suite with coverage
+      run: |
         venv/bin/python tests/ci_test_runner.py --full-regression
 
-    - name: Generate coverage report
+    - name: Generate coverage reports
       run: |
-        # venv/bin/python handles activation
         venv/bin/python tests/ci_test_runner.py --coverage-report
 
-    - name: Upload coverage reports
+    - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       if: always()
       with:
@@ -198,11 +179,11 @@ jobs:
           pytest-results.xml
         retention-days: 5
 
-  # Pi Zero2 Performance Gate (critical for resource-constrained deployment)
+  # STAGE 4: Performance validation
   pi-performance-gate:
-    name: Pi Zero2 Performance Check
+    name: Pi Zero2 Performance Check (~2min)
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    needs: [full-tests-with-coverage]
     timeout-minutes: 10
 
     steps:
@@ -214,7 +195,6 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    # OPTIMIZATION: Reuse venv cache
     - name: Cache virtual environment
       uses: actions/cache@v4
       id: venv-cache
@@ -236,18 +216,11 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -e .[dev]
 
-    - name: Verify cache restoration
-      run: |
-        python --version
-        pip --version
-
     - name: Run Pi Zero2 performance gate (50 events)
       run: |
-        # venv/bin/python handles activation
         venv/bin/python tests/ci_performance_benchmark.py --run fifty --output pi_zero_perf_check.json
 
     - name: Upload Pi Zero2 performance results
@@ -258,12 +231,12 @@ jobs:
         path: pi_zero_perf_check.json
         retention-days: 7
 
-  # Coverage enforcement (blocks merge if coverage drops)
-  coverage-gate:
-    name: Coverage Enforcement
+  # STAGE 5: Coverage validation (no test execution, just validate reports)
+  coverage-validation:
+    name: Coverage Validation (~30s)
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-    needs: [critical-path, full-tests]
+    needs: [full-tests-with-coverage]
+    timeout-minutes: 5
 
     steps:
     - name: Checkout code
@@ -274,7 +247,6 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    # OPTIMIZATION: Reuse venv cache
     - name: Cache virtual environment
       uses: actions/cache@v4
       id: venv-cache
@@ -296,81 +268,39 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -e .[dev]
 
-    - name: Verify cache restoration
-      run: |
-        python --version
-        pip --version
+    - name: Download coverage artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: test-results
 
     - name: Validate coverage threshold
       run: |
-        # venv/bin/python handles activation
-        venv/bin/python tests/ci_test_runner.py --coverage --coverage-fail-under ${{ env.COVERAGE_THRESHOLD }}
+        # Check that coverage meets minimum threshold
+        venv/bin/python -c "
+import json
+with open('coverage.json') as f:
+    cov = json.load(f)
+    total = cov['totals']['percent_covered']
+    threshold = ${{ env.COVERAGE_THRESHOLD }}
+    print(f'Coverage: {total:.2f}% (threshold: {threshold}%)')
+    if total < threshold:
+        raise SystemExit(f'Coverage {total:.2f}% is below threshold {threshold}%')
+"
 
     - name: Coverage differential analysis
       run: |
-        # venv/bin/python handles activation
         venv/bin/python tests/ci_test_runner.py --coverage-diff
 
-  # Security tests (always run on PRs)
-  security:
-    name: Security Tests
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    # OPTIMIZATION: Reuse venv cache
-    - name: Cache virtual environment
-      uses: actions/cache@v4
-      id: venv-cache
-      with:
-        path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-        restore-keys: |
-          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
-
-    - name: Create virtual environment
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: python -m venv venv
-
-    - name: Set venv in PATH
-      run: |
-        echo "$PWD/venv/bin" >> $GITHUB_PATH
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
-
-    - name: Install dependencies
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: |
-        # venv/bin/python handles activation
-        pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -e .[dev]
-
-    - name: Verify cache restoration
-      run: |
-        python --version
-        pip --version
-
-    - name: Run security tests
-      run: |
-        # venv/bin/python handles activation
-        venv/bin/python tests/ci_test_runner.py --security
-
-  # Deployment readiness check
+  # STAGE 6: Deployment readiness (final gate)
   deployment-check:
     name: Deployment Readiness
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    needs: [critical-path, quality, full-tests, pi-performance-gate, security]
+    needs: [quality, critical-path, full-tests-with-coverage, pi-performance-gate, coverage-validation]
+    timeout-minutes: 5
 
     steps:
     - name: Checkout code
@@ -381,7 +311,6 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    # OPTIMIZATION: Reuse venv cache
     - name: Cache virtual environment
       uses: actions/cache@v4
       id: venv-cache
@@ -403,19 +332,17 @@ jobs:
     - name: Install dependencies
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
-        # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -e .[dev]
 
-    - name: Verify cache restoration
-      run: |
-        python --version
-        pip --version
-
     - name: Validate calendarbot_lite startup
       run: |
-        # venv/bin/python handles activation
         timeout 30 venv/bin/python -m calendarbot_lite --help || true
+
+    - name: Download all artifacts for deployment package
+      uses: actions/download-artifact@v4
+      with:
+        name: test-results
 
     - name: Upload deployment artifacts
       uses: actions/upload-artifact@v4
