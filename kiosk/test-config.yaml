@@ -1,0 +1,36 @@
+# Test configuration for installation script
+deployment_path: minimal
+
+sections:
+  section_1_base: true
+  section_2_kiosk: false
+  section_3_alexa: false
+  section_4_monitoring: false
+
+system:
+  username: devcontainers
+  home_dir: /home/devcontainers
+  repo_dir: /home/devcontainers/calendarBot
+  venv_dir: /home/devcontainers/calendarBot/venv
+
+calendarbot:
+  ics_url: "https://outlook.office365.com/owa/calendar/test123/calendar.ics"
+  web_host: "0.0.0.0"
+  web_port: 8080
+  refresh_interval: 300
+  debug: false
+  log_level: "INFO"
+  noninteractive: true
+
+installation:
+  backup_enabled: true
+  backup_dir: "/tmp/calendarbot-test-backup"
+  skip_installed_packages: true
+  auto_reboot: false
+  run_verification: true
+  update_mode: false
+
+advanced:
+  python_executable: "python3"
+  apt_update: false
+  apt_upgrade: false
