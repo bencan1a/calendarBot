@@ -22,7 +22,7 @@ CalendarBot Lite provides focused ICS calendar parsing, RRULE expansion, and nat
 
 ### Prerequisites
 
-- Python 3.9+
+- Python 3.12+
 - ICS calendar feed URL (Office 365, Google Calendar, iCloud, etc.)
 
 ### Installation

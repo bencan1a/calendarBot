@@ -54,7 +54,7 @@ class TimezoneService:
         """
         if not ZONEINFO_AVAILABLE and not PYTZ_AVAILABLE:
             raise TimezoneError(
-                "No timezone library available. Install Python 3.9+ for zoneinfo "
+                "No timezone library available. Install Python 3.12+ for zoneinfo "
                 "or install pytz package."
             )
 
