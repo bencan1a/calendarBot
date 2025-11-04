@@ -12,8 +12,9 @@ Correlation IDs enable:
 """
 
 import uuid
+from collections.abc import Callable
 from contextvars import ContextVar
-from typing import Any, Callable
+from typing import Any
 
 from aiohttp import web
 
