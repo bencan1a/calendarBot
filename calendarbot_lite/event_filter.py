@@ -138,7 +138,7 @@ class EventFilter:
                 return dt.replace(tzinfo=fallback_tz)
             except Exception:
                 # Last resort: treat as UTC
-                return dt.replace(tzinfo=datetime.timezone.utc)
+                return dt.replace(tzinfo=datetime.UTC)
 
     def filter_skipped_events(
         self,

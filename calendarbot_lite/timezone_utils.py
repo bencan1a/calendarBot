@@ -83,7 +83,7 @@ class TimezoneDetector:
 
             # Strategy 2: Try UTC offset detection
             now_local = datetime.datetime.now()
-            now_utc = datetime.datetime.now(datetime.timezone.utc)
+            now_utc = datetime.datetime.now(datetime.UTC)
             offset = now_local - now_utc.replace(tzinfo=None)
 
             offset_hours = round(offset.total_seconds() / 3600)
@@ -152,15 +152,15 @@ class TimeProvider:
 
                 # Convert to UTC
                 if dt.tzinfo is not None:
-                    return dt.astimezone(datetime.timezone.utc)
+                    return dt.astimezone(datetime.UTC)
                 # Assume naive datetime is already UTC
-                return dt.replace(tzinfo=datetime.timezone.utc)
+                return dt.replace(tzinfo=datetime.UTC)
 
             except Exception as e:
                 logger.warning("Failed to parse CALENDARBOT_TEST_TIME=%r: %s", test_time, e)
                 # Fall through to real time
 
-        return datetime.datetime.now(datetime.timezone.utc)
+        return datetime.datetime.now(datetime.UTC)
 
     def _enhance_datetime_with_dst_detection(
         self,
@@ -352,7 +352,7 @@ def parse_request_timezone(tz_str: str | None) -> datetime.tzinfo:
         >>> tz = parse_request_timezone("Invalid/Timezone")  # Returns UTC with warning
     """
     if not tz_str:
-        return datetime.timezone.utc
+        return datetime.UTC
 
     try:
         import zoneinfo
@@ -360,4 +360,4 @@ def parse_request_timezone(tz_str: str | None) -> datetime.tzinfo:
         return zoneinfo.ZoneInfo(tz_str)
     except Exception:
         logger.warning("Invalid timezone %r, falling back to UTC", tz_str)
-        return datetime.timezone.utc
+        return datetime.UTC

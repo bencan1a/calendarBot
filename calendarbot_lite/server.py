@@ -473,8 +473,8 @@ def _serialize_iso(dt: datetime.datetime | None) -> str | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=datetime.timezone.utc)
-    return dt.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+        dt = dt.replace(tzinfo=datetime.UTC)
+    return dt.astimezone(datetime.UTC).isoformat().replace("+00:00", "Z")
 
 
 def _get_precomputed_response(cache_key: str) -> dict[str, Any] | None:
@@ -518,10 +518,10 @@ def _compute_last_meeting_end_for_today(
 
             tz = zoneinfo.ZoneInfo(request_tz)
         else:
-            tz = datetime.timezone.utc  # type: ignore[assignment]
+            tz = datetime.UTC  # type: ignore[assignment]
     except Exception:
         logger.warning("Invalid timezone %r, falling back to UTC", request_tz)
-        tz = datetime.timezone.utc  # type: ignore[assignment]
+        tz = datetime.UTC  # type: ignore[assignment]
 
     # Get today's date in the target timezone
     today_date = now_utc.astimezone(tz).date()
