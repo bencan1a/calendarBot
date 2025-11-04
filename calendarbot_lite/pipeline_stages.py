@@ -234,7 +234,7 @@ class TimeWindowStage:
                     elif context.window_end and getattr(context.window_end, "tzinfo", None):
                         tz = context.window_end.tzinfo
                     else:
-                        tz = dt.timezone.utc
+                        tz = dt.UTC
                     event_time = dt.datetime.combine(event_time, dt.time.min, tzinfo=tz)
 
                 # Check if event is within window
