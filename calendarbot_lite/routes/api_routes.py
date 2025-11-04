@@ -6,6 +6,8 @@ import asyncio
 import logging
 from typing import Any
 
+from ..lite_datetime_utils import serialize_datetime_utc
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,7 +50,7 @@ def register_api_routes(
     async def health_check(_request: Any) -> Any:
         """Health check endpoint for monitoring system status."""
         now = time_provider()
-        now_iso = now.isoformat() + "Z"
+        now_iso = serialize_datetime_utc(now)
 
         # Get health status from tracker
         health_status = health_tracker.get_health_status(now_iso)
@@ -214,7 +216,7 @@ def register_api_routes(
         Called periodically by JavaScript in the browser to prove the page is
         alive and rendering. Watchdog can check this to detect blank pages."""
         now = time_provider()
-        now_iso = now.isoformat() + "Z"
+        now_iso = serialize_datetime_utc(now)
 
         # Record that browser sent a heartbeat
         health_tracker.record_render_probe(ok=True, notes="browser-heartbeat")
