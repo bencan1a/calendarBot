@@ -25,7 +25,7 @@ from calendarbot_lite.lite_rrule_expander import (
     get_worker_pool,
 )
 
-pytestmark = [pytest.mark.integration, pytest.mark.performance]
+pytestmark = [pytest.mark.integration, pytest.mark.performance, pytest.mark.slow]
 
 
 class TestRRuleStreamingOptimization:

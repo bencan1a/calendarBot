@@ -1,6 +1,10 @@
 """Tests for Alexa response cache."""
 
+import pytest
+
 from calendarbot_lite.alexa_response_cache import ResponseCache
+
+pytestmark = pytest.mark.unit
 
 
 def test_response_cache_basic():

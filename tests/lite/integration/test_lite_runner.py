@@ -93,6 +93,7 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.mark.integration
+@pytest.mark.slow  # Parametrized 31 times, 60s timeout each - not for critical path
 @pytest.mark.timeout(60)
 def test_individual_spec_execution(
     lite_runner: LiteTestRunner, test_spec: dict

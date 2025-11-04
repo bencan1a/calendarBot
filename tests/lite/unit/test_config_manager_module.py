@@ -78,6 +78,7 @@ class TestConfigManager:
 
         assert loaded_vars == []
 
+    @pytest.mark.smoke  # Critical path: Configuration loading validation
     def test_build_config_from_env_ics_url(self):
         """Should build config from CALENDARBOT_ICS_URL environment variable."""
         with clean_env(CALENDARBOT_ICS_URL="https://example.com/calendar.ics"):

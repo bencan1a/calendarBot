@@ -158,6 +158,7 @@ class TestValidateICSContent:
 class TestParseICSContentBasic:
     """Test basic ICS content parsing."""
 
+    @pytest.mark.smoke  # Critical path: Core parsing functionality
     def test_parse_simple_event(self, parser):
         """Test parsing a simple single event."""
         result = parser.parse_ics_content(SIMPLE_ICS)

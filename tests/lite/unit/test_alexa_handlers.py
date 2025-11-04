@@ -646,6 +646,7 @@ async def test_done_for_day_handler_when_meetings_ended_then_returns_done_messag
 
 
 @pytest.mark.unit
+@pytest.mark.smoke  # Critical path: Core Alexa handler functionality
 async def test_launch_summary_handler_when_meetings_today_then_returns_summary(
     mock_time_provider: Mock,
     mock_skipped_store: Mock,

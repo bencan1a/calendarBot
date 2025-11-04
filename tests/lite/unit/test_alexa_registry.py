@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from calendarbot_lite.alexa_handlers import (
     DoneForDayHandler,
     LaunchSummaryHandler,
@@ -15,10 +17,13 @@ from calendarbot_lite.alexa_registry import (
     get_handler_info_summary,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestAlexaHandlerRegistry:
     """Test Alexa handler registry functionality."""
 
+    @pytest.mark.smoke  # Critical path: Alexa handler registry validation
     def test_handlers_are_registered(self):
         """Test that all handlers are registered."""
         handlers = AlexaHandlerRegistry.get_handlers()
