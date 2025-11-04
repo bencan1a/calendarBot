@@ -222,6 +222,21 @@ class TimeWindowStage:
             for event in context.events:
                 event_time = event.start.date_time
 
+                # Convert date to datetime for comparison (handles all-day events)
+                import datetime as dt
+                if isinstance(event_time, dt.date) and not isinstance(event_time, dt.datetime):
+                    # All-day event: convert to midnight in the same timezone as the window
+                    # Use window_start's timezone, or UTC if no window_start
+                    # Prefer window_start's tzinfo, then window_end's, then UTC
+                    tz = None
+                    if context.window_start and getattr(context.window_start, "tzinfo", None):
+                        tz = context.window_start.tzinfo
+                    elif context.window_end and getattr(context.window_end, "tzinfo", None):
+                        tz = context.window_end.tzinfo
+                    else:
+                        tz = dt.timezone.utc
+                    event_time = dt.datetime.combine(event_time, dt.time.min, tzinfo=tz)
+
                 # Check if event is within window
                 if context.window_start and event_time < context.window_start:
                     continue

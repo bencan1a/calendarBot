@@ -1,0 +1,12 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CalendarBot Test//Alexa Test Calendar//EN
+BEGIN:VEVENT
+UID:single-meeting-today-001@example.com
+DTSTART:20251105T180000Z
+DTEND:20251105T183000Z
+SUMMARY:Team Standup
+DESCRIPTION:Daily team standup meeting
+LOCATION:Conference Room A
+END:VEVENT
+END:VCALENDAR
