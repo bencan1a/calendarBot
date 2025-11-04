@@ -371,19 +371,30 @@ class LiteEventComponentParser:
             location, is_all_day
         """
         uid = str(component.get("UID", str(uuid.uuid4())))
-        summary = str(component.get("SUMMARY", "No Title"))
+        summary_raw = str(component.get("SUMMARY", "No Title"))
+        # Truncate subject to maximum length (validation will strip whitespace)
+        from .config_manager import MAX_EVENT_SUBJECT_LENGTH
+        summary = summary_raw[:MAX_EVENT_SUBJECT_LENGTH] if len(summary_raw) > MAX_EVENT_SUBJECT_LENGTH else summary_raw
 
         # Description
         description = component.get("DESCRIPTION")
         body_preview = None
         if description:
-            body_preview = str(description)[:200]  # Truncate for preview
+            # Truncate description to maximum length (validation allows 500 chars)
+            from .config_manager import MAX_EVENT_DESCRIPTION_LENGTH
+            desc_str = str(description)
+            body_preview = desc_str[:MAX_EVENT_DESCRIPTION_LENGTH] if len(desc_str) > MAX_EVENT_DESCRIPTION_LENGTH else desc_str
 
         # Location
         location = None
         location_str = component.get("LOCATION")
         if location_str:
-            location = LiteLocation(display_name=str(location_str))
+            # Truncate location to maximum length
+            from .config_manager import MAX_EVENT_LOCATION_LENGTH
+            loc_str = str(location_str)
+            loc_truncated = loc_str[:MAX_EVENT_LOCATION_LENGTH] if len(loc_str) > MAX_EVENT_LOCATION_LENGTH else loc_str
+            if loc_truncated.strip():  # Only create location if non-empty after truncation
+                location = LiteLocation(display_name=loc_truncated)
 
         # All-day events
         dtstart = component.get("DTSTART")
