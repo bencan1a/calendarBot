@@ -2,7 +2,6 @@
 
 import asyncio
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp import web
