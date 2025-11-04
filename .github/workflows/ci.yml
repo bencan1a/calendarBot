@@ -33,7 +33,7 @@ jobs:
       id: venv-cache
       with:
         path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
         restore-keys: |
           venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
@@ -52,17 +52,13 @@ jobs:
       run: |
         # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -r requirements.txt pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout ruff mypy bandit
+        pip install --prefer-binary -e .[dev]
 
     - name: Verify cache restoration
       run: |
         # venv/bin/python handles activation
         python --version
         pip --version
-
-    - name: Install package in editable mode
-      run: |
-        venv/bin/pip install -e .
 
     - name: Run critical path tests
       run: |
@@ -96,7 +92,7 @@ jobs:
       id: venv-cache
       with:
         path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
         restore-keys: |
           venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
@@ -114,11 +110,7 @@ jobs:
       run: |
         # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -r requirements.txt ruff mypy bandit types-pytz types-python-dateutil
-
-    - name: Install package in editable mode
-      run: |
-        venv/bin/pip install -e .
+        pip install --prefer-binary -e .[dev] types-pytz types-python-dateutil
 
     - name: Run linting
       run: venv/bin/python tests/ci_test_runner.py --lint
@@ -151,7 +143,7 @@ jobs:
       id: venv-cache
       with:
         path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
         restore-keys: |
           venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
@@ -169,11 +161,12 @@ jobs:
       run: |
         # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -r requirements.txt pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout
+        pip install --prefer-binary -e .[dev]
 
-    - name: Install package in editable mode
+    - name: Verify cache restoration
       run: |
-        venv/bin/pip install -e .
+        python --version
+        pip --version
 
     - name: Run full test suite
       run: |
@@ -227,7 +220,7 @@ jobs:
       id: venv-cache
       with:
         path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
         restore-keys: |
           venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
@@ -245,11 +238,12 @@ jobs:
       run: |
         # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -r requirements.txt
+        pip install --prefer-binary -e .[dev]
 
-    - name: Install package in editable mode
+    - name: Verify cache restoration
       run: |
-        venv/bin/pip install -e .
+        python --version
+        pip --version
 
     - name: Run Pi Zero2 performance gate (50 events)
       run: |
@@ -286,7 +280,7 @@ jobs:
       id: venv-cache
       with:
         path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
         restore-keys: |
           venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
@@ -304,11 +298,12 @@ jobs:
       run: |
         # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -r requirements.txt pytest pytest-asyncio pytest-cov
+        pip install --prefer-binary -e .[dev]
 
-    - name: Install package in editable mode
+    - name: Verify cache restoration
       run: |
-        venv/bin/pip install -e .
+        python --version
+        pip --version
 
     - name: Validate coverage threshold
       run: |
@@ -340,7 +335,7 @@ jobs:
       id: venv-cache
       with:
         path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
         restore-keys: |
           venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
@@ -358,11 +353,12 @@ jobs:
       run: |
         # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -r requirements.txt bandit
+        pip install --prefer-binary -e .[dev]
 
-    - name: Install package in editable mode
+    - name: Verify cache restoration
       run: |
-        venv/bin/pip install -e .
+        python --version
+        pip --version
 
     - name: Run security tests
       run: |
@@ -391,7 +387,7 @@ jobs:
       id: venv-cache
       with:
         path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
         restore-keys: |
           venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
@@ -409,11 +405,12 @@ jobs:
       run: |
         # venv/bin/python handles activation
         pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -r requirements.txt
+        pip install --prefer-binary -e .[dev]
 
-    - name: Install package in editable mode
+    - name: Verify cache restoration
       run: |
-        venv/bin/pip install -e .
+        python --version
+        pip --version
 
     - name: Validate calendarbot_lite startup
       run: |
