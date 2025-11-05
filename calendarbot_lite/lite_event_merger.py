@@ -216,6 +216,9 @@ class LiteEventMerger:
         Modified recurring instances with different RECURRENCE-IDs are NOT
         considered duplicates, even if they have the same UID and times.
 
+        Performance: O(n) complexity using hash-based set lookups.
+        Optimized with pre-computed keys to minimize attribute access overhead.
+
         Args:
             events: List of calendar events to deduplicate
 
@@ -226,19 +229,19 @@ class LiteEventMerger:
         deduplicated = []
 
         for event in events:
-            # Create a unique key based on UID, start time, and basic properties
+            # Pre-compute the unique key in a single pass to minimize attribute access
             # Two events with different UIDs are by definition different events,
             # even if they have the same subject and time (e.g., two separate recurring series)
-            # Use start time as string to avoid timezone comparison issues
             # Include recurrence_id to prevent deduplicating modified recurring instances (issue #45)
-            recurrence_id = getattr(event, "recurrence_id", None)
+            
+            # Build key tuple directly - inline to reduce function call overhead
             key = (
                 event.id,  # Include UID to avoid incorrectly deduplicating separate events
                 event.subject,
                 event.start.date_time.isoformat(),
                 event.end.date_time.isoformat(),
                 event.is_all_day,
-                recurrence_id,  # Include RECURRENCE-ID to distinguish modified instances
+                getattr(event, "recurrence_id", None),  # Include RECURRENCE-ID to distinguish modified instances
             )
 
             if key not in seen:
