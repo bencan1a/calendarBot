@@ -956,8 +956,8 @@ async def run_scenario(
                 env["CALENDARBOT_REFRESH_INTERVAL"] = "5"
 
                 # Start server process
-                lite_process = subprocess.Popen(
-                    lite_cmd,
+                lite_process = subprocess.Popen(  # nosec B603
+                    lite_cmd,  # Safe: lite_cmd is a list constructed from validated paths
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     cwd=str(Path(__file__).parent.parent),  # calendarbot_lite directory

@@ -473,9 +473,12 @@ def configure_monitoring_logging(
     """
     # Determine log level with environment override
     log_level = level or os.environ.get("CALENDARBOT_LOG_LEVEL", "INFO")
-    assert log_level is not None  # Guaranteed by the or expression with default
+    # log_level is guaranteed non-None by the or expression with default "INFO"
     if os.environ.get("CALENDARBOT_DEBUG", "").lower() in ("true", "1", "yes"):
         log_level = "DEBUG"
+
+    # Type narrowing: ensure log_level is str
+    assert isinstance(log_level, str)
 
     # Setup local file path if directory provided
     local_file = None
