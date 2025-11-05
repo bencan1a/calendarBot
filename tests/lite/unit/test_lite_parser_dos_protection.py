@@ -82,6 +82,7 @@ END:VEVENT
 
     # Parser should stop and return failure
     assert not result.success
+    assert result.error_message is not None
     assert "iteration limit exceeded" in result.error_message.lower()
     assert str(MAX_PARSER_ITERATIONS) in result.error_message
     # Should have parsed some events before hitting limit
@@ -130,6 +131,7 @@ END:VCALENDAR
     # Parser should stop and return failure due to timeout OR iteration limit
     # Both are acceptable since they protect against DoS
     assert not result.success
+    assert result.error_message is not None
     # Accept either timeout or iteration limit as valid DoS protection
     assert (
         "timeout exceeded" in result.error_message.lower()
@@ -161,7 +163,7 @@ PRODID:Malformed Calendar
     assert result is not None
     # Malformed ICS may fail for various reasons - key is it doesn't hang
     # Common outcomes: iteration limit, incomplete event, or natural completion
-    if not result.success:
+    if not result.success and result.error_message is not None:
         error_lower = result.error_message.lower()
         # Accept various failure modes as long as it doesn't hang
         assert (
@@ -235,6 +237,7 @@ END:VEVENT
     result = await parse_ics_stream(stream, source_url="test://security-test")
 
     assert not result.success
+    assert result.error_message is not None
     assert "iteration limit exceeded" in result.error_message.lower()
     # Verify source URL is tracked for security audit trail
     assert result.source_url == "test://security-test"

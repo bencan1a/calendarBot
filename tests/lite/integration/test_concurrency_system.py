@@ -225,20 +225,18 @@ class TestRRuleWorkerPool:
 
         pool = RRuleWorkerPool(settings)
 
-        # Add a mock task
-        mock_task = Mock()
-        mock_task.done.return_value = False
-        mock_task.cancel = Mock()
-        pool._active_tasks.add(mock_task)
+        # Simulate having created semaphores for multiple event loops
+        # by directly adding to the internal dictionary
+        pool._semaphores[123] = asyncio.Semaphore(1)
+        pool._semaphores[456] = asyncio.Semaphore(1)
+        pool._semaphores[789] = asyncio.Semaphore(1)
 
-        with patch("asyncio.gather", new_callable=AsyncMock) as mock_gather:
-            mock_gather.return_value = None
+        assert len(pool._semaphores) == 3
 
-            await pool.shutdown()
+        await pool.shutdown()
 
-            mock_task.cancel.assert_called_once()
-            mock_gather.assert_called_once()
-            assert len(pool._active_tasks) == 0
+        # Shutdown should clear all semaphores
+        assert len(pool._semaphores) == 0
 
     def test_get_worker_pool_singleton(self):
         """Test that get_worker_pool returns singleton instance."""

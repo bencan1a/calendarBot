@@ -5,6 +5,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, UTC
 import logging
+import threading
 import time
 from typing import Any, Optional
 from collections.abc import AsyncIterator
@@ -78,8 +79,10 @@ class RRuleWorkerPool:
         self.time_budget_ms = config.expansion_time_budget_ms_per_rule
         self.yield_frequency = config.expansion_yield_frequency
 
-        self._semaphore = asyncio.Semaphore(self.concurrency)
-        self._active_tasks: set[asyncio.Task] = set()
+        # Thread-safe per-event-loop semaphore storage
+        # Each event loop gets its own semaphore to avoid cross-loop contamination
+        self._semaphores: dict[int, asyncio.Semaphore] = {}
+        self._semaphore_lock = threading.Lock()
 
         logger.debug(
             "RRuleWorkerPool initialized: concurrency=%d, max_occurrences=%d, "
@@ -90,6 +93,37 @@ class RRuleWorkerPool:
             self.time_budget_ms,
             self.yield_frequency,
         )
+
+    def _get_semaphore(self) -> asyncio.Semaphore:
+        """Get or create semaphore for the current event loop.
+
+        This ensures thread safety by creating one semaphore per event loop,
+        preventing cross-loop contamination when multiple concurrent requests
+        run in different event loops.
+
+        Returns:
+            asyncio.Semaphore bound to the current event loop
+        """
+        try:
+            loop = asyncio.get_running_loop()
+            loop_id = id(loop)
+        except RuntimeError:
+            # No running loop - shouldn't happen in async context, but handle gracefully
+            logger.warning("_get_semaphore called outside async context")
+            # Create a temporary semaphore (won't be cached)
+            return asyncio.Semaphore(self.concurrency)
+
+        # Thread-safe access to semaphore dictionary
+        with self._semaphore_lock:
+            if loop_id not in self._semaphores:
+                # Create new semaphore for this event loop
+                self._semaphores[loop_id] = asyncio.Semaphore(self.concurrency)
+                logger.debug(
+                    "Created semaphore for event loop %s (total loops: %d)",
+                    loop_id,
+                    len(self._semaphores)
+                )
+            return self._semaphores[loop_id]
 
     async def expand_rrule_stream(
         self,
@@ -110,7 +144,9 @@ class RRuleWorkerPool:
         Raises:
             LiteRRuleExpansionError: If RRULE expansion fails
         """
-        async with self._semaphore:
+        # Get semaphore for current event loop (thread-safe)
+        semaphore = self._get_semaphore()
+        async with semaphore:
             event_subject = getattr(master_event, "subject", "")
             logger.debug(
                 "Starting streaming RRULE expansion for event %s, subject: %r",
@@ -383,20 +419,17 @@ class RRuleWorkerPool:
         return events
 
     async def shutdown(self) -> None:
-        """Shutdown worker pool and cancel active tasks."""
+        """Shutdown worker pool and clean up per-loop semaphores."""
         logger.debug("Shutting down RRuleWorkerPool")
 
-        # Cancel all active tasks
-        for task in self._active_tasks:
-            if not task.done():
-                task.cancel()
-
-        # Wait for tasks to complete
-        if self._active_tasks:
-            await asyncio.gather(*self._active_tasks, return_exceptions=True)
-
-        self._active_tasks.clear()
-        logger.debug("RRuleWorkerPool shutdown complete")
+        # Clean up semaphores (thread-safe)
+        with self._semaphore_lock:
+            num_loops = len(self._semaphores)
+            self._semaphores.clear()
+            logger.debug(
+                "RRuleWorkerPool shutdown complete: cleared %d event loop semaphores",
+                num_loops
+            )
 
 
 # Global worker pool instance (created on first use)

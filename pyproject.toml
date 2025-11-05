@@ -369,6 +369,7 @@ markers = [
     
     # Performance and execution characteristics
     "performance: Performance and load tests",
+    "memory: Memory usage and resource leak tests",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "fast: Quick-executing tests (under 30 seconds)",
     
