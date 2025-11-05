@@ -474,13 +474,22 @@ class LiteICSParser:
             except Exception:
                 max_superset = 1500
 
-            # Split limit: 70% for masters (recurring), 30% for non-masters
-            # This ensures BOTH types are bounded, preventing unbounded growth
-            masters_limit = int(max_superset * 0.7)
-            nonmasters_limit = int(max_superset * 0.3)
+            # Split limit between masters (recurring) and non-masters.
+            # masters_ratio and nonmasters_ratio control the proportion of the superset limit
+            # allocated to recurring (masters) and non-recurring (non-masters) events, respectively.
+            # This ensures BOTH types are bounded, preventing unbounded growth.
+            masters_ratio = (
+                0.7  # 70% for recurring event masters (chosen to prioritize RRULE expansion)
+            )
+            nonmasters_ratio = 0.3  # 30% for non-recurring events
+            masters_limit = int(max_superset * masters_ratio)
+            nonmasters_limit = int(max_superset * nonmasters_ratio)
 
-            raw_components_masters: list[Any] = []  # Recurring events (with RRULE)
-            raw_components_nonmasters: list[Any] = []  # Single events (no RRULE)
+            from collections import deque
+
+            raw_components_masters: deque[Any] = deque()  # Recurring events (with RRULE)
+            raw_components_nonmasters: deque[Any] = deque()  # Single events (no RRULE)
+            raw_components_nonmasters: deque[Any] = deque()  # Single events (no RRULE)
 
             warnings = []
             errors = []
@@ -503,16 +512,16 @@ class LiteICSParser:
                         # Issue #49: Add component to appropriate list with bounded size
                         # This replaces the old unbounded "keep all masters" approach
                         if bool(component.get("RRULE")):
-                            # Recurring event (master)
                             if len(raw_components_masters) >= masters_limit:
                                 # Remove oldest master (FIFO) to stay within limit
-                                raw_components_masters.pop(0)
+                                raw_components_masters.popleft()
+                            raw_components_masters.append(component)
                             raw_components_masters.append(component)
                         else:
-                            # Non-recurring event
                             if len(raw_components_nonmasters) >= nonmasters_limit:
                                 # Remove oldest non-master (FIFO) to stay within limit
-                                raw_components_nonmasters.pop(0)
+                                raw_components_nonmasters.popleft()
+                            raw_components_nonmasters.append(component)
                             raw_components_nonmasters.append(component)
 
                         # DEBUG: log raw component fields prior to mapping to LiteCalendarEvent
@@ -600,8 +609,12 @@ class LiteICSParser:
             if recurring_event_count > 0:
                 try:
                     # Issue #49: Combine masters and non-masters for RRULE expansion
-                    # Both lists are now bounded, preventing unbounded memory growth
-                    raw_components_superset = raw_components_masters + raw_components_nonmasters
+                    raw_components_superset = list(raw_components_masters) + list(
+                        raw_components_nonmasters
+                    )
+                    raw_components_superset = list(raw_components_masters) + list(
+                        raw_components_nonmasters
+                    )
 
                     # Pass the raw components we collected for RRULE expansion
                     # Use the superset of raw components collected during streaming so RRULE masters

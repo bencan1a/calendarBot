@@ -137,9 +137,23 @@ class TestSupersetMemoryLeak:
 
         def spy_on_superset(ics_content, source_url=None):
             """Wrapper to spy on superset size during parsing."""
-            # We need to intercept during the streaming loop
-            # Let's patch the streaming parser's parse_stream to track superset
-            result = original_parse_with_streaming(ics_content, source_url)
+            # Patch the superset list inside the streaming parser to track its size
+            from unittest.mock import patch
+
+            superset_sizes = actual_superset_sizes
+
+            # Patch the list used for the superset inside the streaming parser
+            # This assumes the attribute is named '_raw_components_superset'
+            # If the attribute name is different, update accordingly
+            def superset_append_spy(self, item):
+                orig_append(item)
+                superset_sizes.append(len(self))
+
+            result = None
+            with patch("calendarbot_lite.lite_parser.LiteICSParser._raw_components_superset", new_callable=list) as superset:
+                orig_append = superset.append
+                superset.append = lambda item: superset_append_spy(superset, item)
+                result = original_parse_with_streaming(ics_content, source_url)
             return result
 
         with patch.object(parser, '_parse_with_streaming', side_effect=spy_on_superset):
@@ -201,10 +215,10 @@ class TestSupersetMemoryLeak:
 
         # This assertion will FAIL with the current bug, demonstrating the issue
         # After fix, this should pass
-        # assert memory_used_mb < max_expected_mb, (
-        #     f"Memory usage {memory_used_mb:.2f}MB exceeds expected {max_expected_mb}MB. "
-        #     "This suggests superset is not properly bounded."
-        # )
+        assert memory_used_mb < max_expected_mb, (
+            f"Memory usage {memory_used_mb:.2f}MB exceeds expected {max_expected_mb}MB. "
+            "This suggests superset is not properly bounded."
+        )
 
         # For now, just report the memory usage
         # The fix should reduce this significantly
@@ -265,11 +279,11 @@ class TestSupersetMemoryLeak:
 
         # For now, just report timing
         # After fix, this should be much faster
-        # max_expected_time = 2.0  # seconds
-        # assert elapsed_time < max_expected_time, (
-        #     f"Parsing took {elapsed_time:.3f}s, expected < {max_expected_time}s. "
-        #     "This suggests O(n²) performance issue."
-        # )
+        max_expected_time = 2.0  # seconds
+        assert elapsed_time < max_expected_time, (
+            f"Parsing took {elapsed_time:.3f}s, expected < {max_expected_time}s. "
+            "This suggests O(n²) performance issue."
+        )
 
 
 class TestSupersetBoundaryConditions:

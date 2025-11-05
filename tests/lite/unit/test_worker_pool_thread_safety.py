@@ -304,19 +304,22 @@ async def test_semaphore_concurrency_limit():
 
     concurrent_count = 0
     max_concurrent = 0
+    lock = asyncio.Lock()
 
     async def track_concurrent_expansion():
         nonlocal concurrent_count, max_concurrent
         semaphore = pool._get_semaphore()
 
         async with semaphore:
-            concurrent_count += 1
-            max_concurrent = max(max_concurrent, concurrent_count)
+            async with lock:
+                concurrent_count += 1
+                max_concurrent = max(max_concurrent, concurrent_count)
 
             # Simulate some work
             await asyncio.sleep(0.01)
 
-            concurrent_count -= 1
+            async with lock:
+                concurrent_count -= 1
 
     # Try to run 5 concurrent expansions
     await asyncio.gather(*[track_concurrent_expansion() for _ in range(5)])
