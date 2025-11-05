@@ -230,11 +230,11 @@ def test_following_case_sensitive(parser):
 
 
 def test_partial_following_text(parser):
-    """'Following:' detection uses substring match, not prefix."""
+    """'Following:' detection is case-sensitive (exact 'Following:' required)."""
     ev = make_event(summary="Now following: guidelines")
     result = parser._map_transparency_to_status("OPAQUE", None, ev)
-    # Uses 'in' operator, not startswith, so this does NOT trigger
-    # because it's lowercase "following:" not "Following:"
+    # Does NOT trigger because it's lowercase "following:" not "Following:"
+    # The detection is case-sensitive and requires exact "Following:" string
     assert result == LiteEventStatus.BUSY
 
 
