@@ -9,9 +9,11 @@ from calendarbot_lite.alexa_ssml import (
     _basic_tag_balance_check,
     _compose_fragments,
     _escape_text_for_ssml,
+    _escape_text_for_ssml_preserving_tags,
     _select_urgency,
     _should_include_duration,
     _truncate_title,
+    _wrap_times_with_say_as,
     render_done_for_day_ssml,
     render_meeting_ssml,
     render_time_until_ssml,
@@ -80,6 +82,102 @@ class TestEscapeTextForSsml:
         assert _escape_text_for_ssml(None) == ""  # type: ignore
         assert _escape_text_for_ssml(123) == ""  # type: ignore
         assert _escape_text_for_ssml([]) == ""  # type: ignore
+
+
+class TestWrapTimesWithSayAs:
+    """Tests for _wrap_times_with_say_as helper function."""
+
+    def test_wrap_times_when_single_time_then_wrapped(self):
+        """Test wrapping a single time pattern."""
+        text = "Meeting at 9:30 am"
+        expected = 'Meeting at <say-as interpret-as="time">9:30am</say-as>'
+        assert _wrap_times_with_say_as(text) == expected
+
+    def test_wrap_times_when_multiple_times_then_all_wrapped(self):
+        """Test wrapping multiple time patterns."""
+        text = "Meeting from 9:30 am to 10:45 am"
+        expected = 'Meeting from <say-as interpret-as="time">9:30am</say-as> to <say-as interpret-as="time">10:45am</say-as>'
+        assert _wrap_times_with_say_as(text) == expected
+
+    def test_wrap_times_when_pm_time_then_wrapped(self):
+        """Test wrapping PM times."""
+        text = "Meeting at 2:30 pm"
+        expected = 'Meeting at <say-as interpret-as="time">2:30pm</say-as>'
+        assert _wrap_times_with_say_as(text) == expected
+
+    def test_wrap_times_when_uppercase_period_then_wrapped(self):
+        """Test wrapping times with uppercase AM/PM."""
+        text = "Meeting at 9:30 AM"
+        expected = 'Meeting at <say-as interpret-as="time">9:30am</say-as>'
+        assert _wrap_times_with_say_as(text) == expected
+
+    def test_wrap_times_when_no_time_then_unchanged(self):
+        """Test text without time patterns remains unchanged."""
+        text = "Meeting tomorrow"
+        assert _wrap_times_with_say_as(text) == text
+
+    def test_wrap_times_when_noon_then_unchanged(self):
+        """Test that 'noon' is not wrapped (special case)."""
+        text = "Meeting at noon"
+        assert _wrap_times_with_say_as(text) == text
+
+    def test_wrap_times_when_midnight_then_unchanged(self):
+        """Test that 'midnight' is not wrapped (special case)."""
+        text = "Meeting at midnight"
+        assert _wrap_times_with_say_as(text) == text
+
+    def test_wrap_times_when_non_string_then_empty(self):
+        """Test handling non-string input."""
+        assert _wrap_times_with_say_as(None) == ""  # type: ignore
+        assert _wrap_times_with_say_as(123) == ""  # type: ignore
+
+
+class TestEscapeTextPreservingTags:
+    """Tests for _escape_text_for_ssml_preserving_tags helper function."""
+
+    def test_escape_preserving_when_no_tags_then_escaped(self):
+        """Test escaping text without tags."""
+        text = "Meeting & Discussion"
+        expected = "Meeting &amp; Discussion"
+        assert _escape_text_for_ssml_preserving_tags(text) == expected
+
+    def test_escape_preserving_when_say_as_tag_then_preserved(self):
+        """Test preserving say-as tags while escaping other content."""
+        text = 'Meeting at <say-as interpret-as="time">9:30am</say-as> today'
+        expected = 'Meeting at <say-as interpret-as="time">9:30am</say-as> today'
+        assert _escape_text_for_ssml_preserving_tags(text) == expected
+
+    def test_escape_preserving_when_tag_and_special_chars_then_both_handled(self):
+        """Test escaping special chars while preserving tags."""
+        text = 'Meeting & Review at <say-as interpret-as="time">9:30am</say-as>'
+        expected = 'Meeting &amp; Review at <say-as interpret-as="time">9:30am</say-as>'
+        assert _escape_text_for_ssml_preserving_tags(text) == expected
+
+    def test_escape_preserving_when_multiple_tags_then_all_preserved(self):
+        """Test preserving multiple say-as tags."""
+        text = 'From <say-as interpret-as="time">9:30am</say-as> to <say-as interpret-as="time">10:45am</say-as>'
+        expected = 'From <say-as interpret-as="time">9:30am</say-as> to <say-as interpret-as="time">10:45am</say-as>'
+        assert _escape_text_for_ssml_preserving_tags(text) == expected
+
+    def test_escape_preserving_when_non_string_then_empty(self):
+        """Test handling non-string input."""
+        assert _escape_text_for_ssml_preserving_tags(None) == ""  # type: ignore
+
+    def test_escape_preserving_when_malformed_tag_then_escaped(self):
+        """Test that malformed tags are escaped, not preserved."""
+        # Incomplete tag (missing closing tag)
+        text = 'Meeting at <say-as interpret-as="time">9:30am'
+        result = _escape_text_for_ssml_preserving_tags(text)
+        # Should be escaped since it's not a complete valid tag
+        assert '&lt;say-as' in result or 'Meeting at 9:30am' in result
+
+    def test_escape_preserving_when_invalid_tag_name_then_escaped(self):
+        """Test that tags with invalid names are escaped."""
+        # Not a say-as tag, should be escaped
+        text = 'Meeting <say-as-something>text</say-as-something>'
+        result = _escape_text_for_ssml_preserving_tags(text)
+        # Should be escaped since it's not a valid say-as tag
+        assert '&lt;' in result or 'say-as-something' not in result.replace('&lt;', '<')
 
 
 class TestTruncateTitle:
@@ -633,7 +731,8 @@ class TestRenderDoneForDaySsml:
         
         # Should emphasize the completion time
         assert 'level="strong"' in result  # Strong emphasis on time
-        assert "6:00 pm" in result  # Time should be present
+        # Time should be wrapped in say-as tag (SSML format without space: 6:00pm)
+        assert '<say-as interpret-as="time">6:00pm</say-as>' in result
         assert "You&apos;ll be done at" in result  # Future completion phrase
 
     def test_render_done_for_day_ssml_when_had_meetings_generic_message_then_moderate_emphasis(self):
@@ -726,11 +825,11 @@ class TestRenderDoneForDaySsml:
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text, config=config)
         assert result is None
 
-    @patch("calendarbot_lite.alexa_ssml._escape_text_for_ssml")
+    @patch("calendarbot_lite.alexa_ssml._escape_text_for_ssml_preserving_tags")
     @patch("calendarbot_lite.alexa_ssml.logger")
     def test_render_done_for_day_ssml_when_exception_occurs_then_logs_and_returns_none(self, mock_logger, mock_escape):
         """Test SSML generation handles exceptions gracefully."""
-        # Force an exception by making _escape_text_for_ssml raise an exception
+        # Force an exception by making _escape_text_for_ssml_preserving_tags raise an exception
         mock_escape.side_effect = Exception("Test exception")
         speech_text = "You have no meetings today."
         

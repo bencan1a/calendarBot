@@ -11,6 +11,7 @@ Performance targets:
 """
 
 import logging
+import re
 from typing import Any, Literal, Optional
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,12 @@ EMPHASIS_STRONG = '<emphasis level="strong">{text}</emphasis>'
 EMPHASIS_MODERATE = '<emphasis level="moderate">{text}</emphasis>'
 EMPHASIS_REDUCED = '<emphasis level="reduced">{text}</emphasis>'
 BREAK = '<break time="{t}s"/>'
+
+# Regex patterns for time detection and tag preservation (compiled once for performance)
+# Pattern for times: H:MM am/pm or HH:MM am/pm
+TIME_PATTERN = re.compile(r'\b(\d{1,2}):(\d{2})\s+(am|pm)\b', re.IGNORECASE)
+# Pattern for say-as tags: <say-as ...>...</say-as>
+SAY_AS_TAG_PATTERN = re.compile(r'(<say-as[^>]*>.*?</say-as>)', re.DOTALL)
 
 # Configuration defaults
 DEFAULT_CONFIG = {
@@ -269,8 +276,11 @@ def render_done_for_day_ssml(
         if not cfg.get("enable_ssml", True):
             return None
 
-        # Escape the speech text for SSML
-        safe_speech = _escape_text_for_ssml(speech_text.strip())
+        # Wrap time patterns with <say-as> tags BEFORE escaping
+        speech_with_times = _wrap_times_with_say_as(speech_text.strip())
+
+        # Escape the speech text for SSML (preserving <say-as> tags)
+        safe_speech = _escape_text_for_ssml_preserving_tags(speech_with_times)
 
         fragments = []
 
@@ -427,8 +437,11 @@ def render_morning_summary_ssml(
             logger.warning("Invalid speech text for morning summary SSML")
             return None
 
-        # Escape the speech text for SSML
-        safe_speech = _escape_text_for_ssml(speech_text.strip())
+        # Wrap time patterns with <say-as> tags BEFORE escaping
+        speech_with_times = _wrap_times_with_say_as(speech_text.strip())
+
+        # Escape the speech text for SSML (preserving <say-as> tags)
+        safe_speech = _escape_text_for_ssml_preserving_tags(speech_with_times)
 
         fragments = []
 
@@ -630,6 +643,38 @@ def validate_ssml(ssml: str, max_chars: int = 500, allowed_tags: Optional[set[st
 # Internal helper functions
 
 
+def _wrap_times_with_say_as(text: str) -> str:
+    """Wrap time patterns in text with SSML <say-as interpret-as="time"> tags.
+
+    This function detects time patterns like "9:30 am", "12:00 pm", "noon" in plain text
+    and wraps them with SSML tags for natural Alexa pronunciation.
+
+    Args:
+        text: Plain text containing time references
+
+    Returns:
+        Text with time patterns wrapped in <say-as> tags
+
+    Examples:
+        >>> _wrap_times_with_say_as("Meeting at 9:30 am")
+        'Meeting at <say-as interpret-as="time">9:30am</say-as>'
+        >>> _wrap_times_with_say_as("noon meeting")
+        'noon meeting'  # noon doesn't need say-as tag
+    """
+    if not isinstance(text, str):
+        return ""
+
+    def replace_time(match: re.Match[str]) -> str:
+        hour = match.group(1)
+        minute = match.group(2)
+        period = match.group(3).lower()
+        # SSML format: no space before am/pm per Alexa SSML spec
+        time_str = f"{hour}:{minute}{period}"
+        return f'<say-as interpret-as="time">{time_str}</say-as>'
+
+    return TIME_PATTERN.sub(replace_time, text)
+
+
 def _select_urgency(seconds_until: int) -> Literal["fast", "standard", "relaxed"]:
     """Select urgency level based on time until meeting.
 
@@ -646,6 +691,55 @@ def _select_urgency(seconds_until: int) -> Literal["fast", "standard", "relaxed"
     return "relaxed"
 
 
+def _escape_xml_chars(text: str) -> str:
+    """Escape XML special characters in text.
+
+    Args:
+        text: Text to escape
+
+    Returns:
+        Text with XML special characters escaped
+    """
+    escaped = text.replace("&", "&amp;")
+    escaped = escaped.replace("<", "&lt;")
+    escaped = escaped.replace(">", "&gt;")
+    escaped = escaped.replace('"', "&quot;")
+    escaped = escaped.replace("'", "&apos;")
+    # Remove control characters that could break SSML
+    return "".join(char for char in escaped if ord(char) >= 32 or char in ["\n", "\t"])
+
+
+def _escape_text_for_ssml_preserving_tags(text: str) -> str:
+    """Escape special characters in text for safe SSML inclusion while preserving SSML tags.
+
+    This function escapes XML special characters but preserves legitimate SSML tags
+    like <say-as> that have been intentionally added.
+
+    Args:
+        text: Text with potential SSML tags to escape
+
+    Returns:
+        SSML-safe text with escaped characters but preserved tags
+    """
+    if not isinstance(text, str):
+        return ""
+
+    # Split text into tag and non-tag segments using pre-compiled pattern
+    segments = SAY_AS_TAG_PATTERN.split(text)
+
+    result_segments = []
+    for segment in segments:
+        # Check if this segment is a complete say-as tag by verifying it matches the pattern
+        if segment and SAY_AS_TAG_PATTERN.match(segment):
+            # This is a complete, valid say-as tag - preserve it as is
+            result_segments.append(segment)
+        else:
+            # This is regular text - escape it using shared logic
+            result_segments.append(_escape_xml_chars(segment))
+
+    return "".join(result_segments)
+
+
 def _escape_text_for_ssml(text: str) -> str:
     """Escape special characters in text for safe SSML inclusion.
 
@@ -658,15 +752,7 @@ def _escape_text_for_ssml(text: str) -> str:
     if not isinstance(text, str):
         return ""
 
-    # Escape XML special characters
-    escaped = text.replace("&", "&amp;")
-    escaped = escaped.replace("<", "&lt;")
-    escaped = escaped.replace(">", "&gt;")
-    escaped = escaped.replace('"', "&quot;")
-    escaped = escaped.replace("'", "&apos;")
-
-    # Remove control characters that could break SSML
-    return "".join(char for char in escaped if ord(char) >= 32 or char in ["\n", "\t"])
+    return _escape_xml_chars(text)
 
 
 def _truncate_title(text: str, max_chars: int = 50) -> str:
