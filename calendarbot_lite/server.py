@@ -82,7 +82,12 @@ _precomputed_responses: dict[str, Any] = {}
 
 # Import SSML generation for Alexa endpoints
 try:
-    from .alexa_ssml import render_done_for_day_ssml, render_meeting_ssml, render_time_until_ssml
+    from .alexa_ssml import (
+        render_done_for_day_ssml,
+        render_meeting_ssml,
+        render_morning_summary_ssml,
+        render_time_until_ssml,
+    )
 
     logger.debug("SSML module imported successfully")
 except ImportError as e:
@@ -90,6 +95,7 @@ except ImportError as e:
     render_meeting_ssml = None  # type: ignore[assignment]
     render_time_until_ssml = None  # type: ignore[assignment]
     render_done_for_day_ssml = None  # type: ignore[assignment]
+    render_morning_summary_ssml = None  # type: ignore[assignment]
 
 
 def _import_process_utilities() -> Any:  # type: ignore[misc]
@@ -1280,6 +1286,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
         "meeting": render_meeting_ssml,
         "time_until": render_time_until_ssml,
         "done_for_day": render_done_for_day_ssml,
+        "morning_summary": render_morning_summary_ssml,
     }
 
     # Register Alexa routes
