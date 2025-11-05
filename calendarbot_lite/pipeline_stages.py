@@ -7,6 +7,7 @@ into an EventProcessingPipeline for flexible event processing.
 
 from __future__ import annotations
 
+import datetime
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -220,28 +221,43 @@ class TimeWindowStage:
             # Filter events to time window
             windowed = []
             for event in context.events:
-                event_time = event.start.date_time
+                # All-day events need date-based comparison, not datetime comparison
+                # This is because all-day events are stored as datetime at midnight UTC,
+                # but should match any query for that calendar date regardless of timezone
+                if event.is_all_day:
+                    # Extract date portion from event (stored as datetime at midnight UTC)
+                    event_date = event.start.date_time.date()
 
-                # Convert date to datetime for comparison (handles all-day events)
-                import datetime as dt
-                if isinstance(event_time, dt.date) and not isinstance(event_time, dt.datetime):
-                    # All-day event: convert to midnight in the same timezone as the window
-                    # Use window_start's timezone, or UTC if no window_start
-                    # Prefer window_start's tzinfo, then window_end's, then UTC
-                    tz = None
-                    if context.window_start and getattr(context.window_start, "tzinfo", None):
-                        tz = context.window_start.tzinfo
-                    elif context.window_end and getattr(context.window_end, "tzinfo", None):
-                        tz = context.window_end.tzinfo
-                    else:
-                        tz = dt.UTC
-                    event_time = dt.datetime.combine(event_time, dt.time.min, tzinfo=tz)
+                    # Extract date portions from window boundaries (in query timezone)
+                    # Window represents "today" in the user's timezone
+                    window_start_date = context.window_start.date() if context.window_start else None
+                    window_end_date = context.window_end.date() if context.window_end else None
 
-                # Check if event is within window
-                if context.window_start and event_time < context.window_start:
-                    continue
-                if context.window_end and event_time > context.window_end:
-                    continue
+                    # Date-based filtering: all-day event on Nov 5 matches query for "Nov 5"
+                    # Note: window_end is exclusive (represents start of next day)
+                    if window_start_date and event_date < window_start_date:
+                        continue
+                    if window_end_date and event_date >= window_end_date:
+                        continue
+                else:
+                    # Regular timed events: include if event hasn't ended yet
+                    # This ensures in-progress meetings are included
+                    event_start = event.start.date_time
+                    event_end = event.end.date_time
+
+                    # Filter by end time if window_start is set (include in-progress meetings)
+                    if context.window_start:
+                        if isinstance(event_end, datetime.datetime):
+                            # Event is excluded only if it has already ended
+                            if event_end <= context.window_start:
+                                continue
+                        elif event_start < context.window_start:
+                            # No end time available, fallback to start time check
+                            continue
+
+                    # Filter by start time if window_end is set
+                    if context.window_end and event_start > context.window_end:
+                        continue
 
                 windowed.append(event)
 

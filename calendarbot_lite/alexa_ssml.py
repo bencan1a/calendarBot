@@ -28,7 +28,7 @@ BREAK = '<break time="{t}s"/>'
 DEFAULT_CONFIG = {
     "enable_ssml": True,
     "ssml_max_chars": 500,
-    "allowed_tags": {"speak", "prosody", "emphasis", "break"},
+    "allowed_tags": {"speak", "prosody", "emphasis", "break", "say-as"},
     "duration_threshold_long": 3600,  # Include duration if >3600s (60 minutes)
     "duration_threshold_short": 900,  # Include duration if <900s (15 minutes)
     "title_max_chars": 50,
@@ -613,7 +613,7 @@ def validate_ssml(ssml: str, max_chars: int = 500, allowed_tags: Optional[set[st
             return False
 
         # Tag balance and allowlist check
-        default_allowed = {"speak", "prosody", "emphasis", "break"}
+        default_allowed = {"speak", "prosody", "emphasis", "break", "say-as"}
         tags_allowed = allowed_tags or default_allowed
 
         if not _basic_tag_balance_check(ssml_trimmed, tags_allowed):

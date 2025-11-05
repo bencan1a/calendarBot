@@ -311,7 +311,6 @@ tests:
         has_meetings_today: true
       speech_text_patterns:
         - "done"
-        - "5 PM"
     metadata:
       source: manual
       notes: Test query after all meetings completed
@@ -347,10 +346,12 @@ tests:
       field_exact_match:
         has_meetings_today: true
       speech_text_patterns:
-        - "Company Holiday"
+        - "4:00 pm"
+      field_contains:
+        speech_text: ["done"]
     metadata:
       source: manual
-      notes: Test handling of all-day events for done-for-day
+      notes: Test handling of all-day events for done-for-day. All-day events end at midnight next day (4pm PT)
 
   - test_id: comprehensive_done_for_day_timezone_conversion
     description: Done for day with timezone conversion

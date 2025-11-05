@@ -138,26 +138,26 @@ class TestFreeBlock:
     def test_get_spoken_start_time_when_9_am_then_formatted(self):
         """Test spoken start time formatting for 9 AM."""
         start_time = datetime(2023, 12, 1, 9, 0, tzinfo=timezone.utc)
-        
+
         block = FreeBlock(
             start_time=start_time,
             end_time=datetime.now(timezone.utc),
             duration_minutes=60,
         )
-        
-        assert block.get_spoken_start_time() == "9 AM"
+
+        assert block.get_spoken_start_time() == "9:00 am"
 
     def test_get_spoken_start_time_when_930_am_then_formatted(self):
         """Test spoken start time formatting for 9:30 AM."""
         start_time = datetime(2023, 12, 1, 9, 30, tzinfo=timezone.utc)
-        
+
         block = FreeBlock(
             start_time=start_time,
             end_time=datetime.now(timezone.utc),
             duration_minutes=60,
         )
-        
-        assert block.get_spoken_start_time() == "9 thirty AM"
+
+        assert block.get_spoken_start_time() == "9:30 am"
 
     def test_get_spoken_start_time_when_noon_then_formatted(self):
         """Test spoken start time formatting for noon."""
@@ -209,7 +209,7 @@ class TestMeetingInsight:
             start_time=datetime(2023, 12, 1, 9, 0, tzinfo=timezone.utc),
             end_time=datetime(2023, 12, 1, 10, 0, tzinfo=timezone.utc),
         )
-        assert insight_9am.get_spoken_start_time() == "9 AM"
+        assert insight_9am.get_spoken_start_time() == "9:00 am"
 
         # Test 12:30 PM
         insight_1230pm = MeetingInsight(
@@ -218,7 +218,7 @@ class TestMeetingInsight:
             start_time=datetime(2023, 12, 1, 12, 30, tzinfo=timezone.utc),
             end_time=datetime(2023, 12, 1, 13, 30, tzinfo=timezone.utc),
         )
-        assert insight_1230pm.get_spoken_start_time() == "twelve thirty PM"
+        assert insight_1230pm.get_spoken_start_time() == "12:30 pm"
 
 
 @pytest.fixture

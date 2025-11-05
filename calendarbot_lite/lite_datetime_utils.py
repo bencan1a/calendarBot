@@ -126,21 +126,20 @@ def format_time_cross_platform(dt: datetime, suffix: str = "") -> str:
     return time_str
 
 
-def format_time_for_speech(dt: datetime, target_tz: Optional[ZoneInfo] = None) -> str:
+def format_time_for_speech(dt: datetime, target_tz: Optional[ZoneInfo] = None, use_ssml: bool = False) -> str:
     """Format a datetime for natural speech output.
 
-    Converts the datetime to the target timezone and formats it conversationally:
-    - "noon" for 12:00 PM
-    - "10 AM" for times on the hour
-    - "10 thirty PM" for half-hour times
-    - "10 15 AM" for other times
+    Converts the datetime to the target timezone and formats it for speech.
+    Can return either plain text (for non-SSML responses) or SSML with <say-as> tag
+    (for SSML responses where Alexa will handle natural pronunciation).
 
     Args:
         dt: Datetime to format (should be timezone-aware)
         target_tz: Target timezone for conversion (if None, uses dt's timezone)
+        use_ssml: If True, wrap time in SSML <say-as> tag; if False, return plain text
 
     Returns:
-        Conversational time string
+        Time string formatted for speech (plain text or SSML depending on use_ssml)
 
     Examples:
         >>> from datetime import datetime
@@ -148,12 +147,13 @@ def format_time_for_speech(dt: datetime, target_tz: Optional[ZoneInfo] = None) -
         >>> dt = datetime(2025, 11, 1, 12, 0, tzinfo=ZoneInfo("UTC"))
         >>> format_time_for_speech(dt)
         'noon'
+        >>> format_time_for_speech(dt, use_ssml=True)
+        'noon'
         >>> dt = datetime(2025, 11, 1, 14, 30, tzinfo=ZoneInfo("UTC"))
         >>> format_time_for_speech(dt)
-        '2 thirty PM'
-        >>> dt = datetime(2025, 11, 1, 9, 15, tzinfo=ZoneInfo("UTC"))
-        >>> format_time_for_speech(dt)
-        '9 15 AM'
+        '2:30 pm'
+        >>> format_time_for_speech(dt, use_ssml=True)
+        '<say-as interpret-as="time">2:30pm</say-as>'
     """
     # Convert to target timezone if provided
     try:
@@ -169,20 +169,23 @@ def format_time_for_speech(dt: datetime, target_tz: Optional[ZoneInfo] = None) -
         hour = dt.hour
         minute = dt.minute
 
-    # Format based on time values (always include minutes for consistency)
-    if hour == 12:
-        if minute == 0:
-            return "noon"
-        return f"12:{minute:02d} pm"
+    # Special case for noon - natural in both formats
+    if hour == 12 and minute == 0:
+        return "noon"
 
     # Convert to 12-hour format
     display_hour = hour if hour <= 12 else hour - 12
     if display_hour == 0:
         display_hour = 12
 
-    # Use lowercase am/pm for consistency
+    # Use lowercase am/pm
     period = "am" if hour < 12 else "pm"
 
+    if use_ssml:
+        # SSML format: no space before am/pm per Alexa SSML spec
+        time_str = f"{display_hour}:{minute:02d}{period}"
+        return f'<say-as interpret-as="time">{time_str}</say-as>'
+    # Plain text format: space before am/pm for readability
     return f"{display_hour}:{minute:02d} {period}"
 
 
