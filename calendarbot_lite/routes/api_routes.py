@@ -66,6 +66,14 @@ def register_api_routes(
             else serialize_iso(time_provider().replace(microsecond=0).fromtimestamp(last_probe_ts))
         )
 
+        # Get rate limiter statistics if available
+        rate_limit_stats = None
+        if "rate_limiter" in app:
+            try:
+                rate_limit_stats = app["rate_limiter"].get_stats()
+            except Exception as e:
+                logger.warning("Failed to get rate limiter stats: %s", e)
+
         # Build comprehensive health response
         health_data = {
             "status": health_status.status,
@@ -90,6 +98,10 @@ def register_api_routes(
                 "event_loop_running": diag.event_loop_running,
             },
         }
+
+        # Add rate limiter stats if available
+        if rate_limit_stats:
+            health_data["rate_limiting"] = rate_limit_stats
 
         # Return appropriate HTTP status based on health
         http_status = 200 if health_status.status == "ok" else 503

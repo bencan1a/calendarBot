@@ -361,6 +361,35 @@ def _build_default_config_from_env() -> dict[str, Any]:
     if alexa_token:
         cfg["alexa_bearer_token"] = alexa_token
 
+    # Rate limiting configuration
+    rate_limit_per_ip = os.environ.get("CALENDARBOT_RATE_LIMIT_PER_IP")
+    if rate_limit_per_ip:
+        try:
+            cfg["rate_limit_per_ip"] = int(rate_limit_per_ip)
+        except Exception:
+            logger.warning("Invalid CALENDARBOT_RATE_LIMIT_PER_IP=%r; ignoring", rate_limit_per_ip)
+
+    rate_limit_per_token = os.environ.get("CALENDARBOT_RATE_LIMIT_PER_TOKEN")
+    if rate_limit_per_token:
+        try:
+            cfg["rate_limit_per_token"] = int(rate_limit_per_token)
+        except Exception:
+            logger.warning("Invalid CALENDARBOT_RATE_LIMIT_PER_TOKEN=%r; ignoring", rate_limit_per_token)
+
+    rate_limit_burst = os.environ.get("CALENDARBOT_RATE_LIMIT_BURST")
+    if rate_limit_burst:
+        try:
+            cfg["rate_limit_burst"] = int(rate_limit_burst)
+        except Exception:
+            logger.warning("Invalid CALENDARBOT_RATE_LIMIT_BURST=%r; ignoring", rate_limit_burst)
+
+    rate_limit_burst_window = os.environ.get("CALENDARBOT_RATE_LIMIT_BURST_WINDOW")
+    if rate_limit_burst_window:
+        try:
+            cfg["rate_limit_burst_window"] = int(rate_limit_burst_window)
+        except Exception:
+            logger.warning("Invalid CALENDARBOT_RATE_LIMIT_BURST_WINDOW=%r; ignoring", rate_limit_burst_window)
+
     return cfg
 
 
@@ -1226,6 +1255,26 @@ async def _make_app(  # type: ignore[no-untyped-def]
     # Get bearer token from config for Alexa endpoints
     alexa_bearer_token = _get_config_value(_config, "alexa_bearer_token")
 
+    # Initialize rate limiter for Alexa endpoints
+    rate_limiter = None
+    try:
+        from .rate_limiter import RateLimiter, RateLimitConfig
+
+        # Get rate limit configuration from config or use defaults
+        rate_limit_config = RateLimitConfig(
+            per_ip_limit=int(_get_config_value(_config, "rate_limit_per_ip", 100)),
+            per_token_limit=int(_get_config_value(_config, "rate_limit_per_token", 500)),
+            burst_limit=int(_get_config_value(_config, "rate_limit_burst", 20)),
+            burst_window_seconds=int(_get_config_value(_config, "rate_limit_burst_window", 10)),
+        )
+
+        rate_limiter = RateLimiter(rate_limit_config)
+        logger.info("Initialized rate limiter for Alexa endpoints")
+    except ImportError:
+        logger.warning("Rate limiter module not available, Alexa endpoints will run without rate limiting")
+    except Exception as e:
+        logger.error("Failed to initialize rate limiter: %s", e, exc_info=True)
+
     # Create SSML renderers dictionary for Alexa routes
     ssml_renderers = {
         "meeting": render_meeting_ssml,
@@ -1247,11 +1296,19 @@ async def _make_app(  # type: ignore[no-untyped-def]
         get_server_timezone=_get_server_timezone,
         response_cache=response_cache,
         precompute_getter=_get_precomputed_response,
+        rate_limiter=rate_limiter,
     )
+
+    # Store rate limiter in app for access by health endpoint
+    if rate_limiter:
+        app["rate_limiter"] = rate_limiter
 
     # Provide a stop handler to allow external shutdown if needed
     async def _shutdown(_app):  # type: ignore[no-untyped-def]
         logger.info("Application shutdown requested")
+        # Stop rate limiter cleanup task
+        if rate_limiter:
+            await rate_limiter.stop()
 
     app.on_shutdown.append(_shutdown)
     return app
@@ -1343,6 +1400,12 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     try:
         await site.start()
         logger.info("Server started successfully on %s:%d", host, port)
+
+        # Start rate limiter cleanup task if available
+        if "rate_limiter" in app:
+            await app["rate_limiter"].start()
+            logger.debug("Rate limiter cleanup task started")
+
         log_monitoring_event(
             "server.startup.success",
             f"CalendarBot_Lite server started successfully on {host}:{port}",
