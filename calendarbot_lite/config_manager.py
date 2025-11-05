@@ -10,6 +10,13 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Input validation limits for event fields
+# These limits prevent resource exhaustion from oversized calendar data
+MAX_EVENT_SUBJECT_LENGTH = 200  # ~20 words - reasonable meeting title
+MAX_EVENT_LOCATION_LENGTH = 100  # ~10 words - reasonable location name
+MAX_EVENT_DESCRIPTION_LENGTH = 500  # ~50 words - reasonable description
+MAX_EVENTS_PER_REQUEST = 100  # Pagination limit for API requests
+
 
 class ConfigManager:
     """Manages application configuration from environment variables and .env files."""
@@ -81,6 +88,7 @@ class ConfigManager:
         - CALENDARBOT_WEB_HOST or CALENDARBOT_SERVER_BIND -> 'server_bind'
         - CALENDARBOT_WEB_PORT or CALENDARBOT_SERVER_PORT -> 'server_port' (int)
         - CALENDARBOT_ALEXA_BEARER_TOKEN -> 'alexa_bearer_token'
+        - CALENDARBOT_DEFAULT_TIMEZONE -> 'default_timezone'
 
         Returns:
             Configuration dictionary compatible with start_server
@@ -123,6 +131,11 @@ class ConfigManager:
         if alexa_token:
             cfg["alexa_bearer_token"] = alexa_token
 
+        # Default timezone configuration
+        default_tz = os.environ.get("CALENDARBOT_DEFAULT_TIMEZONE")
+        if default_tz:
+            cfg["default_timezone"] = default_tz
+
         return cfg
 
     def load_full_config(self) -> dict[str, Any]:
@@ -138,6 +151,35 @@ class ConfigManager:
 
         # Build configuration from environment variables
         return self.build_config_from_env()
+
+
+def get_default_timezone(fallback: str = "America/Los_Angeles") -> str:
+    """Get default timezone from environment with validation.
+
+    Args:
+        fallback: Fallback timezone if not configured or invalid (default: America/Los_Angeles)
+
+    Returns:
+        Valid IANA timezone string
+
+    Note:
+        This function validates the timezone using zoneinfo.ZoneInfo and falls back
+        to the provided fallback timezone if the configured timezone is invalid.
+    """
+    import zoneinfo
+
+    # Get timezone from environment
+    timezone = os.environ.get("CALENDARBOT_DEFAULT_TIMEZONE", fallback)
+
+    # Validate timezone
+    try:
+        zoneinfo.ZoneInfo(timezone)
+        return timezone
+    except Exception:
+        logger.warning(
+            "Invalid timezone %r, falling back to %r", timezone, fallback, exc_info=True
+        )
+        return fallback
 
 
 def get_config_value(config: Any, key: str, default: Any = None) -> Any:

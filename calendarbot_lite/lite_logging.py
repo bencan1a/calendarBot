@@ -11,6 +11,30 @@ import os
 from typing import Optional
 
 
+class CorrelationIdFilter(logging.Filter):
+    """Add correlation ID to all log records for distributed tracing."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Add correlation ID to log record.
+
+        Args:
+            record: Log record to enhance
+
+        Returns:
+            True to allow record to be logged
+        """
+        # Import here to avoid circular dependency
+        try:
+            from .middleware import get_request_id
+
+            record.request_id = get_request_id()
+        except (ImportError, AttributeError):
+            # Fallback if middleware not available or no request context
+            record.request_id = "no-request-id"
+
+        return True
+
+
 def configure_lite_logging(debug_mode: bool = False, force_debug: Optional[bool] = None) -> None:
     """
     Configure logging levels for calendarbot_lite optimized for Pi Zero 2W performance.
@@ -48,11 +72,24 @@ def configure_lite_logging(debug_mode: bool = False, force_debug: Optional[bool]
     root_logger = logging.getLogger()
     root_logger.setLevel(root_level)
 
+    # Add correlation ID filter to root logger
+    correlation_filter = CorrelationIdFilter()
+    
     # Only add basic config if no handlers exist (preserve colorful setup from __init__.py)
     if not root_logger.handlers:
-        logging.basicConfig(
-            level=root_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        # Create handler with correlation ID in format
+        handler = logging.StreamHandler()
+        handler.setLevel(root_level)
+        formatter = logging.Formatter(
+            "[%(asctime)s] [%(request_id)s] %(levelname)s - %(name)s - %(message)s"
         )
+        handler.setFormatter(formatter)
+        handler.addFilter(correlation_filter)
+        root_logger.addHandler(handler)
+    else:
+        # Add filter to existing handlers
+        for existing_handler in root_logger.handlers:
+            existing_handler.addFilter(correlation_filter)
 
     # Logger level configuration for Pi Zero 2W optimization
     logger_config: dict[str, int] = {

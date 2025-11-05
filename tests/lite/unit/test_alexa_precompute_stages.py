@@ -37,8 +37,8 @@ def create_test_event(
         subject=subject,
         start=LiteDateTimeInfo(date_time=start, time_zone="UTC"),
         end=LiteDateTimeInfo(date_time=end, time_zone="UTC"),
-        body_preview="",
-        location=LiteLocation(display_name=""),
+        body_preview=None,  # Changed from empty string to None
+        location=None,  # Changed from LiteLocation(display_name="") to None
         attendees=[],
         is_online_meeting=False,
         online_meeting_url=None,
