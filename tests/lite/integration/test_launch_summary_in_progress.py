@@ -71,9 +71,9 @@ async def test_launch_summary_end_to_end_with_meeting_in_progress(
         skipped_store=mock_skipped_store,
         response_cache=None,
         precompute_getter=None,
-        presenter=presenter,
-        duration_formatter=lambda s: f"in {s // 60} minutes" if s > 0 else "now",
-        iso_serializer=lambda dt: dt.isoformat(),
+        presenter=presenter,  # pyright: ignore[reportCallIssue]
+        duration_formatter=lambda s: f"in {s // 60} minutes" if s > 0 else "now",  # pyright: ignore[reportCallIssue]
+        iso_serializer=lambda dt: dt.isoformat(),  # pyright: ignore[reportCallIssue]
     )
     
     # Create mock request

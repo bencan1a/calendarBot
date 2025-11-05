@@ -183,7 +183,7 @@ class TestSerializeDateTimeUtc:
     def test_serialize_none_raises_value_error(self):
         """Test that None input raises ValueError."""
         with pytest.raises(ValueError, match="Cannot serialize None datetime"):
-            serialize_datetime_utc(None)
+            serialize_datetime_utc(None)  # type: ignore[arg-type]
 
     def test_result_ends_with_z_suffix(self):
         """Test that result always ends with Z suffix."""

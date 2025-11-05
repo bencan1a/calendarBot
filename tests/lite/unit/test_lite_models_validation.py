@@ -199,6 +199,7 @@ class TestLiteCalendarEventBodyPreviewValidation:
         body_preview = "A" * MAX_EVENT_DESCRIPTION_LENGTH
         event = self._make_event(body_preview)
         assert event.body_preview == body_preview
+        assert event.body_preview is not None
         assert len(event.body_preview) == MAX_EVENT_DESCRIPTION_LENGTH
 
     def test_body_preview_exceeds_max_length(self):
@@ -241,6 +242,7 @@ class TestLiteCalendarEventBodyPreviewValidation:
         """Test event body_preview at max length with unicode characters."""
         body_preview = "議" * MAX_EVENT_DESCRIPTION_LENGTH  # Japanese character
         event = self._make_event(body_preview)
+        assert event.body_preview is not None
         assert len(event.body_preview) == MAX_EVENT_DESCRIPTION_LENGTH
 
 
@@ -264,6 +266,7 @@ class TestLiteCalendarEventCompleteValidation:
         )
 
         assert len(event.subject) == MAX_EVENT_SUBJECT_LENGTH
+        assert event.body_preview is not None
         assert len(event.body_preview) == MAX_EVENT_DESCRIPTION_LENGTH
         assert event.location is not None
         assert len(event.location.display_name) == MAX_EVENT_LOCATION_LENGTH

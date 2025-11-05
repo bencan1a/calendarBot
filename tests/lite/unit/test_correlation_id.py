@@ -184,7 +184,7 @@ class TestCorrelationIdLogging:
         result = log_filter.filter(record)
         assert result is True
         assert hasattr(record, "request_id")
-        assert record.request_id == "no-request-id"
+        assert record.request_id == "no-request-id"  # type: ignore[attr-defined]
 
     def test_correlation_id_filter_with_context(self):
         """Test CorrelationIdFilter adds correlation ID from context."""
@@ -210,7 +210,7 @@ class TestCorrelationIdLogging:
         result = log_filter.filter(record)
         assert result is True
         assert hasattr(record, "request_id")
-        assert record.request_id == test_id
+        assert record.request_id == test_id  # type: ignore[attr-defined]
 
         # Clean up
         request_id_var.set("")

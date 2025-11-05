@@ -27,7 +27,7 @@ from calendarbot_lite.alexa_handlers import (
     NextMeetingHandler,
     TimeUntilHandler,
 )
-from calendarbot_lite.lite_models import LiteCalendarEvent
+from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo
 
 # ============================================================================
 # Fixtures
@@ -731,8 +731,14 @@ async def test_launch_summary_handler_when_meeting_in_progress_then_acknowledges
     current_meeting = LiteCalendarEvent(
         id="current-meeting",
         subject="Morning Standup",
-        start={"date_time": datetime.datetime(2024, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)},
-        end={"date_time": datetime.datetime(2024, 1, 15, 11, 0, 0, tzinfo=datetime.timezone.utc)},
+        start=LiteDateTimeInfo(
+            date_time=datetime.datetime(2024, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc),
+            time_zone="UTC"
+        ),
+        end=LiteDateTimeInfo(
+            date_time=datetime.datetime(2024, 1, 15, 11, 0, 0, tzinfo=datetime.timezone.utc),
+            time_zone="UTC"
+        ),
         is_all_day=False,
     )
 
@@ -740,8 +746,14 @@ async def test_launch_summary_handler_when_meeting_in_progress_then_acknowledges
     next_meeting = LiteCalendarEvent(
         id="next-meeting",
         subject="Afternoon Meeting",
-        start={"date_time": datetime.datetime(2024, 1, 15, 13, 0, 0, tzinfo=datetime.timezone.utc)},
-        end={"date_time": datetime.datetime(2024, 1, 15, 14, 0, 0, tzinfo=datetime.timezone.utc)},
+        start=LiteDateTimeInfo(
+            date_time=datetime.datetime(2024, 1, 15, 13, 0, 0, tzinfo=datetime.timezone.utc),
+            time_zone="UTC"
+        ),
+        end=LiteDateTimeInfo(
+            date_time=datetime.datetime(2024, 1, 15, 14, 0, 0, tzinfo=datetime.timezone.utc),
+            time_zone="UTC"
+        ),
         is_all_day=False,
     )
 
