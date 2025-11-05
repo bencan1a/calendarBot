@@ -173,7 +173,9 @@ class LiteEventComponentParser:
 
         # Guard clause: Microsoft busy status override (second highest precedence)
         if ms_busystatus == "FREE":
-            return LiteEventStatus.TENTATIVE if is_following_meeting else LiteEventStatus.FREE
+            if is_following_meeting:
+                return LiteEventStatus.TENTATIVE
+            return LiteEventStatus.FREE
 
         # Standard iCalendar status mapping with priority order
         return self._map_standard_status(transparency, status, is_following_meeting)
