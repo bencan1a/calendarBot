@@ -260,7 +260,7 @@ SUMMARY:Event {i}
 TRANSP:OPAQUE
 STATUS:CONFIRMED
 END:VEVENT
-""".encode("utf-8")
+""".encode()
         # Add corrupted bytes
         if i % 10 == 0:
             corrupted_ics += b"\xFF\xFE\xFD Random corrupt data \x00\x01\x02"
@@ -276,10 +276,13 @@ END:VEVENT
     assert result is not None
     # May succeed or fail depending on corruption handling, but should not hang
     # If it fails due to limits, should have appropriate error
-    if not result.success and result.error_message:
+    if (
+        not result.success
+        and result.error_message
+        and ("iteration" in result.error_message.lower() or "timeout" in result.error_message.lower())
+    ):
         # If it hit DoS protection, should be clear
-        if "iteration" in result.error_message.lower() or "timeout" in result.error_message.lower():
-            assert "malformed" in result.error_message.lower() or "malicious" in result.error_message.lower()
+        assert "malformed" in result.error_message.lower() or "malicious" in result.error_message.lower()
 
 
 @pytest.mark.asyncio

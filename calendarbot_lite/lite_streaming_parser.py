@@ -405,12 +405,12 @@ async def parse_ics_stream(
 
         # Process the stream and collect results
         events: list[LiteCalendarEvent] = []
-        warnings = []
-        errors = []
+        warnings: list[str] = []
+        errors: list[str] = []
         total_components = 0
         event_count = 0
         recurring_event_count = 0
-        calendar_metadata = {}
+        calendar_metadata: dict[str, str] = {}
 
         # Parse stream with memory-bounded processing
         max_stored_events = 1000  # Increased to handle calendars with many recurring events
