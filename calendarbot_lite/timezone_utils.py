@@ -415,25 +415,26 @@ def normalize_timezone_name(tz_str: str) -> str | None:
     if not tz_str:
         return None
 
-    try:
-        import zoneinfo
+    import zoneinfo
 
-        # Try Windows timezone conversion first
+    # Try Windows timezone conversion first
+    try:
         windows_tz = windows_tz_to_iana(tz_str)
         if windows_tz:
             # Validate the mapped timezone
             zoneinfo.ZoneInfo(windows_tz)
             return windows_tz
+    except Exception:
+        logger.warning("Failed during Windows timezone conversion for: %r", tz_str)
 
-        # Try timezone alias resolution
+    # Try timezone alias resolution
+    try:
         resolved_tz = resolve_timezone_alias(tz_str)
-
         # Validate the resolved timezone
         zoneinfo.ZoneInfo(resolved_tz)
         return resolved_tz
-
     except Exception:
-        logger.warning("Failed to normalize timezone: %r", tz_str)
+        logger.warning("Failed during alias resolution or zoneinfo validation for: %r", tz_str)
         return None
 
 

@@ -1169,7 +1169,11 @@ async def _refresh_loop(
         )
         logger.debug(" Initial refresh completed")
     except Exception:
-        logger.exception("DEBUG: Initial refresh failed")
+        logger.exception(
+            "Initial refresh failed during _refresh_loop; config: %r, skipped_store: %r",
+            config,
+            skipped_store,
+        )
 
     logger.debug(" Starting refresh loop")
     while not stop_event.is_set():

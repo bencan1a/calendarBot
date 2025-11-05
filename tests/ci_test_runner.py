@@ -75,6 +75,9 @@ def run_full_regression() -> int:
     """Run complete test suite."""
     print("Running full regression tests...")
 
+    # Clean old coverage data to prevent branch/statement mismatch errors
+    subprocess.run("coverage erase", shell=True, check=False)
+
     # Run all calendarbot_lite tests
     cmd = "pytest tests/lite/ calendarbot_lite/ -v --cov=calendarbot_lite --cov-report=html:htmlcov --cov-report=xml:coverage.xml --cov-report=json:coverage.json --junitxml=pytest-results.xml"
     return run_command(cmd, "Full Test Suite")
@@ -96,6 +99,9 @@ def run_coverage() -> int:
     """Generate coverage report."""
     print("Generating coverage report...")
 
+    # Clean old coverage data to prevent branch/statement mismatch errors
+    subprocess.run("coverage erase", shell=True, check=False)
+
     cmd = "pytest tests/lite/ calendarbot_lite/ --cov=calendarbot_lite --cov-report=xml:coverage.xml --cov-report=term-missing"
     return run_command(cmd, "Coverage Report")
 
@@ -104,6 +110,9 @@ def run_coverage_report() -> int:
     """Generate detailed coverage reports."""
     print("Generating detailed coverage reports...")
 
+    # Clean old coverage data to prevent branch/statement mismatch errors
+    subprocess.run("coverage erase", shell=True, check=False)
+
     cmd = "pytest tests/lite/ calendarbot_lite/ --cov=calendarbot_lite --cov-report=html:htmlcov --cov-report=xml:coverage.xml --cov-report=json:coverage.json"
     return run_command(cmd, "Detailed Coverage Reports")
 
@@ -111,6 +120,9 @@ def run_coverage_report() -> int:
 def run_coverage_diff() -> int:
     """Analyze coverage differential."""
     print("Running coverage differential analysis...")
+
+    # Clean old coverage data to prevent branch/statement mismatch errors
+    subprocess.run("coverage erase", shell=True, check=False)
 
     # Basic coverage check - can be enhanced with coverage comparison logic
     cmd = "pytest tests/lite/ --cov=calendarbot_lite --cov-report=term --cov-fail-under=70"
@@ -163,6 +175,8 @@ def main():
 
     if args.coverage:
         if args.coverage_fail_under:
+            # Clean old coverage data to prevent branch/statement mismatch errors
+            subprocess.run("coverage erase", shell=True, check=False)
             cmd = f"pytest tests/lite/ --cov=calendarbot_lite --cov-report=xml:coverage.xml --cov-fail-under={args.coverage_fail_under}"
             exit_code = max(exit_code, run_command(cmd, "Coverage with Threshold"))
         else:

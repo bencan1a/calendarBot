@@ -25,7 +25,7 @@ def get_staged_files() -> list[str]:
         return [
             f
             for f in result.stdout.strip().split("\n")
-            if f.endswith(".py") and f.startswith("calendarbot_lite/") and f
+            if f.endswith(".py") and f.startswith("calendarbot_lite/")
         ]
     except subprocess.CalledProcessError:
         return []
