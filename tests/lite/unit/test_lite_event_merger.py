@@ -289,14 +289,14 @@ class TestLiteEventMerger:
             "Weekly Meeting",
             datetime(2025, 10, 28, 15, 0, tzinfo=timezone.utc),
             datetime(2025, 10, 28, 16, 0, tzinfo=timezone.utc),
-            recurrence_id="20251028T143000",  # Modified from 2:30pm
+            recurrence_id="20251028T143000",  # Original time slot: 2:30pm
         )
         event2 = self.create_test_event(
             "recurring1",  # Same UID
             "Weekly Meeting",  # Same subject
             datetime(2025, 10, 28, 15, 0, tzinfo=timezone.utc),  # Same start
             datetime(2025, 10, 28, 16, 0, tzinfo=timezone.utc),  # Same end
-            recurrence_id="20251104T143000",  # Modified from different original time
+            recurrence_id="20251104T143000",  # Different original time slot: Nov 4 at 2:30pm
         )
 
         result = self.merger.deduplicate_events([event1, event2])
