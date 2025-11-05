@@ -211,13 +211,7 @@ class MorningSummaryResult(BaseModel):
 
     # Metadata (Architecture requirement)
     metadata: dict[str, Any] = Field(
-        default_factory=lambda: {
-            "preview_for": "tomorrow_morning",
-            "generation_context": {
-                "delivery_time": "evening",
-                "reference_day": "tomorrow",
-            },
-        },
+        ...,
         description="Summary metadata",
     )
 
@@ -327,12 +321,16 @@ class MorningSummaryService:
                 target_date, request.timezone
             )
 
+            # Get reference day for speech generation
+            # If a specific date was requested, use the day name; otherwise use "tomorrow"
+            day_reference, preview_for = self._get_reference_day(target_date, request.timezone, bool(request.date))
+
             # Filter and process events
             filtered_events = self._filter_morning_events(events, timeframe_start, timeframe_end)
 
             # Generate analysis
             result = await self._analyze_morning_schedule(
-                filtered_events, timeframe_start, timeframe_end, request
+                filtered_events, timeframe_start, timeframe_end, request, day_reference, preview_for
             )
 
             # Cache result
@@ -382,6 +380,32 @@ class MorningSummaryService:
                 logger.exception("Fallback timezone conversion also failed, using naive UTC")
                 tomorrow = now_utc + timedelta(days=1)
                 return tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    def _get_reference_day(self, target_date: datetime, timezone_str: str, use_specific_date: bool = False) -> tuple[str, str]:
+        """Get reference day string for speech and metadata.
+
+        Args:
+            target_date: The target date for the summary
+            timezone_str: IANA timezone identifier
+            use_specific_date: If True, use day name; if False, use "tomorrow"
+
+        Returns:
+            Tuple of (day_reference, preview_for) where:
+            - day_reference: "tomorrow" or day name like "Monday"
+            - preview_for: "tomorrow_morning" or day-based like "monday_morning"
+        """
+        # If not using a specific date, default to "tomorrow"
+        if not use_specific_date:
+            return ("tomorrow", "tomorrow_morning")
+
+        # Use the day name for specific dates
+        try:
+            day_name = target_date.strftime("%A")  # e.g., "Monday"
+            preview_for = f"{day_name.lower()}_morning"
+            return (day_name, preview_for)
+        except Exception:
+            # Fallback to tomorrow if formatting fails
+            return ("tomorrow", "tomorrow_morning")
 
     def _create_time_window(
         self, tomorrow_date: datetime, timezone_str: str
@@ -561,6 +585,8 @@ class MorningSummaryService:
         timeframe_start: datetime,
         timeframe_end: datetime,
         request: MorningSummaryRequest,
+        day_reference: str = "tomorrow",
+        preview_for: str = "tomorrow_morning",
     ) -> MorningSummaryResult:
         """Analyze morning schedule and generate insights."""
         # Separate all-day and timed events (Story 6)
@@ -606,6 +632,7 @@ class MorningSummaryService:
             total_meetings=meeting_equivalents,
             has_any_events=(len(events) > 0),  # Pass whether there are any events at all
             timezone_str=request.timezone,  # Pass the user's requested timezone
+            day_reference=day_reference,  # Pass reference day for speech
         )
 
         return MorningSummaryResult(
@@ -618,6 +645,13 @@ class MorningSummaryService:
             free_blocks=free_blocks,
             back_to_back_count=back_to_back_count,
             speech_text=speech_text,
+            metadata={
+                "preview_for": preview_for,
+                "generation_context": {
+                    "delivery_time": "evening",
+                    "reference_day": day_reference,
+                },
+            },
         )
 
     def _is_actionable_all_day(self, event: LiteCalendarEvent) -> bool:
@@ -810,16 +844,18 @@ class MorningSummaryService:
         total_meetings: float,
         has_any_events: bool = False,
         timezone_str: Optional[str] = None,
+        day_reference: str = "tomorrow",
     ) -> str:
         """Generate natural language speech text for evening delivery (Story 5).
 
         Args:
             timezone_str: IANA timezone identifier for time formatting in speech
+            day_reference: Reference day for speech ("tomorrow" or day name like "Monday")
         """
         # Handle no meetings scenario (Story 7) - truly no events at all
         if not meeting_insights and not all_day_events and not has_any_events:
             return (
-                "Good evening. You have a completely free morning tomorrow until noon. "
+                f"Good evening. You have a completely free morning {day_reference} until noon. "
                 "This is a great opportunity for deep work or personal time."
             )
 
@@ -835,9 +871,9 @@ class MorningSummaryService:
                 earliest_meeting.start_time.hour == VERY_EARLY_THRESHOLD_HOUR
                 and earliest_meeting.start_time.minute < VERY_EARLY_THRESHOLD_MINUTE
             ):
-                parts.append(f"You start very early tomorrow at {start_time_spoken}.")
+                parts.append(f"You start very early {day_reference} at {start_time_spoken}.")
             else:
-                parts.append(f"You start early tomorrow at {start_time_spoken}.")
+                parts.append(f"You start early {day_reference} at {start_time_spoken}.")
 
         # Meeting count and density (Stories 1&4)
         if meeting_insights or total_meetings > 0 or has_any_events:
@@ -854,7 +890,7 @@ class MorningSummaryService:
             else:
                 total_text = "0 meeting equivalents"
 
-            parts.append(f"You have {total_text} before noon tomorrow.")
+            parts.append(f"You have {total_text} before noon {day_reference}.")
 
             # Add density-based encouragement (Story 4)
             if density == DensityLevel.BUSY:

@@ -698,6 +698,13 @@ class TestMorningSummaryService:
             early_start_flag=False,
             density=DensityLevel.LIGHT,
             speech_text="Test speech",
+            metadata={
+                "preview_for": "tomorrow_morning",
+                "generation_context": {
+                    "delivery_time": "evening",
+                    "reference_day": "tomorrow",
+                },
+            },
         )
         
         service._cache_result(cache_key, mock_result)
@@ -727,6 +734,13 @@ class TestMorningSummaryResult:
             density=DensityLevel.LIGHT,
             meeting_insights=[early_meeting],
             speech_text="Test speech",
+            metadata={
+                "preview_for": "tomorrow_morning",
+                "generation_context": {
+                    "delivery_time": "evening",
+                    "reference_day": "tomorrow",
+                },
+            },
         )
         
         wake_up_time = result.wake_up_recommendation_time
@@ -745,8 +759,15 @@ class TestMorningSummaryResult:
             early_start_flag=False,
             density=DensityLevel.LIGHT,
             speech_text="Test speech",
+            metadata={
+                "preview_for": "tomorrow_morning",
+                "generation_context": {
+                    "delivery_time": "evening",
+                    "reference_day": "tomorrow",
+                },
+            },
         )
-        
+
         assert result.wake_up_recommendation_time is None
 
     def test_result_when_free_blocks_then_longest_identified(self):
@@ -771,6 +792,13 @@ class TestMorningSummaryResult:
             density=DensityLevel.LIGHT,
             free_blocks=[short_block, long_block],
             speech_text="Test speech",
+            metadata={
+                "preview_for": "tomorrow_morning",
+                "generation_context": {
+                    "delivery_time": "evening",
+                    "reference_day": "tomorrow",
+                },
+            },
         )
         
         longest_block = result.longest_free_block
@@ -786,8 +814,15 @@ class TestMorningSummaryResult:
             early_start_flag=False,
             density=DensityLevel.LIGHT,
             speech_text="Test speech",
+            metadata={
+                "preview_for": "tomorrow_morning",
+                "generation_context": {
+                    "delivery_time": "evening",
+                    "reference_day": "tomorrow",
+                },
+            },
         )
-        
+
         # Check required metadata fields
         assert result.metadata["preview_for"] == "tomorrow_morning"
         assert result.metadata["generation_context"]["delivery_time"] == "evening"

@@ -91,7 +91,7 @@ class MorningSummaryRequestParams(BaseModel):
     timezone: str = Field(
         "UTC", description="IANA timezone identifier", alias="timezone"
     )
-    detail_level: Literal["brief", "normal", "detailed"] = Field(
+    detail_level: Literal["brief", "normal", "detailed", "verbose"] = Field(
         "normal", description="Level of detail for the summary"
     )
     prefer_ssml: bool = Field(False, description="Whether to prefer SSML output")
