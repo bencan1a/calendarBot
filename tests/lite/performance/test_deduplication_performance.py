@@ -56,7 +56,13 @@ def generate_events(count: int, duplicate_rate: float = 0.1) -> list[LiteCalenda
     
     for i in range(count):
         # Create some duplicates based on rate
-        if duplicate_rate > 0 and i > 0 and i % int(1 / duplicate_rate) == 0:
+        # Guard against division by zero and ensure we have previous events
+        should_duplicate = (
+            duplicate_rate > 0
+            and i > 0
+            and i % max(1, int(1 / duplicate_rate)) == 0
+        )
+        if should_duplicate:
             # Duplicate the previous event
             prev = events[-1]
             events.append(
