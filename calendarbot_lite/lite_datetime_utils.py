@@ -126,7 +126,9 @@ def format_time_cross_platform(dt: datetime, suffix: str = "") -> str:
     return time_str
 
 
-def format_time_for_speech(dt: datetime, target_tz: Optional[ZoneInfo] = None, use_ssml: bool = False) -> str:
+def format_time_for_speech(
+    dt: datetime, target_tz: Optional[ZoneInfo] = None, use_ssml: bool = False
+) -> str:
     """Format a datetime for natural speech output.
 
     Converts the datetime to the target timezone and formats it for speech.
@@ -229,12 +231,12 @@ class TimezoneParser:
 
             # Parse datetime part (remove Z suffix if present)
             dt_str_clean = dt_part.rstrip("Z")
-            
+
             # Try multiple datetime formats for robustness
             dt_naive = None
             for fmt in [
                 "%Y%m%dT%H%M%S",  # Standard: 20251031T090000
-                "%Y%m%dT%H%M",    # Without seconds: 20251031T0900
+                "%Y%m%dT%H%M",  # Without seconds: 20251031T0900
                 "%Y-%m-%dT%H:%M:%S",  # ISO format: 2025-10-31T09:00:00
                 "%Y-%m-%d %H:%M:%S",  # Space separated: 2025-10-31 09:00:00
             ]:
@@ -243,7 +245,7 @@ class TimezoneParser:
                     break
                 except ValueError:
                     continue
-                    
+
             if dt_naive is None:
                 raise ValueError(f"Unable to parse datetime format: {dt_str_clean}")
 
@@ -257,9 +259,7 @@ class TimezoneParser:
             iana_tz = normalize_timezone_name(tzid)
             if iana_tz is None:
                 # Log warning but fallback gracefully
-                logger.warning(
-                    f"Unknown timezone {tzid!r} in {datetime_str!r}, assuming UTC"
-                )
+                logger.warning("Unknown timezone %r in %r, assuming UTC", tzid, datetime_str)
                 return dt_naive.replace(tzinfo=UTC)
 
             # Apply timezone using zoneinfo (Python 3.12+ standard library)
@@ -269,7 +269,7 @@ class TimezoneParser:
 
         except Exception as e:
             # Fallback to UTC if timezone parsing fails
-            logger.warning(f"Failed to parse TZID datetime {datetime_str}: {e}, assuming UTC")
+            logger.warning("Failed to parse TZID datetime %s: %s, assuming UTC", datetime_str, e)
             # Try to extract just the datetime part
             try:
                 dt_str = datetime_str.split(":")[-1].rstrip("Z")
@@ -355,13 +355,9 @@ class LiteDateTimeParser:
                     try:
                         # Use lightweight timezone service to handle timezone conversion
                         dt = ensure_timezone_aware(dt)
-                        logger.debug(
-                            f"Parsed naive datetime {dt} with default timezone: {tz}",
-                        )
+                        logger.debug("Parsed naive datetime %s with default timezone: %s", dt, tz)
                     except Exception as e:
-                        logger.warning(
-                            f"Failed to apply timezone {tz}: {e}",
-                        )
+                        logger.warning("Failed to apply timezone %s: %s", tz, e)
                         dt = ensure_timezone_aware(dt)  # Fallback to UTC
                 else:
                     # Use lightweight timezone awareness

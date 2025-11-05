@@ -79,7 +79,7 @@ def get_request_id() -> str:
     Example:
         >>> from calendarbot_lite.middleware import get_request_id
         >>> request_id = get_request_id()
-        >>> logger.info(f"Processing request {request_id}")
+        >>> logger.info("Processing request %s", request_id)
     """
     request_id = request_id_var.get()
     return request_id if request_id else "no-request-id"

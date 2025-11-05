@@ -14,7 +14,7 @@ from typing import Optional
 
 
 def get_staged_files() -> list[str]:
-    """Get list of staged Python files."""
+    """Get list of staged Python files from calendarbot_lite/ directory only."""
     try:
         result = subprocess.run(
             ["git", "diff", "--cached", "--name-only", "--diff-filter=AM"],
@@ -22,7 +22,11 @@ def get_staged_files() -> list[str]:
             text=True,
             check=True,
         )
-        return [f for f in result.stdout.strip().split("\n") if f.endswith(".py") and f]
+        return [
+            f
+            for f in result.stdout.strip().split("\n")
+            if f.endswith(".py") and f.startswith("calendarbot_lite/")
+        ]
     except subprocess.CalledProcessError:
         return []
 

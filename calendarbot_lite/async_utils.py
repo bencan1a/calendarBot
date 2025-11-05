@@ -172,13 +172,9 @@ class AsyncOrchestrator:
         async with self._executor_lock:
             if self._executor is None:
                 self._executor = ThreadPoolExecutor(
-                    max_workers=self.max_workers,
-                    thread_name_prefix="AsyncOrch"
+                    max_workers=self.max_workers, thread_name_prefix="AsyncOrch"
                 )
-                logger.debug(
-                    "Created ThreadPoolExecutor with %d workers",
-                    self.max_workers
-                )
+                logger.debug("Created ThreadPoolExecutor with %d workers", self.max_workers)
         return self._executor
 
     def _record_operation(self, success: bool = True, timeout: bool = False) -> None:
@@ -227,10 +223,7 @@ class AsyncOrchestrator:
             return result
         except TimeoutError as e:
             self._record_operation(success=False, timeout=True)
-            logger.warning(
-                "Operation timed out after %.1fs",
-                effective_timeout
-            )
+            logger.warning("Operation timed out after %.1fs", effective_timeout)
             if raise_on_timeout:
                 raise AsyncTimeoutError(
                     f"Operation exceeded timeout of {effective_timeout}s"
@@ -295,6 +288,7 @@ class AsyncOrchestrator:
         Raises:
             AsyncTimeoutError: If operation times out
         """
+
         def run_in_new_loop() -> Any:
             """Run coroutine in a new event loop in separate thread."""
             new_loop = asyncio.new_event_loop()
@@ -329,9 +323,7 @@ class AsyncOrchestrator:
 
         try:
             results = await self.run_with_timeout(
-                gather_coro,
-                timeout=timeout,
-                raise_on_timeout=True
+                gather_coro, timeout=timeout, raise_on_timeout=True
             )
             self._record_operation(success=True)
             return results
@@ -374,9 +366,7 @@ class AsyncOrchestrator:
                 result = await coro_func()
                 if attempt > 0:
                     logger.info(
-                        "Operation succeeded on attempt %d/%d",
-                        attempt + 1,
-                        max_retries + 1
+                        "Operation succeeded on attempt %d/%d", attempt + 1, max_retries + 1
                     )
                 self._record_operation(success=True)
                 return result
@@ -385,19 +375,13 @@ class AsyncOrchestrator:
 
                 # Check if we should retry this exception type
                 if retry_on is not None and not isinstance(e, retry_on):
-                    logger.debug(
-                        "Not retrying exception type %s",
-                        type(e).__name__
-                    )
+                    logger.debug("Not retrying exception type %s", type(e).__name__)
                     raise
 
                 # Check if we have retries left
                 if attempt >= max_retries:
                     self._record_operation(success=False)
-                    logger.exception(
-                        "Retry exhausted after %d attempts",
-                        max_retries + 1
-                    )
+                    logger.exception("Retry exhausted after %d attempts", max_retries + 1)
                     break
 
                 # Log and wait before retry
@@ -406,16 +390,13 @@ class AsyncOrchestrator:
                     attempt + 1,
                     max_retries + 1,
                     e,
-                    current_backoff
+                    current_backoff,
                 )
 
                 await asyncio.sleep(current_backoff)
 
                 # Exponential backoff with max cap
-                current_backoff = min(
-                    current_backoff * backoff_multiplier,
-                    max_backoff
-                )
+                current_backoff = min(current_backoff * backoff_multiplier, max_backoff)
 
         # All retries exhausted
         raise AsyncRetryExhaustedError(
@@ -503,6 +484,7 @@ class AsyncOrchestrator:
 
             # Use blocking version - this is a sync method
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(run_in_new_loop)
                 return future.result()
@@ -556,16 +538,10 @@ class AsyncOrchestrator:
         if not self.enable_health_tracking:
             return {"health_tracking": "disabled"}
 
-        error_rate = (
-            self._error_count / self._operation_count
-            if self._operation_count > 0
-            else 0.0
-        )
+        error_rate = self._error_count / self._operation_count if self._operation_count > 0 else 0.0
 
         timeout_rate = (
-            self._timeout_count / self._operation_count
-            if self._operation_count > 0
-            else 0.0
+            self._timeout_count / self._operation_count if self._operation_count > 0 else 0.0
         )
 
         return {

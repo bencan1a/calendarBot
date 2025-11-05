@@ -157,6 +157,9 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
+# Pyright generated stub files
+typings/
+
 # Cython debug symbols
 cython_debug/
 

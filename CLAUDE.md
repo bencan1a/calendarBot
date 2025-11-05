@@ -114,8 +114,7 @@ Production-ready Raspberry Pi kiosk deployment system:
 
 ### Configuration
 - `.env` - Environment variables (see `.env.example`)
-- `pyproject.toml` - Build config, coverage, pytest, ruff
-- `pytest-lite.ini` - Lite test configuration
+- `pyproject.toml` - Build config, coverage, pytest, ruff, mypy
 
 ---
 

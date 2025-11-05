@@ -176,9 +176,7 @@ def get_default_timezone(fallback: str = "America/Los_Angeles") -> str:
         zoneinfo.ZoneInfo(timezone)
         return timezone
     except Exception:
-        logger.warning(
-            "Invalid timezone %r, falling back to %r", timezone, fallback, exc_info=True
-        )
+        logger.warning("Invalid timezone %r, falling back to %r", timezone, fallback, exc_info=True)
         return fallback
 
 

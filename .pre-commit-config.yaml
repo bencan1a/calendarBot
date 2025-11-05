@@ -56,7 +56,7 @@ repos:
     hooks:
       - id: ruff-check
         name: "Ruff Linter (includes type checking)"
-        files: ^calendarbot/.*\.py$
+        files: ^calendarbot_lite/.*\.py$
         exclude: ^(tests/|docs/|scripts/|backup/|\.venv/|venv/)
         args: [--config=pyproject.toml]
 
@@ -80,6 +80,34 @@ repos:
       #   pass_filenames: false
       #   files: ^(config/.*\.py|.*\.yaml|.*\.yml)$
 
+  # Use local mypy installation to ensure access to all project dependencies
+  - repo: local
+    hooks:
+      - id: mypy
+        name: "Type Checking (mypy)"
+        entry: bash -c '. venv/bin/activate && mypy "$@"' --
+        language: system
+        types: [python]
+        files: ^calendarbot_lite/.*\.py$
+        exclude: ^(tests/|docs/|scripts/|backup/|\.venv/|venv/|calendarbot/|calendarbot_lite/scripts/)
+        args: [--config-file=pyproject.toml]
+        pass_filenames: true
+        require_serial: false
+
+  # ============================================================================
+  # STAGE 3: Critical Test Execution (30-60 seconds)
+  # ============================================================================
+  - repo: local
+    hooks:
+      - id: critical-tests
+        name: "Critical Path Tests"
+        entry: sh -c '. venv/bin/activate && python tests/ci_test_runner.py --critical-path'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        verbose: true
+        files: ^calendarbot_lite/.*\.py$
+
   # ============================================================================
   # STAGE 4: Integrated Format-and-Stage (Auto-Fix Mode)
   # Integrates formatting, import sorting, and auto-staging in a single process
@@ -88,14 +116,14 @@ repos:
     hooks:
       - id: integrated-format-and-stage
         name: "Integrated Format & Auto-Stage"
-        entry: sh -c '. ./venv/bin/activate && python format_and_stage.py'
+        entry: sh -c '. ./venv/bin/activate && python xformat_and_stage.py'
         language: system
         stages: [pre-commit]
         pass_filenames: false
         always_run: false
         require_serial: true
         verbose: true
-        files: \.py$
+        files: ^calendarbot_lite/.*\.py$
 
   # ============================================================================
   # MANUAL AUTO-CORRECTION STAGE

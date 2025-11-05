@@ -27,9 +27,9 @@ BREAK = '<break time="{t}s"/>'
 
 # Regex patterns for time detection and tag preservation (compiled once for performance)
 # Pattern for times: H:MM am/pm or HH:MM am/pm
-TIME_PATTERN = re.compile(r'\b(\d{1,2}):(\d{2})\s+(am|pm)\b', re.IGNORECASE)
+TIME_PATTERN = re.compile(r"\b(\d{1,2}):(\d{2})\s+(am|pm)\b", re.IGNORECASE)
 # Pattern for say-as tags: <say-as ...>...</say-as>
-SAY_AS_TAG_PATTERN = re.compile(r'(<say-as[^>]*>.*?</say-as>)', re.DOTALL)
+SAY_AS_TAG_PATTERN = re.compile(r"(<say-as[^>]*>.*?</say-as>)", re.DOTALL)
 
 # Configuration defaults
 DEFAULT_CONFIG = {
@@ -150,8 +150,8 @@ def render_meeting_ssml(
         logger.warning("Meeting SSML validation failed, length=%d", len(ssml))
         return None
 
-    except Exception as e:
-        logger.error("SSML generation failed for meeting: %s", e, exc_info=True)
+    except Exception:
+        logger.exception("SSML generation failed for meeting")
         return None
 
 
@@ -244,8 +244,8 @@ def render_time_until_ssml(
         logger.warning("Time-until SSML validation failed, length=%d", len(ssml))
         return None
 
-    except Exception as e:
-        logger.error("SSML generation failed for time-until: %s", e, exc_info=True)
+    except Exception:
+        logger.exception("SSML generation failed for time-until")
         return None
 
 
@@ -400,8 +400,8 @@ def render_done_for_day_ssml(
         logger.warning("Done-for-day SSML validation failed, length=%d", len(ssml))
         return None
 
-    except Exception as e:
-        logger.error("SSML generation failed for done-for-day: %s", e, exc_info=True)
+    except Exception:
+        logger.exception("SSML generation failed for done-for-day")
         return None
 
 
@@ -583,8 +583,8 @@ def render_morning_summary_ssml(
         logger.warning("Morning summary SSML validation failed, length=%d", len(ssml))
         return None
 
-    except Exception as e:
-        logger.error("SSML generation failed for morning summary: %s", e, exc_info=True)
+    except Exception:
+        logger.exception("SSML generation failed for morning summary")
         return None
 
 
@@ -635,8 +635,8 @@ def validate_ssml(ssml: str, max_chars: int = 500, allowed_tags: Optional[set[st
 
         return True
 
-    except Exception as e:
-        logger.error("SSML validation error: %s", e, exc_info=True)
+    except Exception:
+        logger.exception("SSML validation error")
         return False
 
 

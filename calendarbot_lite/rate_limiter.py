@@ -190,9 +190,9 @@ class RateLimiter:
                 "remaining_ip": ip_info["remaining"],
                 "remaining_token": token_info["remaining"] if bearer_token else None,
                 "reset_seconds": min(ip_info["reset_seconds"], token_info["reset_seconds"]),
-                "retry_after": self._calculate_retry_after(
-                    ip_info, burst_info, token_info
-                ) if not allowed else 0,
+                "retry_after": self._calculate_retry_after(ip_info, burst_info, token_info)
+                if not allowed
+                else 0,
             }
 
             return allowed, limit_info
@@ -241,9 +241,7 @@ class RateLimiter:
 
         return allowed, {"remaining": remaining, "reset_seconds": reset_seconds}
 
-    def _record_request(
-        self, key: str, entries: dict[str, RateLimitEntry], now: float
-    ) -> None:
+    def _record_request(self, key: str, entries: dict[str, RateLimitEntry], now: float) -> None:
         """Record a request for tracking.
 
         Args:
@@ -291,8 +289,8 @@ class RateLimiter:
             except asyncio.CancelledError:
                 logger.debug("Rate limiter cleanup loop cancelled")
                 break
-            except Exception as e:
-                logger.error("Error in rate limiter cleanup loop: %s", e, exc_info=True)
+            except Exception:
+                logger.exception("Error in rate limiter cleanup loop")
 
     async def _cleanup_expired_entries(self) -> None:
         """Remove entries with no requests in the last window period."""

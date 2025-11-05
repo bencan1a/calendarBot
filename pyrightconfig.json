@@ -1,10 +1,10 @@
 {
     "include": [
-        "calendarbot_lite",
-        "tests/lite"
+        "calendarbot_lite"
     ],
     "exclude": [
         "calendarbot",
+        "tests",
         "scripts",
         "calendarbot_lite/scripts",
         "**/__pycache__",

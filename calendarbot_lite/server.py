@@ -43,7 +43,9 @@ except ImportError:
     logging.basicConfig(level=logging.INFO)
 
 # Import enhanced monitoring logging
-monitoring_logger: Any = None  # Type: Optional[MonitoringLogger] but we use Any to avoid circular imports
+monitoring_logger: Any = (
+    None  # Type: Optional[MonitoringLogger] but we use Any to avoid circular imports
+)
 try:
     from .monitoring_logging import get_logger
 
@@ -65,7 +67,7 @@ def log_monitoring_event(event: str, message: str, level: str = "INFO", **kwargs
     else:
         # Fallback to standard logging
         log_level = getattr(logging, level.upper(), logging.INFO)
-        logger.log(log_level, f"[{event}] {message}")
+        logger.log(log_level, "[%s] %s", event, message)
 
 
 # Health tracking infrastructure - lightweight in-memory tracking for monitoring
@@ -380,7 +382,9 @@ def _build_default_config_from_env() -> dict[str, Any]:
         try:
             cfg["rate_limit_per_token"] = int(rate_limit_per_token)
         except Exception:
-            logger.warning("Invalid CALENDARBOT_RATE_LIMIT_PER_TOKEN=%r; ignoring", rate_limit_per_token)
+            logger.warning(
+                "Invalid CALENDARBOT_RATE_LIMIT_PER_TOKEN=%r; ignoring", rate_limit_per_token
+            )
 
     rate_limit_burst = os.environ.get("CALENDARBOT_RATE_LIMIT_BURST")
     if rate_limit_burst:
@@ -394,7 +398,9 @@ def _build_default_config_from_env() -> dict[str, Any]:
         try:
             cfg["rate_limit_burst_window"] = int(rate_limit_burst_window)
         except Exception:
-            logger.warning("Invalid CALENDARBOT_RATE_LIMIT_BURST_WINDOW=%r; ignoring", rate_limit_burst_window)
+            logger.warning(
+                "Invalid CALENDARBOT_RATE_LIMIT_BURST_WINDOW=%r; ignoring", rate_limit_burst_window
+            )
 
     return cfg
 
@@ -437,6 +443,7 @@ def _is_focus_time_event(event: LiteCalendarEvent) -> bool:
     """
     subject = event.subject.lower()
     return any(keyword in subject for keyword in FOCUS_TIME_KEYWORDS)
+
 
 # Timezone utility functions now imported from timezone_utils module (see imports at top)
 # This eliminates ~186 lines of duplicate code that was previously defined here.
@@ -779,9 +786,9 @@ async def _fetch_and_parse_source(
             parser = LiteICSParser(_Settings())
             pipeline = (
                 EventProcessingPipeline()
-                .add_stage(ParseStage(parser))       # Parse ICS + expand RRULEs
-                .add_stage(DeduplicationStage())     # Remove source-internal duplicates
-                .add_stage(SortStage())              # Sort by time
+                .add_stage(ParseStage(parser))  # Parse ICS + expand RRULEs
+                .add_stage(DeduplicationStage())  # Remove source-internal duplicates
+                .add_stage(SortStage())  # Sort by time
             )
 
             # Create processing context
@@ -790,7 +797,7 @@ async def _fetch_and_parse_source(
                 source_url=source.url,
                 source_name=source.name,
                 rrule_expansion_days=rrule_days,
-                enable_streaming=True
+                enable_streaming=True,
             )
 
             # Process through pipeline
@@ -800,7 +807,7 @@ async def _fetch_and_parse_source(
                 logger.warning(
                     "Pipeline processing failed for source %r: %s",
                     src_cfg,
-                    "; ".join(result.errors) if result.errors else "Unknown error"
+                    "; ".join(result.errors) if result.errors else "Unknown error",
                 )
                 return []
 
@@ -811,12 +818,16 @@ async def _fetch_and_parse_source(
             # Log pipeline statistics
             logger.debug(
                 "Pipeline processed %d events from source %r (warnings: %d)",
-                len(context.events), src_cfg, len(result.warnings)
+                len(context.events),
+                src_cfg,
+                len(result.warnings),
             )
 
             # Return tuple of (source_name, events) to preserve source information
             # Conversion to EventDict happens later after all sources are processed and filtered
-            logger.debug("Successfully processed %d events from source %r", len(context.events), src_cfg)
+            logger.debug(
+                "Successfully processed %d events from source %r", len(context.events), src_cfg
+            )
             return (source.name, context.events)
 
         except ImportError:
@@ -906,9 +917,7 @@ async def _refresh_once(
     # Execute all fetch tasks concurrently with timeout management
     # Use 120s timeout for fetching all sources (reasonable for multiple ICS fetches)
     fetch_results = await orchestrator.gather_with_timeout(
-        *fetch_tasks,
-        timeout=120.0,
-        return_exceptions=True
+        *fetch_tasks, timeout=120.0, return_exceptions=True
     )
 
     # Process results and collect parsed LiteCalendarEvent objects
@@ -930,13 +939,18 @@ async def _refresh_once(
         elif isinstance(result, list):
             # Fallback for old return format (should not happen in production)
             # Skip dict objects (EventDict) - only process LiteCalendarEvent objects
-            logger.debug(" Source %r returned %d items (checking types)", sources_cfg[i], len(result))
+            logger.debug(
+                " Source %r returned %d items (checking types)", sources_cfg[i], len(result)
+            )
             for item in result:
                 if isinstance(item, LiteCalendarEvent):
                     parsed_events.append(item)
                 elif isinstance(item, dict):
                     # Skip EventDict objects - these are from old code paths
-                    logger.warning("Skipping EventDict from source %r - not compatible with pipeline", sources_cfg[i])
+                    logger.warning(
+                        "Skipping EventDict from source %r - not compatible with pipeline",
+                        sources_cfg[i],
+                    )
                     continue
 
     logger.debug(" Total parsed events from all sources: %d", len(parsed_events))
@@ -959,7 +973,10 @@ async def _refresh_once(
             logger.warning("Failed to get skipped event IDs: %s", e)
 
     # Pipeline 2 (multi-source post-processing): processes combined events from all sources
-    logger.info("=== Post-Processing Pipeline: Filtering and limiting %d combined events ===", len(parsed_events))
+    logger.info(
+        "=== Post-Processing Pipeline: Filtering and limiting %d combined events ===",
+        len(parsed_events),
+    )
 
     from .pipeline import EventProcessingPipeline, ProcessingContext
     from .pipeline_stages import EventLimitStage, SkippedEventsFilterStage, TimeWindowStage
@@ -977,6 +994,7 @@ async def _refresh_once(
     # Go back 24 hours to ensure we capture events from "today" in any timezone
     # This is needed for done-for-day queries that need to see completed meetings
     import datetime
+
     window_start = now - datetime.timedelta(hours=24)
 
     # Create context for post-processing
@@ -986,7 +1004,7 @@ async def _refresh_once(
         window_start=window_start,  # Start from 24 hours ago to include past events from today
         window_end=None,  # No end limit (TimeWindowStage will handle)
         event_window_size=window_size,
-        now=now
+        now=now,
     )
 
     # Process through post-processing pipeline
@@ -995,7 +1013,7 @@ async def _refresh_once(
     if not post_result.success:
         logger.warning(
             "Post-processing pipeline failed: %s",
-            "; ".join(post_result.errors) if post_result.errors else "Unknown error"
+            "; ".join(post_result.errors) if post_result.errors else "Unknown error",
         )
         # Fall back to using all parsed events if post-processing fails
         final_events = parsed_events
@@ -1003,8 +1021,10 @@ async def _refresh_once(
         final_events = post_context.events
         logger.debug(
             "Post-processing pipeline complete: %d → %d events (filtered: %d, warnings: %d)",
-            post_result.events_in, post_result.events_out,
-            post_result.events_in - post_result.events_out, len(post_result.warnings)
+            post_result.events_in,
+            post_result.events_out,
+            post_result.events_in - post_result.events_out,
+            len(post_result.warnings),
         )
 
     # Update the event window atomically with LiteCalendarEvent objects
@@ -1148,8 +1168,12 @@ async def _refresh_loop(
             config, skipped_store, event_window_ref, window_lock, shared_http_client, response_cache
         )
         logger.debug(" Initial refresh completed")
-    except Exception as e:
-        logger.error("DEBUG: Initial refresh failed: %s", e, exc_info=True)
+    except Exception:
+        logger.exception(
+            "Initial refresh failed during _refresh_loop; config: %r, skipped_store: %r",
+            config,
+            skipped_store,
+        )
 
     logger.debug(" Starting refresh loop")
     while not stop_event.is_set():
@@ -1160,7 +1184,12 @@ async def _refresh_loop(
                 break
             logger.debug(" Starting periodic refresh")
             await _refresh_once(
-                config, skipped_store, event_window_ref, window_lock, shared_http_client, response_cache
+                config,
+                skipped_store,
+                event_window_ref,
+                window_lock,
+                shared_http_client,
+                response_cache,
             )
             logger.debug(" Periodic refresh completed")
         except Exception:
@@ -1283,9 +1312,11 @@ async def _make_app(  # type: ignore[no-untyped-def]
         rate_limiter = RateLimiter(rate_limit_config)
         logger.info("Initialized rate limiter for Alexa endpoints")
     except ImportError:
-        logger.warning("Rate limiter module not available, Alexa endpoints will run without rate limiting")
-    except Exception as e:
-        logger.error("Failed to initialize rate limiter: %s", e, exc_info=True)
+        logger.warning(
+            "Rate limiter module not available, Alexa endpoints will run without rate limiting"
+        )
+    except Exception:
+        logger.exception("Failed to initialize rate limiter")
 
     # Create SSML renderers dictionary for Alexa routes
     ssml_renderers = {
@@ -1301,11 +1332,11 @@ async def _make_app(  # type: ignore[no-untyped-def]
         bearer_token=alexa_bearer_token,
         event_window_ref=event_window_ref,
         window_lock=window_lock,
-        skipped_store=skipped_store,
+        skipped_store=skipped_store,  # type: ignore[arg-type]
         time_provider=_now_utc,
         duration_formatter=_format_duration_spoken,
-        iso_serializer=_serialize_iso,
-        ssml_renderers=ssml_renderers,
+        iso_serializer=_serialize_iso,  # type: ignore[arg-type]
+        ssml_renderers=ssml_renderers,  # type: ignore[arg-type]
         get_server_timezone=_get_server_timezone,
         response_cache=response_cache,
         precompute_getter=_get_precomputed_response,
@@ -1338,6 +1369,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     response_cache = None
     try:
         from .alexa_response_cache import ResponseCache
+
         response_cache = ResponseCache(max_size=100)
         logger.info("Initialized Alexa response cache (max_size=100)")
     except ImportError:
@@ -1384,7 +1416,13 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
         ),
     )
     app = await _make_app(
-        config, skipped_store, event_window_ref, window_lock, stop_event, shared_http_client, response_cache
+        config,
+        skipped_store,
+        event_window_ref,
+        window_lock,
+        stop_event,
+        shared_http_client,
+        response_cache,
     )
     logger.debug("Web application created")
 
@@ -1451,7 +1489,13 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     logger.debug(" Creating background refresher task")
     refresher = asyncio.create_task(
         _refresh_loop(
-            config, skipped_store, event_window_ref, window_lock, stop_event, shared_http_client, response_cache
+            config,
+            skipped_store,
+            event_window_ref,
+            window_lock,
+            stop_event,
+            shared_http_client,
+            response_cache,
         )
     )
     logger.debug(" Background refresher task created: %r", refresher)

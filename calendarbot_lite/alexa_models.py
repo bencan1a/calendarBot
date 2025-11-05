@@ -47,13 +47,11 @@ class NextMeetingRequestParams(AlexaRequestParams):
     """
 
 
-
 class TimeUntilRequestParams(AlexaRequestParams):
     """Request parameters for TimeUntilHandler.
 
     Inherits all parameters from AlexaRequestParams.
     """
-
 
 
 class DoneForDayRequestParams(AlexaRequestParams):
@@ -63,13 +61,11 @@ class DoneForDayRequestParams(AlexaRequestParams):
     """
 
 
-
 class LaunchSummaryRequestParams(AlexaRequestParams):
     """Request parameters for LaunchSummaryHandler.
 
     Inherits all parameters from AlexaRequestParams.
     """
-
 
 
 class MorningSummaryRequestParams(BaseModel):
@@ -88,16 +84,12 @@ class MorningSummaryRequestParams(BaseModel):
         description="ISO date string (YYYY-MM-DD) for which day to summarize",
         pattern=r"^\d{4}-\d{2}-\d{2}$",
     )
-    timezone: str = Field(
-        "UTC", description="IANA timezone identifier", alias="timezone"
-    )
+    timezone: str = Field("UTC", description="IANA timezone identifier", alias="timezone")
     detail_level: Literal["brief", "normal", "detailed", "verbose"] = Field(
         "normal", description="Level of detail for the summary"
     )
     prefer_ssml: bool = Field(False, description="Whether to prefer SSML output")
-    max_events: int = Field(
-        50, ge=1, le=100, description="Maximum number of events to include"
-    )
+    max_events: int = Field(50, ge=1, le=100, description="Maximum number of events to include")
 
     @field_validator("timezone")
     @classmethod
@@ -178,7 +170,9 @@ class MorningSummaryRequestParams(BaseModel):
                 try:
                     data["max_events"] = int(value)
                 except ValueError as e:
-                    raise ValueError(f"Invalid max_events value: {value!r}. Expected integer") from e
+                    raise ValueError(
+                        f"Invalid max_events value: {value!r}. Expected integer"
+                    ) from e
         return data
 
     class Config:

@@ -73,9 +73,7 @@ class FetchOrchestrator:
         # Execute all fetch tasks concurrently with timeout management
         # Use 120s timeout for fetching all sources (reasonable for multiple ICS fetches)
         fetch_results = await orchestrator.gather_with_timeout(
-            *fetch_tasks,
-            timeout=120.0,
-            return_exceptions=True
+            *fetch_tasks, timeout=120.0, return_exceptions=True
         )
 
         # Process results and collect parsed events
@@ -274,8 +272,8 @@ class FetchOrchestrator:
                 get_config_value,
             )
             logger.debug("Initial refresh completed")
-        except Exception as e:
-            logger.error("Initial refresh failed: %s", e, exc_info=True)
+        except Exception:
+            logger.exception("Initial refresh failed")
 
         logger.debug("Starting refresh loop")
         while not stop_event.is_set():
