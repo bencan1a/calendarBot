@@ -413,6 +413,7 @@ async def parse_ics_stream(
             telemetry.record_item()
 
             if item["type"] == "event":
+                event = None  # Initialize to None for cleanup safety
                 try:
                     # Convert raw component to LiteCalendarEvent using existing parser logic
                     component = item["component"]
@@ -482,13 +483,15 @@ async def parse_ics_stream(
                                         total_components=total_components,
                                     )
 
-                        # Explicit cleanup for memory management
-                        del event
-
                 except Exception as e:
                     warning = f"Failed to parse streamed event: {e}"
                     warnings.append(warning)
                     logger.warning(warning)
+                finally:
+                    # Ensure event object is released in all code paths to prevent memory leaks
+                    # This is critical for long-running processes on memory-constrained devices (e.g., Raspberry Pi)
+                    if event is not None:
+                        del event
 
             elif item["type"] == "error":
                 errors.append(item["error"])

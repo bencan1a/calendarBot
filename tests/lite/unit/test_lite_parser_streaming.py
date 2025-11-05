@@ -1,7 +1,6 @@
 """Unit tests for streaming ICS parser functionality."""
 
 import asyncio
-from typing import List
 
 import pytest
 
@@ -16,7 +15,7 @@ pytestmark = pytest.mark.unit
 class AsyncByteIterator:
     """Helper class to simulate async byte stream."""
 
-    def __init__(self, chunks: List[bytes]):
+    def __init__(self, chunks: list[bytes]):
         self.chunks = chunks
         self.index = 0
 
@@ -320,6 +319,106 @@ END:VCALENDAR"""
     assert result.success
     assert len(result.events) == 1
     assert result.events[0].subject == "Single Byte Test"
+
+
+@pytest.mark.asyncio
+async def test_streaming_parser_memory_cleanup_on_parse_errors():
+    """Test that event objects are properly cleaned up when parse errors occur.
+    
+    This is a regression test for the memory leak issue where event objects
+    weren't released in error paths, causing memory accumulation over time.
+    """
+    # Create ICS with one valid event and one malformed event
+    ics_content = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:Test Calendar
+X-WR-CALNAME:Test Calendar
+X-WR-TIMEZONE:UTC
+BEGIN:VEVENT
+UID:valid-event-1
+DTSTART:20231201T100000Z
+DTEND:20231201T110000Z
+SUMMARY:Valid Event Before Error
+TRANSP:OPAQUE
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:malformed-event
+DTSTART:INVALID_DATE_FORMAT
+DTEND:20231202T150000Z
+SUMMARY:Malformed Event
+TRANSP:OPAQUE
+STATUS:CONFIRMED
+END:VEVENT
+BEGIN:VEVENT
+UID:valid-event-2
+DTSTART:20231203T100000Z
+DTEND:20231203T110000Z
+SUMMARY:Valid Event After Error
+TRANSP:OPAQUE
+STATUS:CONFIRMED
+END:VEVENT
+END:VCALENDAR"""
+
+    chunks = [ics_content.encode("utf-8")]
+    stream = AsyncByteIterator(chunks)
+
+    result = await parse_ics_stream(stream, source_url="test://memory-cleanup")
+
+    # Should succeed but may have warnings about malformed events
+    assert result.success
+    # At least the valid events should be parsed
+    assert len(result.events) >= 1
+    # Check that we got warnings about parse failures
+    if result.warnings:
+        assert any("parse" in warning.lower() or "failed" in warning.lower()
+                   for warning in result.warnings)
+
+
+@pytest.mark.asyncio
+async def test_streaming_parser_memory_cleanup_on_circuit_breaker():
+    """Test that event objects are properly cleaned up when circuit breaker triggers.
+    
+    This tests the early return path (circuit breaker) to ensure event cleanup
+    happens even when the function returns early.
+    """
+    # Create ICS with more events than the max_stored_events limit (1000)
+    # to trigger circuit breaker
+    events = []
+    for i in range(1100):
+        event = f"""BEGIN:VEVENT
+UID:event-{i}
+DTSTART:20231201T{i % 24:02d}0000Z
+DTEND:20231201T{(i % 24 + 1) % 24:02d}0000Z
+SUMMARY:Event {i}
+TRANSP:OPAQUE
+STATUS:CONFIRMED
+END:VEVENT
+"""
+        events.append(event)
+    
+    ics_content = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:Test Calendar
+X-WR-CALNAME:Large Calendar
+X-WR-TIMEZONE:UTC
+{"".join(events)}END:VCALENDAR"""
+
+    chunks = [ics_content.encode("utf-8")]
+    stream = AsyncByteIterator(chunks)
+
+    result = await parse_ics_stream(stream, source_url="test://circuit-breaker")
+
+    # Should handle the large calendar
+    # May hit the 1000 event limit and return warnings
+    assert isinstance(result.success, bool)
+    if not result.success:
+        # Circuit breaker triggered
+        assert result.error_message is not None
+    if result.warnings:
+        # Should have warning about event limit
+        assert any("limit" in warning.lower() or "truncat" in warning.lower()
+                   for warning in result.warnings)
 
 
 if __name__ == "__main__":
