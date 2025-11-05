@@ -85,7 +85,7 @@ class SkippedStore:
                 with self._path.open("r", encoding="utf-8") as fh:
                     data = json.load(fh)
                 if not isinstance(data, dict):
-                    raise ValueError("skipped store JSON root must be an object")  # noqa: TRY004, TRY301
+                    raise ValueError("skipped store JSON root must be an object")  # noqa: TRY004
             except Exception as exc:
                 logger.warning("Failed to read skipped store %s: %s", self._path, exc)
                 self._store = {}

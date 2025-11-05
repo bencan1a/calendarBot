@@ -479,7 +479,7 @@ class LiteRRuleExpander(RRuleWorkerPool):
             try:
                 asyncio.get_running_loop()
                 # If we get here, we're already in an event loop - can't use asyncio.run()
-                raise RuntimeError(  # noqa: TRY301
+                raise RuntimeError(
                     "expand_event() cannot be called from async context. "
                     "Use expand_event_async() or await expand_event_to_list() instead."
                 )
