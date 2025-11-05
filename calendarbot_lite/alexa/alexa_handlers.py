@@ -47,7 +47,10 @@ from calendarbot_lite.alexa.alexa_types import (
     AlexaNextMeetingResponse,
     AlexaTimeUntilResponse,
 )
-from calendarbot_lite.calendar.lite_datetime_utils import format_time_cross_platform, serialize_datetime_utc
+from calendarbot_lite.calendar.lite_datetime_utils import (
+    format_time_cross_platform,
+    serialize_datetime_utc,
+)
 from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
 from calendarbot_lite.core.monitoring_logging import get_logger
 from calendarbot_lite.core.timezone_utils import parse_request_timezone
@@ -469,7 +472,10 @@ class AlexaEndpointBase(ABC):
             Filtered list of LiteCalendarEvent objects
         """
         from calendarbot_lite.domain.pipeline import ProcessingContext
-        from calendarbot_lite.domain.pipeline_stages import SkippedEventsFilterStage, TimeWindowStage
+        from calendarbot_lite.domain.pipeline_stages import (
+            SkippedEventsFilterStage,
+            TimeWindowStage,
+        )
 
         # Create processing context
         context = ProcessingContext(
@@ -1309,7 +1315,10 @@ class MorningSummaryHandler(AlexaEndpointBase):
             )
 
             # Events are already LiteCalendarEvent objects - use directly!
-            from calendarbot_lite.domain.morning_summary import MorningSummaryRequest, MorningSummaryService
+            from calendarbot_lite.domain.morning_summary import (
+                MorningSummaryRequest,
+                MorningSummaryService,
+            )
 
             # Create morning summary request
             summary_request = MorningSummaryRequest(

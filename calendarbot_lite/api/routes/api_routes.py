@@ -301,7 +301,10 @@ def register_api_routes(
                 window = tuple(event_window_ref[0])
 
             # Window now contains LiteCalendarEvent objects directly (no conversion needed)
-            from calendarbot_lite.domain.morning_summary import MorningSummaryRequest, MorningSummaryService
+            from calendarbot_lite.domain.morning_summary import (
+                MorningSummaryRequest,
+                MorningSummaryService,
+            )
 
             # Events are already LiteCalendarEvent objects from the event window
             lite_events = list(window)

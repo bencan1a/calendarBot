@@ -20,11 +20,11 @@ import logging
 import signal
 from typing import Any
 
-# Import shared HTTP client for connection reuse optimization
-from calendarbot_lite.core.http_client import close_all_clients, get_shared_client
-
 # Import models for type annotations
 from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
+
+# Import shared HTTP client for connection reuse optimization
+from calendarbot_lite.core.http_client import close_all_clients, get_shared_client
 
 # Import timezone utilities (consolidated from duplicate implementations)
 from calendarbot_lite.core.timezone_utils import (
@@ -778,7 +778,11 @@ async def _fetch_and_parse_source(
             logger.debug("ICS content size: %d bytes from %r", len(ics_content), source.url)
 
             from calendarbot_lite.domain.pipeline import EventProcessingPipeline, ProcessingContext
-            from calendarbot_lite.domain.pipeline_stages import DeduplicationStage, ParseStage, SortStage
+            from calendarbot_lite.domain.pipeline_stages import (
+                DeduplicationStage,
+                ParseStage,
+                SortStage,
+            )
 
             # Create per-source processing pipeline (runs once per ICS source)
             # This pipeline handles: parsing raw ICS → expanding RRULEs → removing source-internal duplicates → sorting
@@ -979,7 +983,11 @@ async def _refresh_once(
     )
 
     from calendarbot_lite.domain.pipeline import EventProcessingPipeline, ProcessingContext
-    from calendarbot_lite.domain.pipeline_stages import EventLimitStage, SkippedEventsFilterStage, TimeWindowStage
+    from calendarbot_lite.domain.pipeline_stages import (
+        EventLimitStage,
+        SkippedEventsFilterStage,
+        TimeWindowStage,
+    )
 
     # Create multi-source post-processing pipeline (runs once after combining all sources)
     # This pipeline handles: filtering skipped events → applying time window → limiting to display size
@@ -1270,7 +1278,11 @@ async def _make_app(  # type: ignore[no-untyped-def]
     package_dir = Path(__file__).resolve().parent
 
     # Import route registration functions
-    from calendarbot_lite.api.routes import register_alexa_routes, register_api_routes, register_static_routes
+    from calendarbot_lite.api.routes import (
+        register_alexa_routes,
+        register_api_routes,
+        register_static_routes,
+    )
 
     # Register static file routes
     register_static_routes(app, package_dir)

@@ -12,11 +12,6 @@ from typing import Any, Optional
 
 from icalendar import Event as ICalEvent
 
-from calendarbot_lite.core.config_manager import (
-    MAX_EVENT_DESCRIPTION_LENGTH,
-    MAX_EVENT_LOCATION_LENGTH,
-    MAX_EVENT_SUBJECT_LENGTH,
-)
 from calendarbot_lite.calendar.lite_attendee_parser import LiteAttendeeParser
 from calendarbot_lite.calendar.lite_datetime_utils import LiteDateTimeParser
 from calendarbot_lite.calendar.lite_models import (
@@ -24,6 +19,11 @@ from calendarbot_lite.calendar.lite_models import (
     LiteDateTimeInfo,
     LiteEventStatus,
     LiteLocation,
+)
+from calendarbot_lite.core.config_manager import (
+    MAX_EVENT_DESCRIPTION_LENGTH,
+    MAX_EVENT_LOCATION_LENGTH,
+    MAX_EVENT_SUBJECT_LENGTH,
 )
 
 logger = logging.getLogger(__name__)

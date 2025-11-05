@@ -9,13 +9,13 @@ from urllib.parse import urlparse
 
 import httpx
 
+from calendarbot_lite.calendar.lite_models import LiteICSResponse, LiteICSSource
 from calendarbot_lite.core.http_client import (
     DEFAULT_BROWSER_HEADERS,
     get_shared_client,
     record_client_error,
     record_client_success,
 )
-from calendarbot_lite.calendar.lite_models import LiteICSResponse, LiteICSSource
 
 logger = logging.getLogger(__name__)
 

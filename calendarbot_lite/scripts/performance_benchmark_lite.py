@@ -56,10 +56,10 @@ except ImportError:
 import aiohttp
 from aiohttp import web
 
-from calendarbot_lite.core.http_client import close_all_clients, get_shared_client
 from calendarbot_lite.calendar.lite_fetcher import LiteICSFetcher, StreamHandle
 from calendarbot_lite.calendar.lite_parser import LiteICSContentTooLargeError, parse_ics_stream
 from calendarbot_lite.calendar.lite_rrule_expander import LiteRRuleExpander
+from calendarbot_lite.core.http_client import close_all_clients, get_shared_client
 
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")

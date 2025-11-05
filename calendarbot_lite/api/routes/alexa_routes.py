@@ -27,9 +27,9 @@ from calendarbot_lite.alexa.alexa_protocols import (
 )
 from calendarbot_lite.alexa.alexa_registry import AlexaHandlerRegistry
 from calendarbot_lite.alexa.alexa_response_cache import ResponseCache
-from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
 from calendarbot_lite.api.middleware.rate_limit_middleware import create_rate_limited_handler
 from calendarbot_lite.api.middleware.rate_limiter import RateLimiter
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
 
 logger = logging.getLogger(__name__)
 

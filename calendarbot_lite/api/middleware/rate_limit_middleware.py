@@ -13,7 +13,11 @@ from typing import Any, Optional
 
 from aiohttp import web
 
-from calendarbot_lite.api.middleware.rate_limiter import RateLimiter, get_bearer_token, get_client_ip
+from calendarbot_lite.api.middleware.rate_limiter import (
+    RateLimiter,
+    get_bearer_token,
+    get_client_ip,
+)
 
 logger = logging.getLogger(__name__)
 

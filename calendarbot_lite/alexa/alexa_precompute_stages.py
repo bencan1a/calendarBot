@@ -22,8 +22,12 @@ from calendarbot_lite.alexa.alexa_protocols import (
     TimezoneGetter,
 )
 from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
-from calendarbot_lite.domain.pipeline import EventProcessingPipeline, ProcessingContext, ProcessingResult
 from calendarbot_lite.core.timezone_utils import parse_request_timezone
+from calendarbot_lite.domain.pipeline import (
+    EventProcessingPipeline,
+    ProcessingContext,
+    ProcessingResult,
+)
 
 logger = logging.getLogger(__name__)
 

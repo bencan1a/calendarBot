@@ -72,10 +72,18 @@ class DependencyContainer:
 
         # Import required modules
         from calendarbot_lite.core.config_manager import get_config_value
-        from calendarbot_lite.core.event_filter import EventFilter, EventWindowManager, SmartFallbackHandler
+        from calendarbot_lite.core.event_filter import (
+            EventFilter,
+            EventWindowManager,
+            SmartFallbackHandler,
+        )
         from calendarbot_lite.core.fetch_orchestrator import FetchOrchestrator
         from calendarbot_lite.core.health_tracker import HealthTracker, get_system_diagnostics
-        from calendarbot_lite.core.timezone_utils import get_fallback_timezone, get_server_timezone, now_utc
+        from calendarbot_lite.core.timezone_utils import (
+            get_fallback_timezone,
+            get_server_timezone,
+            now_utc,
+        )
 
         # Initialize health tracker
         health_tracker = HealthTracker()

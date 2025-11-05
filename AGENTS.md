@@ -140,9 +140,15 @@ pytest tests/lite/ -m "not slow"
 
 **IMPORTANT: Follow these conventions when creating files:**
 
-- **Production Code**: `calendarbot_lite/*.py` - Core application modules
-- **Routes/Endpoints**: `calendarbot_lite/routes/*.py` - HTTP route handlers
-- **Kiosk Deployment**: `kiosk/` - Raspberry Pi kiosk deployment system and documentation
+- **Production Code**: `calendarbot_lite/` - Core application organized into modules:
+  - `alexa/` - Alexa skill integration (handlers, models, SSML, protocols)
+  - `calendar/` - Calendar parsing and event processing (ICS parsing, RRULE expansion)
+  - `api/` - HTTP server, routes, and middleware
+    - `routes/` - HTTP route handlers (alexa_routes, api_routes, static_routes)
+    - `middleware/` - HTTP middleware (correlation_id, rate_limiter)
+  - `core/` - Shared infrastructure (config, http_client, health_tracker, async_utils)
+  - `domain/` - Business logic (event_filter, event_prioritizer, pipeline)
+- **Kiosk Deployment**: `kiosk/` - Raspberry Pi kiosk deployment system (project root)
 - **Tests**: `tests/lite/` or `tests/lite_tests/` - Test modules
 - **Temporary Files**: `tmp/` - Debug scripts, analysis reports (gitignored)
 - **Documentation**: `docs/` - Permanent documentation and guides
@@ -187,13 +193,16 @@ See [.env.example](.env.example) for complete reference.
 
 ### Core Modules (calendarbot_lite/)
 
-**Server & HTTP:**
+**API Layer (api/):**
 - `server.py` - aiohttp web server, background tasks, lifecycle management
 - `routes/alexa_routes.py` - Alexa skill intent handlers
 - `routes/api_routes.py` - REST API endpoints for calendar data
 - `routes/static_routes.py` - Static file serving
+- `middleware/correlation_id.py` - Request correlation ID tracking for distributed tracing
+- `middleware/rate_limiter.py` - Rate limiting implementation
+- `middleware/rate_limit_middleware.py` - Rate limiting middleware
 
-**Alexa Integration:**
+**Alexa Integration (alexa/):**
 - `alexa_handlers.py` - Intent processing pipeline (51KB, core logic)
 - `alexa_registry.py` - Handler registration and routing
 - `alexa_precompute_stages.py` - Request preprocessing pipeline
@@ -204,20 +213,37 @@ See [.env.example](.env.example) for complete reference.
 - `alexa_types.py` - Type definitions and protocols
 - `alexa_exceptions.py` - Custom exception hierarchy
 
-**Calendar Processing:**
-- `lite_event_parser.py` - ICS parsing and event extraction
-- `lite_rrule_expander.py` - Recurring event expansion
+**Calendar Processing (calendar/):**
+- `lite_parser.py` - Main ICS parsing coordinator
+- `lite_event_parser.py` - Event extraction from ICS
+- `lite_streaming_parser.py` - Streaming ICS parser
+- `lite_rrule_expander.py` - Recurring event expansion (RRULE)
+- `lite_fetcher.py` - ICS URL fetching
+- `lite_models.py` - Calendar data models (events, etc.)
+- `lite_attendee_parser.py` - Attendee parsing
+- `lite_event_merger.py` - Event merging logic
+- `lite_datetime_utils.py` - Date/time utilities
+- `lite_parser_telemetry.py` - Parser telemetry/metrics
+- `lite_logging.py` - Logging configuration
+
+**Business Logic (domain/):**
 - `event_filter.py` - Event filtering logic
 - `event_prioritizer.py` - Event ranking and prioritization
-- `timezone_utils.py` - Timezone conversion utilities
+- `morning_summary.py` - Morning summary generation
+- `pipeline.py` - Processing pipeline orchestration
+- `pipeline_stages.py` - Pipeline stage definitions
+- `fetch_orchestrator.py` - Calendar fetch coordination (10KB)
+- `skipped_store.py` - Skipped events storage
 
-**Infrastructure:**
+**Shared Infrastructure (core/):**
 - `async_utils.py` - Async helpers and utilities (21KB)
 - `http_client.py` - HTTP client with retry logic (12KB)
-- `fetch_orchestrator.py` - Calendar fetch coordination (10KB)
 - `health_tracker.py` - System health monitoring (8KB)
 - `config_manager.py` - Configuration management (5KB)
 - `dependencies.py` - Dependency injection helpers
+- `timezone_utils.py` - Timezone conversion utilities
+- `debug_helpers.py` - Debugging utilities and diagnostics
+- `monitoring_logging.py` - Enhanced monitoring logging
 - `middleware/correlation_id.py` - Request correlation ID tracking for distributed tracing
 
 **Debugging:**
