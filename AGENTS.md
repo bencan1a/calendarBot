@@ -560,6 +560,14 @@ CALENDARBOT_TEST_TIME=2024-01-01T12:00:00 python -m pytest
 
 ## Code Style Standards
 
+### Required Before Each Commit
+- The following commands MUST be run before checkin to ensure quality:
+- `ruff check calendarbot_lit --fix`
+- `mypy calendarbot_lite`
+- `bandit calendarbot_lite`
+- fix anything significant, mark others to be ignored. 
+- these must run clean before commit
+
 ### Ruff Configuration
 - **Line Length**: 100 characters
 - **Target**: Python 3.12+
@@ -755,71 +763,3 @@ curl http://localhost:8080/health
 
 ---
 
-## ARCHIVED: Legacy CalendarBot (calendarbot/)
-
-**The following information is for the ARCHIVED `calendarbot/` directory only.**
-**Do not use these commands unless specifically working with legacy code.**
-
-### Legacy Entry Points (ARCHIVED)
-```bash
-# DO NOT USE - Archived application
-calendarbot --web
-calendarbot --setup
-calendarbot --epaper
-```
-
-### Legacy Architecture (ARCHIVED)
-The archived `calendarbot/` directory contains:
-- Terminal UI with keyboard navigation
-- Web interface with multiple layouts
-- E-paper display support
-- SQLite-based event caching
-- Comprehensive settings management
-
-For details on the archived architecture, see legacy sections in [CLAUDE.md](CLAUDE.md#L139-L252).
-
----
-
-## Additional Resources
-
-### Core Documentation
-- **[README.md](README.md)** - Project overview and quick start
-- **[calendarbot_lite/README.md](calendarbot_lite/README.md)** - Module documentation
-- **[docs/](docs/)** - Additional documentation and guides
-- **[.env.example](.env.example)** - Environment configuration reference
-- **[pyproject.toml](pyproject.toml)** - Build configuration and dependencies
-- **[pytest-lite.ini](pytest-lite.ini)** - Pytest configuration for lite tests
-
-### Kiosk Deployment Resources
-- **[kiosk/README.md](kiosk/README.md)** - Kiosk deployment overview
-- **[kiosk/docs/AUTOMATED_INSTALLATION.md](kiosk/docs/AUTOMATED_INSTALLATION.md)** - Automated installation
-- **[kiosk/docs/INSTALLATION_OVERVIEW.md](kiosk/docs/INSTALLATION_OVERVIEW.md)** - Architecture & workflow
-- **[kiosk/docs/DEPLOYMENT_CHECKLIST.md](kiosk/docs/DEPLOYMENT_CHECKLIST.md)** - Verification checklists
-
----
-
-## Contributing Guidelines
-
-### Before Committing
-1. Run tests: `./run_lite_tests.sh`
-2. Check formatting: `ruff format calendarbot_lite`
-3. Run linter: `ruff check calendarbot_lite`
-4. Verify types: `mypy calendarbot_lite`
-
-### Git Workflow
-- **Main branch**: `main` - Production-ready code
-- **Feature branches**: Create from `main`, merge via PR
-- **Commit messages**: Follow conventional commits format
-
-### Code Review
-- Ensure tests pass
-- Verify coverage doesn't decrease
-- Check for security issues
-- Validate documentation updates
-
----
-
-**Last Updated**: 2025-11-04
-**Active Project**: calendarbot_lite/
-**Kiosk Deployment**: kiosk/ (PRIMARY use case for production)
-**Archived Project**: calendarbot/ (deprecated)
