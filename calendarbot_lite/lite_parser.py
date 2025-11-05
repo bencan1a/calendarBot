@@ -105,6 +105,7 @@ class LiteICSParser:
 
         # Initialize RRULE orchestrator for centralized expansion logic
         from .lite_rrule_expander import RRuleOrchestrator
+
         self._rrule_orchestrator = RRuleOrchestrator(settings, self._event_parser)
 
         logger.debug("Lite ICS parser initialized")
@@ -161,7 +162,9 @@ class LiteICSParser:
             else:
                 # Prefer recurring masters over instances
                 existing = events_by_id[event_id]
-                if not getattr(existing, "is_recurring", False) and getattr(e, "is_recurring", False):
+                if not getattr(existing, "is_recurring", False) and getattr(
+                    e, "is_recurring", False
+                ):
                     events_by_id[event_id] = e
 
         return component_map, events_by_id
@@ -210,9 +213,7 @@ class LiteICSParser:
                     comp_uid, component, events_by_id
                 )
 
-                candidates.append(
-                    (candidate_event, rrule_string, exdates if exdates else None)
-                )
+                candidates.append((candidate_event, rrule_string, exdates if exdates else None))
             except Exception as e:
                 logger.warning("Failed to build RRULE candidate for UID=%s: %s", comp_uid, e)
                 continue
@@ -261,11 +262,14 @@ class LiteICSParser:
 
         # Add RECURRENCE-ID instances to exdates to exclude them from normal expansion
         for event in events:
-            if (getattr(event, "id", None) == comp_uid and
-                hasattr(event, "recurrence_id") and event.recurrence_id):
+            if (
+                getattr(event, "id", None) == comp_uid
+                and hasattr(event, "recurrence_id")
+                and event.recurrence_id
+            ):
                 exdates.append(event.recurrence_id)
                 logger.debug(
-                    f"Adding RECURRENCE-ID to exdates for {comp_uid}: {event.recurrence_id}"
+                    "Adding RECURRENCE-ID to exdates for %s: %s", comp_uid, event.recurrence_id
                 )
 
         return exdates
@@ -376,10 +380,7 @@ class LiteICSParser:
             instances = []
             try:
                 instances.extend(
-                    [
-                        inst
-                        async for inst in expand_events_streaming(cands, self.settings)
-                    ]
+                    [inst async for inst in expand_events_streaming(cands, self.settings)]
                 )
             except Exception as _e:
                 logger.exception("expand_events_streaming failed: %s")
@@ -389,7 +390,7 @@ class LiteICSParser:
         try:
             instances = orchestrator.run_coroutine_from_sync(
                 lambda: _collect_expansions(candidates),
-                timeout=None  # No timeout for RRULE expansion
+                timeout=None,  # No timeout for RRULE expansion
             )
         except Exception as e:
             logger.warning("Failed to expand RRULE candidates: %s", e)
@@ -448,10 +449,12 @@ class LiteICSParser:
             Parse result with events and metadata
         """
         if self._should_use_streaming(ics_content):
-            logger.debug(f"Using streaming parser for large ICS content ({len(ics_content)} bytes)")
+            logger.debug(
+                "Using streaming parser for large ICS content (%d bytes)", len(ics_content)
+            )
             return self._parse_with_streaming(ics_content, source_url)
 
-        logger.debug(f"Using traditional parser for small ICS content ({len(ics_content)} bytes)")
+        logger.debug("Using traditional parser for small ICS content (%d bytes)", len(ics_content))
         return self.parse_ics_content(ics_content, source_url)
 
     def _parse_with_streaming(
@@ -514,8 +517,10 @@ class LiteICSParser:
                             raw_description = component.get("DESCRIPTION")
                             raw_attendees = component.get("ATTENDEE")
                             logger.debug(
-                                "Streaming parser received component - "
-                                f"SUMMARY={raw_summary!r}, DESCRIPTION_present={bool(raw_description)}, ATTENDEE={raw_attendees!s}"
+                                "Streaming parser received component - SUMMARY=%r, DESCRIPTION_present=%s, ATTENDEE=%s",
+                                raw_summary,
+                                bool(raw_description),
+                                raw_attendees,
                             )
                         except Exception:
                             logger.debug(
@@ -536,10 +541,10 @@ class LiteICSParser:
                             except Exception:
                                 attendees_len = -1
                             logger.debug(
-                                "Streaming parser mapped event - "
-                                f"subject={getattr(event, 'subject', None)!r}, "
-                                f"body_preview_present={bool(getattr(event, 'body_preview', None))}, "
-                                f"attendees_count={attendees_len}"
+                                "Streaming parser mapped event - subject=%r, body_preview_present=%s, attendees_count=%s",
+                                getattr(event, "subject", None),
+                                bool(getattr(event, "body_preview", None)),
+                                attendees_len,
                             )
 
                         if event:
@@ -582,8 +587,10 @@ class LiteICSParser:
                 )
 
             logger.debug(
-                f"Streaming parser processed {len(filtered_events)} events "
-                f"({event_count} total events, {len(filtered_events)} busy/tentative)",
+                "Streaming parser processed %s events (%s total events, %s busy/tentative)",
+                len(filtered_events),
+                event_count,
+                len(filtered_events),
             )
 
             # IMPORTANT: Expand recurring events (RRULE) to generate instances
@@ -604,10 +611,11 @@ class LiteICSParser:
                             filtered_events, expanded_events
                         )
                         logger.debug(
-                            f"Streaming parser: Added {len(expanded_events)} expanded recurring event instances"
+                            "Streaming parser: Added %s expanded recurring event instances",
+                            len(expanded_events),
                         )
                 except Exception as e:
-                    logger.warning(f"Failed to expand recurring events in streaming parser: {e}")
+                    logger.warning("Failed to expand recurring events in streaming parser: %s", e)
                     # Continue with unexpanded events
 
             return LiteICSParseResult(
@@ -650,7 +658,9 @@ class LiteICSParser:
 
         if size_bytes > MAX_ICS_SIZE_BYTES:
             logger.error(
-                f"ICS content too large: {size_bytes} bytes exceeds {MAX_ICS_SIZE_BYTES} limit",
+                "ICS content too large: %s bytes exceeds %s limit",
+                size_bytes,
+                MAX_ICS_SIZE_BYTES,
             )
             raise LiteICSContentTooLargeError(
                 f"ICS content too large: {size_bytes} bytes exceeds {MAX_ICS_SIZE_BYTES} limit",
@@ -658,8 +668,9 @@ class LiteICSParser:
 
         if size_bytes > MAX_ICS_SIZE_WARNING:
             logger.warning(
-                f"Large ICS content detected: {size_bytes} bytes "
-                f"(threshold: {MAX_ICS_SIZE_WARNING})",
+                "Large ICS content detected: %s bytes (threshold: %s)",
+                size_bytes,
+                MAX_ICS_SIZE_WARNING,
             )
 
     def parse_ics_content(
@@ -689,7 +700,9 @@ class LiteICSParser:
 
         # Use optimized parsing method that automatically selects strategy
         if self._should_use_streaming(ics_content):
-            logger.debug(f"Using streaming parser for large ICS content ({len(ics_content)} bytes)")
+            logger.debug(
+                "Using streaming parser for large ICS content (%d bytes)", len(ics_content)
+            )
             return self._parse_with_streaming(ics_content, source_url)
 
         # Initialize variables that might be used in error handling
@@ -704,12 +717,12 @@ class LiteICSParser:
                 try:
                     self._validate_ics_size(ics_content)
                     raw_content = ics_content
-                    logger.debug(f"Raw ICS content captured: {len(ics_content)} bytes")
+                    logger.debug("Raw ICS content captured: %d bytes", len(ics_content))
                 except LiteICSContentTooLargeError:
                     logger.exception("ICS content too large, skipping raw content storage")
                     raise  # Re-raise to stop processing
                 except Exception as e:
-                    logger.warning(f"Failed to capture raw ICS content: {e}")
+                    logger.warning("Failed to capture raw ICS content: %s", e)
                     # Continue parsing without raw content
 
             # Parse the calendar
@@ -765,10 +778,10 @@ class LiteICSParser:
                         events = self._merge_expanded_events(events, expanded_events)
                         events = self._deduplicate_events(events)
                         logger.debug(
-                            f"Added {len(expanded_events)} expanded recurring event instances"
+                            "Added %s expanded recurring event instances", len(expanded_events)
                         )
                 except Exception as e:
-                    logger.warning(f"RRULE expansion failed, continuing without expansion: {e}")
+                    logger.warning("RRULE expansion failed, continuing without expansion: %s", e)
                     # Continue with original events only
 
             # Filter to only busy/tentative events (same as Graph API behavior)
@@ -776,8 +789,10 @@ class LiteICSParser:
             filtered_events = [e for e in events if e.is_busy_status and not e.is_cancelled]
 
             logger.debug(
-                f"Parsed {len(filtered_events)} events from ICS content "
-                f"({event_count} total events, {len(filtered_events)} busy/tentative)",
+                "Parsed %s events from ICS content (%s total events, %s busy/tentative)",
+                len(filtered_events),
+                event_count,
+                len(filtered_events),
             )
 
             return LiteICSParseResult(
@@ -919,11 +934,11 @@ class LiteICSParser:
             # Try to parse with icalendar
             Calendar.from_ical(ics_content)
 
-            logger.debug(f"Valid ICS content parsed successfully: {len(ics_content)} bytes")
+            logger.debug("Valid ICS content parsed successfully: %d bytes", len(ics_content))
             return True
 
         except Exception as e:
-            logger.debug(f"ICS validation failed: {e}")
+            logger.debug("ICS validation failed: %s", e)
             return False
 
     # NOTE: _collect_exdate_props has been moved to LiteEventComponentParser in lite_event_parser.py

@@ -102,7 +102,7 @@ class TimezoneDetector:
         "Namibia Standard Time": "Africa/Windhoek",
         "Morocco Standard Time": "Africa/Casablanca",
     }
-    
+
     # Timezone aliases mapping (obsolete/deprecated IANA names to current names)
     # These are common aliases found in older ICS files or legacy systems
     TZ_ALIAS_MAP: ClassVar[dict[str, str]] = {
@@ -366,16 +366,16 @@ def windows_tz_to_iana(windows_tz: str) -> str | None:
 
 def resolve_timezone_alias(tz_name: str) -> str:
     """Resolve timezone alias to canonical IANA timezone identifier.
-    
+
     Handles obsolete timezone names (e.g., US/Pacific -> America/Los_Angeles)
     and common aliases. If the timezone is not an alias, returns it unchanged.
-    
+
     Args:
         tz_name: Timezone name or alias (e.g., "US/Pacific", "America/Los_Angeles")
-        
+
     Returns:
         Canonical IANA timezone identifier
-        
+
     Examples:
         >>> resolve_timezone_alias("US/Pacific")
         'America/Los_Angeles'
@@ -389,19 +389,19 @@ def resolve_timezone_alias(tz_name: str) -> str:
 
 def normalize_timezone_name(tz_str: str) -> str | None:
     """Normalize timezone string to canonical IANA timezone identifier.
-    
+
     This function provides comprehensive timezone name resolution:
     1. Checks if it's a Windows timezone name
     2. Checks if it's a timezone alias
     3. Validates the timezone with zoneinfo
     4. Returns None if the timezone cannot be resolved
-    
+
     Args:
         tz_str: Timezone string (Windows name, alias, or IANA identifier)
-        
+
     Returns:
         Canonical IANA timezone identifier or None if invalid
-        
+
     Examples:
         >>> normalize_timezone_name("Pacific Standard Time")
         'America/Los_Angeles'
@@ -414,24 +414,24 @@ def normalize_timezone_name(tz_str: str) -> str | None:
     """
     if not tz_str:
         return None
-        
+
     try:
         import zoneinfo
-        
+
         # Try Windows timezone conversion first
         windows_tz = windows_tz_to_iana(tz_str)
         if windows_tz:
             # Validate the mapped timezone
             zoneinfo.ZoneInfo(windows_tz)
             return windows_tz
-        
+
         # Try timezone alias resolution
         resolved_tz = resolve_timezone_alias(tz_str)
-        
+
         # Validate the resolved timezone
         zoneinfo.ZoneInfo(resolved_tz)
         return resolved_tz
-        
+
     except Exception:
         logger.warning("Failed to normalize timezone: %r", tz_str)
         return None

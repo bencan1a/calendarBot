@@ -64,7 +64,7 @@ class LiteAttendeeParser:
             )
 
         except Exception as e:
-            logger.debug(f"Failed to parse attendee: {e}")
+            logger.debug("Failed to parse attendee: %s", e)
             return None
 
     def parse_attendees(self, component: Any) -> list[LiteAttendee]:
@@ -87,9 +87,7 @@ class LiteAttendeeParser:
 
         for attendee_prop in attendee_props:
             # Handle nested lists (some ICS formats have this)
-            attendee_list = (
-                attendee_prop if isinstance(attendee_prop, list) else [attendee_prop]
-            )
+            attendee_list = attendee_prop if isinstance(attendee_prop, list) else [attendee_prop]
 
             for att in attendee_list:
                 attendee = self.parse_attendee(att)

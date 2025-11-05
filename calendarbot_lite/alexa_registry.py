@@ -8,10 +8,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 if TYPE_CHECKING:
     from .alexa_handlers import AlexaEndpointBase
+
+# TypeVar for preserving handler class types through the decorator
+_HandlerT = TypeVar("_HandlerT", bound="AlexaEndpointBase")
 
 
 @dataclass
@@ -65,7 +68,7 @@ class AlexaHandlerRegistry:
         ssml_enabled: bool = True,
         cache_enabled: bool = True,
         precompute_enabled: bool = False,
-    ) -> Callable[[type[AlexaEndpointBase]], type[AlexaEndpointBase]]:
+    ) -> Callable[[type[_HandlerT]], type[_HandlerT]]:
         """Decorator to register an Alexa handler.
 
         Args:
@@ -89,12 +92,12 @@ class AlexaHandlerRegistry:
                 pass
         """
 
-        def decorator(handler_class: type[AlexaEndpointBase]) -> type[AlexaEndpointBase]:
+        def decorator(handler_class: type[_HandlerT]) -> type[_HandlerT]:
             """Register the handler class and return it unchanged."""
             cls._handlers[intent] = HandlerInfo(
                 intent=intent,
                 route=route,
-                handler_class=handler_class,
+                handler_class=handler_class,  # type: ignore[arg-type]
                 description=description,
                 ssml_enabled=ssml_enabled,
                 cache_enabled=cache_enabled,

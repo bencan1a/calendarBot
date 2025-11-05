@@ -8,6 +8,7 @@ from typing import Optional, TypedDict
 
 # Meeting Information Types
 
+
 class AlexaMeetingInfo(TypedDict, total=False):
     """Information about a single meeting for Alexa responses.
 
@@ -33,6 +34,7 @@ class AlexaMeetingInfo(TypedDict, total=False):
 
 
 # Response Types
+
 
 class AlexaNextMeetingResponse(TypedDict, total=False):
     """Response structure for /api/alexa/next-meeting endpoint.
@@ -68,6 +70,7 @@ class AlexaTimeUntilResponse(TypedDict, total=False):
 
 class _AlexaDoneForDayInfoRequired(TypedDict):
     """Required fields for AlexaDoneForDayInfo."""
+
     has_meetings_today: bool
     last_meeting_start_iso: Optional[str]
     last_meeting_end_iso: Optional[str]
@@ -84,6 +87,7 @@ class AlexaDoneForDayInfo(_AlexaDoneForDayInfoRequired, total=False):
         last_meeting_end_local_iso: Local timezone ISO time of last meeting end
         note: Optional notes or warnings
     """
+
     note: Optional[str]
 
 

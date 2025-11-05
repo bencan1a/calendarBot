@@ -82,6 +82,7 @@ END:VEVENT
 
     # Parser should stop and return failure
     assert not result.success
+    assert result.error_message is not None
     assert "iteration limit exceeded" in result.error_message.lower()
     assert str(MAX_PARSER_ITERATIONS) in result.error_message
     # Should have parsed some events before hitting limit
@@ -131,6 +132,7 @@ END:VCALENDAR
     # Both are acceptable since they protect against DoS
     assert not result.success
     # Accept either timeout or iteration limit as valid DoS protection
+    assert result.error_message is not None
     assert (
         "timeout exceeded" in result.error_message.lower()
         or "iteration limit exceeded" in result.error_message.lower()
@@ -162,6 +164,7 @@ PRODID:Malformed Calendar
     # Malformed ICS may fail for various reasons - key is it doesn't hang
     # Common outcomes: iteration limit, incomplete event, or natural completion
     if not result.success:
+        assert result.error_message is not None
         error_lower = result.error_message.lower()
         # Accept various failure modes as long as it doesn't hang
         assert (
@@ -235,6 +238,7 @@ END:VEVENT
     result = await parse_ics_stream(stream, source_url="test://security-test")
 
     assert not result.success
+    assert result.error_message is not None
     assert "iteration limit exceeded" in result.error_message.lower()
     # Verify source URL is tracked for security audit trail
     assert result.source_url == "test://security-test"
@@ -263,7 +267,7 @@ END:VEVENT
 """.encode()
         # Add corrupted bytes
         if i % 10 == 0:
-            corrupted_ics += b"\xFF\xFE\xFD Random corrupt data \x00\x01\x02"
+            corrupted_ics += b"\xff\xfe\xfd Random corrupt data \x00\x01\x02"
 
     corrupted_ics += b"END:VCALENDAR"
 
@@ -279,15 +283,21 @@ END:VEVENT
     if (
         not result.success
         and result.error_message
-        and ("iteration" in result.error_message.lower() or "timeout" in result.error_message.lower())
+        and (
+            "iteration" in result.error_message.lower() or "timeout" in result.error_message.lower()
+        )
     ):
         # If it hit DoS protection, should be clear
-        assert "malformed" in result.error_message.lower() or "malicious" in result.error_message.lower()
+        assert (
+            "malformed" in result.error_message.lower()
+            or "malicious" in result.error_message.lower()
+        )
 
 
 @pytest.mark.asyncio
 async def test_dos_protection_empty_infinite_loop():
     """Test protection against streams that yield empty chunks indefinitely."""
+
     class EmptyInfiniteIterator:
         """Yields empty chunks infinitely."""
 

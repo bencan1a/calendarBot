@@ -74,7 +74,7 @@ def configure_lite_logging(debug_mode: bool = False, force_debug: Optional[bool]
 
     # Add correlation ID filter to root logger
     correlation_filter = CorrelationIdFilter()
-    
+
     # Only add basic config if no handlers exist (preserve colorful setup from __init__.py)
     if not root_logger.handlers:
         # Create handler with correlation ID in format

@@ -289,7 +289,7 @@ class MorningSummaryService:
             # Performance check (Story 8)
             if len(events) > MAX_EVENTS_LIMIT:
                 logger.warning(
-                    f"Event count {len(events)} exceeds limit {MAX_EVENTS_LIMIT}, truncating"
+                    "Event count %s exceeds limit %s, truncating", len(events), MAX_EVENTS_LIMIT
                 )
                 events = events[:MAX_EVENTS_LIMIT]
 
@@ -306,24 +306,27 @@ class MorningSummaryService:
                 try:
                     import zoneinfo
                     from datetime import datetime as dt
+
                     date_obj = dt.fromisoformat(request.date).date()
                     tz = zoneinfo.ZoneInfo(request.timezone)
                     target_date = dt.combine(date_obj, dt.min.time()).replace(tzinfo=tz)
                 except Exception as e:
-                    logger.warning(f"Failed to parse date parameter '{request.date}': {e}, using tomorrow")
+                    logger.warning(
+                        "Failed to parse date parameter '%s': %s, using tomorrow", request.date, e
+                    )
                     target_date = await self._get_tomorrow_date(request.timezone)
             else:
                 # Default to tomorrow's date in target timezone
                 target_date = await self._get_tomorrow_date(request.timezone)
 
             # Create time window (6 AM to 12 PM for target date) (Story 1)
-            timeframe_start, timeframe_end = self._create_time_window(
-                target_date, request.timezone
-            )
+            timeframe_start, timeframe_end = self._create_time_window(target_date, request.timezone)
 
             # Get reference day for speech generation
             # If a specific date was requested, use the day name; otherwise use "tomorrow"
-            day_reference, preview_for = self._get_reference_day(target_date, request.timezone, bool(request.date))
+            day_reference, preview_for = self._get_reference_day(
+                target_date, request.timezone, bool(request.date)
+            )
 
             # Filter and process events
             filtered_events = self._filter_morning_events(events, timeframe_start, timeframe_end)
@@ -340,15 +343,17 @@ class MorningSummaryService:
             elapsed_time = time.time() - start_time
             if elapsed_time > PERFORMANCE_TARGET_SECONDS:
                 logger.warning(
-                    f"Summary generation took {elapsed_time:.2f}s, exceeds target {PERFORMANCE_TARGET_SECONDS}s"
+                    "Summary generation took %.2fs, exceeds target %ds",
+                    elapsed_time,
+                    PERFORMANCE_TARGET_SECONDS,
                 )
 
-            logger.info(f"Generated morning summary in {elapsed_time:.2f}s")
+            logger.info("Generated morning summary in %.2fs", elapsed_time)
             return result
 
         except Exception:
             elapsed_time = time.time() - start_time
-            logger.exception(f"Morning summary generation failed after {elapsed_time:.2f}s")
+            logger.exception("Morning summary generation failed after %.2fs", elapsed_time)
             raise
 
     async def _get_tomorrow_date(self, timezone_str: str) -> datetime:
@@ -366,7 +371,7 @@ class MorningSummaryService:
             return tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
         except Exception as e:
             logger.warning(
-                f"Timezone conversion failed for {timezone_str}: {e}, using Pacific fallback"
+                "Timezone conversion failed for %s: %s, using Pacific fallback", timezone_str, e
             )
             # Use Pacific timezone fallback instead of UTC
             try:
@@ -381,7 +386,9 @@ class MorningSummaryService:
                 tomorrow = now_utc + timedelta(days=1)
                 return tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    def _get_reference_day(self, target_date: datetime, timezone_str: str, use_specific_date: bool = False) -> tuple[str, str]:
+    def _get_reference_day(
+        self, target_date: datetime, timezone_str: str, use_specific_date: bool = False
+    ) -> tuple[str, str]:
         """Get reference day string for speech and metadata.
 
         Args:
@@ -432,7 +439,9 @@ class MorningSummaryService:
 
         except Exception as e:
             logger.warning(
-                f"Timezone window creation failed for {timezone_str}: {e}, using Pacific fallback"
+                "Timezone window creation failed for %s: %s, using Pacific fallback",
+                timezone_str,
+                e,
             )
             # Fallback to Pacific timezone instead of UTC
             try:
@@ -484,7 +493,7 @@ class MorningSummaryService:
         timeframe_start_utc = timeframe_start.astimezone(UTC)
         timeframe_end_utc = timeframe_end.astimezone(UTC)
 
-        logger.debug(f"Morning window UTC: {timeframe_start_utc} to {timeframe_end_utc}")
+        logger.debug("Morning window UTC: %s to %s", timeframe_start_utc, timeframe_end_utc)
 
         for event in events:
             # Skip cancelled events (Story 2)
@@ -513,9 +522,7 @@ class MorningSummaryService:
                         import zoneinfo
 
                         fallback_tz = zoneinfo.ZoneInfo(_get_fallback_timezone())
-                        event_start = event_start.replace(tzinfo=fallback_tz).astimezone(
-                            UTC
-                        )
+                        event_start = event_start.replace(tzinfo=fallback_tz).astimezone(UTC)
                     except Exception:
                         # Last resort: treat as UTC (should rarely happen)
                         event_start = event_start.replace(tzinfo=UTC)
@@ -545,13 +552,17 @@ class MorningSummaryService:
             overlaps = event_start < timeframe_end_utc and event_end > timeframe_start_utc
 
             logger.debug(
-                f"Event '{event.subject}': {event.start.date_time} -> {event_start} UTC, overlaps: {overlaps}"
+                "Event '%s': %s -> %s UTC, overlaps: %s",
+                event.subject,
+                event.start.date_time,
+                event_start,
+                overlaps,
             )
 
             if overlaps:
                 filtered_events.append(event)
 
-        logger.debug(f"Filtered {len(filtered_events)} events from {len(events)} total")
+        logger.debug("Filtered %d events from %d total", len(filtered_events), len(events))
         return filtered_events
 
     def _is_hidden_event(self, event: LiteCalendarEvent) -> bool:

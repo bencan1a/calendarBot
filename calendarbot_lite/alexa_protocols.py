@@ -7,7 +7,10 @@ replacing generic 'Any' type hints with explicit interface contracts.
 from __future__ import annotations
 
 import datetime
-from typing import Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
+
+if TYPE_CHECKING:
+    from .alexa_types import AlexaDoneForDayInfo
 
 
 class TimeProvider(Protocol):
@@ -70,11 +73,11 @@ class ISOSerializer(Protocol):
 class TimezoneGetter(Protocol):
     """Protocol for getting server timezone."""
 
-    def __call__(self) -> datetime.tzinfo:
+    def __call__(self) -> str:
         """Get server timezone.
 
         Returns:
-            Server timezone info
+            Server timezone string (IANA format)
         """
         ...
 
@@ -102,12 +105,12 @@ class AlexaPresenter(Protocol):
     """
 
     def format_next_meeting(
-        self, meeting_data: dict[str, Any]
+        self, meeting_data: Optional[dict[str, Any]]
     ) -> tuple[str, Optional[str]]:
         """Format next meeting data for speech.
 
         Args:
-            meeting_data: Meeting data dict with subject, time, etc.
+            meeting_data: Meeting data dict with subject, time, etc. (None if no meetings)
 
         Returns:
             Tuple of (speech_text, optional_ssml)
@@ -129,25 +132,48 @@ class AlexaPresenter(Protocol):
         ...
 
     def format_done_for_day(
-        self, done_info: dict[str, Any]
+        self, has_meetings_today: bool, speech_text: str
     ) -> tuple[str, Optional[str]]:
         """Format done-for-day information for speech.
 
         Args:
-            done_info: Done-for-day data with has_meetings_today, etc.
+            has_meetings_today: Whether user has meetings today
+            speech_text: Pre-generated speech text
 
         Returns:
             Tuple of (speech_text, optional_ssml)
         """
         ...
 
-    def format_morning_summary(
-        self, summary_data: dict[str, Any]
+    def format_launch_summary(
+        self,
+        done_info: AlexaDoneForDayInfo,
+        primary_meeting: Optional[dict[str, Any]],
+        tz: Optional[datetime.tzinfo] = None,
+        request_tz: Optional[str] = None,
+        now: Optional[datetime.datetime] = None,
+        current_meeting: Optional[dict[str, Any]] = None,
     ) -> tuple[str, Optional[str]]:
-        """Format morning summary for speech.
+        """Format launch summary into speech and optional SSML.
 
         Args:
-            summary_data: Morning summary data
+            done_info: Done-for-day information
+            primary_meeting: Next upcoming meeting (or None)
+            tz: Timezone object
+            request_tz: Timezone string from request
+            now: Current datetime
+            current_meeting: Currently in-progress meeting (or None)
+
+        Returns:
+            Tuple of (speech_text, optional_ssml)
+        """
+        ...
+
+    def format_morning_summary(self, summary_result: Any) -> tuple[str, Optional[str]]:
+        """Format morning summary into speech and optional SSML.
+
+        Args:
+            summary_result: MorningSummaryResult object
 
         Returns:
             Tuple of (speech_text, optional_ssml)
