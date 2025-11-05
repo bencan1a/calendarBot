@@ -664,7 +664,7 @@ def _wrap_times_with_say_as(text: str) -> str:
     if not isinstance(text, str):
         return ""
 
-    def replace_time(match):
+    def replace_time(match: re.Match[str]) -> str:
         hour = match.group(1)
         minute = match.group(2)
         period = match.group(3).lower()
