@@ -276,6 +276,148 @@ class TestLiteEventMerger:
         assert len(result) == 1
         assert result[0].id == "recurring1"
 
+    def test_deduplicate_events_with_recurrence_id_different(self):
+        """Test deduplication keeps events with different RECURRENCE-ID.
+
+        This is the key test for issue #45: Modified recurring instances
+        should NOT be deduplicated even if they have the same UID and times.
+        """
+        # Two modified instances of the same recurring series
+        # Same UID, subject, start/end times, but DIFFERENT recurrence_id
+        event1 = self.create_test_event(
+            "recurring1",
+            "Weekly Meeting",
+            datetime(2025, 10, 28, 15, 0, tzinfo=timezone.utc),
+            datetime(2025, 10, 28, 16, 0, tzinfo=timezone.utc),
+            recurrence_id="20251028T143000",  # Modified from 2:30pm
+        )
+        event2 = self.create_test_event(
+            "recurring1",  # Same UID
+            "Weekly Meeting",  # Same subject
+            datetime(2025, 10, 28, 15, 0, tzinfo=timezone.utc),  # Same start
+            datetime(2025, 10, 28, 16, 0, tzinfo=timezone.utc),  # Same end
+            recurrence_id="20251104T143000",  # Modified from different original time
+        )
+
+        result = self.merger.deduplicate_events([event1, event2])
+        # Both events should be kept because they have different recurrence_id
+        assert len(result) == 2
+        assert event1 in result
+        assert event2 in result
+
+    def test_deduplicate_events_with_same_recurrence_id(self):
+        """Test deduplication removes events with same RECURRENCE-ID.
+
+        If two events have the same UID, times, AND recurrence_id,
+        they ARE duplicates and one should be removed.
+        """
+        event1 = self.create_test_event(
+            "recurring1",
+            "Weekly Meeting",
+            datetime(2025, 10, 28, 15, 0, tzinfo=timezone.utc),
+            datetime(2025, 10, 28, 16, 0, tzinfo=timezone.utc),
+            recurrence_id="20251028T143000",
+        )
+        event2 = self.create_test_event(
+            "recurring1",  # Same UID
+            "Weekly Meeting",  # Same subject
+            datetime(2025, 10, 28, 15, 0, tzinfo=timezone.utc),  # Same start
+            datetime(2025, 10, 28, 16, 0, tzinfo=timezone.utc),  # Same end
+            recurrence_id="20251028T143000",  # Same recurrence_id
+        )
+
+        result = self.merger.deduplicate_events([event1, event2])
+        # One event should be removed as they are true duplicates
+        assert len(result) == 1
+
+    def test_deduplicate_events_mixed_recurrence_id(self):
+        """Test deduplication with mix of events with and without RECURRENCE-ID.
+
+        Events with recurrence_id should be treated as distinct from
+        events without recurrence_id, even if other fields match.
+        """
+        # Event without recurrence_id
+        event1 = self.create_test_event(
+            "recurring1",
+            "Weekly Meeting",
+            datetime(2025, 10, 28, 14, 30, tzinfo=timezone.utc),
+            datetime(2025, 10, 28, 15, 30, tzinfo=timezone.utc),
+            recurrence_id=None,
+        )
+        # Event with recurrence_id (modified instance)
+        event2 = self.create_test_event(
+            "recurring1",  # Same UID
+            "Weekly Meeting",  # Same subject
+            datetime(2025, 10, 28, 14, 30, tzinfo=timezone.utc),  # Same start
+            datetime(2025, 10, 28, 15, 30, tzinfo=timezone.utc),  # Same end
+            recurrence_id="20251028T143000",  # Has recurrence_id
+        )
+
+        result = self.merger.deduplicate_events([event1, event2])
+        # Both should be kept as they represent different things
+        assert len(result) == 2
+
+    def test_deduplicate_events_multiple_modified_instances(self):
+        """Test deduplication with multiple modified instances of same series.
+
+        Real-world scenario: User modifies 3 different instances of a
+        recurring meeting to different times.
+        """
+        events = [
+            # Week 1 - moved to 3pm
+            self.create_test_event(
+                "weekly-standup",
+                "Weekly Standup",
+                datetime(2025, 10, 28, 15, 0, tzinfo=timezone.utc),
+                datetime(2025, 10, 28, 15, 30, tzinfo=timezone.utc),
+                recurrence_id="20251028T140000",
+            ),
+            # Week 2 - moved to 4pm
+            self.create_test_event(
+                "weekly-standup",
+                "Weekly Standup",
+                datetime(2025, 11, 4, 16, 0, tzinfo=timezone.utc),
+                datetime(2025, 11, 4, 16, 30, tzinfo=timezone.utc),
+                recurrence_id="20251104T140000",
+            ),
+            # Week 3 - moved to 2pm
+            self.create_test_event(
+                "weekly-standup",
+                "Weekly Standup",
+                datetime(2025, 11, 11, 14, 0, tzinfo=timezone.utc),
+                datetime(2025, 11, 11, 14, 30, tzinfo=timezone.utc),
+                recurrence_id="20251111T140000",
+            ),
+        ]
+
+        result = self.merger.deduplicate_events(events)
+        # All 3 modified instances should be kept
+        assert len(result) == 3
+
+    def test_deduplicate_events_timezone_aware_recurrence_id(self):
+        """Test deduplication with timezone-aware RECURRENCE-ID values.
+
+        Edge case: RECURRENCE-ID with TZID prefix should work correctly.
+        """
+        event1 = self.create_test_event(
+            "recurring1",
+            "Team Sync",
+            datetime(2025, 10, 28, 15, 0, tzinfo=timezone.utc),
+            datetime(2025, 10, 28, 16, 0, tzinfo=timezone.utc),
+            recurrence_id="TZID=Pacific Standard Time:20251028T143000",
+        )
+        event2 = self.create_test_event(
+            "recurring1",
+            "Team Sync",
+            datetime(2025, 10, 28, 15, 0, tzinfo=timezone.utc),
+            datetime(2025, 10, 28, 16, 0, tzinfo=timezone.utc),
+            recurrence_id="TZID=Eastern Standard Time:20251104T143000",
+        )
+
+        result = self.merger.deduplicate_events([event1, event2])
+        # Both should be kept due to different recurrence_id
+        assert len(result) == 2
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

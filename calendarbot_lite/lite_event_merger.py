@@ -211,6 +211,10 @@ class LiteEventMerger:
         - Start time (as ISO string)
         - End time (as ISO string)
         - All-day flag
+        - RECURRENCE-ID (if present)
+
+        Modified recurring instances with different RECURRENCE-IDs are NOT
+        considered duplicates, even if they have the same UID and times.
 
         Args:
             events: List of calendar events to deduplicate
@@ -226,12 +230,15 @@ class LiteEventMerger:
             # Two events with different UIDs are by definition different events,
             # even if they have the same subject and time (e.g., two separate recurring series)
             # Use start time as string to avoid timezone comparison issues
+            # Include recurrence_id to prevent deduplicating modified recurring instances (issue #45)
+            recurrence_id = getattr(event, "recurrence_id", None)
             key = (
                 event.id,  # Include UID to avoid incorrectly deduplicating separate events
                 event.subject,
                 event.start.date_time.isoformat(),
                 event.end.date_time.isoformat(),
                 event.is_all_day,
+                recurrence_id,  # Include RECURRENCE-ID to distinguish modified instances
             )
 
             if key not in seen:
