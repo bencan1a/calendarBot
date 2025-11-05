@@ -45,10 +45,6 @@ class LiteICSContentTooLargeError(Exception):
     """Raised when ICS content exceeds size limits."""
 
 
-class LiteICSParserTimeoutError(Exception):
-    """Raised when ICS parsing exceeds time or iteration limits (CWE-835 protection)."""
-
-
 class LiteStreamingICSParser:
     """Memory-efficient streaming ICS parser for large files.
 
