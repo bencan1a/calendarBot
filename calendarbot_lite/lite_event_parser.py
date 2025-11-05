@@ -510,11 +510,22 @@ class LiteEventComponentParser:
         # When a recurring instance is moved, the original slot should be excluded
         recurrence_id_raw = component.get("RECURRENCE-ID")
 
-        # Convert RECURRENCE-ID to string properly (fix for icalendar object bug)
+        # Convert RECURRENCE-ID to string properly, preserving TZID parameter
+        # Fix for issue #43: TZID must be preserved for correct EXDATE comparison
         if recurrence_id_raw is not None:
             if hasattr(recurrence_id_raw, "to_ical"):
                 # icalendar object - convert to iCal format then decode
-                recurrence_id = recurrence_id_raw.to_ical().decode("utf-8")
+                recurrence_id_str = recurrence_id_raw.to_ical().decode("utf-8")
+
+                # Extract TZID parameter if present (critical for timezone-aware comparison)
+                tzid = (
+                    recurrence_id_raw.params["TZID"]
+                    if hasattr(recurrence_id_raw, "params") and "TZID" in recurrence_id_raw.params
+                    else None
+                )
+
+                # Format with TZID prefix for consistent parsing (same as EXDATE format)
+                recurrence_id = f"TZID={tzid}:{recurrence_id_str}" if tzid else recurrence_id_str
             else:
                 # Already a string or other type - convert to string
                 recurrence_id = str(recurrence_id_raw)
