@@ -7,10 +7,13 @@ import datetime
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aiohttp import web
 from pydantic import BaseModel, ValidationError
+
+if TYPE_CHECKING:
+    from .alexa_response_cache import ResponseCache
 
 from .alexa_exceptions import (
     AlexaAuthenticationError,
@@ -49,12 +52,6 @@ from .lite_models import LiteCalendarEvent
 from .monitoring_logging import get_logger
 from .timezone_utils import parse_request_timezone
 
-# Import response cache (optional dependency)
-try:
-    from .alexa_response_cache import ResponseCache
-except ImportError:
-    ResponseCache = None  # type: ignore[assignment, misc]
-
 logger = logging.getLogger(__name__)
 monitoring_logger = get_logger("alexa_handlers")
 
@@ -70,7 +67,7 @@ class AlexaEndpointBase(ABC):
         bearer_token: Optional[str],
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
-        response_cache: Optional[ResponseCache] = None,  # type: ignore[name-defined]
+        response_cache: Optional[ResponseCache] = None,
         precompute_getter: Optional[PrecomputeGetter] = None,
     ):
         """Initialize Alexa endpoint handler.
@@ -553,7 +550,7 @@ class NextMeetingHandler(AlexaEndpointBase):
         bearer_token: Optional[str],
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
-        response_cache: Optional[ResponseCache] = None,  # type: ignore[name-defined]
+        response_cache: Optional[ResponseCache] = None,
         precompute_getter: Optional[PrecomputeGetter] = None,
         presenter: Optional[AlexaPresenter] = None,
         duration_formatter: Optional[DurationFormatter] = None,
@@ -658,7 +655,7 @@ class TimeUntilHandler(AlexaEndpointBase):
         bearer_token: Optional[str],
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
-        response_cache: Optional[ResponseCache] = None,  # type: ignore[name-defined]
+        response_cache: Optional[ResponseCache] = None,
         precompute_getter: Optional[PrecomputeGetter] = None,
         presenter: Optional[AlexaPresenter] = None,
         duration_formatter: Optional[DurationFormatter] = None,
@@ -752,7 +749,7 @@ class DoneForDayHandler(AlexaEndpointBase):
         bearer_token: Optional[str],
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
-        response_cache: Optional[ResponseCache] = None,  # type: ignore[name-defined]
+        response_cache: Optional[ResponseCache] = None,
         precompute_getter: Optional[PrecomputeGetter] = None,
         presenter: Optional[AlexaPresenter] = None,
         iso_serializer: Optional[ISOSerializer] = None,
@@ -937,7 +934,7 @@ class LaunchSummaryHandler(AlexaEndpointBase):
         bearer_token: Optional[str],
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
-        response_cache: Optional[ResponseCache] = None,  # type: ignore[name-defined]
+        response_cache: Optional[ResponseCache] = None,
         precompute_getter: Optional[PrecomputeGetter] = None,
         presenter: Optional[AlexaPresenter] = None,
         duration_formatter: Optional[DurationFormatter] = None,
@@ -1264,7 +1261,7 @@ class MorningSummaryHandler(AlexaEndpointBase):
         bearer_token: Optional[str],
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
-        response_cache: Optional[ResponseCache] = None,  # type: ignore[name-defined]
+        response_cache: Optional[ResponseCache] = None,
         precompute_getter: Optional[PrecomputeGetter] = None,
         presenter: Optional[AlexaPresenter] = None,
         get_server_timezone: Optional[TimezoneGetter] = None,
