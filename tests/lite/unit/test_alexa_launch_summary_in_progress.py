@@ -15,8 +15,9 @@ def test_plain_text_presenter_when_current_meeting_then_acknowledges_it() -> Non
     # Mock done_info
     done_info: AlexaDoneForDayInfo = {
         "has_meetings_today": True,
+        "last_meeting_start_iso": None,
         "last_meeting_end_iso": "2024-01-15T14:00:00Z",
-        "last_meeting_subject": "Afternoon Meeting",
+        "last_meeting_end_local_iso": None,
     }
 
     # Mock current meeting (in progress)
@@ -57,8 +58,9 @@ def test_plain_text_presenter_when_no_current_meeting_then_shows_next() -> None:
     # Mock done_info
     done_info: AlexaDoneForDayInfo = {
         "has_meetings_today": True,
+        "last_meeting_start_iso": None,
         "last_meeting_end_iso": "2024-01-15T14:00:00Z",
-        "last_meeting_subject": "Afternoon Meeting",
+        "last_meeting_end_local_iso": None,
     }
 
     # Mock next meeting (no current meeting)
@@ -92,8 +94,9 @@ def test_plain_text_presenter_when_current_meeting_no_next_then_shows_current_on
     # Mock done_info
     done_info: AlexaDoneForDayInfo = {
         "has_meetings_today": True,
+        "last_meeting_start_iso": None,
         "last_meeting_end_iso": "2024-01-15T11:00:00Z",
-        "last_meeting_subject": "Morning Standup",
+        "last_meeting_end_local_iso": None,
     }
 
     # Mock current meeting (in progress, last meeting of the day)
