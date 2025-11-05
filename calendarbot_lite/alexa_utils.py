@@ -92,8 +92,8 @@ async def compute_done_for_day_info(
         except (AttributeError, TypeError, ValueError) as e:
             logger.warning("Error processing event for done-for-day: %s", e)
             continue
-        except Exception as e:
-            logger.error("Unexpected error processing event: %s", e, exc_info=True)
+        except Exception:
+            logger.exception("Unexpected error processing event")
             continue
 
     # Return raw data (handlers will format as needed)

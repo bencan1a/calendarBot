@@ -195,22 +195,22 @@ class LiteICSFetcher:
 
             # Only allow HTTP/HTTPS schemes
             if parsed.scheme not in ["http", "https"]:
-                logger.debug(f"Blocked non-HTTP(S) URL: {url}")
+                logger.debug("Blocked non-HTTP(S) URL: %s", url)
                 self._log_validation_event(url, "blocked", f"Invalid URL scheme: {parsed.scheme}")
                 return False
 
             # Require valid hostname
             if not parsed.hostname:
-                logger.debug(f"Blocked URL with missing hostname: {url}")
+                logger.debug("Blocked URL with missing hostname: %s", url)
                 self._log_validation_event(url, "blocked", "URL missing hostname")
                 return False
 
             # URL passed basic validation
-            logger.debug(f"URL validation passed: {url}")
+            logger.debug("URL validation passed: %s", url)
             return True
 
         except Exception as e:
-            logger.debug(f"URL validation error for {url}: {e}")
+            logger.debug("URL validation error for %s: %s", url, e)
             self._log_validation_event(url, "error", f"URL validation error: {e}")
             return False
 
@@ -290,11 +290,11 @@ class LiteICSFetcher:
         # Validate URL to prevent SSRF attacks
         if not self._validate_url_for_ssrf(source.url):
             error_msg = "URL blocked for security reasons"
-            logger.error(f"SSRF protection: {error_msg} - {source.url}")
+            logger.error("SSRF protection: %s - %s", error_msg, source.url)
             return LiteICSResponse(success=False, error_message=error_msg, status_code=403)
 
         try:
-            logger.debug(f"Fetching ICS from {source.url}")
+            logger.debug("Fetching ICS from %s", source.url)
 
             # Log successful URL validation
             event = {
@@ -330,7 +330,7 @@ class LiteICSFetcher:
             return self._create_response(response)
 
         except httpx.TimeoutException:
-            logger.exception(f"Timeout fetching ICS from {source.url}")
+            logger.exception("Timeout fetching ICS from %s", source.url)
             return LiteICSResponse(
                 success=False,
                 error_message=f"Request timeout after {source.timeout}s",
@@ -338,7 +338,9 @@ class LiteICSFetcher:
             )
 
         except httpx.HTTPStatusError as e:
-            logger.exception(f"HTTP error fetching ICS from {source.url}: {e.response.status_code}")
+            logger.exception(
+                "HTTP error fetching ICS from %s: %s", source.url, e.response.status_code
+            )
 
             if e.response.status_code == 401:
                 error_msg = "Authentication failed - check credentials"
@@ -354,11 +356,11 @@ class LiteICSFetcher:
             )
 
         except httpx.NetworkError as e:
-            logger.exception(f"Network error fetching ICS from {source.url}")
+            logger.exception("Network error fetching ICS from %s", source.url)
             raise LiteICSNetworkError(f"Network error: {e}") from e
 
         except Exception as e:
-            logger.exception(f"Unexpected error fetching ICS from {source.url}")
+            logger.exception("Unexpected error fetching ICS from %s", source.url)
             raise LiteICSFetchError(f"Unexpected error: {e}") from e
 
     def _calculate_backoff(
@@ -419,10 +421,11 @@ class LiteICSFetcher:
 
                 # Merge existing headers with browser headers (browser headers take precedence)
                 combined_headers = {**headers, **DEFAULT_BROWSER_HEADERS}
-                
+
                 # Add correlation ID for request tracing (if available, doesn't override existing)
                 try:
                     from .middleware import get_request_id
+
                     request_id = get_request_id()
                     if request_id and request_id != "no-request-id":
                         # Only add if not already present (allows client override)
@@ -474,7 +477,7 @@ class LiteICSFetcher:
                     or "Connection reset" in str(e)
                 ):
                     corruption_detected = True
-                    logger.warning(f"Network corruption detected in attempt {attempt + 1}: {e}")
+                    logger.warning("Network corruption detected in attempt %d: %s", attempt + 1, e)
 
                 last_exception = e
                 if attempt < max_retries:
@@ -484,18 +487,22 @@ class LiteICSFetcher:
                     )
 
                     logger.warning(
-                        f"Request failed (attempt {attempt + 1}/{max_retries + 1}), "
-                        f"corruption_detected={corruption_detected}, "
-                        f"retrying in {backoff_time:.1f}s: {e}"
+                        "Request failed (attempt %s/%s), corruption_detected=%s, retrying in %.1fs: %s",
+                        attempt + 1,
+                        max_retries + 1,
+                        corruption_detected,
+                        backoff_time,
+                        e,
                     )
                     await asyncio.sleep(backoff_time)
                 else:
                     if corruption_detected:
                         logger.exception(
-                            f"All retry attempts failed with network corruption indicators for {url}"
+                            "All retry attempts failed with network corruption indicators for %s",
+                            url,
                         )
                     else:
-                        logger.exception(f"All retry attempts failed for {url}")
+                        logger.exception("All retry attempts failed for %s", url)
                     raise
             except Exception:
                 # Record client error for unexpected exceptions
@@ -538,7 +545,7 @@ class LiteICSFetcher:
 
         # Validate content type
         if content_type and not any(ct in content_type for ct in ["text/calendar", "text/plain"]):
-            logger.warning(f"Unexpected content type: {content_type}")
+            logger.warning("Unexpected content type: %s", content_type)
 
         # Basic content validation
         if not content or not content.strip():
@@ -554,7 +561,7 @@ class LiteICSFetcher:
         if "BEGIN:VCALENDAR" not in content:
             logger.warning("Content does not appear to be valid ICS format")
 
-        logger.debug(f"Successfully fetched ICS content ({len(content)} bytes)")
+        logger.debug("Successfully fetched ICS content (%d bytes)", len(content))
 
         return LiteICSResponse(
             success=True,
@@ -576,7 +583,7 @@ class LiteICSFetcher:
             True if connection successful, False otherwise
         """
         try:
-            logger.debug(f"Testing connection to {source.url}")
+            logger.debug("Testing connection to %s", source.url)
 
             # Make a HEAD request first for efficiency
             await self._ensure_client()
@@ -590,17 +597,17 @@ class LiteICSFetcher:
             response = await self.client.head(source.url, headers=headers, timeout=source.timeout)
 
             if response.status_code == 200:
-                logger.info(f"Connection test successful for {source.url}")
+                logger.info("Connection test successful for %s", source.url)
                 return True
             if response.status_code == 405:  # Method not allowed, try GET
                 logger.debug("HEAD not supported, testing with GET")
                 ics_response = await self.fetch_ics(source)
                 return ics_response.success
-            logger.warning(f"Connection test failed: HTTP {response.status_code}")
+            logger.warning("Connection test failed: HTTP %d", response.status_code)
             return False
 
         except Exception:
-            logger.exception(f"Connection test failed for {source.url}")
+            logger.exception("Connection test failed for %s", source.url)
             return False
 
     def get_conditional_headers(

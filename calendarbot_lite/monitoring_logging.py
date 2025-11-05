@@ -79,11 +79,12 @@ class LogEntry:
         self.action_taken = action_taken
         self.recovery_level = recovery_level
         self.system_state = system_state or {}
-        
+
         # Get request ID from context if not provided
         if request_id is None:
             try:
                 from .middleware import get_request_id
+
                 self.request_id = get_request_id()
             except (ImportError, AttributeError):
                 self.request_id = "no-request-id"
@@ -299,7 +300,7 @@ class MonitoringLogger:
                 self.logger.addHandler(file_handler)
             except Exception as e:
                 # Fallback to console logging if file setup fails
-                self.logger.warning(f"Failed to setup file logging: {e}")
+                self.logger.warning("Failed to setup file logging: %s", e)
 
     def log(
         self,

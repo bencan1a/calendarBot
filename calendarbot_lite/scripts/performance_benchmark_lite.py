@@ -55,9 +55,8 @@ except ImportError:
 
 import aiohttp
 from aiohttp import web
-from calendarbot_lite.http_client import close_all_clients, get_shared_client
 
-# Import lite modules
+from calendarbot_lite.http_client import close_all_clients, get_shared_client
 from calendarbot_lite.lite_fetcher import LiteICSFetcher, StreamHandle
 from calendarbot_lite.lite_parser import LiteICSContentTooLargeError, parse_ics_stream
 from calendarbot_lite.lite_rrule_expander import LiteRRuleExpander
@@ -400,7 +399,7 @@ async def validate_api_response(
 
             # Validate timing logic
             seconds_until = meeting.get("seconds_until_start", 0)
-            if isinstance(seconds_until, (int, float)) and seconds_until > 0:
+            if isinstance(seconds_until, int | float) and seconds_until > 0:
                 validation_details["reasonable_timing"] = True
             else:
                 validation_details["reasonable_timing"] = False
@@ -408,7 +407,7 @@ async def validate_api_response(
 
             # Validate duration
             duration = meeting.get("duration_seconds", 0)
-            if isinstance(duration, (int, float)) and duration > 0:
+            if isinstance(duration, int | float) and duration > 0:
                 validation_details["has_duration"] = True
             else:
                 validation_details["has_duration"] = False
@@ -722,17 +721,18 @@ async def expand_phase(events, settings_obj) -> tuple[int, float, str | None, di
                     break
 
         logger.debug(
-            f"Streaming expansion: {expanded_total} events, "
-            f"{streaming_metrics['events_with_rrules']} RRULEs, "
-            f"{streaming_metrics['cooperative_yields']} yields, "
-            f"{streaming_metrics['time_budget_violations']} budget violations"
+            "Streaming expansion: %s events, %s RRULEs, %s yields, %s budget violations",
+            expanded_total,
+            streaming_metrics["events_with_rrules"],
+            streaming_metrics["cooperative_yields"],
+            streaming_metrics["time_budget_violations"],
         )
 
     except Exception as e:
         err = str(e)
         streaming_metrics["streaming_mode_used"] = False
         streaming_metrics["memory_efficient"] = False
-        logger.warning(f"Streaming expansion failed, falling back: {e}")
+        logger.warning("Streaming expansion failed, falling back: %s", e)
 
         # Fallback to original expansion method
         try:

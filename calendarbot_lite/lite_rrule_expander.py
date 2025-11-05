@@ -49,7 +49,9 @@ class RRuleExpanderConfig:
             rrule_worker_concurrency=getattr(settings, "rrule_worker_concurrency", 1),
             max_occurrences_per_rule=getattr(settings, "max_occurrences_per_rule", 250),
             expansion_days_window=getattr(settings, "expansion_days_window", 365),
-            expansion_time_budget_ms_per_rule=getattr(settings, "expansion_time_budget_ms_per_rule", 200),
+            expansion_time_budget_ms_per_rule=getattr(
+                settings, "expansion_time_budget_ms_per_rule", 200
+            ),
             expansion_yield_frequency=getattr(settings, "expansion_yield_frequency", 50),
             rrule_expansion_days=getattr(settings, "rrule_expansion_days", 365),
             enable_rrule_expansion=getattr(settings, "enable_rrule_expansion", True),
@@ -143,8 +145,10 @@ class RRuleWorkerPool:
 
                 # Check if this is an infinite recurring event (no COUNT or UNTIL)
                 # We check the RRULE string directly to avoid accessing private members
-                is_infinite = 'COUNT=' not in rrule_string.upper() and 'UNTIL=' not in rrule_string.upper()
-                
+                is_infinite = (
+                    "COUNT=" not in rrule_string.upper() and "UNTIL=" not in rrule_string.upper()
+                )
+
                 # For infinite recurring events, start from recent past to avoid data loss
                 # For finite events (COUNT/UNTIL), start from master_start to honor constraints
                 if is_infinite and master_start_utc < (now - timedelta(days=7)):
@@ -155,12 +159,12 @@ class RRuleWorkerPool:
                         "Using lookback window for old infinite recurring event: "
                         "master_start=%s, lookback_start=%s",
                         master_start_utc,
-                        lookback_start
+                        lookback_start,
                     )
                 else:
                     # Finite event or recent event: start from master_start
                     start_date = master_start_utc
-                
+
                 end_date = now + timedelta(days=self.expansion_days)
 
                 # Parse RRULE and build rruleset with exdates
@@ -195,7 +199,7 @@ class RRuleWorkerPool:
                             rule_set.exdate(ex_dt)
                             logger.debug("EXDATE %d: successfully added to ruleset", i)
                         except Exception as ex_e:
-                            logger.warning(f"Failed to parse EXDATE '{ex}': {ex_e}")
+                            logger.warning("Failed to parse EXDATE '%s': %s", ex, ex_e)
                             continue
                 else:
                     logger.debug("No EXDATE entries provided for event %s", event_subject)
@@ -333,11 +337,12 @@ class RRuleWorkerPool:
         if test_time:
             try:
                 from dateutil import parser
+
                 # Parse the test time and convert to UTC
                 dt = parser.parse(test_time)
                 return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
             except Exception as e:
-                logger.warning(f"Invalid CALENDARBOT_TEST_TIME: {test_time}, error: {e}")
+                logger.warning("Invalid CALENDARBOT_TEST_TIME: %s, error: %s", test_time, e)
 
         # Return current UTC time
         return datetime.now(UTC)
@@ -425,6 +430,7 @@ def get_worker_pool(settings: Any) -> RRuleWorkerPool:
 #
 # Provide thin wrappers that delegate to the current worker-pool based implementation.
 
+
 async def expand_events_streaming(
     events_with_rrules: list[tuple[Any, str, Optional[list[str]]]],
     settings: Any,
@@ -441,7 +447,10 @@ async def expand_events_streaming(
             async for inst in pool.expand_rrule_stream(ev, rrule_str, exdates):
                 yield inst
         except Exception:
-            logger.exception("expand_events_streaming: failed to stream expansion for %s", getattr(ev, "id", None))
+            logger.exception(
+                "expand_events_streaming: failed to stream expansion for %s",
+                getattr(ev, "id", None),
+            )
             continue
 
 
@@ -467,13 +476,16 @@ class LiteRRuleExpander(RRuleWorkerPool):
         self.expansion_window_days = config.rrule_expansion_days
         self.enable_expansion = config.enable_rrule_expansion
 
-    def expand_event(self, master_event: Any, rrule_string: str, exdates: Optional[list[str]] = None) -> list[Any]:
+    def expand_event(
+        self, master_event: Any, rrule_string: str, exdates: Optional[list[str]] = None
+    ) -> list[Any]:
         """Legacy synchronous-style wrapper returning a list of expanded events.
 
         Delegates to expand_event_to_list via asyncio.run for callers that expect a blocking call.
 
         Note: Cannot be called from within an async context. Use expand_event_async() instead.
         """
+
         def check_not_in_event_loop() -> None:
             """Ensure we're not already in an event loop."""
             try:
@@ -494,10 +506,15 @@ class LiteRRuleExpander(RRuleWorkerPool):
             check_not_in_event_loop()
             return asyncio.run(self.expand_event_to_list(master_event, rrule_string, exdates))
         except Exception:
-            logger.exception("LiteRRuleExpander.expand_event failed for master %s", getattr(master_event, "id", None))
+            logger.exception(
+                "LiteRRuleExpander.expand_event failed for master %s",
+                getattr(master_event, "id", None),
+            )
             return []
 
-    def expand_rrule(self, master_event: Any, rrule_string: str, exdates: Optional[list[str]] = None) -> list[Any]:
+    def expand_rrule(
+        self, master_event: Any, rrule_string: str, exdates: Optional[list[str]] = None
+    ) -> list[Any]:
         """Alias for expand_event to support older callers that used expand_rrule."""
         return self.expand_event(master_event, rrule_string, exdates)
 
@@ -580,7 +597,7 @@ class LiteRRuleExpander(RRuleWorkerPool):
                     exdate = exdate.astimezone(UTC)
                 excluded_datetimes.add(exdate)
             except Exception as e:
-                logger.warning(f"Failed to parse EXDATE {exdate_str}: {e}")
+                logger.warning("Failed to parse EXDATE %s: %s", exdate_str, e)
                 continue  # nosec B112 - skip malformed EXDATE, logged above
 
         # Filter out excluded datetimes with tolerance for minor time differences
@@ -600,7 +617,7 @@ class LiteRRuleExpander(RRuleWorkerPool):
             if not is_excluded:
                 filtered_occurrences.append(occurrence)
 
-        logger.debug(f"Filtered {len(occurrences) - len(filtered_occurrences)} excluded datetimes")
+        logger.debug("Filtered %d excluded datetimes", len(occurrences) - len(filtered_occurrences))
         return filtered_occurrences
 
     def generate_event_instances(
@@ -749,18 +766,13 @@ class RRuleOrchestrator:
             List of expanded event instances
         """
         # Phase 1: Build mappings of UIDs to components and events
-        component_map, events_by_id = self._build_component_and_event_maps(
-            events, raw_components
-        )
+        component_map, events_by_id = self._build_component_and_event_maps(events, raw_components)
 
         # Phase 2: Collect RRULE expansion candidates
-        candidates = self._collect_expansion_candidates(
-            component_map, events_by_id, events
-        )
+        candidates = self._collect_expansion_candidates(component_map, events_by_id, events)
 
         # Phase 3: Execute async RRULE expansion
         return self._execute_expansion(candidates)
-
 
     def _build_component_and_event_maps(
         self,
@@ -814,7 +826,9 @@ class RRuleOrchestrator:
             else:
                 # Prefer recurring masters over instances
                 existing = events_by_id[event_id]
-                if not getattr(existing, "is_recurring", False) and getattr(e, "is_recurring", False):
+                if not getattr(existing, "is_recurring", False) and getattr(
+                    e, "is_recurring", False
+                ):
                     events_by_id[event_id] = e
 
         return component_map, events_by_id
@@ -863,9 +877,7 @@ class RRuleOrchestrator:
                     comp_uid, component, events_by_id
                 )
 
-                candidates.append(
-                    (candidate_event, rrule_string, exdates if exdates else None)
-                )
+                candidates.append((candidate_event, rrule_string, exdates if exdates else None))
             except Exception as e:
                 logger.warning("Failed to build RRULE candidate for UID=%s: %s", comp_uid, e)
                 continue
@@ -914,11 +926,14 @@ class RRuleOrchestrator:
 
         # Add RECURRENCE-ID instances to exdates to exclude them from normal expansion
         for event in events:
-            if (getattr(event, "id", None) == comp_uid and
-                hasattr(event, "recurrence_id") and event.recurrence_id):
+            if (
+                getattr(event, "id", None) == comp_uid
+                and hasattr(event, "recurrence_id")
+                and event.recurrence_id
+            ):
                 exdates.append(event.recurrence_id)
                 logger.debug(
-                    f"Adding RECURRENCE-ID to exdates for {comp_uid}: {event.recurrence_id}"
+                    "Adding RECURRENCE-ID to exdates for %s: %s", comp_uid, event.recurrence_id
                 )
 
         return exdates
@@ -949,7 +964,7 @@ class RRuleOrchestrator:
 
         # Synthesize a lightweight event object with minimal attributes
         candidate_event = _SimpleEvent()
-        
+
         # Initialize is_all_day flag (will be set to True if date-only event detected)
         candidate_event.is_all_day = False
 
@@ -1000,9 +1015,7 @@ class RRuleOrchestrator:
                 # If DTEND missing, approximate using duration
                 # For all-day events, use 1 day; for timed events, use 1 hour
                 duration = timedelta(days=1) if candidate_event.is_all_day else timedelta(hours=1)
-                candidate_event.end = _DateTimeWrapper(
-                    candidate_event.start.date_time + duration
-                )
+                candidate_event.end = _DateTimeWrapper(candidate_event.start.date_time + duration)
         except Exception:
             # Last-resort defaults
             now = datetime.now(UTC)
@@ -1053,10 +1066,7 @@ class RRuleOrchestrator:
             instances = []
             try:
                 instances.extend(
-                    [
-                        inst
-                        async for inst in expand_events_streaming(cands, self.settings)
-                    ]
+                    [inst async for inst in expand_events_streaming(cands, self.settings)]
                 )
             except Exception as _e:
                 logger.exception("expand_events_streaming failed")
@@ -1066,7 +1076,7 @@ class RRuleOrchestrator:
         try:
             instances = orchestrator.run_coroutine_from_sync(
                 lambda: _collect_expansions(candidates),
-                timeout=None  # No timeout for RRULE expansion
+                timeout=None,  # No timeout for RRULE expansion
             )
         except Exception as e:
             logger.warning("Failed to expand RRULE candidates: %s", e)

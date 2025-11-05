@@ -245,8 +245,8 @@ class PlainTextPresenter:
         except (ValueError, AttributeError) as e:
             logger.warning("Error formatting end time for launch summary: %s", e)
             return " I couldn't determine when your last meeting ends today."
-        except Exception as e:
-            logger.error("Unexpected error formatting end time: %s", e, exc_info=True)
+        except Exception:
+            logger.exception("Unexpected error formatting end time")
             return " I couldn't determine when your last meeting ends today."
 
     def format_morning_summary(self, summary_result: Any) -> tuple[str, Optional[str]]:
@@ -288,8 +288,8 @@ class SSMLPresenter:
                 ssml_output = self.renderers["meeting"](meeting_data)
                 if ssml_output:
                     logger.info("Next meeting SSML generated: %d characters", len(ssml_output))
-            except Exception as e:
-                logger.error("Next meeting SSML generation failed: %s", e, exc_info=True)
+            except Exception:
+                logger.exception("Next meeting SSML generation failed")
 
         return speech_text, ssml_output
 
@@ -307,8 +307,8 @@ class SSMLPresenter:
                 ssml_output = self.renderers["time_until"](seconds_until, meeting_data)
                 if ssml_output:
                     logger.info("Time until SSML generated: %d characters", len(ssml_output))
-            except Exception as e:
-                logger.error("Time until SSML generation failed: %s", e, exc_info=True)
+            except Exception:
+                logger.exception("Time until SSML generation failed")
 
         return speech_text, ssml_output
 
@@ -323,8 +323,8 @@ class SSMLPresenter:
                 ssml_output = self.renderers["done_for_day"](has_meetings_today, speech_text)
                 if ssml_output:
                     logger.info("Done-for-day SSML generated: %d characters", len(ssml_output))
-            except Exception as e:
-                logger.error("Done-for-day SSML generation failed: %s", e, exc_info=True)
+            except Exception:
+                logger.exception("Done-for-day SSML generation failed")
 
         return speech_text, ssml_output
 
@@ -373,10 +373,8 @@ class SSMLPresenter:
                     logger.info(
                         "Launch summary (meetings) SSML generated: %d characters", len(ssml_output)
                     )
-            except Exception as e:
-                logger.error(
-                    "Launch summary (meetings) SSML generation failed: %s", e, exc_info=True
-                )
+            except Exception:
+                logger.exception("Launch summary (meetings) SSML generation failed")
         elif "done_for_day" in self.renderers:
             # No meetings today - use done-for-day SSML
             try:
@@ -388,10 +386,8 @@ class SSMLPresenter:
                         "Launch summary (no meetings) SSML generated: %d characters",
                         len(ssml_output),
                     )
-            except Exception as e:
-                logger.error(
-                    "Launch summary (no meetings) SSML generation failed: %s", e, exc_info=True
-                )
+            except Exception:
+                logger.exception("Launch summary (no meetings) SSML generation failed")
 
         return speech_text, ssml_output
 
@@ -406,7 +402,7 @@ class SSMLPresenter:
                 ssml_output = self.renderers["morning_summary"](summary_result)
                 if ssml_output:
                     logger.info("Morning summary SSML generated: %d characters", len(ssml_output))
-            except Exception as e:
-                logger.error("Morning summary SSML generation failed: %s", e, exc_info=True)
+            except Exception:
+                logger.exception("Morning summary SSML generation failed")
 
         return speech_text, ssml_output

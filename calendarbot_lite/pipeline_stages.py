@@ -25,7 +25,7 @@ class DeduplicationStage:
 
     Uses hash-based dictionary lookups for O(n) complexity.
     Wraps the existing deduplication logic from lite_parser.
-    
+
     Performance:
         - O(n) time complexity using dict-based deduplication
         - <50ms for 1000 events on typical hardware
@@ -43,7 +43,7 @@ class DeduplicationStage:
 
     async def process(self, context: ProcessingContext) -> ProcessingResult:
         """Remove duplicate events from context.events.
-        
+
         Uses O(n) dict-based deduplication by event UID. When multiple events
         share the same UID, keeps the one with more complete information.
 
@@ -82,13 +82,13 @@ class DeduplicationStage:
 
             if result.events_filtered > 0:
                 logger.debug(
-                    f"Deduplication: {result.events_in} → {result.events_out} events "
-                    f"({result.events_filtered} duplicates removed)"
+                    "Deduplication: %s → %s events (%s duplicates removed)",
+                    result.events_in,
+                    result.events_out,
+                    result.events_filtered,
                 )
             else:
-                logger.debug(
-                    f"Deduplication: {result.events_in} events (no duplicates found)"
-                )
+                logger.debug("Deduplication: %d events (no duplicates found)", result.events_in)
 
             return result
 
@@ -97,9 +97,7 @@ class DeduplicationStage:
             logger.exception("Deduplication stage failed")
             return result
 
-    def _has_more_info(
-        self, event1: LiteCalendarEvent, event2: LiteCalendarEvent
-    ) -> bool:
+    def _has_more_info(self, event1: LiteCalendarEvent, event2: LiteCalendarEvent) -> bool:
         """Determine which event has more information."""
         score1 = self._calculate_info_score(event1)
         score2 = self._calculate_info_score(event2)
@@ -165,11 +163,7 @@ class SkippedEventsFilterStage:
                 return result
 
             # Filter out skipped events
-            filtered = [
-                event
-                for event in context.events
-                if event.id not in skipped_ids
-            ]
+            filtered = [event for event in context.events if event.id not in skipped_ids]
 
             context.events = filtered
             result.events = filtered
@@ -178,9 +172,7 @@ class SkippedEventsFilterStage:
             result.success = True
 
             if result.events_filtered > 0:
-                logger.info(
-                    f"Filtered out {result.events_filtered} skipped events"
-                )
+                logger.info("Filtered out %d skipped events", result.events_filtered)
 
             return result
 
@@ -239,7 +231,9 @@ class TimeWindowStage:
 
                     # Extract date portions from window boundaries (in query timezone)
                     # Window represents "today" in the user's timezone
-                    window_start_date = context.window_start.date() if context.window_start else None
+                    window_start_date = (
+                        context.window_start.date() if context.window_start else None
+                    )
                     window_end_date = context.window_end.date() if context.window_end else None
 
                     # Date-based filtering: all-day event on Nov 5 matches query for "Nov 5"
@@ -277,8 +271,11 @@ class TimeWindowStage:
             result.success = True
 
             logger.debug(
-                f"Time window: {result.events_in} → {result.events_out} events "
-                f"(window: {context.window_start} to {context.window_end})"
+                "Time window: %s → %s events (window: %s to %s)",
+                result.events_in,
+                result.events_out,
+                context.window_start,
+                context.window_end,
             )
 
             return result
@@ -345,12 +342,13 @@ class EventLimitStage:
 
             if result.events_filtered > 0:
                 logger.debug(
-                    f"Event limit: {result.events_in} → {result.events_out} events (limit={limit})"
+                    "Event limit: %s → %s events (limit=%s)",
+                    result.events_in,
+                    result.events_out,
+                    limit,
                 )
             else:
-                logger.debug(
-                    f"Event limit: {result.events_in} events (under limit={limit})"
-                )
+                logger.debug("Event limit: %d events (under limit=%d)", result.events_in, limit)
 
             return result
 
@@ -401,8 +399,7 @@ class ParseStage:
 
             # Parse ICS content using existing parser
             parse_result = self.parser.parse_ics_content_optimized(
-                context.raw_content,
-                source_url=context.source_url
+                context.raw_content, source_url=context.source_url
             )
 
             if not parse_result.success:
@@ -431,8 +428,9 @@ class ParseStage:
                     result.add_warning(warning)
 
             logger.info(
-                f"Parsed {result.events_out} events from ICS content "
-                f"({len(context.raw_content)} bytes)"
+                "Parsed %s events from ICS content (%s bytes)",
+                result.events_out,
+                len(context.raw_content),
             )
 
             return result
@@ -487,10 +485,9 @@ class ExpansionStage:
 
             # Use existing RRULE expansion logic from parser
             # The parser's _expand_recurring_events needs both events and raw components
-            if hasattr(self.parser, '_expand_recurring_events'):
+            if hasattr(self.parser, "_expand_recurring_events"):
                 expanded = self.parser._expand_recurring_events(  # noqa: SLF001
-                    context.events,
-                    context.raw_components
+                    context.events, context.raw_components
                 )
                 context.events = expanded
             else:
@@ -504,8 +501,10 @@ class ExpansionStage:
             expansion_count = result.events_out - result.events_in
             if expansion_count > 0:
                 logger.info(
-                    f"RRULE expansion: {result.events_in} → {result.events_out} events "
-                    f"({expansion_count} instances generated)"
+                    "RRULE expansion: %s → %s events (%s instances generated)",
+                    result.events_in,
+                    result.events_out,
+                    expansion_count,
                 )
 
             return result
@@ -547,16 +546,13 @@ class SortStage:
 
         try:
             # Sort events by start time
-            context.events = sorted(
-                context.events,
-                key=lambda e: e.start.date_time
-            )
+            context.events = sorted(context.events, key=lambda e: e.start.date_time)
 
             result.events = context.events
             result.events_out = len(context.events)
             result.success = True
 
-            logger.debug(f"Sorted {result.events_out} events by start time")
+            logger.debug("Sorted %d events by start time", result.events_out)
 
             return result
 
@@ -567,6 +563,7 @@ class SortStage:
 
 
 # Example pipeline factory functions:
+
 
 def create_basic_pipeline() -> EventProcessingPipeline:
     """Create a basic post-processing pipeline for already-parsed events.

@@ -71,7 +71,7 @@ class LiteEventComponentParser:
             try:
                 start_info, end_info = self._parse_event_times(component, default_timezone)
             except ValueError as e:
-                logger.warning(f"Event {basic_props['uid']} {e}, skipping")
+                logger.warning("Event %s %s, skipping", basic_props["uid"], e)
                 return None
 
             # Event status and visibility
@@ -153,32 +153,97 @@ class LiteEventComponentParser:
         status: Optional[str],
         component: Any,
     ) -> LiteEventStatus:
-        """Map iCalendar transparency and status to LiteEventStatus with Microsoft phantom event filtering.
+        """Map iCalendar transparency and status to LiteEventStatus using priority-based rules.
+
+        This function evaluates status mapping rules in priority order (highest to lowest):
+        1. Microsoft deletion markers (X-OUTLOOK-DELETED)
+        2. Microsoft busy status override (X-MICROSOFT-CDO-BUSYSTATUS=FREE)
+        3. Standard iCalendar STATUS property (CANCELLED, TENTATIVE)
+        4. TRANSP property (TRANSPARENT)
+        5. Special meeting types (Following meetings)
+        6. Default fallback
 
         Args:
             transparency: TRANSP property value
             status: STATUS property value
-            component: Raw iCalendar component for Microsoft marker access
+            component: Raw iCalendar component for vendor-specific marker access
 
         Returns:
             LiteEventStatus enum value
+
+        See Also:
+            docs/ALGORITHMS.md - Status Mapping Algorithm documentation
         """
-        # Guard clause: Check Microsoft deletion markers first (highest precedence)
-        if self._is_microsoft_deleted(component):
-            return LiteEventStatus.FREE
+        # Extract context once for all rules
+        context = {
+            "transparency": transparency,
+            "status": status,
+            "ms_deleted": self._is_microsoft_deleted(component),
+            "ms_busystatus": self._get_microsoft_busystatus(component),
+            "is_following": self._is_following_meeting(component),
+        }
 
-        # Extract common properties once
-        is_following_meeting = self._is_following_meeting(component)
-        ms_busystatus = self._get_microsoft_busystatus(component)
+        # Define priority-ordered rules (first match wins)
+        rules = [
+            # Rule 1: Microsoft deletion markers (highest precedence)
+            (
+                lambda ctx: ctx["ms_deleted"],
+                LiteEventStatus.FREE,
+                "Microsoft deleted marker",
+            ),
+            # Rule 2: Microsoft busy status = FREE
+            (
+                lambda ctx: ctx["ms_busystatus"] == "FREE" and not ctx["is_following"],
+                LiteEventStatus.FREE,
+                "Microsoft FREE busystatus",
+            ),
+            # Rule 3: Microsoft busy status = FREE + Following meeting
+            (
+                lambda ctx: ctx["ms_busystatus"] == "FREE" and ctx["is_following"],
+                LiteEventStatus.TENTATIVE,
+                "Microsoft FREE busystatus + Following",
+            ),
+            # Rule 4: Cancelled events
+            (
+                lambda ctx: ctx["status"] == "CANCELLED",
+                LiteEventStatus.FREE,
+                "STATUS=CANCELLED",
+            ),
+            # Rule 5: Tentative events
+            (
+                lambda ctx: ctx["status"] == "TENTATIVE",
+                LiteEventStatus.TENTATIVE,
+                "STATUS=TENTATIVE",
+            ),
+            # Rule 6: Transparent + Confirmed (special case)
+            (
+                lambda ctx: ctx["transparency"] == "TRANSPARENT" and ctx["status"] == "CONFIRMED",
+                LiteEventStatus.TENTATIVE,
+                "TRANSPARENT + CONFIRMED",
+            ),
+            # Rule 7: Transparent events
+            (
+                lambda ctx: ctx["transparency"] == "TRANSPARENT",
+                LiteEventStatus.FREE,
+                "TRANSPARENT",
+            ),
+            # Rule 8: Following meetings
+            (
+                lambda ctx: ctx["is_following"],
+                LiteEventStatus.TENTATIVE,
+                "Following meeting",
+            ),
+        ]
 
-        # Guard clause: Microsoft busy status override (second highest precedence)
-        if ms_busystatus == "FREE":
-            if is_following_meeting:
-                return LiteEventStatus.TENTATIVE
-            return LiteEventStatus.FREE
+        # Evaluate rules in priority order
+        for condition, result, rule_name in rules:
+            if condition(context):
+                logger.debug("Status mapping: %s → %s", rule_name, result)
+                return result
 
-        # Standard iCalendar status mapping with priority order
-        return self._map_standard_status(transparency, status, is_following_meeting)
+        # Default: BUSY (opaque, confirmed, or no specific status)
+        logger.debug("Status mapping: Default → BUSY")
+        return LiteEventStatus.BUSY
 
     def _is_microsoft_deleted(self, component: Any) -> bool:
         """Check if event is marked as deleted by Microsoft Outlook.
@@ -215,51 +280,6 @@ class LiteEventComponentParser:
         """
         summary = component.get("SUMMARY")
         return summary is not None and "Following:" in str(summary)
-
-    def _map_standard_status(
-        self,
-        transparency: str,
-        status: Optional[str],
-        is_following_meeting: bool,
-    ) -> LiteEventStatus:
-        """Map standard iCalendar properties to LiteEventStatus.
-
-        Priority order:
-        1. STATUS=CANCELLED → FREE
-        2. STATUS=TENTATIVE → TENTATIVE
-        3. TRANSP=TRANSPARENT → FREE (or TENTATIVE if CONFIRMED)
-        4. Following meetings → TENTATIVE
-        5. Default → BUSY
-
-        Args:
-            transparency: TRANSP property value
-            status: STATUS property value
-            is_following_meeting: Whether this is a Following meeting
-
-        Returns:
-            LiteEventStatus enum value
-        """
-        # Priority 1: Cancelled events
-        if status == "CANCELLED":
-            return LiteEventStatus.FREE
-
-        # Priority 2: Tentative events
-        if status == "TENTATIVE":
-            return LiteEventStatus.TENTATIVE
-
-        # Priority 3: Transparent events
-        if transparency == "TRANSPARENT":
-            # Transparent + confirmed → TENTATIVE (special handling)
-            # All other transparent → FREE
-            return LiteEventStatus.TENTATIVE if status == "CONFIRMED" else LiteEventStatus.FREE
-
-        # Priority 4: Following meetings
-        if is_following_meeting:
-            logger.debug(f"  → APPLIED FOLLOWING LOGIC: {LiteEventStatus.TENTATIVE}")
-            return LiteEventStatus.TENTATIVE
-
-        # Priority 5: Default (OPAQUE or no specific status)
-        return LiteEventStatus.BUSY
 
     def _collect_exdate_props(self, component: ICalEvent) -> list[Any]:
         """Robustly collect EXDATE properties from an icalendar VEVENT component.
@@ -395,7 +415,7 @@ class LiteEventComponentParser:
                                 [q.strip() for q in exdate_str.split(",") if q.strip()]
                             )
                     except Exception as e:
-                        logger.debug(f"Failed to parse EXDATE entry: {e}")
+                        logger.debug("Failed to parse EXDATE entry: %s", e)
                         continue
 
             # Attach metadata to the underlying model dict so we don't trigger
@@ -405,7 +425,7 @@ class LiteEventComponentParser:
                 calendar_event.__dict__["exdates"] = exdates_list if exdates_list else None
             except Exception as e:
                 # As a final fallback, create a lightweight metadata map on the object
-                logger.debug(f"Failed to set rrule metadata on __dict__, trying setattr: {e}")
+                logger.debug("Failed to set rrule metadata on __dict__, trying setattr: %s", e)
                 try:
                     object.__setattr__(
                         calendar_event,
@@ -416,7 +436,7 @@ class LiteEventComponentParser:
                         },
                     )
                 except Exception as setattr_error:
-                    logger.debug(f"Failed to set metadata attribute: {setattr_error}")
+                    logger.debug("Failed to set metadata attribute: %s", setattr_error)
         except Exception:
             # Non-fatal: expansion code will fall back to raw component mapping if needed
             logger.debug("Failed to attach rrule/exdate metadata to parsed event", exc_info=True)

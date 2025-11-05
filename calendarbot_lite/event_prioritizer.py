@@ -155,10 +155,10 @@ class EventPrioritizer:
 
             if category == EventCategory.LUNCH:
                 lunch_events.append((cand_ev, cand_seconds))
-                logger.debug(f"PRIORITY: Categorized as lunch event: {cand_ev.subject or ''}")
+                logger.debug("PRIORITY: Categorized as lunch event: %s", cand_ev.subject or "")
             else:
                 business_events.append((cand_ev, cand_seconds))
-                logger.debug(f"PRIORITY: Categorized as business event: {cand_ev.subject or ''}")
+                logger.debug("PRIORITY: Categorized as business event: %s", cand_ev.subject or "")
 
         # Prioritize business events over lunch
         if business_events:

@@ -1,13 +1,16 @@
 """Unit tests for bounded concurrency and worker-based RRULE expansion system."""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from calendarbot_lite.lite_rrule_expander import RRuleWorkerPool, get_worker_pool
-from calendarbot_lite.server import _fetch_and_parse_source, _refresh_once
+from calendarbot_lite.server import (  # type: ignore[attr-defined]
+    _fetch_and_parse_source,
+    _refresh_once,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -25,7 +28,7 @@ class TestBoundedConcurrency:
 
         # Test the actual function by mocking its internals more minimally
         result = await _fetch_and_parse_source(semaphore, src_cfg, config, rrule_days)
-        
+
         # The function should return an empty list when modules aren't available
         assert isinstance(result, list)
         assert len(result) == 0
@@ -102,11 +105,11 @@ class TestRRuleWorkerPool:
 
         pool = RRuleWorkerPool(settings)
 
-        assert pool.concurrency == 2
-        assert pool.max_occurrences == 100
-        assert pool.expansion_days == 180
-        assert pool.time_budget_ms == 150
-        assert pool.yield_frequency == 25
+        assert pool.concurrency == 2  # type: ignore[attr-defined]
+        assert pool.max_occurrences == 100  # type: ignore[attr-defined]
+        assert pool.expansion_days == 180  # type: ignore[attr-defined]
+        assert pool.time_budget_ms == 150  # type: ignore[attr-defined]
+        assert pool.yield_frequency == 25  # type: ignore[attr-defined]
 
     def test_worker_pool_default_settings(self):
         """Test RRuleWorkerPool with default settings."""
@@ -124,11 +127,11 @@ class TestRRuleWorkerPool:
 
         pool = RRuleWorkerPool(settings)
 
-        assert pool.concurrency == 1
-        assert pool.max_occurrences == 250
-        assert pool.expansion_days == 365
-        assert pool.time_budget_ms == 200
-        assert pool.yield_frequency == 50
+        assert pool.concurrency == 1  # type: ignore[attr-defined]
+        assert pool.max_occurrences == 250  # type: ignore[attr-defined]
+        assert pool.expansion_days == 365  # type: ignore[attr-defined]
+        assert pool.time_budget_ms == 200  # type: ignore[attr-defined]
+        assert pool.yield_frequency == 50  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
     async def test_worker_pool_expand_event_async(self):
@@ -152,9 +155,9 @@ class TestRRuleWorkerPool:
             for i in range(3):
                 yield Mock()
 
-        with patch.object(pool, 'expand_rrule_stream', side_effect=mock_expand_rrule_stream):
+        with patch.object(pool, "expand_rrule_stream", side_effect=mock_expand_rrule_stream):
             events = []
-            async for event in pool.expand_event_async(master_event, rrule_string):
+            async for event in pool.expand_event_async(master_event, rrule_string):  # type: ignore[misc]
                 events.append(event)
 
             assert len(events) == 3
@@ -180,9 +183,9 @@ class TestRRuleWorkerPool:
             for i in range(3):  # Limited by time budget
                 yield Mock()
 
-        with patch.object(pool, 'expand_rrule_stream', side_effect=mock_expand_rrule_stream):
+        with patch.object(pool, "expand_rrule_stream", side_effect=mock_expand_rrule_stream):
             events = []
-            async for event in pool.expand_event_async(master_event, rrule_string):
+            async for event in pool.expand_event_async(master_event, rrule_string):  # type: ignore[misc]
                 events.append(event)
 
             # Should be limited by time budget, not by count
@@ -209,9 +212,9 @@ class TestRRuleWorkerPool:
             for i in range(5):  # Should be limited by max_occurrences=5
                 yield Mock()
 
-        with patch.object(pool, 'expand_rrule_stream', side_effect=mock_expand_rrule_stream):
+        with patch.object(pool, "expand_rrule_stream", side_effect=mock_expand_rrule_stream):
             events = []
-            async for event in pool.expand_event_async(master_event, rrule_string):
+            async for event in pool.expand_event_async(master_event, rrule_string):  # type: ignore[misc]
                 events.append(event)
 
             # Should be limited by max_occurrences
@@ -229,7 +232,7 @@ class TestRRuleWorkerPool:
         mock_task = Mock()
         mock_task.done.return_value = False
         mock_task.cancel = Mock()
-        pool._active_tasks.add(mock_task)
+        pool._active_tasks.add(mock_task)  # type: ignore[attr-defined]
 
         with patch("asyncio.gather", new_callable=AsyncMock) as mock_gather:
             mock_gather.return_value = None
@@ -238,7 +241,7 @@ class TestRRuleWorkerPool:
 
             mock_task.cancel.assert_called_once()
             mock_gather.assert_called_once()
-            assert len(pool._active_tasks) == 0
+            assert len(pool._active_tasks) == 0  # type: ignore[attr-defined]
 
     def test_get_worker_pool_singleton(self):
         """Test that get_worker_pool returns singleton instance."""
@@ -248,7 +251,7 @@ class TestRRuleWorkerPool:
         settings1.expansion_days_window = 30
         settings1.expansion_time_budget_ms_per_rule = 1000
         settings1.expansion_yield_frequency = 10
-        
+
         settings2 = Mock()
         settings2.rrule_worker_concurrency = 2
         settings2.max_occurrences_per_rule = 200
@@ -318,9 +321,7 @@ class TestConcurrencyConfiguration:
         async def mock_fetch_with_error(*args, **kwargs):
             if "example1" in str(args[1]):
                 raise Exception("Network error")
-            return [
-                {"meeting_id": "test", "subject": "Test Event", "start": datetime.now(timezone.utc)}
-            ]
+            return [{"meeting_id": "test", "subject": "Test Event", "start": datetime.now(UTC)}]
 
         with patch(
             "calendarbot_lite.server._fetch_and_parse_source", side_effect=mock_fetch_with_error
@@ -355,9 +356,9 @@ async def test_memory_optimization_cooperative_yielding():
             yield Mock()
 
     with patch("asyncio.sleep") as mock_sleep:
-        with patch.object(pool, 'expand_rrule_stream', side_effect=mock_expand_rrule_stream):
+        with patch.object(pool, "expand_rrule_stream", side_effect=mock_expand_rrule_stream):
             events = []
-            async for event in pool.expand_event_async(master_event, "FREQ=DAILY;COUNT=20"):
+            async for event in pool.expand_event_async(master_event, "FREQ=DAILY;COUNT=20"):  # type: ignore[misc]
                 events.append(event)
 
             assert len(events) == 20

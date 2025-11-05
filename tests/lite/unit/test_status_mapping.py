@@ -10,7 +10,7 @@ Tests all combinations of:
 Covers the refactoring of _map_transparency_to_status method.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from icalendar import Event as ICalEvent
@@ -58,17 +58,17 @@ def parser():
 
 
 def make_event(
-    summary="Test Event",
-    transp="OPAQUE",
-    status=None,
-    ms_deleted=None,
-    ms_busystatus=None,
-):
+    summary: str = "Test Event",
+    transp: str | None = "OPAQUE",
+    status: str | None = None,
+    ms_deleted: str | None = None,
+    ms_busystatus: str | None = None,
+) -> ICalEvent:
     """Helper to create iCalendar event with specified properties."""
     ev = ICalEvent()
     ev.add("UID", "test-uid")
     ev.add("SUMMARY", summary)
-    ev.add("DTSTART", datetime(2025, 1, 10, 9, 0, tzinfo=timezone.utc))
+    ev.add("DTSTART", datetime(2025, 1, 10, 9, 0, tzinfo=UTC))
     if transp:
         ev.add("TRANSP", transp)
     if status:
@@ -286,7 +286,7 @@ def test_none_summary_no_crash(parser):
     """Missing summary should not crash."""
     ev = ICalEvent()
     ev.add("UID", "test")
-    ev.add("DTSTART", datetime(2025, 1, 10, 9, 0, tzinfo=timezone.utc))
+    ev.add("DTSTART", datetime(2025, 1, 10, 9, 0, tzinfo=UTC))
     # No SUMMARY added
     result = parser._map_transparency_to_status("OPAQUE", None, ev)
     assert result == LiteEventStatus.BUSY

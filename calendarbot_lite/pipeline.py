@@ -89,13 +89,13 @@ class ProcessingResult:
     def add_warning(self, message: str) -> None:
         """Add a warning message."""
         self.warnings.append(message)
-        logger.warning(f"[{self.stage_name}] {message}")
+        logger.warning("[%s] %s", self.stage_name, message)
 
     def add_error(self, message: str) -> None:
         """Add an error message and mark as failed."""
         self.errors.append(message)
         self.success = False
-        logger.error(f"[{self.stage_name}] {message}")
+        logger.error("[%s] %s", self.stage_name, message)
 
 
 class EventProcessor(Protocol):
@@ -168,7 +168,7 @@ class EventProcessingPipeline:
             Self for method chaining
         """
         self.stages.append(stage)
-        logger.debug(f"Added stage to pipeline: {stage.name}")
+        logger.debug("Added stage to pipeline: %s", stage.name)
         return self
 
     async def process(self, context: ProcessingContext) -> ProcessingResult:
@@ -180,7 +180,7 @@ class EventProcessingPipeline:
         Returns:
             Aggregated result from all stages
         """
-        logger.info(f"Starting pipeline with {len(self.stages)} stages")
+        logger.info("Starting pipeline with %d stages", len(self.stages))
 
         # Aggregate result across all stages
         aggregated_result = ProcessingResult(
@@ -192,9 +192,7 @@ class EventProcessingPipeline:
             # Execute stages in sequence
             for i, stage in enumerate(self.stages):
                 stage_num = i + 1
-                logger.debug(
-                    f"Executing stage {stage_num}/{len(self.stages)}: {stage.name}"
-                )
+                logger.debug("Executing stage %d/%d: %s", stage_num, len(self.stages), stage.name)
 
                 # Execute stage
                 try:
@@ -202,12 +200,15 @@ class EventProcessingPipeline:
 
                     # Log stage completion
                     logger.info(
-                        f"Stage {stage_num}/{len(self.stages)} ({stage.name}) completed: "
-                        f"success={stage_result.success}, "
-                        f"events_in={stage_result.events_in}, "
-                        f"events_out={stage_result.events_out}, "
-                        f"warnings={len(stage_result.warnings)}, "
-                        f"errors={len(stage_result.errors)}"
+                        "Stage %s/%s (%s) completed: success=%s, events_in=%s, events_out=%s, warnings=%s, errors=%s",
+                        stage_num,
+                        len(self.stages),
+                        stage.name,
+                        stage_result.success,
+                        stage_result.events_in,
+                        stage_result.events_out,
+                        len(stage_result.warnings),
+                        len(stage_result.errors),
                     )
 
                     # Aggregate warnings and errors
@@ -218,7 +219,9 @@ class EventProcessingPipeline:
                     if not stage_result.success:
                         aggregated_result.success = False
                         logger.error(
-                            f"Pipeline stopped at stage {stage_num} ({stage.name}) due to failure"
+                            "Pipeline stopped at stage %s (%s) due to failure",
+                            stage_num,
+                            stage.name,
                         )
                         return aggregated_result
 
@@ -229,7 +232,7 @@ class EventProcessingPipeline:
                     # Handle unexpected stage errors
                     error_msg = f"Stage {stage.name} raised exception: {e}"
                     aggregated_result.add_error(error_msg)
-                    logger.exception(f"Stage {stage.name} failed with exception")
+                    logger.exception("Stage %s failed with exception", stage.name)
                     return aggregated_result
 
             # Pipeline completed successfully
@@ -238,8 +241,9 @@ class EventProcessingPipeline:
             aggregated_result.events_out = len(context.events)
 
             logger.info(
-                f"Pipeline completed successfully: {aggregated_result.events_out} events, "
-                f"{len(aggregated_result.warnings)} warnings"
+                "Pipeline completed successfully: %s events, %s warnings",
+                aggregated_result.events_out,
+                len(aggregated_result.warnings),
             )
 
             return aggregated_result
