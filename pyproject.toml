@@ -397,7 +397,7 @@ markers = [
 # Comprehensive coverage configuration (migrated from .coveragerc and pytest-lite.ini)
 source = ["calendarbot_lite"]
 branch = true
-parallel = false  # Single-process mode (parallel=true only needed with pytest-xdist)
+parallel = false  # Single-process mode (parallel=true only needed if using pytest-xdist or tests spawn subprocesses)
 
 # Note: include is not needed when source is set - source already specifies what to include
 

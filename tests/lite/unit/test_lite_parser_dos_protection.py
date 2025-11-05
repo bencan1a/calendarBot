@@ -267,7 +267,7 @@ END:VEVENT
 """.encode()
         # Add corrupted bytes
         if i % 10 == 0:
-            corrupted_ics += b"\xff\xfe\xfd Random corrupt data \x00\x01\x02"
+            corrupted_ics += b"\xff\xfe\xfd" + b" Random corrupt data " + b"\x00\x01\x02"
 
     corrupted_ics += b"END:VCALENDAR"
 
