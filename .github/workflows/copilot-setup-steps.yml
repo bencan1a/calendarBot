@@ -15,19 +15,27 @@
 
 name: Copilot Environment Setup
 
+# Automatically run the setup steps when they are changed to allow for easy validation, and
+# allow manual testing through the repository's "Actions" tab
 on:
-  # This workflow is automatically triggered by GitHub Copilot
-  # when a coding session starts
   workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
 
 env:
   PYTHON_VERSION: "3.12"
 
 jobs:
-  setup:
+  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
+  copilot-setup-steps:
     name: Setup Copilot Environment
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: copilot  # Access secrets from the "copilot" environment
 
     steps:
     - name: Checkout code
@@ -84,7 +92,7 @@ jobs:
         # Generated from GitHub Actions secrets
         
         # ICS Calendar URL (Required)
-        CALENDARBOT_ICS_URL=${{ secrets.CALENDARBOT_ICS_URL || 'https://outlook.office365.com/owa/calendar/example/calendar.ics' }}
+        CALENDARBOT_ICS_URL=${{ vars.CALENDARBOT_ICS_URL || 'https://outlook.office365.com/owa/calendar/example/calendar.ics' }}
         
         # Server Configuration
         CALENDARBOT_WEB_HOST=0.0.0.0

@@ -264,11 +264,17 @@ def main():
         print("No Python files changed - recommend running critical path tests only")
         # Get critical tests
         critical_tests = get_critical_path_tests(args.test_dir, args.verbose)
+        output_path = Path(args.output)
+
         if critical_tests:
-            output_path = Path(args.output)
             output_path.write_text("\n".join(sorted(critical_tests)))
             print(f"Selected {len(critical_tests)} critical path tests")
-            print(f"Output written to: {args.output}")
+        else:
+            # Write marker indicating no additional tests needed (critical path already ran)
+            output_path.write_text("# NO_TESTS_NEEDED\n")
+            print("No critical path tests found - writing NO_TESTS_NEEDED marker")
+
+        print(f"Output written to: {args.output}")
         return 0
 
     # Check if too many files changed (fallback to full suite)
