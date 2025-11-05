@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from calendarbot_lite.async_utils import (
+from calendarbot_lite.core.async_utils import (
     AsyncOrchestrator,
     AsyncRetryExhaustedError,
     AsyncTimeoutError,

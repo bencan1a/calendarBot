@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from calendarbot_lite.dependencies import AppDependencies, DependencyContainer
+from calendarbot_lite.core.dependencies import AppDependencies, DependencyContainer
 
 
 @pytest.mark.unit

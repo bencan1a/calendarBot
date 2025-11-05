@@ -44,7 +44,7 @@ class TestAlexaSkillBackendTimezone:
             if "calendarbot_lite.alexa_skill_backend" in sys.modules:
                 importlib.reload(sys.modules["calendarbot_lite.alexa_skill_backend"])
 
-            from calendarbot_lite.alexa_skill_backend import get_default_timezone
+            from calendarbot_lite.alexa.alexa_skill_backend import get_default_timezone
 
             timezone = get_default_timezone()
             assert timezone == "America/New_York"
@@ -60,7 +60,7 @@ class TestAlexaSkillBackendTimezone:
             if "calendarbot_lite.alexa_skill_backend" in sys.modules:
                 importlib.reload(sys.modules["calendarbot_lite.alexa_skill_backend"])
 
-            from calendarbot_lite.alexa_skill_backend import get_default_timezone
+            from calendarbot_lite.alexa.alexa_skill_backend import get_default_timezone
 
             timezone = get_default_timezone()
             assert timezone == "America/Los_Angeles"
@@ -76,7 +76,7 @@ class TestAlexaSkillBackendTimezone:
             if "calendarbot_lite.alexa_skill_backend" in sys.modules:
                 importlib.reload(sys.modules["calendarbot_lite.alexa_skill_backend"])
 
-            from calendarbot_lite.alexa_skill_backend import get_default_timezone
+            from calendarbot_lite.alexa.alexa_skill_backend import get_default_timezone
 
             timezone = get_default_timezone()
             assert timezone == "America/Los_Angeles"
@@ -104,7 +104,7 @@ class TestAlexaSkillBackendTimezone:
                 if "calendarbot_lite.alexa_skill_backend" in sys.modules:
                     importlib.reload(sys.modules["calendarbot_lite.alexa_skill_backend"])
 
-                from calendarbot_lite.alexa_skill_backend import get_default_timezone
+                from calendarbot_lite.alexa.alexa_skill_backend import get_default_timezone
 
                 result = get_default_timezone()
                 assert result == tz, f"Failed to validate timezone: {tz}"
@@ -119,7 +119,7 @@ class TestAlexaSkillBackendTimezone:
             if "calendarbot_lite.alexa_skill_backend" in sys.modules:
                 importlib.reload(sys.modules["calendarbot_lite.alexa_skill_backend"])
 
-            from calendarbot_lite.alexa_skill_backend import get_default_timezone
+            from calendarbot_lite.alexa.alexa_skill_backend import get_default_timezone
 
             # This should not raise an exception
             timezone = get_default_timezone()

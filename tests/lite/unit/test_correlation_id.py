@@ -8,7 +8,7 @@ from aiohttp import web
 from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
 
 from calendarbot_lite.middleware import correlation_id_middleware, get_request_id
-from calendarbot_lite.middleware.correlation_id import request_id_var
+from calendarbot_lite.api.middleware.correlation_id import request_id_var
 
 
 class TestCorrelationIdMiddleware(AioHTTPTestCase):
@@ -163,7 +163,7 @@ class TestCorrelationIdLogging:
 
     def test_correlation_id_filter_no_context(self):
         """Test CorrelationIdFilter adds 'no-request-id' when no context."""
-        from calendarbot_lite.lite_logging import CorrelationIdFilter
+        from calendarbot_lite.calendar.lite_logging import CorrelationIdFilter
         import logging
 
         log_filter = CorrelationIdFilter()
@@ -188,7 +188,7 @@ class TestCorrelationIdLogging:
 
     def test_correlation_id_filter_with_context(self):
         """Test CorrelationIdFilter adds correlation ID from context."""
-        from calendarbot_lite.lite_logging import CorrelationIdFilter
+        from calendarbot_lite.calendar.lite_logging import CorrelationIdFilter
         import logging
 
         log_filter = CorrelationIdFilter()
@@ -224,7 +224,7 @@ class TestCorrelationIdPropagation:
         """Test HTTP client includes correlation ID in outgoing requests."""
         # This is an integration test that would need actual HTTP client usage
         # For now, we test the helper function
-        from calendarbot_lite.http_client import _get_headers_with_correlation_id
+        from calendarbot_lite.core.http_client import _get_headers_with_correlation_id
 
         # Set correlation ID in context
         test_id = "http-client-test-id"
@@ -243,7 +243,7 @@ class TestCorrelationIdPropagation:
     @pytest.mark.asyncio
     async def test_http_client_no_correlation_id_when_not_set(self):
         """Test HTTP client doesn't include invalid correlation ID."""
-        from calendarbot_lite.http_client import _get_headers_with_correlation_id
+        from calendarbot_lite.core.http_client import _get_headers_with_correlation_id
 
         # Clear context
         request_id_var.set("")

@@ -46,7 +46,7 @@ except Exception:
 # Import centralized datetime function that supports CALENDARBOT_TEST_TIME override
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from calendarbot_lite.server import _now_utc
+    from calendarbot_lite.api.server import _now_utc
 except ImportError:
     # Fallback if import fails (shouldn't happen in normal usage)
     def _now_utc():
@@ -56,10 +56,10 @@ except ImportError:
 import aiohttp
 from aiohttp import web
 
-from calendarbot_lite.http_client import close_all_clients, get_shared_client
-from calendarbot_lite.lite_fetcher import LiteICSFetcher, StreamHandle
-from calendarbot_lite.lite_parser import LiteICSContentTooLargeError, parse_ics_stream
-from calendarbot_lite.lite_rrule_expander import LiteRRuleExpander
+from calendarbot_lite.core.http_client import close_all_clients, get_shared_client
+from calendarbot_lite.calendar.lite_fetcher import LiteICSFetcher, StreamHandle
+from calendarbot_lite.calendar.lite_parser import LiteICSContentTooLargeError, parse_ics_stream
+from calendarbot_lite.calendar.lite_rrule_expander import LiteRRuleExpander
 
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -651,7 +651,7 @@ async def parse_phase(resp, source_url: str) -> tuple[int, int, float, str | Non
         else:
             # Buffered path - use existing optimized parser path
             content = getattr(resp, "content", "") or ""
-            from calendarbot_lite.lite_parser import LiteICSParser
+            from calendarbot_lite.calendar.lite_parser import LiteICSParser
 
             parser = LiteICSParser(type("S", (), {})())  # minimal settings for parsing
             parse_result = parser.parse_ics_content_optimized(content, source_url=source_url)
@@ -684,7 +684,7 @@ async def expand_phase(events, settings_obj) -> tuple[int, float, str | None, di
     err = None
 
     try:
-        from calendarbot_lite.lite_rrule_expander import expand_events_streaming
+        from calendarbot_lite.calendar.lite_rrule_expander import expand_events_streaming
 
         # Collect events with RRULEs for streaming expansion
         events_with_rrules = []

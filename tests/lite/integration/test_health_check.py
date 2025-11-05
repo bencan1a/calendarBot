@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 # Import the module under test
-import calendarbot_lite.server as server_module
+import calendarbot_lite.api.server as server_module
 
 pytestmark = pytest.mark.integration
 

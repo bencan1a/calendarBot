@@ -7,9 +7,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from calendarbot_lite.alexa_handlers import LaunchSummaryHandler
-from calendarbot_lite.alexa_presentation import PlainTextPresenter
-from calendarbot_lite.lite_parser import LiteICSParser
+from calendarbot_lite.alexa.alexa_handlers import LaunchSummaryHandler
+from calendarbot_lite.alexa.alexa_presentation import PlainTextPresenter
+from calendarbot_lite.calendar.lite_parser import LiteICSParser
 
 
 @pytest.fixture

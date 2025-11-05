@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from calendarbot_lite.lite_parser import LiteICSParser
+from calendarbot_lite.calendar.lite_parser import LiteICSParser
 
 
 @pytest.mark.integration

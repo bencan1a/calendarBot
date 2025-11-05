@@ -7,8 +7,8 @@ from unittest.mock import Mock, patch
 import pytest
 from icalendar import Calendar
 
-from calendarbot_lite.lite_models import LiteCalendarEvent, LiteICSParseResult
-from calendarbot_lite.lite_parser import LiteICSParser, _DateTimeWrapper, _SimpleEvent
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent, LiteICSParseResult
+from calendarbot_lite.calendar.lite_parser import LiteICSParser, _DateTimeWrapper, _SimpleEvent
 
 pytestmark = pytest.mark.unit
 

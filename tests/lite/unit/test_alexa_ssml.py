@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from calendarbot_lite.alexa_ssml import (
+from calendarbot_lite.alexa.alexa_ssml import (
     DEFAULT_CONFIG,
     _basic_tag_balance_check,
     _compose_fragments,
@@ -670,7 +670,7 @@ class TestSsmlPerformanceConstraints:
 
     def test_template_constants_are_efficient(self):
         """Test that SSML templates are pre-defined for efficiency."""
-        from calendarbot_lite.alexa_ssml import (
+        from calendarbot_lite.alexa.alexa_ssml import (
             EMPHASIS_STRONG,
             PROSODY,
             WRAP_SPEAK,

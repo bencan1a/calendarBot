@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 
 from calendarbot_lite import server
-from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent, LiteDateTimeInfo
 
 pytestmark = pytest.mark.unit
 

@@ -20,7 +20,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
 
-from calendarbot_lite.server import _compute_last_meeting_end_for_today, _now_utc, _serialize_iso
+from calendarbot_lite.api.server import _compute_last_meeting_end_for_today, _now_utc, _serialize_iso
 
 pytestmark = pytest.mark.integration
 
@@ -396,7 +396,7 @@ class TestDoneForDayAPIEndpoints(AioHTTPTestCase):
 
     async def get_application(self) -> web.Application:
         """Create test aiohttp application with done-for-day endpoints."""
-        from calendarbot_lite.server import _compute_last_meeting_end_for_today, _serialize_iso
+        from calendarbot_lite.api.server import _compute_last_meeting_end_for_today, _serialize_iso
         
         app = web.Application()
         
@@ -533,7 +533,7 @@ class TestAlexaBackendIntentHandler:
     @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
     def test_handle_get_done_for_day_intent_when_api_success_then_returns_response(self, mock_api_call):
         """Test intent handler with successful API call returns proper response."""
-        from calendarbot_lite.alexa_skill_backend import handle_get_done_for_day_intent
+        from calendarbot_lite.alexa.alexa_skill_backend import handle_get_done_for_day_intent
         
         # Mock API response
         mock_api_response = {
@@ -559,7 +559,7 @@ class TestAlexaBackendIntentHandler:
     @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
     def test_handle_get_done_for_day_intent_when_no_meetings_then_returns_no_meetings_message(self, mock_api_call):
         """Test intent handler with no meetings returns appropriate message."""
-        from calendarbot_lite.alexa_skill_backend import handle_get_done_for_day_intent
+        from calendarbot_lite.alexa.alexa_skill_backend import handle_get_done_for_day_intent
         
         mock_api_response = {
             "speech_text": "You have no meetings today.",
@@ -577,7 +577,7 @@ class TestAlexaBackendIntentHandler:
     @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
     def test_handle_get_done_for_day_intent_when_api_fails_then_returns_error_response(self, mock_api_call):
         """Test intent handler with API failure returns error response."""
-        from calendarbot_lite.alexa_skill_backend import handle_get_done_for_day_intent
+        from calendarbot_lite.alexa.alexa_skill_backend import handle_get_done_for_day_intent
         
         # Mock API failure
         mock_api_call.side_effect = Exception("API call failed")
@@ -592,7 +592,7 @@ class TestAlexaBackendIntentHandler:
     @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
     def test_handle_get_done_for_day_intent_when_calls_correct_endpoint(self, mock_api_call):
         """Test intent handler calls the correct API endpoint."""
-        from calendarbot_lite.alexa_skill_backend import handle_get_done_for_day_intent
+        from calendarbot_lite.alexa.alexa_skill_backend import handle_get_done_for_day_intent
         
         mock_api_call.return_value = {"speech_text": "Test", "has_meetings_today": False}
         

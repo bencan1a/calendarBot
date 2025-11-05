@@ -6,13 +6,13 @@ from unittest.mock import patch
 
 import pytest
 
-from calendarbot_lite.lite_models import (
+from calendarbot_lite.calendar.lite_models import (
     LiteCalendarEvent,
     LiteDateTimeInfo,
     LiteEventStatus,
     LiteLocation,
 )
-from calendarbot_lite.morning_summary import (
+from calendarbot_lite.domain.morning_summary import (
     FOCUS_TIME_KEYWORDS,
     MAX_EVENTS_LIMIT,
     MORNING_END_HOUR,

@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from calendarbot_lite.fetch_orchestrator import FetchOrchestrator
+from calendarbot_lite.domain.fetch_orchestrator import FetchOrchestrator
 
 pytestmark = [pytest.mark.unit, pytest.mark.fast]
 

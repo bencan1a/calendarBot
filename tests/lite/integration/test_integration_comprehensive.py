@@ -19,10 +19,10 @@ from typing import Any
 
 import pytest
 
-from calendarbot_lite.lite_fetcher import LiteICSFetcher
-from calendarbot_lite.lite_parser import LiteICSParser
-from calendarbot_lite.pipeline import EventProcessingPipeline, ProcessingContext
-from calendarbot_lite.pipeline_stages import (
+from calendarbot_lite.calendar.lite_fetcher import LiteICSFetcher
+from calendarbot_lite.calendar.lite_parser import LiteICSParser
+from calendarbot_lite.domain.pipeline import EventProcessingPipeline, ProcessingContext
+from calendarbot_lite.domain.pipeline_stages import (
     DeduplicationStage,
     SortStage,
     TimeWindowStage,
@@ -274,7 +274,7 @@ async def test_fetch_parse_filter_pipeline_when_local_server_then_end_to_end_wor
     
     try:
         # Fetch ICS content
-        from calendarbot_lite.lite_models import LiteICSSource
+        from calendarbot_lite.calendar.lite_models import LiteICSSource
         
         url = f"http://127.0.0.1:{port}/calendar.ics"
         source = LiteICSSource(name="test", url=url)

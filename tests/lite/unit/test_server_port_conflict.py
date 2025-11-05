@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from calendarbot_lite.server import _handle_port_conflict, _import_process_utilities
+from calendarbot_lite.api.server import _handle_port_conflict, _import_process_utilities
 
 pytestmark = pytest.mark.unit
 

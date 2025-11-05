@@ -21,9 +21,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from calendarbot_lite.lite_models import LiteCalendarEvent, LiteEventStatus
-from calendarbot_lite.lite_rrule_expander import RRuleWorkerPool
-from calendarbot_lite.lite_streaming_parser import parse_ics_stream
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent, LiteEventStatus
+from calendarbot_lite.calendar.lite_rrule_expander import RRuleWorkerPool
+from calendarbot_lite.calendar.lite_streaming_parser import parse_ics_stream
 
 pytestmark = [pytest.mark.performance, pytest.mark.memory, pytest.mark.slow]
 
@@ -376,7 +376,7 @@ async def test_event_deduplication_memory_efficiency():
     """
     import tracemalloc
 
-    from calendarbot_lite.lite_models import LiteDateTimeInfo
+    from calendarbot_lite.calendar.lite_models import LiteDateTimeInfo
 
     tracemalloc.start()
     gc.collect()

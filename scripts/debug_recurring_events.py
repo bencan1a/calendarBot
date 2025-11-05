@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from calendarbot_lite.debug_helpers import (
+from calendarbot_lite.core.debug_helpers import (
     collect_rrule_candidates,
     event_summary,
     expand_candidates_to_trace,

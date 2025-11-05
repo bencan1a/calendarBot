@@ -7,7 +7,7 @@ import pytest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from calendarbot_lite.lite_parser import LiteICSParser
+from calendarbot_lite.calendar.lite_parser import LiteICSParser
 
 pytestmark = pytest.mark.unit
 

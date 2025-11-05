@@ -13,13 +13,13 @@ from unittest.mock import patch
 
 import pytest
 
-from calendarbot_lite.lite_models import (
+from calendarbot_lite.calendar.lite_models import (
     LiteCalendarEvent,
     LiteDateTimeInfo,
     LiteEventStatus,
     LiteLocation,
 )
-from calendarbot_lite.lite_rrule_expander import (
+from calendarbot_lite.calendar.lite_rrule_expander import (
     RRuleWorkerPool,
     expand_events_streaming,
     get_worker_pool,

@@ -5,8 +5,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from calendarbot_lite.alexa_skill_backend import handle_launch_intent, lambda_handler
-from calendarbot_lite.server import (
+from calendarbot_lite.alexa.alexa_skill_backend import handle_launch_intent, lambda_handler
+from calendarbot_lite.api.server import (
     _check_bearer_token,
     _compute_last_meeting_end_for_today,
     _format_duration_spoken,

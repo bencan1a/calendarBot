@@ -15,8 +15,8 @@ from datetime import UTC, datetime
 import pytest
 from icalendar import Event as ICalEvent
 
-from calendarbot_lite.lite_event_parser import LiteEventComponentParser
-from calendarbot_lite.lite_models import LiteEventStatus
+from calendarbot_lite.calendar.lite_event_parser import LiteEventComponentParser
+from calendarbot_lite.calendar.lite_models import LiteEventStatus
 
 pytestmark = [pytest.mark.unit, pytest.mark.fast]
 

@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from calendarbot_lite.debug_helpers import (
+from calendarbot_lite.core.debug_helpers import (
     collect_rrule_candidates,
     event_summary,
     expand_candidates_to_trace,

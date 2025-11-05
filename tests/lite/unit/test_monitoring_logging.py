@@ -12,7 +12,7 @@ from typing import Any, Dict
 
 import pytest
 
-from calendarbot_lite.monitoring_logging import (
+from calendarbot_lite.core.monitoring_logging import (
     LogEntry,
     MonitoringLogger,
     RateLimiter,
@@ -119,7 +119,7 @@ class TestRateLimiter:
 
     def setup_method(self) -> None:
         """Clear rate limiter state before each test."""
-        from calendarbot_lite.monitoring_logging import _rate_limiters
+        from calendarbot_lite.core.monitoring_logging import _rate_limiters
         _rate_limiters.clear()
 
     def test_should_log_when_under_limit_then_returns_true(self) -> None:

@@ -13,8 +13,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from calendarbot_lite.lite_datetime_utils import TimezoneParser
-from calendarbot_lite.timezone_utils import (
+from calendarbot_lite.calendar.lite_datetime_utils import TimezoneParser
+from calendarbot_lite.core.timezone_utils import (
     normalize_timezone_name,
     resolve_timezone_alias,
     windows_tz_to_iana,

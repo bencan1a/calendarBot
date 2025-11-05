@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from calendarbot_lite.lite_logging import (
+from calendarbot_lite.calendar.lite_logging import (
     configure_lite_logging,
     get_logging_status,
     reset_logging_to_debug,

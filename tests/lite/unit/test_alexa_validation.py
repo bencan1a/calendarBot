@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 pytestmark = pytest.mark.unit
 
-from calendarbot_lite.alexa_models import (
+from calendarbot_lite.alexa.alexa_models import (
     AlexaRequestParams,
     DoneForDayRequestParams,
     LaunchSummaryRequestParams,

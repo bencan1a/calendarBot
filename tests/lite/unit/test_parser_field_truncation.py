@@ -7,14 +7,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from calendarbot_lite.config_manager import (
+from calendarbot_lite.core.config_manager import (
     MAX_EVENT_DESCRIPTION_LENGTH,
     MAX_EVENT_LOCATION_LENGTH,
     MAX_EVENT_SUBJECT_LENGTH,
 )
-from calendarbot_lite.lite_attendee_parser import LiteAttendeeParser
-from calendarbot_lite.lite_datetime_utils import LiteDateTimeParser
-from calendarbot_lite.lite_event_parser import LiteEventComponentParser
+from calendarbot_lite.calendar.lite_attendee_parser import LiteAttendeeParser
+from calendarbot_lite.calendar.lite_datetime_utils import LiteDateTimeParser
+from calendarbot_lite.calendar.lite_event_parser import LiteEventComponentParser
 
 pytestmark = pytest.mark.unit
 

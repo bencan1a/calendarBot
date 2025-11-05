@@ -71,7 +71,7 @@ def start_lite_server_process(port: int) -> subprocess.Popen:
 
     code = (
         "import sys\n"
-        "from calendarbot_lite.server import start_server\n"
+        "from calendarbot_lite.api.server import start_server\n"
         "cfg = { 'server_bind':'127.0.0.1', 'server_port':%d, %s 'refresh_interval_seconds':2 }\n"
         "start_server(cfg, None)\n"
     ) % (port, sources_fragment)

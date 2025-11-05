@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from calendarbot_lite.lite_rrule_expander import RRuleWorkerPool, get_worker_pool
-from calendarbot_lite.server import (  # type: ignore[attr-defined]
+from calendarbot_lite.calendar.lite_rrule_expander import RRuleWorkerPool, get_worker_pool
+from calendarbot_lite.api.server import (  # type: ignore[attr-defined]
     _fetch_and_parse_source,
     _refresh_once,
 )

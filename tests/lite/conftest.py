@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from calendarbot_lite.http_client import close_all_clients
+from calendarbot_lite.core.http_client import close_all_clients
 
 
 @pytest.fixture

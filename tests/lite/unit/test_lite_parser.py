@@ -7,11 +7,11 @@ from types import SimpleNamespace
 import pytest
 from icalendar import Event as ICalEvent
 
-from calendarbot_lite.lite_models import (
+from calendarbot_lite.calendar.lite_models import (
     LiteCalendarEvent,
     LiteDateTimeInfo,
 )
-from calendarbot_lite.lite_parser import LiteICSParser, _DateTimeWrapper, _SimpleEvent
+from calendarbot_lite.calendar.lite_parser import LiteICSParser, _DateTimeWrapper, _SimpleEvent
 
 
 @pytest.mark.unit
@@ -120,7 +120,7 @@ def test_orchestrate_rrule_expansion_uses_orchestrator_and_expander(monkeypatch)
 
     async def fake_expander(cands, settings_obj):
         # yield two LiteCalendarEvent-like objects
-        from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo
+        from calendarbot_lite.calendar.lite_models import LiteCalendarEvent, LiteDateTimeInfo
         for i in range(2):
             dt = now + timedelta(days=i)
             yield LiteCalendarEvent(
@@ -135,7 +135,7 @@ def test_orchestrate_rrule_expansion_uses_orchestrator_and_expander(monkeypatch)
     monkeypatch.setattr(expmod, "expand_events_streaming", fake_expander)
 
     # Patch async_utils.get_global_orchestrator to return fake orchestrator with run_coroutine_from_sync
-    import calendarbot_lite.async_utils as au
+    import calendarbot_lite.core.async_utils as au
 
     class FakeOrch:
         def run_coroutine_from_sync(self, fn, timeout=None):
