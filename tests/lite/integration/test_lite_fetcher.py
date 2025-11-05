@@ -111,7 +111,7 @@ class TestSSRFProtection:
         from unittest.mock import Mock
 
         mock_urlparse = Mock(side_effect=ValueError("Invalid URL format"))
-        monkeypatch.setattr("calendarbot_lite.lite_fetcher.urlparse", mock_urlparse)
+        monkeypatch.setattr("calendarbot_lite.calendar.lite_fetcher.urlparse", mock_urlparse)
 
         # Call with any URL - urlparse will raise ValueError
         result = test_fetcher._validate_url_for_ssrf("http://example.com")
@@ -181,10 +181,10 @@ class TestSecurityEventLogger:
         # Set the module logger to DEBUG level to capture debug messages
         import logging
 
-        logger = logging.getLogger("calendarbot_lite.lite_fetcher")
+        logger = logging.getLogger("calendarbot_lite.calendar.lite_fetcher")
         logger.setLevel(logging.DEBUG)
 
-        with caplog.at_level(logging.DEBUG, logger="calendarbot_lite.lite_fetcher"):
+        with caplog.at_level(logging.DEBUG, logger="calendarbot_lite.calendar.lite_fetcher"):
             event_data = {
                 "event_type": "DATA_ACCESS",
                 "severity": "LOW",

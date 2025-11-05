@@ -518,7 +518,7 @@ class TestRenderMeetingSsml:
         result = render_meeting_ssml(meeting, config)
         assert result is None
 
-    @patch("calendarbot_lite.alexa_ssml.logger")
+    @patch("calendarbot_lite.alexa.alexa_ssml.logger")
     def test_render_meeting_ssml_when_exception_occurs_then_logs_and_returns_none(self, mock_logger):
         """Test SSML generation handles exceptions gracefully."""
         # Force an exception by providing invalid data structure
@@ -616,7 +616,7 @@ class TestRenderTimeUntilSsml:
         result = render_time_until_ssml(1800, None, config)
         assert result is None
 
-    @patch("calendarbot_lite.alexa_ssml.logger")
+    @patch("calendarbot_lite.alexa.alexa_ssml.logger")
     def test_render_time_until_ssml_when_exception_then_logs_and_returns_none(self, mock_logger):
         """Test time-until SSML handles exceptions gracefully."""
         # Force an exception with invalid seconds_until type
@@ -825,8 +825,8 @@ class TestRenderDoneForDaySsml:
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text, config=config)
         assert result is None
 
-    @patch("calendarbot_lite.alexa_ssml._escape_text_for_ssml_preserving_tags")
-    @patch("calendarbot_lite.alexa_ssml.logger")
+    @patch("calendarbot_lite.alexa.alexa_ssml._escape_text_for_ssml_preserving_tags")
+    @patch("calendarbot_lite.alexa.alexa_ssml.logger")
     def test_render_done_for_day_ssml_when_exception_occurs_then_logs_and_returns_none(self, mock_logger, mock_escape):
         """Test SSML generation handles exceptions gracefully."""
         # Force an exception by making _escape_text_for_ssml_preserving_tags raise an exception

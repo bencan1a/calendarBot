@@ -41,8 +41,8 @@ class TestAlexaSkillBackendTimezone:
             import sys
 
             # Remove module from cache to force reimport with new env var
-            if "calendarbot_lite.alexa_skill_backend" in sys.modules:
-                importlib.reload(sys.modules["calendarbot_lite.alexa_skill_backend"])
+            if "calendarbot_lite.alexa.alexa_skill_backend" in sys.modules:
+                importlib.reload(sys.modules["calendarbot_lite.alexa.alexa_skill_backend"])
 
             from calendarbot_lite.alexa.alexa_skill_backend import get_default_timezone
 
@@ -57,8 +57,8 @@ class TestAlexaSkillBackendTimezone:
             import sys
 
             # Remove module from cache to force reimport with new env var
-            if "calendarbot_lite.alexa_skill_backend" in sys.modules:
-                importlib.reload(sys.modules["calendarbot_lite.alexa_skill_backend"])
+            if "calendarbot_lite.alexa.alexa_skill_backend" in sys.modules:
+                importlib.reload(sys.modules["calendarbot_lite.alexa.alexa_skill_backend"])
 
             from calendarbot_lite.alexa.alexa_skill_backend import get_default_timezone
 
@@ -73,8 +73,8 @@ class TestAlexaSkillBackendTimezone:
             import sys
 
             # Remove module from cache to force reimport with new env var
-            if "calendarbot_lite.alexa_skill_backend" in sys.modules:
-                importlib.reload(sys.modules["calendarbot_lite.alexa_skill_backend"])
+            if "calendarbot_lite.alexa.alexa_skill_backend" in sys.modules:
+                importlib.reload(sys.modules["calendarbot_lite.alexa.alexa_skill_backend"])
 
             from calendarbot_lite.alexa.alexa_skill_backend import get_default_timezone
 
@@ -101,8 +101,8 @@ class TestAlexaSkillBackendTimezone:
                 import sys
 
                 # Remove module from cache to force reimport with new env var
-                if "calendarbot_lite.alexa_skill_backend" in sys.modules:
-                    importlib.reload(sys.modules["calendarbot_lite.alexa_skill_backend"])
+                if "calendarbot_lite.alexa.alexa_skill_backend" in sys.modules:
+                    importlib.reload(sys.modules["calendarbot_lite.alexa.alexa_skill_backend"])
 
                 from calendarbot_lite.alexa.alexa_skill_backend import get_default_timezone
 
@@ -116,8 +116,8 @@ class TestAlexaSkillBackendTimezone:
             import sys
 
             # Remove module from cache to force reimport with new env var
-            if "calendarbot_lite.alexa_skill_backend" in sys.modules:
-                importlib.reload(sys.modules["calendarbot_lite.alexa_skill_backend"])
+            if "calendarbot_lite.alexa.alexa_skill_backend" in sys.modules:
+                importlib.reload(sys.modules["calendarbot_lite.alexa.alexa_skill_backend"])
 
             from calendarbot_lite.alexa.alexa_skill_backend import get_default_timezone
 

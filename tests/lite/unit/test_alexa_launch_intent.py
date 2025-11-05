@@ -18,7 +18,7 @@ pytestmark = pytest.mark.unit
 class TestAlexaLaunchIntent:
     """Test the new launch intent functionality."""
 
-    @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
+    @patch("calendarbot_lite.alexa.alexa_skill_backend.call_calendarbot_api")
     def test_handle_launch_intent_with_next_meeting(self, mock_api):
         """Test launch intent when there's a next meeting."""
         # Mock API response with next meeting and done-for-day info
@@ -45,7 +45,7 @@ class TestAlexaLaunchIntent:
         assert response.card_title == "Calendar Summary"
         mock_api.assert_called_once_with("/api/alexa/launch-summary")
 
-    @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
+    @patch("calendarbot_lite.alexa.alexa_skill_backend.call_calendarbot_api")
     def test_handle_launch_intent_no_meetings_today(self, mock_api):
         """Test launch intent when there are no meetings today - should switch to morning summary mode."""
         # Mock the launch summary call (first call to check status)
@@ -89,7 +89,7 @@ class TestAlexaLaunchIntent:
         assert "/api/alexa/morning-summary" in second_call_args
         assert "prefer_ssml=true" in second_call_args
 
-    @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
+    @patch("calendarbot_lite.alexa.alexa_skill_backend.call_calendarbot_api")
     def test_handle_launch_intent_api_error(self, mock_api):
         """Test launch intent when API call fails."""
         mock_api.side_effect = Exception("Connection failed")
@@ -100,7 +100,7 @@ class TestAlexaLaunchIntent:
         assert response.ssml is None
         mock_api.assert_called_once_with("/api/alexa/launch-summary")
 
-    @patch("calendarbot_lite.alexa_skill_backend.handle_launch_intent")
+    @patch("calendarbot_lite.alexa.alexa_skill_backend.handle_launch_intent")
     def test_lambda_handler_launch_request(self, mock_handle_launch):
         """Test lambda_handler with LaunchRequest calls the new handler."""
         mock_response = Mock()

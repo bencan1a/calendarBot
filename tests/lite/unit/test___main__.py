@@ -114,7 +114,7 @@ class TestMain:
         
         captured = capsys.readouterr()
         assert "To continue development:" in captured.out
-        assert "calendarbot_lite.server" in captured.out
+        assert "calendarbot_lite.api.server" in captured.out
 
     def test_main_when_no_args_then_uses_defaults(
         self, monkeypatch: pytest.MonkeyPatch

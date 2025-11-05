@@ -46,7 +46,7 @@ class TestBoundedConcurrency:
         event_window_ref = [()]
         window_lock = asyncio.Lock()
 
-        with patch("calendarbot_lite.server._fetch_and_parse_source") as mock_fetch:
+        with patch("calendarbot_lite.api.server._fetch_and_parse_source") as mock_fetch:
             mock_fetch.return_value = []
 
             await _refresh_once(config, skipped_store, event_window_ref, window_lock)
@@ -79,7 +79,7 @@ class TestBoundedConcurrency:
             return []
 
         with patch(
-            "calendarbot_lite.server._fetch_and_parse_source", side_effect=mock_fetch_with_timing
+            "calendarbot_lite.api.server._fetch_and_parse_source", side_effect=mock_fetch_with_timing
         ):
             await _refresh_once(config, skipped_store, event_window_ref, window_lock)
 
@@ -296,7 +296,7 @@ class TestConcurrencyConfiguration:
             event_window_ref = [()]
             window_lock = asyncio.Lock()
 
-            with patch("calendarbot_lite.server._fetch_and_parse_source") as mock_fetch:
+            with patch("calendarbot_lite.api.server._fetch_and_parse_source") as mock_fetch:
                 mock_fetch.return_value = []
 
                 # Track semaphore creation
@@ -324,7 +324,7 @@ class TestConcurrencyConfiguration:
             return [{"meeting_id": "test", "subject": "Test Event", "start": datetime.now(UTC)}]
 
         with patch(
-            "calendarbot_lite.server._fetch_and_parse_source", side_effect=mock_fetch_with_error
+            "calendarbot_lite.api.server._fetch_and_parse_source", side_effect=mock_fetch_with_error
         ):
             # Should not raise exception, should handle errors gracefully
             await _refresh_once(config, None, event_window_ref, window_lock)

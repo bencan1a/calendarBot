@@ -47,7 +47,7 @@ def find_free_port() -> int:
 
 
 def start_lite_server_process(port: int) -> subprocess.Popen:
-    """Start a separate Python process that runs calendarbot_lite.server.start_server.
+    """Start a separate Python process that runs calendarbot_lite.api.server.start_server.
 
     We call Python with -c to avoid relying on CLI entrypoints that print friendly
     messages and exit when the implementation is missing.

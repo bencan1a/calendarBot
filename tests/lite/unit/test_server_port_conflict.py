@@ -12,7 +12,7 @@ pytestmark = pytest.mark.unit
 class TestImportProcessUtilities:
     """Test the _import_process_utilities function."""
 
-    @patch("calendarbot_lite.server.logger")
+    @patch("calendarbot_lite.api.server.logger")
     def test_import_process_utilities_when_success_then_returns_functions(self, mock_logger):
         """Test successful import of process utilities."""
         # Mock the successful import by mocking the module directly
@@ -37,7 +37,7 @@ class TestImportProcessUtilities:
             assert result[1] is not None
             assert result[2] is not None
 
-    @patch("calendarbot_lite.server.logger")
+    @patch("calendarbot_lite.api.server.logger")
     def test_import_process_utilities_when_import_error_then_returns_none(self, mock_logger):
         """Test import failure returns None values."""
         with patch("builtins.__import__", side_effect=ImportError("Module not found")):
@@ -51,8 +51,8 @@ class TestImportProcessUtilities:
 class TestHandlePortConflict:
     """Test the _handle_port_conflict function."""
 
-    @patch("calendarbot_lite.server._import_process_utilities")
-    @patch("calendarbot_lite.server.logger")
+    @patch("calendarbot_lite.api.server._import_process_utilities")
+    @patch("calendarbot_lite.api.server.logger")
     def test_handle_port_conflict_when_utilities_missing_then_returns_false(
         self, mock_logger, mock_import
     ):
@@ -65,8 +65,8 @@ class TestHandlePortConflict:
         mock_logger.warning.assert_called_once()
         assert "Port conflict resolution not available" in mock_logger.warning.call_args[0][0]
 
-    @patch("calendarbot_lite.server._import_process_utilities")
-    @patch("calendarbot_lite.server.logger")
+    @patch("calendarbot_lite.api.server._import_process_utilities")
+    @patch("calendarbot_lite.api.server.logger")
     def test_handle_port_conflict_when_port_available_then_returns_true(
         self, mock_logger, mock_import
     ):
@@ -80,8 +80,8 @@ class TestHandlePortConflict:
         mock_check_port.assert_called_once_with("localhost", 8080)
         mock_logger.debug.assert_called_once_with("Port %d is available", 8080)
 
-    @patch("calendarbot_lite.server._import_process_utilities")
-    @patch("calendarbot_lite.server.logger")
+    @patch("calendarbot_lite.api.server._import_process_utilities")
+    @patch("calendarbot_lite.api.server.logger")
     @patch("builtins.print")
     @patch("builtins.input", return_value="n")
     def test_handle_port_conflict_when_user_declines_then_returns_false(
@@ -101,8 +101,8 @@ class TestHandlePortConflict:
         )
         mock_print.assert_any_call("Port conflict not resolved - server cannot start")
 
-    @patch("calendarbot_lite.server._import_process_utilities")
-    @patch("calendarbot_lite.server.logger")
+    @patch("calendarbot_lite.api.server._import_process_utilities")
+    @patch("calendarbot_lite.api.server.logger")
     @patch("builtins.print")
     @patch("builtins.input", return_value="y")
     def test_handle_port_conflict_when_user_accepts_and_cleanup_succeeds_then_returns_true(
@@ -129,8 +129,8 @@ class TestHandlePortConflict:
         )
         mock_print.assert_any_call("✓ Port 8080 is now available")
 
-    @patch("calendarbot_lite.server._import_process_utilities")
-    @patch("calendarbot_lite.server.logger")
+    @patch("calendarbot_lite.api.server._import_process_utilities")
+    @patch("calendarbot_lite.api.server.logger")
     @patch("builtins.print")
     @patch("builtins.input", return_value="y")
     def test_handle_port_conflict_when_user_accepts_and_cleanup_fails_then_returns_false(
@@ -157,8 +157,8 @@ class TestHandlePortConflict:
         )
         mock_print.assert_any_call("✗ Failed to free port 8080")
 
-    @patch("calendarbot_lite.server._import_process_utilities")
-    @patch("calendarbot_lite.server.logger")
+    @patch("calendarbot_lite.api.server._import_process_utilities")
+    @patch("calendarbot_lite.api.server.logger")
     @patch("builtins.print")
     @patch("builtins.input", return_value="yes")
     def test_handle_port_conflict_when_auto_cleanup_missing_then_returns_false(
@@ -175,8 +175,8 @@ class TestHandlePortConflict:
         mock_logger.error.assert_any_call("Auto cleanup function not available")
         mock_print.assert_any_call("✗ Port cleanup functionality not available")
 
-    @patch("calendarbot_lite.server._import_process_utilities")
-    @patch("calendarbot_lite.server.logger")
+    @patch("calendarbot_lite.api.server._import_process_utilities")
+    @patch("calendarbot_lite.api.server.logger")
     @patch("builtins.print")
     @patch("builtins.input", return_value="Y")  # Test case insensitive
     def test_handle_port_conflict_when_input_case_insensitive_then_accepts(
@@ -195,8 +195,8 @@ class TestHandlePortConflict:
             "User confirmed termination of process using port %d", 8080
         )
 
-    @patch("calendarbot_lite.server._import_process_utilities")
-    @patch("calendarbot_lite.server.logger")
+    @patch("calendarbot_lite.api.server._import_process_utilities")
+    @patch("calendarbot_lite.api.server.logger")
     @patch("builtins.print")
     @patch("builtins.input", return_value="y")
     def test_handle_port_conflict_when_no_process_found_then_warns_and_attempts_cleanup(

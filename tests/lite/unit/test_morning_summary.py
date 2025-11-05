@@ -35,7 +35,7 @@ pytestmark = pytest.mark.unit
 def mock_server_timezone():
     """Mock _get_server_timezone to return UTC for all tests."""
     # Patch in both server module and morning_summary module (which imports it)
-    with patch("calendarbot_lite.server._get_server_timezone", return_value="UTC"), \
+    with patch("calendarbot_lite.api.server._get_server_timezone", return_value="UTC"), \
          patch("calendarbot_lite.morning_summary._get_server_timezone", return_value="UTC"):
         yield
 

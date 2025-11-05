@@ -242,7 +242,7 @@ class TestRRuleStreamingOptimization:
         ]
 
         expanded_events = []
-        with patch("calendarbot_lite.lite_rrule_expander.logger") as mock_logger:
+        with patch("calendarbot_lite.calendar.lite_rrule_expander.logger") as mock_logger:
             async for event in expand_events_streaming(events_with_rrules, mock_settings):  # type: ignore[arg-type]
                 expanded_events.append(event)
 
