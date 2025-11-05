@@ -195,6 +195,7 @@ ignore = [
     "PTH123",  # open() should be replaced by Path.open() (not always appropriate)
     "UP045",   # Use X | None instead of Optional[X] (personal preference)
     "TRY003",  # Avoid specifying long messages outside the exception class
+    "TRY301",  # Abstract raise to inner function (readability preference)
     "ARG002",  # Unused method argument (common in overrides)
     "PT012",   # pytest.raises() block should contain a single simple statement
     "B008",    # Do not perform function calls in argument defaults (common in FastAPI)

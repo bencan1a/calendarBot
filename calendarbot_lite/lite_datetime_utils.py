@@ -229,16 +229,38 @@ class TimezoneParser:
 
             # Parse datetime part (remove Z suffix if present)
             dt_str_clean = dt_part.rstrip("Z")
-            dt_naive = datetime.strptime(dt_str_clean, "%Y%m%dT%H%M%S")
+            
+            # Try multiple datetime formats for robustness
+            dt_naive = None
+            for fmt in [
+                "%Y%m%dT%H%M%S",  # Standard: 20251031T090000
+                "%Y%m%dT%H%M",    # Without seconds: 20251031T0900
+                "%Y-%m-%dT%H:%M:%S",  # ISO format: 2025-10-31T09:00:00
+                "%Y-%m-%d %H:%M:%S",  # Space separated: 2025-10-31 09:00:00
+            ]:
+                try:
+                    dt_naive = datetime.strptime(dt_str_clean, fmt)
+                    break
+                except ValueError:
+                    continue
+                    
+            if dt_naive is None:
+                raise ValueError(f"Unable to parse datetime format: {dt_str_clean}")
 
             # Handle UTC explicitly
             if tzid == "UTC" or dt_part.endswith("Z"):
                 return dt_naive.replace(tzinfo=UTC)
 
-            # Convert Windows timezone to IANA format
-            from .timezone_utils import windows_tz_to_iana
+            # Use comprehensive timezone normalization (handles Windows TZ, aliases, etc.)
+            from .timezone_utils import normalize_timezone_name
 
-            iana_tz = windows_tz_to_iana(tzid) or tzid
+            iana_tz = normalize_timezone_name(tzid)
+            if iana_tz is None:
+                # Log warning but fallback gracefully
+                logger.warning(
+                    f"Unknown timezone {tzid!r} in {datetime_str!r}, assuming UTC"
+                )
+                return dt_naive.replace(tzinfo=UTC)
 
             # Apply timezone using zoneinfo (Python 3.12+ standard library)
             tz = ZoneInfo(iana_tz)

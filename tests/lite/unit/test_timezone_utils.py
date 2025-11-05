@@ -17,8 +17,10 @@ from calendarbot_lite.timezone_utils import (
     convert_to_timezone,
     get_fallback_timezone,
     get_server_timezone,
+    normalize_timezone_name,
     now_utc,
     parse_request_timezone,
+    resolve_timezone_alias,
     windows_tz_to_iana,
 )
 
@@ -291,3 +293,80 @@ def test_windows_tz_mapping(windows_tz: str, expected_iana: str):
     result = windows_tz_to_iana(windows_tz)
     
     assert result == expected_iana
+
+
+class TestTimezoneAliasResolution:
+    """Tests for timezone alias resolution functions."""
+
+    def test_resolve_timezone_alias_with_us_pacific(self):
+        """Test resolving US/Pacific alias."""
+        result = resolve_timezone_alias("US/Pacific")
+        
+        assert result == "America/Los_Angeles"
+
+    def test_resolve_timezone_alias_with_gmt(self):
+        """Test resolving GMT alias to UTC."""
+        result = resolve_timezone_alias("GMT")
+        
+        assert result == "UTC"
+
+    def test_resolve_timezone_alias_with_non_alias(self):
+        """Test that non-alias timezones are returned unchanged."""
+        result = resolve_timezone_alias("America/New_York")
+        
+        assert result == "America/New_York"
+
+    def test_resolve_timezone_alias_with_legacy_name(self):
+        """Test resolving legacy timezone names."""
+        result = resolve_timezone_alias("PST8PDT")
+        
+        assert result == "America/Los_Angeles"
+
+
+class TestTimezoneNormalization:
+    """Tests for comprehensive timezone normalization."""
+
+    def test_normalize_timezone_name_with_windows_tz(self):
+        """Test normalizing Windows timezone name."""
+        result = normalize_timezone_name("Pacific Standard Time")
+        
+        assert result == "America/Los_Angeles"
+
+    def test_normalize_timezone_name_with_alias(self):
+        """Test normalizing timezone alias."""
+        result = normalize_timezone_name("US/Eastern")
+        
+        assert result == "America/New_York"
+
+    def test_normalize_timezone_name_with_canonical_tz(self):
+        """Test normalizing canonical IANA timezone."""
+        result = normalize_timezone_name("Europe/London")
+        
+        assert result == "Europe/London"
+
+    def test_normalize_timezone_name_with_invalid_tz(self):
+        """Test normalizing invalid timezone returns None."""
+        result = normalize_timezone_name("Invalid/Timezone")
+        
+        assert result is None
+
+    def test_normalize_timezone_name_with_empty_string(self):
+        """Test normalizing empty string returns None."""
+        result = normalize_timezone_name("")
+        
+        assert result is None
+
+    @pytest.mark.smoke  # Critical path: Timezone normalization validation
+    def test_normalize_timezone_name_handles_common_cases(self):
+        """Test comprehensive timezone normalization for common cases."""
+        # Windows timezone
+        assert normalize_timezone_name("Eastern Standard Time") == "America/New_York"
+        
+        # Timezone alias
+        assert normalize_timezone_name("GMT") == "UTC"
+        
+        # Canonical IANA
+        assert normalize_timezone_name("Asia/Tokyo") == "Asia/Tokyo"
+        
+        # Invalid
+        assert normalize_timezone_name("BadTimezone") is None
