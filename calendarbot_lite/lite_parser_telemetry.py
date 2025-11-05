@@ -138,11 +138,16 @@ class ParserTelemetry:
     def _log_duplicate(self, event_uid: str) -> None:
         """Log duplicate event detection with context."""
         logger.warning(
-            "Duplicate event UID detected during streaming parse - "
-            f"uid={event_uid}, source_url={self.source_url}, "
-            f"content_size_est={self.get_content_size_estimate()}bytes, "
-            f"total_items={self.total_items}, events_processed={self.event_items}, "
-            f"unique_uids={len(self.duplicate_ids)}, duplicate_count={self.get_duplicate_count()}"
+            "Duplicate event UID detected during streaming parse - uid=%s, source_url=%s, "
+            "content_size_est=%sbytes, total_items=%s, events_processed=%s, "
+            "unique_uids=%s, duplicate_count=%s",
+            event_uid,
+            self.source_url,
+            self.get_content_size_estimate(),
+            self.total_items,
+            self.event_items,
+            len(self.duplicate_ids),
+            self.get_duplicate_count(),
         )
 
     def _log_progress_if_needed(self) -> None:

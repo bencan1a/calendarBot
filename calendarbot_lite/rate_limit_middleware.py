@@ -53,9 +53,7 @@ def create_rate_limited_handler(
                 response.headers["X-RateLimit-Limit-Token"] = str(
                     rate_limiter.config.per_token_limit
                 )
-                response.headers["X-RateLimit-Remaining-Token"] = str(
-                    limit_info["remaining_token"]
-                )
+                response.headers["X-RateLimit-Remaining-Token"] = str(limit_info["remaining_token"])
 
             return response
 

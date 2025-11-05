@@ -69,6 +69,7 @@ dev = [
     "pytest-mock>=3.10.0",
     "pytest-timeout>=2.1.0",
     "pytest-testmon>=2.0.0",
+    "pytest-memray>=1.4.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "bandit>=1.7.0",
@@ -177,6 +178,7 @@ select = [
     "TRY",  # tryceratops
     "PERF", # Perflint
     "RUF",  # Ruff-specific rules
+    "G",    # flake8-logging-format (prevent f-strings in logging)
 ]
 
 # Ignore specific rules
@@ -184,6 +186,7 @@ ignore = [
     "T201",    # 'Print' found
     "E402",    # Module level import not at top of file
     "E501",    # Line too long (handled by formatter)
+    "PLR0911", # Too many return statements (complexity)
     "PLR0912", # Too many branches (complexity)
     "PLR0913", # Too many arguments to function call
     "PLR0915", # Too many statements (complexity)
@@ -213,7 +216,7 @@ ignore = [
 [tool.ruff.lint.isort]
 combine-as-imports = true
 split-on-trailing-comma = true
-known-first-party = ["calendarbot"]
+known-first-party = ["calendarbot", "calendarbot_lite"]
 
 # Pylint configuration
 [tool.ruff.lint.pylint]
@@ -231,9 +234,9 @@ line-ending = "auto"
 
 [tool.bandit]
 # Bandit security analysis configuration
-# Only scan the calendarbot package directory, ignore everything else
-include = ["calendarbot"]
-exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
+# Only scan the calendarbot_lite package directory (active code), not archived calendarbot/
+include = ["calendarbot_lite"]
+exclude_dirs = ["tests", "venv", ".venv", "build", "dist", "calendarbot"]
 skips = [
     "B101",  # Test for use of assert
     "B601",  # Parameterized shell calls (we validate inputs)
@@ -290,11 +293,11 @@ warn_return_any = false
 warn_unreachable = false
 
 [tool.pytest.ini_options]
-# Consolidated pytest configuration (migrated from pytest.ini)
+# Consolidated pytest configuration (migrated from pytest.ini and pytest-lite.ini)
 minversion = "7.0"
 
-# Test discovery settings — restrict discovery to lite tests so VS Code shows only them
-testpaths = ["tests"]
+# Test discovery settings — focus on lite tests only (archived tests excluded)
+testpaths = ["tests/lite"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -323,6 +326,8 @@ addopts = [
     "--import-mode=importlib", # Use importlib mode to avoid namespace conflicts
     # Memory management options to prevent OOM kills
     "--disable-warnings",     # Reduce memory from warning objects
+    # Coverage options to prevent subprocess coverage conflicts
+    "--no-cov-on-fail",       # Don't report coverage if tests fail
 ]
 
 # Async test support
@@ -370,6 +375,7 @@ markers = [
     
     # Performance and execution characteristics
     "performance: Performance and load tests",
+    "memory: Memory profiling and resource usage tests",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "fast: Quick-executing tests (under 30 seconds)",
     
@@ -388,10 +394,10 @@ markers = [
 ]
 
 [tool.coverage.run]
-# Comprehensive coverage configuration (migrated from .coveragerc)
+# Comprehensive coverage configuration (migrated from .coveragerc and pytest-lite.ini)
 source = ["calendarbot_lite"]
 branch = true
-parallel = true
+parallel = false  # Single-process mode (parallel=true only needed if using pytest-xdist or tests spawn subprocesses)
 
 # Note: include is not needed when source is set - source already specifies what to include
 

@@ -101,8 +101,12 @@ class ResponseCache:
                 logger.debug("Cache hit for key: %s", key)
                 return response
             # Stale entry from previous window version
-            logger.debug("Cache entry stale (version %d != %d): %s",
-                       window_version, self.current_window_version, key)
+            logger.debug(
+                "Cache entry stale (version %d != %d): %s",
+                window_version,
+                self.current_window_version,
+                key,
+            )
 
         self.stats["misses"] += 1
         logger.debug("Cache miss for key: %s", key)
@@ -116,8 +120,7 @@ class ResponseCache:
             response: Response dict to cache
         """
         self.cache[key] = (response, self.current_window_version)
-        logger.debug("Cached response for key: %s (version %d)",
-                    key, self.current_window_version)
+        logger.debug("Cached response for key: %s (version %d)", key, self.current_window_version)
 
         # FIFO eviction if needed (removes oldest inserted entry)
         # Note: This is not true LRU (which would track access patterns).
@@ -128,8 +131,12 @@ class ResponseCache:
             oldest_key = next(iter(self.cache))
             del self.cache[oldest_key]
             self.stats["evictions"] += 1
-            logger.debug("Evicted oldest cache entry: %s (cache size: %d/%d)",
-                        oldest_key, len(self.cache), self.max_size)
+            logger.debug(
+                "Evicted oldest cache entry: %s (cache size: %d/%d)",
+                oldest_key,
+                len(self.cache),
+                self.max_size,
+            )
 
     def invalidate_all(self) -> None:
         """Invalidate all cached responses (call on window refresh).
@@ -147,7 +154,9 @@ class ResponseCache:
 
         logger.info(
             "Invalidated all cache entries (version %d → %d, cleared %d entries)",
-            old_version, self.current_window_version, old_size
+            old_version,
+            self.current_window_version,
+            old_size,
         )
 
     def get_stats(self) -> dict[str, Any]:

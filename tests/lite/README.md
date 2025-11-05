@@ -89,43 +89,43 @@ Autouse async fixture that ensures [`close_all_clients()`](../../calendarbot_lit
 
 #### Run Only Smoke Tests
 ```bash
-pytest -c pytest-lite.ini -m smoke
+pytest tests/lite/ -m smoke
 ```
 
 #### Run Fast Unit Tests (Exclude Slow Tests)
 ```bash
-pytest -c pytest-lite.ini -m "not slow"
+pytest tests/lite/ -m "not slow"
 ```
 
 #### Run Full Lite Test Suite
 ```bash
-pytest -c pytest-lite.ini
+pytest tests/lite/
 ```
 
 #### Run Specific Test Categories
 ```bash
 # Unit tests only
-pytest -c pytest-lite.ini -m unit
+pytest tests/lite/ -m unit
 
 # Integration tests only  
-pytest -c pytest-lite.ini -m integration
+pytest tests/lite/ -m integration
 
 # Smoke and unit tests
-pytest -c pytest-lite.ini -m "smoke or unit"
+pytest tests/lite/ -m "smoke or unit"
 ```
 
 #### Run with Coverage
 ```bash
-pytest -c pytest-lite.ini --cov=calendarbot_lite --cov-report=term-missing
+pytest tests/lite/ --cov=calendarbot_lite --cov-report=term-missing
 ```
 
 #### Run Specific Files or Functions
 ```bash
 # Single test file
-pytest -c pytest-lite.ini tests/lite/test_server_helpers.py -v
+pytest tests/lite/ tests/lite/test_server_helpers.py -v
 
 # Specific test function
-pytest -c pytest-lite.ini tests/lite/test_lite_smoke_boot.py::test_lite_smoke_boot_inprocess_no_errors -v
+pytest tests/lite/ tests/lite/test_lite_smoke_boot.py::test_lite_smoke_boot_inprocess_no_errors -v
 ```
 
 ### Alternative Execution
@@ -220,22 +220,22 @@ FAILED tests/lite/test_skipped_store_concurrency.py::test_concurrent_adds_and_cl
 ```
 **Solution**: Increase timeout or skip slow tests:
 ```bash
-pytest -c pytest-lite.ini -m "not slow"
+pytest tests/lite/ -m "not slow"
 ```
 
 ### Debug Mode
 Enable debug logging for test issues:
 ```bash
-CALENDARBOT_DEBUG=true pytest -c pytest-lite.ini -v -s
+CALENDARBOT_DEBUG=true pytest tests/lite/ -v -s
 ```
 
 ### Test Performance Profiling
 ```bash
 # Show slowest 10 tests
-pytest -c pytest-lite.ini --durations=10
+pytest tests/lite/ --durations=10
 
 # Profile specific test
-pytest -c pytest-lite.ini tests/lite/test_server_helpers.py --durations=0
+pytest tests/lite/ tests/lite/test_server_helpers.py --durations=0
 ```
 
 ## CI Integration
@@ -244,12 +244,12 @@ The lite test suite supports multiple CI execution patterns:
 
 ### Fast CI Pipeline  
 ```bash
-pytest -c pytest-lite.ini -m "smoke or unit" --maxfail=1
+pytest tests/lite/ -m "smoke or unit" --maxfail=1
 ```
 
 ### Full Validation Pipeline
 ```bash
-pytest -c pytest-lite.ini --cov=calendarbot_lite --cov-report=xml --junitxml=lite-results.xml
+pytest tests/lite/ --cov=calendarbot_lite --cov-report=xml --junitxml=lite-results.xml
 ```
 
 ### Coverage Target

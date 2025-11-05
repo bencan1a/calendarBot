@@ -127,6 +127,7 @@ class EventFilter:
         # Event is timezone-naive - assume it's in server timezone
         try:
             import zoneinfo
+
             server_tz = zoneinfo.ZoneInfo(server_tz_name)
             return dt.replace(tzinfo=server_tz)
         except Exception:
@@ -134,6 +135,7 @@ class EventFilter:
             fallback_tz_name = self.get_fallback_timezone()
             try:
                 import zoneinfo
+
                 fallback_tz = zoneinfo.ZoneInfo(fallback_tz_name)
                 return dt.replace(tzinfo=fallback_tz)
             except Exception:
@@ -252,5 +254,7 @@ class EventWindowManager:
         async with window_lock:
             event_window_ref[0] = tuple(final_events)
 
-        message = f"Updated window with {len(final_events)} events (from {len(parsed_events)} parsed)"
+        message = (
+            f"Updated window with {len(final_events)} events (from {len(parsed_events)} parsed)"
+        )
         return True, len(final_events), message

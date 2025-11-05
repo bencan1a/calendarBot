@@ -117,7 +117,9 @@ class NextMeetingPrecomputeStage:
             # Build precomputed response
             if next_meeting:
                 # Format duration if formatter available
-                if self.duration_formatter and isinstance(next_meeting.end.date_time, datetime.datetime):
+                if self.duration_formatter and isinstance(
+                    next_meeting.end.date_time, datetime.datetime
+                ):
                     duration_seconds = int(
                         (next_meeting.end.date_time - next_meeting.start.date_time).total_seconds()
                     )
@@ -392,7 +394,9 @@ class DoneForDayPrecomputeStage:
                 last_start_iso = (
                     self.iso_serializer(last_meeting_start)
                     if self.iso_serializer and last_meeting_start
-                    else last_meeting_start.isoformat() if last_meeting_start else None
+                    else last_meeting_start.isoformat()
+                    if last_meeting_start
+                    else None
                 )
 
                 # Get local time

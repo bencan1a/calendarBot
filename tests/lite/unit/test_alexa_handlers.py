@@ -37,7 +37,7 @@ from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo
 @pytest.fixture
 def mock_time_provider() -> Mock:
     """Provide a mock time provider that returns a fixed datetime."""
-    now = datetime.datetime(2024, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
+    now = datetime.datetime(2024, 1, 15, 10, 0, 0, tzinfo=datetime.UTC)
     return Mock(return_value=now)
 
 
@@ -104,8 +104,8 @@ def sample_event() -> LiteCalendarEvent:
     """Create a sample calendar event for testing."""
     from calendarbot_lite.lite_models import LiteDateTimeInfo, LiteLocation
 
-    start_time = datetime.datetime(2024, 1, 15, 14, 0, 0, tzinfo=datetime.timezone.utc)
-    end_time = datetime.datetime(2024, 1, 15, 15, 0, 0, tzinfo=datetime.timezone.utc)
+    start_time = datetime.datetime(2024, 1, 15, 14, 0, 0, tzinfo=datetime.UTC)
+    end_time = datetime.datetime(2024, 1, 15, 15, 0, 0, tzinfo=datetime.UTC)
 
     return LiteCalendarEvent(
         id="test-event-1",
@@ -295,8 +295,8 @@ async def test_find_next_meeting_when_event_skipped_then_returns_next_unskipped(
     from calendarbot_lite.lite_models import LiteDateTimeInfo
 
     # Create second event
-    start_time = datetime.datetime(2024, 1, 15, 16, 0, 0, tzinfo=datetime.timezone.utc)
-    end_time = datetime.datetime(2024, 1, 15, 17, 0, 0, tzinfo=datetime.timezone.utc)
+    start_time = datetime.datetime(2024, 1, 15, 16, 0, 0, tzinfo=datetime.UTC)
+    end_time = datetime.datetime(2024, 1, 15, 17, 0, 0, tzinfo=datetime.UTC)
 
     second_event = LiteCalendarEvent(
         id="test-event-2",
@@ -404,7 +404,7 @@ async def test_next_meeting_handler_when_meeting_exists_then_returns_meeting_inf
     body = response.body
     import json
 
-    data = json.loads(body)
+    data = json.loads(body)  # type: ignore[arg-type]
 
     assert "meeting" in data
     assert data["meeting"] is not None
@@ -438,7 +438,7 @@ async def test_next_meeting_handler_when_no_meetings_then_returns_none(
     body = response.body
     import json
 
-    data = json.loads(body)
+    data = json.loads(body)  # type: ignore[arg-type]
 
     assert "meeting" in data
     assert data["meeting"] is None
@@ -477,7 +477,7 @@ async def test_time_until_handler_when_meeting_exists_then_returns_time_info(
     body = response.body
     import json
 
-    data = json.loads(body)
+    data = json.loads(body)  # type: ignore[arg-type]
 
     assert "seconds_until_start" in data
     assert data["seconds_until_start"] is not None
@@ -510,7 +510,7 @@ async def test_time_until_handler_when_no_meetings_then_returns_none_seconds(
     body = response.body
     import json
 
-    data = json.loads(body)
+    data = json.loads(body)  # type: ignore[arg-type]
 
     assert "seconds_until_start" in data
     assert data["seconds_until_start"] is None
@@ -549,7 +549,7 @@ async def test_done_for_day_handler_when_meetings_today_then_returns_end_time(
     body = response.body
     import json
 
-    data = json.loads(body)
+    data = json.loads(body)  # type: ignore[arg-type]
 
     assert "has_meetings_today" in data
     assert data["has_meetings_today"] is True
@@ -583,7 +583,7 @@ async def test_done_for_day_handler_when_no_meetings_today_then_returns_false(
     body = response.body
     import json
 
-    data = json.loads(body)
+    data = json.loads(body)  # type: ignore[arg-type]
 
     assert "has_meetings_today" in data
     assert data["has_meetings_today"] is False
@@ -600,8 +600,8 @@ async def test_done_for_day_handler_when_meetings_ended_then_returns_done_messag
     from calendarbot_lite.lite_models import LiteDateTimeInfo
 
     # Create a past event (meeting already ended)
-    past_start = datetime.datetime(2024, 1, 15, 8, 0, 0, tzinfo=datetime.timezone.utc)
-    past_end = datetime.datetime(2024, 1, 15, 9, 0, 0, tzinfo=datetime.timezone.utc)
+    past_start = datetime.datetime(2024, 1, 15, 8, 0, 0, tzinfo=datetime.UTC)
+    past_end = datetime.datetime(2024, 1, 15, 9, 0, 0, tzinfo=datetime.UTC)
 
     past_event = LiteCalendarEvent(
         id="past-event",
@@ -634,7 +634,7 @@ async def test_done_for_day_handler_when_meetings_ended_then_returns_done_messag
     body = response.body
     import json
 
-    data = json.loads(body)
+    data = json.loads(body)  # type: ignore[arg-type]
 
     assert data["has_meetings_today"] is True
     assert "speech_text" in data
@@ -675,7 +675,7 @@ async def test_launch_summary_handler_when_meetings_today_then_returns_summary(
     body = response.body
     import json
 
-    data = json.loads(body)
+    data = json.loads(body)  # type: ignore[arg-type]
 
     assert "has_meetings_today" in data
     assert "next_meeting" in data
@@ -709,7 +709,7 @@ async def test_launch_summary_handler_when_no_meetings_then_returns_free_message
     body = response.body
     import json
 
-    data = json.loads(body)
+    data = json.loads(body)  # type: ignore[arg-type]
 
     assert data["has_meetings_today"] is False
     assert "speech_text" in data
@@ -724,7 +724,7 @@ async def test_launch_summary_handler_when_meeting_in_progress_then_acknowledges
 ) -> None:
     """Test LaunchSummaryHandler acknowledges when user is in a meeting."""
     # Test at 10:15 AM, during a 10:00-11:00 AM meeting
-    test_time = datetime.datetime(2024, 1, 15, 10, 15, 0, tzinfo=datetime.timezone.utc)
+    test_time = datetime.datetime(2024, 1, 15, 10, 15, 0, tzinfo=datetime.UTC)
     mock_time_provider = Mock(return_value=test_time)
 
     # Create a meeting that's currently in progress (10:00-11:00 AM)
@@ -732,12 +732,12 @@ async def test_launch_summary_handler_when_meeting_in_progress_then_acknowledges
         id="current-meeting",
         subject="Morning Standup",
         start=LiteDateTimeInfo(
-            date_time=datetime.datetime(2024, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc),
-            time_zone="UTC"
+            date_time=datetime.datetime(2024, 1, 15, 10, 0, 0, tzinfo=datetime.UTC),
+            time_zone="UTC",
         ),
         end=LiteDateTimeInfo(
-            date_time=datetime.datetime(2024, 1, 15, 11, 0, 0, tzinfo=datetime.timezone.utc),
-            time_zone="UTC"
+            date_time=datetime.datetime(2024, 1, 15, 11, 0, 0, tzinfo=datetime.UTC),
+            time_zone="UTC",
         ),
         is_all_day=False,
     )
@@ -747,12 +747,12 @@ async def test_launch_summary_handler_when_meeting_in_progress_then_acknowledges
         id="next-meeting",
         subject="Afternoon Meeting",
         start=LiteDateTimeInfo(
-            date_time=datetime.datetime(2024, 1, 15, 13, 0, 0, tzinfo=datetime.timezone.utc),
-            time_zone="UTC"
+            date_time=datetime.datetime(2024, 1, 15, 13, 0, 0, tzinfo=datetime.UTC),
+            time_zone="UTC",
         ),
         end=LiteDateTimeInfo(
-            date_time=datetime.datetime(2024, 1, 15, 14, 0, 0, tzinfo=datetime.timezone.utc),
-            time_zone="UTC"
+            date_time=datetime.datetime(2024, 1, 15, 14, 0, 0, tzinfo=datetime.UTC),
+            time_zone="UTC",
         ),
         is_all_day=False,
     )
@@ -833,7 +833,7 @@ async def test_handle_when_precompute_hit_then_returns_cached_response(
     body = response.body
     import json
 
-    data = json.loads(body)
+    data = json.loads(body)  # type: ignore[arg-type]
 
     assert data == precompute_data
     assert "precomputed" in data
@@ -871,7 +871,7 @@ async def test_handle_when_cache_hit_then_returns_cached_response(
     body = response.body
     import json
 
-    data = json.loads(body)
+    data = json.loads(body)  # type: ignore[arg-type]
 
     assert data == cached_data
 

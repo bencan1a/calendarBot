@@ -165,7 +165,9 @@ class LiteStreamingICSParser:
                 total_bytes_processed += len(chunk)
                 if total_bytes_processed > MAX_ICS_SIZE_BYTES:
                     logger.error(
-                        f"Streaming content too large: {total_bytes_processed} bytes exceeds {MAX_ICS_SIZE_BYTES} limit"
+                        "Streaming content too large: %s bytes exceeds %s limit",
+                        total_bytes_processed,
+                        MAX_ICS_SIZE_BYTES,
                     )
                     raise LiteICSContentTooLargeError(
                         f"Streaming content too large: {total_bytes_processed} bytes exceeds {MAX_ICS_SIZE_BYTES} limit"
@@ -174,8 +176,9 @@ class LiteStreamingICSParser:
                 # Warn about large content
                 if total_bytes_processed > MAX_ICS_SIZE_WARNING:
                     logger.warning(
-                        f"Large streaming content detected: {total_bytes_processed} bytes "
-                        f"(threshold: {MAX_ICS_SIZE_WARNING})"
+                        "Large streaming content detected: %s bytes (threshold: %s)",
+                        total_bytes_processed,
+                        MAX_ICS_SIZE_WARNING,
                     )
 
                 # Decode bytes to text incrementally
@@ -196,7 +199,7 @@ class LiteStreamingICSParser:
             for item in self._finalize_parsing():
                 yield item
 
-            logger.debug(f"Streaming parser completed, processed {total_bytes_processed} bytes")
+            logger.debug("Streaming parser completed, processed %d bytes", total_bytes_processed)
 
         except Exception as e:
             logger.exception("Failed to parse ICS stream")
@@ -300,9 +303,10 @@ class LiteStreamingICSParser:
                             else [str(a) for a in raw_attendees]
                         )
                         logger.debug(
-                            "Streaming parsed VEVENT raw fields - "
-                            f"SUMMARY={raw_summary!r}, DESCRIPTION_present={bool(raw_description)}, "
-                            f"ATTENDEE={attendees_repr}"
+                            "Streaming parsed VEVENT raw fields - SUMMARY=%r, DESCRIPTION_present=%s, ATTENDEE=%s",
+                            raw_summary,
+                            bool(raw_description),
+                            attendees_repr,
                         )
                     except Exception:
                         logger.debug(
@@ -317,7 +321,7 @@ class LiteStreamingICSParser:
                     break
 
         except Exception as e:
-            logger.warning(f"Failed to parse event: {e}")
+            logger.warning("Failed to parse event: %s", e)
             yield {
                 "type": "error",
                 "error": f"Failed to parse event: {e}",

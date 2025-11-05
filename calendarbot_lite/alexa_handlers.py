@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
+from aiohttp import web
 from pydantic import BaseModel, ValidationError
+
+if TYPE_CHECKING:
+    from .alexa_response_cache import ResponseCache
 
 from .alexa_exceptions import (
     AlexaAuthenticationError,
@@ -21,6 +26,15 @@ from .alexa_exceptions import (
 from .alexa_models import (
     AlexaRequestParams,
     MorningSummaryRequestParams,
+)
+from .alexa_protocols import (
+    AlexaPresenter,
+    DurationFormatter,
+    ISOSerializer,
+    PrecomputeGetter,
+    SkippedStore,
+    TimeProvider,
+    TimezoneGetter,
 )
 from .alexa_registry import AlexaHandlerRegistry
 from .alexa_types import (
@@ -38,12 +52,6 @@ from .lite_models import LiteCalendarEvent
 from .monitoring_logging import get_logger
 from .timezone_utils import parse_request_timezone
 
-# Import response cache (optional dependency)
-try:
-    from .alexa_response_cache import ResponseCache
-except ImportError:
-    ResponseCache = None  # type: ignore[assignment, misc]
-
 logger = logging.getLogger(__name__)
 monitoring_logger = get_logger("alexa_handlers")
 
@@ -57,10 +65,10 @@ class AlexaEndpointBase(ABC):
     def __init__(
         self,
         bearer_token: Optional[str],
-        time_provider: Any,
-        skipped_store: object | None,
-        response_cache: Optional[Any] = None,
-        precompute_getter: Optional[Any] = None,
+        time_provider: TimeProvider,
+        skipped_store: SkippedStore | None,
+        response_cache: Optional[ResponseCache] = None,
+        precompute_getter: Optional[PrecomputeGetter] = None,
     ):
         """Initialize Alexa endpoint handler.
 
@@ -77,7 +85,7 @@ class AlexaEndpointBase(ABC):
         self.response_cache = response_cache
         self.precompute_getter = precompute_getter
 
-    def validate_params(self, request: Any) -> BaseModel:
+    def validate_params(self, request: web.Request) -> BaseModel:
         """Validate request query parameters using the handler's param model.
 
         Args:
@@ -95,7 +103,7 @@ class AlexaEndpointBase(ABC):
         except ValidationError as e:
             raise AlexaValidationError(f"Invalid request parameters: {e}") from e
 
-    def check_auth(self, request: Any) -> None:
+    def check_auth(self, request: web.Request) -> None:
         """Check if request has valid bearer token.
 
         Args:
@@ -115,7 +123,12 @@ class AlexaEndpointBase(ABC):
         if token != self.bearer_token:
             raise AlexaAuthenticationError("Invalid bearer token")
 
-    async def handle(self, request: Any, event_window_ref: Any, window_lock: Any) -> Any:
+    async def handle(
+        self,
+        request: web.Request,
+        event_window_ref: list[tuple[LiteCalendarEvent, ...]],
+        window_lock: asyncio.Lock,
+    ) -> web.Response:
         """Main handler with auth check, validation, telemetry, and common setup.
 
         Args:
@@ -126,8 +139,6 @@ class AlexaEndpointBase(ABC):
         Returns:
             aiohttp json response
         """
-        # Import web here to avoid circular imports
-        from aiohttp import web
 
         # Start timing for telemetry
         start_time = time.time()
@@ -226,7 +237,7 @@ class AlexaEndpointBase(ABC):
                 import json as json_lib
 
                 try:
-                    response_data = json_lib.loads(response.body)
+                    response_data = json_lib.loads(response.body)  # type: ignore[arg-type]
                     self.response_cache.set(cache_key, response_data)
                 except Exception as e:
                     logger.debug("Could not cache response: %s", e)
@@ -279,7 +290,7 @@ class AlexaEndpointBase(ABC):
             return web.json_response({"error": "Unauthorized"}, status=401)
         except (AlexaEventProcessingError, AlexaDataAccessError, AlexaResponseGenerationError) as e:
             latency_ms = (time.time() - start_time) * 1000
-            logger.error("Handler error in %s: %s", handler_name, e, exc_info=True)
+            logger.exception("Handler error in %s", handler_name)
             monitoring_logger.error(  # noqa: PLE1205, TRY400
                 "alexa.request.failed",
                 f"Handler error in {handler_name}",
@@ -297,7 +308,7 @@ class AlexaEndpointBase(ABC):
         except AlexaHandlerError as e:
             # Catch any other custom exceptions
             latency_ms = (time.time() - start_time) * 1000
-            logger.error("Handler exception in %s: %s", handler_name, e, exc_info=True)
+            logger.exception("Handler exception in %s", handler_name)
             monitoring_logger.error(  # noqa: PLE1205, TRY400
                 "alexa.request.failed",
                 f"Handler exception in {handler_name}",
@@ -335,10 +346,10 @@ class AlexaEndpointBase(ABC):
     @abstractmethod
     async def handle_request(
         self,
-        request: Any,
+        request: web.Request,
         window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
-    ) -> Any:
+    ) -> web.Response:
         """Handle the specific endpoint request (implemented by subclasses).
 
         Args:
@@ -537,13 +548,13 @@ class NextMeetingHandler(AlexaEndpointBase):
     def __init__(
         self,
         bearer_token: Optional[str],
-        time_provider: Any,
-        skipped_store: object | None,
-        response_cache: Optional[Any] = None,
-        precompute_getter: Optional[Any] = None,
-        presenter: Any = None,
-        duration_formatter: Any = None,
-        iso_serializer: Any = None,
+        time_provider: TimeProvider,
+        skipped_store: SkippedStore | None,
+        response_cache: Optional[ResponseCache] = None,
+        precompute_getter: Optional[PrecomputeGetter] = None,
+        presenter: Optional[AlexaPresenter] = None,
+        duration_formatter: Optional[DurationFormatter] = None,
+        iso_serializer: Optional[ISOSerializer] = None,
     ):
         """Initialize next meeting handler with presenter support.
 
@@ -568,12 +579,11 @@ class NextMeetingHandler(AlexaEndpointBase):
 
     async def handle_request(
         self,
-        request: Any,
+        request: web.Request,
         window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
-    ) -> Any:
+    ) -> web.Response:
         """Handle next meeting request with presenter-based formatting."""
-        from aiohttp import web
 
         logger.debug("Alexa /api/alexa/next-meeting called - window has %d events", len(window))
 
@@ -643,12 +653,12 @@ class TimeUntilHandler(AlexaEndpointBase):
     def __init__(
         self,
         bearer_token: Optional[str],
-        time_provider: Any,
-        skipped_store: object | None,
-        response_cache: Optional[Any] = None,
-        precompute_getter: Optional[Any] = None,
-        presenter: Any = None,
-        duration_formatter: Any = None,
+        time_provider: TimeProvider,
+        skipped_store: SkippedStore | None,
+        response_cache: Optional[ResponseCache] = None,
+        precompute_getter: Optional[PrecomputeGetter] = None,
+        presenter: Optional[AlexaPresenter] = None,
+        duration_formatter: Optional[DurationFormatter] = None,
     ):
         """Initialize time until handler with presenter support.
 
@@ -671,12 +681,11 @@ class TimeUntilHandler(AlexaEndpointBase):
 
     async def handle_request(
         self,
-        request: Any,
+        request: web.Request,
         window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
-    ) -> Any:
+    ) -> web.Response:
         """Handle time until next meeting request with presenter-based formatting."""
-        from aiohttp import web
 
         logger.debug("Alexa /api/alexa/time-until-next called - window has %d events", len(window))
 
@@ -738,13 +747,13 @@ class DoneForDayHandler(AlexaEndpointBase):
     def __init__(
         self,
         bearer_token: Optional[str],
-        time_provider: Any,
-        skipped_store: object | None,
-        response_cache: Optional[Any] = None,
-        precompute_getter: Optional[Any] = None,
-        presenter: Any = None,
-        iso_serializer: Any = None,
-        get_server_timezone: Any = None,
+        time_provider: TimeProvider,
+        skipped_store: SkippedStore | None,
+        response_cache: Optional[ResponseCache] = None,
+        precompute_getter: Optional[PrecomputeGetter] = None,
+        presenter: Optional[AlexaPresenter] = None,
+        iso_serializer: Optional[ISOSerializer] = None,
+        get_server_timezone: Optional[TimezoneGetter] = None,
     ):
         """Initialize done-for-day handler with presenter support.
 
@@ -769,12 +778,11 @@ class DoneForDayHandler(AlexaEndpointBase):
 
     async def handle_request(
         self,
-        request: Any,
+        request: web.Request,
         window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
-    ) -> Any:
+    ) -> web.Response:
         """Handle done-for-day request."""
-        from aiohttp import web
 
         # Get timezone parameter from query string
         request_tz = request.query.get("tz")
@@ -899,8 +907,8 @@ class DoneForDayHandler(AlexaEndpointBase):
                     return (
                         "You have meetings today, but I couldn't determine when your last one ends."
                     )
-                except Exception as e:
-                    logger.error("Unexpected error formatting end time: %s", e, exc_info=True)
+                except Exception:
+                    logger.exception("Unexpected error formatting end time")
                     return (
                         "You have meetings today, but I couldn't determine when your last one ends."
                     )
@@ -924,14 +932,14 @@ class LaunchSummaryHandler(AlexaEndpointBase):
     def __init__(
         self,
         bearer_token: Optional[str],
-        time_provider: Any,
-        skipped_store: object | None,
-        response_cache: Optional[Any] = None,
-        precompute_getter: Optional[Any] = None,
-        presenter: Any = None,
-        duration_formatter: Any = None,
-        iso_serializer: Any = None,
-        get_server_timezone: Any = None,
+        time_provider: TimeProvider,
+        skipped_store: SkippedStore | None,
+        response_cache: Optional[ResponseCache] = None,
+        precompute_getter: Optional[PrecomputeGetter] = None,
+        presenter: Optional[AlexaPresenter] = None,
+        duration_formatter: Optional[DurationFormatter] = None,
+        iso_serializer: Optional[ISOSerializer] = None,
+        get_server_timezone: Optional[TimezoneGetter] = None,
     ):
         """Initialize launch summary handler with presenter support.
 
@@ -956,7 +964,7 @@ class LaunchSummaryHandler(AlexaEndpointBase):
         self.iso_serializer = iso_serializer
         self.get_server_timezone = get_server_timezone
 
-    def _get_timezone(self, request_tz: Optional[str]) -> Any:
+    def _get_timezone(self, request_tz: Optional[str]) -> datetime.tzinfo:
         """Parse timezone from request.
 
         Args:
@@ -1054,7 +1062,7 @@ class LaunchSummaryHandler(AlexaEndpointBase):
         self,
         window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
-        tz: Any,
+        tz: datetime.tzinfo,
         today_date: datetime.date,
     ) -> Optional[dict[str, Any]]:
         """Find a meeting that is currently in progress.
@@ -1079,7 +1087,9 @@ class LaunchSummaryHandler(AlexaEndpointBase):
             # For all-day events, extract date from UTC time (which represents the calendar date)
             # For timed events, convert to local timezone for date comparison
             if ev.is_all_day:
-                event_date = start.date()  # All-day events stored at midnight UTC represent this date
+                event_date = (
+                    start.date()
+                )  # All-day events stored at midnight UTC represent this date
             else:
                 start_local = start.astimezone(tz)
                 event_date = start_local.date()
@@ -1111,7 +1121,7 @@ class LaunchSummaryHandler(AlexaEndpointBase):
         self,
         window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
-        tz: Any,
+        tz: datetime.tzinfo,
         today_date: datetime.date,
         include_today: bool = True,
     ) -> Optional[dict[str, Any]]:
@@ -1135,7 +1145,9 @@ class LaunchSummaryHandler(AlexaEndpointBase):
             # For all-day events, extract date from UTC time (which represents the calendar date)
             # For timed events, convert to local timezone for date comparison
             if ev.is_all_day:
-                event_date = start.date()  # All-day events stored at midnight UTC represent this date
+                event_date = (
+                    start.date()
+                )  # All-day events stored at midnight UTC represent this date
             else:
                 start_local = start.astimezone(tz)
                 event_date = start_local.date()
@@ -1175,16 +1187,15 @@ class LaunchSummaryHandler(AlexaEndpointBase):
 
     async def handle_request(
         self,
-        request: Any,
+        request: web.Request,
         window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
-    ) -> Any:
+    ) -> web.Response:
         """Handle launch summary request - orchestrates helper methods.
 
         This method has been refactored to delegate to focused helper methods,
         reducing complexity from 181 lines to <50 lines.
         """
-        from aiohttp import web
 
         # 1. Parse timezone
         request_tz = request.query.get("tz")
@@ -1248,12 +1259,12 @@ class MorningSummaryHandler(AlexaEndpointBase):
     def __init__(
         self,
         bearer_token: Optional[str],
-        time_provider: Any,
-        skipped_store: object | None,
-        response_cache: Optional[Any] = None,
-        precompute_getter: Optional[Any] = None,
-        presenter: Any = None,
-        get_server_timezone: Any = None,
+        time_provider: TimeProvider,
+        skipped_store: SkippedStore | None,
+        response_cache: Optional[ResponseCache] = None,
+        precompute_getter: Optional[PrecomputeGetter] = None,
+        presenter: Optional[AlexaPresenter] = None,
+        get_server_timezone: Optional[TimezoneGetter] = None,
     ):
         """Initialize morning summary handler with presenter support.
 
@@ -1276,12 +1287,11 @@ class MorningSummaryHandler(AlexaEndpointBase):
 
     async def handle_request(
         self,
-        request: Any,
+        request: web.Request,
         window: tuple[LiteCalendarEvent, ...],
         now: datetime.datetime,
-    ) -> Any:
+    ) -> web.Response:
         """Handle morning summary request."""
-        from aiohttp import web
 
         try:
             # Parse request parameters
@@ -1360,8 +1370,8 @@ class MorningSummaryHandler(AlexaEndpointBase):
                 },
             }
             return web.json_response(error_response, status=400)
-        except AlexaHandlerError as e:
-            logger.error("Morning summary handler error: %s", e, exc_info=True)
+        except AlexaHandlerError:
+            logger.exception("Morning summary handler error")
             error_response = {
                 "error": "Internal server error",
                 "speech_text": "Sorry, I couldn't generate your morning summary right now. Please try again later.",

@@ -45,8 +45,9 @@ class LiteEventMerger:
 
         if suppressed_count > 0:
             logger.info(
-                f"RECURRENCE-ID processing: Suppressed {suppressed_count} expanded occurrences "
-                f"that were overridden by moved meetings"
+                "RECURRENCE-ID processing: Suppressed %s expanded occurrences "
+                "that were overridden by moved meetings",
+                suppressed_count,
             )
 
         # Start with filtered expanded events (suppressed overrides removed)
@@ -71,7 +72,10 @@ class LiteEventMerger:
                 merged_events.append(event)
 
         logger.debug(
-            f"Merged {len(original_events)} original + {len(filtered_expanded)} expanded = {len(merged_events)} total events"
+            "Merged %s original + %s expanded = %s total events",
+            len(original_events),
+            len(filtered_expanded),
+            len(merged_events),
         )
         return merged_events
 
@@ -106,8 +110,10 @@ class LiteEventMerger:
                     recurrence_overrides[override_key] = event
 
                     logger.debug(
-                        f"RECURRENCE-ID override detected: {event.subject} "
-                        f"moves {original_time} to {event.start.date_time.strftime('%Y%m%dT%H%M%S')}"
+                        "RECURRENCE-ID override detected: %s moves %s to %s",
+                        event.subject,
+                        original_time,
+                        event.start.date_time.strftime("%Y%m%dT%H%M%S"),
                     )
 
         return recurrence_overrides
@@ -155,11 +161,11 @@ class LiteEventMerger:
             if "T" in recurrence_id_str:
                 # No TZID, just datetime
                 return recurrence_id_str.rstrip("Z")
-            logger.warning(f"Unexpected RECURRENCE-ID format: {recurrence_id}")
+            logger.warning("Unexpected RECURRENCE-ID format: %s", recurrence_id)
             return None
 
         except Exception as e:
-            logger.warning(f"Failed to parse RECURRENCE-ID {recurrence_id}: {e}")
+            logger.warning("Failed to parse RECURRENCE-ID %s: %s", recurrence_id, e)
             return None
 
     def _filter_overridden_occurrences(
@@ -190,8 +196,10 @@ class LiteEventMerger:
                     # This expanded occurrence is overridden by a RECURRENCE-ID event
                     override_event = recurrence_overrides[override_key]
                     logger.debug(
-                        f"Suppressing expanded occurrence: {event.subject} at {event_time_key} "
-                        f"(overridden by RECURRENCE-ID event at {override_event.start.date_time})"
+                        "Suppressing expanded occurrence: %s at %s (overridden by RECURRENCE-ID event at %s)",
+                        event.subject,
+                        event_time_key,
+                        override_event.start.date_time,
                     )
                     suppressed_count += 1
                     continue
@@ -200,9 +208,7 @@ class LiteEventMerger:
 
         return filtered_expanded, suppressed_count
 
-    def deduplicate_events(
-        self, events: list[LiteCalendarEvent]
-    ) -> list[LiteCalendarEvent]:
+    def deduplicate_events(self, events: list[LiteCalendarEvent]) -> list[LiteCalendarEvent]:
         """Remove duplicate events based on UID and start time.
 
         Events are considered duplicates if they have the same:
@@ -233,7 +239,7 @@ class LiteEventMerger:
             # Two events with different UIDs are by definition different events,
             # even if they have the same subject and time (e.g., two separate recurring series)
             # Include recurrence_id to prevent deduplicating modified recurring instances (issue #45)
-            
+
             # Build key tuple directly - inline to reduce function call overhead
             key = (
                 event.id,  # Include UID to avoid incorrectly deduplicating separate events
@@ -241,7 +247,9 @@ class LiteEventMerger:
                 event.start.date_time.isoformat(),
                 event.end.date_time.isoformat(),
                 event.is_all_day,
-                getattr(event, "recurrence_id", None),  # Include RECURRENCE-ID to distinguish modified instances
+                getattr(
+                    event, "recurrence_id", None
+                ),  # Include RECURRENCE-ID to distinguish modified instances
             )
 
             if key not in seen:
@@ -249,6 +257,6 @@ class LiteEventMerger:
                 deduplicated.append(event)
 
         if len(events) != len(deduplicated):
-            logger.debug(f"Removed {len(events) - len(deduplicated)} duplicate events")
+            logger.debug("Removed %d duplicate events", len(events) - len(deduplicated))
 
         return deduplicated
