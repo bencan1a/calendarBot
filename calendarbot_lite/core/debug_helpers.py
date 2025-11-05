@@ -21,9 +21,9 @@ from typing import Any, Optional
 
 import httpx
 
-from calendarbot_lite.core.lite_models import LiteCalendarEvent
-from calendarbot_lite.core.lite_rrule_expander import expand_events_async
-from calendarbot_lite.core.lite_streaming_parser import parse_ics_stream
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
+from calendarbot_lite.calendar.lite_rrule_expander import expand_events_async
+from calendarbot_lite.calendar.lite_streaming_parser import parse_ics_stream
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
 
-from calendarbot_lite.middleware import correlation_id_middleware, get_request_id
+from calendarbot_lite.api.middleware.correlation_id import correlation_id_middleware, get_request_id
 from calendarbot_lite.api.middleware.correlation_id import request_id_var
 
 

@@ -6,7 +6,7 @@ import asyncio
 import logging
 from typing import Any
 
-from ..lite_datetime_utils import serialize_datetime_utc
+from calendarbot_lite.calendar.lite_datetime_utils import serialize_datetime_utc
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ def register_api_routes(
 
     async def whats_next(_request: Any) -> Any:
         """Find the next upcoming event with smart prioritization logic."""
-        from ..event_prioritizer import EventPrioritizer
+        from calendarbot_lite.domain.event_prioritizer import EventPrioritizer
 
         now = time_provider()
 
@@ -209,7 +209,7 @@ def register_api_routes(
 
         # Force immediate cache refresh to restore previously skipped meetings
         # Import refresh function dynamically to avoid circular imports
-        from .. import server as server_module
+        from calendarbot_lite.api import server as server_module
 
         try:
             await server_module._refresh_once(  # noqa: SLF001
@@ -301,7 +301,7 @@ def register_api_routes(
                 window = tuple(event_window_ref[0])
 
             # Window now contains LiteCalendarEvent objects directly (no conversion needed)
-            from ..morning_summary import MorningSummaryRequest, MorningSummaryService
+            from calendarbot_lite.domain.morning_summary import MorningSummaryRequest, MorningSummaryService
 
             # Events are already LiteCalendarEvent objects from the event window
             lite_events = list(window)

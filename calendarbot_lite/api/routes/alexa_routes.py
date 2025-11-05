@@ -8,7 +8,7 @@ from typing import Optional
 
 from aiohttp import web
 
-from ..alexa_handlers import (
+from calendarbot_lite.alexa.alexa_handlers import (
     AlexaEndpointBase,
     DoneForDayHandler,
     LaunchSummaryHandler,
@@ -16,8 +16,8 @@ from ..alexa_handlers import (
     NextMeetingHandler,
     TimeUntilHandler,
 )
-from ..alexa_presentation import SSMLPresenter
-from ..alexa_protocols import (
+from calendarbot_lite.alexa.alexa_presentation import SSMLPresenter
+from calendarbot_lite.alexa.alexa_protocols import (
     DurationFormatter,
     ISOSerializer,
     PrecomputeGetter,
@@ -25,11 +25,11 @@ from ..alexa_protocols import (
     TimeProvider,
     TimezoneGetter,
 )
-from ..alexa_registry import AlexaHandlerRegistry
-from ..alexa_response_cache import ResponseCache
-from ..lite_models import LiteCalendarEvent
-from ..rate_limit_middleware import create_rate_limited_handler
-from ..rate_limiter import RateLimiter
+from calendarbot_lite.alexa.alexa_registry import AlexaHandlerRegistry
+from calendarbot_lite.alexa.alexa_response_cache import ResponseCache
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
+from calendarbot_lite.api.middleware.rate_limit_middleware import create_rate_limited_handler
+from calendarbot_lite.api.middleware.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 

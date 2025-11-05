@@ -92,7 +92,7 @@ class DependencyContainer:
 
         # Import utility functions from server module
         # Note: These need to be imported dynamically to avoid circular imports
-        from calendarbot_lite.core.server import as server_module
+        from calendarbot_lite.api import server as server_module
 
         # Create fetch orchestrator
         fetch_orchestrator = FetchOrchestrator(

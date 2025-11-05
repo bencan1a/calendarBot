@@ -260,7 +260,7 @@ class TestRRuleWorkerPool:
         settings2.expansion_yield_frequency = 20
 
         # Clear any existing global pool
-        import calendarbot_lite.lite_rrule_expander as module
+        import calendarbot_lite.calendar.lite_rrule_expander as module
 
         module._worker_pool = None
 

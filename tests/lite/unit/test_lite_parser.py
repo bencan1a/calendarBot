@@ -116,7 +116,7 @@ def test_orchestrate_rrule_expansion_uses_orchestrator_and_expander(monkeypatch)
     candidates = [(simple, "FREQ=DAILY;COUNT=2", None)]
 
     # Patch lite_rrule_expander.expand_events_streaming so import in function succeeds (value not used by our fake orchestrator)
-    import calendarbot_lite.lite_rrule_expander as expmod
+    import calendarbot_lite.calendar.lite_rrule_expander as expmod
 
     async def fake_expander(cands, settings_obj):
         # yield two LiteCalendarEvent-like objects
