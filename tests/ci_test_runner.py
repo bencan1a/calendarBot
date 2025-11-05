@@ -72,14 +72,20 @@ def run_security() -> int:
 
 
 def run_full_regression() -> int:
-    """Run complete test suite."""
+    """Run complete test suite with coverage reports.
+
+    Cleans old coverage data first to prevent branch/statement mismatch errors,
+    then runs all tests and generates all coverage reports in one pass.
+    """
     print("Running full regression tests...")
 
     # Clean old coverage data to prevent branch/statement mismatch errors
+    print("Cleaning old coverage data...")
     subprocess.run("coverage erase", shell=True, check=False)
 
-    # Run all calendarbot_lite tests
-    cmd = "pytest tests/lite/ calendarbot_lite/ -v --cov=calendarbot_lite --cov-report=html:htmlcov --cov-report=xml:coverage.xml --cov-report=json:coverage.json --junitxml=pytest-results.xml"
+    # Run all calendarbot_lite tests with coverage
+    # Generate XML (for Codecov) and JSON (for coverage summary display)
+    cmd = "pytest tests/lite/ calendarbot_lite/ -v --cov=calendarbot_lite --cov-report=xml:coverage.xml --cov-report=json:coverage.json --junitxml=pytest-results.xml"
     return run_command(cmd, "Full Test Suite")
 
 
@@ -107,14 +113,42 @@ def run_coverage() -> int:
 
 
 def run_coverage_report() -> int:
-    """Generate detailed coverage reports."""
-    print("Generating detailed coverage reports...")
+    """Generate coverage reports from existing .coverage data (no test re-run).
 
-    # Clean old coverage data to prevent branch/statement mismatch errors
-    subprocess.run("coverage erase", shell=True, check=False)
+    This function converts an existing .coverage file to different report formats
+    WITHOUT re-running tests. The .coverage file should already exist from a
+    previous test run with --cov.
 
-    cmd = "pytest tests/lite/ calendarbot_lite/ --cov=calendarbot_lite --cov-report=html:htmlcov --cov-report=xml:coverage.xml --cov-report=json:coverage.json"
-    return run_command(cmd, "Detailed Coverage Reports")
+    This is much faster (~10 seconds) than re-running all tests (~5 minutes).
+    """
+    print("Generating coverage reports from existing data...")
+
+    # Check if .coverage file exists
+    if not os.path.exists(".coverage"):
+        print("ERROR: No .coverage file found.")
+        print("Run tests with --cov first, or use --coverage to run tests and generate reports.")
+        return 1
+
+    # Generate reports from existing coverage data (fast, no test re-run)
+    exit_code = 0
+
+    # Generate XML report (for Codecov)
+    exit_code = max(exit_code, run_command(
+        "coverage xml -o coverage.xml",
+        "Generate XML Coverage Report"
+    ))
+
+    # Generate JSON report (for coverage summary display)
+    exit_code = max(exit_code, run_command(
+        "coverage json -o coverage.json",
+        "Generate JSON Coverage Report"
+    ))
+
+    # Display summary
+    print("\nCoverage Summary:")
+    run_command("coverage report --precision=2", "Coverage Summary")
+
+    return exit_code
 
 
 def run_coverage_diff() -> int:
