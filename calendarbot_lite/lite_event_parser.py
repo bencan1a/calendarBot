@@ -163,47 +163,101 @@ class LiteEventComponentParser:
         Returns:
             LiteEventStatus enum value
         """
-        # Check Microsoft deletion markers for phantom event filtering
+        # Guard clause: Check Microsoft deletion markers first (highest precedence)
+        if self._is_microsoft_deleted(component):
+            return LiteEventStatus.FREE
+
+        # Extract common properties once
+        is_following_meeting = self._is_following_meeting(component)
+        ms_busystatus = self._get_microsoft_busystatus(component)
+
+        # Guard clause: Microsoft busy status override (second highest precedence)
+        if ms_busystatus == "FREE":
+            return LiteEventStatus.TENTATIVE if is_following_meeting else LiteEventStatus.FREE
+
+        # Standard iCalendar status mapping with priority order
+        return self._map_standard_status(transparency, status, is_following_meeting)
+
+    def _is_microsoft_deleted(self, component: Any) -> bool:
+        """Check if event is marked as deleted by Microsoft Outlook.
+
+        Args:
+            component: iCalendar component
+
+        Returns:
+            True if event is marked as deleted
+        """
         ms_deleted = component.get("X-OUTLOOK-DELETED")
+        return ms_deleted is not None and str(ms_deleted).upper() == "TRUE"
+
+    def _get_microsoft_busystatus(self, component: Any) -> Optional[str]:
+        """Get Microsoft busy status if present.
+
+        Args:
+            component: iCalendar component
+
+        Returns:
+            Uppercase busy status string or None
+        """
         ms_busystatus = component.get("X-MICROSOFT-CDO-BUSYSTATUS")
+        return str(ms_busystatus).upper() if ms_busystatus else None
 
-        # Filter out Microsoft phantom deleted events
-        if ms_deleted and str(ms_deleted).upper() == "TRUE":
-            return LiteEventStatus.FREE  # Will be filtered out by busy status check
+    def _is_following_meeting(self, component: Any) -> bool:
+        """Check if this is a 'Following:' meeting.
 
-        # Check if this is a "Following:" meeting by parsing the event title
+        Args:
+            component: iCalendar component
+
+        Returns:
+            True if summary contains 'Following:'
+        """
         summary = component.get("SUMMARY")
-        is_following_meeting = summary and "Following:" in str(summary)
+        return summary is not None and "Following:" in str(summary)
 
-        # Use Microsoft busy status override if available
-        if ms_busystatus:
-            ms_status = str(ms_busystatus).upper()
-            if ms_status == "FREE":
-                # Special case: "Following:" meetings should be TENTATIVE, not FREE
-                if is_following_meeting:
-                    return LiteEventStatus.TENTATIVE
-                # All other FREE busy status events should be filtered out
-                return LiteEventStatus.FREE
+    def _map_standard_status(
+        self,
+        transparency: str,
+        status: Optional[str],
+        is_following_meeting: bool,
+    ) -> LiteEventStatus:
+        """Map standard iCalendar properties to LiteEventStatus.
 
+        Priority order:
+        1. STATUS=CANCELLED → FREE
+        2. STATUS=TENTATIVE → TENTATIVE
+        3. TRANSP=TRANSPARENT → FREE (or TENTATIVE if CONFIRMED)
+        4. Following meetings → TENTATIVE
+        5. Default → BUSY
+
+        Args:
+            transparency: TRANSP property value
+            status: STATUS property value
+            is_following_meeting: Whether this is a Following meeting
+
+        Returns:
+            LiteEventStatus enum value
+        """
+        # Priority 1: Cancelled events
         if status == "CANCELLED":
-            mapped_status = LiteEventStatus.FREE
-        elif status == "TENTATIVE":
-            mapped_status = LiteEventStatus.TENTATIVE
-        elif transparency == "TRANSPARENT":
-            # Special handling for transparent + confirmed meetings (e.g., "Following" meetings)
-            # These should appear on calendar but with different visual treatment
-            mapped_status = (
-                LiteEventStatus.TENTATIVE if status == "CONFIRMED" else LiteEventStatus.FREE
-            )
-        elif is_following_meeting:
-            # "Following:" meetings should appear on calendar regardless of other properties
-            mapped_status = LiteEventStatus.TENTATIVE
-            logger.debug(f"  → APPLIED FOLLOWING LOGIC: {mapped_status}")
-        else:
-            # OPAQUE or default
-            mapped_status = LiteEventStatus.BUSY
+            return LiteEventStatus.FREE
 
-        return mapped_status
+        # Priority 2: Tentative events
+        if status == "TENTATIVE":
+            return LiteEventStatus.TENTATIVE
+
+        # Priority 3: Transparent events
+        if transparency == "TRANSPARENT":
+            # Transparent + confirmed → TENTATIVE (special handling)
+            # All other transparent → FREE
+            return LiteEventStatus.TENTATIVE if status == "CONFIRMED" else LiteEventStatus.FREE
+
+        # Priority 4: Following meetings
+        if is_following_meeting:
+            logger.debug(f"  → APPLIED FOLLOWING LOGIC: {LiteEventStatus.TENTATIVE}")
+            return LiteEventStatus.TENTATIVE
+
+        # Priority 5: Default (OPAQUE or no specific status)
+        return LiteEventStatus.BUSY
 
     def _collect_exdate_props(self, component: ICalEvent) -> list[Any]:
         """Robustly collect EXDATE properties from an icalendar VEVENT component.
@@ -378,7 +432,11 @@ class LiteEventComponentParser:
         uid = str(component.get("UID", str(uuid.uuid4())))
         summary_raw = str(component.get("SUMMARY", "No Title"))
         # Truncate subject to maximum length (validation will strip whitespace)
-        summary = summary_raw[:MAX_EVENT_SUBJECT_LENGTH] if len(summary_raw) > MAX_EVENT_SUBJECT_LENGTH else summary_raw
+        summary = (
+            summary_raw[:MAX_EVENT_SUBJECT_LENGTH]
+            if len(summary_raw) > MAX_EVENT_SUBJECT_LENGTH
+            else summary_raw
+        )
 
         # Description
         description = component.get("DESCRIPTION")
@@ -386,7 +444,11 @@ class LiteEventComponentParser:
         if description:
             # Truncate description to maximum length (validation allows 500 chars)
             desc_str = str(description)
-            body_preview = desc_str[:MAX_EVENT_DESCRIPTION_LENGTH] if len(desc_str) > MAX_EVENT_DESCRIPTION_LENGTH else desc_str
+            body_preview = (
+                desc_str[:MAX_EVENT_DESCRIPTION_LENGTH]
+                if len(desc_str) > MAX_EVENT_DESCRIPTION_LENGTH
+                else desc_str
+            )
 
         # Location
         location = None
@@ -394,7 +456,11 @@ class LiteEventComponentParser:
         if location_str:
             # Truncate location to maximum length
             loc_str = str(location_str)
-            loc_truncated = loc_str[:MAX_EVENT_LOCATION_LENGTH] if len(loc_str) > MAX_EVENT_LOCATION_LENGTH else loc_str
+            loc_truncated = (
+                loc_str[:MAX_EVENT_LOCATION_LENGTH]
+                if len(loc_str) > MAX_EVENT_LOCATION_LENGTH
+                else loc_str
+            )
             if loc_truncated.strip():  # Only create location if non-empty after truncation
                 location = LiteLocation(display_name=loc_truncated)
 
@@ -479,7 +545,7 @@ class LiteEventComponentParser:
             # Enhanced organizer detection - check if organizer email matches user
             organizer_str = str(organizer).replace("mailto:", "").strip().lower()
             user_email = str(self.settings.user_email).strip().lower()
-            is_organizer = (organizer_str == user_email)
+            is_organizer = organizer_str == user_email
         elif organizer:
             # Fallback: if no user_email in settings, assume not organizer
             # (more conservative than always True)
