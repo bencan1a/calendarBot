@@ -11,6 +11,7 @@ Performance targets:
 """
 
 import logging
+import re
 from typing import Any, Literal, Optional
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,12 @@ EMPHASIS_STRONG = '<emphasis level="strong">{text}</emphasis>'
 EMPHASIS_MODERATE = '<emphasis level="moderate">{text}</emphasis>'
 EMPHASIS_REDUCED = '<emphasis level="reduced">{text}</emphasis>'
 BREAK = '<break time="{t}s"/>'
+
+# Regex patterns for time detection and tag preservation (compiled once for performance)
+# Pattern for times: H:MM am/pm or HH:MM am/pm
+TIME_PATTERN = re.compile(r'\b(\d{1,2}):(\d{2})\s+(am|pm)\b', re.IGNORECASE)
+# Pattern for say-as tags: <say-as ...>...</say-as>
+SAY_AS_TAG_PATTERN = re.compile(r'(<say-as[^>]*>.*?</say-as>)', re.DOTALL)
 
 # Configuration defaults
 DEFAULT_CONFIG = {
@@ -657,16 +664,6 @@ def _wrap_times_with_say_as(text: str) -> str:
     if not isinstance(text, str):
         return ""
 
-    import re
-
-    # Pattern for times: H:MM am/pm or HH:MM am/pm
-    # Matches: "9:30 am", "12:00 pm", "10:15 am", etc.
-    # Captures: hour, minutes, period (am/pm)
-    time_pattern = re.compile(
-        r'\b(\d{1,2}):(\d{2})\s+(am|pm)\b',
-        re.IGNORECASE
-    )
-
     def replace_time(match):
         hour = match.group(1)
         minute = match.group(2)
@@ -675,7 +672,7 @@ def _wrap_times_with_say_as(text: str) -> str:
         time_str = f"{hour}:{minute}{period}"
         return f'<say-as interpret-as="time">{time_str}</say-as>'
 
-    return time_pattern.sub(replace_time, text)
+    return TIME_PATTERN.sub(replace_time, text)
 
 
 def _select_urgency(seconds_until: int) -> Literal["fast", "standard", "relaxed"]:
@@ -709,12 +706,8 @@ def _escape_text_for_ssml_preserving_tags(text: str) -> str:
     if not isinstance(text, str):
         return ""
 
-    import re
-
-    # Split text into tag and non-tag segments
-    # Pattern matches: <say-as ...>...</say-as>
-    tag_pattern = re.compile(r'(<say-as[^>]*>.*?</say-as>)', re.DOTALL)
-    segments = tag_pattern.split(text)
+    # Split text into tag and non-tag segments using pre-compiled pattern
+    segments = SAY_AS_TAG_PATTERN.split(text)
 
     result_segments = []
     for segment in segments:
