@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from ..alexa_presentation import SSMLPresenter
 from ..alexa_registry import AlexaHandlerRegistry
+from ..rate_limit_middleware import create_rate_limited_handler
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ def register_alexa_routes(
     get_server_timezone: Any = None,
     response_cache: Optional[Any] = None,
     precompute_getter: Optional[Any] = None,
+    rate_limiter: Optional[Any] = None,
 ) -> None:
     """Register Alexa-specific API routes using consolidated handlers.
 
@@ -40,6 +42,7 @@ def register_alexa_routes(
         get_server_timezone: Optional function to get server timezone
         response_cache: Optional ResponseCache for caching handler responses
         precompute_getter: Optional function to get precomputed responses
+        rate_limiter: Optional RateLimiter instance for rate limiting protection
     """
     from ..alexa_handlers import (
         DoneForDayHandler,
@@ -155,9 +158,18 @@ def register_alexa_routes(
             return route_handler
 
         route_handler_func = create_route_handler(handler)
+
+        # Apply rate limiting if rate_limiter is provided
+        if rate_limiter is not None:
+            route_handler_func = create_rate_limited_handler(route_handler_func, rate_limiter)
+            logger.debug("Applied rate limiting to route: %s", route)
+
         app.router.add_get(route, route_handler_func)
         registered_routes.append(route)
 
     logger.info(
-        "Registered %d Alexa routes: %s", len(registered_routes), ", ".join(registered_routes)
+        "Registered %d Alexa routes%s: %s",
+        len(registered_routes),
+        " with rate limiting" if rate_limiter else "",
+        ", ".join(registered_routes)
     )
