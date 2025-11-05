@@ -122,8 +122,14 @@ class RRuleWorkerPool:
 
             try:
                 # Set up expansion window
-                # For recurring events, we expand from the master event start to a future window.
-                # This ensures old recurring series still show future occurrences.
+                # For recurring events, we need to balance two concerns:
+                # 1. RRULE semantics require starting from the event's original start date
+                # 2. Old recurring events would generate too many past occurrences, hitting
+                #    max_occurrences limit before reaching current dates (DATA LOSS bug)
+                #
+                # Solution: For infinite recurring events (no COUNT/UNTIL), start from
+                # max(now - 7 days, master_start) to avoid the data loss bug.
+                # For events with COUNT/UNTIL, always start from master_start to honor those constraints.
 
                 # Get current time, respecting test overrides
                 now = self._get_current_time()
@@ -135,9 +141,26 @@ class RRuleWorkerPool:
                 else:
                     master_start_utc = master_start.astimezone(UTC)
 
-                # Start from master event start date (to respect RRULE semantics)
-                # End at now + expansion window (to get future occurrences)
-                start_date = master_start_utc
+                # Check if this is an infinite recurring event (no COUNT or UNTIL)
+                # We check the RRULE string directly to avoid accessing private members
+                is_infinite = 'COUNT=' not in rrule_string.upper() and 'UNTIL=' not in rrule_string.upper()
+                
+                # For infinite recurring events, start from recent past to avoid data loss
+                # For finite events (COUNT/UNTIL), start from master_start to honor constraints
+                if is_infinite and master_start_utc < (now - timedelta(days=7)):
+                    # Old infinite recurring event: start from recent past
+                    lookback_start = now - timedelta(days=7)
+                    start_date = lookback_start
+                    logger.debug(
+                        "Using lookback window for old infinite recurring event: "
+                        "master_start=%s, lookback_start=%s",
+                        master_start_utc,
+                        lookback_start
+                    )
+                else:
+                    # Finite event or recent event: start from master_start
+                    start_date = master_start_utc
+                
                 end_date = now + timedelta(days=self.expansion_days)
 
                 # Parse RRULE and build rruleset with exdates
