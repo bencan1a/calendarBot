@@ -1,0 +1,193 @@
+# GitHub Copilot Agent Environment Setup
+#
+# This workflow configures the Copilot coding agent environment to match
+# the CalendarBot development environment with all necessary dependencies,
+# tools, and configuration.
+#
+# Documentation: https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/customize-the-agent-environment
+#
+# Key Features:
+# 1. Python 3.12 with virtual environment
+# 2. Dependency caching (matching ci.yml strategy)
+# 3. Pre-commit hooks installation
+# 4. Environment variables from GitHub secrets
+# 5. Development tools (ruff, mypy, bandit)
+
+name: Copilot Environment Setup
+
+on:
+  # This workflow is automatically triggered by GitHub Copilot
+  # when a coding session starts
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  setup:
+    name: Setup Copilot Environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for git operations
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    # Reuse the same caching strategy as ci.yml to avoid reinstalling dependencies
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
+
+    - name: Create virtual environment
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
+
+    - name: Set venv in PATH
+      run: |
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+
+    - name: Install dependencies
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: |
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -e .[dev] types-pytz types-python-dateutil
+
+    # Install and configure pre-commit
+    - name: Install pre-commit hooks
+      run: |
+        # Ensure pre-commit is installed (should be in dev dependencies)
+        pip install pre-commit
+        # Install git hooks from .pre-commit-config.yaml
+        pre-commit install --install-hooks
+        # Verify installation
+        pre-commit --version
+        echo "Pre-commit hooks installed successfully"
+
+    # Configure environment variables from GitHub secrets
+    - name: Setup environment variables
+      run: |
+        cat > .env << 'EOF'
+        # CalendarBot Environment Configuration for Copilot
+        # Generated from GitHub Actions secrets
+        
+        # ICS Calendar URL (Required)
+        CALENDARBOT_ICS_URL=${{ secrets.CALENDARBOT_ICS_URL || 'https://outlook.office365.com/owa/calendar/example/calendar.ics' }}
+        
+        # Server Configuration
+        CALENDARBOT_WEB_HOST=0.0.0.0
+        CALENDARBOT_WEB_PORT=8080
+        CALENDARBOT_REFRESH_INTERVAL=300
+        
+        # Alexa Integration (Optional)
+        CALENDARBOT_ALEXA_BEARER_TOKEN=${{ secrets.CALENDARBOT_ALEXA_BEARER_TOKEN || '' }}
+        
+        # Development Settings
+        CALENDARBOT_DEBUG=true
+        CALENDARBOT_LOG_LEVEL=DEBUG
+        CALENDARBOT_NONINTERACTIVE=true
+        
+        # CI/Testing Settings
+        CALENDARBOT_TEST_TIME=2025-11-05T12:00:00
+        EOF
+        
+        echo "Environment configuration created"
+        echo "Note: Using secrets if available, otherwise using safe defaults"
+
+    # Verify development environment is functional
+    - name: Verify environment setup
+      run: |
+        echo "=== Environment Verification ==="
+        echo "Python version:"
+        python --version
+        
+        echo -e "\nPip packages:"
+        pip list | grep -E "(pytest|ruff|mypy|bandit|pre-commit)" || true
+        
+        echo -e "\nPre-commit hooks:"
+        pre-commit --version
+        pre-commit run --all-files --hook-stage manual trailing-whitespace || true
+        
+        echo -e "\nCalendarBot modules:"
+        python -c "import calendarbot_lite; print(f'calendarbot_lite imported successfully from {calendarbot_lite.__file__}')"
+        
+        echo -e "\n=== Setup Complete ==="
+        echo "✅ Python 3.12 configured"
+        echo "✅ Virtual environment with cached dependencies"
+        echo "✅ Pre-commit hooks installed"
+        echo "✅ Environment variables configured"
+        echo "✅ Development tools available (ruff, mypy, bandit)"
+        echo ""
+        echo "Ready for Copilot coding session!"
+
+    # Cache test data and pytest cache for faster test runs
+    - name: Cache pytest data
+      uses: actions/cache@v4
+      with:
+        path: |
+          .pytest_cache
+          .testmondata
+          .coverage
+        key: pytest-${{ runner.os }}-${{ github.ref }}-${{ github.sha }}
+        restore-keys: |
+          pytest-${{ runner.os }}-${{ github.ref }}-
+          pytest-${{ runner.os }}-
+
+    # Provide helpful summary
+    - name: Environment Summary
+      run: |
+        cat << 'EOF'
+        
+        ╔════════════════════════════════════════════════════════════════╗
+        ║  GitHub Copilot Environment Setup Complete                     ║
+        ╚════════════════════════════════════════════════════════════════╝
+        
+        📦 Dependencies: Installed and cached
+        🔧 Tools: ruff, mypy, bandit, pytest, pre-commit
+        🔑 Environment: .env configured from secrets
+        🪝 Pre-commit: Hooks installed and ready
+        
+        🚀 Quick Commands:
+        
+          # Run tests
+          pytest tests/lite/ -v
+          ./run_lite_tests.sh
+          
+          # Run linting
+          ruff check calendarbot_lite
+          ruff format calendarbot_lite
+          
+          # Type checking
+          mypy calendarbot_lite
+          
+          # Security scan
+          bandit -r calendarbot_lite
+          
+          # Pre-commit (manual)
+          pre-commit run --all-files
+          
+          # Start server
+          python -m calendarbot_lite
+        
+        📚 Documentation:
+          - AGENTS.md - Agent guidance and patterns
+          - README.md - Project overview
+          - .env.example - Environment variable reference
+        
+        ⚠️  Required Secrets (configure in repo settings):
+          - CALENDARBOT_ICS_URL (required for calendar operations)
+          - CALENDARBOT_ALEXA_BEARER_TOKEN (optional, for Alexa testing)
+        
+        EOF
