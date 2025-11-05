@@ -356,8 +356,9 @@ def test_moved_recurring_with_tzid_cross_timezone(simple_settings: SimpleNamespa
     assert len(moved_events) == 1, "Expected exactly one moved instance"
 
     # Verify NO event at original 09:00 PST time slot (17:00 UTC) on 2025-11-21
+    # After the first Sunday in November, Los Angeles is on PST (UTC-8), so 09:00 PST = 17:00 UTC.
     # Original occurrence should be suppressed by RECURRENCE-ID
-    original_time_utc = datetime(2025, 11, 21, 17, 0, tzinfo=timezone.utc)  # 09:00 PST
+    original_time_utc = datetime(2025, 11, 21, 17, 0, tzinfo=timezone.utc)  # 09:00 PST = 17:00 UTC
     events_at_original_time = [
         e for e in standup_events
         if e.start.date_time == original_time_utc and "Moved" not in e.subject
