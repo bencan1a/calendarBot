@@ -7,12 +7,12 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from calendarbot_lite.config_manager import (
+from calendarbot_lite.core.config_manager import (
     MAX_EVENT_DESCRIPTION_LENGTH,
     MAX_EVENT_LOCATION_LENGTH,
     MAX_EVENT_SUBJECT_LENGTH,
 )
-from calendarbot_lite.lite_models import (
+from calendarbot_lite.calendar.lite_models import (
     LiteCalendarEvent,
     LiteDateTimeInfo,
     LiteEventStatus,

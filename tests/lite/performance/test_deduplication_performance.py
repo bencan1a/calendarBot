@@ -9,10 +9,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from calendarbot_lite.lite_event_merger import LiteEventMerger
-from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo
-from calendarbot_lite.pipeline import ProcessingContext
-from calendarbot_lite.pipeline_stages import DeduplicationStage
+from calendarbot_lite.calendar.lite_event_merger import LiteEventMerger
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent, LiteDateTimeInfo
+from calendarbot_lite.domain.pipeline import ProcessingContext
+from calendarbot_lite.domain.pipeline_stages import DeduplicationStage
 
 
 @pytest.fixture

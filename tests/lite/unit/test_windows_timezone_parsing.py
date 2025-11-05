@@ -9,8 +9,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from calendarbot_lite.lite_rrule_expander import LiteRRuleExpander
-from calendarbot_lite.timezone_utils import windows_tz_to_iana
+from calendarbot_lite.calendar.lite_rrule_expander import LiteRRuleExpander
+from calendarbot_lite.core.timezone_utils import windows_tz_to_iana
 
 pytestmark = pytest.mark.unit
 

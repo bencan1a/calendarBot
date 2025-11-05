@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from calendarbot_lite.fetch_orchestrator import FetchOrchestrator
+from calendarbot_lite.domain.fetch_orchestrator import FetchOrchestrator
 
 pytestmark = [pytest.mark.unit, pytest.mark.fast]
 
@@ -83,7 +83,7 @@ async def test_fetch_all_sources_when_tasks_return_events_then_combines(monkeypa
             return await asyncio.gather(*tasks, return_exceptions=return_exceptions)
 
     # Patch async_utils.get_global_orchestrator used inside fetch_all_sources
-    monkeypatch.setattr("calendarbot_lite.async_utils.get_global_orchestrator", lambda: FakeOrch())
+    monkeypatch.setattr("calendarbot_lite.core.async_utils.get_global_orchestrator", lambda: FakeOrch())
 
     sources = [{"name": "a"}, {"name": "b"}]
     parsed = await orchestrator_obj.fetch_all_sources(sources, fetch_concurrency=2, rrule_days=5)
@@ -123,7 +123,7 @@ async def test_fetch_all_sources_when_task_raises_then_skips_and_continues(monke
         async def gather_with_timeout(self, *tasks, timeout: float, return_exceptions: bool):
             return await asyncio.gather(*tasks, return_exceptions=return_exceptions)
 
-    monkeypatch.setattr("calendarbot_lite.async_utils.get_global_orchestrator", lambda: FakeOrch())
+    monkeypatch.setattr("calendarbot_lite.core.async_utils.get_global_orchestrator", lambda: FakeOrch())
 
     sources = [{"name": "ok"}, {"name": "fail", "bad": True}, {"name": "also_ok"}]
     parsed = await orchestrator_obj.fetch_all_sources(sources, fetch_concurrency=2, rrule_days=3)

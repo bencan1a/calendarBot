@@ -3,8 +3,8 @@
 import datetime
 import pytest
 
-from calendarbot_lite.alexa_presentation import PlainTextPresenter
-from calendarbot_lite.alexa_types import AlexaDoneForDayInfo
+from calendarbot_lite.alexa.alexa_presentation import PlainTextPresenter
+from calendarbot_lite.alexa.alexa_types import AlexaDoneForDayInfo
 
 
 @pytest.mark.unit

@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from calendarbot_lite.lite_models import LiteAttendee, LiteCalendarEvent, LiteDateTimeInfo
-from calendarbot_lite.pipeline import EventProcessingPipeline, ProcessingContext, ProcessingResult
-from calendarbot_lite.pipeline_stages import (
+from calendarbot_lite.calendar.lite_models import LiteAttendee, LiteCalendarEvent, LiteDateTimeInfo
+from calendarbot_lite.domain.pipeline import EventProcessingPipeline, ProcessingContext, ProcessingResult
+from calendarbot_lite.domain.pipeline_stages import (
     DeduplicationStage,
     EventLimitStage,
     SkippedEventsFilterStage,
@@ -361,7 +361,7 @@ class TestSortStage:
     @pytest.mark.asyncio
     async def test_sort_events_by_start_time(self) -> None:
         """Test that events are sorted by start time."""
-        from calendarbot_lite.pipeline_stages import SortStage
+        from calendarbot_lite.domain.pipeline_stages import SortStage
 
         # Create events out of order
         event3 = create_test_event(
@@ -390,7 +390,7 @@ class TestSortStage:
     @pytest.mark.asyncio
     async def test_sort_empty_list(self) -> None:
         """Test sorting empty event list."""
-        from calendarbot_lite.pipeline_stages import SortStage
+        from calendarbot_lite.domain.pipeline_stages import SortStage
 
         context = ProcessingContext(events=[])
         stage = SortStage()

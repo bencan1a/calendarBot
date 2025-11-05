@@ -23,8 +23,8 @@ from typing import List
 
 import pytest
 
-from calendarbot_lite.lite_models import LiteCalendarEvent
-from calendarbot_lite.lite_parser import LiteICSParser
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
+from calendarbot_lite.calendar.lite_parser import LiteICSParser
 
 pytestmark = pytest.mark.integration
 

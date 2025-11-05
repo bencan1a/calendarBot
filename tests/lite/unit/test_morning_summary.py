@@ -6,13 +6,13 @@ from unittest.mock import patch
 
 import pytest
 
-from calendarbot_lite.lite_models import (
+from calendarbot_lite.calendar.lite_models import (
     LiteCalendarEvent,
     LiteDateTimeInfo,
     LiteEventStatus,
     LiteLocation,
 )
-from calendarbot_lite.morning_summary import (
+from calendarbot_lite.domain.morning_summary import (
     FOCUS_TIME_KEYWORDS,
     MAX_EVENTS_LIMIT,
     MORNING_END_HOUR,
@@ -35,8 +35,8 @@ pytestmark = pytest.mark.unit
 def mock_server_timezone():
     """Mock _get_server_timezone to return UTC for all tests."""
     # Patch in both server module and morning_summary module (which imports it)
-    with patch("calendarbot_lite.server._get_server_timezone", return_value="UTC"), \
-         patch("calendarbot_lite.morning_summary._get_server_timezone", return_value="UTC"):
+    with patch("calendarbot_lite.api.server._get_server_timezone", return_value="UTC"), \
+         patch("calendarbot_lite.domain.morning_summary._get_server_timezone", return_value="UTC"):
         yield
 
 

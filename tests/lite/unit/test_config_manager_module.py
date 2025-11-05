@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from calendarbot_lite.config_manager import ConfigManager, get_config_value
+from calendarbot_lite.core.config_manager import ConfigManager, get_config_value
 
 pytestmark = pytest.mark.unit
 
@@ -219,7 +219,7 @@ class TestTimezoneConfiguration:
 
     def test_get_default_timezone_with_valid_timezone(self):
         """Should return configured timezone when valid."""
-        from calendarbot_lite.config_manager import get_default_timezone
+        from calendarbot_lite.core.config_manager import get_default_timezone
 
         with clean_env(CALENDARBOT_DEFAULT_TIMEZONE="Europe/London"):
             timezone = get_default_timezone()
@@ -227,7 +227,7 @@ class TestTimezoneConfiguration:
 
     def test_get_default_timezone_with_default_fallback(self):
         """Should return fallback timezone when not configured."""
-        from calendarbot_lite.config_manager import get_default_timezone
+        from calendarbot_lite.core.config_manager import get_default_timezone
 
         with clean_env():
             timezone = get_default_timezone()
@@ -235,7 +235,7 @@ class TestTimezoneConfiguration:
 
     def test_get_default_timezone_with_custom_fallback(self):
         """Should return custom fallback when provided."""
-        from calendarbot_lite.config_manager import get_default_timezone
+        from calendarbot_lite.core.config_manager import get_default_timezone
 
         with clean_env():
             timezone = get_default_timezone(fallback="UTC")
@@ -243,7 +243,7 @@ class TestTimezoneConfiguration:
 
     def test_get_default_timezone_with_invalid_timezone(self):
         """Should fall back to default when timezone is invalid."""
-        from calendarbot_lite.config_manager import get_default_timezone
+        from calendarbot_lite.core.config_manager import get_default_timezone
 
         with clean_env(CALENDARBOT_DEFAULT_TIMEZONE="Invalid/Timezone"):
             timezone = get_default_timezone()
@@ -251,7 +251,7 @@ class TestTimezoneConfiguration:
 
     def test_get_default_timezone_validates_iana_format(self):
         """Should validate IANA timezone format."""
-        from calendarbot_lite.config_manager import get_default_timezone
+        from calendarbot_lite.core.config_manager import get_default_timezone
 
         # Test with valid IANA timezones
         valid_timezones = [

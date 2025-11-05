@@ -16,18 +16,18 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from aiohttp import web
 
-from calendarbot_lite.alexa_exceptions import (
+from calendarbot_lite.alexa.alexa_exceptions import (
     AlexaAuthenticationError,
     AlexaValidationError,
 )
-from calendarbot_lite.alexa_handlers import (
+from calendarbot_lite.alexa.alexa_handlers import (
     AlexaEndpointBase,
     DoneForDayHandler,
     LaunchSummaryHandler,
     NextMeetingHandler,
     TimeUntilHandler,
 )
-from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent, LiteDateTimeInfo
 
 # ============================================================================
 # Fixtures
@@ -102,7 +102,7 @@ def mock_window_lock() -> AsyncMock:
 @pytest.fixture
 def sample_event() -> LiteCalendarEvent:
     """Create a sample calendar event for testing."""
-    from calendarbot_lite.lite_models import LiteDateTimeInfo, LiteLocation
+    from calendarbot_lite.calendar.lite_models import LiteDateTimeInfo, LiteLocation
 
     start_time = datetime.datetime(2024, 1, 15, 14, 0, 0, tzinfo=datetime.UTC)
     end_time = datetime.datetime(2024, 1, 15, 15, 0, 0, tzinfo=datetime.UTC)
@@ -292,7 +292,7 @@ async def test_find_next_meeting_when_event_skipped_then_returns_next_unskipped(
     sample_event: LiteCalendarEvent,
 ) -> None:
     """Test finding next meeting when first event is skipped."""
-    from calendarbot_lite.lite_models import LiteDateTimeInfo
+    from calendarbot_lite.calendar.lite_models import LiteDateTimeInfo
 
     # Create second event
     start_time = datetime.datetime(2024, 1, 15, 16, 0, 0, tzinfo=datetime.UTC)
@@ -597,7 +597,7 @@ async def test_done_for_day_handler_when_meetings_ended_then_returns_done_messag
     mock_request: Mock,
 ) -> None:
     """Test DoneForDayHandler returns done message when all meetings ended."""
-    from calendarbot_lite.lite_models import LiteDateTimeInfo
+    from calendarbot_lite.calendar.lite_models import LiteDateTimeInfo
 
     # Create a past event (meeting already ended)
     past_start = datetime.datetime(2024, 1, 15, 8, 0, 0, tzinfo=datetime.UTC)

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from calendarbot_lite.lite_datetime_utils import (
+from calendarbot_lite.calendar.lite_datetime_utils import (
     LiteDateTimeParser,
     ensure_timezone_aware,
     format_time_cross_platform,

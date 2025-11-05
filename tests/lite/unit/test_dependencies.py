@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from calendarbot_lite.dependencies import AppDependencies, DependencyContainer
+from calendarbot_lite.core.dependencies import AppDependencies, DependencyContainer
 
 
 @pytest.mark.unit
@@ -103,11 +103,11 @@ class TestDependencyContainer:
         mock_skipped_store = Mock()
         mock_http_client = Mock()
 
-        with patch("calendarbot_lite.health_tracker.HealthTracker"), \
-             patch("calendarbot_lite.event_filter.EventFilter"), \
-             patch("calendarbot_lite.event_filter.EventWindowManager"), \
-             patch("calendarbot_lite.fetch_orchestrator.FetchOrchestrator"), \
-             patch("calendarbot_lite.event_filter.SmartFallbackHandler"):
+        with patch("calendarbot_lite.core.health_tracker.HealthTracker"), \
+             patch("calendarbot_lite.domain.event_filter.EventFilter"), \
+             patch("calendarbot_lite.domain.event_filter.EventWindowManager"), \
+             patch("calendarbot_lite.domain.fetch_orchestrator.FetchOrchestrator"), \
+             patch("calendarbot_lite.domain.event_filter.SmartFallbackHandler"):
 
             deps = DependencyContainer.build_dependencies(
                 mock_config, mock_skipped_store, mock_http_client
@@ -120,11 +120,11 @@ class TestDependencyContainer:
 
     def test_build_dependencies_when_called_then_initializes_health_tracker(self) -> None:
         """Test building dependencies initializes HealthTracker."""
-        with patch("calendarbot_lite.health_tracker.HealthTracker") as mock_ht_class, \
-             patch("calendarbot_lite.event_filter.EventFilter"), \
-             patch("calendarbot_lite.event_filter.EventWindowManager"), \
-             patch("calendarbot_lite.fetch_orchestrator.FetchOrchestrator"), \
-             patch("calendarbot_lite.event_filter.SmartFallbackHandler"):
+        with patch("calendarbot_lite.core.health_tracker.HealthTracker") as mock_ht_class, \
+             patch("calendarbot_lite.domain.event_filter.EventFilter"), \
+             patch("calendarbot_lite.domain.event_filter.EventWindowManager"), \
+             patch("calendarbot_lite.domain.fetch_orchestrator.FetchOrchestrator"), \
+             patch("calendarbot_lite.domain.event_filter.SmartFallbackHandler"):
 
             mock_ht_instance = Mock()
             mock_ht_class.return_value = mock_ht_instance
@@ -136,11 +136,11 @@ class TestDependencyContainer:
 
     def test_build_dependencies_when_called_then_creates_event_window_state(self) -> None:
         """Test building dependencies creates event window state."""
-        with patch("calendarbot_lite.health_tracker.HealthTracker"), \
-             patch("calendarbot_lite.event_filter.EventFilter"), \
-             patch("calendarbot_lite.event_filter.EventWindowManager"), \
-             patch("calendarbot_lite.fetch_orchestrator.FetchOrchestrator"), \
-             patch("calendarbot_lite.event_filter.SmartFallbackHandler"), \
+        with patch("calendarbot_lite.core.health_tracker.HealthTracker"), \
+             patch("calendarbot_lite.domain.event_filter.EventFilter"), \
+             patch("calendarbot_lite.domain.event_filter.EventWindowManager"), \
+             patch("calendarbot_lite.domain.fetch_orchestrator.FetchOrchestrator"), \
+             patch("calendarbot_lite.domain.event_filter.SmartFallbackHandler"), \
              patch("asyncio.Lock") as mock_lock_class, \
              patch("asyncio.Event") as mock_event_class:
 
@@ -157,13 +157,13 @@ class TestDependencyContainer:
 
     def test_build_dependencies_when_called_then_initializes_event_filter(self) -> None:
         """Test building dependencies initializes EventFilter."""
-        with patch("calendarbot_lite.health_tracker.HealthTracker"), \
-             patch("calendarbot_lite.event_filter.EventFilter") as mock_ef_class, \
-             patch("calendarbot_lite.event_filter.EventWindowManager"), \
-             patch("calendarbot_lite.fetch_orchestrator.FetchOrchestrator"), \
-             patch("calendarbot_lite.event_filter.SmartFallbackHandler"), \
-             patch("calendarbot_lite.timezone_utils.get_server_timezone") as mock_get_tz, \
-             patch("calendarbot_lite.timezone_utils.get_fallback_timezone") as mock_get_fb:
+        with patch("calendarbot_lite.core.health_tracker.HealthTracker"), \
+             patch("calendarbot_lite.domain.event_filter.EventFilter") as mock_ef_class, \
+             patch("calendarbot_lite.domain.event_filter.EventWindowManager"), \
+             patch("calendarbot_lite.domain.fetch_orchestrator.FetchOrchestrator"), \
+             patch("calendarbot_lite.domain.event_filter.SmartFallbackHandler"), \
+             patch("calendarbot_lite.core.timezone_utils.get_server_timezone") as mock_get_tz, \
+             patch("calendarbot_lite.core.timezone_utils.get_fallback_timezone") as mock_get_fb:
 
             mock_ef_instance = Mock()
             mock_ef_class.return_value = mock_ef_instance
@@ -175,11 +175,11 @@ class TestDependencyContainer:
 
     def test_build_dependencies_when_called_then_initializes_window_manager(self) -> None:
         """Test building dependencies initializes EventWindowManager."""
-        with patch("calendarbot_lite.health_tracker.HealthTracker"), \
-             patch("calendarbot_lite.event_filter.EventFilter") as mock_ef_class, \
-             patch("calendarbot_lite.event_filter.EventWindowManager") as mock_wm_class, \
-             patch("calendarbot_lite.fetch_orchestrator.FetchOrchestrator"), \
-             patch("calendarbot_lite.event_filter.SmartFallbackHandler") as mock_fb_class:
+        with patch("calendarbot_lite.core.health_tracker.HealthTracker"), \
+             patch("calendarbot_lite.domain.event_filter.EventFilter") as mock_ef_class, \
+             patch("calendarbot_lite.domain.event_filter.EventWindowManager") as mock_wm_class, \
+             patch("calendarbot_lite.domain.fetch_orchestrator.FetchOrchestrator"), \
+             patch("calendarbot_lite.domain.event_filter.SmartFallbackHandler") as mock_fb_class:
 
             mock_ef_instance = Mock()
             mock_fb_instance = Mock()
@@ -197,11 +197,11 @@ class TestDependencyContainer:
         self,
     ) -> None:
         """Test building dependencies initializes FetchOrchestrator."""
-        with patch("calendarbot_lite.health_tracker.HealthTracker") as mock_ht_class, \
-             patch("calendarbot_lite.event_filter.EventFilter"), \
-             patch("calendarbot_lite.event_filter.EventWindowManager") as mock_wm_class, \
-             patch("calendarbot_lite.fetch_orchestrator.FetchOrchestrator") as mock_fo_class, \
-             patch("calendarbot_lite.event_filter.SmartFallbackHandler"):
+        with patch("calendarbot_lite.core.health_tracker.HealthTracker") as mock_ht_class, \
+             patch("calendarbot_lite.domain.event_filter.EventFilter"), \
+             patch("calendarbot_lite.domain.event_filter.EventWindowManager") as mock_wm_class, \
+             patch("calendarbot_lite.domain.fetch_orchestrator.FetchOrchestrator") as mock_fo_class, \
+             patch("calendarbot_lite.domain.event_filter.SmartFallbackHandler"):
 
             mock_ht_instance = Mock()
             mock_wm_instance = Mock()
@@ -222,14 +222,14 @@ class TestDependencyContainer:
         mock_time_until_ssml = Mock()
         mock_done_ssml = Mock()
 
-        with patch("calendarbot_lite.health_tracker.HealthTracker"), \
-             patch("calendarbot_lite.event_filter.EventFilter"), \
-             patch("calendarbot_lite.event_filter.EventWindowManager"), \
-             patch("calendarbot_lite.fetch_orchestrator.FetchOrchestrator"), \
-             patch("calendarbot_lite.event_filter.SmartFallbackHandler"), \
-             patch("calendarbot_lite.alexa_ssml.render_meeting_ssml", mock_meeting_ssml), \
-             patch("calendarbot_lite.alexa_ssml.render_time_until_ssml", mock_time_until_ssml), \
-             patch("calendarbot_lite.alexa_ssml.render_done_for_day_ssml", mock_done_ssml):
+        with patch("calendarbot_lite.core.health_tracker.HealthTracker"), \
+             patch("calendarbot_lite.domain.event_filter.EventFilter"), \
+             patch("calendarbot_lite.domain.event_filter.EventWindowManager"), \
+             patch("calendarbot_lite.domain.fetch_orchestrator.FetchOrchestrator"), \
+             patch("calendarbot_lite.domain.event_filter.SmartFallbackHandler"), \
+             patch("calendarbot_lite.alexa.alexa_ssml.render_meeting_ssml", mock_meeting_ssml), \
+             patch("calendarbot_lite.alexa.alexa_ssml.render_time_until_ssml", mock_time_until_ssml), \
+             patch("calendarbot_lite.alexa.alexa_ssml.render_done_for_day_ssml", mock_done_ssml):
 
             deps = DependencyContainer.build_dependencies(Mock(), None, Mock())
 
@@ -252,11 +252,11 @@ class TestDependencyContainer:
                 raise ImportError(f"No module named '{name}'")
             return original_import(name, *args, **kwargs)
 
-        with patch("calendarbot_lite.health_tracker.HealthTracker"), \
-             patch("calendarbot_lite.event_filter.EventFilter"), \
-             patch("calendarbot_lite.event_filter.EventWindowManager"), \
-             patch("calendarbot_lite.fetch_orchestrator.FetchOrchestrator"), \
-             patch("calendarbot_lite.event_filter.SmartFallbackHandler"), \
+        with patch("calendarbot_lite.core.health_tracker.HealthTracker"), \
+             patch("calendarbot_lite.domain.event_filter.EventFilter"), \
+             patch("calendarbot_lite.domain.event_filter.EventWindowManager"), \
+             patch("calendarbot_lite.domain.fetch_orchestrator.FetchOrchestrator"), \
+             patch("calendarbot_lite.domain.event_filter.SmartFallbackHandler"), \
              patch("builtins.__import__", side_effect=mock_import):
 
             deps = DependencyContainer.build_dependencies(Mock(), None, Mock())
@@ -265,16 +265,16 @@ class TestDependencyContainer:
 
     def test_build_dependencies_when_called_then_sets_utility_functions(self) -> None:
         """Test building dependencies sets utility functions."""
-        with patch("calendarbot_lite.health_tracker.HealthTracker"), \
-             patch("calendarbot_lite.event_filter.EventFilter"), \
-             patch("calendarbot_lite.event_filter.EventWindowManager"), \
-             patch("calendarbot_lite.fetch_orchestrator.FetchOrchestrator"), \
-             patch("calendarbot_lite.event_filter.SmartFallbackHandler"), \
-             patch("calendarbot_lite.timezone_utils.now_utc") as mock_now_utc, \
-             patch("calendarbot_lite.config_manager.get_config_value") as mock_get_config, \
-             patch("calendarbot_lite.timezone_utils.get_server_timezone") as mock_get_tz, \
-             patch("calendarbot_lite.timezone_utils.get_fallback_timezone") as mock_get_fb, \
-             patch("calendarbot_lite.health_tracker.get_system_diagnostics") as mock_diag:
+        with patch("calendarbot_lite.core.health_tracker.HealthTracker"), \
+             patch("calendarbot_lite.domain.event_filter.EventFilter"), \
+             patch("calendarbot_lite.domain.event_filter.EventWindowManager"), \
+             patch("calendarbot_lite.domain.fetch_orchestrator.FetchOrchestrator"), \
+             patch("calendarbot_lite.domain.event_filter.SmartFallbackHandler"), \
+             patch("calendarbot_lite.core.timezone_utils.now_utc") as mock_now_utc, \
+             patch("calendarbot_lite.core.config_manager.get_config_value") as mock_get_config, \
+             patch("calendarbot_lite.core.timezone_utils.get_server_timezone") as mock_get_tz, \
+             patch("calendarbot_lite.core.timezone_utils.get_fallback_timezone") as mock_get_fb, \
+             patch("calendarbot_lite.core.health_tracker.get_system_diagnostics") as mock_diag:
 
             deps = DependencyContainer.build_dependencies(Mock(), None, Mock())
 
@@ -286,11 +286,11 @@ class TestDependencyContainer:
 
     def test_build_dependencies_when_none_skipped_store_then_accepts_none(self) -> None:
         """Test building dependencies accepts None for skipped store."""
-        with patch("calendarbot_lite.health_tracker.HealthTracker"), \
-             patch("calendarbot_lite.event_filter.EventFilter"), \
-             patch("calendarbot_lite.event_filter.EventWindowManager"), \
-             patch("calendarbot_lite.fetch_orchestrator.FetchOrchestrator"), \
-             patch("calendarbot_lite.event_filter.SmartFallbackHandler"):
+        with patch("calendarbot_lite.core.health_tracker.HealthTracker"), \
+             patch("calendarbot_lite.domain.event_filter.EventFilter"), \
+             patch("calendarbot_lite.domain.event_filter.EventWindowManager"), \
+             patch("calendarbot_lite.domain.fetch_orchestrator.FetchOrchestrator"), \
+             patch("calendarbot_lite.domain.event_filter.SmartFallbackHandler"):
 
             deps = DependencyContainer.build_dependencies(Mock(), None, Mock())
 

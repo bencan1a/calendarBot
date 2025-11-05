@@ -60,7 +60,7 @@ def main() -> NoReturn:
         print(
             "calendarbot_lite server is not implemented yet.\n\n"
             "To continue development:\n"
-            "  - Implement the server in `calendarbot_lite.server` and expose a\n"
+            "  - Implement the server in `calendarbot_lite.api.server` and expose a\n"
             "    start function called from `calendarbot_lite.run_server()`.\n"
             "  - Run the package in dev mode with: python -m calendarbot_lite\n"
         )

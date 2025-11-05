@@ -15,8 +15,8 @@ from typing import Any, Optional, Protocol
 import pytest
 from icalendar import Event as ICalEvent
 
-from calendarbot_lite.lite_event_parser import LiteEventComponentParser
-from calendarbot_lite.lite_models import (
+from calendarbot_lite.calendar.lite_event_parser import LiteEventComponentParser
+from calendarbot_lite.calendar.lite_models import (
     LiteAttendee,
     LiteAttendeeType,
     LiteCalendarEvent,

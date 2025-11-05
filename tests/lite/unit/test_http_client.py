@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock
 import httpx
 import pytest
 
-from calendarbot_lite.http_client import (
+from calendarbot_lite.core.http_client import (
     StreamingHTTPResponse,
     close_all_clients,
     get_fallback_client,

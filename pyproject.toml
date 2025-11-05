@@ -280,6 +280,9 @@ module = [
     "aiosqlite.*",
     "APScheduler.*",
     "PIL.*",
+    "aiohttp.*",
+    "pydantic.*",
+    "httpx.*",
 ]
 ignore_missing_imports = true
 
@@ -291,6 +294,8 @@ module = "calendarbot_lite.*"
 warn_return_any = false
 # Allow unreachable code for defensive programming patterns
 warn_unreachable = false
+# Allow untyped decorators (pydantic validators, aiohttp middleware)
+disallow_untyped_decorators = false
 
 [tool.pytest.ini_options]
 # Consolidated pytest configuration (migrated from pytest.ini and pytest-lite.ini)

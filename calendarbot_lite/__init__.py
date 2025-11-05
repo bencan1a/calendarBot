@@ -104,11 +104,11 @@ def run_server(args: Optional[object] = None) -> None:
     logger = logging.getLogger(__name__)
 
     try:
-        server = importlib.import_module("calendarbot_lite.server")
+        server = importlib.import_module("calendarbot_lite.api.server")
     except Exception as exc:
         # Provide a useful developer-facing error that includes the underlying traceback.
         tb = "".join(traceback.format_exception(exc.__class__, exc, exc.__traceback__))
-        logger.exception("Failed to import calendarbot_lite.server")
+        logger.exception("Failed to import calendarbot_lite.api.server")
         raise NotImplementedError(
             "calendarbot_lite server not available. To continue development:\n"
             "  - Implement `calendarbot_lite.server` and expose `start_server()`.\n"

@@ -59,7 +59,7 @@ def start_lite_server_process(port: int) -> subprocess.Popen:
 
     # Build the child process code string. Keep config minimal and deterministic.
     code = (
-        "from calendarbot_lite.server import start_server\n"
+        "from calendarbot_lite.api.server import start_server\n"
         "cfg = { 'server_bind':'127.0.0.1', 'server_port':%d, %s 'refresh_interval_seconds':2, 'rrule_expansion_days':365, 'expansion_days_window':365 }\n"
         "start_server(cfg, None)\n"
     ) % (port, sources_fragment)

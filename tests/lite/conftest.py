@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from calendarbot_lite.http_client import close_all_clients
+from calendarbot_lite.core.http_client import close_all_clients
 
 
 @pytest.fixture
@@ -49,9 +49,9 @@ def reset_worker_pool() -> Generator[None, Any, None]:
     """
     yield
     # Reset global worker pool after each test
-    import calendarbot_lite.lite_rrule_expander
+    import calendarbot_lite.calendar.lite_rrule_expander
 
-    calendarbot_lite.lite_rrule_expander._worker_pool = None
+    calendarbot_lite.calendar.lite_rrule_expander._worker_pool = None
 
 
 @pytest.fixture(autouse=True)

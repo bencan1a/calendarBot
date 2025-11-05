@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from calendarbot_lite.alexa_handlers import (
+from calendarbot_lite.alexa.alexa_handlers import (
     DoneForDayHandler,
     LaunchSummaryHandler,
     MorningSummaryHandler,
     NextMeetingHandler,
     TimeUntilHandler,
 )
-from calendarbot_lite.alexa_registry import (
+from calendarbot_lite.alexa.alexa_registry import (
     AlexaHandlerRegistry,
     HandlerInfo,
     get_handler_info_summary,

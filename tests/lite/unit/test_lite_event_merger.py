@@ -5,8 +5,8 @@ from typing import Optional
 
 import pytest
 
-from calendarbot_lite.lite_event_merger import LiteEventMerger
-from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo
+from calendarbot_lite.calendar.lite_event_merger import LiteEventMerger
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent, LiteDateTimeInfo
 
 pytestmark = pytest.mark.unit
 

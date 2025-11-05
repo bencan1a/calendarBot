@@ -13,7 +13,7 @@ import types
 
 import pytest
 
-from calendarbot_lite.lite_fetcher import JITTER_MAX_FACTOR, MAX_BACKOFF_SECONDS, LiteICSFetcher
+from calendarbot_lite.calendar.lite_fetcher import JITTER_MAX_FACTOR, MAX_BACKOFF_SECONDS, LiteICSFetcher
 
 pytestmark = [pytest.mark.unit, pytest.mark.fast]
 

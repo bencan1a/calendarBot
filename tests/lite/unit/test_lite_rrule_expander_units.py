@@ -14,8 +14,8 @@ from typing import List
 
 import pytest
 
-from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo, LiteEventStatus
-from calendarbot_lite.lite_rrule_expander import (
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent, LiteDateTimeInfo, LiteEventStatus
+from calendarbot_lite.calendar.lite_rrule_expander import (
     LiteRRuleExpander,
     LiteRRuleParseError,
 )

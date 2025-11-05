@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from calendarbot_lite.lite_rrule_expander import RRuleWorkerPool, get_worker_pool
-from calendarbot_lite.server import (  # type: ignore[attr-defined]
+from calendarbot_lite.calendar.lite_rrule_expander import RRuleWorkerPool, get_worker_pool
+from calendarbot_lite.api.server import (  # type: ignore[attr-defined]
     _fetch_and_parse_source,
     _refresh_once,
 )
@@ -46,7 +46,7 @@ class TestBoundedConcurrency:
         event_window_ref = [()]
         window_lock = asyncio.Lock()
 
-        with patch("calendarbot_lite.server._fetch_and_parse_source") as mock_fetch:
+        with patch("calendarbot_lite.api.server._fetch_and_parse_source") as mock_fetch:
             mock_fetch.return_value = []
 
             await _refresh_once(config, skipped_store, event_window_ref, window_lock)
@@ -79,7 +79,7 @@ class TestBoundedConcurrency:
             return []
 
         with patch(
-            "calendarbot_lite.server._fetch_and_parse_source", side_effect=mock_fetch_with_timing
+            "calendarbot_lite.api.server._fetch_and_parse_source", side_effect=mock_fetch_with_timing
         ):
             await _refresh_once(config, skipped_store, event_window_ref, window_lock)
 
@@ -260,7 +260,7 @@ class TestRRuleWorkerPool:
         settings2.expansion_yield_frequency = 20
 
         # Clear any existing global pool
-        import calendarbot_lite.lite_rrule_expander as module
+        import calendarbot_lite.calendar.lite_rrule_expander as module
 
         module._worker_pool = None
 
@@ -296,7 +296,7 @@ class TestConcurrencyConfiguration:
             event_window_ref = [()]
             window_lock = asyncio.Lock()
 
-            with patch("calendarbot_lite.server._fetch_and_parse_source") as mock_fetch:
+            with patch("calendarbot_lite.api.server._fetch_and_parse_source") as mock_fetch:
                 mock_fetch.return_value = []
 
                 # Track semaphore creation
@@ -324,7 +324,7 @@ class TestConcurrencyConfiguration:
             return [{"meeting_id": "test", "subject": "Test Event", "start": datetime.now(UTC)}]
 
         with patch(
-            "calendarbot_lite.server._fetch_and_parse_source", side_effect=mock_fetch_with_error
+            "calendarbot_lite.api.server._fetch_and_parse_source", side_effect=mock_fetch_with_error
         ):
             # Should not raise exception, should handle errors gracefully
             await _refresh_once(config, None, event_window_ref, window_lock)
