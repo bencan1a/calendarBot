@@ -298,3 +298,70 @@ def test_multiple_recurring_series_same_name(simple_settings: SimpleNamespace, t
         print(f"    - {a.isoformat()}")
     print(f"  RESULT: {'PASS' if len(actual) == expected_count else 'FAIL'}\n")
     assert len(actual) == expected_count
+
+
+@pytest.mark.parametrize("use_streaming", [False, True])
+def test_moved_recurring_with_tzid_cross_timezone(simple_settings: SimpleNamespace, tmp_path: Path, use_streaming: bool) -> None:
+    """Issue #43: RECURRENCE-ID with TZID should properly suppress original occurrence in different timezone."""
+    ics = (
+        "BEGIN:VCALENDAR\n"
+        "VERSION:2.0\n"
+        "PRODID:-//Test//Test//EN\n"
+        "BEGIN:VTIMEZONE\n"
+        "TZID:America/Los_Angeles\n"
+        "BEGIN:STANDARD\n"
+        "DTSTART:20241103T020000\n"
+        "TZOFFSETFROM:-0700\n"
+        "TZOFFSETTO:-0800\n"
+        "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\n"
+        "TZNAME:PST\n"
+        "END:STANDARD\n"
+        "BEGIN:DAYLIGHT\n"
+        "DTSTART:20250309T020000\n"
+        "TZOFFSETFROM:-0800\n"
+        "TZOFFSETTO:-0700\n"
+        "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\n"
+        "TZNAME:PDT\n"
+        "END:DAYLIGHT\n"
+        "END:VTIMEZONE\n"
+        "BEGIN:VEVENT\n"
+        "UID:recurring-meeting@example.com\n"
+        "SUMMARY:Daily Standup\n"
+        "DTSTART;TZID=America/Los_Angeles:20251120T090000\n"
+        "DTEND;TZID=America/Los_Angeles:20251120T093000\n"
+        "RRULE:FREQ=DAILY;COUNT=3\n"
+        "END:VEVENT\n"
+        "BEGIN:VEVENT\n"
+        "UID:recurring-meeting@example.com\n"
+        "RECURRENCE-ID;TZID=America/Los_Angeles:20251121T090000\n"
+        "SUMMARY:Daily Standup (Moved)\n"
+        "DTSTART;TZID=America/Los_Angeles:20251121T110000\n"
+        "DTEND;TZID=America/Los_Angeles:20251121T113000\n"
+        "END:VEVENT\n"
+        "END:VCALENDAR\n"
+    )
+    events = _run_parser_for_ics(simple_settings, ics, tmp_path, use_streaming)
+
+    # Should have 3 total events: 2 original occurrences + 1 moved instance
+    standup_events = [e for e in events if "Daily Standup" in e.subject]
+    print(f"\nSCENARIO: TZID RECURRENCE-ID cross-timezone")
+    print(f"  Total events with 'Daily Standup': {len(standup_events)}")
+    for e in standup_events:
+        print(f"    - {e.subject}: {e.start.date_time.isoformat()}")
+
+    assert len(standup_events) == 3, f"Expected 3 events, got {len(standup_events)}"
+
+    # Verify moved instance exists at new time
+    moved_events = [e for e in standup_events if "Moved" in e.subject]
+    assert len(moved_events) == 1, "Expected exactly one moved instance"
+
+    # Verify NO event at original 09:00 PST time slot (17:00 UTC) on 2025-11-21
+    # After the first Sunday in November, Los Angeles is on PST (UTC-8), so 09:00 PST = 17:00 UTC.
+    # Original occurrence should be suppressed by RECURRENCE-ID
+    original_time_utc = datetime(2025, 11, 21, 17, 0, tzinfo=timezone.utc)  # 09:00 PST = 17:00 UTC
+    events_at_original_time = [
+        e for e in standup_events
+        if e.start.date_time == original_time_utc and "Moved" not in e.subject
+    ]
+    print(f"  Events at original time slot (should be 0): {len(events_at_original_time)}")
+    assert len(events_at_original_time) == 0, "RECURRENCE-ID should suppress original occurrence"

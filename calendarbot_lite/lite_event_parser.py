@@ -510,22 +510,21 @@ class LiteEventComponentParser:
         # When a recurring instance is moved, the original slot should be excluded
         recurrence_id_raw = component.get("RECURRENCE-ID")
 
-        # Convert RECURRENCE-ID to string properly (fix for icalendar object bug)
-        if recurrence_id_raw is not None:
-            if hasattr(recurrence_id_raw, "to_ical"):
-                # icalendar object - convert to iCal format then decode
-                recurrence_id = recurrence_id_raw.to_ical().decode("utf-8")
-            else:
-                # Already a string or other type - convert to string
-                recurrence_id = str(recurrence_id_raw)
-        else:
+        # Convert RECURRENCE-ID to string properly, preserving TZID parameter
+        # Fix for issue #43: TZID must be preserved for correct EXDATE comparison
+        if recurrence_id_raw is None:
             recurrence_id = None
+        else:
+            recurrence_id = self._format_recurrence_id(recurrence_id_raw)
 
         # Check if this event should be excluded due to EXDATE
         # Use the defensive collector to handle getall(), dict-like access, and param-preserving props
         exdate_props = self._collect_exdate_props(component)
-        if not isinstance(exdate_props, list):
-            exdate_props = [exdate_props] if exdate_props else []
+        # Ensure exdate_props is always a list
+        if exdate_props is None:
+            exdate_props = []
+        elif not isinstance(exdate_props, list):
+            exdate_props = [exdate_props]
 
         return {
             "is_recurring": is_recurring,
@@ -533,3 +532,24 @@ class LiteEventComponentParser:
             "rrule_prop": rrule_prop,
             "exdate_props": exdate_props,
         }
+
+    def _format_recurrence_id(self, recurrence_id_raw: Any) -> str:
+        """Format a recurrence ID, preserving TZID if present, for consistent comparison.
+
+        Args:
+            recurrence_id_raw: The raw RECURRENCE-ID property from the component
+
+        Returns:
+            Formatted recurrence ID string, with TZID prefix if applicable
+        """
+        if hasattr(recurrence_id_raw, "to_ical"):
+            recurrence_id_str = recurrence_id_raw.to_ical().decode("utf-8")
+            tzid = (
+                recurrence_id_raw.params["TZID"]
+                if hasattr(recurrence_id_raw, "params") and "TZID" in recurrence_id_raw.params
+                else None
+            )
+            if tzid:
+                return f"TZID={tzid}:{recurrence_id_str}"
+            return recurrence_id_str
+        return str(recurrence_id_raw)
