@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from calendarbot_lite.alexa_ssml import (
+from calendarbot_lite.alexa.alexa_ssml import (
     DEFAULT_CONFIG,
     _basic_tag_balance_check,
     _compose_fragments,
@@ -518,7 +518,7 @@ class TestRenderMeetingSsml:
         result = render_meeting_ssml(meeting, config)
         assert result is None
 
-    @patch("calendarbot_lite.alexa_ssml.logger")
+    @patch("calendarbot_lite.alexa.alexa_ssml.logger")
     def test_render_meeting_ssml_when_exception_occurs_then_logs_and_returns_none(self, mock_logger):
         """Test SSML generation handles exceptions gracefully."""
         # Force an exception by providing invalid data structure
@@ -529,7 +529,7 @@ class TestRenderMeetingSsml:
         
         result = render_meeting_ssml(meeting)
         assert result is None
-        mock_logger.error.assert_called()
+        mock_logger.exception.assert_called()
 
 
 class TestRenderTimeUntilSsml:
@@ -616,13 +616,13 @@ class TestRenderTimeUntilSsml:
         result = render_time_until_ssml(1800, None, config)
         assert result is None
 
-    @patch("calendarbot_lite.alexa_ssml.logger")
+    @patch("calendarbot_lite.alexa.alexa_ssml.logger")
     def test_render_time_until_ssml_when_exception_then_logs_and_returns_none(self, mock_logger):
         """Test time-until SSML handles exceptions gracefully."""
         # Force an exception with invalid seconds_until type
         result = render_time_until_ssml("invalid")  # type: ignore
         assert result is None
-        mock_logger.error.assert_called()
+        mock_logger.exception.assert_called()
 
 
 class TestSsmlPerformanceConstraints:
@@ -670,7 +670,7 @@ class TestSsmlPerformanceConstraints:
 
     def test_template_constants_are_efficient(self):
         """Test that SSML templates are pre-defined for efficiency."""
-        from calendarbot_lite.alexa_ssml import (
+        from calendarbot_lite.alexa.alexa_ssml import (
             EMPHASIS_STRONG,
             PROSODY,
             WRAP_SPEAK,
@@ -825,8 +825,8 @@ class TestRenderDoneForDaySsml:
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text, config=config)
         assert result is None
 
-    @patch("calendarbot_lite.alexa_ssml._escape_text_for_ssml_preserving_tags")
-    @patch("calendarbot_lite.alexa_ssml.logger")
+    @patch("calendarbot_lite.alexa.alexa_ssml._escape_text_for_ssml_preserving_tags")
+    @patch("calendarbot_lite.alexa.alexa_ssml.logger")
     def test_render_done_for_day_ssml_when_exception_occurs_then_logs_and_returns_none(self, mock_logger, mock_escape):
         """Test SSML generation handles exceptions gracefully."""
         # Force an exception by making _escape_text_for_ssml_preserving_tags raise an exception
@@ -835,7 +835,7 @@ class TestRenderDoneForDaySsml:
         
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text)
         assert result is None
-        mock_logger.error.assert_called()
+        mock_logger.exception.assert_called()
 
     def test_render_done_for_day_ssml_generates_valid_ssml_structure(self):
         """Test that generated SSML has valid structure."""

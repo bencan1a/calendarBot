@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from calendarbot_lite.event_prioritizer import EventCategory, EventPrioritizer
-from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo
+from calendarbot_lite.domain.event_prioritizer import EventCategory, EventPrioritizer
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent, LiteDateTimeInfo
 
 pytestmark = pytest.mark.unit
 

@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from calendarbot_lite.health_tracker import HealthTracker
+from calendarbot_lite.core.health_tracker import HealthTracker
 
 pytestmark = pytest.mark.unit
 

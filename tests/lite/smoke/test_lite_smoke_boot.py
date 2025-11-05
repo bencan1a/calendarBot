@@ -25,7 +25,7 @@ from tests.fixtures.mock_ics_data import ICSDataFactory  # type: ignore
 
 aiohttp = pytest.importorskip("aiohttp")
 
-from calendarbot_lite import server as cb_server
+from calendarbot_lite.api import server as cb_server
 
 pytestmark = pytest.mark.smoke
 

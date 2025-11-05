@@ -12,7 +12,7 @@ from typing import Any, Dict
 
 import pytest
 
-from calendarbot_lite.monitoring_logging import (
+from calendarbot_lite.core.monitoring_logging import (
     LogEntry,
     MonitoringLogger,
     RateLimiter,
@@ -119,7 +119,7 @@ class TestRateLimiter:
 
     def setup_method(self) -> None:
         """Clear rate limiter state before each test."""
-        from calendarbot_lite.monitoring_logging import _rate_limiters
+        from calendarbot_lite.core.monitoring_logging import _rate_limiters
         _rate_limiters.clear()
 
     def test_should_log_when_under_limit_then_returns_true(self) -> None:
@@ -341,7 +341,7 @@ class TestMonitoringLogger:
 class TestConvenienceFunctions:
     """Test convenience logging functions."""
 
-    @patch('calendarbot_lite.monitoring_logging.get_logger')
+    @patch('calendarbot_lite.core.monitoring_logging.get_logger')
     def test_log_server_event_when_called_then_uses_server_logger(
         self, mock_get_logger: MagicMock
     ) -> None:
@@ -356,7 +356,7 @@ class TestConvenienceFunctions:
             "INFO", "test.event", "Test message", details={"key": "value"}
         )
 
-    @patch('calendarbot_lite.monitoring_logging.get_logger')
+    @patch('calendarbot_lite.core.monitoring_logging.get_logger')
     def test_log_recovery_event_when_called_then_includes_recovery_level(
         self, mock_get_logger: MagicMock
     ) -> None:
@@ -488,7 +488,7 @@ class TestIntegration:
         # Try to write to invalid path
         invalid_path = Path("/invalid/path/test.log")
         
-        with patch('calendarbot_lite.monitoring_logging.logging.getLogger') as mock_get_logger:
+        with patch('calendarbot_lite.core.monitoring_logging.logging.getLogger') as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
             

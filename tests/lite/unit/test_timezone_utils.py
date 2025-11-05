@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from calendarbot_lite.timezone_utils import (
+from calendarbot_lite.core.timezone_utils import (
     DEFAULT_SERVER_TIMEZONE,
     TimeProvider,
     TimezoneDetector,

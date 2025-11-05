@@ -2,7 +2,7 @@
 
 import pytest
 
-from calendarbot_lite.alexa_response_cache import ResponseCache
+from calendarbot_lite.alexa.alexa_response_cache import ResponseCache
 
 pytestmark = pytest.mark.unit
 

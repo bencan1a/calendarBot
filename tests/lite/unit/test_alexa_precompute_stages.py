@@ -7,18 +7,18 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from calendarbot_lite.alexa_precompute_stages import (
+from calendarbot_lite.alexa.alexa_precompute_stages import (
     DoneForDayPrecomputeStage,
     NextMeetingPrecomputeStage,
     TimeUntilPrecomputeStage,
     create_alexa_precompute_pipeline,
 )
-from calendarbot_lite.lite_models import (
+from calendarbot_lite.calendar.lite_models import (
     LiteCalendarEvent,
     LiteDateTimeInfo,
     LiteLocation,
 )
-from calendarbot_lite.pipeline import ProcessingContext
+from calendarbot_lite.domain.pipeline import ProcessingContext
 
 
 # Helper to create test events

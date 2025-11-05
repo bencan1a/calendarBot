@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from calendarbot_lite.event_filter import (
+from calendarbot_lite.domain.event_filter import (
     EventFilter,
     EventWindowManager,
     SmartFallbackHandler,

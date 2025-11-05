@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from calendarbot_lite.lite_attendee_parser import LiteAttendeeParser
-from calendarbot_lite.lite_models import LiteAttendeeType, LiteResponseStatus
+from calendarbot_lite.calendar.lite_attendee_parser import LiteAttendeeParser
+from calendarbot_lite.calendar.lite_models import LiteAttendeeType, LiteResponseStatus
 
 pytestmark = pytest.mark.unit
 

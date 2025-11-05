@@ -20,7 +20,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
 
-from calendarbot_lite.server import _compute_last_meeting_end_for_today, _now_utc, _serialize_iso
+from calendarbot_lite.api.server import _compute_last_meeting_end_for_today, _now_utc, _serialize_iso
 
 pytestmark = pytest.mark.integration
 
@@ -42,7 +42,7 @@ class TestComputeLastMeetingEndForToday:
         assert result["last_meeting_end_local_iso"] is None
         assert result["note"] is None
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_single_meeting_today_then_returns_end_time(self, mock_now):
         """Test computation with single meeting today returns correct end time."""
         # Mock current time: 2025-01-15 10:00:00 UTC
@@ -70,7 +70,7 @@ class TestComputeLastMeetingEndForToday:
         assert result["last_meeting_end_iso"] == _serialize_iso(expected_end)
         assert result["last_meeting_end_local_iso"] == expected_end.isoformat()
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_multiple_meetings_then_returns_latest_end(self, mock_now):
         """Test computation with multiple meetings returns latest end time."""
         mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
@@ -114,7 +114,7 @@ class TestComputeLastMeetingEndForToday:
         assert result["last_meeting_start_iso"] == _serialize_iso(meeting2_start)
         assert result["last_meeting_end_iso"] == _serialize_iso(expected_latest_end)
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_missing_duration_then_uses_fallback(self, mock_now):
         """Test computation with missing duration uses 1-hour fallback."""
         mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
@@ -139,7 +139,7 @@ class TestComputeLastMeetingEndForToday:
         assert result["has_meetings_today"] is True
         assert result["last_meeting_end_iso"] == _serialize_iso(expected_end)
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_invalid_duration_then_uses_fallback(self, mock_now):
         """Test computation with invalid duration uses 1-hour fallback."""
         mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
@@ -167,7 +167,7 @@ class TestComputeLastMeetingEndForToday:
             expected_end = meeting_start + datetime.timedelta(seconds=3600)
             assert result["last_meeting_end_iso"] == _serialize_iso(expected_end)
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_different_timezone_then_converts_correctly(self, mock_now):
         """Test computation with different timezone handles conversion correctly."""
         # Mock current time: 2025-01-15 10:00:00 UTC (2:00 AM PST)
@@ -193,7 +193,7 @@ class TestComputeLastMeetingEndForToday:
         # Should convert to PST timezone
         assert "15:00:00-08:00" in result["last_meeting_end_local_iso"] or "23:00:00-08:00" in result["last_meeting_end_local_iso"]
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_meetings_different_days_then_filters_today_only(self, mock_now):
         """Test computation only includes meetings from today."""
         # Current time: 2025-01-15 10:00:00 UTC
@@ -236,7 +236,7 @@ class TestComputeLastMeetingEndForToday:
         assert result["has_meetings_today"] is True
         assert result["last_meeting_start_iso"] == _serialize_iso(today_start)
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_skipped_meetings_then_excludes_them(self, mock_now):
         """Test computation excludes skipped meetings."""
         mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
@@ -278,7 +278,7 @@ class TestComputeLastMeetingEndForToday:
         mock_skipped_store.is_skipped.assert_any_call("meeting-1")
         mock_skipped_store.is_skipped.assert_any_call("meeting-2")
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_skipped_store_errors_then_continues_processing(self, mock_now):
         """Test computation continues when skipped store raises exceptions."""
         mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
@@ -305,7 +305,7 @@ class TestComputeLastMeetingEndForToday:
         assert result["has_meetings_today"] is True
         assert result["last_meeting_end_iso"] is not None
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_invalid_timezone_then_falls_back_to_utc(self, mock_now):
         """Test computation falls back to UTC for invalid timezone."""
         mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
@@ -328,7 +328,7 @@ class TestComputeLastMeetingEndForToday:
         assert result["has_meetings_today"] is True
         assert result["last_meeting_end_iso"] is not None
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_malformed_events_then_handles_gracefully(self, mock_now):
         """Test computation handles malformed event data gracefully."""
         mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
@@ -363,7 +363,7 @@ class TestComputeLastMeetingEndForToday:
         assert result["has_meetings_today"] is True
         assert result["last_meeting_start_iso"] == _serialize_iso(valid_start)
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_timezone_conversion_fails_then_adds_note(self, mock_now):
         """Test computation adds note when timezone conversion fails."""
         mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
@@ -396,7 +396,7 @@ class TestDoneForDayAPIEndpoints(AioHTTPTestCase):
 
     async def get_application(self) -> web.Application:
         """Create test aiohttp application with done-for-day endpoints."""
-        from calendarbot_lite.server import _compute_last_meeting_end_for_today, _serialize_iso
+        from calendarbot_lite.api.server import _compute_last_meeting_end_for_today, _serialize_iso
         
         app = web.Application()
         
@@ -530,10 +530,10 @@ class TestDoneForDayAPIEndpoints(AioHTTPTestCase):
 class TestAlexaBackendIntentHandler:
     """Tests for the Alexa backend intent handler handle_get_done_for_day_intent()."""
 
-    @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
+    @patch("calendarbot_lite.alexa.alexa_skill_backend.call_calendarbot_api")
     def test_handle_get_done_for_day_intent_when_api_success_then_returns_response(self, mock_api_call):
         """Test intent handler with successful API call returns proper response."""
-        from calendarbot_lite.alexa_skill_backend import handle_get_done_for_day_intent
+        from calendarbot_lite.alexa.alexa_skill_backend import handle_get_done_for_day_intent
         
         # Mock API response
         mock_api_response = {
@@ -556,10 +556,10 @@ class TestAlexaBackendIntentHandler:
         assert "done for the day" in response["outputSpeech"]["ssml"].lower()
         assert response["shouldEndSession"] is True
 
-    @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
+    @patch("calendarbot_lite.alexa.alexa_skill_backend.call_calendarbot_api")
     def test_handle_get_done_for_day_intent_when_no_meetings_then_returns_no_meetings_message(self, mock_api_call):
         """Test intent handler with no meetings returns appropriate message."""
-        from calendarbot_lite.alexa_skill_backend import handle_get_done_for_day_intent
+        from calendarbot_lite.alexa.alexa_skill_backend import handle_get_done_for_day_intent
         
         mock_api_response = {
             "speech_text": "You have no meetings today.",
@@ -574,10 +574,10 @@ class TestAlexaBackendIntentHandler:
         response = response_dict["response"]
         assert "no meetings" in response["outputSpeech"]["text"].lower()
 
-    @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
+    @patch("calendarbot_lite.alexa.alexa_skill_backend.call_calendarbot_api")
     def test_handle_get_done_for_day_intent_when_api_fails_then_returns_error_response(self, mock_api_call):
         """Test intent handler with API failure returns error response."""
-        from calendarbot_lite.alexa_skill_backend import handle_get_done_for_day_intent
+        from calendarbot_lite.alexa.alexa_skill_backend import handle_get_done_for_day_intent
         
         # Mock API failure
         mock_api_call.side_effect = Exception("API call failed")
@@ -589,10 +589,10 @@ class TestAlexaBackendIntentHandler:
         # Should return some form of error message
         assert "sorry" in response["outputSpeech"]["text"].lower() or "error" in response["outputSpeech"]["text"].lower()
 
-    @patch("calendarbot_lite.alexa_skill_backend.call_calendarbot_api")
+    @patch("calendarbot_lite.alexa.alexa_skill_backend.call_calendarbot_api")
     def test_handle_get_done_for_day_intent_when_calls_correct_endpoint(self, mock_api_call):
         """Test intent handler calls the correct API endpoint."""
-        from calendarbot_lite.alexa_skill_backend import handle_get_done_for_day_intent
+        from calendarbot_lite.alexa.alexa_skill_backend import handle_get_done_for_day_intent
         
         mock_api_call.return_value = {"speech_text": "Test", "has_meetings_today": False}
         
@@ -605,7 +605,7 @@ class TestAlexaBackendIntentHandler:
 class TestDoneForDayEdgeCases:
     """Tests for edge cases and error conditions in done-for-day functionality."""
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_meeting_at_midnight_boundary_then_handles_correctly(self, mock_now):
         """Test computation with meetings at midnight boundary."""
         # Current time: just after midnight UTC
@@ -639,7 +639,7 @@ class TestDoneForDayEdgeCases:
         assert result["has_meetings_today"] is True
         assert result["last_meeting_start_iso"] == _serialize_iso(meeting_after_midnight)
 
-    @patch("calendarbot_lite.server._now_utc")
+    @patch("calendarbot_lite.api.server._now_utc")
     def test_compute_last_meeting_end_when_multiple_meetings_same_end_time_then_returns_any_valid(self, mock_now):
         """Test computation with multiple meetings having same end time."""
         mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
@@ -677,7 +677,7 @@ class TestDoneForDayEdgeCases:
 
     def test_compute_last_meeting_end_when_none_timezone_then_uses_utc(self):
         """Test computation with None timezone falls back to UTC."""
-        with patch("calendarbot_lite.server._now_utc") as mock_now:
+        with patch("calendarbot_lite.api.server._now_utc") as mock_now:
             mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
             
             meeting_start = datetime.datetime(2025, 1, 15, 14, 0, 0, tzinfo=datetime.timezone.utc)
@@ -699,7 +699,7 @@ class TestDoneForDayEdgeCases:
 
     def test_compute_last_meeting_end_when_empty_string_timezone_then_uses_utc(self):
         """Test computation with empty string timezone falls back to UTC."""
-        with patch("calendarbot_lite.server._now_utc") as mock_now:
+        with patch("calendarbot_lite.api.server._now_utc") as mock_now:
             mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
             
             meeting_start = datetime.datetime(2025, 1, 15, 14, 0, 0, tzinfo=datetime.timezone.utc)
@@ -721,7 +721,7 @@ class TestDoneForDayEdgeCases:
 
     def test_compute_last_meeting_end_when_no_meeting_id_then_handles_gracefully(self):
         """Test computation with events missing meeting_id field."""
-        with patch("calendarbot_lite.server._now_utc") as mock_now:
+        with patch("calendarbot_lite.api.server._now_utc") as mock_now:
             mock_now.return_value = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone.utc)
             
             meeting_start = datetime.datetime(2025, 1, 15, 14, 0, 0, tzinfo=datetime.timezone.utc)

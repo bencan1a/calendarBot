@@ -10,8 +10,8 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from calendarbot_lite.rate_limiter import RateLimitConfig, RateLimiter
-from calendarbot_lite.rate_limit_middleware import create_rate_limited_handler
+from calendarbot_lite.api.middleware.rate_limiter import RateLimitConfig, RateLimiter
+from calendarbot_lite.api.middleware.rate_limit_middleware import create_rate_limited_handler
 
 
 @pytest.fixture

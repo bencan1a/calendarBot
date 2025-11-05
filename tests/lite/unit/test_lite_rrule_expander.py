@@ -12,8 +12,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from calendarbot_lite.lite_models import LiteEventStatus
-from calendarbot_lite.lite_rrule_expander import RRuleWorkerPool
+from calendarbot_lite.calendar.lite_models import LiteEventStatus
+from calendarbot_lite.calendar.lite_rrule_expander import RRuleWorkerPool
 
 pytestmark = [pytest.mark.unit, pytest.mark.fast]
 

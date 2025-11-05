@@ -38,9 +38,9 @@ except Exception:
 
 # Import parser from calendarbot_lite
 try:
-    from calendarbot_lite.lite_streaming_parser import parse_ics_stream
+    from calendarbot_lite.calendar.lite_streaming_parser import parse_ics_stream
 except Exception as e:
-    raise RuntimeError("Failed to import parse_ics_stream from calendarbot_lite.lite_streaming_parser") from e
+    raise RuntimeError("Failed to import parse_ics_stream from calendarbot_lite.calendar.lite_streaming_parser") from e
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("ci_perf_benchmark")

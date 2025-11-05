@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from calendarbot_lite.debug_helpers import (
+from calendarbot_lite.core.debug_helpers import (
     collect_rrule_candidates,
     event_summary,
     expand_candidates_to_trace,
@@ -237,7 +237,7 @@ class TestFetchIcsStream:
         mock_client_cm.__aenter__.return_value = mock_client
         mock_client_cm.__aexit__.return_value = None
         
-        with patch("calendarbot_lite.debug_helpers.httpx.AsyncClient") as mock_httpx:
+        with patch("calendarbot_lite.core.debug_helpers.httpx.AsyncClient") as mock_httpx:
             mock_httpx.return_value = mock_client_cm
             
             chunks = []
@@ -270,7 +270,7 @@ class TestFetchIcsStream:
         mock_client_cm.__aenter__.return_value = mock_client
         mock_client_cm.__aexit__.return_value = None
         
-        with patch("calendarbot_lite.debug_helpers.httpx.AsyncClient") as mock_httpx:
+        with patch("calendarbot_lite.core.debug_helpers.httpx.AsyncClient") as mock_httpx:
             mock_httpx.return_value = mock_client_cm
             
             chunks = []
@@ -294,7 +294,7 @@ class TestParseStreamViaParser:
         mock_result = Mock()
         
         with patch(
-            "calendarbot_lite.debug_helpers.parse_ics_stream", return_value=mock_result
+            "calendarbot_lite.core.debug_helpers.parse_ics_stream", return_value=mock_result
         ) as mock_parse:
             result = await parse_stream_via_parser(
                 mock_stream(), source_url="https://example.com"
@@ -328,7 +328,7 @@ class TestExpandCandidatesToTrace:
         mock_settings = Mock()
         
         with patch(
-            "calendarbot_lite.debug_helpers.expand_events_async",
+            "calendarbot_lite.core.debug_helpers.expand_events_async",
             return_value=[mock_event, mock_event],
         ):
             result = await expand_candidates_to_trace(candidates, mock_settings)
@@ -355,7 +355,7 @@ class TestExpandCandidatesToTrace:
         mock_settings = Mock()
 
         with patch(
-            "calendarbot_lite.debug_helpers.expand_events_async",
+            "calendarbot_lite.core.debug_helpers.expand_events_async",
             return_value=[mock_event] * 10,
         ):
             result = await expand_candidates_to_trace(
@@ -372,7 +372,7 @@ class TestExpandCandidatesToTrace:
         mock_settings = Mock()
         
         with patch(
-            "calendarbot_lite.debug_helpers.expand_events_async",
+            "calendarbot_lite.core.debug_helpers.expand_events_async",
             side_effect=Exception("Expansion failed"),
         ):
             result = await expand_candidates_to_trace(candidates, mock_settings)

@@ -9,7 +9,7 @@ import time
 
 import pytest
 
-from calendarbot_lite.rate_limiter import (
+from calendarbot_lite.api.middleware.rate_limiter import (
     RateLimitConfig,
     RateLimiter,
     get_bearer_token,

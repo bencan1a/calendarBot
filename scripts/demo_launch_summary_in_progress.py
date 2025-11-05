@@ -11,9 +11,9 @@ import asyncio
 import datetime
 from unittest.mock import Mock
 
-from calendarbot_lite.alexa_handlers import LaunchSummaryHandler
-from calendarbot_lite.alexa_presentation import PlainTextPresenter
-from calendarbot_lite.lite_models import LiteCalendarEvent, LiteDateTimeInfo
+from calendarbot_lite.alexa.alexa_handlers import LaunchSummaryHandler
+from calendarbot_lite.alexa.alexa_presentation import PlainTextPresenter
+from calendarbot_lite.calendar.lite_models import LiteCalendarEvent, LiteDateTimeInfo
 
 
 async def test_scenario(scenario_name: str, test_time: datetime.datetime, events: list) -> None:

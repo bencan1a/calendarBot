@@ -2,7 +2,7 @@
 
 import pytest
 
-from calendarbot_lite.lite_parser_telemetry import ParserTelemetry
+from calendarbot_lite.calendar.lite_parser_telemetry import ParserTelemetry
 
 pytestmark = pytest.mark.unit
 

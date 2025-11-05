@@ -354,8 +354,8 @@ class TestMonitoringIntegration:
     def test_monitoring_logging_integration_when_server_import_then_no_errors(self) -> None:
         """Test that monitoring logging integrates with server without errors."""
         try:
-            from calendarbot_lite.monitoring_logging import get_logger, log_server_event
-            from calendarbot_lite.server import log_monitoring_event
+            from calendarbot_lite.core.monitoring_logging import get_logger, log_server_event
+            from calendarbot_lite.api.server import log_monitoring_event
             
             # Should import successfully
             logger = get_logger("test")
@@ -370,7 +370,7 @@ class TestMonitoringIntegration:
 
     def test_structured_logging_schema_when_created_then_follows_specification(self) -> None:
         """Test that structured logs follow the specified schema."""
-        from calendarbot_lite.monitoring_logging import LogEntry
+        from calendarbot_lite.core.monitoring_logging import LogEntry
         
         entry = LogEntry(
             component="server",
@@ -399,7 +399,7 @@ class TestMonitoringIntegration:
 
     def test_rate_limiting_integration_when_multiple_loggers_then_shared_state(self) -> None:
         """Test that rate limiting works across multiple logger instances."""
-        from calendarbot_lite.monitoring_logging import get_logger
+        from calendarbot_lite.core.monitoring_logging import get_logger
         
         logger1 = get_logger("component1")
         logger2 = get_logger("component2")
@@ -466,9 +466,9 @@ class TestEndToEndMonitoring:
     @pytest.mark.asyncio
     async def test_monitoring_logging_when_server_events_then_structured_output(self) -> None:
         """Test that server events produce structured monitoring logs."""
-        from calendarbot_lite.monitoring_logging import get_logger
+        from calendarbot_lite.core.monitoring_logging import get_logger
         
-        from calendarbot_lite.monitoring_logging import MonitoringLogger
+        from calendarbot_lite.core.monitoring_logging import MonitoringLogger
         
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "monitor_test.log"

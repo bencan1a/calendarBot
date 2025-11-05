@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from calendarbot_lite.skipped_store import SkippedStore
+from calendarbot_lite.domain.skipped_store import SkippedStore
 
 pytestmark = pytest.mark.unit
 

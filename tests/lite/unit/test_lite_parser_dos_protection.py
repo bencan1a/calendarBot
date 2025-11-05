@@ -7,7 +7,7 @@ import asyncio
 
 import pytest
 
-from calendarbot_lite.lite_streaming_parser import (
+from calendarbot_lite.calendar.lite_streaming_parser import (
     MAX_PARSER_ITERATIONS,
     MAX_PARSER_TIMEOUT_SECONDS,
     parse_ics_stream,

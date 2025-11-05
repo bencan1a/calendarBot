@@ -8,13 +8,13 @@ from unittest.mock import AsyncMock, Mock, patch
 import httpx
 import pytest
 
-from calendarbot_lite.lite_fetcher import (
+from calendarbot_lite.calendar.lite_fetcher import (
     LiteICSAuthError,
     LiteICSFetcher,
     LiteICSNetworkError,
     LiteSecurityEventLogger,
 )
-from calendarbot_lite.lite_models import LiteICSResponse, LiteICSSource
+from calendarbot_lite.calendar.lite_models import LiteICSResponse, LiteICSSource
 
 pytestmark = pytest.mark.integration
 
@@ -111,7 +111,7 @@ class TestSSRFProtection:
         from unittest.mock import Mock
 
         mock_urlparse = Mock(side_effect=ValueError("Invalid URL format"))
-        monkeypatch.setattr("calendarbot_lite.lite_fetcher.urlparse", mock_urlparse)
+        monkeypatch.setattr("calendarbot_lite.calendar.lite_fetcher.urlparse", mock_urlparse)
 
         # Call with any URL - urlparse will raise ValueError
         result = test_fetcher._validate_url_for_ssrf("http://example.com")
@@ -181,10 +181,10 @@ class TestSecurityEventLogger:
         # Set the module logger to DEBUG level to capture debug messages
         import logging
 
-        logger = logging.getLogger("calendarbot_lite.lite_fetcher")
+        logger = logging.getLogger("calendarbot_lite.calendar.lite_fetcher")
         logger.setLevel(logging.DEBUG)
 
-        with caplog.at_level(logging.DEBUG, logger="calendarbot_lite.lite_fetcher"):
+        with caplog.at_level(logging.DEBUG, logger="calendarbot_lite.calendar.lite_fetcher"):
             event_data = {
                 "event_type": "DATA_ACCESS",
                 "severity": "LOW",
@@ -623,7 +623,7 @@ async def test_fetcher_uses_default_browser_headers() -> None:
     Verify LiteICSFetcher.fetch_ics uses DEFAULT_BROWSER_HEADERS and that
     browser headers take precedence over per-request custom_headers on collisions.
     """
-    from calendarbot_lite.lite_models import LiteICSSource
+    from calendarbot_lite.calendar.lite_models import LiteICSSource
 
     settings = SimpleNamespace(request_timeout=30, max_retries=1, retry_backoff_factor=1.0)
     fetcher = LiteICSFetcher(settings)
@@ -667,7 +667,7 @@ async def test_fetcher_uses_default_browser_headers() -> None:
     captured_headers = captured["headers"]
 
     # All DEFAULT_BROWSER_HEADERS keys must be present
-    from calendarbot_lite.http_client import DEFAULT_BROWSER_HEADERS as _DEFAULT
+    from calendarbot_lite.core.http_client import DEFAULT_BROWSER_HEADERS as _DEFAULT
 
     for key in _DEFAULT:
         assert key in captured_headers, f"Missing browser header: {key}"
@@ -821,8 +821,8 @@ async def test_fetcher_merges_conditional_and_auth_headers() -> None:
     Verify that conditional headers and authentication headers are merged with
     DEFAULT_BROWSER_HEADERS and preserved in the outgoing request.
     """
-    from calendarbot_lite.http_client import DEFAULT_BROWSER_HEADERS
-    from calendarbot_lite.lite_models import LiteAuthType, LiteICSAuth, LiteICSSource
+    from calendarbot_lite.core.http_client import DEFAULT_BROWSER_HEADERS
+    from calendarbot_lite.calendar.lite_models import LiteAuthType, LiteICSAuth, LiteICSSource
 
     settings = SimpleNamespace(request_timeout=30, max_retries=1, retry_backoff_factor=1.0)
     fetcher = LiteICSFetcher(settings)
