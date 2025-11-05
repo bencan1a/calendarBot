@@ -32,7 +32,9 @@ class TimezoneDetector:
 
     # Windows timezone names to IANA identifier mapping
     # Common Windows timezones used in ICS files from Outlook/Exchange
+    # https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/default-time-zones
     WINDOWS_TZ_MAP: ClassVar[dict[str, str]] = {
+        # US Timezones
         "Pacific Standard Time": "America/Los_Angeles",
         "Mountain Standard Time": "America/Denver",
         "Central Standard Time": "America/Chicago",
@@ -40,13 +42,94 @@ class TimezoneDetector:
         "Alaskan Standard Time": "America/Anchorage",
         "Hawaiian Standard Time": "Pacific/Honolulu",
         "Arizona Standard Time": "America/Phoenix",
+        "US Mountain Standard Time": "America/Phoenix",  # Arizona (no DST)
+        "Atlantic Standard Time": "America/Halifax",
+        "Newfoundland Standard Time": "America/St_Johns",
+        "Saskatchewan Standard Time": "America/Regina",
+        # Europe
         "GMT Standard Time": "Europe/London",
         "Central European Standard Time": "Europe/Paris",
         "W. Europe Standard Time": "Europe/Berlin",
+        "E. Europe Standard Time": "Europe/Bucharest",
+        "FLE Standard Time": "Europe/Helsinki",  # Finland, Latvia, Estonia
+        "GTB Standard Time": "Europe/Athens",  # Greece, Turkey, Bulgaria
+        "Romance Standard Time": "Europe/Brussels",
+        "Central Europe Standard Time": "Europe/Budapest",
+        "W. Central Africa Standard Time": "Africa/Lagos",
+        "Russian Standard Time": "Europe/Moscow",
+        # Asia
         "China Standard Time": "Asia/Shanghai",
         "Tokyo Standard Time": "Asia/Tokyo",
+        "Korea Standard Time": "Asia/Seoul",
+        "Singapore Standard Time": "Asia/Singapore",
+        "Taipei Standard Time": "Asia/Taipei",
         "India Standard Time": "Asia/Kolkata",
+        "Sri Lanka Standard Time": "Asia/Colombo",
+        "Myanmar Standard Time": "Asia/Yangon",
+        "SE Asia Standard Time": "Asia/Bangkok",
+        "N. Central Asia Standard Time": "Asia/Novosibirsk",
+        "West Asia Standard Time": "Asia/Karachi",
+        "Central Asia Standard Time": "Asia/Almaty",
+        "Afghanistan Standard Time": "Asia/Kabul",
+        "Pakistan Standard Time": "Asia/Karachi",
+        "Iran Standard Time": "Asia/Tehran",
+        "Arabian Standard Time": "Asia/Dubai",
+        "Arabic Standard Time": "Asia/Baghdad",
+        "Israel Standard Time": "Asia/Jerusalem",
+        "Jordan Standard Time": "Asia/Amman",
+        "Syria Standard Time": "Asia/Damascus",
+        # Australia & Pacific
         "AUS Eastern Standard Time": "Australia/Sydney",
+        "AUS Central Standard Time": "Australia/Darwin",
+        "Cen. Australia Standard Time": "Australia/Adelaide",
+        "E. Australia Standard Time": "Australia/Brisbane",
+        "Tasmania Standard Time": "Australia/Hobart",
+        "W. Australia Standard Time": "Australia/Perth",
+        "New Zealand Standard Time": "Pacific/Auckland",
+        "Fiji Standard Time": "Pacific/Fiji",
+        # Americas (South America)
+        "Pacific SA Standard Time": "America/Santiago",
+        "SA Pacific Standard Time": "America/Bogota",
+        "SA Western Standard Time": "America/La_Paz",
+        "SA Eastern Standard Time": "America/Cayenne",
+        "Argentina Standard Time": "America/Buenos_Aires",
+        "E. South America Standard Time": "America/Sao_Paulo",
+        "Greenland Standard Time": "America/Nuuk",
+        # Africa & Middle East
+        "South Africa Standard Time": "Africa/Johannesburg",
+        "Egypt Standard Time": "Africa/Cairo",
+        "Libya Standard Time": "Africa/Tripoli",
+        "Namibia Standard Time": "Africa/Windhoek",
+        "Morocco Standard Time": "Africa/Casablanca",
+    }
+    
+    # Timezone aliases mapping (obsolete/deprecated IANA names to current names)
+    # These are common aliases found in older ICS files or legacy systems
+    TZ_ALIAS_MAP: ClassVar[dict[str, str]] = {
+        # US aliases (obsolete)
+        "US/Pacific": "America/Los_Angeles",
+        "US/Mountain": "America/Denver",
+        "US/Central": "America/Chicago",
+        "US/Eastern": "America/New_York",
+        "US/Alaska": "America/Anchorage",
+        "US/Hawaii": "Pacific/Honolulu",
+        "US/Arizona": "America/Phoenix",
+        # Other common aliases
+        "UTC": "UTC",  # Identity mapping for clarity
+        "GMT": "UTC",
+        "Etc/UTC": "UTC",
+        "Etc/GMT": "UTC",
+        "Etc/Universal": "UTC",
+        "Universal": "UTC",
+        "Zulu": "UTC",
+        # Legacy names
+        "PST8PDT": "America/Los_Angeles",
+        "MST7MDT": "America/Denver",
+        "CST6CDT": "America/Chicago",
+        "EST5EDT": "America/New_York",
+        # Deprecated IANA names (for backward compatibility)
+        "Asia/Rangoon": "Asia/Yangon",  # Myanmar
+        "America/Godthab": "America/Nuuk",  # Greenland
     }
 
     # UTC offset (hours) to IANA identifier mapping
@@ -279,6 +362,79 @@ def windows_tz_to_iana(windows_tz: str) -> str | None:
         IANA timezone identifier (e.g., "America/Denver") or None if not found
     """
     return _detector.WINDOWS_TZ_MAP.get(windows_tz)
+
+
+def resolve_timezone_alias(tz_name: str) -> str:
+    """Resolve timezone alias to canonical IANA timezone identifier.
+    
+    Handles obsolete timezone names (e.g., US/Pacific -> America/Los_Angeles)
+    and common aliases. If the timezone is not an alias, returns it unchanged.
+    
+    Args:
+        tz_name: Timezone name or alias (e.g., "US/Pacific", "America/Los_Angeles")
+        
+    Returns:
+        Canonical IANA timezone identifier
+        
+    Examples:
+        >>> resolve_timezone_alias("US/Pacific")
+        'America/Los_Angeles'
+        >>> resolve_timezone_alias("America/Los_Angeles")
+        'America/Los_Angeles'
+        >>> resolve_timezone_alias("GMT")
+        'UTC'
+    """
+    return _detector.TZ_ALIAS_MAP.get(tz_name, tz_name)
+
+
+def normalize_timezone_name(tz_str: str) -> str | None:
+    """Normalize timezone string to canonical IANA timezone identifier.
+    
+    This function provides comprehensive timezone name resolution:
+    1. Checks if it's a Windows timezone name
+    2. Checks if it's a timezone alias
+    3. Validates the timezone with zoneinfo
+    4. Returns None if the timezone cannot be resolved
+    
+    Args:
+        tz_str: Timezone string (Windows name, alias, or IANA identifier)
+        
+    Returns:
+        Canonical IANA timezone identifier or None if invalid
+        
+    Examples:
+        >>> normalize_timezone_name("Pacific Standard Time")
+        'America/Los_Angeles'
+        >>> normalize_timezone_name("US/Pacific")
+        'America/Los_Angeles'
+        >>> normalize_timezone_name("America/Los_Angeles")
+        'America/Los_Angeles'
+        >>> normalize_timezone_name("Invalid/Timezone")
+        None
+    """
+    if not tz_str:
+        return None
+        
+    try:
+        import zoneinfo
+        
+        # Try Windows timezone conversion first
+        windows_tz = windows_tz_to_iana(tz_str)
+        if windows_tz:
+            # Validate the mapped timezone
+            zoneinfo.ZoneInfo(windows_tz)
+            return windows_tz
+        
+        # Try timezone alias resolution
+        resolved_tz = resolve_timezone_alias(tz_str)
+        
+        # Validate the resolved timezone
+        zoneinfo.ZoneInfo(resolved_tz)
+        return resolved_tz
+        
+    except Exception:
+        logger.warning("Failed to normalize timezone: %r", tz_str)
+        return None
 
 
 def convert_to_server_tz(dt: datetime.datetime) -> datetime.datetime:

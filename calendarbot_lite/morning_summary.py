@@ -284,7 +284,7 @@ class MorningSummaryService:
         try:
             # Validate inputs
             if not isinstance(events, list):
-                raise ValueError("Events must be a list")  # noqa: TRY004, TRY301
+                raise ValueError("Events must be a list")  # noqa: TRY004
 
             # Performance check (Story 8)
             if len(events) > MAX_EVENTS_LIMIT:
