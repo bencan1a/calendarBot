@@ -324,7 +324,7 @@ END:VCALENDAR"""
 @pytest.mark.asyncio
 async def test_streaming_parser_memory_cleanup_on_parse_errors():
     """Test that event objects are properly cleaned up when parse errors occur.
-    
+
     This is a regression test for the memory leak issue where event objects
     weren't released in error paths, causing memory accumulation over time.
     """
@@ -378,7 +378,7 @@ END:VCALENDAR"""
 @pytest.mark.asyncio
 async def test_streaming_parser_memory_cleanup_on_circuit_breaker():
     """Test that event objects are properly cleaned up when circuit breaker triggers.
-    
+
     This tests the early return path (circuit breaker) to ensure event cleanup
     happens even when the function returns early.
     """
@@ -396,7 +396,7 @@ STATUS:CONFIRMED
 END:VEVENT
 """
         events.append(event)
-    
+
     ics_content = f"""BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:Test Calendar
