@@ -65,7 +65,7 @@ class TimezoneDetector:
         "Taipei Standard Time": "Asia/Taipei",
         "India Standard Time": "Asia/Kolkata",
         "Sri Lanka Standard Time": "Asia/Colombo",
-        "Myanmar Standard Time": "Asia/Rangoon",
+        "Myanmar Standard Time": "Asia/Yangon",
         "SE Asia Standard Time": "Asia/Bangkok",
         "N. Central Asia Standard Time": "Asia/Novosibirsk",
         "West Asia Standard Time": "Asia/Karachi",
@@ -94,7 +94,7 @@ class TimezoneDetector:
         "SA Eastern Standard Time": "America/Cayenne",
         "Argentina Standard Time": "America/Buenos_Aires",
         "E. South America Standard Time": "America/Sao_Paulo",
-        "Greenland Standard Time": "America/Godthab",
+        "Greenland Standard Time": "America/Nuuk",
         # Africa & Middle East
         "South Africa Standard Time": "Africa/Johannesburg",
         "Egypt Standard Time": "Africa/Cairo",
@@ -127,6 +127,9 @@ class TimezoneDetector:
         "MST7MDT": "America/Denver",
         "CST6CDT": "America/Chicago",
         "EST5EDT": "America/New_York",
+        # Deprecated IANA names (for backward compatibility)
+        "Asia/Rangoon": "Asia/Yangon",  # Myanmar
+        "America/Godthab": "America/Nuuk",  # Greenland
     }
 
     # UTC offset (hours) to IANA identifier mapping
