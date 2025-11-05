@@ -973,11 +973,17 @@ async def _refresh_once(
         .add_stage(EventLimitStage())
     )
 
+    # Calculate window start to include past events from today
+    # Go back 24 hours to ensure we capture events from "today" in any timezone
+    # This is needed for done-for-day queries that need to see completed meetings
+    import datetime
+    window_start = now - datetime.timedelta(hours=24)
+
     # Create context for post-processing
     post_context = ProcessingContext(
         events=parsed_events,
         skipped_event_ids=skipped_event_ids,
-        window_start=now,  # Start from current time
+        window_start=window_start,  # Start from 24 hours ago to include past events from today
         window_end=None,  # No end limit (TimeWindowStage will handle)
         event_window_size=window_size,
         now=now
@@ -1264,7 +1270,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
     # Initialize rate limiter for Alexa endpoints
     rate_limiter = None
     try:
-        from .rate_limiter import RateLimiter, RateLimitConfig
+        from .rate_limiter import RateLimitConfig, RateLimiter
 
         # Get rate limit configuration from config or use defaults
         rate_limit_config = RateLimitConfig(

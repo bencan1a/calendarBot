@@ -15,6 +15,7 @@ Design Philosophy:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from dataclasses import dataclass, field
@@ -102,14 +103,10 @@ class RateLimiter:
             logger.debug("Rate limiter cleanup task started")
 
     async def stop(self) -> None:
-        """Stop background cleanup task."""
         if self._cleanup_task and not self._cleanup_task.done():
             self._cleanup_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._cleanup_task
-            except asyncio.CancelledError:
-                # Expected when cancelling the cleanup task; safe to ignore.
-                pass
             logger.debug("Rate limiter cleanup task stopped")
 
     async def check_rate_limit(

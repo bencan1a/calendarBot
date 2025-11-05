@@ -258,20 +258,20 @@ class TestMonitoringLogger:
         """Test that log method works with valid event."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "test.log"
-            
+
             logger = MonitoringLogger(
-                name="test_logger",
+                name="test_logger_unique_file",
                 component="test",
                 level="DEBUG",
                 local_file=log_file,
                 journald=False,
             )
-            
+
             result = logger.log(
                 "INFO", "test.event", "Test message",
                 details={"key": "value"}
             )
-            
+
             assert result is True
             # Force log handler to flush
             for handler in logger.logger.handlers:

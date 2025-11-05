@@ -373,9 +373,14 @@ class AlexaEndpointBase(ABC):
 
             seconds_until = int((start - now).total_seconds())
 
-            # Skip past events
-            if seconds_until < 0:
-                continue
+            # For all-day events: active for the entire day, always include
+            # For timed events: skip if already ended OR currently in progress
+            # (in-progress meetings are handled by _find_current_meeting)
+            if not ev.is_all_day:
+                end = ev.end.date_time
+                # Skip if meeting has ended or is in progress
+                if isinstance(end, datetime.datetime) and (end <= now or (start <= now < end)):
+                    continue
 
             # Skip focus time events if requested
             if skip_focus_time and self._is_focus_time(ev):
@@ -1071,10 +1076,16 @@ class LaunchSummaryHandler(AlexaEndpointBase):
             if not isinstance(start, datetime.datetime) or not isinstance(end, datetime.datetime):
                 continue
 
-            start_local = start.astimezone(tz)
+            # For all-day events, extract date from UTC time (which represents the calendar date)
+            # For timed events, convert to local timezone for date comparison
+            if ev.is_all_day:
+                event_date = start.date()  # All-day events stored at midnight UTC represent this date
+            else:
+                start_local = start.astimezone(tz)
+                event_date = start_local.date()
 
             # Only check today's meetings
-            if start_local.date() != today_date:
+            if event_date != today_date:
                 continue
 
             # Check if meeting is currently in progress (start <= now < end)
@@ -1121,19 +1132,30 @@ class LaunchSummaryHandler(AlexaEndpointBase):
             if not isinstance(start, datetime.datetime):
                 continue
 
-            start_local = start.astimezone(tz)
+            # For all-day events, extract date from UTC time (which represents the calendar date)
+            # For timed events, convert to local timezone for date comparison
+            if ev.is_all_day:
+                event_date = start.date()  # All-day events stored at midnight UTC represent this date
+            else:
+                start_local = start.astimezone(tz)
+                event_date = start_local.date()
 
             # Filter by date based on include_today parameter
             if include_today:
-                if start_local.date() != today_date:
+                if event_date != today_date:
                     continue  # Skip non-today meetings
-            elif start_local.date() <= today_date:
+            elif event_date <= today_date:
                 continue  # Skip today's and past meetings
 
-            # Skip past meetings
+            # For all-day events: active for the entire day, always include
+            # For timed events: skip if already ended OR currently in progress
+            # (in-progress meetings are handled by _find_current_meeting)
             seconds_until = int((start - now).total_seconds())
-            if seconds_until < 0:
-                continue
+            if not ev.is_all_day:
+                end = ev.end.date_time
+                # Skip if meeting has ended or is in progress
+                if isinstance(end, datetime.datetime) and (end <= now or (start <= now < end)):
+                    continue
 
             # Check if skipped
             if self._is_skipped(ev):
