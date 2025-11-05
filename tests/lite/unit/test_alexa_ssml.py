@@ -529,7 +529,7 @@ class TestRenderMeetingSsml:
         
         result = render_meeting_ssml(meeting)
         assert result is None
-        mock_logger.error.assert_called()
+        mock_logger.exception.assert_called()
 
 
 class TestRenderTimeUntilSsml:
@@ -622,7 +622,7 @@ class TestRenderTimeUntilSsml:
         # Force an exception with invalid seconds_until type
         result = render_time_until_ssml("invalid")  # type: ignore
         assert result is None
-        mock_logger.error.assert_called()
+        mock_logger.exception.assert_called()
 
 
 class TestSsmlPerformanceConstraints:
@@ -835,7 +835,7 @@ class TestRenderDoneForDaySsml:
         
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text)
         assert result is None
-        mock_logger.error.assert_called()
+        mock_logger.exception.assert_called()
 
     def test_render_done_for_day_ssml_generates_valid_ssml_structure(self):
         """Test that generated SSML has valid structure."""
