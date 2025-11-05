@@ -7,6 +7,7 @@ Extracted from lite_parser.py to improve modularity and testability.
 
 import codecs
 import logging
+import time
 from collections.abc import AsyncGenerator, AsyncIterator, Generator
 from io import StringIO
 from pathlib import Path
@@ -34,6 +35,10 @@ STREAMING_THRESHOLD = 10 * 1024 * 1024  # 10MB threshold for streaming vs tradit
 DEFAULT_READ_CHUNK_SIZE_BYTES = 8192  # 8KB chunks for stream reading
 DEFAULT_MAX_LINE_LENGTH_BYTES = 32768  # 32KB max line length
 DEFAULT_STREAM_DECODE_ERRORS = "replace"  # UTF-8 decode error handling
+
+# DoS protection constants (CWE-835: Loop with Unreachable Exit Condition)
+MAX_PARSER_ITERATIONS = 10000  # Maximum iterations to prevent infinite loops
+MAX_PARSER_TIMEOUT_SECONDS = 30  # Maximum wall-clock time for parsing (30 seconds)
 
 
 class LiteICSContentTooLargeError(Exception):
@@ -396,12 +401,12 @@ async def parse_ics_stream(
 
         # Process the stream and collect results
         events: list[LiteCalendarEvent] = []
-        warnings = []
-        errors = []
+        warnings: list[str] = []
+        errors: list[str] = []
         total_components = 0
         event_count = 0
         recurring_event_count = 0
-        calendar_metadata = {}
+        calendar_metadata: dict[str, str] = {}
 
         # Parse stream with memory-bounded processing
         max_stored_events = 1000  # Increased to handle calendars with many recurring events
@@ -409,7 +414,63 @@ async def parse_ics_stream(
         # Initialize telemetry for progress tracking and circuit breaker
         telemetry = ParserTelemetry(source_url=source_url)
 
+        # DoS protection: Track iterations and wall-clock time (CWE-835)
+        iteration_count = 0
+        parse_start_time = time.monotonic()
+
         async for item in parser.parse_from_bytes_iter(stream):
+            # Check iteration limit (protects against infinite loop from malformed calendars)
+            iteration_count += 1
+            if iteration_count > MAX_PARSER_ITERATIONS:
+                error_msg = (
+                    f"Parser iteration limit exceeded ({MAX_PARSER_ITERATIONS} iterations). "
+                    f"This may indicate a malformed or malicious ICS file. "
+                    f"Processed {event_count} events before termination."
+                )
+                logger.error(
+                    "SECURITY: Parser iteration limit exceeded - source_url=%s, iterations=%d, "
+                    "events_parsed=%d, elapsed_time=%.2fs",
+                    source_url,
+                    iteration_count,
+                    event_count,
+                    time.monotonic() - parse_start_time,
+                )
+                return LiteICSParseResult(
+                    success=False,
+                    error_message=error_msg,
+                    warnings=warnings,
+                    source_url=source_url,
+                    event_count=event_count,
+                    recurring_event_count=recurring_event_count,
+                    total_components=total_components,
+                )
+
+            # Check wall-clock timeout (protects against slow infinite loops)
+            elapsed_time = time.monotonic() - parse_start_time
+            if elapsed_time > MAX_PARSER_TIMEOUT_SECONDS:
+                error_msg = (
+                    f"Parser timeout exceeded ({MAX_PARSER_TIMEOUT_SECONDS}s elapsed). "
+                    f"This may indicate a malformed or malicious ICS file. "
+                    f"Processed {event_count} events in {iteration_count} iterations before timeout."
+                )
+                logger.error(
+                    "SECURITY: Parser timeout exceeded - source_url=%s, elapsed_time=%.2fs, "
+                    "iterations=%d, events_parsed=%d",
+                    source_url,
+                    elapsed_time,
+                    iteration_count,
+                    event_count,
+                )
+                return LiteICSParseResult(
+                    success=False,
+                    error_message=error_msg,
+                    warnings=warnings,
+                    source_url=source_url,
+                    event_count=event_count,
+                    recurring_event_count=recurring_event_count,
+                    total_components=total_components,
+                )
+
             telemetry.record_item()
 
             if item["type"] == "event":

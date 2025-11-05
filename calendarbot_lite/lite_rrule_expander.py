@@ -3,7 +3,7 @@
 # ruff: noqa: I001
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, timedelta, UTC
+from datetime import date, datetime, timedelta, UTC
 import logging
 import time
 from typing import Any, Optional
@@ -949,6 +949,9 @@ class RRuleOrchestrator:
 
         # Synthesize a lightweight event object with minimal attributes
         candidate_event = _SimpleEvent()
+        
+        # Initialize is_all_day flag (will be set to True if date-only event detected)
+        candidate_event.is_all_day = False
 
         # Decode DTSTART/DTEND from the raw component
         try:
@@ -958,22 +961,47 @@ class RRuleOrchestrator:
             # Wrap start and end in simple containers expected by expander
             if isinstance(dtstart_raw, datetime):
                 candidate_event.start = _DateTimeWrapper(dtstart_raw)
-            else:
-                # fallback parse string - use simple UTC conversion
-                dt_str = str(component.get("DTSTART"))
-                dt = datetime.strptime(dt_str.rstrip("Z"), "%Y%m%dT%H%M%S")
+            elif isinstance(dtstart_raw, date):
+                # Handle date-only events (all-day events like birthdays, holidays)
+                # Convert date to datetime at midnight UTC
+                dt = datetime.combine(dtstart_raw, datetime.min.time())
                 candidate_event.start = _DateTimeWrapper(dt.replace(tzinfo=UTC))
+                candidate_event.is_all_day = True
+            else:
+                # fallback parse string - try both datetime and date formats
+                dt_str = str(component.get("DTSTART"))
+                try:
+                    # Try datetime format first
+                    dt = datetime.strptime(dt_str.rstrip("Z"), "%Y%m%dT%H%M%S")
+                    candidate_event.start = _DateTimeWrapper(dt.replace(tzinfo=UTC))
+                except ValueError:
+                    # Try date format for all-day events
+                    dt = datetime.strptime(dt_str, "%Y%m%d")
+                    candidate_event.start = _DateTimeWrapper(dt.replace(tzinfo=UTC))
+                    candidate_event.is_all_day = True
 
             if dtend_raw and isinstance(dtend_raw, datetime):
                 candidate_event.end = _DateTimeWrapper(dtend_raw)
+            elif dtend_raw and isinstance(dtend_raw, date):
+                # Handle date-only end for all-day events
+                dt = datetime.combine(dtend_raw, datetime.min.time())
+                candidate_event.end = _DateTimeWrapper(dt.replace(tzinfo=UTC))
             elif dtend_raw:
                 dt_str = str(component.get("DTEND"))
-                dt = datetime.strptime(dt_str.rstrip("Z"), "%Y%m%dT%H%M%S")
-                candidate_event.end = _DateTimeWrapper(dt.replace(tzinfo=UTC))
+                try:
+                    # Try datetime format first
+                    dt = datetime.strptime(dt_str.rstrip("Z"), "%Y%m%dT%H%M%S")
+                    candidate_event.end = _DateTimeWrapper(dt.replace(tzinfo=UTC))
+                except ValueError:
+                    # Try date format for all-day events
+                    dt = datetime.strptime(dt_str, "%Y%m%d")
+                    candidate_event.end = _DateTimeWrapper(dt.replace(tzinfo=UTC))
             else:
-                # If DTEND missing, approximate using duration of one hour
+                # If DTEND missing, approximate using duration
+                # For all-day events, use 1 day; for timed events, use 1 hour
+                duration = timedelta(days=1) if candidate_event.is_all_day else timedelta(hours=1)
                 candidate_event.end = _DateTimeWrapper(
-                    candidate_event.start.date_time + timedelta(hours=1)
+                    candidate_event.start.date_time + duration
                 )
         except Exception:
             # Last-resort defaults
@@ -988,7 +1016,7 @@ class RRuleOrchestrator:
         )
         candidate_event.body_preview = ""  # Default empty body preview
         candidate_event.is_recurring = True
-        candidate_event.is_all_day = False
+        # Note: is_all_day is already set during date/datetime parsing
         candidate_event.is_cancelled = False
         candidate_event.is_online_meeting = False
         candidate_event.online_meeting_url = None
