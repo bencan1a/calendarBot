@@ -72,12 +72,12 @@ class DependencyContainer:
 
         # Import required modules
         from calendarbot_lite.core.config_manager import get_config_value
-        from calendarbot_lite.core.event_filter import (
+        from calendarbot_lite.domain.event_filter import (
             EventFilter,
             EventWindowManager,
             SmartFallbackHandler,
         )
-        from calendarbot_lite.core.fetch_orchestrator import FetchOrchestrator
+        from calendarbot_lite.domain.fetch_orchestrator import FetchOrchestrator
         from calendarbot_lite.core.health_tracker import HealthTracker, get_system_diagnostics
         from calendarbot_lite.core.timezone_utils import (
             get_fallback_timezone,
@@ -113,7 +113,7 @@ class DependencyContainer:
         # Load SSML renderers if available
         ssml_renderers = {}
         try:
-            from calendarbot_lite.core.alexa_ssml import (
+            from calendarbot_lite.alexa.alexa_ssml import (
                 render_done_for_day_ssml,
                 render_meeting_ssml,
                 render_time_until_ssml,

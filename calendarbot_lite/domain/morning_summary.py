@@ -123,8 +123,8 @@ class FreeBlock(BaseModel):
         try:
             import zoneinfo
 
+            from calendarbot_lite.api.server import _get_server_timezone
             from calendarbot_lite.calendar.lite_datetime_utils import format_time_for_speech
-            from calendarbot_lite.domain.server import _get_server_timezone
 
             # Use provided timezone or fallback to server timezone
             tz_name = timezone_str or _get_server_timezone()
@@ -169,8 +169,8 @@ class MeetingInsight(BaseModel):
         try:
             import zoneinfo
 
+            from calendarbot_lite.api.server import _get_server_timezone
             from calendarbot_lite.calendar.lite_datetime_utils import format_time_for_speech
-            from calendarbot_lite.domain.server import _get_server_timezone
 
             # Use provided timezone or fallback to server timezone
             tz_name = timezone_str or _get_server_timezone()

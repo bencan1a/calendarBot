@@ -83,7 +83,7 @@ class LogEntry:
         # Get request ID from context if not provided
         if request_id is None:
             try:
-                from calendarbot_lite.core.middleware import get_request_id
+                from calendarbot_lite.api.middleware.correlation_id import get_request_id
 
                 self.request_id = get_request_id()
             except (ImportError, AttributeError):

@@ -25,7 +25,7 @@ class CorrelationIdFilter(logging.Filter):
         """
         # Import here to avoid circular dependency
         try:
-            from calendarbot_lite.calendar.middleware import get_request_id
+            from calendarbot_lite.api.middleware.correlation_id import get_request_id
 
             record.request_id = get_request_id()
         except (ImportError, AttributeError):

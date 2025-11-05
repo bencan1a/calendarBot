@@ -424,7 +424,7 @@ class LiteICSFetcher:
 
                 # Add correlation ID for request tracing (if available, doesn't override existing)
                 try:
-                    from calendarbot_lite.calendar.middleware import get_request_id
+                    from calendarbot_lite.api.middleware.correlation_id import get_request_id
 
                     request_id = get_request_id()
                     if request_id and request_id != "no-request-id":

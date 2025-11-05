@@ -61,7 +61,7 @@ def _get_headers_with_correlation_id() -> dict[str, str]:
 
     # Add correlation ID if available from context
     try:
-        from calendarbot_lite.core.middleware import get_request_id
+        from calendarbot_lite.api.middleware.correlation_id import get_request_id
 
         request_id = get_request_id()
         if request_id and request_id != "no-request-id":

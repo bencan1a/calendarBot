@@ -1311,7 +1311,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
     # Initialize rate limiter for Alexa endpoints
     rate_limiter = None
     try:
-        from calendarbot_lite.api.rate_limiter import RateLimitConfig, RateLimiter
+        from calendarbot_lite.api.middleware.rate_limiter import RateLimitConfig, RateLimiter
 
         # Get rate limit configuration from config or use defaults
         rate_limit_config = RateLimitConfig(
