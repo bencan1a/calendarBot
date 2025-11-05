@@ -161,7 +161,7 @@ def call_calendarbot_api(endpoint_path: str) -> dict[str, Any]:
             logger.info("API response data: %s", json.dumps(data))
             return data
         logger.error("API returned non-200 status: %d", response.status)
-        raise Exception(f"API returned status {response.status}")  # noqa: TRY002, TRY301
+        raise Exception(f"API returned status {response.status}")  # noqa: TRY002
 
     except urllib.error.HTTPError as e:
         logger.exception("HTTP error calling API: %d %s", e.code, e.reason)

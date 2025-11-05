@@ -167,7 +167,7 @@ class LiteStreamingICSParser:
                     logger.error(
                         f"Streaming content too large: {total_bytes_processed} bytes exceeds {MAX_ICS_SIZE_BYTES} limit"
                     )
-                    raise LiteICSContentTooLargeError(  # noqa: TRY301
+                    raise LiteICSContentTooLargeError(
                         f"Streaming content too large: {total_bytes_processed} bytes exceeds {MAX_ICS_SIZE_BYTES} limit"
                     )
 
