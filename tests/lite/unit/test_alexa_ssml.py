@@ -163,6 +163,22 @@ class TestEscapeTextPreservingTags:
         """Test handling non-string input."""
         assert _escape_text_for_ssml_preserving_tags(None) == ""  # type: ignore
 
+    def test_escape_preserving_when_malformed_tag_then_escaped(self):
+        """Test that malformed tags are escaped, not preserved."""
+        # Incomplete tag (missing closing tag)
+        text = 'Meeting at <say-as interpret-as="time">9:30am'
+        result = _escape_text_for_ssml_preserving_tags(text)
+        # Should be escaped since it's not a complete valid tag
+        assert '&lt;say-as' in result or 'Meeting at 9:30am' in result
+
+    def test_escape_preserving_when_invalid_tag_name_then_escaped(self):
+        """Test that tags with invalid names are escaped."""
+        # Not a say-as tag, should be escaped
+        text = 'Meeting <say-as-something>text</say-as-something>'
+        result = _escape_text_for_ssml_preserving_tags(text)
+        # Should be escaped since it's not a valid say-as tag
+        assert '&lt;' in result or 'say-as-something' not in result.replace('&lt;', '<')
+
 
 class TestTruncateTitle:
     """Tests for _truncate_title helper function."""

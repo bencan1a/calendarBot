@@ -691,6 +691,24 @@ def _select_urgency(seconds_until: int) -> Literal["fast", "standard", "relaxed"
     return "relaxed"
 
 
+def _escape_xml_chars(text: str) -> str:
+    """Escape XML special characters in text.
+
+    Args:
+        text: Text to escape
+
+    Returns:
+        Text with XML special characters escaped
+    """
+    escaped = text.replace("&", "&amp;")
+    escaped = escaped.replace("<", "&lt;")
+    escaped = escaped.replace(">", "&gt;")
+    escaped = escaped.replace('"', "&quot;")
+    escaped = escaped.replace("'", "&apos;")
+    # Remove control characters that could break SSML
+    return "".join(char for char in escaped if ord(char) >= 32 or char in ["\n", "\t"])
+
+
 def _escape_text_for_ssml_preserving_tags(text: str) -> str:
     """Escape special characters in text for safe SSML inclusion while preserving SSML tags.
 
@@ -711,19 +729,13 @@ def _escape_text_for_ssml_preserving_tags(text: str) -> str:
 
     result_segments = []
     for segment in segments:
-        if segment.startswith('<say-as'):
-            # This is a tag - preserve it as is
+        # Check if this segment is a complete say-as tag by verifying it matches the pattern
+        if segment and SAY_AS_TAG_PATTERN.match(segment):
+            # This is a complete, valid say-as tag - preserve it as is
             result_segments.append(segment)
         else:
-            # This is regular text - escape it
-            escaped = segment.replace("&", "&amp;")
-            escaped = escaped.replace("<", "&lt;")
-            escaped = escaped.replace(">", "&gt;")
-            escaped = escaped.replace('"', "&quot;")
-            escaped = escaped.replace("'", "&apos;")
-            # Remove control characters that could break SSML
-            escaped = "".join(char for char in escaped if ord(char) >= 32 or char in ["\n", "\t"])
-            result_segments.append(escaped)
+            # This is regular text - escape it using shared logic
+            result_segments.append(_escape_xml_chars(segment))
 
     return "".join(result_segments)
 
@@ -740,15 +752,7 @@ def _escape_text_for_ssml(text: str) -> str:
     if not isinstance(text, str):
         return ""
 
-    # Escape XML special characters
-    escaped = text.replace("&", "&amp;")
-    escaped = escaped.replace("<", "&lt;")
-    escaped = escaped.replace(">", "&gt;")
-    escaped = escaped.replace('"', "&quot;")
-    escaped = escaped.replace("'", "&apos;")
-
-    # Remove control characters that could break SSML
-    return "".join(char for char in escaped if ord(char) >= 32 or char in ["\n", "\t"])
+    return _escape_xml_chars(text)
 
 
 def _truncate_title(text: str, max_chars: int = 50) -> str:
