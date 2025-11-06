@@ -73,6 +73,90 @@ test_structured_logging_schema_when_created_then_follows_specification()
 test_script_chain_when_executed_then_proper_data_flow()
 ```
 
+### test_scripts_enhanced.py (593 lines) - **Phase 2**
+Enhanced integration tests for monitoring script functionality and operational reliability.
+
+**Scripts Tested (Deep Validation):**
+- `log-aggregator.sh` - JSON report generation, retention, size limits
+- `log-shipper.sh` - Webhook payloads, rate limiting, retry logic
+- `critical-event-filter.sh` - Deduplication, hourly limits, state management
+- `monitoring-status.sh` - System metrics, health checks, caching
+
+**Key Test Areas:**
+- JSON output structure validation
+- Webhook payload formatting and authentication
+- Rate limiting and deduplication logic
+- State file persistence and management
+- Configuration via environment variables
+- Script constant validation (size limits, timeouts)
+- Data flow between script components
+
+**Test Classes:**
+```python
+@pytest.mark.integration
+class TestLogAggregatorJsonOutput:       # 8 tests - JSON validation
+class TestLogShipperWebhook:             # 6 tests - webhook integration
+class TestCriticalEventFilterLogic:     # 5 tests - deduplication
+class TestMonitoringStatusMetrics:      # 6 tests - metrics collection
+class TestScriptDataFlow:                # 4 tests - integration flow
+class TestScriptConfiguration:          # 4 tests - env vars & config
+
+@pytest.mark.unit
+class TestScriptConstants:              # 4 tests - constants validation
+```
+
+**Example Tests:**
+```python
+# JSON validation
+test_log_aggregator_when_report_generated_then_valid_json_structure()
+test_monitoring_status_when_json_output_then_valid_structure()
+
+# Webhook integration
+test_log_shipper_when_payload_created_then_valid_json()
+test_log_shipper_when_rate_limited_then_skips_shipping()
+
+# Deduplication & filtering
+test_critical_filter_when_duplicate_events_then_has_dedup_logic()
+test_critical_filter_when_hourly_limit_configured_then_has_throttling()
+
+# Configuration
+test_scripts_when_environment_vars_then_override_defaults()
+test_log_shipper_when_constants_defined_then_reasonable_values()
+```
+
+### test_installer.py (33KB) - **Phase 1**
+Tests for the automated kiosk installer script validation.
+
+**Components Tested:**
+- Configuration parsing and validation
+- Dry-run mode (preview without system changes)
+- State detection (fresh vs existing installation)
+- Section-specific installation logic
+- Backup mechanisms
+- Error handling and recovery
+
+**Key Test Areas:**
+- YAML configuration parsing
+- Installation section orchestration
+- Idempotency verification
+- Custom configuration options (ports, paths, tokens)
+- Advanced options (apt, git, firewall)
+
+**Example Tests:**
+```python
+# Configuration
+test_installer_when_valid_config_then_loads_successfully()
+test_installer_when_missing_username_then_validation_fails()
+
+# Dry-run mode
+test_installer_when_dry_run_then_shows_preview()
+test_installer_when_dry_run_then_no_system_changes()
+
+# Section validation
+test_installer_when_only_section_1_then_skips_others()
+test_installer_when_section_2_enabled_then_requires_section_1()
+```
+
 ## Running Kiosk Tests
 
 ### Run all kiosk tests
@@ -85,8 +169,14 @@ pytest tests/kiosk/
 # Watchdog tests only
 pytest tests/kiosk/test_watchdog.py
 
-# Script integration tests only
+# Script integration tests only (basic)
 pytest tests/kiosk/test_scripts_integration.py
+
+# Enhanced script tests only (Phase 2)
+pytest tests/kiosk/test_scripts_enhanced.py
+
+# Installer tests only (Phase 1)
+pytest tests/kiosk/test_installer.py
 ```
 
 ### Run with coverage
@@ -104,6 +194,11 @@ pytest tests/kiosk/test_scripts_integration.py::TestScriptPermissions
 
 # Integration scenarios
 pytest tests/kiosk/test_watchdog.py::TestIntegrationScenarios
+
+# Enhanced script tests by component
+pytest tests/kiosk/test_scripts_enhanced.py::TestLogAggregatorJsonOutput
+pytest tests/kiosk/test_scripts_enhanced.py::TestLogShipperWebhook
+pytest tests/kiosk/test_scripts_enhanced.py::TestCriticalEventFilterLogic
 ```
 
 ## Test Dependencies
@@ -201,13 +296,26 @@ chmod +x kiosk/scripts/*.sh
 ### Tests skip with "Network unavailable"
 Some webhook tests require network access. These tests gracefully skip if network is unavailable and won't cause test suite failures.
 
+## Test Coverage Summary
+
+| Component | Tests | Coverage | File |
+|-----------|-------|----------|------|
+| **Watchdog (Python)** | 69 | 90%+ | test_watchdog.py |
+| **Scripts (Enhanced)** | 37 | 70%+ | test_scripts_enhanced.py |
+| **Scripts (Integration)** | 24 | ~30% | test_scripts_integration.py |
+| **Installer** | 35 | TBD | test_installer.py |
+| **Total** | **146** | - | All files |
+
 ## Contributing
 
 When adding new kiosk tests:
 
 1. **Watchdog tests** → Add to [test_watchdog.py](test_watchdog.py)
-2. **Script tests** → Add to [test_scripts_integration.py](test_scripts_integration.py)
-3. Use appropriate test markers
-4. Include docstrings explaining what's being tested
-5. Clean up temporary files in teardown
-6. Handle missing dependencies gracefully (use `pytest.skip()`)
+2. **Basic script tests** → Add to [test_scripts_integration.py](test_scripts_integration.py)
+3. **Enhanced script tests** → Add to [test_scripts_enhanced.py](test_scripts_enhanced.py)
+4. **Installer tests** → Add to [test_installer.py](test_installer.py)
+5. Use appropriate test markers (`@pytest.mark.integration`, `@pytest.mark.unit`)
+6. Include docstrings explaining what's being tested
+7. Use temp directories to avoid permission issues
+8. Clean up temporary files in teardown
+9. Handle missing dependencies gracefully (use `pytest.skip()`)
