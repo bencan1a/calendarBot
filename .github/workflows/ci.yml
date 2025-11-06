@@ -582,7 +582,7 @@ jobs:
 
         # Create temporary directory for test
         TEMP_DIR=$(mktemp -d)
-        trap "rm -rf ${TEMP_DIR}" EXIT
+        trap "sudo rm -rf ${TEMP_DIR}" EXIT
 
         # Copy necessary files
         echo "📦 Preparing test environment..."
@@ -596,7 +596,9 @@ jobs:
         echo ""
 
         # Run with timeout to prevent hanging
+        # Use --user to match host user permissions and avoid root-owned files
         timeout 8m docker run --rm \
+          --user "$(id -u):$(id -g)" \
           --cpus="1.0" \
           --memory="512m" \
           --memory-swap="512m" \
