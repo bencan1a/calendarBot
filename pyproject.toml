@@ -301,8 +301,8 @@ disallow_untyped_decorators = false
 # Consolidated pytest configuration (migrated from pytest.ini and pytest-lite.ini)
 minversion = "7.0"
 
-# Test discovery settings — focus on lite tests only (archived tests excluded)
-testpaths = ["tests/lite"]
+# Test discovery settings — lite and kiosk tests (archived tests excluded)
+testpaths = ["tests/lite", "tests/kiosk"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

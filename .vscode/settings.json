@@ -5,7 +5,8 @@
     "python.terminal.activateEnvInCurrentTerminal": true,
     "python.envFile": "${workspaceFolder}/.env",
     "python.testing.pytestArgs": [
-        "tests/lite"
+        "tests/lite",
+        "tests/kiosk"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
