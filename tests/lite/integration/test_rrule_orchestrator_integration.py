@@ -60,21 +60,21 @@ def test_rrule_orchestrator_expands_recurring_events(tmp_path):
 
     # The parser should have expanded the daily RRULE (COUNT=3) into 3 event instances
     assert len(events) == 3, f"Expected 3 expanded instances from FREQ=DAILY;COUNT=3, got {len(events)}"
-    
+
     # All events should be based on the same base UID (test-rrule-1)
     # The parser appends occurrence time + hash for uniqueness: test-rrule-1_20251101T090000_<hash>
     base_uid = "test-rrule-1"
     for event in events:
         assert event.id.startswith(base_uid), f"Expected ID to start with '{base_uid}', got {event.id}"
-    
+
     # All events should have unique IDs (each instance gets unique ID)
     uids = {e.id for e in events}
     assert len(uids) == 3, f"Expected 3 unique IDs for 3 instances, got {len(uids)}"
-    
+
     # All events should have the same summary
     summaries = {e.subject for e in events}
     assert summaries == {"Daily Meeting"}, f"Expected 'Daily Meeting', got {summaries}"
-    
+
     # Verify the events are on consecutive days (daily recurrence)
     start_dates = sorted([e.start.date_time.date() for e in events])
     for i in range(1, len(start_dates)):

@@ -10,7 +10,7 @@ require('../../../../calendarbot/web/static/layouts/whats-next-view/whats-next-v
 describe('whats-next-view meeting data processing', () => {
     let container;
     let mockMeetingData;
-    
+
     beforeEach(() => {
         // Setup DOM container
         container = document.createElement('div');
@@ -42,7 +42,7 @@ describe('whats-next-view meeting data processing', () => {
                     description: 'Daily standup meeting'
                 },
                 {
-                    id: '2', 
+                    id: '2',
                     title: 'Product Review',
                     start_time: '2024-01-15T10:30:00Z', // Future meeting (30 min from now)
                     end_time: '2024-01-15T11:30:00Z',
@@ -91,7 +91,7 @@ describe('whats-next-view meeting data processing', () => {
                 // Find the next meeting that hasn't ended
                 for (const meeting of global.upcomingMeetings) {
                     const meetingEnd = new Date(meeting.end_time);
-                    
+
                     if (now < meetingEnd) {
                         nextMeeting = meeting;
                         break;
@@ -104,7 +104,7 @@ describe('whats-next-view meeting data processing', () => {
 
         test('finds next upcoming meeting', () => {
             global.upcomingMeetings = mockMeetingData.events;
-            
+
             detectCurrentMeeting();
 
             // Should select the Product Review meeting (next non-past meeting)
@@ -115,7 +115,7 @@ describe('whats-next-view meeting data processing', () => {
 
         test('handles empty meeting list', () => {
             global.upcomingMeetings = [];
-            
+
             detectCurrentMeeting();
 
             expect(global.currentMeeting).toBeNull();
@@ -123,7 +123,7 @@ describe('whats-next-view meeting data processing', () => {
 
         test('handles null meeting list', () => {
             global.upcomingMeetings = null;
-            
+
             detectCurrentMeeting();
 
             expect(global.currentMeeting).toBeNull();
@@ -133,7 +133,7 @@ describe('whats-next-view meeting data processing', () => {
             // Set time after the first meeting has ended
             jest.setSystemTime(new Date('2024-01-15T10:15:00Z'));
             global.upcomingMeetings = mockMeetingData.events;
-            
+
             detectCurrentMeeting();
 
             // Should skip the Team Standup (ended at 10:00) and select Product Review
@@ -144,7 +144,7 @@ describe('whats-next-view meeting data processing', () => {
             // Set time during the Product Review meeting
             jest.setSystemTime(new Date('2024-01-15T11:00:00Z'));
             global.upcomingMeetings = mockMeetingData.events;
-            
+
             detectCurrentMeeting();
 
             // Should still select Product Review as it's currently running
@@ -155,7 +155,7 @@ describe('whats-next-view meeting data processing', () => {
             // Set time after Product Review ends
             jest.setSystemTime(new Date('2024-01-15T12:00:00Z'));
             global.upcomingMeetings = mockMeetingData.events;
-            
+
             detectCurrentMeeting();
 
             // Should select Client Call as next meeting
@@ -166,7 +166,7 @@ describe('whats-next-view meeting data processing', () => {
             // Set time after all meetings
             jest.setSystemTime(new Date('2024-01-15T16:00:00Z'));
             global.upcomingMeetings = mockMeetingData.events;
-            
+
             detectCurrentMeeting();
 
             expect(global.currentMeeting).toBeNull();
@@ -217,7 +217,7 @@ describe('whats-next-view meeting data processing', () => {
             global.fetch.mockRejectedValue(fetchError);
 
             await expect(loadMeetingData()).rejects.toThrow('Network error');
-            
+
             expect(global.upcomingMeetings).toEqual([]);
             expect(global.currentMeeting).toBeNull();
         });
@@ -235,7 +235,7 @@ describe('whats-next-view meeting data processing', () => {
 
         test('updates last data timestamp', async () => {
             const beforeTime = new Date();
-            
+
             global.fetch.mockResolvedValue({
                 json: () => Promise.resolve(mockMeetingData)
             });
@@ -303,7 +303,7 @@ describe('whats-next-view meeting data processing', () => {
         test('returns time format for updates over 1 hour ago', () => {
             global.lastDataUpdate = new Date(Date.now() - 3600000); // 1 hour ago
             const result = formatLastUpdate();
-            
+
             // Should be in time format like "9:00 AM"
             expect(result).toMatch(/\d{1,2}:\d{2}\s(AM|PM)/);
         });
@@ -360,7 +360,7 @@ describe('whats-next-view meeting data processing', () => {
             global.currentMeeting = {
                 start_time: new Date(Date.now() + 3 * 60 * 1000).toISOString() // 3 minutes from now
             };
-            
+
             expect(getContextMessage(false)).toBe('Starting very soon');
         });
 
@@ -368,7 +368,7 @@ describe('whats-next-view meeting data processing', () => {
             global.currentMeeting = {
                 start_time: new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes from now
             };
-            
+
             expect(getContextMessage(false)).toBe('Starting soon');
         });
 
@@ -376,7 +376,7 @@ describe('whats-next-view meeting data processing', () => {
             global.currentMeeting = {
                 start_time: new Date(Date.now() + 45 * 60 * 1000).toISOString() // 45 minutes from now
             };
-            
+
             expect(getContextMessage(false)).toBe('Starting within the hour');
         });
 
@@ -384,7 +384,7 @@ describe('whats-next-view meeting data processing', () => {
             global.currentMeeting = {
                 start_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() // 2 hours from now
             };
-            
+
             expect(getContextMessage(false)).toBe('Plenty of time');
         });
 
@@ -434,7 +434,7 @@ describe('whats-next-view meeting data processing', () => {
 
         test('processes meeting data end-to-end', () => {
             global.upcomingMeetings = mockMeetingData.events;
-            
+
             // Detect current meeting
             const detectCurrentMeeting = function() {
                 const now = new Date();
@@ -453,11 +453,11 @@ describe('whats-next-view meeting data processing', () => {
             // Test context message
             const getContextMessage = function() {
                 if (!global.currentMeeting) return 'No upcoming meetings';
-                
+
                 const now = new Date();
                 const meetingStart = new Date(global.currentMeeting.start_time);
                 const minutesUntil = Math.floor((meetingStart - now) / (1000 * 60));
-                
+
                 if (minutesUntil <= 5) return 'Starting very soon';
                 if (minutesUntil <= 15) return 'Starting soon';
                 if (minutesUntil <= 60) return 'Starting within the hour';

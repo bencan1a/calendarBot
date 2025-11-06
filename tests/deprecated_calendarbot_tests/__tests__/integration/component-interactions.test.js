@@ -11,11 +11,11 @@ describe('Component Integration Tests', () => {
   beforeEach(() => {
     // Create comprehensive test suite with all components
     testSuite = global.testUtils.createTestDataSuite();
-    
+
     // Setup global fetch mock
     mockFetch = jest.fn();
     global.fetch = mockFetch;
-    
+
     // Setup localStorage mock
     Object.defineProperty(window, 'localStorage', {
       value: testSuite.localStorage,
@@ -73,7 +73,7 @@ describe('Component Integration Tests', () => {
           async open() {
             await this.initialize();
             this.isOpen = true;
-            
+
             const panel = document.getElementById('settings-panel');
             panel.setAttribute('aria-hidden', 'false');
             panel.classList.add('open');
@@ -83,13 +83,13 @@ describe('Component Integration Tests', () => {
             if (!this.localSettings.event_filters) {
               this.localSettings.event_filters = { title_patterns: [] };
             }
-            
+
             this.localSettings.event_filters.title_patterns.push({
               pattern,
               is_regex: false,
               is_active: true
             });
-            
+
             this.hasUnsavedChanges = true;
           },
 
@@ -189,7 +189,7 @@ describe('Component Integration Tests', () => {
             if (savedTheme) {
               this.themeManager.setTheme(savedTheme);
             }
-            
+
             // Apply theme to DOM
             this.applyCurrentTheme();
           },
@@ -197,7 +197,7 @@ describe('Component Integration Tests', () => {
           applyCurrentTheme() {
             const theme = this.themeManager.currentTheme;
             document.body.setAttribute('data-theme', theme);
-            
+
             const indicator = document.getElementById('theme-indicator');
             if (indicator) {
               indicator.textContent = `Current theme: ${theme}`;
@@ -284,7 +284,7 @@ describe('Component Integration Tests', () => {
         // Navigate through multiple views
         app.navigateWithSave('settings');
         app.navigateWithSave('about');
-        
+
         expect(app.navigation.currentView).toBe('about');
         expect(app.navigation.history).toContain('main');
         expect(app.navigation.history).toContain('settings');
@@ -294,7 +294,7 @@ describe('Component Integration Tests', () => {
           navigation: testSuite.navigation,
           restoreNavigationState: app.restoreNavigationState
         };
-        
+
         newApp.navigation.currentView = 'main';
         newApp.navigation.history = [];
 
@@ -323,7 +323,7 @@ describe('Component Integration Tests', () => {
 
           detectCurrentMeeting() {
             const now = new Date();
-            
+
             // Find active meeting
             const activeMeeting = this.events.find(event => {
               const start = new Date(event.start);
@@ -337,7 +337,7 @@ describe('Component Integration Tests', () => {
                 status: 'active',
                 timeRemaining: new Date(activeMeeting.end) - now
               };
-              
+
               this.startCountdown(new Date(activeMeeting.end));
               this.updateMeetingDisplay();
               return this.currentMeeting;
@@ -396,12 +396,12 @@ describe('Component Integration Tests', () => {
           start: new Date(now.getTime() - 10 * 60 * 1000).toISOString(), // Started 10 mins ago
           end: new Date(now.getTime() + 20 * 60 * 1000).toISOString()    // Ends in 20 mins
         };
-        
+
         meetingManager.events = [activeMeeting];
 
         // Detect meeting
         const detected = meetingManager.detectCurrentMeeting();
-        
+
         expect(detected).toBeTruthy();
         expect(detected.title).toBe('Current Meeting');
         expect(detected.status).toBe('active');
@@ -422,7 +422,7 @@ describe('Component Integration Tests', () => {
 
         // Simulate countdown completion
         meetingManager.onCountdownComplete();
-        
+
         expect(meetingManager.currentMeeting).toBeNull();
         expect(meetingInfo.innerHTML).toContain('No active meeting');
 
@@ -455,13 +455,13 @@ describe('Component Integration Tests', () => {
         // Create multiple timers
         const timer1 = component.createTimer(new Date(Date.now() + 60000), () => {});
         const timer2 = component.createTimer(new Date(Date.now() + 120000), () => {});
-        
+
         expect(component.activeTimers).toHaveLength(2);
         expect(component.timers.getActiveTimerCount()).toBe(2);
 
         // Destroy component
         component.destroy();
-        
+
         expect(component.activeTimers).toHaveLength(0);
         expect(component.timers.getActiveTimerCount()).toBe(0);
         expect(component.isDestroyed).toBe(true);
@@ -485,7 +485,7 @@ describe('Component Integration Tests', () => {
 
           saveComponentState(componentName, state) {
             this.componentStates.set(componentName, state);
-            this.localStorage.setItem('component-states', 
+            this.localStorage.setItem('component-states',
               JSON.stringify(Object.fromEntries(this.componentStates))
             );
           },
@@ -495,7 +495,7 @@ describe('Component Integration Tests', () => {
             if (this.componentStates.has(componentName)) {
               return this.componentStates.get(componentName);
             }
-            
+
             // Then try localStorage
             const saved = this.localStorage.getItem('component-states');
             if (saved) {
@@ -505,7 +505,7 @@ describe('Component Integration Tests', () => {
                 return states[componentName];
               }
             }
-            
+
             return null;
           },
 
@@ -516,7 +516,7 @@ describe('Component Integration Tests', () => {
 
             // Save current layout preference
             this.localStorage.setItem('preferred-layout', newLayout);
-            
+
             // Update current layout
             const previousLayout = this.currentLayout;
             this.currentLayout = newLayout;
@@ -530,14 +530,14 @@ describe('Component Integration Tests', () => {
           name: 'settings-panel',
           isOpen: false,
           filters: ['pattern1', 'pattern2'],
-          
+
           getState() {
             return {
               isOpen: this.isOpen,
               filters: [...this.filters]
             };
           },
-          
+
           setState(state) {
             this.isOpen = state.isOpen || false;
             this.filters = state.filters || [];
@@ -547,7 +547,7 @@ describe('Component Integration Tests', () => {
         // Save component state
         settingsComponent.isOpen = true;
         settingsComponent.filters.push('pattern3');
-        
+
         layoutManager.saveComponentState(settingsComponent.name, settingsComponent.getState());
 
         // Cycle layout
@@ -561,14 +561,14 @@ describe('Component Integration Tests', () => {
           name: 'settings-panel',
           isOpen: false,
           filters: [],
-          
+
           getState() {
             return {
               isOpen: this.isOpen,
               filters: [...this.filters]
             };
           },
-          
+
           setState(state) {
             this.isOpen = state.isOpen || false;
             this.filters = state.filters || [];
@@ -578,7 +578,7 @@ describe('Component Integration Tests', () => {
         // Restore state
         const restoredState = layoutManager.restoreComponentState(newSettingsComponent.name);
         expect(restoredState).toBeTruthy();
-        
+
         newSettingsComponent.setState(restoredState);
         expect(newSettingsComponent.isOpen).toBe(true);
         expect(newSettingsComponent.filters).toContain('pattern3');
@@ -596,11 +596,11 @@ describe('Component Integration Tests', () => {
         const errorManager = {
           errors: [],
           components: new Map(),
-          
+
           registerComponent(name, component) {
             this.components.set(name, component);
           },
-          
+
           handleError(error, componentName) {
             const errorInfo = {
               error: error.message,
@@ -608,9 +608,9 @@ describe('Component Integration Tests', () => {
               timestamp: new Date(),
               recovered: false
             };
-            
+
             this.errors.push(errorInfo);
-            
+
             // Attempt recovery
             const component = this.components.get(componentName);
             if (component && component.recover) {
@@ -621,14 +621,14 @@ describe('Component Integration Tests', () => {
                 errorInfo.recoveryError = recoveryError.message;
               }
             }
-            
+
             return errorInfo;
           },
-          
+
           getErrorCount() {
             return this.errors.length;
           },
-          
+
           getRecoveredCount() {
             return this.errors.filter(e => e.recovered).length;
           }
@@ -638,12 +638,12 @@ describe('Component Integration Tests', () => {
         const apiComponent = {
           name: 'api-client',
           isHealthy: true,
-          
+
           async failingOperation() {
             this.isHealthy = false;
             throw new Error('API connection failed');
           },
-          
+
           recover() {
             this.isHealthy = true;
             console.log('API component recovered');
@@ -653,7 +653,7 @@ describe('Component Integration Tests', () => {
         const uiComponent = {
           name: 'ui-manager',
           isHealthy: true,
-          
+
           async dependentOperation() {
             // This operation depends on API
             try {
@@ -663,7 +663,7 @@ describe('Component Integration Tests', () => {
               throw new Error(`UI operation failed: ${error.message}`);
             }
           },
-          
+
           recover() {
             this.isHealthy = true;
             console.log('UI component recovered');
@@ -694,11 +694,11 @@ describe('Component Integration Tests', () => {
 
         // Now should have both errors
         expect(errorManager.getErrorCount()).toBe(2);
-        
+
         // Check recovery
         const recoveredCount = errorManager.getRecoveredCount();
         expect(recoveredCount).toBe(2); // Both components should recover
-        
+
         expect(apiComponent.isHealthy).toBe(true);
         expect(uiComponent.isHealthy).toBe(true);
       });

@@ -132,7 +132,7 @@ describe('settings-panel validation', () => {
                     autoRefresh: formData.get('autoRefresh') === 'true',
                     theme: formData.get('theme')
                 };
-                
+
                 const result = await mockSettingsAPI.updateSettings(settings);
                 return result.success;
             };
@@ -281,13 +281,13 @@ describe('settings-panel validation', () => {
             const togglePanel = () => {
                 const panel = container.querySelector('#settings-panel');
                 const isOpen = panel.classList.contains('open');
-                
+
                 if (isOpen) {
                     panel.classList.remove('open');
                 } else {
                     panel.classList.add('open');
                 }
-                
+
                 return !isOpen;
             };
 
@@ -343,7 +343,7 @@ describe('settings-panel validation', () => {
             const validateInterval = (event) => {
                 const value = parseInt(event.target.value, 10);
                 isValid = !isNaN(value) && value >= 1 && value <= 60;
-                
+
                 if (!isValid) {
                     event.target.classList.add('invalid');
                 } else {
@@ -368,22 +368,22 @@ describe('settings-panel validation', () => {
             const validateForm = () => {
                 const regexInput = container.querySelector('#filter-regex');
                 const intervalInput = container.querySelector('#refresh-interval');
-                
+
                 let isValid = true;
-                
+
                 // Validate regex
                 try {
                     if (regexInput.value) new RegExp(regexInput.value);
                 } catch (e) {
                     isValid = false;
                 }
-                
+
                 // Validate interval
                 const interval = parseInt(intervalInput.value, 10);
                 if (isNaN(interval) || interval < 1 || interval > 60) {
                     isValid = false;
                 }
-                
+
                 return isValid;
             };
 

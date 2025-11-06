@@ -14,10 +14,10 @@ describe('SettingsAPI Integration Tests', () => {
   beforeEach(() => {
     // Setup DOM mocks using Phase 1 infrastructure
     mockDocument = global.testUtils.setupMockDOM();
-    
+
     // Use real SettingsAPI class
     settingsAPI = new SettingsAPI();
-    
+
     // Mock the delay function to prevent real timeouts during tests
     settingsAPI.delay = jest.fn().mockImplementation(() => Promise.resolve());
 
@@ -60,7 +60,7 @@ describe('SettingsAPI Integration Tests', () => {
     // Clean up global functions and mocks
     delete global.loadMeetingData;
     jest.clearAllMocks();
-    
+
     // Reset fetch mock for next test
     global.fetch.mockClear();
   });
@@ -69,7 +69,7 @@ describe('SettingsAPI Integration Tests', () => {
     describe('when retrieving settings successfully', () => {
       it('should return settings data on successful API call', async () => {
         const mockSettings = global.testUtils.createMockSettings();
-        
+
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(mockSettings, 200, true)
         );
@@ -97,7 +97,7 @@ describe('SettingsAPI Integration Tests', () => {
             default_layout: '3x4'
           }
         };
-        
+
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(mockSettings, 200, true)
         );
@@ -113,7 +113,7 @@ describe('SettingsAPI Integration Tests', () => {
     describe('when handling API errors', () => {
       it('should handle server error responses gracefully', async () => {
         const errorResponse = { error: 'Internal server error' };
-        
+
         // Mock all 3 retry attempts with the same error response
         global.fetch
           .mockResolvedValueOnce(global.testUtils.createMockFetchResponse(errorResponse, 500, false))
@@ -147,7 +147,7 @@ describe('SettingsAPI Integration Tests', () => {
           status: 200,
           json: jest.fn().mockRejectedValueOnce(new Error('Invalid JSON'))
         };
-        
+
         global.fetch.mockResolvedValueOnce(mockResponse);
 
         const result = await settingsAPI.getSettings();
@@ -163,7 +163,7 @@ describe('SettingsAPI Integration Tests', () => {
       it('should validate and update settings with valid data', async () => {
         const validSettings = global.testUtils.createMockSettings();
         const updateResponse = { success: true, message: 'Settings updated' };
-        
+
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(updateResponse, 200, true)
         );
@@ -200,7 +200,7 @@ describe('SettingsAPI Integration Tests', () => {
             display_density: 'compact'
           }
         };
-        
+
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse({ success: true }, 200, true)
         );
@@ -208,7 +208,7 @@ describe('SettingsAPI Integration Tests', () => {
         const result = await settingsAPI.updateSettings(complexSettings);
 
         expect(result.success).toBe(true);
-        expect(global.fetch).toHaveBeenCalledWith('/api/settings', 
+        expect(global.fetch).toHaveBeenCalledWith('/api/settings',
           expect.objectContaining({
             method: 'PUT',
             body: JSON.stringify(complexSettings)
@@ -274,7 +274,7 @@ describe('SettingsAPI Integration Tests', () => {
           event_filters: { hide_all_day_events: false, title_patterns: [] },
           display: { default_layout: '3x4', display_density: 'normal' }
         });
-        
+
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(defaultSettings, 200, true)
         );
@@ -331,7 +331,7 @@ describe('SettingsAPI Integration Tests', () => {
             version: '1.0.0'
           }
         };
-        
+
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(exportData, 200, true)
         );
@@ -371,7 +371,7 @@ describe('SettingsAPI Integration Tests', () => {
             format_version: '1.0'
           }
         };
-        
+
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(fullExportData, 200, true)
         );
@@ -410,7 +410,7 @@ describe('SettingsAPI Integration Tests', () => {
           }
         };
         const importResponse = { success: true, imported_settings: importData.settings };
-        
+
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(importResponse, 200, true)
         );
@@ -433,8 +433,8 @@ describe('SettingsAPI Integration Tests', () => {
       it('should handle malformed import data', async () => {
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(
-            { error: 'Invalid import format' }, 
-            400, 
+            { error: 'Invalid import format' },
+            400,
             false
           )
         );
@@ -477,7 +477,7 @@ describe('SettingsAPI Integration Tests', () => {
             { pattern: 'Meeting', matches: 15 }
           ]
         };
-        
+
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(previewData, 200, true)
         );
@@ -519,7 +519,7 @@ describe('SettingsAPI Integration Tests', () => {
           success: true,
           html: '<div class="current-event"><div class="event-title">Test Meeting</div></div>'
         };
-        
+
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(meetingData, 200, true)
         );
@@ -542,8 +542,8 @@ describe('SettingsAPI Integration Tests', () => {
       it('should handle failed meeting data fetch', async () => {
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(
-            { success: false, error: 'No meetings found' }, 
-            404, 
+            { success: false, error: 'No meetings found' },
+            404,
             false
           )
         );
@@ -584,7 +584,7 @@ describe('SettingsAPI Integration Tests', () => {
         // Mock delay function to avoid actual waiting in tests
         const originalDelay = settingsAPI.delay;
         settingsAPI.delay = jest.fn().mockImplementation(() => Promise.resolve());
-        
+
         // Also ensure fetch is properly mocked to avoid hanging
         global.fetch.mockImplementation(() => Promise.reject(new Error('Server error')));
 
@@ -602,8 +602,8 @@ describe('SettingsAPI Integration Tests', () => {
       it('should not retry client errors (4xx)', async () => {
         global.fetch.mockResolvedValueOnce(
           global.testUtils.createMockFetchResponse(
-            { error: 'Bad request' }, 
-            400, 
+            { error: 'Bad request' },
+            400,
             false
           )
         );

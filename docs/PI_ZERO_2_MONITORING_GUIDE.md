@@ -307,7 +307,7 @@ monitor:
     render_fail_count: 2
     # Maximum browser restarts per hour before escalating
     max_browser_restarts_per_hour: 4
-    # Maximum service restarts per hour before escalating  
+    # Maximum service restarts per hour before escalating
     max_service_restarts_per_hour: 2
     # Maximum reboots per 24 hours (last resort)
     max_reboots_per_day: 1
@@ -323,7 +323,7 @@ monitor:
     browser_detect_cmd: "pgrep -f 'chromium.*--kiosk' || pgrep -f 'epiphany.*--kiosk'"
     # Command to launch browser (will be executed via shell)
     browser_launch_cmd: |
-      export DISPLAY=:0 && cd /home/{user} && 
+      export DISPLAY=:0 && cd /home/{user} &&
       chromium --no-memcheck --kiosk --enable-low-end-device-mode --noerrdialogs \
         --no-first-run --no-default-browser-check \
         --disable-session-crashed-bubble \
@@ -334,7 +334,7 @@ monitor:
         http://$(hostname -I | awk '{print $1}'):8080 &
     # Command to gracefully stop browser
     browser_stop_cmd: "pkill -TERM -f 'chromium.*--kiosk'; sleep 8; pkill -KILL -f 'chromium.*--kiosk' 2>/dev/null || true"
-    # Command to check X server availability  
+    # Command to check X server availability
     x_health_cmd: "DISPLAY=:0 xdpyinfo >/dev/null 2>&1"
     # Systemd unit name for kiosk service
     kiosk_systemd_unit: "calendarbot-kiosk@{user}.service"
@@ -732,14 +732,14 @@ def receive_calendarbot_event():
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     if token != 'your-secure-token-here':
         return jsonify({'error': 'Unauthorized'}), 401
-    
+
     event = request.json
     print(f"Received CalendarBot event: {json.dumps(event, indent=2)}")
-    
+
     # Process critical events
     if event.get('level') == 'CRITICAL':
         send_alert(event)
-    
+
     return jsonify({'status': 'received'}), 200
 
 def send_alert(event):
@@ -1022,7 +1022,7 @@ calendarbot-kiosk@pi.service
 
 # Service execution order:
 # 1. network-online.target
-# 2. graphical-session.target  
+# 2. graphical-session.target
 # 3. calendarbot-kiosk@pi.service
 # 4. calendarbot-kiosk-watchdog@pi.service
 ```
@@ -1449,7 +1449,7 @@ monitor:
   commands:
     # Override browser restart with custom script
     browser_launch_cmd: "/opt/calendarbot/kiosk/scripts/custom-recovery.sh browser {user}"
-    
+
     # Add custom display reset command
     display_reset_cmd: "/opt/calendarbot/kiosk/scripts/custom-recovery.sh display {user}"
 ```
@@ -1477,7 +1477,7 @@ scrape_configs:
       - targets: ['localhost:9100']
     metrics_path: '/metrics'
     scrape_interval: 30s
-    
+
   - job_name: 'calendarbot-file'
     file_sd_configs:
       - files:
@@ -1691,7 +1691,7 @@ cat > deploy-monitoring.yml << 'EOF'
         owner: root
         group: pi
         mode: '0640'
-      
+
     - name: Restart watchdog service
       systemd:
         name: calendarbot-kiosk-watchdog@pi.service
@@ -1753,7 +1753,7 @@ def fleet_status():
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(check_device_health, device) for device in DEVICES]
         results = [future.result() for future in futures]
-    
+
     return jsonify({
         'devices': results,
         'summary': {

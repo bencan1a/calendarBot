@@ -99,7 +99,7 @@ async def test_expand_event_respects_exdate_exclusion() -> None:
 async def test_old_weekly_recurring_event_shows_future_occurrences(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Test that a weekly recurring event created 6 months ago still shows future occurrences.
-    
+
     This tests the fix for the RRULE expansion window bug where old recurring events
     would hit max_occurrences limit before reaching current dates.
     """
@@ -141,12 +141,12 @@ async def test_old_weekly_recurring_event_shows_future_occurrences(monkeypatch: 
     # Find instances in the near future (next 7 days from mock_now)
     future_start = mock_now - timedelta(days=7)  # Include this week
     future_end = mock_now + timedelta(days=14)  # Next 2 weeks
-    
+
     future_instances = [
         inst for inst in instances
         if future_start <= inst.start.date_time <= future_end
     ]
-    
+
     # Should have at least 2 upcoming Monday occurrences
     assert len(future_instances) >= 2, (
         f"Expected at least 2 future instances but got {len(future_instances)}. "
@@ -163,7 +163,7 @@ async def test_old_weekly_recurring_event_shows_future_occurrences(monkeypatch: 
 async def test_very_old_daily_recurring_event_with_max_occurrences(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Test that a daily recurring event from over 1 year ago still shows current occurrences.
-    
+
     With max_occurrences=250, a daily event from 1+ year ago would generate 365+ occurrences
     and hit the limit before reaching today. The fix should start expansion from a recent date.
     """
@@ -205,12 +205,12 @@ async def test_very_old_daily_recurring_event_with_max_occurrences(monkeypatch: 
     # With the fix, we start from (now - 7 days), so we should get instances for the next ~243 days
     today_start = mock_now.replace(hour=0, minute=0, second=0, microsecond=0)
     tomorrow = today_start + timedelta(days=1)
-    
+
     recent_instances = [
         inst for inst in instances
         if today_start <= inst.start.date_time < tomorrow
     ]
-    
+
     assert len(recent_instances) >= 1, (
         f"Expected at least 1 instance for today but got {len(recent_instances)}. "
         f"Total instances: {len(instances)}, "
@@ -221,12 +221,12 @@ async def test_very_old_daily_recurring_event_with_max_occurrences(monkeypatch: 
     # Verify all instances are in a reasonable time range (not all ancient history)
     oldest_allowed = mock_now - timedelta(days=30)  # Allow up to 30 days in past
     newest_allowed = mock_now + timedelta(days=365)  # Up to 1 year in future
-    
+
     out_of_range = [
         inst for inst in instances
         if inst.start.date_time < oldest_allowed or inst.start.date_time > newest_allowed
     ]
-    
+
     assert len(out_of_range) == 0, (
         f"Found {len(out_of_range)} instances outside reasonable range. "
         f"Oldest allowed: {oldest_allowed}, Newest allowed: {newest_allowed}. "

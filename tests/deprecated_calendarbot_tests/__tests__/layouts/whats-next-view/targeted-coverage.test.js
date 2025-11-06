@@ -38,22 +38,22 @@ describe('whats-next-view targeted coverage', () => {
                 <div class="viewport-resolution-display"></div>
             </div>
         `;
-        
+
         // Mock global functions and data
         global.fetch = jest.fn().mockResolvedValue({
             ok: true,
             json: () => Promise.resolve({ meetings: [] })
         });
-        
+
         // Set up fake timers
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2024-01-15T10:00:00.000Z'));
-        
+
         // Mock global variables that the module uses
         global.upcomingMeetings = [];
         global.currentMeeting = null;
         global.lastDataUpdate = null;
-        
+
         // Mock window functions
         global.getCurrentTime = jest.fn(() => new Date('2024-01-15T10:00:00.000Z'));
         global.hideEvent = jest.fn();
@@ -102,33 +102,33 @@ describe('whats-next-view targeted coverage', () => {
             // First pass: Look for upcoming meetings (prioritized)
             for (const meeting of upcomingMeetings) {
                 const meetingStart = new Date(meeting.start_time);
-                
+
                 if (meetingStart > now) {
                     currentMeeting = meeting;
                     break;
                 }
             }
-            
+
             // Second pass: If no upcoming meetings found, look for current meetings
             if (!currentMeeting) {
                 for (const meeting of upcomingMeetings) {
                     const meetingStart = new Date(meeting.start_time);
                     const meetingEnd = new Date(meeting.end_time);
-                    
+
                     if (now >= meetingStart && now <= meetingEnd) {
                         currentMeeting = meeting;
                         break;
                     }
                 }
             }
-            
+
             return currentMeeting;
         };
 
         // Test the function
         const result = global.detectCurrentMeeting();
         expect(result.title).toBe('Future Meeting'); // Should prioritize upcoming over current
-        
+
         // Test with no upcoming meetings
         global.upcomingMeetings = [
             {
@@ -137,7 +137,7 @@ describe('whats-next-view targeted coverage', () => {
                 end_time: '2024-01-15T10:30:00.000Z'
             }
         ];
-        
+
         const result2 = global.detectCurrentMeeting();
         expect(result2.title).toBe('Current Meeting Only');
     });
@@ -182,7 +182,7 @@ describe('whats-next-view targeted coverage', () => {
             // Performance optimization calculations
             const timeGap = calculateTimeGapOptimized(now, meetingStart);
             const boundaryAlert = checkBoundaryAlert(timeGap);
-            
+
             return { timeRemaining, labelText, timeGap, boundaryAlert };
         };
 
@@ -207,26 +207,26 @@ describe('whats-next-view targeted coverage', () => {
     test('meeting close box functionality', () => {
         // Test event hiding (lines 1572-1631)
         const closeBoxes = document.querySelectorAll('.meeting-close-box');
-        
+
         // Mock the close box setup function
         global.setupMeetingCloseBoxes = function() {
             closeBoxes.forEach(closeBox => {
                 closeBox.addEventListener('click', function(event) {
                     event.preventDefault();
                     event.stopPropagation();
-                    
+
                     const meetingCard = this.closest('.meeting-card');
                     if (!meetingCard) return;
-                    
+
                     const graphId = meetingCard.getAttribute('data-graph-id');
                     const customId = meetingCard.getAttribute('data-event-id');
                     const eventId = graphId || customId;
-                    
+
                     if (!eventId) return;
-                    
+
                     hideEvent(eventId);
                 });
-                
+
                 // Add keyboard support
                 closeBox.addEventListener('keydown', function(event) {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -252,10 +252,10 @@ describe('whats-next-view targeted coverage', () => {
         // Test keyboard interaction
         const enterEvent = new KeyboardEvent('keydown', { key: 'Enter' });
         const spaceEvent = new KeyboardEvent('keydown', { key: ' ' });
-        
+
         firstCloseBox.dispatchEvent(enterEvent);
         firstCloseBox.dispatchEvent(spaceEvent);
-        
+
         // hideEvent should be called additional times
         expect(global.hideEvent).toHaveBeenCalledTimes(4); // 2 clicks + 2 keyboard events
     });
@@ -265,7 +265,7 @@ describe('whats-next-view targeted coverage', () => {
         global.updateEmptyStateOptimized = function(shouldShow, message = 'No meetings scheduled') {
             const emptyState = document.querySelector('.empty-state');
             const meetingCards = document.querySelector('.meeting-cards');
-            
+
             if (shouldShow) {
                 emptyState.style.display = 'block';
                 emptyState.textContent = message;
@@ -396,7 +396,7 @@ describe('whats-next-view targeted coverage', () => {
 
         // Test 404 error
         global.fetch.mockRejectedValueOnce(new Error('HTTP 404'));
-        
+
         try {
             await global.loadMeetingData();
         } catch (error) {
@@ -407,7 +407,7 @@ describe('whats-next-view targeted coverage', () => {
 
         // Test network error
         global.fetch.mockRejectedValueOnce(new Error('Network error'));
-        
+
         try {
             await global.loadMeetingData();
         } catch (error) {
@@ -420,7 +420,7 @@ describe('whats-next-view targeted coverage', () => {
         global.checkBoundaryAlert = function(timeGapSeconds) {
             // Alert boundaries: 15 min, 5 min, 1 min
             const boundaries = [15 * 60, 5 * 60, 1 * 60]; // in seconds
-            
+
             for (const boundary of boundaries) {
                 if (Math.abs(timeGapSeconds - boundary) < 30) { // 30 second tolerance
                     return {
@@ -430,7 +430,7 @@ describe('whats-next-view targeted coverage', () => {
                     };
                 }
             }
-            
+
             return { alert: false };
         };
 
@@ -446,7 +446,7 @@ describe('whats-next-view targeted coverage', () => {
         global.calculateTimeGapOptimized = function(currentTime, targetTime) {
             const diffMs = targetTime - currentTime;
             const diffSeconds = Math.floor(diffMs / 1000);
-            
+
             // Return optimized calculations
             return {
                 seconds: diffSeconds,
@@ -472,7 +472,7 @@ describe('whats-next-view targeted coverage', () => {
             if (seconds < 0) return 'Now';
             if (seconds < 60) return `${seconds}s`;
             if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-            
+
             const hours = Math.floor(seconds / 3600);
             const minutes = Math.floor((seconds % 3600) / 60);
             return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;

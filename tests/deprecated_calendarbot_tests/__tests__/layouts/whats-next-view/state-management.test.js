@@ -21,10 +21,10 @@ describe('WhatsNextView State Management & Detection', () => {
   describe('checkBoundaryAlert', () => {
     it('should return critical alert for 2 minutes or less', () => {
       expect(typeof window.checkBoundaryAlert).toBe('function');
-      
+
       const timeGapMs = 2 * 60 * 1000; // 2 minutes in milliseconds
       const result = window.checkBoundaryAlert(timeGapMs);
-      
+
       expect(result).toBeDefined();
       expect(result.type).toBe('critical');
       expect(result.urgent).toBe(true);
@@ -33,7 +33,7 @@ describe('WhatsNextView State Management & Detection', () => {
     it('should return critical alert for 1 minute', () => {
       const timeGapMs = 1 * 60 * 1000; // 1 minute
       const result = window.checkBoundaryAlert(timeGapMs);
-      
+
       expect(result.type).toBe('critical');
       expect(result.urgent).toBe(true);
     });
@@ -41,7 +41,7 @@ describe('WhatsNextView State Management & Detection', () => {
     it('should return tight alert for 5-10 minutes', () => {
       const timeGapMs = 5 * 60 * 1000; // 5 minutes
       const result = window.checkBoundaryAlert(timeGapMs);
-      
+
       expect(result.type).toBe('tight');
       expect(result.urgent).toBe(true);
     });
@@ -49,7 +49,7 @@ describe('WhatsNextView State Management & Detection', () => {
     it('should return comfortable alert for 20 minutes', () => {
       const timeGapMs = 20 * 60 * 1000; // 20 minutes
       const result = window.checkBoundaryAlert(timeGapMs);
-      
+
       expect(result.type).toBe('comfortable');
       expect(result.urgent).toBe(false);
     });
@@ -57,7 +57,7 @@ describe('WhatsNextView State Management & Detection', () => {
     it('should return relaxed alert for more than 30 minutes', () => {
       const timeGapMs = 45 * 60 * 1000; // 45 minutes
       const result = window.checkBoundaryAlert(timeGapMs);
-      
+
       expect(result.type).toBe('relaxed');
       expect(result.urgent).toBe(false);
     });
@@ -66,7 +66,7 @@ describe('WhatsNextView State Management & Detection', () => {
   describe('getContextMessage', () => {
     it('should return "Meeting in progress" for current meeting', () => {
       expect(typeof window.getContextMessage).toBe('function');
-      
+
       const result = window.getContextMessage(true);
       expect(result).toBe('Meeting in progress');
     });
@@ -76,7 +76,7 @@ describe('WhatsNextView State Management & Detection', () => {
       window.currentMeeting = {
         start_time: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes from now
       };
-      
+
       const result = window.getContextMessage(false);
       expect(typeof result).toBe('string');
       expect(result.length).toBeGreaterThan(0);

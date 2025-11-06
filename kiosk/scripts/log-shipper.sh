@@ -74,21 +74,21 @@ save_state() {
 is_rate_limited() {
     local current_time
     current_time=$(date +%s)
-    
+
     local state
     state=$(load_state)
-    
+
     local last_ship_time
     last_ship_time=$(echo "$state" | jq -r '.last_ship_time // 0')
-    
+
     local time_diff=$((current_time - last_ship_time))
     local limit_seconds=$((RATE_LIMIT_MINUTES * 60))
-    
+
     if [[ $time_diff -lt $limit_seconds ]]; then
         log_debug "Rate limited: $time_diff seconds since last ship (limit: $limit_seconds)"
         return 0  # Rate limited
     fi
-    
+
     return 1  # Not rate limited
 }
 
@@ -96,20 +96,20 @@ is_rate_limited() {
 update_rate_state() {
     local current_time
     current_time=$(date +%s)
-    
+
     local state
     state=$(load_state)
-    
+
     local ship_count
     ship_count=$(echo "$state" | jq -r '.ship_count // 0')
     ship_count=$((ship_count + 1))
-    
+
     local new_state
     new_state=$(jq -n \
         --argjson time "$current_time" \
         --argjson count "$ship_count" \
         '{last_ship_time: $time, ship_count: $count}')
-    
+
     save_state "$new_state"
     log_debug "Updated rate state: shipped $ship_count times, last at $current_time"
 }
@@ -120,48 +120,48 @@ validate_config() {
         log_debug "Log shipping disabled"
         return 1
     fi
-    
+
     if [[ -z "$WEBHOOK_URL" ]]; then
         log_error "CALENDARBOT_WEBHOOK_URL not configured"
         return 1
     fi
-    
+
     if ! command -v curl >/dev/null 2>&1; then
         log_error "curl not available"
         return 1
     fi
-    
+
     if ! command -v jq >/dev/null 2>&1; then
         log_error "jq not available"
         return 1
     fi
-    
+
     return 0
 }
 
 # Filter critical events from journald JSON
 filter_critical_events() {
     local input="$1"
-    
+
     # Parse JSON and check for critical events
     local component level event recovery_level
     component=$(echo "$input" | jq -r '.component // ""')
     level=$(echo "$input" | jq -r '.level // ""')
     event=$(echo "$input" | jq -r '.event // ""')
     recovery_level=$(echo "$input" | jq -r '.recovery_level // 0')
-    
+
     # Critical event criteria:
     # 1. CRITICAL or ERROR level
     # 2. Recovery events with level > 0
     # 3. Specific critical event patterns
-    if [[ "$level" == "CRITICAL" ]] || 
+    if [[ "$level" == "CRITICAL" ]] ||
        [[ "$level" == "ERROR" && "$recovery_level" -gt 0 ]] ||
        [[ "$event" == *"reboot"* ]] ||
        [[ "$event" == *"service.restart"* ]] ||
        [[ "$event" == *"watchdog.escalate"* ]]; then
         return 0  # Is critical
     fi
-    
+
     return 1  # Not critical
 }
 
@@ -170,10 +170,10 @@ prepare_payload() {
     local event_data="$1"
     local hostname
     hostname=$(hostname)
-    
+
     local timestamp
     timestamp=$(date -Iseconds)
-    
+
     # Get system context
     local system_info
     system_info=$(cat <<EOF
@@ -187,13 +187,13 @@ prepare_payload() {
 }
 EOF
     )
-    
+
     # Combine event data with system context
     local payload
     payload=$(echo "$event_data" | jq \
         --argjson system "$system_info" \
         '. + {system_context: $system, shipper_version: "'"$VERSION"'"}')
-    
+
     echo "$payload"
 }
 
@@ -201,7 +201,7 @@ EOF
 ship_event() {
     local payload="$1"
     local attempt=1
-    
+
     # Check payload size
     local payload_size
     payload_size=$(echo "$payload" | wc -c)
@@ -209,9 +209,9 @@ ship_event() {
         log_warn "Payload too large ($payload_size bytes), truncating"
         payload=$(echo "$payload" | jq -c . | head -c $MAX_PAYLOAD_SIZE)
     fi
-    
+
     log_debug "Shipping payload (${payload_size} bytes) to $WEBHOOK_URL"
-    
+
     while [[ $attempt -le $MAX_RETRIES ]]; do
         local curl_args=(
             --silent
@@ -222,12 +222,12 @@ ship_event() {
             --header "User-Agent: CalendarBot-LogShipper/$VERSION"
             --data "$payload"
         )
-        
+
         # Add authentication if token provided
         if [[ -n "$WEBHOOK_TOKEN" ]]; then
             curl_args+=(--header "Authorization: Bearer $WEBHOOK_TOKEN")
         fi
-        
+
         # SSL verification (enabled by default)
         if [[ "${CALENDARBOT_WEBHOOK_INSECURE:-false}" != "true" ]]; then
             curl_args+=(--cacert /etc/ssl/certs/ca-certificates.crt)
@@ -235,11 +235,11 @@ ship_event() {
             curl_args+=(--insecure)
             log_warn "SSL verification disabled"
         fi
-        
+
         curl_args+=("$WEBHOOK_URL")
-        
+
         log_debug "Attempt $attempt/$MAX_RETRIES"
-        
+
         if curl "${curl_args[@]}" >/dev/null 2>&1; then
             log_info "Successfully shipped critical event (attempt $attempt)"
             update_rate_state
@@ -247,16 +247,16 @@ ship_event() {
         else
             local exit_code=$?
             log_warn "Ship attempt $attempt failed (exit code: $exit_code)"
-            
+
             if [[ $attempt -lt $MAX_RETRIES ]]; then
                 log_debug "Retrying in $RETRY_DELAY seconds"
                 sleep $RETRY_DELAY
             fi
         fi
-        
+
         ((attempt++))
     done
-    
+
     log_error "Failed to ship event after $MAX_RETRIES attempts"
     return 1
 }
@@ -264,33 +264,33 @@ ship_event() {
 # Process a single log entry
 process_log_entry() {
     local log_entry="$1"
-    
+
     log_debug "Processing log entry: $(echo "$log_entry" | jq -c . 2>/dev/null || echo "invalid JSON")"
-    
+
     # Validate JSON
     if ! echo "$log_entry" | jq . >/dev/null 2>&1; then
         log_debug "Skipping invalid JSON"
         return 0
     fi
-    
+
     # Filter for critical events
     if ! filter_critical_events "$log_entry"; then
         log_debug "Event not critical, skipping"
         return 0
     fi
-    
+
     # Check rate limiting
     if is_rate_limited; then
         log_debug "Rate limited, skipping event"
         return 0
     fi
-    
+
     log_info "Processing critical event for shipping"
-    
+
     # Prepare and ship payload
     local payload
     payload=$(prepare_payload "$log_entry")
-    
+
     if ship_event "$payload"; then
         log_info "Critical event shipped successfully"
     else
@@ -302,11 +302,11 @@ process_log_entry() {
 # Main processing function for streaming mode
 stream_process() {
     log_info "Starting log shipper in stream mode"
-    
+
     while IFS= read -r line; do
         # Skip empty lines
         [[ -n "$line" ]] || continue
-        
+
         # Process the log entry
         process_log_entry "$line" || true
     done
@@ -316,7 +316,7 @@ stream_process() {
 process_historical() {
     local since="${1:-1 hour ago}"
     log_info "Processing historical logs since: $since"
-    
+
     # Query journald for CalendarBot logs
     journalctl \
         --since="$since" \
@@ -328,12 +328,12 @@ process_historical() {
         # Extract MESSAGE field which contains our JSON
         local message
         message=$(echo "$line" | jq -r '.MESSAGE // empty' 2>/dev/null)
-        
+
         # Skip if not JSON message
         if [[ -z "$message" ]] || ! echo "$message" | jq . >/dev/null 2>&1; then
             continue
         fi
-        
+
         process_log_entry "$message" || true
     done
 }
@@ -383,12 +383,12 @@ EOF
 # Test webhook configuration
 test_webhook() {
     log_info "Testing webhook configuration"
-    
+
     if ! validate_config; then
         log_error "Configuration validation failed"
         return 1
     fi
-    
+
     # Create test payload
     local test_payload
     test_payload=$(cat <<EOF
@@ -409,9 +409,9 @@ test_webhook() {
 }
 EOF
     )
-    
+
     log_info "Sending test payload to webhook"
-    
+
     if ship_event "$test_payload"; then
         log_info "Webhook test successful"
         return 0
@@ -424,7 +424,7 @@ EOF
 # Show current shipping status
 show_status() {
     log_info "Log shipper status:"
-    
+
     echo "Configuration:"
     echo "  Enabled: $ENABLED"
     echo "  Webhook URL: ${WEBHOOK_URL:-'not configured'}"
@@ -432,24 +432,24 @@ show_status() {
     echo "  Timeout: ${WEBHOOK_TIMEOUT}s"
     echo "  Debug Mode: $DEBUG_MODE"
     echo
-    
+
     if [[ -f "$RATE_LIMIT_FILE" ]]; then
         local state
         state=$(load_state)
-        
+
         local last_ship_time ship_count
         last_ship_time=$(echo "$state" | jq -r '.last_ship_time // 0')
         ship_count=$(echo "$state" | jq -r '.ship_count // 0')
-        
+
         echo "Rate Limiting:"
         echo "  Total shipped: $ship_count"
         if [[ $last_ship_time -gt 0 ]]; then
             echo "  Last shipped: $(date -d @$last_ship_time 2>/dev/null || echo 'unknown')"
-            
+
             local current_time time_diff
             current_time=$(date +%s)
             time_diff=$((current_time - last_ship_time))
-            
+
             if [[ $time_diff -lt $((RATE_LIMIT_MINUTES * 60)) ]]; then
                 local remaining=$(( (RATE_LIMIT_MINUTES * 60) - time_diff ))
                 echo "  Rate limited for: ${remaining}s"
@@ -462,7 +462,7 @@ show_status() {
     else
         echo "Rate Limiting: no state file"
     fi
-    
+
     echo
     echo "System Status:"
     echo "  Uptime: $(uptime -p 2>/dev/null || echo 'unknown')"
@@ -474,7 +474,7 @@ show_status() {
 # Main function
 main() {
     local command="stream"
-    
+
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -501,18 +501,18 @@ main() {
                 ;;
         esac
     done
-    
+
     # Initialize directories
     init_directories
-    
+
     # Validate prerequisites
     if [[ "$command" != "status" ]] && ! validate_config; then
         log_error "Configuration validation failed"
         exit 1
     fi
-    
+
     log_debug "Starting $SCRIPT_NAME v$VERSION in $command mode"
-    
+
     # Execute command
     case $command in
         stream)

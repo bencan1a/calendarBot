@@ -1,7 +1,7 @@
 # Calendar Processing Component
 
-**Component:** 3 of 5 - Calendar Data Layer  
-**Purpose:** ICS parsing, RRULE expansion, event filtering, prioritization, pipeline orchestration  
+**Component:** 3 of 5 - Calendar Data Layer
+**Purpose:** ICS parsing, RRULE expansion, event filtering, prioritization, pipeline orchestration
 **Last Updated:** 2025-11-03
 
 ---
@@ -400,31 +400,31 @@ class LiteCalendarEvent(BaseModel):
     id: str
     subject: str
     body_preview: Optional[str]
-    
+
     # Time information
     start: LiteDateTimeInfo
     end: LiteDateTimeInfo
     is_all_day: bool
-    
+
     # Status
     show_as: LiteEventStatus  # free, tentative, busy, oof, workingElsewhere
     is_cancelled: bool
-    
+
     # Attendees
     is_organizer: bool
     location: Optional[LiteLocation]
     attendees: Optional[list[LiteAttendee]]
-    
+
     # Recurrence
     is_recurring: bool
     recurrence_id: Optional[str]  # RECURRENCE-ID for moved instances
     is_expanded_instance: bool    # Generated from RRULE
     rrule_master_uid: Optional[str]  # Master event UID
-    
+
     # Metadata
     created_date_time: Optional[datetime]
     last_modified_date_time: Optional[datetime]
-    
+
     # Online meeting
     is_online_meeting: bool
     online_meeting_url: Optional[str]
@@ -447,7 +447,7 @@ class EventProcessor(Protocol):
     async def process(self, context: ProcessingContext) -> ProcessingResult:
         """Process events according to this stage's responsibility."""
         ...
-    
+
     @property
     def name(self) -> str:
         """Name of this processing stage for logging."""
@@ -500,7 +500,7 @@ fetch_results = await fetch_orchestrator.fetch_all_sources(...)
 for result in fetch_results:
     parse_result = await parser.parse_ics(result.content)
     # Pipeline 1: Per-source processing
-    
+
 # 3. Combine all sources
 all_events = combine_source_events(parse_results)
 
@@ -626,25 +626,25 @@ from calendarbot_lite.pipeline import ProcessingContext, ProcessingResult, Event
 
 class CustomFilterStage:
     """Example: Filter events by subject keyword."""
-    
+
     @property
     def name(self) -> str:
         return "CustomFilterStage"
-    
+
     async def process(self, context: ProcessingContext) -> ProcessingResult:
         result = ProcessingResult(stage_name=self.name)
         result.events_in = len(context.events)
-        
+
         # Filter events
         filtered = [
             event for event in context.events
             if "meeting" in event.subject.lower()
         ]
-        
+
         result.events = filtered
         result.events_out = len(filtered)
         result.events_filtered = result.events_in - result.events_out
-        
+
         return result
 ```
 
@@ -697,14 +697,14 @@ async def test_parse_simple_event():
     component.add("SUMMARY", "Test Meeting")
     component.add("DTSTART", datetime(2024, 1, 1, 9, 0, 0))
     component.add("DTEND", datetime(2024, 1, 1, 10, 0, 0))
-    
+
     # Parse
     parser = LiteEventComponentParser(
         datetime_parser=LiteDateTimeParser(),
         attendee_parser=LiteAttendeeParser()
     )
     event = parser.parse_event_component(component)
-    
+
     # Assert
     assert event is not None
     assert event.subject == "Test Meeting"
@@ -727,23 +727,23 @@ async def parse_calendar_feed(ics_url: str):
     config = ConfigManager()
     settings = config.get_settings()
     parser = LiteICSParser(settings)
-    
+
     # Fetch ICS content
     async with aiohttp.ClientSession() as session:
         async with session.get(ics_url) as resp:
             ics_content = await resp.text()
-    
+
     # Parse events
     result = await parser.parse_ics(ics_content)
-    
+
     # Print results
     print(f"Parsed {len(result.events)} events")
     for event in result.events[:5]:  # First 5 events
         print(f"- {event.subject} at {event.start.date_time}")
-    
+
     if result.warnings:
         print(f"Warnings: {result.warnings}")
-    
+
     return result.events
 ```
 
@@ -771,13 +771,13 @@ async def expand_weekly_meeting():
         ),
         is_recurring=True
     )
-    
+
     # RRULE: Every Monday and Wednesday for 4 weeks
     rrule = "FREQ=WEEKLY;BYDAY=MO,WE;COUNT=8"
-    
+
     # Initialize worker pool
     worker_pool = RRuleWorkerPool(settings)
-    
+
     # Expand occurrences
     occurrences = []
     async for occurrence in worker_pool.expand_rrule_stream(
@@ -786,7 +786,7 @@ async def expand_weekly_meeting():
     ):
         occurrences.append(occurrence)
         print(f"Occurrence: {occurrence.start.date_time}")
-    
+
     return occurrences
 ```
 
@@ -800,40 +800,40 @@ import re
 
 class EmailDomainFilterStage:
     """Filter events by attendee email domain."""
-    
+
     def __init__(self, allowed_domains: set[str]):
         self.allowed_domains = allowed_domains
-    
+
     @property
     def name(self) -> str:
         return "EmailDomainFilterStage"
-    
+
     async def process(self, context: ProcessingContext) -> ProcessingResult:
         result = ProcessingResult(stage_name=self.name)
         result.events_in = len(context.events)
-        
+
         filtered = []
         for event in context.events:
             if not event.attendees:
                 # Keep events without attendees
                 filtered.append(event)
                 continue
-            
+
             # Check if any attendee is from allowed domain
             has_allowed_domain = any(
                 self._is_allowed_domain(att.email)
                 for att in event.attendees
             )
-            
+
             if has_allowed_domain:
                 filtered.append(event)
-        
+
         result.events = filtered
         result.events_out = len(filtered)
         result.events_filtered = result.events_in - result.events_out
-        
+
         return result
-    
+
     def _is_allowed_domain(self, email: str) -> bool:
         """Check if email domain is allowed."""
         match = re.search(r'@([\w.-]+)$', email)
@@ -856,35 +856,35 @@ from calendarbot_lite.pipeline import ProcessingContext, ProcessingResult
 
 class WorkingHoursFilterStage:
     """Filter events to working hours only (9 AM - 5 PM)."""
-    
+
     def __init__(self, start_hour: int = 9, end_hour: int = 17):
         self.start_hour = start_hour
         self.end_hour = end_hour
-    
+
     @property
     def name(self) -> str:
         return "WorkingHoursFilterStage"
-    
+
     async def process(self, context: ProcessingContext) -> ProcessingResult:
         result = ProcessingResult(stage_name=self.name)
         result.events_in = len(context.events)
-        
+
         filtered = []
         for event in context.events:
             start_time = event.start.date_time
             hour = start_time.hour
-            
+
             if self.start_hour <= hour < self.end_hour:
                 filtered.append(event)
             else:
                 result.add_warning(
                     f"Filtered out-of-hours event: {event.subject} at {start_time}"
                 )
-        
+
         result.events = filtered
         result.events_out = len(filtered)
         result.events_filtered = result.events_in - result.events_out
-        
+
         return result
 ```
 
@@ -901,9 +901,9 @@ async def get_next_meeting(events: tuple[LiteCalendarEvent, ...]):
     # Initialize prioritizer
     def is_focus_time(event: LiteCalendarEvent) -> bool:
         return "focus time" in event.subject.lower()
-    
+
     prioritizer = EventPrioritizer(focus_time_checker=is_focus_time)
-    
+
     # Find next event
     now = datetime.now(timezone.utc)
     next_event_tuple = prioritizer.find_next_event(
@@ -911,7 +911,7 @@ async def get_next_meeting(events: tuple[LiteCalendarEvent, ...]):
         now=now,
         skipped_store=None
     )
-    
+
     if next_event_tuple:
         event, seconds_until = next_event_tuple
         minutes_until = seconds_until / 60
@@ -946,6 +946,6 @@ async def get_next_meeting(events: tuple[LiteCalendarEvent, ...]):
 
 ---
 
-**Last Updated:** 2025-11-03  
-**Component:** Calendar Processing (3 of 5)  
+**Last Updated:** 2025-11-03
+**Component:** Calendar Processing (3 of 5)
 **Status:** Active - Core domain logic layer

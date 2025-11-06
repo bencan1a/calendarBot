@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
     timeout-minutes: 3
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
     timeout-minutes: 5
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -117,7 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
     timeout-minutes: 10
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -161,7 +161,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
     timeout-minutes: 15
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4

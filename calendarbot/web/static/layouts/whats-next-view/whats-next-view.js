@@ -305,7 +305,7 @@ function setupViewportResolutionDisplay() {
     if (!DOMCache.calendarContent) {
         DOMCache.calendarContent = document.querySelector('.calendar-content');
     }
-    
+
     if (DOMCache.calendarContent) {
         DOMCache.calendarContent.style.border = '1px solid #bdbdbd';
         DOMCache.calendarContent.style.boxSizing = 'border-box';
@@ -320,25 +320,25 @@ function setupViewportResolutionDisplay() {
     function updateViewportDisplay() {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
-        
+
         // Get content area dimensions using cached reference
         let contentWidth = 300;  // Default from CSS
         let contentHeight = 400; // Default from CSS
-        
+
         if (DOMCache.calendarContent) {
             const rect = DOMCache.calendarContent.getBoundingClientRect();
             contentWidth = Math.round(rect.width);
             contentHeight = Math.round(rect.height);
         }
-        
+
         // Only update if dimensions have actually changed
         if (viewportWidth !== lastViewportWidth ||
             viewportHeight !== lastViewportHeight ||
             contentWidth !== lastContentWidth ||
             contentHeight !== lastContentHeight) {
-            
+
             DOMCache.viewportDisplay.textContent = `Viewport: ${viewportWidth} × ${viewportHeight}\nContent: ${contentWidth} × ${contentHeight}`;
-            
+
             // Update cached values
             lastViewportWidth = viewportWidth;
             lastViewportHeight = viewportHeight;
@@ -381,7 +381,7 @@ async function loadMeetingData() {
         // Use state manager to load data with automatic incremental DOM updates
         const data = await whatsNextStateManager.loadData();
         // DOM updates are now handled automatically by state manager's refreshView()
-        
+
         // Update global variables for backward compatibility with existing functions
         if (data && data.events) {
             // Normalize server-provided event shape: prefer 'subject' but fall back to legacy 'title'
@@ -394,7 +394,7 @@ async function loadMeetingData() {
                 description: event.description || '',
                 is_hidden: event.is_hidden || false
             }));
-            
+
             lastDataUpdate = new Date();
 
         } else {
@@ -422,24 +422,24 @@ function detectCurrentMeeting() {
 
     // Phase 2 Frontend Update: Prioritize upcoming meetings first, current meetings as fallback
     // This ensures frontend and backend select identical meetings consistently
-    
+
     // First pass: Look for upcoming meetings (prioritized)
     for (const meeting of upcomingMeetings) {
         const meetingStart = new Date(meeting.start_time);
-        
+
         // Check if meeting is upcoming
         if (meetingStart > now) {
             currentMeeting = meeting;
             break;
         }
     }
-    
+
     // Second pass: If no upcoming meetings found, look for current meetings as fallback
     if (!currentMeeting) {
         for (const meeting of upcomingMeetings) {
             const meetingStart = new Date(meeting.start_time);
             const meetingEnd = new Date(meeting.end_time);
-            
+
             // Check if meeting is currently happening
             if (now >= meetingStart && now <= meetingEnd) {
                 currentMeeting = meeting;
@@ -781,7 +781,7 @@ function createMeetingLayoutStructure(content) {
                 <div class="countdown-units text-caption">Minutes</div>
             </div>
         </div>
-        
+
         <!-- Zone 2 (140px): Next meeting information -->
         <div class="layout-zone-2">
             <div class="meeting-card current" data-graph-id="${currentMeeting ? currentMeeting.id || currentMeeting.graph_id || '' : ''}">
@@ -792,7 +792,7 @@ function createMeetingLayoutStructure(content) {
                 <button class="meeting-close-box" aria-label="Hide event" tabindex="0"></button>
             </div>
         </div>
-        
+
         <!-- Zone 4 (60px): Additional context -->
         <div class="layout-zone-4">
             <div class="context-info text-center">
@@ -802,7 +802,7 @@ function createMeetingLayoutStructure(content) {
     `;
 
     content.innerHTML = html;
-    
+
     // Set up event hiding functionality
     setupEventHiding();
 }
@@ -974,7 +974,7 @@ function formatMeetingTime(startTime, endTime, formattedTimeRange) {
     if (formattedTimeRange) {
         return formattedTimeRange;
     }
-    
+
     // Fallback to original formatting for backwards compatibility
     try {
         const start = new Date(startTime);
@@ -1023,7 +1023,7 @@ function updateEmptyStateOptimized() {
                     <div class="countdown-units text-caption">None</div>
                 </div>
             </div>
-            
+
             <!-- Zone 2 (140px): Empty message -->
             <div class="layout-zone-2">
                 <div class="empty-state">
@@ -1033,7 +1033,7 @@ function updateEmptyStateOptimized() {
                     <div class="last-update text-caption">Updated: ${newLastUpdate}</div>
                 </div>
             </div>
-            
+
             <!-- Zone 4 (60px): Context -->
             <div class="layout-zone-4">
                 <div class="context-info text-center">
@@ -1225,7 +1225,7 @@ async function cycleLayout() {
  * Data refresh (following 3x4 pattern) - Uses state manager with incremental DOM updates
  */
 async function refresh() {
-    
+
     try {
         if (!whatsNextStateManager) {
             showErrorMessage('State manager not available');
@@ -1235,9 +1235,9 @@ async function refresh() {
         // Use state manager for refresh with incremental DOM updates
         await whatsNextStateManager.loadData();
         // DOM is automatically updated via state manager's refreshView()
-        
+
         showSuccessMessage('Meetings refreshed');
-        
+
     } catch (error) {
         showErrorMessage('Refresh failed: ' + error.message);
     }
@@ -1361,7 +1361,7 @@ const DOMCache = {
     countdownUnits: null,
     countdownContainer: null,
     viewportDisplay: null,
-    
+
     // Initialize cache with commonly accessed elements
     init() {
         this.calendarContent = document.querySelector('.calendar-content');
@@ -1371,7 +1371,7 @@ const DOMCache = {
         this.countdownContainer = document.querySelector('.countdown-container');
         this.viewportDisplay = document.getElementById('viewport-resolution-display');
     },
-    
+
     // Clear cache when DOM structure changes
     clear() {
         Object.keys(this).forEach(key => {
@@ -1570,30 +1570,30 @@ function hasSettingsPanel() {
 function setupEventHiding() {
     // Find all close boxes
     const closeBoxes = document.querySelectorAll('.meeting-close-box');
-    
+
     // Add click handlers to each close box
     closeBoxes.forEach(closeBox => {
         closeBox.addEventListener('click', function(event) {
             event.preventDefault();
             event.stopPropagation();
-            
+
             // Get the meeting card and its data
             const meetingCard = this.closest('.meeting-card');
             if (!meetingCard) return;
-            
+
             // Find the event ID from the meeting card
             const graphId = meetingCard.getAttribute('data-graph-id');
             const customId = meetingCard.getAttribute('data-event-id');
             const eventId = graphId || customId;
-            
+
             if (!eventId) {
                 return;
             }
-            
+
             // Hide the event using state manager
             hideEvent(eventId);
         });
-        
+
         // Add keyboard support
         closeBox.addEventListener('keydown', function(event) {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -1613,19 +1613,19 @@ async function hideEvent(graphId) {
     if (!graphId) {
         return;
     }
-    
+
     if (!whatsNextStateManager) {
         return;
     }
-    
+
     try {
         // Delegate to state manager which handles optimistic updates, API calls, and error handling
         const success = await whatsNextStateManager.hideEvent(graphId);
-        
+
         if (success) {
         } else {
         }
-        
+
         return success;
     } catch (error) {
         return false;
@@ -1697,13 +1697,13 @@ class WhatsNextStateManager {
 
             const startTime = performance.now();
             const requestBody = {};
-            
+
             // DEBUG: Log current time and request details to diagnose state pollution
             const currentFrontendTime = getCurrentTime();
             console.log('[DEBUG] WhatsNext loadData() - Frontend current time:', currentFrontendTime.toISOString());
             console.log('[DEBUG] WhatsNext loadData() - Request body:', JSON.stringify(requestBody));
             console.log('[DEBUG] WhatsNext loadData() - Browser time vs getCurrentTime():', new Date().toISOString(), 'vs', currentFrontendTime.toISOString());
-            
+
             const response = await fetch('/api/whats-next/data', {
                 method: 'POST',
                 headers: {
@@ -1717,7 +1717,7 @@ class WhatsNextStateManager {
             }
 
             const data = await response.json();
-            
+
             // Update performance metrics
             const endTime = performance.now();
             this.performanceMetrics.lastLoadTime = new Date();
@@ -1727,10 +1727,10 @@ class WhatsNextStateManager {
             // Update state with new data
             this.updateState(data);
 
-            
+
             // Automatically refresh the view with incremental updates
             this.refreshView();
-            
+
             // Emit data loaded event
             this._emitEvent('dataLoaded', { data, metrics: this.performanceMetrics });
 
@@ -1812,23 +1812,23 @@ class WhatsNextStateManager {
         const now = getCurrentTime();
         let currentMeeting = null;
         const visibleEvents = this.state.events.filter(event => !event.is_hidden);
-        
+
         // First pass: Look for upcoming meetings (prioritized)
         for (const event of visibleEvents) {
             const meetingStart = new Date(event.start_time);
-            
+
             if (meetingStart > now) {
                 currentMeeting = event;
                 break;
             }
         }
-        
+
         // Second pass: If no upcoming meetings found, look for current meetings as fallback
         if (!currentMeeting) {
             for (const event of visibleEvents) {
                 const meetingStart = new Date(event.start_time);
                 const meetingEnd = new Date(event.end_time);
-                
+
                 if (now >= meetingStart && now <= meetingEnd) {
                     currentMeeting = event;
                     break;
@@ -1843,10 +1843,10 @@ class WhatsNextStateManager {
 
         // Update current meeting display with incremental updates
         this._updateMeetingDisplayIncremental(currentMeeting);
-        
+
         // Update countdown display (preserves countdown elements)
         this._updateCountdownIncremental(currentMeeting, now);
-        
+
         // Update last update timestamp
         this._updateLastUpdateIncremental();
     }
@@ -1857,7 +1857,7 @@ class WhatsNextStateManager {
      */
     _updateMeetingDisplayIncremental(meeting) {
         const content = document.querySelector('.calendar-content');
-        
+
         if (!content) {
             return;
         }
@@ -1871,7 +1871,7 @@ class WhatsNextStateManager {
         this._updateElementIfChanged('.meeting-time', this._formatMeetingTime(meeting.start_time, meeting.end_time, meeting.formatted_time_range));
         this._updateElementIfChanged('.meeting-location', meeting.location || '');
         this._updateElementIfChanged('.meeting-description', meeting.description || '');
-        
+
         // Update context message
         const isCurrentMeeting = this._isMeetingCurrent(meeting);
         const contextMessage = this._getContextMessage(isCurrentMeeting);
@@ -1886,7 +1886,7 @@ class WhatsNextStateManager {
     _updateCountdownIncremental(meeting, now) {
         const meetingStart = new Date(meeting.start_time);
         const meetingEnd = new Date(meeting.end_time);
-        
+
         // Update global currentMeeting for backward compatibility with countdown system
         // Ensure title uses subject when available to prevent downstream overwrites with empty title.
         window.currentMeeting = {
@@ -1897,7 +1897,7 @@ class WhatsNextStateManager {
             description: meeting.description || '',
             graph_id: meeting.graph_id
         };
-        
+
         // Trigger existing countdown update function which preserves countdown elements
         updateCountdown();
     }
@@ -1912,10 +1912,10 @@ class WhatsNextStateManager {
         if (!element) {
             return;
         }
-        
+
         const currentContent = element.textContent.trim();
         const trimmedNewContent = (newContent || '').trim();
-        
+
         if (currentContent !== trimmedNewContent) {
             element.textContent = trimmedNewContent;
         }
@@ -1928,37 +1928,37 @@ class WhatsNextStateManager {
     _ensureMeetingLayoutStructure(content) {
         // Check if meeting structure already exists
         let meetingContainer = content.querySelector('.meeting-container');
-        
+
         if (!meetingContainer) {
             // Create basic meeting structure without destroying existing countdown elements
             const existingCountdown = content.querySelector('.countdown-container');
-            
+
             meetingContainer = document.createElement('div');
             meetingContainer.className = 'meeting-container';
-            
+
             // Create meeting info elements
             const meetingTitle = document.createElement('h2');
             meetingTitle.className = 'meeting-title';
-            
+
             const meetingTime = document.createElement('div');
             meetingTime.className = 'meeting-time';
-            
+
             const meetingLocation = document.createElement('div');
             meetingLocation.className = 'meeting-location';
-            
+
             const meetingDescription = document.createElement('div');
             meetingDescription.className = 'meeting-description';
-            
+
             const contextMessage = document.createElement('div');
             contextMessage.className = 'context-message';
-            
+
             // Add elements to container
             meetingContainer.appendChild(meetingTitle);
             meetingContainer.appendChild(meetingTime);
             meetingContainer.appendChild(meetingLocation);
             meetingContainer.appendChild(meetingDescription);
             meetingContainer.appendChild(contextMessage);
-            
+
             // Insert meeting container while preserving countdown
             if (existingCountdown && existingCountdown.parentNode === content) {
                 content.insertBefore(meetingContainer, existingCountdown);
@@ -1976,10 +1976,10 @@ class WhatsNextStateManager {
         if (!content) {
             return;
         }
-        
+
         // Preserve countdown elements while updating meeting content
         const existingCountdown = content.querySelector('.countdown-container');
-        
+
         // Update meeting container to show empty state
         let meetingContainer = content.querySelector('.meeting-container');
         if (meetingContainer) {
@@ -1989,14 +1989,14 @@ class WhatsNextStateManager {
             meetingContainer = document.createElement('div');
             meetingContainer.className = 'meeting-container';
             meetingContainer.innerHTML = '<div class="no-meetings">No upcoming meetings</div>';
-            
+
             if (existingCountdown) {
                 content.insertBefore(meetingContainer, existingCountdown);
             } else {
                 content.appendChild(meetingContainer);
             }
         }
-        
+
         // Clear global currentMeeting
         window.currentMeeting = null;
     }
@@ -2027,17 +2027,17 @@ class WhatsNextStateManager {
         if (formattedTimeRange) {
             return formattedTimeRange;
         }
-        
+
         // Fallback to original formatting for backwards compatibility
         const start = new Date(startTime);
         const end = new Date(endTime);
-        
+
         const options = {
             hour: 'numeric',
             minute: '2-digit',
             hour12: true
         };
-        
+
         return `${start.toLocaleTimeString([], options)} - ${end.toLocaleTimeString([], options)}`;
     }
 
@@ -2050,7 +2050,7 @@ class WhatsNextStateManager {
         const now = getCurrentTime();
         const meetingStart = new Date(meeting.start_time);
         const meetingEnd = new Date(meeting.end_time);
-        
+
         return now >= meetingStart && now <= meetingEnd;
     }
 
@@ -2110,7 +2110,7 @@ class WhatsNextStateManager {
             return true;
 
         } catch (error) {
-            
+
             // Rollback optimistic update
             this._removeOptimisticUpdate(graphId);
             this._applyOptimisticUpdates();
@@ -2118,7 +2118,7 @@ class WhatsNextStateManager {
 
             this._setError(`Failed to hide event: ${error.message}`);
             this._emitEvent('error', { type: 'hideEvent', graphId, error: error.message });
-            
+
             return false;
         }
     }
@@ -2170,7 +2170,7 @@ class WhatsNextStateManager {
             return true;
 
         } catch (error) {
-            
+
             // Rollback optimistic update
             this._removeOptimisticUpdate(graphId);
             this._applyOptimisticUpdates();
@@ -2178,7 +2178,7 @@ class WhatsNextStateManager {
 
             this._setError(`Failed to unhide event: ${error.message}`);
             this._emitEvent('error', { type: 'unhideEvent', graphId, error: error.message });
-            
+
             return false;
         }
     }
@@ -2360,7 +2360,7 @@ function initializeStateManager() {
 
             // Set up data loaded event handling
             whatsNextStateManager.addEventListener('dataLoaded', (data) => {
-                
+
                 // Update global variables for backward compatibility
                 if (data.data && data.data.events) {
                     upcomingMeetings = data.data.events.map(event => ({
@@ -2372,9 +2372,9 @@ function initializeStateManager() {
                         description: event.description || '',
                         is_hidden: event.is_hidden || false
                     }));
-                    
+
                     lastDataUpdate = new Date();
-                    
+
                     // Trigger existing UI update functions
                     detectCurrentMeeting();
                     updateCountdown();

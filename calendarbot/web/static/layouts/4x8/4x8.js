@@ -317,7 +317,7 @@ async function setLayout(layout) {
 
         if (data.success) {
             // Layout set successfully
-            
+
             // Force full page reload to load new layout's CSS/JS
             window.location.reload();
         } else {
@@ -621,7 +621,7 @@ function getCurrentTime() {
             const now = Date.now();
             const elapsedMs = now - frontendBaselineTime;
             const correctedTime = new Date(backendBaselineTime.getTime() + elapsedMs);
-            
+
             // Check for potential DST transition issues
             const dstIssue = detectDSTTransition(correctedTime);
             if (dstIssue.hasIssue) {
@@ -629,7 +629,7 @@ function getCurrentTime() {
                 // For DST issues, fall back to browser time with warning
                 return new Date();
             }
-            
+
             return correctedTime;
         } catch (error) {
             console.error('Timezone calculation error:', error);
@@ -649,11 +649,11 @@ function detectDSTTransition(calculatedTime) {
     try {
         const browserTime = new Date();
         const timeDifference = Math.abs(calculatedTime.getTime() - browserTime.getTime());
-        
+
         // Check if baseline is older than 2 hours (potential DST boundary)
         const baselineAge = Date.now() - frontendBaselineTime;
         const twoHours = 2 * 60 * 60 * 1000;
-        
+
         // If baseline is old and there's a significant time difference, suspect DST transition
         if (baselineAge > twoHours && timeDifference > (30 * 60 * 1000)) { // 30 minute threshold
             return {
@@ -663,7 +663,7 @@ function detectDSTTransition(calculatedTime) {
                 baselineAge
             };
         }
-        
+
         // Check for unusual time offsets that might indicate DST boundary issues
         const offsetDifference = Math.abs(calculatedTime.getTimezoneOffset() - browserTime.getTimezoneOffset());
         if (offsetDifference > 0) {
@@ -673,9 +673,9 @@ function detectDSTTransition(calculatedTime) {
                 offsetDifference
             };
         }
-        
+
         return { hasIssue: false, message: 'No DST issues detected' };
-        
+
     } catch (error) {
         return {
             hasIssue: true,
@@ -693,29 +693,29 @@ function shouldRefreshTimezoneBaseline() {
     if (!backendBaselineTime || !frontendBaselineTime) {
         return false;
     }
-    
+
     try {
         const currentTime = getCurrentTime();
         const calculatedTime = new Date(backendBaselineTime.getTime() + (Date.now() - frontendBaselineTime));
-        
+
         // Check for DST transition indicators
         const dstIssue = detectDSTTransition(calculatedTime);
         if (dstIssue.hasIssue) {
             console.info('Timezone baseline refresh recommended due to DST transition');
             return true;
         }
-        
+
         // Check baseline age - refresh after 4 hours to handle DST transitions
         const baselineAge = Date.now() - frontendBaselineTime;
         const fourHours = 4 * 60 * 60 * 1000;
-        
+
         if (baselineAge > fourHours) {
             console.info('Timezone baseline refresh recommended due to age');
             return true;
         }
-        
+
         return false;
-        
+
     } catch (error) {
         console.error('Error checking baseline refresh need:', error);
         return true; // Err on side of caution
@@ -730,7 +730,7 @@ async function handleDSTTransition() {
     if (!shouldRefreshTimezoneBaseline()) {
         return false;
     }
-    
+
     try {
         console.info('Triggering silent refresh for DST transition handling');
         await refreshSilent();
@@ -750,7 +750,7 @@ async function handleDSTTransition() {
 function validateEventOrdering(doc = document) {
     try {
         const eventElements = doc.querySelectorAll('[data-event-time]');
-        
+
         if (eventElements.length === 0) {
             return { isValid: true, message: 'No events to validate' };
         }
@@ -758,7 +758,7 @@ function validateEventOrdering(doc = document) {
         const events = Array.from(eventElements).map(element => {
             const eventTimeIso = element.getAttribute('data-event-time');
             const eventTime = new Date(eventTimeIso);
-            
+
             return {
                 element,
                 time: eventTime,
@@ -773,9 +773,9 @@ function validateEventOrdering(doc = document) {
         // Check if DOM order matches chronological order
         const domOrder = Array.from(eventElements).map(el => el.getAttribute('data-event-time'));
         const chronologicalOrder = events.map(event => event.timeIso);
-        
+
         const isValid = JSON.stringify(domOrder) === JSON.stringify(chronologicalOrder);
-        
+
         if (!isValid) {
             console.warn('Event ordering validation failed - events not in chronological order');
             return {
@@ -813,18 +813,18 @@ function validateEventTimeRelativity(doc = document) {
     try {
         const currentTime = getCurrentTime();
         const eventElements = doc.querySelectorAll('[data-event-time]');
-        
+
         if (eventElements.length === 0) {
             return { isValid: true, message: 'No events to validate' };
         }
 
         const pastEvents = [];
         const futureEvents = [];
-        
+
         eventElements.forEach(element => {
             const eventTimeIso = element.getAttribute('data-event-time');
             const eventTime = new Date(eventTimeIso);
-            
+
             if (!isNaN(eventTime.getTime())) {
                 if (eventTime < currentTime) {
                     pastEvents.push({ time: eventTime, timeIso: eventTimeIso });
@@ -863,16 +863,16 @@ function validateEventTimeRelativity(doc = document) {
 function performEventValidation(doc = document) {
     const orderingResult = validateEventOrdering(doc);
     const timeResult = validateEventTimeRelativity(doc);
-    
+
     const isFullyValid = orderingResult.isValid && timeResult.isValid;
-    
+
     if (!isFullyValid) {
         console.warn('Event validation issues detected:', {
             ordering: orderingResult,
             timeRelativity: timeResult
         });
     }
-    
+
     return {
         isValid: isFullyValid,
         ordering: orderingResult,
@@ -976,7 +976,7 @@ function cleanup() {
             console.error('Settings panel cleanup failed:', error);
         }
     }
-    
+
     // Clean up auto-refresh interval
     if (autoRefreshInterval) {
         clearInterval(autoRefreshInterval);

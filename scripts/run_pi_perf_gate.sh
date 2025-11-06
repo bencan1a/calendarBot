@@ -1,6 +1,6 @@
 #!/bin/bash
 # Pi Zero 2W ARM Performance Test Script
-# 
+#
 # Runs performance benchmarks in a Docker container with ARM emulation
 # and resource constraints matching Pi Zero 2W specifications.
 #
@@ -83,10 +83,10 @@ docker run --rm \
         set -e
         echo '📥 Installing dependencies...'
         pip install --quiet --no-cache-dir --prefer-binary -e . psutil
-        
+
         echo '⚡ Running 50-event benchmark...'
         python ci_performance_benchmark.py --run fifty --output benchmark_results.json
-        
+
         echo ''
         echo '✅ Benchmark complete'
         cat benchmark_results.json

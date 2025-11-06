@@ -366,34 +366,34 @@ markers = [
     "unit: Fast unit tests",
     "integration: Integration tests requiring external dependencies",
     "e2e: End-to-end tests for complete workflows",
-    
+
     # Browser and UI testing
     "browser: Browser-based validation tests",
     "accessibility: Accessibility and WCAG compliance tests",
     "cross_browser: Cross-browser compatibility tests",
     "visual_regression: Visual regression and screenshot comparison tests",
     "responsive: Responsive design and viewport tests",
-    
+
     # Security and network
     "security: Security-focused tests and vulnerability checks",
     "network: Tests that require network access",
-    
+
     # Performance and execution characteristics
     "performance: Performance and load tests",
     "memory: Memory profiling and resource usage tests",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "fast: Quick-executing tests (under 30 seconds)",
-    
+
     # CI/CD and workflow
     "critical_path: Core functionality tests for CI/CD pipeline (fast execution)",
     "critical: Critical path tests for CI/CD",
     "smoke: Basic functionality verification tests",
     "regression: Full regression testing",
     "targeted: Tests selected based on code changes",
-    
+
     # Coverage and validation
     "coverage: Tests specifically for coverage validation",
-    
+
     # Timeout markers for long-running tests
     "timeout: Tests with specific timeout requirements",
 ]

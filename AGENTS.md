@@ -591,7 +591,7 @@ CALENDARBOT_TEST_TIME=2024-01-01T12:00:00 python -m pytest
 - `ruff check calendarbot_lit --fix`
 - `mypy calendarbot_lite`
 - `bandit calendarbot_lite`
-- fix anything significant, mark others to be ignored. 
+- fix anything significant, mark others to be ignored.
 - these must run clean before commit
 
 ### Ruff Configuration

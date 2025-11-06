@@ -25,7 +25,7 @@ class TestAppDependencies:
         event_window_ref = [()]
         mock_lock = Mock()
         mock_stop_event = Mock()
-        
+
         deps = AppDependencies(
             config=mock_config,
             event_window_ref=event_window_ref,
@@ -50,7 +50,7 @@ class TestAppDependencies:
             log_monitoring_event=Mock(),
             ssml_renderers={},
         )
-        
+
         assert deps.config is mock_config
         assert deps.shared_http_client is mock_http_client
         assert deps.health_tracker is mock_health_tracker
@@ -63,7 +63,7 @@ class TestAppDependencies:
     def test_app_dependencies_when_with_skipped_store_then_stores_value(self) -> None:
         """Test AppDependencies with skipped store."""
         mock_skipped_store = Mock()
-        
+
         deps = AppDependencies(
             config=Mock(),
             event_window_ref=[()],
@@ -88,7 +88,7 @@ class TestAppDependencies:
             log_monitoring_event=Mock(),
             ssml_renderers={},
         )
-        
+
         assert deps.skipped_store is mock_skipped_store
 
 
