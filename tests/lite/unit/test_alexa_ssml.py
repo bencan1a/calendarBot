@@ -6,6 +6,7 @@ import pytest
 
 from calendarbot_lite.alexa.alexa_ssml import (
     DEFAULT_CONFIG,
+    _apply_substitutions,
     _basic_tag_balance_check,
     _compose_fragments,
     _escape_text_for_ssml,
@@ -13,7 +14,10 @@ from calendarbot_lite.alexa.alexa_ssml import (
     _select_urgency,
     _should_include_duration,
     _truncate_title,
+    _wrap_paragraph,
+    _wrap_sentence,
     _wrap_times_with_say_as,
+    _wrap_with_emotion,
     render_done_for_day_ssml,
     render_meeting_ssml,
     render_time_until_ssml,
@@ -219,6 +223,147 @@ class TestTruncateTitle:
         """Test handling non-string input."""
         assert _truncate_title(None, 50) is None  # type: ignore
         assert _truncate_title(123, 50) == 123  # type: ignore
+
+
+class TestApplySubstitutions:
+    """Tests for _apply_substitutions helper function (Phase 1)."""
+
+    def test_apply_substitutions_when_q1_then_wrapped(self):
+        """Test substitution for Q1."""
+        text = "Q1 Planning Session"
+        result = _apply_substitutions(text)
+        assert '<sub alias="first quarter">Q1</sub>' in result
+        assert "Planning Session" in result
+
+    def test_apply_substitutions_when_q4_then_wrapped(self):
+        """Test substitution for Q4."""
+        text = "Q4 Planning"
+        result = _apply_substitutions(text)
+        assert '<sub alias="fourth quarter">Q4</sub>' in result
+
+    def test_apply_substitutions_when_1_1_colon_then_wrapped(self):
+        """Test substitution for 1:1 format."""
+        text = "Weekly 1:1 meeting"
+        result = _apply_substitutions(text)
+        assert '<sub alias="one on one">1:1</sub>' in result
+
+    def test_apply_substitutions_when_1_1_dash_then_wrapped(self):
+        """Test substitution for 1-1 format."""
+        text = "Manager 1-1"
+        result = _apply_substitutions(text)
+        assert '<sub alias="one on one">1-1</sub>' in result
+
+    def test_apply_substitutions_when_multiple_abbrevs_then_all_wrapped(self):
+        """Test substitution with multiple abbreviations."""
+        text = "Q1 1:1 planning and Q2 review"
+        result = _apply_substitutions(text)
+        assert '<sub alias="first quarter">Q1</sub>' in result
+        assert '<sub alias="one on one">1:1</sub>' in result
+        assert '<sub alias="second quarter">Q2</sub>' in result
+
+    def test_apply_substitutions_when_no_abbrevs_then_unchanged(self):
+        """Test text without abbreviations."""
+        text = "Regular meeting title"
+        result = _apply_substitutions(text)
+        assert result == text
+
+    def test_apply_substitutions_when_custom_config_then_uses_config(self):
+        """Test with custom substitution config."""
+        config = {"substitutions": {"API": "A P I"}}
+        text = "API Review"
+        result = _apply_substitutions(text, config)
+        # Should not substitute API as it's not in default pattern
+        assert "API Review" in result
+
+    def test_apply_substitutions_when_non_string_then_empty(self):
+        """Test handling non-string input."""
+        assert _apply_substitutions(None) == ""  # type: ignore
+        assert _apply_substitutions(123) == ""  # type: ignore
+
+
+class TestWrapWithEmotion:
+    """Tests for _wrap_with_emotion helper function (Phase 1)."""
+
+    def test_wrap_with_emotion_when_excited_medium_then_wrapped(self):
+        """Test wrapping with excited emotion at medium intensity."""
+        text = "You're all done for today!"
+        result = _wrap_with_emotion(text, "excited", "medium")
+        assert result == '<amazon:emotion name="excited" intensity="medium">You\'re all done for today!</amazon:emotion>'
+
+    def test_wrap_with_emotion_when_excited_low_then_wrapped(self):
+        """Test wrapping with excited emotion at low intensity."""
+        text = "Great news"
+        result = _wrap_with_emotion(text, "excited", "low")
+        assert result == '<amazon:emotion name="excited" intensity="low">Great news</amazon:emotion>'
+
+    def test_wrap_with_emotion_when_disappointed_then_wrapped(self):
+        """Test wrapping with disappointed emotion."""
+        text = "Sorry about that"
+        result = _wrap_with_emotion(text, "disappointed", "medium")
+        assert 'name="disappointed"' in result
+        assert 'intensity="medium"' in result
+
+    def test_wrap_with_emotion_when_empty_text_then_unchanged(self):
+        """Test handling empty text."""
+        assert _wrap_with_emotion("") == ""
+        assert _wrap_with_emotion("   ") == "   "
+
+    def test_wrap_with_emotion_when_non_string_then_unchanged(self):
+        """Test handling non-string input."""
+        assert _wrap_with_emotion(None) is None  # type: ignore
+        assert _wrap_with_emotion(123) == 123  # type: ignore
+
+
+class TestWrapParagraph:
+    """Tests for _wrap_paragraph helper function (Phase 1)."""
+
+    def test_wrap_paragraph_when_text_then_wrapped(self):
+        """Test wrapping text in paragraph tags."""
+        text = "Good evening."
+        result = _wrap_paragraph(text)
+        assert result == "<p>Good evening.</p>"
+
+    def test_wrap_paragraph_when_multiline_then_wrapped(self):
+        """Test wrapping multiline text."""
+        text = "First sentence. Second sentence."
+        result = _wrap_paragraph(text)
+        assert result == "<p>First sentence. Second sentence.</p>"
+
+    def test_wrap_paragraph_when_empty_text_then_unchanged(self):
+        """Test handling empty text."""
+        assert _wrap_paragraph("") == ""
+        assert _wrap_paragraph("   ") == "   "
+
+    def test_wrap_paragraph_when_non_string_then_unchanged(self):
+        """Test handling non-string input."""
+        assert _wrap_paragraph(None) is None  # type: ignore
+        assert _wrap_paragraph(123) == 123  # type: ignore
+
+
+class TestWrapSentence:
+    """Tests for _wrap_sentence helper function (Phase 1)."""
+
+    def test_wrap_sentence_when_text_then_wrapped(self):
+        """Test wrapping text in sentence tags."""
+        text = "Your next meeting is in 5 minutes."
+        result = _wrap_sentence(text)
+        assert result == "<s>Your next meeting is in 5 minutes.</s>"
+
+    def test_wrap_sentence_when_short_text_then_wrapped(self):
+        """Test wrapping short text."""
+        text = "Hello."
+        result = _wrap_sentence(text)
+        assert result == "<s>Hello.</s>"
+
+    def test_wrap_sentence_when_empty_text_then_unchanged(self):
+        """Test handling empty text."""
+        assert _wrap_sentence("") == ""
+        assert _wrap_sentence("   ") == "   "
+
+    def test_wrap_sentence_when_non_string_then_unchanged(self):
+        """Test handling non-string input."""
+        assert _wrap_sentence(None) is None  # type: ignore
+        assert _wrap_sentence(123) == 123  # type: ignore
 
 
 class TestComposeFragments:
@@ -716,8 +861,10 @@ class TestRenderDoneForDaySsml:
         assert result.startswith("<speak>")
         assert result.endswith("</speak>")
 
-        # Should have strong emphasis for celebration
-        assert 'level="strong"' in result  # Strong celebratory emphasis
+        # Phase 1: Should have excited emotion for celebration (not emphasis)
+        assert 'amazon:emotion' in result  # Excited emotion
+        assert 'name="excited"' in result
+        assert 'intensity="medium"' in result
         assert "You&apos;re all done for today!" in result  # Escaped text
 
     def test_render_done_for_day_ssml_when_will_be_done_future_then_emphasizes_time(self):
@@ -869,8 +1016,9 @@ class TestRenderDoneForDaySsml:
 
         # No meetings should have relaxed tone indicators
         assert 'pitch="medium"' in no_meetings_result
-        # Had meetings (all done) should have strong celebratory emphasis
-        assert 'level="strong"' in had_meetings_result
+        # Phase 1: Had meetings (all done) should have excited emotion (not emphasis)
+        assert 'amazon:emotion' in had_meetings_result
+        assert 'name="excited"' in had_meetings_result
 
 
 class TestSsmlUserStoryCompliance:

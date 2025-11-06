@@ -35,8 +35,9 @@ TIME_PATTERN = re.compile(r"\b(\d{1,2}):(\d{2})\s+(am|pm)\b", re.IGNORECASE)
 # Pattern for say-as tags: <say-as ...>...</say-as>
 SAY_AS_TAG_PATTERN = re.compile(r"(<say-as[^>]*>.*?</say-as>)", re.DOTALL)
 # Pattern for preserving SSML tags in general (say-as, sub, amazon:emotion, p, s)
+# Only matches complete, well-formed tags with both opening and closing tags
 SSML_TAG_PATTERN = re.compile(
-    r"(<(?:say-as|sub|amazon:emotion|p|s)[^>]*>.*?</(?:say-as|sub|amazon:emotion|p|s)>|<(?:say-as|sub)[^>]*/?>)",
+    r"(<(?:say-as|sub|amazon:emotion|p|s)(?:\s[^>]*)?>(?:(?!</(?:say-as|sub|amazon:emotion|p|s)>).)*?</(?:say-as|sub|amazon:emotion|p|s)>)",
     re.DOTALL,
 )
 # Pattern for abbreviation substitutions: Q1-Q4, 1:1, 1-1
