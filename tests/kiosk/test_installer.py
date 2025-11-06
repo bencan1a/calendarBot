@@ -866,7 +866,7 @@ class TestConfigurationValidation:
         assert result.returncode == 0, f"Installer failed: {result.stderr}"
 
         # Verify config was loaded successfully
-        assert "Loading configuration" in result.stdout or                "Configuration validated" in result.stdout
+        assert "Loading configuration" in result.stdout or "Configuration validated" in result.stdout
 
     def test_installer_when_alexa_section_without_domain_then_warns(
         self, installer_harness, basic_config
@@ -894,7 +894,11 @@ class TestConfigurationValidation:
 
         # Verify Alexa section config was processed
         output = result.stdout + result.stderr
-        assert "alexa" in output.lower() or "section 3" in output.lower() or                "Configuration validated" in result.stdout
+        assert (
+            "alexa" in output.lower()
+            or "section 3" in output.lower()
+            or "Configuration validated" in result.stdout
+        )
 
     def test_installer_when_monitoring_section_enabled_then_validates(
         self, installer_harness, basic_config
@@ -919,7 +923,15 @@ class TestConfigurationValidation:
             test_mode=True
         )
 
-        assert result.returncode == 0, f"Installer failed: {result.stderr}"
+        assert (
+            "monitoring" in output.lower()
+            or "section 4" in output.lower()
+            or "Configuration validated" in result.stdout
+        assert (
+            "monitoring" in output.lower()
+            or "section 4" in output.lower()
+            or "Configuration validated" in result.stdout
+        )
 
         # Verify monitoring section config was processed
         output = result.stdout + result.stderr
@@ -1014,7 +1026,7 @@ class TestUpdateMode:
         assert result.returncode == 0, f"Installer failed: {result.stderr}"
 
         # Verify config was loaded and processed
-        assert "Configuration validated" in result.stdout or                "Loading configuration" in result.stdout
+        assert "Configuration validated" in result.stdout or s"Loading configuration" in result.stdout
 
 
 @pytest.mark.unit
