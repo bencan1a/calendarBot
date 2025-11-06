@@ -606,7 +606,7 @@ jobs:
           bash -c "
             set -e
             echo '📥 Installing dependencies...'
-            pip install --quiet --no-cache-dir --prefer-binary -e . psutil
+            pip install --quiet --no-cache-dir --prefer-binary -r requirements.txt psutil
 
             echo '⚡ Running 50-event benchmark...'
             python ci_performance_benchmark.py --run fifty --output benchmark_results.json
