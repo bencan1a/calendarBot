@@ -824,12 +824,11 @@ def _wrap_sentence(text: str) -> str:
     return SENTENCE.format(text=text)
 
 
-def _wrap_with_domain(text: str, domain_name: Literal["conversational"] = "conversational") -> str:
+def _wrap_with_domain(text: str) -> str:
     """Wrap text with amazon:domain SSML tag for conversational speech style.
 
     Args:
         text: Text to wrap with domain
-        domain_name: Domain name (currently only 'conversational' is supported)
 
     Returns:
         Text wrapped in <amazon:domain> tags
@@ -841,7 +840,7 @@ def _wrap_with_domain(text: str, domain_name: Literal["conversational"] = "conve
     if not isinstance(text, str) or not text.strip():
         return text
 
-    return DOMAIN.format(name=domain_name, text=text)
+    return DOMAIN.format(name="conversational", text=text)
 
 
 def _wrap_with_voice(text: str, voice_name: str = "Joanna") -> str:

@@ -1335,7 +1335,7 @@ class TestWrapWithDomain:
 
     def test_wrap_with_domain_non_string_returns_unchanged(self):
         """Test non-string returns unchanged."""
-        assert _wrap_with_domain(None) == None  # type: ignore
+        assert _wrap_with_domain(None) is None  # type: ignore
 
 
 class TestWrapWithVoice:
@@ -1357,7 +1357,7 @@ class TestWrapWithVoice:
 
     def test_wrap_with_voice_non_string_returns_unchanged(self):
         """Test non-string returns unchanged."""
-        assert _wrap_with_voice(None) == None  # type: ignore
+        assert _wrap_with_voice(None) is None  # type: ignore
 
 
 class TestApplyConversationalDomain:
