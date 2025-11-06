@@ -43,17 +43,17 @@ def create_test_event(
 
 def generate_events(count: int, duplicate_rate: float = 0.1) -> list[LiteCalendarEvent]:
     """Generate test events with some duplicates.
-    
+
     Args:
         count: Number of events to generate
         duplicate_rate: Fraction of events that should be duplicates (0.0-1.0)
-    
+
     Returns:
         List of calendar events with specified duplicate rate
     """
     events = []
     base_time = datetime(2025, 1, 1, 10, 0, tzinfo=UTC)
-    
+
     for i in range(count):
         # Create some duplicates based on rate
         # Guard against division by zero and ensure we have previous events
@@ -75,7 +75,7 @@ def generate_events(count: int, duplicate_rate: float = 0.1) -> list[LiteCalenda
             start = base_time + timedelta(hours=i)
             end = start + timedelta(hours=1)
             events.append(create_test_event(f"event-{i}", f"Event {i}", start, end))
-    
+
     return events
 
 
@@ -86,40 +86,40 @@ class TestDeduplicationPerformance:
     def test_deduplicate_events_small_calendar(self, event_merger):
         """Test deduplication performance with small calendar (100 events)."""
         events = generate_events(100, duplicate_rate=0.1)
-        
+
         start = time.perf_counter()
         result = event_merger.deduplicate_events(events)
         elapsed_ms = (time.perf_counter() - start) * 1000
-        
+
         # Should complete very quickly for small calendars
         assert elapsed_ms < 5, f"Deduplication took {elapsed_ms:.2f}ms, expected <5ms"
         assert len(result) < len(events)  # Some duplicates removed
-    
+
     def test_deduplicate_events_medium_calendar(self, event_merger):
         """Test deduplication performance with medium calendar (500 events)."""
         events = generate_events(500, duplicate_rate=0.1)
-        
+
         start = time.perf_counter()
         result = event_merger.deduplicate_events(events)
         elapsed_ms = (time.perf_counter() - start) * 1000
-        
+
         # Should scale linearly - allow reasonable overhead
         assert elapsed_ms < 15, f"Deduplication took {elapsed_ms:.2f}ms, expected <15ms"
         assert len(result) < len(events)
-    
+
     def test_deduplicate_events_large_calendar_target(self, event_merger):
         """Test deduplication meets target: <50ms for 1000 events."""
         events = generate_events(1000, duplicate_rate=0.1)
-        
+
         start = time.perf_counter()
         result = event_merger.deduplicate_events(events)
         elapsed_ms = (time.perf_counter() - start) * 1000
-        
+
         # Primary success metric from issue #XX
         assert (
             elapsed_ms < 50
         ), f"Deduplication took {elapsed_ms:.2f}ms, target is <50ms for 1000 events"
-        
+
         # Verify correctness
         expected_removed = int(1000 * 0.1)
         actual_removed = len(events) - len(result)
@@ -127,22 +127,22 @@ class TestDeduplicationPerformance:
         assert (
             abs(actual_removed - expected_removed) <= 10
         ), f"Expected ~{expected_removed} duplicates, got {actual_removed}"
-    
+
     def test_deduplicate_events_very_large_calendar(self, event_merger):
         """Test deduplication scales to very large calendars (5000 events)."""
         events = generate_events(5000, duplicate_rate=0.1)
-        
+
         start = time.perf_counter()
         result = event_merger.deduplicate_events(events)
         elapsed_ms = (time.perf_counter() - start) * 1000
-        
+
         # Should scale linearly - 5x events should be <5x time
         # If 1000 events takes <50ms, 5000 should take <250ms
         assert (
             elapsed_ms < 250
         ), f"Deduplication took {elapsed_ms:.2f}ms, expected <250ms for 5000 events"
         assert len(result) < len(events)
-    
+
     def test_deduplicate_linear_complexity(self, event_merger):
         """Verify O(n) complexity by testing scaling behavior.
 
@@ -154,12 +154,7 @@ class TestDeduplicationPerformance:
         # Test with two sizes: 1000 and 2000 events
         size_1 = 1000
         size_2 = 2000
-
-        # Warm-up run to stabilize system state (discarded)
-        warmup_events = generate_events(100, duplicate_rate=0.1)
-        event_merger.deduplicate_events(warmup_events)
-        gc.collect()
-
+        
         # Measure time for size_1
         events_1 = generate_events(size_1, duplicate_rate=0.1)
         gc.collect()
@@ -198,32 +193,32 @@ class TestDeduplicationPerformance:
         time_2 = median_timing(events_2)
 
         ratio = time_2 / time_1 if time_1 > 0 else 0
-
-        assert ratio >= 1.0, f"Second run was faster than first: ratio={ratio:.2f}, cannot verify complexity"
+        
+        # Allow significant variance (1.5-3.0x) due to system noise, but should not be 4x
         assert (
-            1.0 <= ratio <= 4.5
-        ), f"Complexity appears worse than O(n): ratio={ratio:.2f} (expected 1.0-4.5)"
+            1.5 <= ratio <= 3.0
+        ), f"Complexity appears worse than O(n): ratio={ratio:.2f} (expected ~2.0)"
     
     def test_deduplicate_no_duplicates_overhead(self, event_merger):
         """Test performance when there are no duplicates (best case)."""
         events = generate_events(1000, duplicate_rate=0.0)
-        
+
         start = time.perf_counter()
         result = event_merger.deduplicate_events(events)
         elapsed_ms = (time.perf_counter() - start) * 1000
-        
+
         # No duplicates - should be fastest case
         assert elapsed_ms < 50, f"Deduplication took {elapsed_ms:.2f}ms"
         assert len(result) == len(events)  # No duplicates removed
-    
+
     def test_deduplicate_many_duplicates(self, event_merger):
         """Test performance with high duplicate rate (50%)."""
         events = generate_events(1000, duplicate_rate=0.5)
-        
+
         start = time.perf_counter()
         result = event_merger.deduplicate_events(events)
         elapsed_ms = (time.perf_counter() - start) * 1000
-        
+
         # Even with many duplicates, should meet target
         assert elapsed_ms < 50, f"Deduplication took {elapsed_ms:.2f}ms"
         # Should remove roughly 50% of events
@@ -234,22 +229,22 @@ class TestDeduplicationPerformance:
 @pytest.mark.asyncio
 class TestPipelineDeduplicationPerformance:
     """Performance tests for pipeline deduplication stage."""
-    
+
     async def test_pipeline_dedupe_target(self, dedupe_stage):
         """Test pipeline deduplication meets performance target."""
         events = generate_events(1000, duplicate_rate=0.1)
         context = ProcessingContext()
         context.events = events
-        
+
         start = time.perf_counter()
         result = await dedupe_stage.process(context)
         elapsed_ms = (time.perf_counter() - start) * 1000
-        
+
         # Pipeline version should also be fast
         assert elapsed_ms < 50, f"Pipeline deduplication took {elapsed_ms:.2f}ms"
         assert result.success
         assert result.events_filtered > 0  # Some duplicates removed
-    
+
     async def test_pipeline_dedupe_linear_complexity(self, dedupe_stage):
         """Verify pipeline deduplication maintains O(n) complexity."""
         import gc
@@ -257,14 +252,7 @@ class TestPipelineDeduplicationPerformance:
         # Test with two sizes
         size_1 = 1000
         size_2 = 2000
-
-        # Warm-up run to stabilize system state (discarded)
-        warmup_events = generate_events(100, duplicate_rate=0.1)
-        warmup_context = ProcessingContext()
-        warmup_context.events = warmup_events
-        await dedupe_stage.process(warmup_context)
-        gc.collect()
-
+        
         # Measure time for size_1
         events_1 = generate_events(size_1, duplicate_rate=0.1)
         context_1 = ProcessingContext()

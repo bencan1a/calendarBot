@@ -45,23 +45,23 @@ describe('4x8 layout targeted coverage', () => {
                 </body>
             </html>
         `;
-        
+
         // Mock fetch and other globals
         global.fetch = jest.fn().mockResolvedValue({
             ok: true,
             json: () => Promise.resolve({ success: true, html: '<div>Updated content</div>' })
         });
-        
+
         // Set up fake timers
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2024-01-15T10:00:00.000Z'));
-        
+
         // Mock global variables
         global.backendBaselineTime = null;
         global.frontendBaselineTime = null;
         global.currentWeekStart = new Date('2024-01-15T00:00:00.000Z');
         global.currentWeekEnd = new Date('2024-01-21T23:59:59.999Z');
-        
+
         // Mock global functions
         global.updatePageContent = jest.fn();
         global.showMessage = jest.fn();
@@ -119,7 +119,7 @@ describe('4x8 layout targeted coverage', () => {
         // Test error handling
         global.fetch.mockRejectedValueOnce(new Error('Network error'));
         console.error = jest.fn();
-        
+
         await global.silentRefresh();
         expect(console.error).toHaveBeenCalledWith('Silent refresh error:', expect.any(Error));
     });
@@ -177,7 +177,7 @@ describe('4x8 layout targeted coverage', () => {
 
         expect(global.updatePageContent).toHaveBeenCalledWith(newHTML);
         expect(global.initializeTimezoneBaseline).toHaveBeenCalled();
-        
+
         // Since we manually updated the DOM above, verify those updates worked
         expect(document.querySelector('.status-line').textContent).toBe('Updated Status');
         expect(document.querySelector('.header-info').textContent).toBe('Updated Header');
@@ -188,7 +188,7 @@ describe('4x8 layout targeted coverage', () => {
         // Reset global variables
         global.backendBaselineTime = null;
         global.frontendBaselineTime = null;
-        
+
         // Test successful initialization - simulate the function logic
         const parser = new DOMParser();
         const testDoc = parser.parseFromString(`
@@ -204,11 +204,11 @@ describe('4x8 layout targeted coverage', () => {
         // Simulate the timezone initialization function behavior
         const eventElements = testDoc.querySelectorAll('[data-current-time][data-event-time]');
         let result = false;
-        
+
         if (eventElements.length > 0) {
             const firstEvent = eventElements[0];
             const backendTimeIso = firstEvent.getAttribute('data-current-time');
-            
+
             if (backendTimeIso) {
                 global.backendBaselineTime = new Date(backendTimeIso);
                 global.frontendBaselineTime = Date.now();
@@ -220,7 +220,7 @@ describe('4x8 layout targeted coverage', () => {
         // The mock should return true since we set the globals above
         global.initializeTimezoneBaseline.mockReturnValueOnce(true);
         const mockResult = global.initializeTimezoneBaseline(testDoc);
-        
+
         expect(mockResult).toBe(true);
         // Since we manually set the globals above in the simulation, they should be valid
         expect(global.backendBaselineTime).toBeInstanceOf(Date);
@@ -271,7 +271,7 @@ describe('4x8 layout targeted coverage', () => {
         // Test navigateWeek function
         global.navigateWeek = function(direction) {
             const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-            
+
             if (direction === 'prev') {
                 currentWeekStart = new Date(currentWeekStart.getTime() - WEEK_MS);
                 currentWeekEnd = new Date(currentWeekEnd.getTime() - WEEK_MS);
@@ -312,7 +312,7 @@ describe('4x8 layout targeted coverage', () => {
 
             const frontendElapsed = Date.now() - frontendBaselineTime;
             const hybridTime = new Date(backendBaselineTime.getTime() + frontendElapsed);
-            
+
             return hybridTime;
         };
 
@@ -325,7 +325,7 @@ describe('4x8 layout targeted coverage', () => {
         // Test with baseline
         global.backendBaselineTime = new Date('2024-01-15T10:00:00.000Z');
         global.frontendBaselineTime = Date.now() - 5000; // 5 seconds ago
-        
+
         const hybridTime = global.getHybridCurrentTime();
         expect(hybridTime).toBeInstanceOf(Date);
         expect(hybridTime.getTime()).toBeGreaterThan(global.backendBaselineTime.getTime());
@@ -335,7 +335,7 @@ describe('4x8 layout targeted coverage', () => {
         // Test event positioning logic
         global.positionEventsInGrid = function() {
             const dayColumns = document.querySelectorAll('.day-column');
-            
+
             dayColumns.forEach(column => {
                 const events = column.querySelectorAll('.event');
                 events.forEach((event, index) => {
@@ -345,7 +345,7 @@ describe('4x8 layout targeted coverage', () => {
                         const time = new Date(eventTime);
                         const hour = time.getHours();
                         const topPosition = (hour - 8) * 60; // 8 AM start, 60px per hour
-                        
+
                         event.style.position = 'absolute';
                         event.style.top = `${Math.max(0, topPosition)}px`;
                         event.style.left = `${index * 5}px`; // Slight offset for overlapping events
@@ -355,7 +355,7 @@ describe('4x8 layout targeted coverage', () => {
         };
 
         global.positionEventsInGrid();
-        
+
         const event = document.querySelector('.event[data-event-time]');
         expect(event.style.position).toBe('absolute');
         expect(event.style.top).toBeTruthy();
@@ -366,13 +366,13 @@ describe('4x8 layout targeted coverage', () => {
         global.generateCalendarGrid = function(startDate, endDate) {
             const grid = [];
             const current = new Date(startDate);
-            
+
             while (current <= endDate) {
                 // Use explicit day mapping to ensure consistent results
                 const dayOfWeek = current.getDay(); // 0 = Sunday, 1 = Monday, etc.
                 const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
                 const dayName = dayNames[dayOfWeek];
-                
+
                 const dayData = {
                     date: new Date(current),
                     dayName: dayName,
@@ -381,7 +381,7 @@ describe('4x8 layout targeted coverage', () => {
                 grid.push(dayData);
                 current.setDate(current.getDate() + 1);
             }
-            
+
             return grid;
         };
 
@@ -389,7 +389,7 @@ describe('4x8 layout targeted coverage', () => {
         const startDate = new Date(2024, 0, 1); // This is a Monday (Jan 1, 2024)
         const endDate = new Date(2024, 0, 7);   // This is a Sunday (Jan 7, 2024)
         const grid = global.generateCalendarGrid(startDate, endDate);
-        
+
         expect(grid).toHaveLength(7);
         // Verify the grid contains all days but adjust expectations to match actual order
         const dayNames = grid.map(day => day.dayName);
@@ -412,23 +412,23 @@ describe('4x8 layout targeted coverage', () => {
             const htmlElement = document.documentElement;
             const currentTheme = htmlElement.className.match(/theme-(\w+)/);
             const themes = ['light', 'dark', 'eink'];
-            
+
             let nextThemeIndex = 0;
             if (currentTheme) {
                 const currentIndex = themes.indexOf(currentTheme[1]);
                 nextThemeIndex = (currentIndex + 1) % themes.length;
             }
-            
+
             const nextTheme = themes[nextThemeIndex];
             htmlElement.className = htmlElement.className.replace(/theme-\w+/, '').trim() + ` theme-${nextTheme}`;
-            
+
             // Persist theme choice
             try {
                 localStorage.setItem('calendar-theme', nextTheme);
             } catch (e) {
                 // Ignore localStorage errors
             }
-            
+
             return nextTheme;
         };
 
@@ -454,7 +454,7 @@ describe('4x8 layout targeted coverage', () => {
             getItem: jest.fn(key => localStorageMock[key] || null),
             setItem: jest.fn((key, value) => { localStorageMock[key] = value; })
         };
-        
+
         // Override global localStorage with our mock
         Object.defineProperty(global, 'localStorage', {
             value: mockLocalStorage,
@@ -468,16 +468,16 @@ describe('4x8 layout targeted coverage', () => {
             const currentIndex = layouts.indexOf(currentLayout);
             const nextIndex = (currentIndex + 1) % layouts.length;
             const nextLayout = layouts[nextIndex];
-            
+
             try {
                 localStorage.setItem('current-layout', nextLayout);
             } catch (e) {
                 // Ignore localStorage errors
             }
-            
+
             // Trigger layout change (in real app, this would redirect)
             global.showMessage(`Switching to ${nextLayout} layout`, 'info');
-            
+
             return nextLayout;
         };
 
@@ -491,10 +491,10 @@ describe('4x8 layout targeted coverage', () => {
         // Test error handling utilities
         global.handleError = function(error, context = 'unknown') {
             console.error(`Error in ${context}:`, error);
-            
+
             // Show user-friendly error message
             showMessage('An error occurred. Please try refreshing the page.', 'error');
-            
+
             // Log additional debug info
             console.debug('Error context:', {
                 timestamp: new Date().toISOString(),
@@ -568,7 +568,7 @@ describe('4x8 layout targeted coverage', () => {
         global.adjustLayoutForViewport = function() {
             const width = window.innerWidth;
             const calendar = document.querySelector('.calendar-content');
-            
+
             if (calendar) {
                 if (width < 768) {
                     calendar.classList.add('mobile-layout');

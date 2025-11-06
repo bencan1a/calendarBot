@@ -95,7 +95,7 @@ class TestCorrelationIdMiddleware(AioHTTPTestCase):
         correlation_id = data["correlation_id"]
         assert correlation_id != "not-set"
         assert correlation_id != "no-request-id"
-        
+
         # Verify it's a valid UUID format
         try:
             uuid.UUID(correlation_id)
@@ -130,10 +130,10 @@ class TestCorrelationIdContext:
         """Test get_request_id returns value from context."""
         test_id = "context-test-id-123"
         request_id_var.set(test_id)
-        
+
         result = get_request_id()
         assert result == test_id
-        
+
         # Clean up
         request_id_var.set("")
 

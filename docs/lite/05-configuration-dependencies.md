@@ -1,7 +1,7 @@
 # Configuration & Dependencies Component
 
-**Component:** 5 of 5 - Configuration Layer  
-**Purpose:** Environment-based configuration, dependency injection, type-safe settings management  
+**Component:** 5 of 5 - Configuration Layer
+**Purpose:** Environment-based configuration, dependency injection, type-safe settings management
 **Last Updated:** 2025-11-03
 
 ---
@@ -156,16 +156,16 @@ CALENDARBOT_ALEXA_BEARER_TOKEN       → config["alexa_bearer_token"] (str)
 config: dict[str, Any] = {
     # Required
     "ics_sources": list[str],               # ICS feed URLs
-    
+
     # Server settings
     "server_bind": str,                     # Host to bind (default: "0.0.0.0")
     "server_port": int,                     # Port (default: 8080)
     "refresh_interval_seconds": int,        # Refresh interval (default: 300)
-    
+
     # Processing settings
     "rrule_expansion_days": int,            # RRULE expansion window
     "event_window_size": int,               # Max events to keep
-    
+
     # Authentication
     "alexa_bearer_token": str | None,       # Alexa API auth token
 }
@@ -207,22 +207,22 @@ class AppDependencies:
     # Configuration
     config: Any
     config_manager: Any
-    
+
     # State management
     event_window_ref: list[tuple[dict[str, Any], ...]]
     window_lock: asyncio.Lock
     stop_event: asyncio.Event
     skipped_store: object | None
-    
+
     # Infrastructure
     shared_http_client: aiohttp.ClientSession
     health_tracker: HealthTracker
-    
+
     # Business logic
     event_filter: EventFilter
     window_manager: EventWindowManager
     fetch_orchestrator: FetchOrchestrator
-    
+
     # Utility functions
     time_provider: Callable
     get_config_value: Callable
@@ -379,12 +379,12 @@ CALENDARBOT_NEW_SETTING=default_value
 # In config_manager.py
 def build_config_from_env(self) -> dict[str, Any]:
     cfg: dict[str, Any] = {}
-    
+
     # Add new setting
     new_setting = os.environ.get("CALENDARBOT_NEW_SETTING")
     if new_setting:
         cfg["new_setting"] = new_setting
-    
+
     return cfg
 ```
 
@@ -401,7 +401,7 @@ def build_config_from_env(self) -> dict[str, Any]:
 @dataclass
 class AppDependencies:
     # ... existing fields
-    
+
     # Add new dependency
     new_component: NewComponent
 ```
@@ -410,10 +410,10 @@ class AppDependencies:
 ```python
 def build_dependencies(...) -> AppDependencies:
     # ... existing initialization
-    
+
     # Create new component
     new_component = NewComponent(config)
-    
+
     return AppDependencies(
         # ... existing deps
         new_component=new_component,
@@ -459,7 +459,7 @@ def test_config_loading():
     }):
         config_mgr = ConfigManager()
         config = config_mgr.load_full_config()
-        
+
         assert config["ics_sources"] == ["https://test.ics"]
         assert config["server_port"] == 9999
 ```
@@ -501,19 +501,19 @@ def main() -> None:
     """Main entry point for calendarbot_lite server."""
     import argparse
     from .config_manager import ConfigManager
-    
+
     parser = argparse.ArgumentParser(description="CalendarBot Lite Server")
     parser.add_argument("--port", type=int, help="Server port override")
     args = parser.parse_args()
-    
+
     # Load configuration from .env and environment
     config_mgr = ConfigManager()
     config = config_mgr.load_full_config()
-    
+
     # Apply CLI overrides
     if args.port:
         config["server_port"] = args.port
-    
+
     # Start server with configuration
     from . import run_server
     run_server(config)
@@ -533,17 +533,17 @@ def build_dependencies(
     import asyncio
     from .health_tracker import HealthTracker
     from .event_filter import EventFilter, EventWindowManager
-    
+
     # Initialize components
     health_tracker = HealthTracker()
     event_window_ref: list[tuple[dict[str, Any], ...]] = [()]
     window_lock = asyncio.Lock()
     stop_event = asyncio.Event()
-    
+
     # Build event filtering components
     event_filter = EventFilter(get_server_timezone, get_fallback_timezone)
     window_manager = EventWindowManager(event_filter, fallback_handler)
-    
+
     # Return container
     return AppDependencies(
         config=config,
@@ -563,10 +563,10 @@ async def health_check(request: web.Request) -> web.Response:
     health_tracker = request.app["health_tracker"]
     config = request.app["config"]
     get_system_diagnostics = request.app["get_system_diagnostics"]
-    
+
     # Access config values
     refresh_interval = config.get("refresh_interval_seconds", 300)
-    
+
     # Build health response
     diagnostics = get_system_diagnostics()
     health_status = {
@@ -576,7 +576,7 @@ async def health_check(request: web.Request) -> web.Response:
         "total_refreshes": health_tracker.total_refreshes,
         **diagnostics,
     }
-    
+
     return web.json_response(health_status)
 ```
 
@@ -618,7 +618,7 @@ async def test_event_filtering(test_dependencies):
     """Test event filtering with custom config."""
     config = test_dependencies.config
     event_filter = test_dependencies.event_filter
-    
+
     # Test uses configuration
     assert config["event_window_size"] == 50
 ```
@@ -642,7 +642,7 @@ def override_test_time():
 def test_time_based_logic(override_test_time):
     """Test time-dependent logic with fixed time."""
     from calendarbot_lite.timezone_utils import now_utc
-    
+
     # now_utc() returns mocked time
     current = now_utc()
     assert current.year == 2024
@@ -663,9 +663,9 @@ CALENDARBOT_CACHE_SIZE=100
 ```python
 def build_config_from_env(self) -> dict[str, Any]:
     cfg: dict[str, Any] = {}
-    
+
     # ... existing config loading
-    
+
     # Cache size configuration
     cache_size = os.environ.get("CALENDARBOT_CACHE_SIZE")
     if cache_size:
@@ -673,7 +673,7 @@ def build_config_from_env(self) -> dict[str, Any]:
             cfg["cache_size"] = int(cache_size)
         except Exception:
             logger.warning("Invalid CALENDARBOT_CACHE_SIZE=%r; ignoring", cache_size)
-    
+
     return cfg
 ```
 
@@ -733,6 +733,6 @@ response_cache = ResponseCache(max_size=cache_size)
 
 ---
 
-**Last Updated:** 2025-11-03  
-**Maintained By:** CalendarBot Lite Project  
+**Last Updated:** 2025-11-03
+**Maintained By:** CalendarBot Lite Project
 **Related Components:** All components depend on this foundation layer

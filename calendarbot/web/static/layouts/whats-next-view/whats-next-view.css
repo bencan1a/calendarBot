@@ -61,7 +61,7 @@ body::before {
     --gray-6: #424242;  /* Medium dark - 9.7:1 contrast with gray-1 */
     --gray-7: #212121;  /* Dark - 16.0:1 contrast with gray-1 */
     --gray-8: #000000;  /* Darkest - 21:1 contrast with gray-1 */
-    
+
     /* Enhanced semantic color assignments for UX compliance */
     --background-primary: var(--gray-1);
     --background-secondary: var(--gray-2);
@@ -395,7 +395,7 @@ body::before {
         animation: none;
         transition: opacity 0.3s ease;
     }
-    
+
     .meeting-card.hiding {
         opacity: 0;
     }
@@ -745,7 +745,7 @@ body::before {
         --border-medium: var(--gray-7);
         --border-strong: var(--gray-8);
     }
-    
+
     .meeting-card {
         border-width: 3px;
     }
@@ -760,11 +760,11 @@ body::before {
     .nav-btn {
         transition: none;
     }
-    
+
     .countdown-time.urgent {
         animation: none;
     }
-    
+
     .loading-spinner {
         animation: none;
     }
@@ -795,11 +795,11 @@ body::before {
     .whats-next-header {
         padding: 0.5rem;
     }
-    
+
     .calendar-content {
         padding: 0.75rem;
     }
-    
+
     .countdown-time {
         font-size: 2rem;
     }
@@ -905,28 +905,28 @@ body::before {
         color: black;
         font-size: 12pt;
     }
-    
+
     .whats-next-header {
         border-bottom: 2px solid black;
     }
-    
+
     .meeting-card {
         break-inside: avoid;
         border: 1px solid black;
         box-shadow: none;
         margin-bottom: 0.5rem;
     }
-    
+
     .countdown-container {
         border: 1px solid black;
         background: white;
     }
-    
+
     .refresh-btn,
     .nav-btn {
         display: none;
     }
-    
+
     .loading-spinner {
         display: none;
     }

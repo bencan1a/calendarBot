@@ -86,16 +86,16 @@ class TestSystemDiagnostics:
     def test_get_system_diagnostics_when_load_available_then_returns_load(self, mock_getloadavg: MagicMock) -> None:
         """Test that system diagnostics returns load average when available."""
         mock_getloadavg.return_value = (0.5, 1.0, 1.5)
-        
+
         diag = server_module._get_system_diagnostics()
-        
+
         assert diag["server_load_1m"] == 0.5
 
     @patch("os.getloadavg", side_effect=OSError("Not available"))
     def test_get_system_diagnostics_when_load_unavailable_then_returns_none(self, mock_getloadavg: MagicMock) -> None:
         """Test that system diagnostics returns None when load average unavailable."""
         diag = server_module._get_system_diagnostics()
-        
+
         assert diag["server_load_1m"] is None
 
     @patch("builtins.open", create=True)
@@ -110,25 +110,25 @@ class TestSystemDiagnostics:
             "Buffers:          256000 kB\n"
         ])
         mock_open.return_value = mock_file
-        
+
         diag = server_module._get_system_diagnostics()
-        
+
         assert diag["free_mem_kb"] == 6144000
 
     @patch("builtins.open", side_effect=FileNotFoundError("Not found"))
     def test_get_system_diagnostics_when_meminfo_unavailable_then_returns_none(self, mock_open: MagicMock) -> None:
         """Test that system diagnostics returns None when meminfo unavailable."""
         diag = server_module._get_system_diagnostics()
-        
+
         assert diag["free_mem_kb"] is None
 
     def test_get_system_diagnostics_when_no_system_info_then_returns_baseline_structure(self) -> None:
         """Test that system diagnostics returns proper structure even without system info."""
         with patch("os.getloadavg", side_effect=OSError), \
              patch("builtins.open", side_effect=FileNotFoundError):
-            
+
             diag = server_module._get_system_diagnostics()
-        
+
         assert "server_load_1m" in diag
         assert "free_mem_kb" in diag
         assert diag["server_load_1m"] is None
@@ -147,32 +147,32 @@ class TestHealthEndpoint:
     async def test_health_check_when_no_refresh_then_returns_degraded(self) -> None:
         """Test that health check returns degraded status when no refresh has occurred."""
         # Test health check function directly by creating it within the _make_app context
-        
+
         # Create a minimal mock request
         mock_request = MagicMock()
-        
+
         with patch("calendarbot_lite.api.server._now_utc") as mock_now, \
              patch("calendarbot_lite.api.server._get_system_diagnostics") as mock_diag, \
              patch("os.getpid", return_value=12345):
-            
+
             mock_now.return_value = datetime.datetime(2025, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
             mock_diag.return_value = {"server_load_1m": 0.5, "free_mem_kb": 1024000}
-            
+
             # Mock the app creation components for context
             event_window_ref = [()]
             window_lock = AsyncMock()
             stop_event = AsyncMock()
             config = {}
             skipped_store = None
-            
+
             # Create the app which creates the health_check function
             app = await server_module._make_app(
                 config, skipped_store, event_window_ref, window_lock, stop_event
             )
-            
+
             # Get the health_check function from module vars since it's defined locally in _make_app
             # Instead, let's directly test by creating a mock response that mimics what we expect
-            
+
             # We'll test by calling the health check logic directly via mocked components
             # Simulate no refresh state (already set in setup_method)
 
@@ -189,7 +189,7 @@ class TestHealthEndpoint:
                 status = server_module._health_tracker.determine_overall_status()
 
                 assert status == "degraded"
-                
+
                 # Test that health data structure is correct
                 health_data = {
                     "status": status,
@@ -212,7 +212,7 @@ class TestHealthEndpoint:
                     },
                     "diag": {"server_load_1m": 0.5, "free_mem_kb": 1024000}
                 }
-                
+
                 # Verify the structure is correct
                 assert health_data["status"] == "degraded"
                 assert health_data["last_refresh"]["last_success_iso"] is None
@@ -293,9 +293,9 @@ class TestPortConflictHandling:
         mock_find = MagicMock(return_value=MagicMock(pid=1234, command="test-process"))
         mock_cleanup = MagicMock(return_value=True)  # Cleanup successful
         mock_import.return_value = (mock_check, mock_find, mock_cleanup)
-        
+
         result = server_module._handle_port_conflict("localhost", 8080)
-        
+
         assert result is True
         mock_cleanup.assert_called_once_with("localhost", 8080, force=True)
 
@@ -310,9 +310,9 @@ class TestPortConflictHandling:
         mock_find = MagicMock(return_value=None)
         mock_cleanup = MagicMock(return_value=False)  # Cleanup failed
         mock_import.return_value = (mock_check, mock_find, mock_cleanup)
-        
+
         result = server_module._handle_port_conflict("localhost", 8080)
-        
+
         assert result is False
 
     @patch.dict(os.environ, {"CALENDARBOT_NONINTERACTIVE": ""})
@@ -328,9 +328,9 @@ class TestPortConflictHandling:
         mock_find = MagicMock(return_value=MagicMock(pid=1234, command="test-process"))
         mock_cleanup = MagicMock(return_value=True)  # Cleanup successful
         mock_import.return_value = (mock_check, mock_find, mock_cleanup)
-        
+
         result = server_module._handle_port_conflict("localhost", 8080)
-        
+
         assert result is True
         mock_input.assert_called_once()
         mock_cleanup.assert_called_once_with("localhost", 8080, force=True)
@@ -345,9 +345,9 @@ class TestPortConflictHandling:
         mock_find = MagicMock()
         mock_cleanup = MagicMock()
         mock_import.return_value = (mock_check, mock_find, mock_cleanup)
-        
+
         result = server_module._handle_port_conflict("localhost", 8080)
-        
+
         assert result is True
         mock_find.assert_not_called()
         mock_cleanup.assert_not_called()
@@ -358,7 +358,7 @@ class TestPortConflictHandling:
     ) -> None:
         """Test that missing process utilities returns false."""
         mock_import.return_value = (None, None, None)
-        
+
         result = server_module._handle_port_conflict("localhost", 8080)
-        
+
         assert result is False

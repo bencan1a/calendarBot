@@ -30,9 +30,9 @@ class TestDSTSpringForward:
         """Test US Pacific DST start: 2025-03-09 02:00 -> 03:00."""
         # On 2025-03-09 at 2:00 AM, clocks spring forward to 3:00 AM
         # Time 2:30 AM doesn't exist in Pacific timezone on this date
-        
+
         parser = TimezoneParser()
-        
+
         # Parse a time before the transition (1:30 AM PST)
         dt_before = parser.parse_datetime_with_tzid(
             "TZID=Pacific Standard Time:20250309T013000"
@@ -45,7 +45,7 @@ class TestDSTSpringForward:
     def test_us_eastern_spring_forward_2025(self):
         """Test US Eastern DST start: 2025-03-09 02:00 -> 03:00."""
         parser = TimezoneParser()
-        
+
         # Parse time after the transition (3:30 AM EDT)
         dt_after = parser.parse_datetime_with_tzid(
             "TZID=Eastern Standard Time:20250309T033000"
@@ -58,7 +58,7 @@ class TestDSTSpringForward:
     def test_european_spring_forward_2025(self):
         """Test European DST start: 2025-03-30 01:00 -> 02:00."""
         parser = TimezoneParser()
-        
+
         # Central European Time springs forward on last Sunday of March
         dt = parser.parse_datetime_with_tzid(
             "TZID=Central European Standard Time:20250330T003000"
@@ -75,9 +75,9 @@ class TestDSTFallBack:
         """Test US Pacific DST end: 2025-11-02 02:00 -> 01:00."""
         # On 2025-11-02 at 2:00 AM, clocks fall back to 1:00 AM
         # Time 1:30 AM occurs twice (once in PDT, once in PST)
-        
+
         parser = TimezoneParser()
-        
+
         # Parse time during the ambiguous hour
         dt_ambiguous = parser.parse_datetime_with_tzid(
             "TZID=Pacific Standard Time:20251102T013000"
@@ -90,7 +90,7 @@ class TestDSTFallBack:
     def test_us_eastern_fall_back_2025(self):
         """Test US Eastern DST end: 2025-11-02 02:00 -> 01:00."""
         parser = TimezoneParser()
-        
+
         dt = parser.parse_datetime_with_tzid(
             "TZID=Eastern Standard Time:20251102T013000"
         )
@@ -101,7 +101,7 @@ class TestDSTFallBack:
     def test_european_fall_back_2025(self):
         """Test European DST end: 2025-10-26 03:00 -> 02:00."""
         parser = TimezoneParser()
-        
+
         # Central European Time falls back on last Sunday of October
         dt = parser.parse_datetime_with_tzid(
             "TZID=W. Europe Standard Time:20251026T023000"
@@ -117,7 +117,7 @@ class TestInternationalDST:
     def test_australia_dst_start(self):
         """Test Australian DST start (October, opposite of Northern Hemisphere)."""
         parser = TimezoneParser()
-        
+
         # Australian Eastern DST starts first Sunday in October
         dt = parser.parse_datetime_with_tzid(
             "TZID=AUS Eastern Standard Time:20251005T020000"
@@ -127,7 +127,7 @@ class TestInternationalDST:
     def test_australia_dst_end(self):
         """Test Australian DST end (April, opposite of Northern Hemisphere)."""
         parser = TimezoneParser()
-        
+
         # Australian Eastern DST ends first Sunday in April
         dt = parser.parse_datetime_with_tzid(
             "TZID=AUS Eastern Standard Time:20250406T030000"
@@ -137,7 +137,7 @@ class TestInternationalDST:
     def test_no_dst_timezone(self):
         """Test timezone that doesn't observe DST (Arizona)."""
         parser = TimezoneParser()
-        
+
         # Arizona doesn't observe DST
         dt_winter = parser.parse_datetime_with_tzid(
             "TZID=Arizona Standard Time:20250115T120000"
@@ -145,11 +145,11 @@ class TestInternationalDST:
         dt_summer = parser.parse_datetime_with_tzid(
             "TZID=Arizona Standard Time:20250715T120000"
         )
-        
+
         # Both should parse successfully
         assert dt_winter.tzinfo == datetime.UTC
         assert dt_summer.tzinfo == datetime.UTC
-        
+
         # UTC offset should be the same (no DST)
         # Winter: 12:00 MST (UTC-7) = 19:00 UTC
         # Summer: 12:00 MST (UTC-7) = 19:00 UTC (no change)
@@ -225,7 +225,7 @@ class TestMalformedTimezoneData:
     def test_parse_with_missing_timezone(self):
         """Test parsing datetime with missing/empty timezone falls back to UTC."""
         parser = TimezoneParser()
-        
+
         # Should fall back to UTC when timezone is invalid
         dt = parser.parse_datetime_with_tzid("TZID=:20251031T090000")
         assert dt.tzinfo == datetime.UTC
@@ -233,7 +233,7 @@ class TestMalformedTimezoneData:
     def test_parse_with_invalid_timezone(self):
         """Test parsing with invalid timezone name falls back gracefully."""
         parser = TimezoneParser()
-        
+
         dt = parser.parse_datetime_with_tzid("TZID=Invalid/Timezone:20251031T090000")
         # Should parse datetime but fall back to UTC for timezone
         assert dt.tzinfo == datetime.UTC
@@ -244,11 +244,11 @@ class TestMalformedTimezoneData:
     def test_parse_malformed_datetime_format(self):
         """Test parsing with various datetime format variations."""
         parser = TimezoneParser()
-        
+
         # Missing seconds - October 31, 2025 is during PDT (UTC-7), so 9 AM PDT = 16:00 UTC
         dt1 = parser.parse_datetime_with_tzid("TZID=Pacific Standard Time:20251031T0900")
         assert dt1.hour == 16  # 9 AM PDT (UTC-7) = 16:00 UTC
-        
+
         # ISO format with hyphens
         dt2 = parser.parse_datetime_with_tzid("TZID=Pacific Standard Time:2025-10-31T09:00:00")
         assert dt2.day == 31
@@ -256,7 +256,7 @@ class TestMalformedTimezoneData:
     def test_parse_with_unexpected_characters(self):
         """Test parsing handles unexpected characters gracefully."""
         parser = TimezoneParser()
-        
+
         # Extra whitespace
         dt = parser.parse_datetime_with_tzid("TZID= Pacific Standard Time :20251031T090000")
         assert dt.tzinfo == datetime.UTC
@@ -310,12 +310,12 @@ class TestDSTBoundaryAccuracy:
         """Test exact DST transition time for Pacific timezone."""
         # 2025-03-09 at 2:00 AM PST becomes 3:00 AM PDT
         tz_pacific = ZoneInfo("America/Los_Angeles")
-        
+
         # 1:59 AM is still PST (UTC-8)
         dt_before = datetime.datetime(2025, 3, 9, 1, 59, 0, tzinfo=tz_pacific)
         utc_before = dt_before.astimezone(datetime.UTC)
         assert utc_before.hour == 9  # 1:59 AM + 8 hours = 9:59 AM UTC
-        
+
         # 3:00 AM is PDT (UTC-7) - clock jumped from 2:00 to 3:00
         dt_after = datetime.datetime(2025, 3, 9, 3, 0, 0, tzinfo=tz_pacific)
         utc_after = dt_after.astimezone(datetime.UTC)
@@ -325,11 +325,11 @@ class TestDSTBoundaryAccuracy:
         """Test exact DST transition time for Eastern timezone."""
         # 2025-11-02 at 2:00 AM EDT becomes 1:00 AM EST
         tz_eastern = ZoneInfo("America/New_York")
-        
+
         # Before fall back: 1:30 AM EDT (UTC-4)
         dt_edt = datetime.datetime(2025, 11, 2, 1, 30, 0, tzinfo=tz_eastern)
         utc_edt = dt_edt.astimezone(datetime.UTC)
-        
+
         # After fall back: Time 1:30 appears again in EST (UTC-5)
         # zoneinfo will pick one interpretation based on fold parameter
         assert utc_edt.month == 11
