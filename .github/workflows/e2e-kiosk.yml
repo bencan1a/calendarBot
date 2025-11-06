@@ -1,8 +1,11 @@
 name: Kiosk E2E Installation Tests
 
 on:
-  # Manual trigger only - run on-demand to validate kiosk installation changes
+  schedule:
+    # Run every night at 3 AM UTC (1 hour after full suite)
+    - cron: '0 3 * * *'
   workflow_dispatch:
+    # Manual trigger also available
 
 env:
   PYTHON_VERSION: "3.12"
@@ -11,7 +14,7 @@ jobs:
   kiosk-e2e-tests:
     name: Kiosk E2E Installation Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
     - name: Checkout code
@@ -68,14 +71,17 @@ jobs:
         docker images | grep calendarbot-e2e
 
     - name: Run E2E tests
-      timeout-minutes: 15
+      timeout-minutes: 20
       run: |
         echo "========================================"
-        echo "Running Kiosk E2E Tests"
+        echo "Running Kiosk E2E Installation Tests"
+        echo "========================================"
+        echo "Tests: 6 comprehensive E2E installation tests"
+        echo "Duration: ~10-15 minutes (installs packages in containers)"
         echo "========================================"
         echo ""
 
-        venv/bin/pytest tests/kiosk/test_e2e_placeholder.py \
+        venv/bin/pytest tests/kiosk/test_installer.py::TestInstallerE2E \
           -v \
           --tb=short \
           --junit-xml=e2e-test-results.xml
