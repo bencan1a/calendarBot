@@ -580,48 +580,16 @@ jobs:
         echo "========================================"
         echo ""
 
-        # Create temporary directory for test
-        TEMP_DIR=$(mktemp -d)
-        trap "sudo rm -rf ${TEMP_DIR}" EXIT
-
-        # Copy necessary files
-        echo "📦 Preparing test environment..."
-        cp -r calendarbot_lite "${TEMP_DIR}/"
-        cp requirements.txt "${TEMP_DIR}/"
-        cp pyproject.toml "${TEMP_DIR}/"
-        cp tests/ci_performance_benchmark.py "${TEMP_DIR}/"
-
-        # Run benchmark in Docker container with Pi Zero 2W resource constraints
+        # Run benchmark with resource constraints using systemd-run
+        # This constrains CPU and memory without Docker overhead
         echo "🚀 Running performance benchmark with resource limits..."
         echo ""
-
-        # Run with timeout to prevent hanging
-        # Use --user to match host user permissions and avoid root-owned files
-        timeout 8m docker run --rm \
-          --user "$(id -u):$(id -g)" \
-          --cpus="1.0" \
-          --memory="512m" \
-          --memory-swap="512m" \
-          -v "${TEMP_DIR}:/app" \
-          -w /app \
-          python:3.12-slim \
-          bash -c "
-            set -e
-            echo '📥 Installing dependencies...'
-            pip install --quiet --no-cache-dir --prefer-binary -r requirements.txt psutil
-
-            echo '⚡ Running 50-event benchmark...'
-            python ci_performance_benchmark.py --run fifty --output benchmark_results.json
-
-            echo ''
-            echo '✅ Benchmark complete'
-          " || {
-            echo "❌ Performance benchmark failed"
-            exit 1
-          }
-
-        # Copy results
-        cp "${TEMP_DIR}/benchmark_results.json" pi_perf_results.json
+        
+        systemd-run --user --scope \
+          -p CPUQuota=100% \
+          -p MemoryMax=512M \
+          -p MemorySwapMax=0 \
+          venv/bin/python tests/ci_performance_benchmark.py --run fifty --output pi_perf_results.json
 
         echo ""
         echo "📊 Performance Results:"
