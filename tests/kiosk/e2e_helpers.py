@@ -5,7 +5,6 @@ Provides utilities for interacting with Docker containers during E2E tests.
 
 import logging
 import time
-from pathlib import Path
 from typing import Tuple, Optional, List
 
 logger = logging.getLogger(__name__)
