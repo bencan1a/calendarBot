@@ -6,6 +6,7 @@ import pytest
 
 from calendarbot_lite.alexa.alexa_ssml import (
     DEFAULT_CONFIG,
+    _apply_conversational_domain,
     _apply_substitutions,
     _basic_tag_balance_check,
     _compose_fragments,
@@ -17,7 +18,9 @@ from calendarbot_lite.alexa.alexa_ssml import (
     _wrap_paragraph,
     _wrap_sentence,
     _wrap_times_with_say_as,
+    _wrap_with_domain,
     _wrap_with_emotion,
+    _wrap_with_voice,
     render_done_for_day_ssml,
     render_meeting_ssml,
     render_time_until_ssml,
@@ -700,7 +703,7 @@ class TestRenderMeetingSsml:
         assert 'level="strong"' in result  # Strong emphasis for urgent
 
     def test_render_meeting_ssml_when_standard_timing_then_moderate_paced_ssml(self):
-        """Test SSML generation for standard timing meetings."""
+        """Test SSML generation for standard timing meetings (Phase 2: sentence tags)."""
         meeting = {
             "subject": "Team Sync",
             "seconds_until_start": 1500,  # 25 minutes
@@ -715,10 +718,11 @@ class TestRenderMeetingSsml:
         assert result.endswith("</speak>")
         assert "Team Sync" in result
         assert 'level="moderate"' in result
-        assert 'time="0.3s"' in result  # Standard break
+        # Phase 2: Uses sentence tags instead of breaks
+        assert "<s>" in result and "</s>" in result
 
     def test_render_meeting_ssml_when_relaxed_timing_then_calm_ssml(self):
-        """Test SSML generation for relaxed timing meetings."""
+        """Test SSML generation for relaxed timing meetings (Phase 2: sentence tags)."""
         meeting = {
             "subject": "Project Review",
             "seconds_until_start": 7200,  # 2 hours
@@ -732,8 +736,9 @@ class TestRenderMeetingSsml:
         assert result.startswith("<speak>")
         assert result.endswith("</speak>")
         assert "Project Review" in result
-        assert 'rate="medium"' in result
-        assert 'time="0.5s"' in result  # Longer break for relaxed
+        # Phase 2: Uses sentence tags instead of prosody/breaks
+        assert "<s>" in result and "</s>" in result
+        assert "Your next meeting is" in result
 
     def test_render_meeting_ssml_when_long_title_then_truncated(self):
         """Test SSML generation with long meeting title."""
@@ -1199,7 +1204,7 @@ class TestSsmlUserStoryCompliance:
         assert len(result) <= 500
 
     def test_relaxed_meeting_ssml_matches_user_story_requirements(self):
-        """Test relaxed meeting SSML matches Story 2 requirements."""
+        """Test relaxed meeting SSML matches Story 2 requirements (Phase 2: sentence tags)."""
         meeting = {
             "subject": "Project Review",
             "seconds_until_start": 9000,  # 2.5 hours - meets > 3600s criteria
@@ -1211,13 +1216,13 @@ class TestSsmlUserStoryCompliance:
         result = render_meeting_ssml(meeting)
         assert result is not None
 
-        # Story 2 requirements:
-        # - Uses <prosody rate="medium"> or no rate modification
-        assert 'rate="medium"' in result or 'rate="fast"' not in result
-        # - Natural pauses with <break time="0.5s"/>
-        assert 'time="0.5s"' in result
+        # Story 2 requirements (Phase 2 updated):
         # - Meeting title uses <emphasis level="moderate">
         assert 'level="moderate"' in result and "Project Review" in result
+        # - Phase 2: Uses sentence tags for natural structure
+        assert "<s>" in result and "</s>" in result
+        # - Natural conversational flow
+        assert "Your next meeting is" in result
 
     def test_location_integration_matches_user_story_requirements(self):
         """Test location integration matches Story 4 requirements."""
@@ -1310,3 +1315,83 @@ class TestSsmlUserStoryCompliance:
         invalid_ssml = '<speak><voice name="Amy">Test</voice></speak>'
         default_allowed = {"speak", "prosody", "emphasis", "break"}
         assert validate_ssml(invalid_ssml, allowed_tags=default_allowed) is False
+
+
+class TestWrapWithDomain:
+    """Tests for _wrap_with_domain helper function (Phase 2)."""
+
+    def test_wrap_with_domain_simple_text(self):
+        """Test wrapping simple text with conversational domain."""
+        result = _wrap_with_domain("Your next meeting is in 5 minutes.")
+        assert result == '<amazon:domain name="conversational">Your next meeting is in 5 minutes.</amazon:domain>'
+
+    def test_wrap_with_domain_empty_string_returns_empty(self):
+        """Test empty string returns empty."""
+        assert _wrap_with_domain("") == ""
+
+    def test_wrap_with_domain_whitespace_only_returns_unchanged(self):
+        """Test whitespace-only returns unchanged."""
+        assert _wrap_with_domain("   ") == "   "
+
+    def test_wrap_with_domain_non_string_returns_unchanged(self):
+        """Test non-string returns unchanged."""
+        assert _wrap_with_domain(None) == None  # type: ignore
+
+
+class TestWrapWithVoice:
+    """Tests for _wrap_with_voice helper function (Phase 2)."""
+
+    def test_wrap_with_voice_default_joanna(self):
+        """Test wrapping with default Joanna voice."""
+        result = _wrap_with_voice("Good morning.")
+        assert result == '<voice name="Joanna">Good morning.</voice>'
+
+    def test_wrap_with_voice_custom_voice(self):
+        """Test wrapping with custom voice."""
+        result = _wrap_with_voice("Good morning.", "Matthew")
+        assert result == '<voice name="Matthew">Good morning.</voice>'
+
+    def test_wrap_with_voice_empty_string_returns_empty(self):
+        """Test empty string returns empty."""
+        assert _wrap_with_voice("") == ""
+
+    def test_wrap_with_voice_non_string_returns_unchanged(self):
+        """Test non-string returns unchanged."""
+        assert _wrap_with_voice(None) == None  # type: ignore
+
+
+class TestApplyConversationalDomain:
+    """Tests for _apply_conversational_domain helper function (Phase 2)."""
+
+    def test_apply_conversational_domain_when_enabled(self):
+        """Test applying conversational domain when enabled."""
+        config = {"conversational_domain": {"enabled": True, "voice": "Joanna"}}
+        result = _apply_conversational_domain("Your next meeting is in 5 minutes.", config)
+        expected = '<voice name="Joanna"><amazon:domain name="conversational">Your next meeting is in 5 minutes.</amazon:domain></voice>'
+        assert result == expected
+
+    def test_apply_conversational_domain_when_disabled(self):
+        """Test conversational domain is not applied when disabled."""
+        config = {"conversational_domain": {"enabled": False}}
+        text = "Your next meeting is in 5 minutes."
+        result = _apply_conversational_domain(text, config)
+        assert result == text
+
+    def test_apply_conversational_domain_custom_voice(self):
+        """Test applying conversational domain with custom voice."""
+        config = {"conversational_domain": {"enabled": True, "voice": "Matthew"}}
+        result = _apply_conversational_domain("Test message.", config)
+        expected = '<voice name="Matthew"><amazon:domain name="conversational">Test message.</amazon:domain></voice>'
+        assert result == expected
+
+    def test_apply_conversational_domain_empty_config(self):
+        """Test with empty config (should not apply domain)."""
+        config = {}
+        text = "Test message."
+        result = _apply_conversational_domain(text, config)
+        assert result == text
+
+    def test_apply_conversational_domain_empty_string_returns_empty(self):
+        """Test empty string returns empty."""
+        config = {"conversational_domain": {"enabled": True}}
+        assert _apply_conversational_domain("", config) == ""
