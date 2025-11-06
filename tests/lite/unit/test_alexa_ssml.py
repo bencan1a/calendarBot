@@ -1225,7 +1225,7 @@ class TestSsmlUserStoryCompliance:
         assert "Your next meeting is" in result
 
     def test_location_integration_matches_user_story_requirements(self):
-        """Test location integration matches Story 4 requirements."""
+        """Test location integration matches Story 4 requirements (Phase 2: sentence tags)."""
         # Test physical location
         meeting = {
             "subject": "Budget Review",
@@ -1238,11 +1238,11 @@ class TestSsmlUserStoryCompliance:
         result = render_meeting_ssml(meeting)
         assert result is not None
 
-        # Story 4 requirements:
+        # Story 4 requirements (Phase 2 updated):
         # - Include location after meeting title
         assert "Conference Room A" in result
-        # - Use <break time="0.2s"/> before location
-        assert 'time="0.2s"' in result
+        # - Phase 2: Location wrapped in sentence tags for natural structure
+        assert "<s>in" in result
         # - Location uses <emphasis level="reduced">
         assert 'level="reduced"' in result
 
@@ -1251,6 +1251,8 @@ class TestSsmlUserStoryCompliance:
         result = render_meeting_ssml(meeting)
         assert result is not None
         assert "joining online" in result
+        # Phase 2: Online meeting also wrapped in sentence tags
+        assert "<s>joining online</s>" in result
 
     def test_long_title_truncation_matches_user_story_requirements(self):
         """Test long title handling matches Story 5 requirements."""
