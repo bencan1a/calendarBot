@@ -935,7 +935,11 @@ class TestConfigurationValidation:
 
         # Verify monitoring section config was processed
         output = result.stdout + result.stderr
-        assert "monitoring" in output.lower() or "section 4" in output.lower() or                "Configuration validated" in result.stdout
+        assert (
+            "monitoring" in output.lower()
+            or "section 4" in output.lower()
+            or "Configuration validated" in result.stdout
+        )
 
 
 @pytest.mark.unit
