@@ -199,7 +199,7 @@ exit {exit_code}
             True if backup exists
         """
         # Backups are created with timestamp suffix
-        backup_pattern = Path(original_path).name + ".*\\.bak"
+        backup_pattern = f"{Path(original_path).name}.*.bak"
         return len(list(self.backup_dir.glob(backup_pattern))) > 0
 
 
@@ -320,7 +320,12 @@ class TestConfigurationParsing:
     def test_installer_when_valid_config_then_loads_successfully(
         self, installer_harness, basic_config
     ):
-        """Test that installer loads valid configuration."""
+        """Test that installer loads valid configuration.
+
+        Note: Installer checks for root privileges before loading config,
+        so this test verifies either successful config loading OR expected
+        permission error when not running as root.
+        """
         config_path = installer_harness.create_config(basic_config)
 
         # Run in dry-run mode to test config loading without system changes
@@ -329,9 +334,12 @@ class TestConfigurationParsing:
             "--dry-run"
         ])
 
-        # Should load config successfully (exit code 0 or specific error if not root)
-        # The installer requires root, so we expect a specific error
-        assert "Loading configuration" in result.stdout or result.returncode == 4
+        # Should load config successfully OR exit early due to root check
+        # The installer checks for root before loading config, so exit code 4 is expected
+        assert (
+            "Loading configuration" in result.stdout or
+            result.returncode == 4  # Permission error - expected when not root
+        )
 
     def test_installer_when_missing_username_then_validation_fails(
         self, installer_harness, basic_config

@@ -180,12 +180,29 @@ class TestDeduplicationPerformance:
         # - Much lower than 2.0: CPU warmup, cache priming, Python optimization
         # - Higher than 2.0: System load, memory pressure, timing variance
         # - O(n²) would consistently show ratio ~4.0+ (and typically much higher)
-        # Note: Ratio < 1.0 can occur due to measurement noise on fast operations
+        # Note: Ratio < 1.0 can occur due to measurement noise on fast operations,
+        # but if the second run is faster than the first, the test cannot verify complexity.
+        # To reduce noise, run each timing multiple times and use the median.
+        import statistics
+
+        def median_timing(events, runs=5):
+            timings = []
+            for _ in range(runs):
+                gc.collect()
+                start = time.perf_counter()
+                event_merger.deduplicate_events(events)
+                timings.append(time.perf_counter() - start)
+            return statistics.median(timings)
+
+        time_1 = median_timing(events_1)
+        time_2 = median_timing(events_2)
+
         ratio = time_2 / time_1 if time_1 > 0 else 0
 
+        assert ratio >= 1.0, f"Second run was faster than first: ratio={ratio:.2f}, cannot verify complexity"
         assert (
-            0.5 <= ratio <= 4.5
-        ), f"Complexity appears worse than O(n): ratio={ratio:.2f} (expected 0.5-4.5)"
+            1.0 <= ratio <= 4.5
+        ), f"Complexity appears worse than O(n): ratio={ratio:.2f} (expected 1.0-4.5)"
     
     def test_deduplicate_no_duplicates_overhead(self, event_merger):
         """Test performance when there are no duplicates (best case)."""
@@ -274,5 +291,5 @@ class TestPipelineDeduplicationPerformance:
         # Note: Ratio < 1.0 can occur due to measurement noise on fast operations
         ratio = time_2 / time_1 if time_1 > 0 else 0
         assert (
-            0.5 <= ratio <= 4.5
-        ), f"Pipeline complexity appears worse than O(n): ratio={ratio:.2f} (expected 0.5-4.5)"
+            0.5 <= ratio <= 3.5
+        ), f"Pipeline complexity appears worse than O(n): ratio={ratio:.2f} (expected 0.5-3.5)"
