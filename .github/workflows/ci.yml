@@ -13,6 +13,14 @@ on:
         type: boolean
         default: false
 
+# Prevent duplicate workflow runs for PRs
+# - For PR events: group by PR number, cancel in-progress runs when new commits pushed
+# - For push events (main/develop): group by ref, allow concurrent runs
+# - For manual triggers: group by run ID, no cancellation
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   PYTHON_VERSION: "3.12"
   COVERAGE_THRESHOLD: 70
