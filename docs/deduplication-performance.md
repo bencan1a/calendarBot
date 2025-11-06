@@ -53,7 +53,7 @@ for event in events:  # O(n)
         deduplicated.append(event)
 ```
 
-**Why not O(n²)?** 
+**Why not O(n²)?**
 - No nested loops over events
 - Hash-based set/dict lookups are O(1) average case
 - Total complexity: O(n) * O(1) = O(n)

@@ -8,7 +8,7 @@ require('../../../../calendarbot/web/static/layouts/whats-next-view/whats-next-v
 
 describe('whats-next-view viewport and accessibility', () => {
     let container;
-    
+
     beforeEach(() => {
         // Setup DOM container
         container = document.createElement('div');
@@ -33,7 +33,7 @@ describe('whats-next-view viewport and accessibility', () => {
 
     afterEach(() => {
         document.body.removeChild(container);
-        
+
         // Clean up viewport display if it exists
         const existingDisplay = document.getElementById('viewport-resolution-display');
         if (existingDisplay) {
@@ -79,7 +79,7 @@ describe('whats-next-view viewport and accessibility', () => {
                 if (!global.DOMCache.calendarContent) {
                     global.DOMCache.calendarContent = document.querySelector('.calendar-content');
                 }
-                
+
                 if (global.DOMCache.calendarContent) {
                     global.DOMCache.calendarContent.style.border = '1px solid #bdbdbd';
                     global.DOMCache.calendarContent.style.boxSizing = 'border-box';
@@ -91,16 +91,16 @@ describe('whats-next-view viewport and accessibility', () => {
                 return function updateViewportDisplay() {
                     const viewportWidth = window.innerWidth;
                     const viewportHeight = window.innerHeight;
-                    
+
                     let contentWidth = 300;  // Default from CSS
                     let contentHeight = 400; // Default from CSS
-                    
+
                     if (global.DOMCache.calendarContent) {
                         const rect = global.DOMCache.calendarContent.getBoundingClientRect();
                         contentWidth = Math.round(rect.width);
                         contentHeight = Math.round(rect.height);
                     }
-                    
+
                     global.DOMCache.viewportDisplay.textContent = `Viewport: ${viewportWidth} × ${viewportHeight}\nContent: ${contentWidth} × ${contentHeight}`;
                 };
             };
@@ -138,7 +138,7 @@ describe('whats-next-view viewport and accessibility', () => {
 
         test('updates viewport display content correctly', () => {
             const updateFunction = setupViewportResolutionDisplay();
-            
+
             // Mock getBoundingClientRect
             const calendarContent = container.querySelector('.calendar-content');
             calendarContent.getBoundingClientRect = jest.fn(() => ({
@@ -155,7 +155,7 @@ describe('whats-next-view viewport and accessibility', () => {
         test('handles missing calendar content gracefully', () => {
             // Remove calendar content
             container.innerHTML = '';
-            
+
             const updateFunction = setupViewportResolutionDisplay();
             updateFunction();
 
@@ -220,7 +220,7 @@ describe('whats-next-view viewport and accessibility', () => {
             setupAccessibility();
 
             const meetingCards = container.querySelectorAll('.meeting-card');
-            
+
             meetingCards.forEach((card, index) => {
                 expect(card.getAttribute('tabindex')).toBe('0');
                 expect(card.getAttribute('role')).toBe('button');
@@ -271,7 +271,7 @@ describe('whats-next-view viewport and accessibility', () => {
 
         test('announces messages to screen reader', (done) => {
             jest.useFakeTimers();
-            
+
             // Setup accessibility first
             const liveRegion = document.createElement('div');
             liveRegion.id = 'whats-next-live-region';
@@ -287,7 +287,7 @@ describe('whats-next-view viewport and accessibility', () => {
             jest.advanceTimersByTime(150);
 
             expect(liveRegion.textContent).toBe('Meeting starting in 5 minutes');
-            
+
             jest.useRealTimers();
             done();
         });
@@ -311,7 +311,7 @@ describe('whats-next-view viewport and accessibility', () => {
                 let label = title;
                 if (time) label += `, ${time}`;
                 if (location) label += `, ${location}`;
-                
+
                 return label + ', clickable';
             };
         });
@@ -387,7 +387,7 @@ describe('whats-next-view viewport and accessibility', () => {
         test('provides keyboard navigation support', () => {
             const setupKeyboardNavigation = function() {
                 const meetingCards = document.querySelectorAll('.meeting-card');
-                
+
                 meetingCards.forEach((card) => {
                     card.addEventListener('keydown', (event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
@@ -418,14 +418,14 @@ describe('whats-next-view viewport and accessibility', () => {
             const manageFocus = function(direction) {
                 const focusableElements = document.querySelectorAll('.meeting-card[tabindex="0"]');
                 const currentIndex = Array.from(focusableElements).indexOf(document.activeElement);
-                
+
                 let nextIndex;
                 if (direction === 'next') {
                     nextIndex = (currentIndex + 1) % focusableElements.length;
                 } else {
                     nextIndex = (currentIndex - 1 + focusableElements.length) % focusableElements.length;
                 }
-                
+
                 focusableElements[nextIndex]?.focus();
             };
 
@@ -458,7 +458,7 @@ describe('whats-next-view viewport and accessibility', () => {
                     lastViewportWidth = currentWidth;
                     lastViewportHeight = currentHeight;
                     updateCount++;
-                    
+
                     // Actual update logic would go here
                     return true;
                 }
@@ -490,7 +490,7 @@ describe('whats-next-view viewport and accessibility', () => {
             const checkContentChanges = function() {
                 const rect = mockElement.getBoundingClientRect();
                 const hasChanges = (
-                    rect.width !== lastContentWidth || 
+                    rect.width !== lastContentWidth ||
                     rect.height !== lastContentHeight
                 );
 

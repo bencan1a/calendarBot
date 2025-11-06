@@ -37,7 +37,7 @@ class TestLogEntry:
             event="test.event",
             message="Test message"
         )
-        
+
         assert entry.component == "server"
         assert entry.level == "INFO"
         assert entry.event == "test.event"
@@ -52,7 +52,7 @@ class TestLogEntry:
         """Test that LogEntry creates complete entry with all arguments."""
         details = {"key": "value"}
         system_state = {"cpu_load": 0.5}
-        
+
         entry = LogEntry(
             component="watchdog",
             level="ERROR",
@@ -63,7 +63,7 @@ class TestLogEntry:
             recovery_level=1,
             system_state=system_state
         )
-        
+
         assert entry.component == "watchdog"
         assert entry.level == "ERROR"
         assert entry.event == "recovery.action"
@@ -77,7 +77,7 @@ class TestLogEntry:
         """Test that to_dict returns required fields for minimal entry."""
         entry = LogEntry("server", "INFO", "test.event", "Test message")
         result = entry.to_dict()
-        
+
         assert "timestamp" in result
         assert result["component"] == "server"
         assert result["level"] == "INFO"
@@ -98,7 +98,7 @@ class TestLogEntry:
             system_state={"cpu": 0.5}
         )
         result = entry.to_dict()
-        
+
         assert result["action_taken"] == "Browser restart"
         assert result["recovery_level"] == 1
         assert result["system_state"] == {"cpu": 0.5}
@@ -107,7 +107,7 @@ class TestLogEntry:
         """Test that to_json returns valid JSON string."""
         entry = LogEntry("server", "INFO", "test.event", "Test message")
         json_str = entry.to_json()
-        
+
         # Should be valid JSON
         parsed = json.loads(json_str)
         assert parsed["component"] == "server"
@@ -133,7 +133,7 @@ class TestRateLimiter:
         for _ in range(5):
             result = RateLimiter.should_log("test_event", max_per_minute=5)
             assert result is True
-        
+
         # Next call should be rate limited
         result = RateLimiter.should_log("test_event", max_per_minute=5)
         assert result is False
@@ -143,7 +143,7 @@ class TestRateLimiter:
         # Fill first key to limit
         for _ in range(5):
             RateLimiter.should_log("event_a", max_per_minute=5)
-        
+
         # Second key should still work
         result = RateLimiter.should_log("event_b", max_per_minute=5)
         assert result is True
@@ -153,18 +153,18 @@ class TestRateLimiter:
         """Test that rate limit resets after time window passes."""
         # Start at time 0
         mock_time.return_value = 0.0
-        
+
         # Fill to limit
         for _ in range(5):
             RateLimiter.should_log("test_event", max_per_minute=5)
-        
+
         # Should be rate limited
         result = RateLimiter.should_log("test_event", max_per_minute=5)
         assert result is False
-        
+
         # Move time forward by 61 seconds
         mock_time.return_value = 61.0
-        
+
         # Should work again
         result = RateLimiter.should_log("test_event", max_per_minute=5)
         assert result is True
@@ -173,7 +173,7 @@ class TestRateLimiter:
         """Test that get_rate_limited_count returns correct count."""
         for _ in range(3):
             RateLimiter.should_log("test_event", max_per_minute=5)
-        
+
         count = RateLimiter.get_rate_limited_count("test_event")
         assert count == 3
 
@@ -187,9 +187,9 @@ class TestSystemMetricsCollector:
     ) -> None:
         """Test that CPU load is included when available."""
         mock_getloadavg.return_value = (0.75, 1.0, 1.25)
-        
+
         metrics = SystemMetricsCollector.get_current_metrics()
-        
+
         assert metrics["cpu_load"] == 0.75
 
     @patch('os.getloadavg', side_effect=OSError("Not available"))
@@ -198,7 +198,7 @@ class TestSystemMetricsCollector:
     ) -> None:
         """Test that CPU load is None when unavailable."""
         metrics = SystemMetricsCollector.get_current_metrics()
-        
+
         assert metrics["cpu_load"] is None
 
     @patch('builtins.open')
@@ -213,9 +213,9 @@ class TestSystemMetricsCollector:
             "MemAvailable:    6144000 kB\n",
         ])
         mock_open.return_value = mock_file
-        
+
         metrics = SystemMetricsCollector.get_current_metrics()
-        
+
         assert metrics["memory_free_mb"] == 6000.0  # 6144000 KB / 1024
 
     @patch('os.statvfs')
@@ -228,9 +228,9 @@ class TestSystemMetricsCollector:
         mock_stat.f_bavail = 1000000  # Available blocks
         mock_stat.f_frsize = 4096     # Fragment size
         mock_statvfs.return_value = mock_stat
-        
+
         metrics = SystemMetricsCollector.get_current_metrics()
-        
+
         expected_mb = (1000000 * 4096) / (1024 * 1024)  # Convert to MB
         assert abs(metrics["disk_free_mb"] - expected_mb) < 0.1  # Allow small floating point differences
 
@@ -242,7 +242,7 @@ class TestMonitoringLogger:
         """Test that MonitoringLogger initializes correctly."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "test.log"
-            
+
             logger = MonitoringLogger(
                 name="test_logger",
                 component="test",
@@ -250,7 +250,7 @@ class TestMonitoringLogger:
                 local_file=log_file,
                 journald=False,
             )
-            
+
             assert logger.name == "test_logger"
             assert logger.component == "test"
 
@@ -287,11 +287,11 @@ class TestMonitoringLogger:
             journald=False,
             rate_limiting=True,
         )
-        
+
         # Fill rate limit
         for _ in range(5):
             logger.log("INFO", "test.event", "Message", rate_limit_key="test_key")
-        
+
         # Should be rate limited now
         result = logger.log("INFO", "test.event", "Message", rate_limit_key="test_key")
         assert result is False
@@ -303,15 +303,15 @@ class TestMonitoringLogger:
             component="test",
             journald=False,
         )
-        
+
         with patch.object(logger, 'info') as mock_info:
             with logger.operation_context("test.operation"):
                 pass
-            
+
             # Should have logged start and complete
             assert mock_info.call_count == 2
             start_call, complete_call = mock_info.call_args_list
-            
+
             assert start_call[0][0] == "test.operation.start"
             assert complete_call[0][0] == "test.operation.complete"
 
@@ -322,18 +322,18 @@ class TestMonitoringLogger:
             component="test",
             journald=False,
         )
-        
+
         with patch.object(logger, 'info') as mock_info, \
              patch.object(logger, 'error') as mock_error:
-            
+
             with pytest.raises(ValueError):
                 with logger.operation_context("test.operation"):
                     raise ValueError("Test error")
-            
+
             # Should have logged start and error
             mock_info.assert_called_once()
             mock_error.assert_called_once()
-            
+
             error_call = mock_error.call_args_list[0]
             assert error_call[0][0] == "test.operation.error"
 
@@ -348,9 +348,9 @@ class TestConvenienceFunctions:
         """Test that log_server_event uses server logger."""
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
-        
+
         log_server_event("test.event", "Test message", "INFO", details={"key": "value"})
-        
+
         mock_get_logger.assert_called_once_with("server")
         mock_logger.log.assert_called_once_with(
             "INFO", "test.event", "Test message", details={"key": "value"}
@@ -363,9 +363,9 @@ class TestConvenienceFunctions:
         """Test that log_recovery_event includes recovery level."""
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
-        
+
         log_recovery_event("recovery.action", "Recovery taken", "ERROR", recovery_level=2)
-        
+
         mock_get_logger.assert_called_once_with("recovery")
         mock_logger.log.assert_called_once_with(
             "ERROR", "recovery.action", "Recovery taken", recovery_level=2
@@ -384,7 +384,7 @@ class TestLoggerConfiguration:
                 local_log_dir=temp_dir,
                 journald=False,
             )
-            
+
             assert isinstance(logger, MonitoringLogger)
             assert logger.component == "test"
 
@@ -395,7 +395,7 @@ class TestLoggerConfiguration:
             component="test",
             journald=False,
         )
-        
+
         assert logger.logger.level == logging.DEBUG
 
     @patch.dict('os.environ', {'CALENDARBOT_LOG_LEVEL': 'WARNING'})
@@ -405,14 +405,14 @@ class TestLoggerConfiguration:
             component="test",
             journald=False,
         )
-        
+
         assert logger.logger.level == logging.WARNING
 
     def test_get_logger_when_called_multiple_times_then_returns_same_instance(self) -> None:
         """Test that get_logger returns same instance for same component."""
         logger1 = get_logger("test_component")
         logger2 = get_logger("test_component")
-        
+
         assert logger1 is logger2
 
 
@@ -423,24 +423,24 @@ class TestThreadSafety:
         """Test that RateLimiter is thread-safe under concurrent access."""
         results = []
         event_key = "concurrent_test"
-        
+
         def worker() -> None:
             for _ in range(10):
                 result = RateLimiter.should_log(event_key, max_per_minute=5)
                 results.append(result)
                 time.sleep(0.001)  # Small delay to increase contention
-        
+
         # Start multiple threads
         threads = []
         for _ in range(5):
             thread = threading.Thread(target=worker)
             threads.append(thread)
             thread.start()
-        
+
         # Wait for all threads
         for thread in threads:
             thread.join()
-        
+
         # Should have at least 5 True results (rate limit of 5, but concurrency may allow more)
         true_count = sum(1 for result in results if result)
         assert true_count >= 5
@@ -449,29 +449,29 @@ class TestThreadSafety:
         """Test that MonitoringLogger handles concurrent logging safely."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "concurrent.log"
-            
+
             logger = MonitoringLogger(
                 name="concurrent_test",
                 component="test",
                 local_file=log_file,
                 journald=False,
             )
-            
+
             def worker(worker_id: int) -> None:
                 for i in range(10):
                     logger.info(f"worker.{worker_id}.event", f"Message {i} from worker {worker_id}")
-            
+
             # Start multiple threads
             threads = []
             for worker_id in range(3):
                 thread = threading.Thread(target=worker, args=(worker_id,))
                 threads.append(thread)
                 thread.start()
-            
+
             # Wait for all threads
             for thread in threads:
                 thread.join()
-            
+
             # Log file should exist and contain entries
             assert log_file.exists()
             log_content = log_file.read_text()
@@ -487,11 +487,11 @@ class TestIntegration:
         """Test that MonitoringLogger continues with console logging if file setup fails."""
         # Try to write to invalid path
         invalid_path = Path("/invalid/path/test.log")
-        
+
         with patch('calendarbot_lite.core.monitoring_logging.logging.getLogger') as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
-            
+
             # Should not raise exception
             monitoring_logger = MonitoringLogger(
                 name="test",
@@ -499,7 +499,7 @@ class TestIntegration:
                 local_file=invalid_path,
                 journald=True,
             )
-            
+
             assert monitoring_logger is not None
 
     @patch('sys.stdout')
@@ -512,9 +512,9 @@ class TestIntegration:
             component="test",
             journald=True,
         )
-        
+
         logger.info("test.event", "Test message")
-        
+
         # Should have written to stdout (captured by journald)
         # Note: This test verifies the handler setup, actual output would be to stdout
 
@@ -523,9 +523,9 @@ class TestIntegration:
         with patch('builtins.open', side_effect=FileNotFoundError), \
              patch('os.getloadavg', side_effect=OSError), \
              patch('os.statvfs', side_effect=OSError):
-            
+
             metrics = SystemMetricsCollector.get_current_metrics()
-            
+
             assert metrics["cpu_load"] is None
             assert metrics["memory_free_mb"] is None
             assert metrics["disk_free_mb"] is None
@@ -538,7 +538,7 @@ class TestErrorHandling:
     def test_log_entry_when_invalid_level_then_normalizes_level(self) -> None:
         """Test that LogEntry handles invalid log levels gracefully."""
         entry = LogEntry("server", "invalid", "test.event", "Test message")
-        
+
         # Level should be normalized to uppercase
         assert entry.level == "INVALID"
 
@@ -548,13 +548,13 @@ class TestErrorHandling:
             mock_logger = MagicMock()
             mock_logger.handlers = []  # No existing handlers
             mock_get_logger.return_value = mock_logger
-            
+
             monitoring_logger = MonitoringLogger(
                 name="test",
                 component="test",
                 journald=False,
             )
-            
+
             # Should have attempted to add handlers
             assert monitoring_logger is not None
 
@@ -563,13 +563,13 @@ class TestErrorHandling:
         with patch('time.time') as mock_time:
             # Start at time 0
             mock_time.return_value = 0.0
-            
+
             # Add some entries
             RateLimiter.should_log("cleanup_test", max_per_minute=5)
-            
+
             # Move time forward significantly
             mock_time.return_value = 3600.0  # 1 hour later
-            
+
             # New log should work (old entries cleaned up)
             result = RateLimiter.should_log("cleanup_test", max_per_minute=1)
             assert result is True
@@ -583,20 +583,20 @@ class TestRealLogging:
         """Test end-to-end logging produces expected structured output."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "e2e.log"
-            
+
             logger = MonitoringLogger(
                 name="e2e_test",
                 component="test",
                 local_file=log_file,
                 journald=False,
             )
-            
+
             # Log various events
             logger.info("server.start", "Server starting", details={"port": 8080})
-            logger.error("server.error", "Server error", 
+            logger.error("server.error", "Server error",
                         details={"error": "connection failed"},
                         include_system_state=True)
-            
+
             # Verify log file exists and has content
             assert log_file.exists()
             content = log_file.read_text()

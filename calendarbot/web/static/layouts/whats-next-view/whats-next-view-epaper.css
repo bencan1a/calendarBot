@@ -70,7 +70,7 @@ body {
     --epaper-black: #000000;
     --epaper-white: #ffffff;
     --epaper-red: #ff0000; /* For urgent elements */
-    
+
     /* Semantic color assignments for e-paper */
     --background-primary: var(--epaper-white);
     --background-secondary: var(--epaper-white);

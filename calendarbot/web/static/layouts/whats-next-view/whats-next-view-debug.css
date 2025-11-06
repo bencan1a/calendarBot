@@ -303,11 +303,11 @@
         left: 50%;
         transform: translate(-50%, -50%); /* Center on smaller screens */
     }
-    
+
     .debug-actions {
         flex-direction: column;
     }
-    
+
     .debug-apply-btn,
     .debug-clear-btn {
         flex: none;
@@ -444,20 +444,20 @@
     .debug-panel {
         border-width: 4px;
     }
-    
+
     .debug-field input {
         border-width: 3px;
     }
-    
+
     .debug-apply-btn,
     .debug-clear-btn {
         border: 2px solid transparent;
     }
-    
+
     .debug-apply-btn {
         border-color: #1e7e34;
     }
-    
+
     .debug-clear-btn {
         border-color: #495057;
     }
@@ -469,7 +469,7 @@
         transition: none;
         animation: none;
     }
-    
+
     .debug-apply-btn:hover,
     .debug-clear-btn:hover {
         transform: none;

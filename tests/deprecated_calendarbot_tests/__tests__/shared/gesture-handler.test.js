@@ -177,7 +177,7 @@ describe('Gesture Handler - Phase 3 Edge Cases and Touch Interactions', () => {
       expect(gestureHandler.gestureZoneHeight).toBe(1);
       expect(mockGestureZone.style.height).toBe('1px');
 
-      // Test very large height  
+      // Test very large height
       gestureHandler.updateGestureZoneHeight(500);
       expect(gestureHandler.gestureZoneHeight).toBe(500);
       expect(mockGestureZone.style.height).toBe('500px');

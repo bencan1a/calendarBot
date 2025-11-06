@@ -14,13 +14,13 @@ describe('4x8Layout Functions', () => {
   beforeEach(() => {
     // Setup DOM mocks using the existing test utilities
     mockDocument = global.testUtils.setupMockDOM();
-    
+
     // Mock DOM ready state
     Object.defineProperty(document, 'readyState', {
       value: 'complete',
       writable: true
     });
-    
+
     // Set up initial DOM structure for 4x8 layout testing
     document.body.innerHTML = `
       <html class="theme-eink">
@@ -37,25 +37,25 @@ describe('4x8Layout Functions', () => {
         </body>
       </html>
     `;
-    
+
     // Mock fetch for API calls
     mockFetch = jest.fn();
     global.fetch = mockFetch;
-    
+
     // Mock timer functions to control auto-refresh testing
     originalSetInterval = global.setInterval;
     originalClearInterval = global.clearInterval;
-    
+
     global.setInterval = jest.fn((callback, delay) => {
       const id = Date.now() + Math.random();
       intervalIds.push(id);
       return id;
     });
-    
+
     global.clearInterval = jest.fn((id) => {
       intervalIds = intervalIds.filter(intervalId => intervalId !== id);
     });
-    
+
     // Mock DOMParser for content updates
     global.DOMParser = class MockDOMParser {
       parseFromString(str, type) {
@@ -68,7 +68,7 @@ describe('4x8Layout Functions', () => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.spyOn(console, 'warn').mockImplementation(() => {});
-    
+
     // Load the 4x8 layout JavaScript (this executes the initialization)
     require('../../../../calendarbot/web/static/layouts/4x8/4x8.js');
   });
@@ -80,7 +80,7 @@ describe('4x8Layout Functions', () => {
     global.clearInterval = originalClearInterval;
     intervalIds = [];
     delete global.fetch;
-    
+
     // Clean up any settings panel instances
     if (window.cleanup) {
       window.cleanup();
@@ -112,7 +112,7 @@ describe('4x8Layout Functions', () => {
             </body>
           </html>
         `;
-        
+
         mockFetch.mockResolvedValueOnce({
           json: async () => ({ success: true, html: mockHTML })
         });
@@ -142,21 +142,21 @@ describe('4x8Layout Functions', () => {
 
       it('should test different navigation actions', async () => {
         const actions = ['prev', 'next', 'today', 'week-start', 'week-end'];
-        
+
         for (const action of actions) {
           mockFetch.mockResolvedValueOnce({
             json: async () => ({ success: true, html: '<div>Content</div>' })
           });
-          
+
           await window.navigate(action);
-          
+
           expect(mockFetch).toHaveBeenCalledWith('/api/navigate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action })
           });
         }
-        
+
         expect(mockFetch).toHaveBeenCalledTimes(actions.length);
       });
     });
@@ -178,7 +178,7 @@ describe('4x8Layout Functions', () => {
 
       it('should update document theme class on successful response', async () => {
         document.documentElement.className = 'theme-eink some-other-class';
-        
+
         mockFetch.mockResolvedValueOnce({
           json: async () => ({ success: true, theme: 'dark' })
         });
@@ -240,7 +240,7 @@ describe('4x8Layout Functions', () => {
         expect(console.log).toHaveBeenCalledWith('DEBUG: Sending layout change request to API');
         expect(console.log).toHaveBeenCalledWith('DEBUG: API response received:', { success: true, layout: 'whats-next-view' });
         expect(console.log).toHaveBeenCalledWith('Layout changed to: whats-next-view');
-        
+
         // Verify the API was called correctly
         expect(mockFetch).toHaveBeenCalledWith('/api/layout', {
           method: 'POST',
@@ -297,7 +297,7 @@ describe('4x8Layout Functions', () => {
             </body>
           </html>
         `;
-        
+
         mockFetch.mockResolvedValueOnce({
           json: async () => ({ success: true, html: refreshHTML })
         });
@@ -344,19 +344,19 @@ describe('4x8Layout Functions', () => {
     describe('toggleAutoRefresh', () => {
       it('should toggle auto-refresh status', () => {
         const initialStatus = window.isAutoRefreshEnabled();
-        
+
         window.toggleAutoRefresh();
-        
+
         const newStatus = window.isAutoRefreshEnabled();
         expect(newStatus).toBe(!initialStatus);
       });
 
       it('should handle multiple toggle calls', () => {
         const initialStatus = window.isAutoRefreshEnabled();
-        
+
         window.toggleAutoRefresh();
         window.toggleAutoRefresh();
-        
+
         expect(window.isAutoRefreshEnabled()).toBe(initialStatus);
       });
     });
@@ -417,16 +417,16 @@ describe('4x8Layout Functions', () => {
 
       it('should maintain theme class', () => {
         const originalClassName = document.documentElement.className;
-        
+
         window.updatePageContent('<html><body></body></html>');
-        
+
         // Should maintain some theme class
         expect(document.documentElement.className).toMatch(/theme-\w+/);
       });
 
       it('should handle missing elements gracefully', () => {
         const newHTML = '<html><body><p>Simple content</p></body></html>';
-        
+
         expect(() => {
           window.updatePageContent(newHTML);
         }).not.toThrow();
@@ -438,7 +438,7 @@ describe('4x8Layout Functions', () => {
     describe('showLoadingIndicator', () => {
       it('should create and show loading indicator', () => {
         window.showLoadingIndicator('Loading test...');
-        
+
         const indicator = document.getElementById('loading-indicator');
         expect(indicator).not.toBeNull();
         expect(indicator.textContent).toBe('Loading test...');
@@ -448,7 +448,7 @@ describe('4x8Layout Functions', () => {
       it('should update existing indicator', () => {
         window.showLoadingIndicator('First message');
         window.showLoadingIndicator('Second message');
-        
+
         const indicators = document.querySelectorAll('#loading-indicator');
         expect(indicators.length).toBe(1);
         expect(indicators[0].textContent).toBe('Second message');
@@ -459,7 +459,7 @@ describe('4x8Layout Functions', () => {
       it('should hide loading indicator', () => {
         window.showLoadingIndicator('Test message');
         window.hideLoadingIndicator();
-        
+
         const indicator = document.getElementById('loading-indicator');
         expect(indicator.style.display).toBe('none');
       });
@@ -474,9 +474,9 @@ describe('4x8Layout Functions', () => {
     describe('showMessage', () => {
       it('should create message element with correct styling', () => {
         window.showMessage('Test message', 'error');
-        
+
         const messages = document.querySelectorAll('[style*="position: fixed"]');
-        const errorMessage = Array.from(messages).find(el => 
+        const errorMessage = Array.from(messages).find(el =>
           el.textContent === 'Test message' && el.style.cssText.includes('background: #dc3545')
         );
         expect(errorMessage).not.toBeNull();
@@ -486,7 +486,7 @@ describe('4x8Layout Functions', () => {
         window.showMessage('Success message', 'success');
         window.showMessage('Info message', 'info');
         window.showMessage('Error message', 'error');
-        
+
         const messages = document.querySelectorAll('[style*="position: fixed"]');
         expect(messages.length).toBe(3);
       });
@@ -496,7 +496,7 @@ describe('4x8Layout Functions', () => {
       it('should be functions that can be called', () => {
         expect(typeof window.showErrorMessage).toBe('function');
         expect(typeof window.showSuccessMessage).toBe('function');
-        
+
         expect(() => {
           window.showErrorMessage('Error occurred');
           window.showSuccessMessage('Operation successful');
@@ -534,7 +534,7 @@ describe('4x8Layout Functions', () => {
       it('should set up touch event listeners during initialization', () => {
         // Verify that the layout supports touch events
         expect(document.addEventListener).toBeDefined();
-        
+
         // Test that touch events can be created without errors
         expect(() => {
           const touchEvent = new TouchEvent('touchstart', {
@@ -552,7 +552,7 @@ describe('4x8Layout Functions', () => {
           const touchEndEvent = new TouchEvent('touchend', {
             changedTouches: [{ screenX: 200 }]
           });
-          
+
           document.dispatchEvent(touchStartEvent);
           document.dispatchEvent(touchEndEvent);
         }).not.toThrow();
@@ -580,7 +580,7 @@ describe('4x8Layout Functions', () => {
     it('should handle missing DOM elements in content updates', () => {
       // Remove all elements that updatePageContent tries to update
       document.body.innerHTML = '<div>Empty page</div>';
-      
+
       expect(() => {
         window.updatePageContent('<html><body><h1 class="calendar-title">Test</h1></body></html>');
       }).not.toThrow();
@@ -595,7 +595,7 @@ describe('4x8Layout Functions', () => {
         'showLoadingIndicator', 'hideLoadingIndicator', 'showErrorMessage', 'showSuccessMessage',
         'updatePageContent', 'getSettingsPanel', 'hasSettingsPanel', 'cleanup'
       ];
-      
+
       requiredFunctions.forEach(funcName => {
         expect(typeof window[funcName]).toBe('function');
       });

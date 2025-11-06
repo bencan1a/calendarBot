@@ -16,10 +16,10 @@ log() {
     shift
     local message="$*"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
+
     # Log to stderr for systemd capture
     echo "[$timestamp] [$level] port-cleanup: $message" >&2
-    
+
     # Also log to journald if available
     if command -v logger >/dev/null 2>&1; then
         logger -t "calendarbot-port-cleanup" -p "daemon.$level" "$message"
@@ -30,7 +30,7 @@ log() {
 check_port_usage() {
     local port="$1"
     local host="$2"
-    
+
     # Try multiple methods to detect port usage
     if command -v ss >/dev/null 2>&1; then
         ss -ltn "sport = :$port" | grep -q ":$port" 2>/dev/null
@@ -48,7 +48,7 @@ check_port_usage() {
 find_port_process() {
     local port="$1"
     local result=""
-    
+
     # Try ss first (most reliable)
     if command -v ss >/dev/null 2>&1; then
         result=$(ss -ltnp "sport = :$port" 2>/dev/null | grep ":$port" | head -1)
@@ -58,7 +58,7 @@ find_port_process() {
             return 0
         fi
     fi
-    
+
     # Try lsof as fallback
     if command -v lsof >/dev/null 2>&1; then
         result=$(lsof -ti ":$port" 2>/dev/null | head -1)
@@ -67,7 +67,7 @@ find_port_process() {
             return 0
         fi
     fi
-    
+
     # Try netstat + ps combination
     if command -v netstat >/dev/null 2>&1 && command -v ps >/dev/null 2>&1; then
         local inode
@@ -83,28 +83,28 @@ find_port_process() {
             fi
         fi
     fi
-    
+
     return 1
 }
 
 # Get process information
 get_process_info() {
     local pid="$1"
-    
+
     if [ ! -d "/proc/$pid" ]; then
         echo "Process $pid no longer exists"
         return 1
     fi
-    
+
     local cmdline
     cmdline=$(cat "/proc/$pid/cmdline" 2>/dev/null | tr '\0' ' ' | sed 's/ *$//')
-    
+
     local exe
     exe=$(readlink "/proc/$pid/exe" 2>/dev/null || echo "unknown")
-    
+
     local user
     user=$(stat -c %U "/proc/$pid" 2>/dev/null || echo "unknown")
-    
+
     echo "PID: $pid, User: $user, Exe: $exe, Cmd: $cmdline"
 }
 
@@ -114,13 +114,13 @@ is_safe_to_terminate() {
     local cmdline="$2"
     local exe="$3"
     local user="$4"
-    
+
     # Never terminate system processes (PID < 100)
     if [ "$pid" -lt 100 ]; then
         log "warn" "Refusing to terminate system process $pid"
         return 1
     fi
-    
+
     # Never terminate root processes unless they're clearly CalendarBot-related
     if [ "$user" = "root" ]; then
         case "$cmdline" in
@@ -133,7 +133,7 @@ is_safe_to_terminate() {
                 ;;
         esac
     fi
-    
+
     # Check for critical system processes
     case "$(basename "$exe")" in
         systemd|init|kernel*|kthread*|ssh*|dbus*|NetworkManager|systemd-*)
@@ -141,7 +141,7 @@ is_safe_to_terminate() {
             return 1
             ;;
     esac
-    
+
     # Identify likely CalendarBot processes
     case "$cmdline" in
         *calendarbot*|*python*calendarbot*|*"python -m calendarbot"*)
@@ -153,13 +153,13 @@ is_safe_to_terminate() {
             return 0
             ;;
     esac
-    
+
     # For other processes, be cautious in non-force mode
     if [ "$FORCE" != "true" ]; then
         log "warn" "Refusing to terminate unknown process without --force: $cmdline"
         return 1
     fi
-    
+
     log "warn" "Force mode enabled, will attempt to terminate: $cmdline"
     return 0
 }
@@ -168,15 +168,15 @@ is_safe_to_terminate() {
 terminate_process() {
     local pid="$1"
     local process_info="$2"
-    
+
     log "info" "Attempting graceful termination of process: $process_info"
-    
+
     # Send TERM signal
     if ! kill -TERM "$pid" 2>/dev/null; then
         log "error" "Failed to send TERM signal to process $pid"
         return 1
     fi
-    
+
     # Wait up to 10 seconds for graceful shutdown
     local wait_count=0
     while [ $wait_count -lt 10 ]; do
@@ -187,7 +187,7 @@ terminate_process() {
         sleep 1
         ((wait_count++))
     done
-    
+
     # If still running, send KILL signal
     log "warn" "Process $pid did not exit gracefully, sending KILL signal"
     if kill -KILL "$pid" 2>/dev/null; then
@@ -198,7 +198,7 @@ terminate_process() {
             return 0
         fi
     fi
-    
+
     log "error" "Failed to terminate process $pid"
     return 1
 }
@@ -207,49 +207,49 @@ terminate_process() {
 cleanup_port() {
     local port="$1"
     local host="$2"
-    
+
     log "info" "Checking port $port usage on $host"
-    
+
     # Check if port is actually in use
     if ! check_port_usage "$port" "$host"; then
         log "info" "Port $port is not in use"
         return 0
     fi
-    
+
     log "warn" "Port $port is in use, attempting to identify the process"
-    
+
     # Find the process using the port
     local pid
     pid=$(find_port_process "$port")
-    
+
     if [ -z "$pid" ]; then
         log "error" "Could not identify process using port $port"
         return 1
     fi
-    
+
     # Get process information
     local process_info
     process_info=$(get_process_info "$pid")
-    
+
     if [ $? -ne 0 ]; then
         log "error" "Could not get information for process $pid"
         return 1
     fi
-    
+
     log "info" "Found process using port $port: $process_info"
-    
+
     # Extract process details for safety check
     local user exe cmdline
     user=$(echo "$process_info" | sed -n 's/.*User: \([^,]*\).*/\1/p')
     exe=$(echo "$process_info" | sed -n 's/.*Exe: \([^,]*\).*/\1/p')
     cmdline=$(echo "$process_info" | sed -n 's/.*Cmd: \(.*\)/\1/p')
-    
+
     # Check if safe to terminate
     if ! is_safe_to_terminate "$pid" "$cmdline" "$exe" "$user"; then
         log "error" "Process $pid is not safe to terminate automatically"
         return 1
     fi
-    
+
     # Attempt termination
     if terminate_process "$pid" "$process_info"; then
         # Verify port is now free
@@ -305,14 +305,14 @@ main() {
             exit 0
             ;;
     esac
-    
+
     # Set non-interactive mode automatically in systemd environment
     if [ -n "${JOURNAL_STREAM:-}" ] || [ -n "${SYSTEMD_EXEC_PID:-}" ]; then
         export CALENDARBOT_NONINTERACTIVE=true
     fi
-    
+
     log "info" "Starting port cleanup for port $PORT on $HOST (force=$FORCE)"
-    
+
     # Perform cleanup
     if cleanup_port "$PORT" "$HOST"; then
         log "info" "Port cleanup completed successfully"

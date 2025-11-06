@@ -34,12 +34,12 @@ _state_lock = threading.Lock()
 
 class WatchdogState:
     """Persistent state management for rate limiting and recovery tracking."""
-    
+
     def __init__(self, state_file: Path):
         self.state_file = Path(state_file)
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         self._lock_fd: Optional[int] = None
-        
+
     def _acquire_lock(self, timeout: int = 30) -> bool:
         """Acquire exclusive file lock with timeout."""
         lock_file = self.state_file.with_suffix('.lock')
@@ -56,7 +56,7 @@ class WatchdogState:
             return False
         except OSError:
             return False
-    
+
     def _release_lock(self) -> None:
         """Release file lock."""
         if self._lock_fd is not None:
@@ -67,7 +67,7 @@ class WatchdogState:
                 pass
             finally:
                 self._lock_fd = None
-    
+
     def load_state(self) -> dict[str, Any]:
         """Load state from persistent storage."""
         if not self.state_file.exists():
@@ -81,20 +81,20 @@ class WatchdogState:
                 'browser_escalation_level': 0,
                 'browser_escalation_time': None
             }
-        
+
         try:
             with open(self.state_file) as f:
                 return json.load(f)
         except (OSError, json.JSONDecodeError) as e:
             logging.warning(f"Failed to load state file: {e}, using defaults")
             return self.load_state()  # Return defaults
-    
+
     def save_state(self, state: dict[str, Any]) -> bool:
         """Save state to persistent storage atomically."""
         if not self._acquire_lock():
             logging.error("Failed to acquire state lock for save")
             return False
-        
+
         try:
             temp_file = self.state_file.with_suffix('.tmp')
             with open(temp_file, 'w') as f:
@@ -106,14 +106,14 @@ class WatchdogState:
             return False
         finally:
             self._release_lock()
-    
+
     def cleanup_old_entries(self, state: dict[str, Any], hours: int = 24) -> None:
         """Remove entries older than specified hours."""
         cutoff = time.time() - (hours * 3600)
         for key in ['browser_restarts', 'service_restarts']:
             if key in state:
                 state[key] = [ts for ts in state[key] if ts > cutoff]
-        
+
         # Reboots have 24h cleanup
         if 'reboots' in state:
             state['reboots'] = [ts for ts in state['reboots'] if ts > cutoff]
@@ -121,10 +121,10 @@ class WatchdogState:
 
 class StructuredLogger:
     """JSON structured logging for monitoring events."""
-    
+
     def __init__(self, logger: logging.Logger):
         self.logger = logger
-    
+
     def log_event(self, level: str, component: str, event: str,
                   details: Optional[dict[str, Any]] = None,
                   action_taken: bool = False) -> None:
@@ -137,14 +137,14 @@ class StructuredLogger:
             'details': details or {},
             'action_taken': action_taken
         }
-        
+
         log_method = getattr(self.logger, level.lower(), self.logger.info)
         log_method(json.dumps(log_entry))
 
 
 class SystemDiagnostics:
     """System resource monitoring for graceful degradation."""
-    
+
     @staticmethod
     def get_load_average() -> Optional[float]:
         """Get 1-minute load average."""
@@ -153,7 +153,7 @@ class SystemDiagnostics:
                 return float(f.read().split()[0])
         except (OSError, ValueError, IndexError):
             return None
-    
+
     @staticmethod
     def get_free_memory_kb() -> Optional[int]:
         """Get available memory in KB."""
@@ -164,18 +164,18 @@ class SystemDiagnostics:
                         return int(line.split()[1])
         except (OSError, ValueError, IndexError):
             return None
-    
+
     @classmethod
     def should_degrade(cls, config: dict[str, Any]) -> bool:
         """Check if system should operate in degraded mode."""
         limits = config.get('resource_limits', {})
         if not limits.get('auto_throttle', True):
             return False
-        
+
         load = cls.get_load_average()
         if load and load > limits.get('max_load_1m', 1.5):
             return True
-        
+
         mem = cls.get_free_memory_kb()
         return mem is not None and mem < limits.get('min_free_mem_kb', 60000)
 
@@ -192,7 +192,7 @@ class HealthChecker:
         self.render_marker = self.health_config.get('render_marker', 'name="calendarbot-ready"')
         self.startup_time = time.time()
         self.startup_grace_period_s = self.health_config.get('startup_grace_period_s', 300)  # 5 min default
-    
+
     def is_in_startup_grace_period(self) -> bool:
         """Check if we're still in the startup grace period."""
         return (time.time() - self.startup_time) < self.startup_grace_period_s
@@ -256,21 +256,21 @@ class HealthChecker:
                 "WARNING", "healthcheck", "health.endpoint.fail", {"error": str(e)}
             )
             return False, None
-    
+
     def check_render_probe(self) -> bool:
         """Check if HTML page renders properly."""
         try:
             req = urllib.request.Request(self.base_url)
             req.add_header('User-Agent', f'CalendarBot-Watchdog/{__version__}')
-            
+
             with urllib.request.urlopen(req, timeout=self.timeout) as response:
                 if response.status == 200:
                     html = response.read().decode('utf-8', errors='ignore')
                     marker_found = self.render_marker in html
-                    
+
                     self.logger.log_event('DEBUG', 'healthcheck', 'render.probe.check',
                                         {'marker_found': marker_found, 'html_length': len(html)})
-                    
+
                     return marker_found
                 self.logger.log_event(
                     "WARNING",
@@ -279,26 +279,26 @@ class HealthChecker:
                     {"status_code": response.status},
                 )
                 return False
-                    
+
         except urllib.error.URLError as e:
             self.logger.log_event("WARNING", "healthcheck", "render.probe.fail", {"error": str(e)})
             return False
-    
+
     def check_browser_process(self) -> bool:
         """Check if browser process is running."""
         try:
             cmd = self.config.get('commands', {}).get('browser_detect_cmd', 'pgrep -f chromium')
             result = subprocess.run(cmd, check=False, shell=True, capture_output=True, timeout=5)
-            
+
             running = result.returncode == 0
             self.logger.log_event('DEBUG', 'healthcheck', 'browser.process.check',
                                 {'running': running, 'returncode': result.returncode})
-            
+
             return running
         except subprocess.TimeoutExpired:
             self.logger.log_event("WARNING", "healthcheck", "browser.process.timeout")
             return False
-    
+
     def check_browser_heartbeat(self, health_data: Optional[dict[str, Any]]) -> tuple[bool, Optional[int]]:
         """Check browser heartbeat from display_probe data.
 
@@ -354,7 +354,7 @@ class HealthChecker:
             running = result.returncode == 0
             self.logger.log_event('DEBUG', 'healthcheck', 'x.server.check',
                                 {'running': running})
-            
+
             return running
         except subprocess.TimeoutExpired:
             self.logger.log_event("WARNING", "healthcheck", "x.server.timeout")
@@ -363,7 +363,7 @@ class HealthChecker:
 
 class RecoveryManager:
     """Escalating recovery actions with rate limiting."""
-    
+
     def __init__(self, config: dict[str, Any], logger: StructuredLogger, state_mgr: WatchdogState):
         self.config = config
         self.logger = logger
@@ -371,35 +371,35 @@ class RecoveryManager:
         self.commands = config.get('commands', {})
         self.thresholds = config.get('thresholds', {})
         self.recovery_config = config.get('recovery', {})
-    
+
     def can_perform_action(self, action_type: str, state: dict[str, Any]) -> bool:
         """Check if action is within rate limits."""
         now = time.time()
-        
+
         # Check cooldown from last recovery
         if state.get('last_recovery_time'):
             cooldown = self.thresholds.get('recovery_cooldown_s', 60)
             if now - state['last_recovery_time'] < cooldown:
                 return False
-        
+
         # Check specific action limits
         if action_type == 'browser_restart':
             max_per_hour = self.thresholds.get('max_browser_restarts_per_hour', 4)
             recent = [ts for ts in state.get('browser_restarts', []) if now - ts < 3600]
             return len(recent) < max_per_hour
-        
+
         if action_type == 'service_restart':
             max_per_hour = self.thresholds.get('max_service_restarts_per_hour', 2)
             recent = [ts for ts in state.get('service_restarts', []) if now - ts < 3600]
             return len(recent) < max_per_hour
-        
+
         if action_type == 'reboot':
             max_per_day = self.thresholds.get('max_reboots_per_day', 1)
             recent = [ts for ts in state.get('reboots', []) if now - ts < 86400]
             return len(recent) < max_per_day
-        
+
         return True
-    
+
     def perform_transient_retry(self, attempt: int) -> bool:
         """Level 0: Transient retry with exponential backoff."""
         intervals = self.recovery_config.get('retry_intervals', [10, 20, 40])
@@ -531,33 +531,33 @@ class RecoveryManager:
         if not self.can_perform_action('browser_restart', state):
             self.logger.log_event("WARNING", "recovery", "browser.restart.rate_limited")
             return False
-        
+
         self.logger.log_event('INFO', 'recovery', 'browser.restart.start', action_taken=True)
-        
+
         try:
             # Stop browser gracefully
             stop_cmd = self.commands.get('browser_stop_cmd', 'pkill -TERM chromium')
             subprocess.run(stop_cmd.format(user=user), check=False, shell=True, timeout=15)
-            
+
             # Wait for browser restart verification delay
             restart_delay = self.recovery_config.get('browser_restart', {}).get('restart_verification_delay_s', 30)
             time.sleep(restart_delay)
-            
+
             # Launch browser
             launch_cmd = self.commands.get('browser_launch_cmd', '')
             if launch_cmd:
                 subprocess.Popen(launch_cmd.format(user=user), shell=True)
-                
+
                 # Update state
                 state['browser_restarts'].append(time.time())
                 state['last_recovery_time'] = time.time()
                 self.state_mgr.save_state(state)
-                
+
                 self.logger.log_event('INFO', 'recovery', 'browser.restart.complete')
                 return True
             self.logger.log_event('ERROR', 'recovery', 'browser.restart.no_command')
             return False
-                
+
         except subprocess.TimeoutExpired:
             self.logger.log_event('ERROR', 'recovery', 'browser.restart.timeout')
             return False
@@ -565,7 +565,7 @@ class RecoveryManager:
             self.logger.log_event('ERROR', 'recovery', 'browser.restart.error',
                                 {'error': str(e)})
             return False
-    
+
     def restart_x_session(self, user: str, state: dict[str, Any]) -> bool:
         """Level 3: Restart X session via systemd service.
 
@@ -605,38 +605,38 @@ class RecoveryManager:
             self.logger.log_event('ERROR', 'recovery', 'x.restart.error',
                                 {'error': str(e)})
             return False
-    
+
     def restart_service(self, user: str, state: dict[str, Any]) -> bool:
         """Level 3: Restart systemd kiosk service."""
         if not self.can_perform_action('service_restart', state):
             self.logger.log_event("WARNING", "recovery", "service.restart.rate_limited")
             return False
-        
+
         self.logger.log_event('INFO', 'recovery', 'service.restart.start', action_taken=True)
-        
+
         try:
             restart_cmd = self.commands.get('service_restart_cmd',
                 'systemctl --user restart {kiosk_systemd_unit}')
             unit_name = self.commands.get('kiosk_systemd_unit', 'calendarbot-kiosk@{user}.service')
-            
+
             full_cmd = restart_cmd.format(
                 kiosk_systemd_unit=unit_name.format(user=user),
                 user=user
             )
-            
+
             subprocess.run(full_cmd, check=False, shell=True, timeout=60)
-            
+
             # Verification delay
             verify_delay = self.recovery_config.get('service_restart', {}).get('verification_delay_s', 60)
             time.sleep(verify_delay)
-            
+
             state['service_restarts'].append(time.time())
             state['last_recovery_time'] = time.time()
             self.state_mgr.save_state(state)
-            
+
             self.logger.log_event('INFO', 'recovery', 'service.restart.complete')
             return True
-            
+
         except subprocess.TimeoutExpired:
             self.logger.log_event('ERROR', 'recovery', 'service.restart.timeout')
             return False
@@ -644,32 +644,32 @@ class RecoveryManager:
             self.logger.log_event('ERROR', 'recovery', 'service.restart.error',
                                 {'error': str(e)})
             return False
-    
+
     def reboot_system(self, state: dict[str, Any]) -> bool:
         """Level 4: System reboot (last resort)."""
         if not self.can_perform_action('reboot', state):
             self.logger.log_event("WARNING", "recovery", "reboot.rate_limited")
             return False
-        
+
         self.logger.log_event('ERROR', 'recovery', 'reboot.start',
                             {'reason': 'escalated_recovery'}, action_taken=True)
-        
+
         try:
             # Update state before reboot
             state['reboots'].append(time.time())
             state['last_recovery_time'] = time.time()
             self.state_mgr.save_state(state)
-            
+
             # Delay for log shipping
             reboot_delay = self.recovery_config.get('reboot', {}).get('reboot_delay_s', 30)
             time.sleep(reboot_delay)
-            
+
             # Initiate reboot
             reboot_cmd = self.recovery_config.get('reboot', {}).get('reboot_cmd', 'sudo /sbin/reboot')
             subprocess.run(reboot_cmd, check=False, shell=True, timeout=10)
-            
+
             return True
-            
+
         except Exception as e:
             self.logger.log_event('ERROR', 'recovery', 'reboot.error',
                                 {'error': str(e)})
@@ -683,29 +683,29 @@ def load_config(config_path: Path) -> dict[str, Any]:
     except ImportError:
         print("PyYAML is required but not installed. Install with: pip install PyYAML")
         sys.exit(1)
-    
+
     try:
         with open(config_path) as f:
             config = yaml.safe_load(f)
     except Exception as e:
         print(f"Failed to load config from {config_path}: {e}")
         sys.exit(1)
-    
+
     # Environment variable overrides
     monitor_config = config.get('monitor', {})
-    
+
     if os.environ.get('CALENDARBOT_WATCHDOG_LOG_LEVEL'):
         monitor_config.setdefault('logging', {})['log_level'] = os.environ['CALENDARBOT_WATCHDOG_LOG_LEVEL']
-    
+
     if os.environ.get('CALENDARBOT_WATCHDOG_DEBUG') == 'true':
         monitor_config.setdefault('logging', {})['log_level'] = 'DEBUG'
-    
+
     if os.environ.get('CALENDARBOT_WATCHDOG_DEGRADED') == 'true':
         monitor_config['degraded_mode'] = True
-    
+
     if os.environ.get('CALENDARBOT_WATCHDOG_DISABLED') == 'true':
         monitor_config['disabled'] = True
-    
+
     return monitor_config
 
 
@@ -713,33 +713,33 @@ def setup_logging(config: dict[str, Any]) -> tuple[logging.Logger, StructuredLog
     """Setup logging with rotation and journald integration."""
     log_config = config.get('logging', {})
     log_level = getattr(logging, log_config.get('log_level', 'INFO').upper())
-    
+
     # Create logger
     logger = logging.getLogger('calendarbot-watchdog')
     logger.setLevel(log_level)
-    
+
     # Console handler for systemd/journald
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level)
-    
+
     if log_config.get('json_logging', True):
         console_handler.setFormatter(logging.Formatter('%(message)s'))
     else:
         console_handler.setFormatter(
             logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         )
-    
+
     logger.addHandler(console_handler)
-    
+
     # Local file handler with rotation
     log_dir = Path(log_config.get('local_log_dir', '/var/log/calendarbot-watchdog'))
     if log_dir.exists() or log_dir.mkdir(parents=True, exist_ok=True):
         try:
             from logging.handlers import RotatingFileHandler
-            
+
             max_size = log_config.get('max_log_size_mb', 2) * 1024 * 1024
             backup_count = log_config.get('log_files_to_keep', 7)
-            
+
             file_handler = RotatingFileHandler(
                 log_dir / 'watchdog.log',
                 maxBytes=max_size,
@@ -752,7 +752,7 @@ def setup_logging(config: dict[str, Any]) -> tuple[logging.Logger, StructuredLog
             logger.addHandler(file_handler)
         except Exception as e:
             logger.warning(f"Failed to setup file logging: {e}")
-    
+
     return logger, StructuredLogger(logger)
 
 
@@ -766,40 +766,40 @@ def signal_handler(signum: int, _frame) -> None:
 def main() -> int:
     """Main watchdog loop."""
     global _config, _shutdown_requested
-    
+
     parser = argparse.ArgumentParser(description='CalendarBot Kiosk Watchdog')
     parser.add_argument('--config', type=Path, required=True,
                        help='Path to monitor.yaml configuration file')
     parser.add_argument('--user', type=str, required=True,
                        help='Kiosk user name')
     parser.add_argument('--version', action='version', version=f'%(prog)s {__version__}')
-    
+
     args = parser.parse_args()
-    
+
     # Load configuration
     _config = load_config(args.config)
-    
+
     # Check if disabled
     if _config.get('disabled', False):
         print("Watchdog disabled by configuration")
         return 0
-    
+
     # Setup logging
     _logger, structured_logger = setup_logging(_config)
-    
+
     # Setup signal handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
+
     # Initialize components
     state_mgr = WatchdogState(_config.get('state', {}).get('state_file',
                              '/var/local/calendarbot-watchdog/state.json'))
     health_checker = HealthChecker(_config, structured_logger)
     recovery_mgr = RecoveryManager(_config, structured_logger, state_mgr)
-    
+
     structured_logger.log_event('INFO', 'watchdog', 'service.start',
                               {'version': __version__, 'user': args.user})
-    
+
     # Main monitoring loop
     consecutive_failures = 0
     last_health_check = 0
@@ -808,34 +808,34 @@ def main() -> int:
     last_heartbeat_check = 0
     render_failures = 0
     heartbeat_failures = 0
-    
+
     while not _shutdown_requested:
         try:
             current_time = time.time()
             state = state_mgr.load_state()
             state_mgr.cleanup_old_entries(state)
-            
+
             # Check for degraded mode
             degraded = _config.get('degraded_mode', False) or SystemDiagnostics.should_degrade(_config)
             if degraded:
                 structured_logger.log_event("WARNING", "watchdog", "degraded.mode.active")
-            
+
             # Determine check intervals (double if degraded)
             health_interval = _config.get('health_check', {}).get('interval_s', 30)
             render_interval = _config.get('health_check', {}).get('render_probe_interval_s', 60)
             x_interval = _config.get('health_check', {}).get('x_health_interval_s', 120)
-            
+
             if degraded:
                 factor = _config.get('resource_limits', {}).get('degradation_factor', 2.0)
                 health_interval *= factor
                 render_interval *= factor
                 x_interval *= factor
-            
+
             # Health endpoint check
             if current_time - last_health_check >= health_interval:
                 health_ok, _health_data = health_checker.check_health_endpoint()
                 last_health_check = current_time
-                
+
                 if not health_ok:
                     consecutive_failures += 1
                     structured_logger.log_event(
@@ -844,10 +844,10 @@ def main() -> int:
                         "health.check.fail",
                         {"consecutive_failures": consecutive_failures},
                     )
-                    
+
                     # Start recovery escalation
                     max_retries = _config.get('health_check', {}).get('max_retries', 3)
-                    
+
                     if consecutive_failures <= max_retries:
                         # Level 0: Transient retry
                         recovery_mgr.perform_transient_retry(consecutive_failures - 1)
@@ -933,7 +933,7 @@ def main() -> int:
             if current_time - last_render_check >= render_interval:
                 render_ok = health_checker.check_render_probe()
                 last_render_check = current_time
-                
+
                 if not render_ok:
                     render_failures += 1
                     if render_failures >= _config.get('thresholds', {}).get('render_fail_count', 2):
@@ -947,31 +947,31 @@ def main() -> int:
                             render_failures = 0
                 else:
                     render_failures = 0
-            
+
             # X server check
             if current_time - last_x_check >= x_interval:
                 x_ok = health_checker.check_x_server()
                 last_x_check = current_time
-                
+
                 if not x_ok:
                     structured_logger.log_event("WARNING", "watchdog", "x.server.fail")
                     recovery_mgr.restart_x_session(args.user, state)
-            
+
             # Browser process check
             if not health_checker.check_browser_process():
                 structured_logger.log_event("WARNING", "watchdog", "browser.process.missing")
                 recovery_mgr.restart_browser(args.user, state)
-            
+
             # Sleep until next check
             time.sleep(min(health_interval, render_interval, x_interval, 30))
-            
+
         except KeyboardInterrupt:
             break
         except Exception as e:
             structured_logger.log_event('ERROR', 'watchdog', 'main.loop.error',
                                       {'error': str(e)})
             time.sleep(10)  # Brief pause on error
-    
+
     structured_logger.log_event('INFO', 'watchdog', 'service.stop')
     return 0
 

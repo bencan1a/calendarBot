@@ -13,10 +13,10 @@ describe('SettingsPanel Component Management', () => {
 
   beforeEach(() => {
     console.log('COVERAGE TEST: Real settings-panel.js functions loaded for testing');
-    
+
     // Setup DOM mocks using Phase 1 infrastructure
     global.testUtils.setupMockDOM();
-    
+
     // Mock SettingsAPI dependency
     mockSettingsAPI = {
       getSettings: jest.fn(),
@@ -55,7 +55,7 @@ describe('SettingsPanel Component Management', () => {
     describe('when initializing settings panel', () => {
       it('should initialize successfully with all dependencies', async () => {
         console.log('COVERAGE TEST: initialize() called successfully from real source');
-        
+
         // Mock successful settings load
         mockSettingsAPI.getSettings.mockResolvedValueOnce({
           success: true,
@@ -106,7 +106,7 @@ describe('SettingsPanel Component Management', () => {
     describe('when cleaning up settings panel resources', () => {
       it('should cleanup all resources during destroy', async () => {
         console.log('COVERAGE TEST: destroy() called successfully from real source');
-        
+
         // Initialize first
         mockSettingsAPI.getSettings.mockResolvedValueOnce({
           success: true,
@@ -142,7 +142,7 @@ describe('SettingsPanel Component Management', () => {
     describe('when managing panel visibility state', () => {
       it('should open panel successfully with proper state management', async () => {
         console.log('COVERAGE TEST: open() called successfully from real source');
-        
+
         // Initialize first
         mockSettingsAPI.getSettings.mockResolvedValueOnce({
           success: true,
@@ -171,7 +171,7 @@ describe('SettingsPanel Component Management', () => {
 
       it('should close panel and save unsaved changes', async () => {
         console.log('COVERAGE TEST: close() called successfully from real source');
-        
+
         // Initialize and open panel first
         mockSettingsAPI.getSettings.mockResolvedValueOnce({
           success: true,
@@ -203,11 +203,11 @@ describe('SettingsPanel Component Management', () => {
     describe('when managing auto-refresh functionality', () => {
       it('should toggle auto-refresh state correctly', () => {
         console.log('COVERAGE TEST: toggleAutoRefresh() called successfully from real source');
-        
+
         // Test auto-refresh toggle functionality using real functions
         let autoRefreshEnabled = true;
         let autoRefreshInterval = setInterval(() => {}, 60000);
-        
+
         const toggleAutoRefresh = () => {
           if (autoRefreshEnabled) {
             if (autoRefreshInterval) {
@@ -252,7 +252,7 @@ describe('SettingsPanel Component Management', () => {
     describe('when managing title filter patterns', () => {
       it('should add valid pattern successfully', () => {
         console.log('COVERAGE TEST: addTitlePattern() called successfully from real source');
-        
+
         const pattern = 'Daily Standup';
         mockSettingsAPI.isValidRegex.mockReturnValue(true);
 
@@ -264,7 +264,7 @@ describe('SettingsPanel Component Management', () => {
       it('should validate regex patterns before adding', () => {
         const invalidRegex = '[invalid';
         mockSettingsAPI.isValidRegex.mockReturnValue(false);
-        
+
         // Test regex validation
         expect(invalidRegex).toBe('[invalid');
         expect(mockSettingsAPI.isValidRegex).toBeDefined();
@@ -295,11 +295,11 @@ describe('SettingsPanel Component Management', () => {
     describe('when removing title filter patterns', () => {
       it('should remove pattern at specified index', () => {
         console.log('COVERAGE TEST: removePattern() called successfully from real source');
-        
+
         // Test pattern removal using real functions
         const testArray = ['Pattern 1', 'Pattern 2', 'Pattern 3'];
         testArray.splice(1, 1); // Remove middle pattern
-        
+
         expect(testArray).toHaveLength(2);
         expect(testArray[0]).toBe('Pattern 1');
         expect(testArray[1]).toBe('Pattern 3');

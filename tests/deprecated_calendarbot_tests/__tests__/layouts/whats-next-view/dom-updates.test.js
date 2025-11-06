@@ -9,7 +9,7 @@ require('../../../../calendarbot/web/static/layouts/whats-next-view/whats-next-v
 
 describe('whats-next-view DOM updates', () => {
     let container;
-    
+
     beforeEach(() => {
         // Setup DOM container
         container = document.createElement('div');
@@ -55,12 +55,12 @@ describe('whats-next-view DOM updates', () => {
                 if (formattedTimeRange) {
                     return formattedTimeRange;
                 }
-                
+
                 // Handle null/undefined inputs
                 if (!startTime || !endTime) {
                     return '';
                 }
-                
+
                 // Fallback to original formatting for backwards compatibility
                 try {
                     const start = new Date(startTime);
@@ -93,7 +93,7 @@ describe('whats-next-view DOM updates', () => {
                 '2024-01-15T11:00:00Z',
                 '10:00 AM - 11:00 AM'
             );
-            
+
             expect(result).toBe('10:00 AM - 11:00 AM');
         });
 
@@ -103,7 +103,7 @@ describe('whats-next-view DOM updates', () => {
                 '2024-01-15T11:00:00Z',
                 null
             );
-            
+
             // Should be formatted as "10:00 AM - 11:00 AM" (exact format may vary by locale)
             expect(result).toMatch(/\d{1,2}:\d{2}\s(AM|PM)\s-\s\d{1,2}:\d{2}\s(AM|PM)/);
         });
@@ -114,7 +114,7 @@ describe('whats-next-view DOM updates', () => {
                 'another-invalid-date',
                 null
             );
-            
+
             expect(result).toBe('');
         });
 
@@ -129,7 +129,7 @@ describe('whats-next-view DOM updates', () => {
                 '2024-01-15T11:00:00Z',
                 'Custom Backend Format'
             );
-            
+
             expect(result).toBe('Custom Backend Format');
         });
 
@@ -139,7 +139,7 @@ describe('whats-next-view DOM updates', () => {
                 '2024-01-15T16:45:00Z',  // 4:45 PM UTC
                 null
             );
-            
+
             expect(result).toMatch(/\d{1,2}:\d{2}\s(AM|PM)\s-\s\d{1,2}:\d{2}\s(AM|PM)/);
         });
     });
@@ -176,7 +176,7 @@ describe('whats-next-view DOM updates', () => {
                                 <div class="countdown-units text-caption">None</div>
                             </div>
                         </div>
-                        
+
                         <!-- Zone 2 (140px): Empty message -->
                         <div class="layout-zone-2">
                             <div class="empty-state">
@@ -186,7 +186,7 @@ describe('whats-next-view DOM updates', () => {
                                 <div class="last-update text-caption">Updated: ${newLastUpdate}</div>
                             </div>
                         </div>
-                        
+
                         <!-- Zone 4 (60px): Context -->
                         <div class="layout-zone-4">
                             <div class="context-info text-center">
@@ -214,11 +214,11 @@ describe('whats-next-view DOM updates', () => {
 
         test('builds full empty state structure on first call', () => {
             global.lastDOMState.layoutState = null; // Trigger full rebuild
-            
+
             updateEmptyStateOptimized();
 
             const content = container.querySelector('.calendar-content');
-            
+
             // Check structure was created
             expect(content.querySelector('.layout-zone-1')).toBeTruthy();
             expect(content.querySelector('.layout-zone-2')).toBeTruthy();
@@ -227,7 +227,7 @@ describe('whats-next-view DOM updates', () => {
             expect(content.querySelector('.empty-state-icon')).toBeTruthy();
             expect(content.querySelector('.empty-state-title')).toBeTruthy();
             expect(content.querySelector('.empty-state-message')).toBeTruthy();
-            
+
             // Check content
             expect(content.querySelector('.empty-state-title').textContent).toBe('No Upcoming Meetings');
             expect(content.querySelector('.empty-state-message').textContent).toBe("You're all caught up!");
@@ -241,7 +241,7 @@ describe('whats-next-view DOM updates', () => {
 
             // Reset format function to return different value
             global.formatLastUpdate.mockReturnValue('5 minutes ago');
-            
+
             // Second call should only update last update text
             updateEmptyStateOptimized();
 
@@ -254,13 +254,13 @@ describe('whats-next-view DOM updates', () => {
             // First call
             global.lastDOMState.layoutState = 'empty';
             global.lastDOMState.lastUpdateText = 'Just now';
-            
+
             // Add existing empty state to DOM
             const content = container.querySelector('.calendar-content');
             content.innerHTML = '<div class="empty-state"><div class="last-update">Updated: Just now</div></div>';
-            
+
             const originalHTML = content.innerHTML;
-            
+
             updateEmptyStateOptimized();
 
             // Should not change DOM when no updates needed
@@ -270,14 +270,14 @@ describe('whats-next-view DOM updates', () => {
         test('handles missing calendar-content element', () => {
             // Remove calendar-content by clearing its parent
             container.innerHTML = '';
-            
+
             // Should not throw error
             expect(() => updateEmptyStateOptimized()).not.toThrow();
         });
 
         test('updates state tracking correctly', () => {
             global.lastDOMState.layoutState = null;
-            
+
             updateEmptyStateOptimized();
 
             expect(global.lastDOMState.layoutState).toBe('empty');
@@ -288,7 +288,7 @@ describe('whats-next-view DOM updates', () => {
         test('handles different formatLastUpdate values', () => {
             global.formatLastUpdate.mockReturnValue('2 hours ago');
             global.lastDOMState.layoutState = null;
-            
+
             updateEmptyStateOptimized();
 
             const lastUpdateElement = container.querySelector('.last-update');
@@ -321,7 +321,7 @@ describe('whats-next-view DOM updates', () => {
 
         test('caches DOM elements for performance', () => {
             const querySelectorSpy = jest.spyOn(document, 'querySelector');
-            
+
             const cacheObject = {};
             const getCachedElement = function(selector) {
                 if (!cacheObject.cache) cacheObject.cache = {};
@@ -347,7 +347,7 @@ describe('whats-next-view DOM updates', () => {
     describe('incremental DOM updates', () => {
         test('only updates changed elements', () => {
             let updateCount = 0;
-            
+
             const incrementalUpdate = function(elementSelector, newValue) {
                 const element = document.querySelector(elementSelector);
                 if (element && element.textContent !== newValue) {
@@ -357,7 +357,7 @@ describe('whats-next-view DOM updates', () => {
             };
 
             const timeElement = container.querySelector('.countdown-time');
-            
+
             // First update should change
             incrementalUpdate('.countdown-time', '05:30');
             expect(updateCount).toBe(1);
@@ -437,7 +437,7 @@ describe('whats-next-view DOM updates', () => {
             const validateZoneStructure = function(zoneNumber, expectedClass) {
                 const zone = document.querySelector(`.layout-zone-${zoneNumber}`);
                 if (!zone) return false;
-                
+
                 const expectedElement = zone.querySelector(`.${expectedClass}`);
                 return expectedElement !== null;
             };

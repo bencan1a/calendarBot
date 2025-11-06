@@ -332,7 +332,7 @@ Uses dynamic imports from [`server`](../calendarbot_lite/server.py) module to av
 class AsyncOrchestrator:
     def __init__(self, max_workers: int = 4):
         """Initialize with ThreadPoolExecutor pool."""
-    
+
     async def run_with_timeout(
         self,
         coro: Coroutine,
@@ -340,14 +340,14 @@ class AsyncOrchestrator:
         operation_name: str = "operation"
     ) -> Any:
         """Run coroutine with timeout enforcement."""
-    
+
     async def run_in_executor(
         self,
         func: Callable,
         *args: Any
     ) -> Any:
         """Run blocking function in ThreadPoolExecutor."""
-    
+
     async def gather_with_timeout(
         self,
         *coros: Coroutine,
@@ -355,7 +355,7 @@ class AsyncOrchestrator:
         return_exceptions: bool = False
     ) -> list[Any]:
         """Gather multiple coroutines with global timeout."""
-    
+
     async def retry_async(
         self,
         func: Callable,
@@ -377,7 +377,7 @@ async def get_shared_client(
     timeout: httpx.Timeout | None = None
 ) -> httpx.AsyncClient:
     """Get or create shared HTTP client with connection pooling.
-    
+
     Features:
     - Connection pooling (reuses TCP connections)
     - Pi Zero 2W optimized limits (max_connections=4)
@@ -566,7 +566,7 @@ from calendarbot_lite.http_client import get_shared_client
 async def fetch_calendar():
     """Fetch calendar with shared HTTP client."""
     client = await get_shared_client()
-    
+
     try:
         response = await client.get(
             "https://calendar.example.com/feed.ics",
@@ -602,7 +602,7 @@ async def refresh_calendar(orchestrator: FetchOrchestrator):
         {"url": "https://cal1.example.com/feed.ics", "name": "Calendar 1"},
         {"url": "https://cal2.example.com/feed.ics", "name": "Calendar 2"},
     ]
-    
+
     # Fetch all sources with bounded concurrency
     events = await orchestrator.fetch_all_sources(
         sources_cfg=sources_cfg,
@@ -610,7 +610,7 @@ async def refresh_calendar(orchestrator: FetchOrchestrator):
         rrule_days=90,
         shared_http_client=await get_shared_client()
     )
-    
+
     logger.info(f"Fetched {len(events)} events from {len(sources_cfg)} sources")
     return events
 ```
@@ -632,13 +632,13 @@ async def process_with_health_tracking(health: HealthTracker):
     """Process with health tracking."""
     # Record attempt
     health.record_refresh_attempt()
-    
+
     try:
         result = await fetch_and_parse()
-        
+
         # Record success
         health.record_refresh_success(event_count=len(result))
-        
+
         return result
     except Exception as e:
         logger.error(f"Processing failed: {e}", exc_info=True)
@@ -712,7 +712,7 @@ from calendarbot_lite.async_utils import get_global_orchestrator
 async def fetch_with_timeout():
     """Fetch calendar with 30s timeout."""
     orchestrator = get_global_orchestrator()
-    
+
     try:
         result = await orchestrator.run_with_timeout(
             fetch_calendar(),
@@ -731,7 +731,7 @@ async def fetch_with_timeout():
 async def fetch_with_retry():
     """Fetch with automatic retry on failures."""
     orchestrator = get_global_orchestrator()
-    
+
     result = await orchestrator.retry_async(
         fetch_calendar,
         max_retries=3,
@@ -746,7 +746,7 @@ async def fetch_with_retry():
 async def fetch_all_with_timeout():
     """Fetch all sources concurrently with global timeout."""
     orchestrator = get_global_orchestrator()
-    
+
     results = await orchestrator.gather_with_timeout(
         fetch_source1(),
         fetch_source2(),
@@ -754,7 +754,7 @@ async def fetch_all_with_timeout():
         timeout=120.0,
         return_exceptions=True
     )
-    
+
     # Filter out exceptions
     successful = [r for r in results if not isinstance(r, Exception)]
     return successful
@@ -778,7 +778,7 @@ async def test_fetch_calendar():
     mock_response.text = "ICS content"
     mock_response.raise_for_status = AsyncMock()
     mock_client.get.return_value = mock_response
-    
+
     with patch("calendarbot_lite.http_client.get_shared_client", return_value=mock_client):
         result = await fetch_calendar()
         assert result == "ICS content"
@@ -794,14 +794,14 @@ from calendarbot_lite.health_tracker import HealthTracker
 def test_health_status():
     """Test health status tracking."""
     health = HealthTracker()
-    
+
     # Record success
     health.record_refresh_success(event_count=50)
-    
+
     status = health.get_health_status()
     assert status.status == "ok"
     assert status.event_count == 50
-    
+
     # Check uptime
     assert status.uptime_seconds >= 0
 ```
@@ -816,13 +816,13 @@ import asyncio
 async def test_orchestrator_timeout():
     """Test async orchestrator timeout enforcement."""
     from calendarbot_lite.async_utils import AsyncOrchestrator
-    
+
     orchestrator = AsyncOrchestrator(max_workers=2)
-    
+
     async def slow_operation():
         await asyncio.sleep(10)
         return "result"
-    
+
     with pytest.raises(asyncio.TimeoutError):
         await orchestrator.run_with_timeout(
             slow_operation(),
@@ -847,7 +847,7 @@ logger = logging.getLogger(__name__)
 async def fetch_ics_with_health_tracking(url: str, client_id: str = "default"):
     """Complete example of HTTP client usage with health tracking."""
     client = await get_shared_client(client_id=client_id)
-    
+
     try:
         response = await client.get(
             url,
@@ -855,13 +855,13 @@ async def fetch_ics_with_health_tracking(url: str, client_id: str = "default"):
             timeout=30.0
         )
         response.raise_for_status()
-        
+
         # Record success
         record_client_success(client_id)
-        
+
         logger.info(f"Fetched {len(response.text)} bytes from {url}")
         return response.text
-        
+
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error {e.response.status_code}: {url}")
         record_client_error(client_id)
@@ -895,7 +895,7 @@ async def setup_and_run_orchestrator():
     health = HealthTracker()
     window_manager = EventWindowManager(event_filter, fallback_handler)
     http_client = await get_shared_client()
-    
+
     # Create orchestrator
     orchestrator = FetchOrchestrator(
         fetch_and_parse_source=fetch_and_parse_source_func,
@@ -903,13 +903,13 @@ async def setup_and_run_orchestrator():
         health_tracker=health,
         monitoring_logger=log_monitoring_event
     )
-    
+
     # Configure sources
     sources_cfg = [
         {"url": "https://cal1.example.com/feed.ics", "name": "Work"},
         {"url": "https://cal2.example.com/feed.ics", "name": "Personal"},
     ]
-    
+
     # Fetch all sources
     try:
         events = await orchestrator.fetch_all_sources(
@@ -918,10 +918,10 @@ async def setup_and_run_orchestrator():
             rrule_days=90,
             shared_http_client=http_client
         )
-        
+
         logger.info(f"Fetched {len(events)} events from {len(sources_cfg)} sources")
         return events
-        
+
     except Exception as e:
         logger.error(f"Orchestration failed: {e}", exc_info=True)
         raise
@@ -942,38 +942,38 @@ async def calendar_refresh_with_health(health: HealthTracker):
     """Complete example of health tracking during refresh."""
     # Record attempt
     health.record_refresh_attempt()
-    
+
     start = time.time()
     try:
         # Fetch and parse
         events = await fetch_and_parse_calendar()
         duration = time.time() - start
-        
+
         # Record success
         health.record_refresh_success(event_count=len(events))
-        
+
         logger.info(
             f"Refresh succeeded: {len(events)} events in {duration:.2f}s"
         )
-        
+
         # Check overall health
         status = health.get_health_status()
         if status.status != "ok":
             logger.warning(f"System health degraded: {status.status}")
-        
+
         return events
-        
+
     except Exception as e:
         duration = time.time() - start
         logger.error(
             f"Refresh failed after {duration:.2f}s: {e}",
             exc_info=True
         )
-        
+
         # Health automatically marked degraded due to failed refresh
         status = health.get_health_status()
         logger.error(f"Health status: {status.status}")
-        
+
         raise
 ```
 
@@ -991,7 +991,7 @@ logger = logging.getLogger(__name__)
 async def comprehensive_async_patterns():
     """Complete examples of async orchestrator patterns."""
     orchestrator = get_global_orchestrator()
-    
+
     # 1. Timeout enforcement
     try:
         result = await orchestrator.run_with_timeout(
@@ -1002,7 +1002,7 @@ async def comprehensive_async_patterns():
         logger.info(f"Operation completed: {result}")
     except asyncio.TimeoutError:
         logger.warning("Operation timed out after 10s")
-    
+
     # 2. Retry with exponential backoff
     try:
         result = await orchestrator.retry_async(
@@ -1013,7 +1013,7 @@ async def comprehensive_async_patterns():
         logger.info(f"API call succeeded: {result}")
     except Exception as e:
         logger.error(f"API call failed after retries: {e}")
-    
+
     # 3. Concurrent execution with timeout
     try:
         results = await orchestrator.gather_with_timeout(
@@ -1023,14 +1023,14 @@ async def comprehensive_async_patterns():
             timeout=120.0,
             return_exceptions=True
         )
-        
+
         # Filter successful results
         successful = [r for r in results if not isinstance(r, Exception)]
         logger.info(f"Completed {len(successful)}/{len(results)} operations")
-        
+
     except asyncio.TimeoutError:
         logger.error("Concurrent operations timed out")
-    
+
     # 4. Run blocking function in executor
     result = await orchestrator.run_in_executor(
         blocking_function,
@@ -1038,7 +1038,7 @@ async def comprehensive_async_patterns():
         arg2
     )
     logger.info(f"Blocking function result: {result}")
-    
+
     return results
 ```
 
@@ -1058,7 +1058,7 @@ async def comprehensive_async_patterns():
 
 ### Test Locations
 
-- **Unit Tests**: 
+- **Unit Tests**:
   - [`tests/lite/unit/test_async_utils.py`](../../tests/lite/unit/test_async_utils.py)
   - [`tests/lite/unit/test_http_client.py`](../../tests/lite/unit/test_http_client.py)
   - [`tests/lite/unit/test_health_tracker_module.py`](../../tests/lite/unit/test_health_tracker_module.py)
@@ -1067,7 +1067,7 @@ async def comprehensive_async_patterns():
   - [`tests/lite/unit/test_dependencies.py`](../../tests/lite/unit/test_dependencies.py)
   - [`tests/lite/unit/test_debug_helpers.py`](../../tests/lite/unit/test_debug_helpers.py)
 
-- **Integration Tests**: 
+- **Integration Tests**:
   - [`tests/lite/integration/test_concurrency_system.py`](../../tests/lite/integration/test_concurrency_system.py)
   - [`tests/lite/integration/test_health_check.py`](../../tests/lite/integration/test_health_check.py)
 
@@ -1089,7 +1089,7 @@ pytest tests/lite/integration/test_health_check.py -v
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2025-11-03  
-**Part of**: calendarbot_lite component documentation series  
+**Document Version**: 1.0
+**Last Updated**: 2025-11-03
+**Part of**: calendarbot_lite component documentation series
 **Related Components**: Server & HTTP (01), Alexa Integration (02), Calendar Processing (03)

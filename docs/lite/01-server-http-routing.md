@@ -1,7 +1,7 @@
 # HTTP Server & Routing Component
 
-**Component:** 1 of 5 - Server Layer  
-**Purpose:** Application entry point, web server lifecycle, HTTP endpoint routing, background tasks  
+**Component:** 1 of 5 - Server Layer
+**Purpose:** Application entry point, web server lifecycle, HTTP endpoint routing, background tasks
 **Last Updated:** 2025-11-03
 
 ---
@@ -283,32 +283,32 @@ Configuration passed to [`start_server()`](../../calendarbot_lite/server.py:1422
 config: dict[str, Any] = {
     # ICS Sources
     "ics_sources": list[str],          # ICS feed URLs
-    
+
     # Server Configuration
     "server_bind": str,                 # Host to bind (default: "0.0.0.0")
     "server_port": int,                 # Port (default: 8080)
     "refresh_interval_seconds": int,    # Background refresh interval (default: 300)
-    
+
     # Event Processing
     "rrule_expansion_days": int,        # RRULE expansion window (default: 365)
     "event_window_size": int,           # Max events to keep in memory
-    
+
     # Authentication
     "alexa_bearer_token": str | None,   # Alexa API authentication
-    
+
     # Logging
     "debug_logging": bool,              # Enable debug mode (default: False)
-    
+
     # Bounded Concurrency (Pi Zero 2W optimized)
     "fetch_concurrency": int,           # Concurrent fetches (default: 2, range: 1-3)
     "rrule_worker_concurrency": int,    # RRULE worker pool size (default: 1)
-    
+
     # RRULE Worker Limits
     "max_occurrences_per_rule": int,    # Max events per RRULE (default: 250)
     "expansion_days_window": int,       # Expansion window in days (default: 365)
     "expansion_time_budget_ms_per_rule": int,  # Time budget per RRULE (default: 200)
     "expansion_yield_frequency": int,   # Yield frequency (default: 50)
-    
+
     # HTTP Fetcher Configuration
     "request_timeout": int,             # HTTP timeout in seconds (default: 30)
     "max_retries": int,                 # Maximum HTTP retries (default: 3)
@@ -348,7 +348,7 @@ Background refresh loop started in [`_serve()`](../../calendarbot_lite/server.py
 # Create background task
 refresher = asyncio.create_task(
     _refresh_loop(
-        config, skipped_store, event_window_ref, 
+        config, skipped_store, event_window_ref,
         window_lock, stop_event, shared_http_client, response_cache
     )
 )
@@ -371,13 +371,13 @@ def register_*_routes(
     # ... component-specific dependencies
 ) -> None:
     """Register routes with dependency injection."""
-    
+
     # Define route handlers with closure over dependencies
     async def route_handler(request: Any) -> Any:
         # Access injected dependencies
         # Process request
         # Return response
-    
+
     # Register routes
     app.router.add_get("/path", route_handler)
     app.router.add_post("/path", route_handler)
@@ -482,11 +482,11 @@ async def my_new_endpoint(request: Any) -> Any:
     """Handle my new endpoint."""
     # Access injected dependencies
     now = time_provider()
-    
+
     # Read event window safely
     async with window_lock:
         window = tuple(event_window_ref[0])
-    
+
     # Process and return response
     return web.json_response({"result": "data"}, status=200)
 ```
@@ -524,12 +524,12 @@ except asyncio.CancelledError:
 async def my_background_function(config, resources):
     """Run background task until cancelled."""
     interval = config.get("interval_seconds", 60)
-    
+
     while True:
         try:
             # Do work
             await do_work(resources)
-            
+
             # Sleep with cancellation awareness
             await asyncio.sleep(interval)
         except asyncio.CancelledError:
@@ -582,20 +582,20 @@ async def health_check(request):
 async def my_endpoint(_request: Any) -> Any:
     """Example endpoint showing all common patterns."""
     from aiohttp import web
-    
+
     # Get current time from injected provider
     now = time_provider()
-    
+
     # Read event window with thread-safe lock
     async with window_lock:
         window = tuple(event_window_ref[0])
-    
+
     # Filter events (example: only future events)
     future_events = [
         event for event in window
         if event.start_dt_utc and event.start_dt_utc > now
     ]
-    
+
     # Check skip status if needed
     if skipped_store:
         # Filter out skipped events
@@ -605,10 +605,10 @@ async def my_endpoint(_request: Any) -> Any:
             if not is_skipped(event.meeting_id):
                 unfiltered_events.append(event)
         future_events = unfiltered_events
-    
+
     # Convert to API model
     event_models = [event_to_api_model(event) for event in future_events[:10]]
-    
+
     # Return JSON response
     return web.json_response({
         "count": len(event_models),
@@ -653,13 +653,13 @@ async def custom_background_task(config, stop_event):
     """Example background task with proper lifecycle."""
     interval = config.get("custom_interval", 300)
     logger.info("Custom background task started")
-    
+
     try:
         while not stop_event.is_set():
             try:
                 # Do periodic work
                 await do_custom_work()
-                
+
                 # Wait with cancellation check
                 await asyncio.wait_for(
                     stop_event.wait(),

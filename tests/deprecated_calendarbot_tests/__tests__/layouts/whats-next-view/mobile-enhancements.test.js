@@ -115,13 +115,13 @@ describe('whats-next-view mobile enhancements', () => {
 
         test('sets up touch event listeners', () => {
             const addEventListenerSpy = jest.spyOn(document, 'addEventListener');
-            
+
             setupMobileEnhancements();
 
             // Should add touchstart, touchend listeners
             expect(addEventListenerSpy).toHaveBeenCalledWith('touchstart', expect.any(Function));
             expect(addEventListenerSpy).toHaveBeenCalledWith('touchend', expect.any(Function));
-            
+
             addEventListenerSpy.mockRestore();
         });
 
@@ -139,7 +139,7 @@ describe('whats-next-view mobile enhancements', () => {
             const touchStartEvent = new TouchEvent('touchstart', {
                 changedTouches: [{ screenX: 100 }]
             });
-            
+
             const touchEndEvent = new TouchEvent('touchend', {
                 changedTouches: [{ screenX: 200 }]  // 100px swipe right
             });
@@ -165,7 +165,7 @@ describe('whats-next-view mobile enhancements', () => {
             const touchStartEvent = new TouchEvent('touchstart', {
                 changedTouches: [{ screenX: 960 }]  // Within 50px of right edge (1000-50=950)
             });
-            
+
             const touchEndEvent = new TouchEvent('touchend', {
                 changedTouches: [{ screenX: 860 }]  // 100px swipe left
             });
@@ -191,7 +191,7 @@ describe('whats-next-view mobile enhancements', () => {
             const touchStartEvent = new TouchEvent('touchstart', {
                 changedTouches: [{ screenX: 500 }]  // Not near right edge
             });
-            
+
             const touchEndEvent = new TouchEvent('touchend', {
                 changedTouches: [{ screenX: 400 }]  // 100px swipe left
             });
@@ -213,7 +213,7 @@ describe('whats-next-view mobile enhancements', () => {
             const touchStartEvent = new TouchEvent('touchstart', {
                 changedTouches: [{ screenX: 500 }]
             });
-            
+
             const touchEndEvent = new TouchEvent('touchend', {
                 changedTouches: [{ screenX: 530 }]  // Only 30px swipe
             });
@@ -229,7 +229,7 @@ describe('whats-next-view mobile enhancements', () => {
             setupMobileEnhancements();
 
             const mockPreventDefault = jest.fn();
-            
+
             // First touch
             const firstTouchEvent = new TouchEvent('touchend');
             firstTouchEvent.preventDefault = mockPreventDefault;
@@ -247,7 +247,7 @@ describe('whats-next-view mobile enhancements', () => {
             setupMobileEnhancements();
 
             const mockPreventDefault = jest.fn();
-            
+
             // First touch
             const firstTouchEvent = new TouchEvent('touchend');
             firstTouchEvent.preventDefault = mockPreventDefault;
@@ -281,7 +281,7 @@ describe('whats-next-view mobile enhancements', () => {
             const touchStartEvent = new TouchEvent('touchstart', {
                 changedTouches: [{ screenX: 0 }]
             });
-            
+
             const touchEndEvent = new TouchEvent('touchend', {
                 changedTouches: [{ screenX: 60 }]  // 60px swipe right, exceeds threshold
             });
@@ -307,7 +307,7 @@ describe('whats-next-view mobile enhancements', () => {
             testCases.forEach(({ start, end, distance, shouldTrigger, expectedDirection }) => {
                 const calculatedDistance = end - start;
                 expect(calculatedDistance).toBe(distance);
-                
+
                 const swipeThreshold = 50;
                 const willTrigger = Math.abs(calculatedDistance) > swipeThreshold;
                 expect(willTrigger).toBe(shouldTrigger);

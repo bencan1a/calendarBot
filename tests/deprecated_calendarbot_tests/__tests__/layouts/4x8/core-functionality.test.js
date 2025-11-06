@@ -1,5 +1,5 @@
 /**
- * Tests for 4x8.js core functionality 
+ * Tests for 4x8.js core functionality
  * Focus: Testing initialization, navigation, keyboard handlers, and auto-refresh
  */
 
@@ -21,7 +21,7 @@ describe('4x8 layout core functionality', () => {
         global.autoRefreshInterval = null;
         global.autoRefreshEnabled = false;
         global.currentTheme = undefined;
-        
+
         // Setup DOM container
         container = document.createElement('div');
         container.innerHTML = `
@@ -47,7 +47,7 @@ describe('4x8 layout core functionality', () => {
             setupAutoRefresh: null,
             setupMobileEnhancements: null
         };
-        
+
         Object.assign(global, mockFunctions);
 
         // Mock theme detection
@@ -59,18 +59,18 @@ describe('4x8 layout core functionality', () => {
         if (container && container.parentNode) {
             document.body.removeChild(container);
         }
-        
+
         // Clear any intervals that might be running
         if (global.autoRefreshInterval) {
             clearInterval(global.autoRefreshInterval);
             global.autoRefreshInterval = null;
         }
-        
+
         // Reset document event listeners by creating a fresh document
         // Save current body content, clear listeners, restore content
         const bodyHTML = document.body.innerHTML;
         const newDocument = document.implementation.createHTMLDocument();
-        
+
         // Replace current document's event handling with clean version
         document.removeAllListeners = function() {
             // This is a simple approach for jsdom - remove common event types
@@ -82,13 +82,13 @@ describe('4x8 layout core functionality', () => {
                 });
             });
         };
-        
+
         // Remove all stored event handlers
         eventHandlers.forEach(({ element, event, handler }) => {
             element.removeEventListener(event, handler);
         });
         eventHandlers = [];
-        
+
         // Reset global state
         global.backendBaselineTime = null;
         global.frontendBaselineTime = null;
@@ -136,15 +136,15 @@ describe('4x8 layout core functionality', () => {
 
         test('detects theme from HTML class', () => {
             document.documentElement.className = 'theme-dark';
-            
+
             initializeApp();
-            
+
             expect(global.currentTheme).toBe('dark');
         });
 
         test('calls all setup functions', () => {
             initializeApp();
-            
+
             expect(global.setupNavigationButtons).toHaveBeenCalledTimes(1);
             expect(global.setupKeyboardNavigation).toHaveBeenCalledTimes(1);
             expect(global.setupAutoRefresh).toHaveBeenCalledTimes(1);
@@ -155,18 +155,18 @@ describe('4x8 layout core functionality', () => {
         test('handles missing theme class gracefully', () => {
             document.documentElement.className = 'some-other-class no-themes-here';
             global.currentTheme = 'default';
-            
+
             initializeApp();
-            
+
             // Should not change currentTheme if no theme class found
             expect(global.currentTheme).toBe('default');
         });
 
         test('handles multiple theme classes', () => {
             document.documentElement.className = 'other-class theme-eink more-classes';
-            
+
             initializeApp();
-            
+
             expect(global.currentTheme).toBe('eink');
         });
     });
@@ -194,34 +194,34 @@ describe('4x8 layout core functionality', () => {
 
         test('handles prev button click', () => {
             setupNavigationButtons();
-            
+
             const prevBtn = container.querySelector('[data-action="prev"]');
             const clickEvent = new MouseEvent('click', { bubbles: true });
-            
+
             prevBtn.dispatchEvent(clickEvent);
-            
+
             expect(mockFunctions.navigate).toHaveBeenCalledWith('prev');
         });
 
         test('handles next button click', () => {
             setupNavigationButtons();
-            
+
             const nextBtn = container.querySelector('[data-action="next"]');
             const clickEvent = new MouseEvent('click', { bubbles: true });
-            
+
             nextBtn.dispatchEvent(clickEvent);
-            
+
             expect(mockFunctions.navigate).toHaveBeenCalledWith('next');
         });
 
         test('ignores non-navigation buttons', () => {
             setupNavigationButtons();
-            
+
             const refreshBtn = container.querySelector('[data-action="refresh"]');
             const clickEvent = new MouseEvent('click', { bubbles: true });
-            
+
             refreshBtn.dispatchEvent(clickEvent);
-            
+
             expect(mockFunctions.navigate).not.toHaveBeenCalled();
         });
 
@@ -230,24 +230,24 @@ describe('4x8 layout core functionality', () => {
             const innerSpan = document.createElement('span');
             innerSpan.textContent = 'Previous';
             navBtn.appendChild(innerSpan);
-            
+
             setupNavigationButtons();
-            
+
             const clickEvent = new MouseEvent('click', { bubbles: true });
             innerSpan.dispatchEvent(clickEvent);
-            
+
             expect(mockFunctions.navigate).toHaveBeenCalledWith('prev');
         });
 
         test('prevents default behavior for navigation actions', () => {
             setupNavigationButtons();
-            
+
             const prevBtn = container.querySelector('[data-action="prev"]');
             const clickEvent = new MouseEvent('click', { bubbles: true });
             const preventDefaultSpy = jest.spyOn(clickEvent, 'preventDefault');
-            
+
             prevBtn.dispatchEvent(clickEvent);
-            
+
             expect(preventDefaultSpy).toHaveBeenCalled();
         });
     });
@@ -302,106 +302,106 @@ describe('4x8 layout core functionality', () => {
 
         test('handles left arrow key for previous navigation', () => {
             setupKeyboardNavigation();
-            
+
             const event = new KeyboardEvent('keydown', { key: 'ArrowLeft' });
             document.dispatchEvent(event);
-            
+
             expect(mockFunctions.navigate).toHaveBeenCalledWith('prev');
         });
 
         test('handles right arrow key for next navigation', () => {
             setupKeyboardNavigation();
-            
+
             const event = new KeyboardEvent('keydown', { key: 'ArrowRight' });
             document.dispatchEvent(event);
-            
+
             expect(mockFunctions.navigate).toHaveBeenCalledWith('next');
         });
 
         test('handles space bar for today navigation', () => {
             setupKeyboardNavigation();
-            
+
             const event = new KeyboardEvent('keydown', { key: ' ' });
             document.dispatchEvent(event);
-            
+
             expect(mockFunctions.navigate).toHaveBeenCalledWith('today');
         });
 
         test('handles Home key for week start', () => {
             setupKeyboardNavigation();
-            
+
             const event = new KeyboardEvent('keydown', { key: 'Home' });
             document.dispatchEvent(event);
-            
+
             expect(mockFunctions.navigate).toHaveBeenCalledWith('week-start');
         });
 
         test('handles End key for week end', () => {
             setupKeyboardNavigation();
-            
+
             const event = new KeyboardEvent('keydown', { key: 'End' });
             document.dispatchEvent(event);
-            
+
             expect(mockFunctions.navigate).toHaveBeenCalledWith('week-end');
         });
 
         test('handles R key for refresh', () => {
             setupKeyboardNavigation();
-            
+
             const event = new KeyboardEvent('keydown', { key: 'R' });
             document.dispatchEvent(event);
-            
+
             expect(mockFunctions.refresh).toHaveBeenCalledTimes(1);
         });
 
         test('handles lowercase r key for refresh', () => {
             setupKeyboardNavigation();
-            
+
             const event = new KeyboardEvent('keydown', { key: 'r' });
             document.dispatchEvent(event);
-            
+
             expect(mockFunctions.refresh).toHaveBeenCalledTimes(1);
         });
 
         test('handles T key for theme toggle', () => {
             setupKeyboardNavigation();
-            
+
             const event = new KeyboardEvent('keydown', { key: 'T' });
             document.dispatchEvent(event);
-            
+
             expect(mockFunctions.toggleTheme).toHaveBeenCalledTimes(1);
         });
 
         test('handles L key for layout cycle', () => {
             setupKeyboardNavigation();
-            
+
             const event = new KeyboardEvent('keydown', { key: 'L' });
             document.dispatchEvent(event);
-            
+
             expect(mockFunctions.cycleLayout).toHaveBeenCalledTimes(1);
         });
 
         test('prevents default for navigation keys', () => {
             setupKeyboardNavigation();
-            
+
             const navigationKeys = ['ArrowLeft', 'ArrowRight', ' ', 'Home', 'End', 'r', 'R'];
-            
+
             navigationKeys.forEach(key => {
                 const event = new KeyboardEvent('keydown', { key });
                 const preventDefaultSpy = jest.spyOn(event, 'preventDefault');
-                
+
                 document.dispatchEvent(event);
-                
+
                 expect(preventDefaultSpy).toHaveBeenCalled();
             });
         });
 
         test('ignores non-navigation keys', () => {
             setupKeyboardNavigation();
-            
+
             const event = new KeyboardEvent('keydown', { key: 'a' });
             document.dispatchEvent(event);
-            
+
             expect(mockFunctions.navigate).not.toHaveBeenCalled();
             expect(mockFunctions.refresh).not.toHaveBeenCalled();
             expect(mockFunctions.toggleTheme).not.toHaveBeenCalled();
@@ -414,7 +414,7 @@ describe('4x8 layout core functionality', () => {
 
         beforeEach(() => {
             jest.useFakeTimers();
-            
+
             // Mock implementation
             setupAutoRefresh = function() {
                 if (global.autoRefreshEnabled) {
@@ -434,15 +434,15 @@ describe('4x8 layout core functionality', () => {
 
         test('sets up auto refresh when enabled', () => {
             global.autoRefreshEnabled = true;
-            
+
             setupAutoRefresh();
-            
+
             expect(global.autoRefreshInterval).toBeDefined();
-            
+
             // Fast-forward 1 minute
             jest.advanceTimersByTime(60000);
             expect(mockFunctions.refresh).toHaveBeenCalledTimes(1);
-            
+
             // Fast-forward another minute
             jest.advanceTimersByTime(60000);
             expect(mockFunctions.refresh).toHaveBeenCalledTimes(2);
@@ -450,11 +450,11 @@ describe('4x8 layout core functionality', () => {
 
         test('does not set up auto refresh when disabled', () => {
             global.autoRefreshEnabled = false;
-            
+
             setupAutoRefresh();
-            
+
             expect(global.autoRefreshInterval).toBeNull();
-            
+
             jest.advanceTimersByTime(60000);
             expect(mockFunctions.refresh).not.toHaveBeenCalled();
         });
@@ -469,10 +469,10 @@ describe('4x8 layout core functionality', () => {
         test('can set timezone baseline for synchronization', () => {
             const backendTime = new Date('2024-01-15T10:00:00Z').getTime();
             const frontendTime = Date.now();
-            
+
             global.backendBaselineTime = backendTime;
             global.frontendBaselineTime = frontendTime;
-            
+
             expect(global.backendBaselineTime).toBe(backendTime);
             expect(global.frontendBaselineTime).toBe(frontendTime);
         });
@@ -481,14 +481,14 @@ describe('4x8 layout core functionality', () => {
     describe('DOM event integration', () => {
         test('DOMContentLoaded triggers initialization', () => {
             const initSpy = jest.fn();
-            
+
             // Add event listener for DOMContentLoaded
             document.addEventListener('DOMContentLoaded', initSpy);
-            
+
             // Simulate DOMContentLoaded event
             const event = new Event('DOMContentLoaded');
             document.dispatchEvent(event);
-            
+
             expect(initSpy).toHaveBeenCalledTimes(1);
         });
 
@@ -508,15 +508,15 @@ describe('4x8 layout core functionality', () => {
             };
 
             setupNavigationButtons();
-            
+
             const prevBtn = container.querySelector('[data-action="prev"]');
             const nextBtn = container.querySelector('[data-action="next"]');
-            
+
             // Multiple clicks
             prevBtn.click();
             nextBtn.click();
             prevBtn.click();
-            
+
             expect(mockFunctions.navigate).toHaveBeenCalledTimes(3);
             expect(mockFunctions.navigate).toHaveBeenNthCalledWith(1, 'prev');
             expect(mockFunctions.navigate).toHaveBeenNthCalledWith(2, 'next');
@@ -537,12 +537,12 @@ describe('4x8 layout core functionality', () => {
             };
 
             setupKeyboardNavigation();
-            
+
             // Rapid key presses
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
-            
+
             expect(mockFunctions.navigate).toHaveBeenCalledTimes(3);
         });
     });
@@ -550,7 +550,7 @@ describe('4x8 layout core functionality', () => {
     describe('state management', () => {
         test('tracks current theme state', () => {
             global.currentTheme = 'standard';
-            
+
             const initializeApp = function() {
                 const htmlElement = document.documentElement;
                 const themeClasses = htmlElement.className.match(/\btheme-(\w+)\b/);
@@ -561,7 +561,7 @@ describe('4x8 layout core functionality', () => {
 
             document.documentElement.className = 'theme-dark';
             initializeApp();
-            
+
             expect(global.currentTheme).toBe('dark');
         });
 
