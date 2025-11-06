@@ -109,14 +109,6 @@ jobs:
     - name: Run critical path tests
       run: venv/bin/python tests/ci_test_runner.py --critical-path
 
-    - name: Upload critical path coverage
-      uses: codecov/codecov-action@v4
-      if: always()
-      with:
-        file: ./coverage.xml
-        flags: critical-path
-        name: critical-path-coverage
-
   # STAGE 3: Smart test selection WITH coverage (single run, no redundancy)
   smart-tests-with-coverage:
     name: Smart Test Suite + Coverage (~2-5min)
@@ -255,6 +247,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need git history to determine changed files
 
     - name: Set up Python ${{ env.PYTHON_VERSION }}
       uses: actions/setup-python@v4
@@ -325,10 +319,122 @@ jobs:
         EOF
         venv/bin/python show_coverage.py
 
-    - name: Coverage differential analysis (if available)
+    - name: Coverage analysis for changed files
       continue-on-error: true
       run: |
-        venv/bin/python tests/ci_test_runner.py --coverage-diff || echo "Coverage diff not available"
+        cat > changed_files_coverage.py << 'EOF'
+        import json
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        def get_changed_files(base_ref="HEAD~1"):
+            """Get list of changed Python files."""
+            try:
+                # Determine base reference
+                if "${{ github.event_name }}" == "pull_request":
+                    base_ref = "origin/${{ github.base_ref }}"
+
+                result = subprocess.run(
+                    ["git", "diff", "--name-only", base_ref, "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+
+                if result.returncode != 0:
+                    print(f"Warning: Could not get changed files: {result.stderr}")
+                    return []
+
+                # Filter for Python files in calendarbot_lite
+                changed = [
+                    f for f in result.stdout.splitlines()
+                    if f.endswith('.py') and f.startswith('calendarbot_lite/') and Path(f).exists()
+                ]
+                return changed
+            except Exception as e:
+                print(f"Error getting changed files: {e}")
+                return []
+
+        def get_file_coverage(coverage_data, changed_files):
+            """Extract coverage for specific files."""
+            files_coverage = {}
+
+            for file_path in changed_files:
+                abs_path = str(Path(file_path).resolve())
+
+                # Check in coverage data
+                for cov_file, cov_data in coverage_data.get("files", {}).items():
+                    if cov_file.endswith(file_path) or file_path in cov_file:
+                        covered = cov_data["summary"]["covered_lines"]
+                        total = cov_data["summary"]["num_statements"]
+                        pct = cov_data["summary"]["percent_covered"]
+                        files_coverage[file_path] = {
+                            "covered": covered,
+                            "total": total,
+                            "percent": pct
+                        }
+                        break
+
+            return files_coverage
+
+        try:
+            # Get changed files
+            changed_files = get_changed_files()
+
+            if not changed_files:
+                print("No Python files changed in calendarbot_lite/ - skipping coverage analysis")
+                sys.exit(0)
+
+            # Load coverage data
+            with open("coverage.json") as f:
+                coverage_data = json.load(f)
+
+            # Get coverage for changed files
+            files_coverage = get_file_coverage(coverage_data, changed_files)
+
+            if not files_coverage:
+                print("=" * 60)
+                print("Changed Files Coverage (No coverage data found)")
+                print("=" * 60)
+                print(f"Changed files ({len(changed_files)}):")
+                for f in changed_files:
+                    print(f"  - {f}")
+                print("\nNote: These files may not have been tested in this run.")
+                print("=" * 60)
+            else:
+                # Calculate aggregate
+                total_covered = sum(f["covered"] for f in files_coverage.values())
+                total_statements = sum(f["total"] for f in files_coverage.values())
+                avg_coverage = (total_covered / total_statements * 100) if total_statements > 0 else 0
+
+                print("=" * 60)
+                print("Changed Files Coverage Analysis")
+                print("=" * 60)
+                print(f"Changed files tested: {len(files_coverage)}/{len(changed_files)}")
+                print(f"Aggregate coverage: {avg_coverage:.1f}% ({total_covered}/{total_statements} lines)")
+                print("=" * 60)
+                print("\nPer-file coverage:")
+                for file_path, cov in sorted(files_coverage.items()):
+                    print(f"  {file_path}: {cov['percent']:.1f}% ({cov['covered']}/{cov['total']} lines)")
+                print("=" * 60)
+
+                # List untested files
+                untested = set(changed_files) - set(files_coverage.keys())
+                if untested:
+                    print("\nChanged files not tested:")
+                    for f in sorted(untested):
+                        print(f"  - {f}")
+                    print("=" * 60)
+
+        except FileNotFoundError:
+            print("No coverage.json found - skipping changed files analysis")
+        except Exception as e:
+            print(f"Error analyzing changed files coverage: {e}")
+            import traceback
+            traceback.print_exc()
+        EOF
+        venv/bin/python changed_files_coverage.py
 
   # STAGE 5: Deployment readiness (final gate)
   deployment-check:
