@@ -92,7 +92,7 @@ async def test_lite_smoke_boot_inprocess_no_errors(caplog: Any) -> None:
         app = _maybe_app
 
     from aiohttp.test_utils import TestClient, TestServer
- 
+
     # Cast to Any for static checkers so TestServer accepts the value in all
     # environments (the actual object is a valid aiohttp Application at runtime).
     app = cast(Any, app)
@@ -167,7 +167,7 @@ def test_lite_smoke_boot_subprocess_no_errors(tmp_path: Path) -> None:
         free_port = _sock.getsockname()[1]
     env["CALENDARBOT_WEB_PORT"] = str(free_port)
     env["CALENDARBOT_SERVER_PORT"] = str(free_port)
- 
+
     proc = subprocess.Popen(
         [sys.executable, "-m", "calendarbot_lite"],
         stdout=subprocess.PIPE,

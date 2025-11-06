@@ -2,8 +2,8 @@
 """
 CI Performance Benchmark Runner for CalendarBot GitHub Actions workflows.
 
-Lightweight performance benchmark harness for calendarbot_lite that uses aiohttp 
-to serve generated ICS payloads, fetches them with aiohttp client, and feeds the 
+Lightweight performance benchmark harness for calendarbot_lite that uses aiohttp
+to serve generated ICS payloads, fetches them with aiohttp client, and feeds the
 bytes into calendarbot_lite.lite_streaming_parser.parse_ics_stream for parsing/measurement.
 
 Features:

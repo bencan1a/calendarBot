@@ -14,7 +14,7 @@ describe('SettingsPanel Functions', () => {
   beforeEach(() => {
     // Setup DOM mocks
     mockDocument = global.testUtils.setupMockDOM();
-    
+
     // Create SettingsPanel instance for testing
     // Mock the dependencies it needs
     global.SettingsAPI = class MockSettingsAPI {
@@ -27,12 +27,12 @@ describe('SettingsPanel Functions', () => {
         }
       }
     };
-    
+
     global.GestureHandler = class MockGestureHandler {
       initialize() {}
       destroy() {}
     };
-    
+
     settingsPanel = new SettingsPanel();
     settingsPanel.localSettings = {
       event_filters: { title_patterns: [] },
@@ -56,14 +56,14 @@ describe('SettingsPanel Functions', () => {
           type: 'checkbox',
           checked: true
         });
-        
+
         document.getElementById = jest.fn().mockImplementation((id) => {
           if (id === 'hide-all-day-events') return toggle;
           return null;
         });
-        
+
         settingsPanel.collectFormData();
-        
+
         expect(settingsPanel.localSettings.event_filters.hide_all_day_events).toBe(true);
       });
 
@@ -74,14 +74,14 @@ describe('SettingsPanel Functions', () => {
           value: '3x4',
           checked: true
         });
-        
+
         document.querySelector = jest.fn().mockImplementation((selector) => {
           if (selector === 'input[name="default-layout"]:checked') return radio;
           return null;
         });
-        
+
         settingsPanel.collectFormData();
-        
+
         expect(settingsPanel.localSettings.display.default_layout).toBe('3x4');
       });
 
@@ -95,23 +95,23 @@ describe('SettingsPanel Functions', () => {
           writable: true,
           configurable: true
         });
-        
+
         document.getElementById = jest.fn().mockImplementation((id) => {
           if (id === 'display-density') return select;
           return null;
         });
-        
+
         settingsPanel.collectFormData();
-        
+
         expect(settingsPanel.localSettings.display.display_density).toBe('compact');
       });
 
       it('should handle missing form elements gracefully', () => {
         document.getElementById = jest.fn().mockReturnValue(null);
         document.querySelector = jest.fn().mockReturnValue(null);
-        
+
         settingsPanel.collectFormData();
-        
+
         expect(settingsPanel.localSettings).toHaveProperty('event_filters');
         expect(settingsPanel.localSettings).toHaveProperty('display');
         expect(settingsPanel.localSettings).toHaveProperty('metadata');
@@ -119,7 +119,7 @@ describe('SettingsPanel Functions', () => {
 
       it('should return properly structured settings object', () => {
         settingsPanel.collectFormData();
-        
+
         expect(settingsPanel.localSettings).toHaveProperty('event_filters.title_patterns');
         expect(Array.isArray(settingsPanel.localSettings.event_filters.title_patterns)).toBe(true);
         expect(settingsPanel.localSettings).toHaveProperty('display');
@@ -136,20 +136,20 @@ describe('SettingsPanel Functions', () => {
           type: 'checkbox',
           checked: false
         });
-        
+
         document.getElementById = jest.fn().mockImplementation((id) => {
           if (id === 'hide-all-day-events') return toggle;
           return null;
         });
-        
+
         const settings = {
           event_filters: {
             hide_all_day_events: true
           }
         };
-        
+
         settingsPanel.populateForm(settings);
-        
+
         expect(toggle.checked).toBe(true);
       });
 
@@ -160,20 +160,20 @@ describe('SettingsPanel Functions', () => {
           value: '4x8',
           checked: false
         });
-        
+
         document.querySelector = jest.fn().mockImplementation((selector) => {
           if (selector === 'input[name="default-layout"][value="4x8"]') return radio;
           return null;
         });
-        
+
         const settings = {
           display: {
             default_layout: '4x8'
           }
         };
-        
+
         settingsPanel.populateForm(settings);
-        
+
         expect(radio.checked).toBe(true);
       });
 
@@ -187,20 +187,20 @@ describe('SettingsPanel Functions', () => {
           writable: true,
           configurable: true
         });
-        
+
         document.getElementById = jest.fn().mockImplementation((id) => {
           if (id === 'display-density') return select;
           return null;
         });
-        
+
         const settings = {
           display: {
             display_density: 'spacious'
           }
         };
-        
+
         settingsPanel.populateForm(settings);
-        
+
         expect(select.value).toBe('spacious');
       });
 
@@ -213,12 +213,12 @@ describe('SettingsPanel Functions', () => {
       it('should handle missing form elements gracefully', () => {
         document.getElementById = jest.fn().mockReturnValue(null);
         document.querySelector = jest.fn().mockReturnValue(null);
-        
+
         const settings = {
           event_filters: { hide_all_day_events: true },
           display: { default_layout: '3x4', display_density: 'compact' }
         };
-        
+
         expect(() => {
           settingsPanel.populateForm(settings);
         }).not.toThrow();
@@ -233,9 +233,9 @@ describe('SettingsPanel Functions', () => {
           id: 'pattern-list',
           innerHTML: ''
         });
-        
+
         document.getElementById = jest.fn().mockReturnValue(container);
-        
+
         const patterns = [
           {
             pattern: 'Daily Standup',
@@ -250,9 +250,9 @@ describe('SettingsPanel Functions', () => {
             match_count: 3
           }
         ];
-        
+
         settingsPanel.renderPatternList(patterns);
-        
+
         expect(container.innerHTML).toContain('Daily Standup');
         expect(container.innerHTML).toContain('[Mm]eeting');
         expect(container.innerHTML).toContain('Regex');
@@ -264,11 +264,11 @@ describe('SettingsPanel Functions', () => {
           id: 'pattern-list',
           innerHTML: ''
         });
-        
+
         document.getElementById = jest.fn().mockReturnValue(container);
-        
+
         settingsPanel.renderPatternList([]);
-        
+
         expect(container.innerHTML).toContain('No patterns configured');
       });
 
@@ -277,17 +277,17 @@ describe('SettingsPanel Functions', () => {
           id: 'pattern-list',
           innerHTML: ''
         });
-        
+
         document.getElementById = jest.fn().mockReturnValue(container);
-        
+
         settingsPanel.renderPatternList(null);
-        
+
         expect(container.innerHTML).toContain('No patterns configured');
       });
 
       it('should handle missing container gracefully', () => {
         document.getElementById = jest.fn().mockReturnValue(null);
-        
+
         expect(() => {
           settingsPanel.renderPatternList([{pattern: 'test', is_regex: false, is_active: true}]);
         }).not.toThrow();
@@ -298,9 +298,9 @@ describe('SettingsPanel Functions', () => {
           id: 'pattern-list',
           innerHTML: ''
         });
-        
+
         document.getElementById = jest.fn().mockReturnValue(container);
-        
+
         const patterns = [
           {
             pattern: '<script>alert("xss")</script>',
@@ -309,9 +309,9 @@ describe('SettingsPanel Functions', () => {
             match_count: 0
           }
         ];
-        
+
         settingsPanel.renderPatternList(patterns);
-        
+
         expect(container.innerHTML).toContain('&lt;script&gt;');
         expect(container.innerHTML).not.toContain('<script>');
       });
@@ -323,36 +323,36 @@ describe('SettingsPanel Functions', () => {
       it('should detect compact screen size', () => {
         Object.defineProperty(window, 'innerWidth', { value: 320, writable: true });
         Object.defineProperty(window, 'innerHeight', { value: 420, writable: true });
-        
+
         const result = settingsPanel.detectScreenSize();
-        
+
         expect(result).toBe('compact');
       });
 
       it('should detect medium screen size', () => {
         Object.defineProperty(window, 'innerWidth', { value: 480, writable: true });
         Object.defineProperty(window, 'innerHeight', { value: 800, writable: true });
-        
+
         const result = settingsPanel.detectScreenSize();
-        
+
         expect(result).toBe('medium');
       });
 
       it('should detect large screen size', () => {
         Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
         Object.defineProperty(window, 'innerHeight', { value: 768, writable: true });
-        
+
         const result = settingsPanel.detectScreenSize();
-        
+
         expect(result).toBe('large');
       });
 
       it('should default to medium for unmatched sizes', () => {
         Object.defineProperty(window, 'innerWidth', { value: 600, writable: true });
         Object.defineProperty(window, 'innerHeight', { value: 600, writable: true });
-        
+
         const result = settingsPanel.detectScreenSize();
-        
+
         expect(result).toBe('medium');
       });
     });

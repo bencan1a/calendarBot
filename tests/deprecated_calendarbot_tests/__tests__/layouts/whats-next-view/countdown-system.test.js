@@ -9,7 +9,7 @@ require('../../../../calendarbot/web/static/layouts/whats-next-view/whats-next-v
 describe('whats-next-view countdown system', () => {
     let container;
     let mockCurrentMeeting;
-    
+
     beforeEach(() => {
         // Setup DOM container with countdown elements
         container = document.createElement('div');
@@ -249,13 +249,13 @@ describe('whats-next-view countdown system', () => {
             // The boundary logic uses Math.floor(timeGapMs / (1000 * 60))
             // 121000ms = 2.01666... minutes = Math.floor(2.01666) = 2 minutes = still critical
             // Need to use larger values to cross boundaries
-            
+
             // Just over boundaries
             expect(checkBoundaryAlert(181000).type).toBe('tight'); // 3min 1sec = 3 minutes
             expect(checkBoundaryAlert(661000).type).toBe('comfortable'); // 11min 1sec = 11 minutes
             expect(checkBoundaryAlert(1861000).type).toBe('relaxed'); // 31min 1sec = 31 minutes
 
-            // Just under boundaries  
+            // Just under boundaries
             expect(checkBoundaryAlert(119000).type).toBe('critical'); // 1min 59sec = 1 minute
             expect(checkBoundaryAlert(599000).type).toBe('tight'); // 9min 59sec = 9 minutes
             expect(checkBoundaryAlert(1799000).type).toBe('comfortable'); // 29min 59sec = 29 minutes
@@ -304,7 +304,7 @@ describe('whats-next-view countdown system', () => {
             // Simulate backend time in different timezone
             const backendTime = new Date('2024-01-15T15:00:00Z').getTime(); // 3PM UTC
             const frontendTime = new Date('2024-01-15T10:00:00Z').getTime(); // 10AM UTC
-            
+
             global.backendBaselineTime = backendTime;
             global.frontendBaselineTime = frontendTime;
 
@@ -402,11 +402,11 @@ describe('whats-next-view countdown system', () => {
 
         test('clears existing interval before setting new one', () => {
             const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
-            
+
             // Set initial interval and store the ID
             const initialIntervalId = setInterval(() => {}, 1000);
             global.countdownInterval = initialIntervalId;
-            
+
             setupCountdownSystem();
 
             expect(clearIntervalSpy).toHaveBeenCalledWith(initialIntervalId);

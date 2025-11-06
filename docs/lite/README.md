@@ -543,8 +543,8 @@ CALENDARBOT_LOG_LEVEL=DEBUG        # Override log level
 
 ---
 
-**Last Updated**: 2025-11-03  
-**Documentation Version**: 1.0  
+**Last Updated**: 2025-11-03
+**Documentation Version**: 1.0
 **Target**: calendarbot_lite/ (active project)
 
 **For additional help**: See [AGENTS.md](../../AGENTS.md) or project README files

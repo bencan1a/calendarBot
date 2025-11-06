@@ -27,13 +27,13 @@ describe('whats-next-view simple integration', () => {
             <button data-action="refresh">Refresh</button>
             <button data-action="theme">Theme</button>
         `;
-        
+
         // Mock necessary globals that the module expects
         global.fetch = jest.fn().mockResolvedValue({
             ok: true,
             json: () => Promise.resolve({ meetings: [] })
         });
-        
+
         // Clear any existing intervals
         jest.clearAllTimers();
         jest.useFakeTimers();
@@ -50,15 +50,15 @@ describe('whats-next-view simple integration', () => {
         // Basic smoke test - just verify the DOM structure is intact
         expect(document.querySelector('.calendar-content')).toBeTruthy();
         expect(document.querySelector('.countdown-display')).toBeTruthy();
-        
+
         // Trigger the DOMContentLoaded event to run initialization
         const event = new Event('DOMContentLoaded');
         document.dispatchEvent(event);
-        
+
         // Verify theme detection works
         document.documentElement.className = 'theme-dark custom-class';
         document.dispatchEvent(event);
-        
+
         document.documentElement.className = 'theme-eink';
         document.dispatchEvent(event);
     });
@@ -120,7 +120,7 @@ describe('whats-next-view simple integration', () => {
         // Fast forward time to trigger any auto-refresh timers
         jest.advanceTimersByTime(5 * 60 * 1000); // 5 minutes
         jest.advanceTimersByTime(1000); // 1 second
-        
+
         // Just verify no errors occurred
         expect(true).toBe(true);
     });
@@ -133,7 +133,7 @@ describe('whats-next-view simple integration', () => {
             // Trigger countdown updates by dispatching events or timers
             jest.advanceTimersByTime(1000);
         }
-        
+
         expect(true).toBe(true);
     });
 
@@ -171,10 +171,10 @@ describe('whats-next-view simple integration', () => {
         // Simulate window resize events
         window.innerWidth = 375;
         window.innerHeight = 812;
-        
+
         const resizeEvent = new Event('resize');
         window.dispatchEvent(resizeEvent);
-        
+
         expect(true).toBe(true);
     });
 
@@ -184,15 +184,15 @@ describe('whats-next-view simple integration', () => {
             touches: [{ clientX: 100, clientY: 50 }],
             changedTouches: [{ clientX: 100, clientY: 50 }]
         });
-        
+
         const touchMoveEvent = new TouchEvent('touchmove', {
             touches: [{ clientX: 100, clientY: 150 }],
             changedTouches: [{ clientX: 100, clientY: 150 }]
         });
-        
+
         document.dispatchEvent(touchStartEvent);
         document.dispatchEvent(touchMoveEvent);
-        
+
         expect(true).toBe(true);
     });
 
@@ -218,7 +218,7 @@ describe('whats-next-view simple integration', () => {
         if (typeof window.initializeStateManager === 'function') {
             window.initializeStateManager();
         }
-        
+
         expect(true).toBe(true);
     });
 
@@ -227,28 +227,28 @@ describe('whats-next-view simple integration', () => {
         if (typeof window.initializeSettingsPanel === 'function') {
             window.initializeSettingsPanel();
         }
-        
+
         expect(true).toBe(true);
     });
 
     test('comprehensive navigation and action testing', () => {
         // Test navigation with different actions
         const actions = ['refresh', 'theme', 'layout', 'prev', 'next'];
-        
+
         actions.forEach(action => {
             // Test button clicks
             const button = document.createElement('button');
             button.setAttribute('data-action', action);
             document.body.appendChild(button);
-            
+
             button.click();
-            
+
             // Test with nested elements
             const span = document.createElement('span');
             span.textContent = action;
             button.appendChild(span);
             span.click();
-            
+
             document.body.removeChild(button);
         });
     });
@@ -257,7 +257,7 @@ describe('whats-next-view simple integration', () => {
         // Test all keyboard shortcuts mentioned in the code
         const keyEvents = [
             { key: 'r' }, { key: 'R' },
-            { key: 't' }, { key: 'T' }, 
+            { key: 't' }, { key: 'T' },
             { key: 'l' }, { key: 'L' },
             { key: ' ' }, // Space
             { key: 'ArrowLeft' }, { key: 'ArrowRight' },
@@ -278,16 +278,16 @@ describe('whats-next-view simple integration', () => {
             { type: 'touchstart', touches: [{ clientX: 100, clientY: 50 }] },
             { type: 'touchmove', touches: [{ clientX: 100, clientY: 150 }] },
             { type: 'touchend', changedTouches: [{ clientX: 100, clientY: 150 }] },
-            
+
             // Swipe gestures
             { type: 'touchstart', touches: [{ clientX: 300, clientY: 100 }] },
             { type: 'touchmove', touches: [{ clientX: 100, clientY: 100 }] }, // Left swipe
             { type: 'touchend', changedTouches: [{ clientX: 100, clientY: 100 }] },
-            
+
             { type: 'touchstart', touches: [{ clientX: 100, clientY: 100 }] },
             { type: 'touchmove', touches: [{ clientX: 300, clientY: 100 }] }, // Right swipe
             { type: 'touchend', changedTouches: [{ clientX: 300, clientY: 100 }] },
-            
+
             // Vertical swipes
             { type: 'touchstart', touches: [{ clientX: 100, clientY: 300 }] },
             { type: 'touchmove', touches: [{ clientX: 100, clientY: 100 }] }, // Up swipe
@@ -327,13 +327,13 @@ describe('whats-next-view simple integration', () => {
         const countdownTimer = document.querySelector('.countdown-timer');
         const countdownUnits = document.querySelector('.countdown-units');
         const countdownTitle = document.querySelector('.countdown-event-title');
-        
+
         if (countdownTimer) {
             // Simulate countdown updates
             jest.advanceTimersByTime(1000);
             jest.advanceTimersByTime(5000);
             jest.advanceTimersByTime(60000); // 1 minute
-            
+
             // Test different time values
             countdownTimer.textContent = '05:30:00';
             countdownTimer.textContent = '00:01:30';
@@ -359,40 +359,40 @@ describe('whats-next-view simple integration', () => {
         const meetingDataScenarios = [
             // Empty meetings
             { meetings: [] },
-            
+
             // Single meeting
-            { meetings: [{ 
+            { meetings: [{
                 title: 'Daily Standup',
                 start_time: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
                 location: 'Conference Room A',
                 description: 'Daily team sync',
                 video_link: 'https://zoom.us/j/123456789'
             }] },
-            
+
             // Multiple meetings
             { meetings: [
-                { 
+                {
                     title: 'Morning Meeting',
                     start_time: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
                     location: 'Room 1'
                 },
-                { 
+                {
                     title: 'Afternoon Review',
                     start_time: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
                     location: 'Room 2',
                     description: 'Weekly review meeting'
                 }
             ] },
-            
+
             // Meeting with video links
-            { meetings: [{ 
+            { meetings: [{
                 title: 'Remote Meeting',
                 start_time: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
                 description: 'Join: https://teams.microsoft.com/l/meetup-join/abc'
             }] },
-            
+
             // Past meeting
-            { meetings: [{ 
+            { meetings: [{
                 title: 'Past Meeting',
                 start_time: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
                 location: 'Room 3'
@@ -424,7 +424,7 @@ describe('whats-next-view simple integration', () => {
 
         errorScenarios.forEach(error => {
             global.fetch.mockRejectedValueOnce(error);
-            
+
             const refreshBtn = document.querySelector('[data-action="refresh"]');
             if (refreshBtn) {
                 refreshBtn.click();
@@ -458,10 +458,10 @@ describe('whats-next-view simple integration', () => {
         viewportSizes.forEach(size => {
             Object.defineProperty(window, 'innerWidth', { value: size.width, writable: true });
             Object.defineProperty(window, 'innerHeight', { value: size.height, writable: true });
-            
+
             const resizeEvent = new Event('resize');
             window.dispatchEvent(resizeEvent);
-            
+
             // Test orientation change
             const orientationEvent = new Event('orientationchange');
             window.dispatchEvent(orientationEvent);
@@ -477,7 +477,7 @@ describe('whats-next-view simple integration', () => {
         focusableElements.forEach(element => {
             element.focus();
             element.blur();
-            
+
             // Test keyboard navigation
             element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
             element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
@@ -496,16 +496,16 @@ describe('whats-next-view simple integration', () => {
     test('theme switching comprehensive testing', () => {
         // Test all possible themes
         const themes = ['light', 'dark', 'eink', 'high-contrast', 'custom'];
-        
+
         themes.forEach(theme => {
             document.documentElement.className = `theme-${theme}`;
-            
+
             // Trigger theme toggle
             const themeBtn = document.querySelector('[data-action="theme"]');
             if (themeBtn) {
                 themeBtn.click();
             }
-            
+
             // Test keyboard theme toggle
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }));
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'T' }));
@@ -515,7 +515,7 @@ describe('whats-next-view simple integration', () => {
     test('layout cycling comprehensive testing', () => {
         // Test layout cycling
         const layoutBtn = document.querySelector('[data-action="layout"]');
-        
+
         if (layoutBtn) {
             // Click multiple times to cycle through layouts
             for (let i = 0; i < 5; i++) {
@@ -539,7 +539,7 @@ describe('whats-next-view simple integration', () => {
         stateScenarios.forEach(state => {
             // Simulate state changes by updating DOM classes
             document.body.className = `state-${state}`;
-            
+
             // Trigger events that might cause state updates
             document.dispatchEvent(new Event('visibilitychange'));
             document.dispatchEvent(new Event('beforeunload'));
@@ -550,7 +550,7 @@ describe('whats-next-view simple integration', () => {
     test('auto refresh comprehensive testing', () => {
         // Test auto refresh at different intervals
         jest.useFakeTimers();
-        
+
         // Fast forward through different time periods
         const intervals = [
             1000,      // 1 second
@@ -569,10 +569,10 @@ describe('whats-next-view simple integration', () => {
         document.dispatchEvent(new Event('visibilitychange'));
         Object.defineProperty(document, 'hidden', { value: true, writable: true });
         document.dispatchEvent(new Event('visibilitychange'));
-        
+
         Object.defineProperty(document, 'hidden', { value: false, writable: true });
         document.dispatchEvent(new Event('visibilitychange'));
-        
+
         jest.useRealTimers();
     });
 
@@ -580,25 +580,25 @@ describe('whats-next-view simple integration', () => {
         // Test window focus/blur events
         window.dispatchEvent(new Event('focus'));
         window.dispatchEvent(new Event('blur'));
-        
+
         // Test page lifecycle events
         document.dispatchEvent(new Event('beforeunload'));
         window.dispatchEvent(new Event('beforeunload'));
         window.dispatchEvent(new Event('unload'));
-        
+
         // Test scroll events
         window.dispatchEvent(new Event('scroll'));
         document.dispatchEvent(new Event('scroll'));
-        
+
         // Test resize with different device pixel ratios
         [1, 1.5, 2, 3].forEach(ratio => {
             Object.defineProperty(window, 'devicePixelRatio', { value: ratio, writable: true });
             window.dispatchEvent(new Event('resize'));
         });
-        
+
         // Test orientation change events
         window.dispatchEvent(new Event('orientationchange'));
-        
+
         // Test various mouse events on different elements
         const elements = document.querySelectorAll('button, [data-action], .meeting-card, .countdown-display');
         elements.forEach(element => {
@@ -606,36 +606,36 @@ describe('whats-next-view simple integration', () => {
                 element.dispatchEvent(new MouseEvent(eventType, { bubbles: true }));
             });
         });
-        
+
         // Test focus/blur on interactive elements
         const focusableElements = document.querySelectorAll('button, [tabindex]');
         focusableElements.forEach(element => {
             element.focus();
             element.blur();
         });
-        
+
         // Test custom events
         document.dispatchEvent(new CustomEvent('dataUpdate', { detail: { meetings: [] } }));
         document.dispatchEvent(new CustomEvent('themeChange', { detail: { theme: 'dark' } }));
         document.dispatchEvent(new CustomEvent('layoutChange', { detail: { layout: 'whats-next' } }));
-        
+
         // Test error simulation (without creating actual Error objects that cause test failures)
         window.dispatchEvent(new ErrorEvent('error', {
             message: 'Test error message'
             // Removed error property to avoid test failure
         }));
-        
+
         // Test online/offline events
         window.dispatchEvent(new Event('online'));
         window.dispatchEvent(new Event('offline'));
-        
+
         // Test storage events
         window.dispatchEvent(new StorageEvent('storage', {
             key: 'theme',
             newValue: 'dark',
             oldValue: 'light'
         }));
-        
+
         // Test print events
         window.dispatchEvent(new Event('beforeprint'));
         window.dispatchEvent(new Event('afterprint'));
@@ -646,11 +646,11 @@ describe('whats-next-view simple integration', () => {
         const brokenDiv = document.createElement('div');
         brokenDiv.innerHTML = '<div><span>Unclosed';
         document.body.appendChild(brokenDiv);
-        
+
         // Trigger events on malformed content
         brokenDiv.click();
         brokenDiv.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-        
+
         // Test with very deep nesting
         let deepNest = document.createElement('div');
         let current = deepNest;
@@ -661,24 +661,24 @@ describe('whats-next-view simple integration', () => {
             current = child;
         }
         document.body.appendChild(deepNest);
-        
+
         // Test events on deeply nested elements
         current.click();
         current.dispatchEvent(new Event('focus'));
-        
+
         // Test with empty elements
         const emptyElements = [
             document.createElement('div'),
             document.createElement('span'),
             document.createElement('button')
         ];
-        
+
         emptyElements.forEach(element => {
             document.body.appendChild(element);
             element.click();
             element.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
         });
-        
+
         // Test data attribute manipulation
         const dataEl = document.createElement('div');
         dataEl.setAttribute('data-test', 'value');
@@ -686,7 +686,7 @@ describe('whats-next-view simple integration', () => {
         dataEl.setAttribute('data-event-time', '2024-01-15T10:00:00.000Z');
         document.body.appendChild(dataEl);
         dataEl.click();
-        
+
         // Clean up
         document.body.removeChild(brokenDiv);
         document.body.removeChild(deepNest);

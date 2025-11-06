@@ -93,7 +93,7 @@ def start_lite_server_process(port: int) -> subprocess.Popen:
 
 def wait_for_port(host: str, port: int, timeout: float = 8.0) -> None:
     """Wait until a TCP connection to (host, port) succeeds or timeout elapses.
- 
+
     Timeout is intentionally conservative (<= 8s) so CI feedback is quick while
     still giving the process time to initialize.
     """
@@ -121,7 +121,7 @@ def http_request(
     headers: dict | None = None,
 ) -> Tuple[int, dict]:
     """Make a simple HTTP request and return (status, json-decoded-body).
- 
+
     Connection timeout is kept small to fail fast in CI when the service is not
     responding.
     """
@@ -148,7 +148,7 @@ def http_request(
 @pytest.mark.integration
 def test_calendarbot_lite_apis_work_locally(tmp_path):
     """Integration test: launch server and hit its APIs.
- 
+
     Hardened:
     - No .env auto-discovery (only explicit CALENDARBOT_ICS_URL)
     - Uses a local stub HTTP server to serve deterministic ICS content
@@ -159,7 +159,7 @@ def test_calendarbot_lite_apis_work_locally(tmp_path):
     # Prepare deterministic ICS content and start a local stub server to serve it.
     ics_content = ICSDataFactory.create_basic_ics(event_count=2)
     content_bytes = ics_content.encode("utf-8")
- 
+
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # type: ignore[override]
             if self.path in ("/", "/calendar.ics"):
@@ -171,10 +171,10 @@ def test_calendarbot_lite_apis_work_locally(tmp_path):
             else:
                 self.send_response(404)
                 self.end_headers()
- 
+
         def log_message(self, format: str, *args: object) -> None:  # silence logs
             return
- 
+
     # Bind to an ephemeral port on localhost
     httpd = socketserver.TCPServer(("127.0.0.1", 0), _Handler)
     # Allow quick reuse in case CI reuses ports rapidly
@@ -182,12 +182,12 @@ def test_calendarbot_lite_apis_work_locally(tmp_path):
     stub_port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
- 
+
     # Ensure child process picks up the stub ICS URL; avoid .env discovery.
     os.environ["CALENDARBOT_ICS_URL"] = f"http://127.0.0.1:{stub_port}/calendar.ics"
     port = find_free_port()
     proc = start_lite_server_process(port)
- 
+
     try:
         # Wait for the server to start accepting connections.
         try:
@@ -204,7 +204,7 @@ def test_calendarbot_lite_apis_work_locally(tmp_path):
                     f"Server process exited prematurely. stdout:\n{out}\n\nstderr:\n{err}"
                 ) from e
             raise
- 
+
         # GET /api/whats-next -> 200 and {"meeting": ...} should contain deterministic data
         status, body = http_request("127.0.0.1", port, "GET", "/api/whats-next")
         assert status == 200, f"GET /api/whats-next returned status {status}, body={body}"
@@ -213,7 +213,7 @@ def test_calendarbot_lite_apis_work_locally(tmp_path):
         )
         # When an ICS source is provided the meeting key may be present; at minimum
         # verify that the response is JSON and contains expected shape.
- 
+
         # POST /api/skip -> skip-store not available -> 501
         status, body = http_request(
             "127.0.0.1", port, "POST", "/api/skip", body={"meeting_id": "x"}
@@ -221,13 +221,13 @@ def test_calendarbot_lite_apis_work_locally(tmp_path):
         assert status == 501, (
             f"POST /api/skip expected 501 when skip-store missing, got {status} body={body}"
         )
- 
+
         # DELETE /api/skip -> skip-store not available -> 501
         status, body = http_request("127.0.0.1", port, "DELETE", "/api/skip")
         assert status == 501, (
             f"DELETE /api/skip expected 501 when skip-store missing, got {status} body={body}"
         )
- 
+
     finally:
         # First, cleanup the child process.
         proc.terminate()

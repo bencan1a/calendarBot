@@ -20,7 +20,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
   beforeEach(() => {
     // Setup fake timers first
     jest.useFakeTimers('modern');
-    
+
     // Reset DOM
     document.body.innerHTML = '';
     document.head.innerHTML = '';
@@ -82,7 +82,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
         integrationState.settingsInitialized = true;
         return Promise.resolve({ success: true });
       }),
-      
+
       getSettings: jest.fn().mockImplementation(() => {
         if (!integrationState.settingsInitialized) {
           throw new Error('Settings API not initialized');
@@ -150,7 +150,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
         if (!html || html.trim() === '') {
           throw new Error('Empty HTML content');
         }
-        
+
         if (html.includes('MALFORMED')) {
           throw new Error('Malformed HTML structure');
         }
@@ -185,14 +185,14 @@ describe('Complex Integration Scenarios - Phase 3', () => {
     global.errorBoundary = {
       hasError: false,
       errorInfo: null,
-      
+
       catchError: jest.fn().mockImplementation((error, errorInfo) => {
         global.errorBoundary.hasError = true;
         global.errorBoundary.errorInfo = { error, errorInfo };
-        
+
         const errorBoundary = document.querySelector('.error-boundary');
         const errorMessage = document.querySelector('.error-message');
-        
+
         if (errorBoundary && errorMessage) {
           errorBoundary.style.display = 'block';
           errorMessage.textContent = error.message || 'An error occurred';
@@ -202,7 +202,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       reset: jest.fn().mockImplementation(() => {
         global.errorBoundary.hasError = false;
         global.errorBoundary.errorInfo = null;
-        
+
         const errorBoundary = document.querySelector('.error-boundary');
         if (errorBoundary) {
           errorBoundary.style.display = 'none';
@@ -215,7 +215,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       isOnline: true,
       retryCount: 0,
       maxRetries: 3,
-      
+
       checkConnection: jest.fn().mockImplementation(() => {
         return Promise.resolve(global.networkRecovery.isOnline);
       }),
@@ -232,7 +232,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
           if (!global.networkRecovery.isOnline) {
             throw new Error('Network unavailable');
           }
-          
+
           const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
           await new Promise(resolve => setTimeout(resolve, delay));
           return global.networkRecovery.retryWithBackoff(operation, attempt + 1);
@@ -252,12 +252,12 @@ describe('Complex Integration Scenarios - Phase 3', () => {
     jest.clearAllTimers();
     jest.clearAllMocks();
     jest.restoreAllMocks();
-    
+
     // Use real timers for cleanup
     jest.useRealTimers();
-    
+
     document.body.innerHTML = '';
-    
+
     // Reset integration state
     integrationState = {
       settingsInitialized: false,
@@ -308,11 +308,11 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       expect(integrationState.settingsInitialized).toBe(true);
       expect(integrationState.gestureHandlerActive).toBe(true);
       expect(initializationSequence).toEqual(['layoutManager', 'themeManager']);
-      
+
       // Verify: Dependency mapping
       const settingsDeps = integrationState.componentDependencies.get('settingsAPI');
       const gestureDeps = integrationState.componentDependencies.get('gestureHandler');
-      
+
       expect(settingsDeps).toHaveProperty('layoutManager');
       expect(settingsDeps).toHaveProperty('themeManager');
       expect(gestureDeps).toHaveProperty('settingsPanel');
@@ -357,7 +357,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       expect(integrationState.settingsInitialized).toBe(false);
       expect(integrationState.gestureHandlerActive).toBe(true);
       expect(failingComponent.initialize).toHaveBeenCalled();
-      
+
       // Restore original function
       mockSettingsAPI.initialize = originalInitialize;
     });
@@ -425,7 +425,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
 
     it('should support lazy loading of optional dependencies', async () => {
       let lazyDependency = null;
-      
+
       const loadLazyDependency = jest.fn().mockImplementation(async () => {
         // Use fake timers for async simulation
         const promise = new Promise(resolve => {
@@ -437,7 +437,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
             resolve(lazyDependency);
           }, 100);
         });
-        
+
         // Advance fake timers to resolve promise
         jest.advanceTimersByTime(100);
         return promise;
@@ -513,13 +513,13 @@ describe('Complex Integration Scenarios - Phase 3', () => {
         global.mockMeetingParser.parseHTML(malformedHTML);
       } catch (error) {
         parseError = error;
-        
+
         // Execute: Attempt error recovery
         const fallbackData = [global.testUtils.createMockMeeting({
           title: 'Fallback Meeting',
           start_time: new Date(Date.now() + 60 * 60 * 1000).toISOString()
         })];
-        
+
         recoveryResult = global.mockMeetingParser.recoverFromError(error, fallbackData);
       }
 
@@ -571,7 +571,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       expect(criticalError.message).toBe('Empty HTML content');
       expect(global.errorBoundary.hasError).toBe(true);
       expect(global.errorBoundary.errorInfo.error).toBe(criticalError);
-      
+
       const errorBoundary = document.querySelector('.error-boundary');
       const errorMessage = document.querySelector('.error-message');
       expect(errorBoundary.style.display).toBe('block');
@@ -613,7 +613,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
     it('should enable auto-save and persist data at regular intervals', async () => {
       // Ensure settings API is initialized for auto-save to work
       await mockSettingsAPI.initialize();
-      
+
       // Execute: Enable auto-save
       const autoSaveInterval = mockSettingsAPI.enableAutoSave(1000); // 1 second for testing
 
@@ -678,7 +678,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
 
       // Simulate: Network restored
       global.networkRecovery.isOnline = true;
-      
+
       // Process queued operations
       for (const queuedOp of saveQueue) {
         try {
@@ -695,7 +695,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
 
     it('should implement exponential backoff for failed save operations', async () => {
       const backoffDelays = [];
-      
+
       // Mock operation that fails first 2 times, succeeds on 3rd
       let attemptCount = 0;
       const unreliableOperation = jest.fn().mockImplementation(async () => {
@@ -709,7 +709,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       // Create a simpler implementation that doesn't rely on real setTimeout
       const mockRetryWithBackoff = jest.fn().mockImplementation(async (operation, attempt = 1) => {
         const maxRetries = 3;
-        
+
         for (let currentAttempt = 1; currentAttempt <= maxRetries; currentAttempt++) {
           try {
             global.networkRecovery.retryCount = currentAttempt;
@@ -718,10 +718,10 @@ describe('Complex Integration Scenarios - Phase 3', () => {
             if (currentAttempt >= maxRetries) {
               throw new Error('Max retry attempts exceeded');
             }
-            
+
             const delay = Math.pow(2, currentAttempt) * 1000;
             backoffDelays.push(delay);
-            
+
             // Simulate delay without actual waiting
             // In real implementation this would be: await new Promise(resolve => setTimeout(resolve, delay));
           }
@@ -741,7 +741,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
     it('should provide save conflict resolution for concurrent modifications', async () => {
       // Initialize settings API first
       await mockSettingsAPI.initialize();
-      
+
       const conflictResolution = jest.fn().mockImplementation((localData, remoteData) => {
         // Simple merge strategy: remote wins for conflicts, combine non-conflicting
         return {
@@ -838,11 +838,11 @@ describe('Complex Integration Scenarios - Phase 3', () => {
         crashingComponent.process();
       } catch (error) {
         crashError = error;
-        
+
         // Execute: Error boundary with state preservation
-        global.errorBoundary.catchError(error, { 
+        global.errorBoundary.catchError(error, {
           component: 'CrashingComponent',
-          preserveState: true 
+          preserveState: true
         });
       }
 
@@ -889,7 +889,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
 
       testErrors.forEach(error => {
         const classification = errorClassification[error.message];
-        
+
         // Execute: Classify and handle error
         if (classification) {
           const errorElement = document.createElement('div');
@@ -907,7 +907,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       // Verify: User-friendly error handling
       const errorElements = document.querySelectorAll('.error-warning, .error-error');
       expect(errorElements).toHaveLength(3);
-      
+
       const networkError = document.querySelector('.error-warning');
       expect(networkError).toBeTruthy();
       expect(networkError.textContent).toContain('check your internet connection');
@@ -944,9 +944,9 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       // Execute: Automatic recovery with fake timers
       const strategy = recoveryStrategies['NETWORK_TIMEOUT'];
       let result = null;
-      
+
       const recoveryPromises = [];
-      
+
       for (let attempt = 1; attempt <= strategy.maxAttempts; attempt++) {
         try {
           result = await transientOperation();
@@ -960,7 +960,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
             setTimeout(resolve, strategy.backoffMs);
           });
           recoveryPromises.push(delayPromise);
-          
+
           // Advance timers to resolve delay
           jest.advanceTimersByTime(strategy.backoffMs);
           await delayPromise;
@@ -1024,7 +1024,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       global.sharedState = {
         data: new Map(),
         subscribers: new Map(),
-        
+
         subscribe: jest.fn().mockImplementation((key, callback) => {
           if (!global.sharedState.subscribers.has(key)) {
             global.sharedState.subscribers.set(key, []);
@@ -1058,16 +1058,16 @@ describe('Complex Integration Scenarios - Phase 3', () => {
 
     it('should synchronize theme changes across multiple layout components', async () => {
       const themeChangeCallbacks = [];
-      
+
       // Setup: Multiple layout components subscribing to theme changes
       const layouts = ['3x4', 'whats-next-view', '4x8'];
-      
+
       layouts.forEach(layoutName => {
         const callback = jest.fn().mockImplementation((newTheme) => {
           // Simulate theme application
           document.body.setAttribute(`data-${layoutName}-theme`, newTheme);
         });
-        
+
         themeChangeCallbacks.push(callback);
         global.sharedState.subscribe('theme', callback);
       });
@@ -1094,7 +1094,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       ];
 
       const layoutUpdateCallbacks = [];
-      
+
       // Setup: Different layouts with different display needs
       const layouts = [
         { name: '3x4', displayFormat: 'grid' },
@@ -1112,7 +1112,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
           }));
           return processedData;
         });
-        
+
         layoutUpdateCallbacks.push({ layout: layout.name, callback });
         global.sharedState.subscribe('meetingData', callback);
       });
@@ -1123,7 +1123,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       // Verify: All layouts processed meeting data appropriately
       layoutUpdateCallbacks.forEach(({ layout, callback }) => {
         expect(callback).toHaveBeenCalledWith(meetingData, 'meetingData');
-        
+
         // Verify layout-specific processing
         const result = callback.mock.results[0].value;
         expect(result[0].displayFormat).toBe(
@@ -1134,7 +1134,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
 
     it('should handle layout switching with state preservation and migration', async () => {
       const layoutStates = new Map();
-      
+
       // Setup: Current layout state
       const currentLayoutState = {
         layout: '3x4',
@@ -1150,20 +1150,20 @@ describe('Complex Integration Scenarios - Phase 3', () => {
         const migrations = {
           '3x4->whats-next-view': (state) => ({
             layout: 'whats-next-view',
-            viewConfig: { 
+            viewConfig: {
               displayMode: 'timeline',
-              showCountdown: state.viewConfig.showDetails 
+              showCountdown: state.viewConfig.showDetails
             },
             userPreferences: state.userPreferences, // Preserve
-            temporaryData: { 
-              focusedMeeting: state.temporaryData.selectedMeeting 
+            temporaryData: {
+              focusedMeeting: state.temporaryData.selectedMeeting
             }
           }),
           'whats-next-view->4x8': (state) => ({
             layout: '4x8',
-            viewConfig: { 
+            viewConfig: {
               gridSize: '4x8',
-              compactMode: true 
+              compactMode: true
             },
             userPreferences: state.userPreferences,
             temporaryData: {}
@@ -1211,7 +1211,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
             allocated: Date.now(),
             references: 1
           };
-          
+
           sharedResources[resourceType] = resource;
           return sharedResources[resourceType]; // Return the same reference
         }),
@@ -1241,18 +1241,18 @@ describe('Complex Integration Scenarios - Phase 3', () => {
 
       // Execute: Layout 1 allocates gesture handler
       const gestureResource = resourceManager.allocateResource('gestureHandler', 'layout-1');
-      
+
       // Execute: Layout 2 requests to share gesture handler
       const sharedGesture = resourceManager.shareResource('gestureHandler', 'layout-2');
-      
+
       // Verify resource state after sharing (before releasing)
       expect(gestureResource.owner).toBe('layout-1');
       expect(sharedGesture.references).toBe(2); // Check the shared resource reference count
       expect(sharedGesture.sharedWith).toContain('layout-2');
-      
+
       // Execute: Layout 1 releases gesture handler
       const layout1Released = resourceManager.releaseResource('gestureHandler', 'layout-1');
-      
+
       // Execute: Layout 2 releases gesture handler
       const layout2Released = resourceManager.releaseResource('gestureHandler', 'layout-2');
 
@@ -1264,7 +1264,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
 
     it('should maintain event propagation consistency across layout boundaries', async () => {
       const eventLog = [];
-      
+
       // Setup: Cross-layout event system
       const layouts = ['layout-a', 'layout-b', 'layout-c'];
       const eventHandlers = new Map();
@@ -1277,16 +1277,16 @@ describe('Complex Integration Scenarios - Phase 3', () => {
             timestamp: Date.now(),
             data: event.data
           });
-          
+
           // Simulate event propagation
           if (event.type === 'meeting-selected' && layoutId === 'layout-a') {
             // Layout A propagates to others
             return { propagate: true, bubbles: true };
           }
-          
+
           return { propagate: false };
         });
-        
+
         eventHandlers.set(layoutId, handler);
       });
 
@@ -1321,7 +1321,7 @@ describe('Complex Integration Scenarios - Phase 3', () => {
       expect(eventLog[0].layout).toBe('layout-a');
       expect(eventLog[1].layout).toBe('layout-b');
       expect(eventLog[2].layout).toBe('layout-c');
-      
+
       // Verify propagated events have correct metadata
       const propagatedEvents = eventLog.filter(log => log.layout !== 'layout-a');
       propagatedEvents.forEach(log => {

@@ -164,7 +164,7 @@ class TestAlexaSsmlIntegration:
     def test_ssml_integration_with_meeting_data_structure(self):
         """Test SSML generation with meeting data structure from endpoints."""
         from calendarbot_lite.alexa.alexa_ssml import render_meeting_ssml
-        
+
         # Mock meeting data structure as would be created by alexa_next_meeting endpoint
         meeting_data = {
             "subject": "Daily Standup",
@@ -173,7 +173,7 @@ class TestAlexaSsmlIntegration:
             "location": "Conference Room A",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting_data)
         if result is not None:
             assert result.startswith("<speak>")
@@ -183,14 +183,14 @@ class TestAlexaSsmlIntegration:
     def test_ssml_integration_with_time_until_data_structure(self):
         """Test SSML generation with time-until data structure from endpoints."""
         from calendarbot_lite.alexa.alexa_ssml import render_time_until_ssml
-        
+
         # Mock data structure as would be used by alexa_time_until_next endpoint
         seconds_until = 1800  # 30 minutes
         meeting_data = {
             "subject": "Team Meeting",
             "duration_spoken": "in 30 minutes",
         }
-        
+
         result = render_time_until_ssml(seconds_until, meeting_data)
         if result is not None:
             assert result.startswith("<speak>")
@@ -200,11 +200,11 @@ class TestAlexaSsmlIntegration:
     def test_ssml_fallback_behavior_with_invalid_data(self):
         """Test SSML generation fallback with invalid meeting data."""
         from calendarbot_lite.alexa.alexa_ssml import render_meeting_ssml, render_time_until_ssml
-        
+
         # Test invalid meeting data - should return None for graceful fallback
         assert render_meeting_ssml(None) is None  # type: ignore
         assert render_meeting_ssml({}) is None
-        
+
         # Test invalid time data
         assert render_time_until_ssml("invalid") is None  # type: ignore
 
@@ -213,7 +213,7 @@ class TestAlexaSsmlIntegration:
         import time
 
         from calendarbot_lite.alexa.alexa_ssml import render_meeting_ssml
-        
+
         # Test data for performance measurement
         meeting_data = {
             "subject": "Performance Test Meeting",
@@ -222,15 +222,15 @@ class TestAlexaSsmlIntegration:
             "location": "Test Room",
             "is_online_meeting": False,
         }
-        
+
         # Measure SSML generation time
         start_time = time.perf_counter()
         result = render_meeting_ssml(meeting_data)
         generation_time = time.perf_counter() - start_time
-        
+
         # Should complete within 100ms (architectural requirement)
         assert generation_time < 0.1, f"SSML generation took {generation_time:.3f}s, exceeds 100ms limit"
-        
+
         if result:
             # Should be under character limit
             assert len(result) <= 500, f"SSML length {len(result)} exceeds 500 character limit"
@@ -238,7 +238,7 @@ class TestAlexaSsmlIntegration:
     def test_ssml_character_limits_integration(self):
         """Test SSML respects character limits across all scenarios."""
         from calendarbot_lite.alexa.alexa_ssml import render_meeting_ssml, render_time_until_ssml
-        
+
         # Test with very long meeting title
         long_meeting_data = {
             "subject": "A" * 200,  # Very long title
@@ -247,11 +247,11 @@ class TestAlexaSsmlIntegration:
             "location": "B" * 100,  # Long location
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(long_meeting_data)
         if result:
             assert len(result) <= 500, "Meeting SSML should respect 500 char limit"
-        
+
         # Test time-until with long title
         time_result = render_time_until_ssml(1800, long_meeting_data)
         if time_result:
@@ -260,7 +260,7 @@ class TestAlexaSsmlIntegration:
     def test_urgency_mapping_integration(self):
         """Test urgency-based SSML generation across time thresholds."""
         from calendarbot_lite.alexa.alexa_ssml import _select_urgency, render_meeting_ssml
-        
+
         # Test urgency threshold boundaries
         test_cases = [
             (60, "fast"),      # 1 minute - urgent
@@ -271,11 +271,11 @@ class TestAlexaSsmlIntegration:
             (3601, "relaxed"), # Just over 1 hour
             (7200, "relaxed"), # 2 hours
         ]
-        
+
         for seconds_until, expected_urgency in test_cases:
             urgency = _select_urgency(seconds_until)
             assert urgency == expected_urgency, f"Expected {expected_urgency} for {seconds_until}s, got {urgency}"
-            
+
             # Test that SSML generation works for each urgency level
             meeting_data = {
                 "subject": "Test Meeting",
@@ -284,7 +284,7 @@ class TestAlexaSsmlIntegration:
                 "location": "",
                 "is_online_meeting": False,
             }
-            
+
             result = render_meeting_ssml(meeting_data)
             if result:
                 assert result.startswith("<speak>")
@@ -293,7 +293,7 @@ class TestAlexaSsmlIntegration:
     def test_special_character_escaping_integration(self):
         """Test that special characters are properly escaped in SSML output."""
         from calendarbot_lite.alexa.alexa_ssml import _escape_text_for_ssml, render_meeting_ssml
-        
+
         # Test characters that need escaping
         special_chars_test = {
             "Meeting & Discussion": "&amp;",
@@ -301,11 +301,11 @@ class TestAlexaSsmlIntegration:
             'Project "Alpha"': "&quot;",
             "John's Meeting": "&apos;",
         }
-        
+
         for original, expected_escape in special_chars_test.items():
             escaped = _escape_text_for_ssml(original)
             assert expected_escape in escaped, f"Failed to escape {original}"
-            
+
             # Test in full SSML generation
             meeting_data = {
                 "subject": original,
@@ -314,7 +314,7 @@ class TestAlexaSsmlIntegration:
                 "location": "",
                 "is_online_meeting": False,
             }
-            
+
             result = render_meeting_ssml(meeting_data)
             if result:
                 assert expected_escape in result, f"SSML output should contain escaped version of {original}"
@@ -322,20 +322,20 @@ class TestAlexaSsmlIntegration:
     def test_location_handling_integration(self):
         """Test location and online meeting handling in SSML."""
         from calendarbot_lite.alexa.alexa_ssml import render_meeting_ssml
-        
+
         base_meeting = {
             "subject": "Test Meeting",
             "seconds_until_start": 1800,
             "duration_spoken": "in 30 minutes",
         }
-        
+
         # Test physical location
         physical_meeting = {**base_meeting, "location": "Conference Room A", "is_online_meeting": False}
         result = render_meeting_ssml(physical_meeting)
         if result:
             assert "Conference Room A" in result
             assert 'level="reduced"' in result  # Location should have reduced emphasis
-        
+
         # Test online meeting
         online_meeting = {**base_meeting, "location": "https://zoom.us/j/123", "is_online_meeting": True}
         result = render_meeting_ssml(online_meeting)
@@ -346,13 +346,13 @@ class TestAlexaSsmlIntegration:
     def test_title_truncation_integration(self):
         """Test title truncation functionality in SSML generation."""
         from calendarbot_lite.alexa.alexa_ssml import _truncate_title, render_meeting_ssml
-        
+
         # Test word boundary truncation
         long_title = "Very Long Meeting Title That Should Be Truncated At Word Boundaries"
         truncated = _truncate_title(long_title, 30)
         assert len(truncated) <= 30
         assert truncated.endswith("...")
-        
+
         # Test in SSML generation
         meeting_data = {
             "subject": long_title,
@@ -361,7 +361,7 @@ class TestAlexaSsmlIntegration:
             "location": "",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting_data)
         if result:
             assert "..." in result
@@ -374,7 +374,7 @@ class TestAlexaSsmlIntegration:
             render_time_until_ssml,
             validate_ssml,
         )
-        
+
         # Test various meeting scenarios generate valid SSML
         test_meetings = [
             {
@@ -399,13 +399,13 @@ class TestAlexaSsmlIntegration:
                 "is_online_meeting": True,
             },
         ]
-        
+
         for meeting_data in test_meetings:
             # Test meeting SSML
             meeting_ssml = render_meeting_ssml(meeting_data)
             if meeting_ssml:
                 assert validate_ssml(meeting_ssml), f"Generated meeting SSML failed validation: {meeting_ssml}"
-            
+
             # Test time-until SSML
             time_ssml = render_time_until_ssml(meeting_data["seconds_until_start"], meeting_data)
             if time_ssml:
@@ -414,7 +414,7 @@ class TestAlexaSsmlIntegration:
     def test_config_override_integration(self):
         """Test SSML generation with configuration overrides."""
         from calendarbot_lite.alexa.alexa_ssml import render_meeting_ssml, render_time_until_ssml
-        
+
         meeting_data = {
             "subject": "Config Test Meeting",
             "seconds_until_start": 1800,
@@ -422,18 +422,18 @@ class TestAlexaSsmlIntegration:
             "location": "",
             "is_online_meeting": False,
         }
-        
+
         # Test with SSML disabled
         config_disabled = {"enable_ssml": False}
         result = render_meeting_ssml(meeting_data, config_disabled)
         assert result is None
-        
+
         # Test with custom character limit
         config_short = {"ssml_max_chars": 100}
         result = render_meeting_ssml(meeting_data, config_short)
         if result:
             assert len(result) <= 100
-        
+
         # Test time-until with disabled SSML
         time_result = render_time_until_ssml(1800, meeting_data, config_disabled)
         assert time_result is None

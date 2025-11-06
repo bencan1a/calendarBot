@@ -76,18 +76,18 @@ async def fetch_and_parse_phase(ics_source: str) -> Dict[str, Any]:
 
     try:
         logger.info("Starting fetch phase for source: %s", ics_source[:100])
-        
+
         # Handle file vs URL
         if ics_source.startswith(("http://", "https://")):
             # HTTP(S) fetch
             try:
                 fetch_start = datetime.now(timezone.utc)
                 byte_stream = fetch_ics_stream(ics_source, timeout=30)
-                
+
                 # Parse the stream
                 parse_result = await parse_stream_via_parser(byte_stream, source_url=ics_source)
                 fetch_end = datetime.now(timezone.utc)
-                
+
                 phase_result["fetch_metadata"] = {
                     "source_type": "http",
                     "url": ics_source,
@@ -105,17 +105,17 @@ async def fetch_and_parse_phase(ics_source: str) -> Dict[str, Any]:
                 if not file_path.exists():
                     phase_result["error"] = f"File not found: {ics_source}"
                     return phase_result
-                
+
                 content = file_path.read_text(encoding="utf-8")
                 logger.info("Read %d characters from file", len(content))
-                
+
                 # Convert to async byte stream for consistency
                 async def content_to_bytes():
                     for chunk in [content[i:i+8192] for i in range(0, len(content), 8192)]:
                         yield chunk.encode("utf-8")
-                
+
                 parse_result = await parse_stream_via_parser(content_to_bytes(), source_url=f"file://{file_path}")
-                
+
                 phase_result["fetch_metadata"] = {
                     "source_type": "file",
                     "path": str(file_path),
@@ -131,7 +131,7 @@ async def fetch_and_parse_phase(ics_source: str) -> Dict[str, Any]:
         if hasattr(parse_result, "success") and parse_result.success:
             events = getattr(parse_result, "events", [])
             warnings = getattr(parse_result, "warnings", [])
-            
+
             phase_result["parse_metadata"] = {
                 "total_components": getattr(parse_result, "total_components", 0),
                 "event_count": getattr(parse_result, "event_count", len(events)),
@@ -140,12 +140,12 @@ async def fetch_and_parse_phase(ics_source: str) -> Dict[str, Any]:
                 "timezone": getattr(parse_result, "timezone", None),
                 "prodid": getattr(parse_result, "prodid", None),
             }
-            
+
             # Convert events to summaries for JSON serialization
             phase_result["events"] = [event_summary(ev) for ev in events]
             phase_result["warnings"] = list(warnings)
             phase_result["success"] = True
-            
+
             logger.info("Parse successful: %d events, %d warnings", len(events), len(warnings))
         else:
             error_msg = getattr(parse_result, "error_message", "Unknown parse error")
@@ -179,7 +179,7 @@ async def expansion_phase(
         # Collect RRULE candidates
         candidates = collect_rrule_candidates(parsed_events)
         logger.info("Found %d RRULE candidates for expansion", len(candidates))
-        
+
         phase_result["rrule_candidates"] = [
             {
                 "event_id": getattr(event, "id", "unknown"),
@@ -198,7 +198,7 @@ async def expansion_phase(
         # Expand candidates
         expansion_start = datetime.now(timezone.utc)
         expansion_traces = await expand_candidates_to_trace(
-            candidates, 
+            candidates,
             settings,
             limit_per_rule=getattr(settings, "max_occurrences_per_rule", 250)
         )
@@ -247,7 +247,7 @@ async def compare_with_dateutil(candidates: List[Any], settings: Any) -> Dict[st
             # Get our expansion results (already computed)
             event_id = getattr(event, "id", "unknown")
             start_dt = getattr(event.start, "date_time", None) if hasattr(event, "start") else None
-            
+
             if not start_dt:
                 continue
 
@@ -256,10 +256,10 @@ async def compare_with_dateutil(candidates: List[Any], settings: Any) -> Dict[st
                 rule = rrulestr(rrule_str, dtstart=start_dt)
                 expansion_days = getattr(settings, "expansion_days_window", 365)
                 end_window = start_dt + timedelta(days=expansion_days)
-                
+
                 dateutil_occurrences = list(rule.between(start_dt, end_window, inc=True))
                 dateutil_count = len(dateutil_occurrences)
-                
+
                 comparison["comparisons"].append({
                     "event_id": event_id,
                     "rrule_string": rrule_str,
@@ -267,7 +267,7 @@ async def compare_with_dateutil(candidates: List[Any], settings: Any) -> Dict[st
                     "status": "success",
                 })
                 comparison["summary"]["matches"] += 1
-                
+
             except Exception as e:
                 comparison["comparisons"].append({
                     "event_id": event_id,
@@ -287,7 +287,7 @@ async def compare_with_dateutil(candidates: List[Any], settings: Any) -> Dict[st
 async def main_async(args: argparse.Namespace) -> None:
     """Main async function for the debug script."""
     setup_logging(debug=bool(args.debug))
-    
+
     # Read environment (prefer CALENDARBOT_ICS_URL, fall back to ICS_SOURCE in .env)
     env_data = read_env(args.env)
     ics_source = os.environ.get("CALENDARBOT_ICS_URL") or env_data.get("CALENDARBOT_ICS_URL") or env_data.get("ICS_SOURCE")
@@ -362,17 +362,17 @@ async def main_async(args: argparse.Namespace) -> None:
     # Write output
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, default=str)
-    
+
     logger.info("Results written to: %s", output_path)
-    
+
     # Summary
     if result["fetch_parse_phase"].get("success"):
         event_count = len(result["fetch_parse_phase"]["events"])
         logger.info("Summary: %d events parsed", event_count)
-        
+
         if result["expansion_phase"].get("success"):
             expansion_count = result["expansion_phase"]["expansion_metadata"]["total_expansions"]
             logger.info("Summary: %d total expanded instances", expansion_count)
@@ -388,9 +388,9 @@ def main() -> None:
     parser.add_argument("--max-occurrences", type=int, default=250, help="Max occurrences per rule (default: 250)")
     parser.add_argument("--compare-dateutil", action="store_true", help="Compare with python-dateutil")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-    
+
     args = parser.parse_args()
-    
+
     try:
         asyncio.run(main_async(args))
     except KeyboardInterrupt:

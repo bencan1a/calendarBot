@@ -131,29 +131,29 @@ def test_full_ics_pipeline_when_complex_recurrence_then_all_stages_work(
     2. Deduplicate events
     3. Apply time window filter
     4. Sort events
-    
+
     Validates that all stages work together correctly and produce the expected output.
     """
     parser = LiteICSParser(test_settings)
-    
+
     # Parse with RRULE expansion
     result = parser.parse_ics_content_optimized(
         ics_with_complex_recurrence, source_url=str(tmp_path / "test.ics")
     )
-    
+
     assert result.success is True, f"Parser failed: {result.error_message}"
     assert len(result.events) > 0, "Expected parsed events"
-    
+
     # Verify RRULE expansion produced multiple instances
     # The parser expands recurring events into multiple event instances
     # We expect more events than the 4 unique UIDs in the test ICS
     assert len(result.events) >= 10, f"Expected at least 10 expanded events, got {len(result.events)}"
-    
+
     # Verify we have events from different recurring patterns
     event_subjects = {e.subject for e in result.events}
     assert "Daily Standup" in event_subjects, "Expected daily standup events"
     assert "Weekly Review" in event_subjects, "Expected weekly review events"
-    
+
     # Build processing pipeline
     pipeline = (
         EventProcessingPipeline()
@@ -161,7 +161,7 @@ def test_full_ics_pipeline_when_complex_recurrence_then_all_stages_work(
         .add_stage(TimeWindowStage())
         .add_stage(SortStage())
     )
-    
+
     # Process events through pipeline
     context = ProcessingContext(
         events=result.events,
@@ -169,16 +169,16 @@ def test_full_ics_pipeline_when_complex_recurrence_then_all_stages_work(
         window_end=datetime(2025, 12, 31, 23, 59, tzinfo=timezone.utc),
     )
     pipeline_result = asyncio.run(pipeline.process(context))
-    
+
     assert pipeline_result.success is True
     assert len(context.events) > 0, "Expected events after pipeline"
-    
+
     # Verify events are sorted
     for i in range(len(context.events) - 1):
         assert (
             context.events[i].start.date_time <= context.events[i + 1].start.date_time
         ), "Events should be sorted by start time"
-    
+
     # Verify all events are within time window
     for event in context.events:
         assert event.start.date_time >= datetime(2025, 12, 1, 0, 0, tzinfo=timezone.utc)
@@ -196,24 +196,24 @@ def test_timezone_conversion_when_mixed_timezones_then_consistent_handling(
     - Naive datetimes get UTC default
     - TZID events are parsed correctly
     - Recurring events with timezones expand properly
-    
+
     This test validates that timezone handling is consistent across all components.
     """
     parser = LiteICSParser(test_settings)
-    
+
     result = parser.parse_ics_content_optimized(
         ics_with_timezone_edge_cases, source_url=str(tmp_path / "test.ics")
     )
-    
+
     assert result.success is True, f"Parser failed: {result.error_message}"
     events = result.events
     assert len(events) > 0, "Expected parsed events"
-    
+
     # Find specific events by UID
     utc_event = None
     naive_event = None
     recurring_tz_events = []
-    
+
     for event in events:
         if event.id == "utc-event":
             utc_event = event
@@ -221,15 +221,15 @@ def test_timezone_conversion_when_mixed_timezones_then_consistent_handling(
             naive_event = event
         elif event.id.startswith("recurring-tz-event"):
             recurring_tz_events.append(event)
-    
+
     # Verify UTC event
     assert utc_event is not None, "UTC event should be parsed"
     assert utc_event.start.date_time.tzinfo is not None, "UTC event should be timezone-aware"
-    
+
     # Verify naive event gets timezone
     assert naive_event is not None, "Naive event should be parsed"
     assert naive_event.start.date_time.tzinfo is not None, "Naive event should get timezone"
-    
+
     # Verify recurring events with timezone
     assert len(recurring_tz_events) >= 1, "Expected recurring event with timezone"
     for rec_event in recurring_tz_events:
@@ -250,11 +250,11 @@ async def test_fetch_parse_filter_pipeline_when_local_server_then_end_to_end_wor
     2. Fetch content using LiteICSFetcher
     3. Parse content using LiteICSParser
     4. Apply processing pipeline
-    
+
     This validates the entire stack works together in realistic conditions.
     """
     ics_bytes = ics_with_complex_recurrence.encode("utf-8")
-    
+
     # Start local HTTP server
     class _ICSHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -263,50 +263,50 @@ async def test_fetch_parse_filter_pipeline_when_local_server_then_end_to_end_wor
             self.send_header("Content-Length", str(len(ics_bytes)))
             self.end_headers()
             self.wfile.write(ics_bytes)
-        
+
         def log_message(self, format: str, *args: Any) -> None:
             return  # Suppress logs
-    
+
     httpd = HTTPServer(("127.0.0.1", 0), _ICSHandler)
     port = httpd.server_port
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
-    
+
     try:
         # Fetch ICS content
         from calendarbot_lite.calendar.lite_models import LiteICSSource
-        
+
         url = f"http://127.0.0.1:{port}/calendar.ics"
         source = LiteICSSource(name="test", url=url)
         fetcher = LiteICSFetcher(test_settings)
-        
+
         fetch_result = await fetcher.fetch_ics(source)
         assert fetch_result.success is True, f"Fetch failed: {fetch_result.error_message}"
         assert fetch_result.content is not None, "Expected ICS content"
-        
+
         # Parse fetched content
         parser = LiteICSParser(test_settings)
         parse_result = parser.parse_ics_content_optimized(fetch_result.content, source_url=url)
-        
+
         assert parse_result.success is True, f"Parse failed: {parse_result.error_message}"
         assert len(parse_result.events) > 0, "Expected parsed events"
-        
+
         # Apply processing pipeline
         pipeline = EventProcessingPipeline().add_stage(DeduplicationStage()).add_stage(SortStage())
-        
+
         context = ProcessingContext(events=parse_result.events)
         pipeline_result = await pipeline.process(context)
-        
+
         assert pipeline_result.success is True
         assert len(context.events) > 0, "Expected events after processing"
-        
+
         # Verify RRULE expansion worked - should have multiple events
         assert len(context.events) >= 10, f"Expected at least 10 events after expansion, got {len(context.events)}"
-        
+
         # Verify events from recurring patterns exist
         subjects = {e.subject for e in context.events}
         assert "Daily Standup" in subjects, "Expected daily standup events"
-        
+
     finally:
         httpd.shutdown()
         thread.join(timeout=1)
@@ -328,41 +328,41 @@ def test_pipeline_stages_when_real_events_then_correct_filtering(
     result = parser.parse_ics_content_optimized(
         ics_with_complex_recurrence, source_url=str(tmp_path / "test.ics")
     )
-    
+
     assert result.success is True
     initial_events = result.events
     assert len(initial_events) > 0
-    
+
     # Create pipeline with strict time window
     window_start = datetime(2025, 12, 1, 0, 0, tzinfo=timezone.utc)
     window_end = datetime(2025, 12, 7, 23, 59, tzinfo=timezone.utc)  # Only first week
-    
+
     pipeline = (
         EventProcessingPipeline()
         .add_stage(DeduplicationStage())
         .add_stage(TimeWindowStage())
         .add_stage(SortStage())
     )
-    
+
     context = ProcessingContext(
         events=initial_events,
         window_start=window_start,
         window_end=window_end,
     )
     pipeline_result = asyncio.run(pipeline.process(context))
-    
+
     assert pipeline_result.success is True
     filtered_events = context.events
-    
+
     # Verify all filtered events are within window
     for event in filtered_events:
         assert event.start.date_time >= window_start
         assert event.start.date_time <= window_end
-    
+
     # Verify sorted order
     for i in range(len(filtered_events) - 1):
         assert filtered_events[i].start.date_time <= filtered_events[i + 1].start.date_time
-    
+
     # Verify we have fewer events than initial (due to window filtering)
     assert len(filtered_events) < len(initial_events), "Window should filter some events"
 
@@ -383,22 +383,22 @@ def test_rrule_expansion_when_exception_instances_then_correctly_handled(
     result = parser.parse_ics_content_optimized(
         ics_with_complex_recurrence, source_url=str(tmp_path / "test.ics")
     )
-    
+
     assert result.success is True
     events = result.events
-    
+
     # Find weekly review events (which has an exception)
     weekly_review_events = [e for e in events if "Weekly Review" in e.subject]
-    
+
     assert len(weekly_review_events) >= 1, "Expected weekly review events"
-    
+
     # Check for exception instance (rescheduled meeting)
     exception_event = None
     for event in weekly_review_events:
         if "Rescheduled" in event.subject:
             exception_event = event
             break
-    
+
     # Exception instance should exist
     assert exception_event is not None, "Expected exception instance to be present"
 
@@ -415,14 +415,14 @@ def test_parser_performance_when_large_ics_then_meets_targets(
     - Memory usage remains bounded
     """
     import time
-    
+
     # Generate large ICS with many recurring events
     ics_lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
         "PRODID:-//Test//Test//EN",
     ]
-    
+
     for i in range(20):  # 20 recurring events
         ics_lines.extend(
             [
@@ -435,22 +435,22 @@ def test_parser_performance_when_large_ics_then_meets_targets(
                 "END:VEVENT",
             ]
         )
-    
+
     ics_lines.append("END:VCALENDAR")
     large_ics = "\n".join(ics_lines)
-    
+
     parser = LiteICSParser(test_settings)
-    
+
     start_time = time.time()
     result = parser.parse_ics_content_optimized(large_ics, source_url="test://large.ics")
     elapsed = time.time() - start_time
-    
+
     assert result.success is True, f"Parser failed: {result.error_message}"
     assert len(result.events) > 0, "Expected parsed events"
-    
+
     # Performance target: < 5 seconds for 20 recurring events with 30 instances each
     assert elapsed < 5.0, f"Parser took {elapsed:.2f}s, expected < 5s"
-    
+
     # Verify we got expanded instances
     expanded = [e for e in result.events if getattr(e, "is_expanded_instance", False)]
     assert len(expanded) > 20, "Expected many expanded instances"

@@ -36,9 +36,9 @@ class TestReadEnv:
             "DATETIME_OVERRIDE=2024-01-01T00:00:00\n"
             "CALENDARBOT_DEBUG=true\n"
         )
-        
+
         result = read_env(env_file)
-        
+
         assert result["CALENDARBOT_ICS_URL"] == "https://example.com/calendar.ics"
         assert result["DATETIME_OVERRIDE"] == "2024-01-01T00:00:00"
         assert result["CALENDARBOT_DEBUG"] == "true"
@@ -48,9 +48,9 @@ class TestReadEnv:
     ) -> None:
         """Test reading non-existent file returns empty values."""
         env_file = tmp_path / "nonexistent.env"
-        
+
         result = read_env(env_file)
-        
+
         assert result["CALENDARBOT_ICS_URL"] is None
         assert result["DATETIME_OVERRIDE"] is None
         assert result["CALENDARBOT_DEBUG"] is None
@@ -61,9 +61,9 @@ class TestReadEnv:
         """Test legacy ICS_SOURCE key is mapped to CALENDARBOT_ICS_URL."""
         env_file = tmp_path / ".env"
         env_file.write_text("ICS_SOURCE=https://legacy.com/calendar.ics\n")
-        
+
         result = read_env(env_file)
-        
+
         assert result["CALENDARBOT_ICS_URL"] == "https://legacy.com/calendar.ics"
 
     def test_read_env_when_comments_and_empty_lines_then_ignores(
@@ -79,9 +79,9 @@ class TestReadEnv:
             "# Another comment\n"
             "CALENDARBOT_DEBUG=true\n"
         )
-        
+
         result = read_env(env_file)
-        
+
         assert result["CALENDARBOT_ICS_URL"] == "https://example.com/calendar.ics"
         assert result["CALENDARBOT_DEBUG"] == "true"
 
@@ -92,9 +92,9 @@ class TestReadEnv:
             'CALENDARBOT_ICS_URL="https://example.com/calendar.ics"\n'
             "CALENDARBOT_DEBUG='true'\n"
         )
-        
+
         result = read_env(env_file)
-        
+
         assert result["CALENDARBOT_ICS_URL"] == "https://example.com/calendar.ics"
         assert result["CALENDARBOT_DEBUG"] == "true"
 
@@ -114,7 +114,7 @@ class TestEventSummary:
         mock_start.time_zone = "America/New_York"
         mock_end = Mock()
         mock_end.date_time = datetime(2024, 1, 1, 10, 0)
-        
+
         mock_event.id = "test-event-1"
         mock_event.subject = "Test Meeting"
         mock_event.start = mock_start
@@ -123,9 +123,9 @@ class TestEventSummary:
         mock_event.rrule_string = "FREQ=DAILY"
         mock_event.exdates = ["2024-01-02"]
         mock_event.is_cancelled = False
-        
+
         result = event_summary(mock_event)
-        
+
         assert result["id"] == "test-event-1"
         assert result["subject"] == "Test Meeting"
         assert "2024-01-01" in result["start"]
@@ -165,18 +165,18 @@ class TestCollectRruleCandidates:
         event1 = Mock(spec=['rrule_string', 'exdates'])
         event1.rrule_string = "FREQ=DAILY"
         event1.exdates = ["2024-01-02"]
-        
+
         event2 = Mock(spec=['rrule_string', 'rrule', 'exdates'])
         event2.rrule_string = None
         event2.rrule = "FREQ=WEEKLY"
         event2.exdates = None
-        
+
         event3 = Mock(spec=['rrule_string', 'rrule'])
         event3.rrule_string = None
         event3.rrule = None
-        
+
         candidates = collect_rrule_candidates([event1, event2, event3])
-        
+
         assert len(candidates) == 2
         assert candidates[0][1] == "FREQ=DAILY"
         assert candidates[0][2] == ["2024-01-02"]
@@ -190,9 +190,9 @@ class TestCollectRruleCandidates:
         event1 = {"rrule_string": "FREQ=DAILY", "exdates": ["2024-01-02"]}
         event2 = {"rrule": "FREQ=WEEKLY"}
         event3 = {}
-        
+
         candidates = collect_rrule_candidates([event1, event2, event3])
-        
+
         # Implementation needs dict detection improvement, currently returns 0
         assert len(candidates) == 0
 
@@ -201,11 +201,11 @@ class TestCollectRruleCandidates:
         event1 = Mock()
         event1.rrule_string = None
         event1.rrule = None
-        
+
         event2 = {}
-        
+
         candidates = collect_rrule_candidates([event1, event2])
-        
+
         assert len(candidates) == 0
 
 
@@ -219,31 +219,31 @@ class TestFetchIcsStream:
         async def async_iter():
             for chunk in [b"chunk1", b"chunk2", b"chunk3"]:
                 yield chunk
-        
+
         mock_response = AsyncMock()
         mock_response.aiter_bytes = async_iter
         mock_response.raise_for_status = Mock()
-        
+
         # Create proper async context manager for stream
         mock_stream_cm = AsyncMock()
         mock_stream_cm.__aenter__.return_value = mock_response
         mock_stream_cm.__aexit__.return_value = None
-        
+
         mock_client = AsyncMock()
         mock_client.stream = Mock(return_value=mock_stream_cm)
-        
+
         # Create proper async context manager for client
         mock_client_cm = AsyncMock()
         mock_client_cm.__aenter__.return_value = mock_client
         mock_client_cm.__aexit__.return_value = None
-        
+
         with patch("calendarbot_lite.core.debug_helpers.httpx.AsyncClient") as mock_httpx:
             mock_httpx.return_value = mock_client_cm
-            
+
             chunks = []
             async for chunk in fetch_ics_stream("https://example.com/calendar.ics"):
                 chunks.append(chunk)
-            
+
             assert chunks == [b"chunk1", b"chunk2", b"chunk3"]
 
     async def test_fetch_ics_stream_when_empty_chunks_then_skips(self) -> None:
@@ -252,31 +252,31 @@ class TestFetchIcsStream:
         async def async_iter():
             for chunk in [b"chunk1", b"", b"chunk2", b""]:
                 yield chunk
-        
+
         mock_response = AsyncMock()
         mock_response.aiter_bytes = async_iter
         mock_response.raise_for_status = Mock()
-        
+
         # Create proper async context manager for stream
         mock_stream_cm = AsyncMock()
         mock_stream_cm.__aenter__.return_value = mock_response
         mock_stream_cm.__aexit__.return_value = None
-        
+
         mock_client = AsyncMock()
         mock_client.stream = Mock(return_value=mock_stream_cm)
-        
+
         # Create proper async context manager for client
         mock_client_cm = AsyncMock()
         mock_client_cm.__aenter__.return_value = mock_client
         mock_client_cm.__aexit__.return_value = None
-        
+
         with patch("calendarbot_lite.core.debug_helpers.httpx.AsyncClient") as mock_httpx:
             mock_httpx.return_value = mock_client_cm
-            
+
             chunks = []
             async for chunk in fetch_ics_stream("https://example.com/calendar.ics"):
                 chunks.append(chunk)
-            
+
             assert chunks == [b"chunk1", b"chunk2"]
 
 
@@ -290,16 +290,16 @@ class TestParseStreamViaParser:
         """Test parsing stream calls the parser."""
         async def mock_stream() -> AsyncIterator[bytes]:
             yield b"test"
-        
+
         mock_result = Mock()
-        
+
         with patch(
             "calendarbot_lite.core.debug_helpers.parse_ics_stream", return_value=mock_result
         ) as mock_parse:
             result = await parse_stream_via_parser(
                 mock_stream(), source_url="https://example.com"
             )
-            
+
             assert result == mock_result
             mock_parse.assert_called_once()
 
@@ -326,13 +326,13 @@ class TestExpandCandidatesToTrace:
 
         candidates: list[tuple[Any, str, list[str] | None]] = [(mock_event, "FREQ=DAILY", None)]
         mock_settings = Mock()
-        
+
         with patch(
             "calendarbot_lite.core.debug_helpers.expand_events_async",
             return_value=[mock_event, mock_event],
         ):
             result = await expand_candidates_to_trace(candidates, mock_settings)
-            
+
             assert "master-1" in result
             assert len(result["master-1"]) == 2
 
@@ -361,7 +361,7 @@ class TestExpandCandidatesToTrace:
             result = await expand_candidates_to_trace(
                 candidates, mock_settings, limit_per_rule=3
             )
-            
+
             assert len(result["master-1"]) == 3
 
     async def test_expand_candidates_to_trace_when_exception_then_returns_empty(
@@ -370,11 +370,11 @@ class TestExpandCandidatesToTrace:
         """Test expanding candidates handles exceptions."""
         candidates: list[tuple[Any, str, list[str] | None]] = [(Mock(), "FREQ=DAILY", None)]
         mock_settings = Mock()
-        
+
         with patch(
             "calendarbot_lite.core.debug_helpers.expand_events_async",
             side_effect=Exception("Expansion failed"),
         ):
             result = await expand_candidates_to_trace(candidates, mock_settings)
-            
+
             assert result == {}
