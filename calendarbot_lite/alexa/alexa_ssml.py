@@ -164,13 +164,17 @@ def render_meeting_ssml(
 
             fragments.append(content)
 
-        # Add location information if available
+        # Add location information if available (Phase 2: wrap in sentence tags for proper structure)
         if location and not is_online:
             safe_location = _escape_text_for_ssml(location)
             location_phrase = EMPHASIS_REDUCED.format(text=safe_location)
-            fragments.extend([BREAK.format(t="0.2"), f"in {location_phrase}"])
+            # Wrap location in sentence tag to maintain proper SSML structure
+            location_sentence = _wrap_sentence(f"in {location_phrase}")
+            fragments.append(location_sentence)
         elif is_online:
-            fragments.extend([BREAK.format(t="0.2"), "joining online"])
+            # Wrap online meeting info in sentence tag
+            online_sentence = _wrap_sentence("joining online")
+            fragments.append(online_sentence)
 
         # Note: Removed duration section as duration_spoken represents time until start,
         # not actual meeting duration. The timing is already included in the main message.
@@ -679,7 +683,20 @@ def validate_ssml(ssml: str, max_chars: int = 500, allowed_tags: Optional[set[st
             return False
 
         # Tag balance and allowlist check
-        default_allowed = {"speak", "prosody", "emphasis", "break", "say-as"}
+        # Default includes all tags from DEFAULT_CONFIG (Phase 1 + Phase 2)
+        default_allowed = {
+            "speak",
+            "prosody",
+            "emphasis",
+            "break",
+            "say-as",
+            "p",  # Phase 1
+            "s",  # Phase 2
+            "amazon:emotion",  # Phase 1
+            "sub",  # Phase 1
+            "amazon:domain",  # Phase 2
+            "voice",  # Phase 2
+        }
         tags_allowed = allowed_tags or default_allowed
 
         if not _basic_tag_balance_check(ssml_trimmed, tags_allowed):
