@@ -28,16 +28,18 @@ PARAGRAPH = "<p>{text}</p>"
 SENTENCE = "<s>{text}</s>"
 EMOTION = '<amazon:emotion name="{name}" intensity="{intensity}">{text}</amazon:emotion>'
 SUBSTITUTION = '<sub alias="{alias}">{text}</sub>'
+DOMAIN = '<amazon:domain name="{name}">{text}</amazon:domain>'
+VOICE = '<voice name="{name}">{text}</voice>'
 
 # Regex patterns for time detection and tag preservation (compiled once for performance)
 # Pattern for times: H:MM am/pm or HH:MM am/pm
 TIME_PATTERN = re.compile(r"\b(\d{1,2}):(\d{2})\s+(am|pm)\b", re.IGNORECASE)
 # Pattern for say-as tags: <say-as ...>...</say-as>
 SAY_AS_TAG_PATTERN = re.compile(r"(<say-as[^>]*>.*?</say-as>)", re.DOTALL)
-# Pattern for preserving SSML tags in general (say-as, sub, amazon:emotion, p, s)
+# Pattern for preserving SSML tags in general (say-as, sub, amazon:emotion, amazon:domain, voice, p, s)
 # Only matches complete, well-formed tags with both opening and closing tags
 SSML_TAG_PATTERN = re.compile(
-    r"(<(?:say-as|sub|amazon:emotion|p|s)(?:\s[^>]*)?>(?:(?!</(?:say-as|sub|amazon:emotion|p|s)>).)*?</(?:say-as|sub|amazon:emotion|p|s)>)",
+    r"(<(?:say-as|sub|amazon:emotion|amazon:domain|voice|p|s)(?:\s[^>]*)?>(?:(?!</(?:say-as|sub|amazon:emotion|amazon:domain|voice|p|s)>).)*?</(?:say-as|sub|amazon:emotion|amazon:domain|voice|p|s)>)",
     re.DOTALL,
 )
 # Pattern for abbreviation substitutions: Q1-Q4, 1:1, 1-1
@@ -57,6 +59,8 @@ DEFAULT_CONFIG = {
         "s",
         "amazon:emotion",
         "sub",
+        "amazon:domain",
+        "voice",
     },
     "duration_threshold_long": 3600,  # Include duration if >3600s (60 minutes)
     "duration_threshold_short": 900,  # Include duration if <900s (15 minutes)
@@ -69,6 +73,12 @@ DEFAULT_CONFIG = {
         "Q4": "fourth quarter",
         "1:1": "one on one",
         "1-1": "one on one",
+    },
+    # Conversational domain configuration (Phase 2)
+    # Requires specific Alexa voices (Joanna or Matthew) for conversational domain
+    "conversational_domain": {
+        "enabled": True,  # Enabled by default for more natural speech
+        "voice": "Joanna",  # Default voice for conversational domain
     },
 }
 
@@ -131,41 +141,40 @@ def render_meeting_ssml(
             fragments.append(PROSODY_RATE.format(rate="fast", text=body_text))
 
         elif urgency == "standard":
-            # Standard pacing template
+            # Standard pacing template with sentence structure (Phase 2)
             emphasized_title = EMPHASIS_MODERATE.format(text=truncated_subject)
             time_phrase = _escape_text_for_ssml(duration_spoken)
 
-            fragments.extend(
-                [
-                    f"Your meeting {emphasized_title}",
-                    BREAK.format(t="0.3"),
-                    f"starts {time_phrase}.",
-                ]
-            )
+            sentence = _wrap_sentence(f"Your meeting {emphasized_title} starts {time_phrase}.")
+            fragments.append(sentence)
 
         else:  # relaxed
-            # Relaxed pacing template
+            # Relaxed pacing template with natural paragraph structure (Phase 2)
             emphasized_title = EMPHASIS_MODERATE.format(text=truncated_subject)
             time_phrase = _escape_text_for_ssml(duration_spoken)
 
-            opening = f"Your next meeting is {emphasized_title}."
-            timing = f"It starts {time_phrase}."
+            # Use prosody for calm delivery, then wrap in sentences
+            opening = _wrap_sentence(f"Your next meeting is {emphasized_title}.")
+            opening_with_prosody = PROSODY.format(rate="medium", pitch="medium", text=opening)
+            timing = _wrap_sentence(f"It starts {time_phrase}.")
 
-            fragments.extend(
-                [
-                    PROSODY.format(rate="medium", pitch="medium", text=opening),
-                    BREAK.format(t="0.5"),
-                    timing,
-                ]
-            )
+            # Combine and optionally apply conversational domain
+            content = f"{opening_with_prosody}{timing}"
+            content = _apply_conversational_domain(content, cfg)
 
-        # Add location information if available
+            fragments.append(content)
+
+        # Add location information if available (Phase 2: wrap in sentence tags for proper structure)
         if location and not is_online:
             safe_location = _escape_text_for_ssml(location)
             location_phrase = EMPHASIS_REDUCED.format(text=safe_location)
-            fragments.extend([BREAK.format(t="0.2"), f"in {location_phrase}"])
+            # Wrap location in sentence tag to maintain proper SSML structure
+            location_sentence = _wrap_sentence(f"in {location_phrase}")
+            fragments.append(location_sentence)
         elif is_online:
-            fragments.extend([BREAK.format(t="0.2"), "joining online"])
+            # Wrap online meeting info in sentence tag
+            online_sentence = _wrap_sentence("joining online")
+            fragments.append(online_sentence)
 
         # Note: Removed duration section as duration_spoken represents time until start,
         # not actual meeting duration. The timing is already included in the main message.
@@ -674,7 +683,20 @@ def validate_ssml(ssml: str, max_chars: int = 500, allowed_tags: Optional[set[st
             return False
 
         # Tag balance and allowlist check
-        default_allowed = {"speak", "prosody", "emphasis", "break", "say-as"}
+        # Default includes all tags from DEFAULT_CONFIG (Phase 1 + Phase 2)
+        default_allowed = {
+            "speak",
+            "prosody",
+            "emphasis",
+            "break",
+            "say-as",
+            "p",  # Phase 1
+            "s",  # Phase 2
+            "amazon:emotion",  # Phase 1
+            "sub",  # Phase 1
+            "amazon:domain",  # Phase 2
+            "voice",  # Phase 2
+        }
         tags_allowed = allowed_tags or default_allowed
 
         if not _basic_tag_balance_check(ssml_trimmed, tags_allowed):
@@ -820,6 +842,72 @@ def _wrap_sentence(text: str) -> str:
         return text
 
     return SENTENCE.format(text=text)
+
+
+def _wrap_with_domain(text: str) -> str:
+    """Wrap text with amazon:domain SSML tag for conversational speech style.
+
+    Args:
+        text: Text to wrap with domain
+
+    Returns:
+        Text wrapped in <amazon:domain> tags
+
+    Examples:
+        >>> _wrap_with_domain("Your next meeting is Project Sync.")
+        '<amazon:domain name="conversational">Your next meeting is Project Sync.</amazon:domain>'
+    """
+    if not isinstance(text, str) or not text.strip():
+        return text
+
+    return DOMAIN.format(name="conversational", text=text)
+
+
+def _wrap_with_voice(text: str, voice_name: str = "Joanna") -> str:
+    """Wrap text with voice SSML tag to specify Alexa voice.
+
+    Args:
+        text: Text to wrap with voice
+        voice_name: Name of Alexa voice (e.g., "Joanna", "Matthew")
+
+    Returns:
+        Text wrapped in <voice> tags
+
+    Examples:
+        >>> _wrap_with_voice("Good morning.", "Joanna")
+        '<voice name="Joanna">Good morning.</voice>'
+    """
+    if not isinstance(text, str) or not text.strip():
+        return text
+
+    return VOICE.format(name=voice_name, text=text)
+
+
+def _apply_conversational_domain(text: str, config: dict[str, Any]) -> str:
+    """Conditionally wrap text with conversational domain based on configuration.
+
+    Args:
+        text: Text to potentially wrap with conversational domain
+        config: Configuration dict containing conversational_domain settings
+
+    Returns:
+        Text wrapped with voice and domain tags if enabled, otherwise unchanged
+
+    Examples:
+        >>> cfg = {"conversational_domain": {"enabled": True, "voice": "Joanna"}}
+        >>> _apply_conversational_domain("Your next meeting is in 5 minutes.", cfg)
+        '<voice name="Joanna"><amazon:domain name="conversational">Your next meeting is in 5 minutes.</amazon:domain></voice>'
+    """
+    if not isinstance(text, str) or not text.strip():
+        return text
+
+    conv_config = config.get("conversational_domain", {})
+    if not conv_config.get("enabled", False):
+        return text
+
+    voice_name = conv_config.get("voice", "Joanna")
+    domain_wrapped = _wrap_with_domain(text)
+    return _wrap_with_voice(domain_wrapped, voice_name)
 
 
 def _select_urgency(seconds_until: int) -> Literal["fast", "standard", "relaxed"]:
