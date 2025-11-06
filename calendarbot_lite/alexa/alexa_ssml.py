@@ -77,7 +77,7 @@ DEFAULT_CONFIG = {
     # Conversational domain configuration (Phase 2)
     # Requires specific Alexa voices (Joanna or Matthew) for conversational domain
     "conversational_domain": {
-        "enabled": False,  # Opt-in feature
+        "enabled": True,  # Enabled by default for more natural speech
         "voice": "Joanna",  # Default voice for conversational domain
     },
 }
