@@ -923,10 +923,6 @@ class TestConfigurationValidation:
             test_mode=True
         )
 
-        assert (
-            "monitoring" in output.lower()
-            or "section 4" in output.lower()
-            or "Configuration validated" in result.stdout
         # Verify monitoring section config was processed
         output = result.stdout + result.stderr
         assert (

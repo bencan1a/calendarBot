@@ -44,7 +44,11 @@ jobs:
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
         pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -e .[dev] docker pyyaml
+        pip install --prefer-binary -e .[dev]
+
+    - name: Install E2E test dependencies
+      run: |
+        pip install -e .[e2e]
 
     - name: Build E2E Docker image
       run: |

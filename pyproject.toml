@@ -86,6 +86,9 @@ epaper = [
     "numpy>=1.20.0",
     "html2image>=2.0.0",
 ]
+e2e = [
+    "docker>=7.0.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/calendarbot/calendarbot"
