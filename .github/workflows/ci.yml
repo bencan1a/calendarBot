@@ -525,3 +525,124 @@ jobs:
         path: |
           coverage.xml
         retention-days: 7
+
+  # STAGE 6: Pi Zero 2W Performance Gate (ARM validation)
+  pi-performance-gate:
+    name: Pi Zero 2W Performance Validation
+    runs-on: ubuntu-latest
+    needs: [critical-path]
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
+
+    - name: Create virtual environment
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
+
+    - name: Set venv in PATH
+      run: |
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+
+    - name: Install dependencies
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: |
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -e .[dev]
+
+    - name: Set up QEMU for ARM emulation
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: arm64
+
+    - name: Run Pi Zero 2W performance benchmark (ARM emulation)
+      run: |
+        echo "========================================"
+        echo "Pi Zero 2W Performance Gate"
+        echo "========================================"
+        echo "Platform: linux/arm/v8 (QEMU emulation)"
+        echo "CPUs: 1.0 core"
+        echo "Memory: 512MB"
+        echo "========================================"
+        echo ""
+        
+        # Create temporary directory for test
+        TEMP_DIR=$(mktemp -d)
+        trap "rm -rf ${TEMP_DIR}" EXIT
+        
+        # Copy necessary files
+        echo "📦 Preparing test environment..."
+        cp -r calendarbot_lite "${TEMP_DIR}/"
+        cp requirements.txt "${TEMP_DIR}/"
+        cp pyproject.toml "${TEMP_DIR}/"
+        cp tests/ci_performance_benchmark.py "${TEMP_DIR}/"
+        
+        # Run benchmark in ARM Docker container with Pi Zero 2W constraints
+        echo "🚀 Running performance benchmark in ARM container..."
+        echo "   (This may take 5-10 minutes on first run due to ARM emulation)"
+        echo ""
+        
+        docker run --rm \
+          --platform linux/arm/v8 \
+          --cpus="1.0" \
+          --memory="512m" \
+          --memory-swap="512m" \
+          -v "${TEMP_DIR}:/app" \
+          -w /app \
+          python:3.12-slim \
+          bash -c "
+            set -e
+            echo '📥 Installing dependencies...'
+            pip install --quiet --no-cache-dir --prefer-binary -e . psutil
+            
+            echo '⚡ Running 50-event benchmark...'
+            python ci_performance_benchmark.py --run fifty --output benchmark_results.json
+            
+            echo ''
+            echo '✅ Benchmark complete'
+          "
+        
+        # Copy results
+        cp "${TEMP_DIR}/benchmark_results.json" pi_perf_results.json
+        
+        echo ""
+        echo "📊 Performance Results:"
+        cat pi_perf_results.json | python -m json.tool
+
+    - name: Validate performance thresholds
+      run: |
+        echo ""
+        echo "========================================"
+        echo "Validating Pi Zero 2W Performance"
+        echo "========================================"
+        
+        venv/bin/python scripts/validate_pi_perf.py pi_perf_results.json \
+          --max-parse-time 200ms \
+          --max-memory-delta 50MB \
+          --max-total-memory 150MB \
+          --max-overall-time 250ms \
+          --verbose
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: pi-performance-results
+        path: pi_perf_results.json
+        retention-days: 30
