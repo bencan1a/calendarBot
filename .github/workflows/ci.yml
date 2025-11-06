@@ -584,7 +584,7 @@ jobs:
         # This constrains CPU and memory without Docker overhead
         echo "🚀 Running performance benchmark with resource limits..."
         echo ""
-        
+
         systemd-run --user --scope \
           -p CPUQuota=100% \
           -p MemoryMax=512M \
