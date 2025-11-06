@@ -33,16 +33,16 @@ class TestTimezoneDetector:
     def test_get_fallback_timezone_returns_pacific(self):
         """Test fallback timezone is always Pacific."""
         detector = TimezoneDetector()
-        
+
         assert detector.get_fallback_timezone() == DEFAULT_SERVER_TIMEZONE
         assert detector.get_fallback_timezone() == "America/Los_Angeles"
 
     def test_get_server_timezone_returns_valid_iana_string(self):
         """Test server timezone detection returns valid IANA identifier."""
         detector = TimezoneDetector()
-        
+
         tz = detector.get_server_timezone()
-        
+
         assert isinstance(tz, str)
         # Can return UTC or IANA format like "America/Los_Angeles"
         assert tz in ("UTC", DEFAULT_SERVER_TIMEZONE) or "/" in tz
@@ -50,7 +50,7 @@ class TestTimezoneDetector:
     def test_get_server_timezone_with_abbreviation_mapping(self):
         """Test timezone detection via abbreviation mapping."""
         detector = TimezoneDetector()
-        
+
         # PST should map to America/Los_Angeles
         assert "PST" in detector.TZ_ABBREV_MAP
         assert detector.TZ_ABBREV_MAP["PST"] == "America/Los_Angeles"
@@ -58,7 +58,7 @@ class TestTimezoneDetector:
     def test_get_server_timezone_falls_back_on_error(self):
         """Test server timezone falls back to Pacific on detection error."""
         detector = TimezoneDetector()
-        
+
         # Even if detection fails, should return Pacific (unless system is UTC)
         with patch("time.tzname", side_effect=Exception("Test error")):
             tz = detector.get_server_timezone()
@@ -67,7 +67,7 @@ class TestTimezoneDetector:
     def test_windows_tz_map_contains_common_zones(self):
         """Test Windows timezone map has common entries."""
         detector = TimezoneDetector()
-        
+
         assert "Pacific Standard Time" in detector.WINDOWS_TZ_MAP
         assert "Eastern Standard Time" in detector.WINDOWS_TZ_MAP
         assert detector.WINDOWS_TZ_MAP["Pacific Standard Time"] == "America/Los_Angeles"
@@ -75,7 +75,7 @@ class TestTimezoneDetector:
     def test_offset_to_tz_map_contains_common_offsets(self):
         """Test UTC offset map has common offsets."""
         detector = TimezoneDetector()
-        
+
         assert -8 in detector.OFFSET_TO_TZ_MAP
         assert -5 in detector.OFFSET_TO_TZ_MAP
         assert detector.OFFSET_TO_TZ_MAP[-8] == "America/Los_Angeles"
@@ -88,9 +88,9 @@ class TestTimeProvider:
         """Test now_utc returns timezone-aware UTC datetime."""
         detector = TimezoneDetector()
         provider = TimeProvider(detector)
-        
+
         now = provider.now_utc()
-        
+
         assert isinstance(now, datetime.datetime)
         assert now.tzinfo == datetime.timezone.utc
 
@@ -98,12 +98,12 @@ class TestTimeProvider:
         """Test now_utc respects CALENDARBOT_TEST_TIME environment variable."""
         detector = TimezoneDetector()
         provider = TimeProvider(detector)
-        
+
         test_time = "2025-01-15T12:00:00Z"
         monkeypatch.setenv("CALENDARBOT_TEST_TIME", test_time)
-        
+
         now = provider.now_utc()
-        
+
         assert now.year == 2025
         assert now.month == 1
         assert now.day == 15
@@ -114,13 +114,13 @@ class TestTimeProvider:
         """Test now_utc handles Pacific timezone test time."""
         detector = TimezoneDetector()
         provider = TimeProvider(detector)
-        
+
         # Test time in PST (UTC-8)
         test_time = "2025-01-15T10:00:00-08:00"
         monkeypatch.setenv("CALENDARBOT_TEST_TIME", test_time)
-        
+
         now = provider.now_utc()
-        
+
         # Should convert to UTC (18:00)
         assert now.tzinfo == datetime.timezone.utc
         assert now.hour == 18
@@ -129,11 +129,11 @@ class TestTimeProvider:
         """Test now_utc falls back to real time on invalid test time."""
         detector = TimezoneDetector()
         provider = TimeProvider(detector)
-        
+
         monkeypatch.setenv("CALENDARBOT_TEST_TIME", "invalid-datetime")
-        
+
         now = provider.now_utc()
-        
+
         # Should return current time, not fail
         assert isinstance(now, datetime.datetime)
         assert now.tzinfo == datetime.timezone.utc
@@ -142,13 +142,13 @@ class TestTimeProvider:
         """Test DST detection enhancement for Pacific timezone."""
         detector = TimezoneDetector()
         provider = TimeProvider(detector)
-        
+
         # Create a datetime with PDT offset (-7) during PST period (should be -8)
         # January is PST time
         dt = datetime.datetime(2025, 1, 15, 10, 0, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=-7)))
-        
+
         enhanced = provider._enhance_datetime_with_dst_detection(dt, "2025-01-15T10:00:00-07:00")
-        
+
         # Should have been corrected
         assert enhanced.tzinfo is not None
 
@@ -159,7 +159,7 @@ class TestConvenienceFunctions:
     def test_get_server_timezone_returns_string(self):
         """Test get_server_timezone convenience function."""
         tz = get_server_timezone()
-        
+
         assert isinstance(tz, str)
         # Can return UTC or IANA format
         assert tz in ("UTC", DEFAULT_SERVER_TIMEZONE) or "/" in tz
@@ -167,26 +167,26 @@ class TestConvenienceFunctions:
     def test_get_fallback_timezone_returns_pacific(self):
         """Test get_fallback_timezone convenience function."""
         tz = get_fallback_timezone()
-        
+
         assert tz == "America/Los_Angeles"
 
     def test_now_utc_convenience_returns_datetime(self):
         """Test now_utc convenience function."""
         now = now_utc()
-        
+
         assert isinstance(now, datetime.datetime)
         assert now.tzinfo == datetime.timezone.utc
 
     def test_windows_tz_to_iana_with_valid_timezone(self):
         """Test Windows timezone to IANA conversion."""
         iana = windows_tz_to_iana("Pacific Standard Time")
-        
+
         assert iana == "America/Los_Angeles"
 
     def test_windows_tz_to_iana_with_invalid_timezone(self):
         """Test Windows timezone conversion with unknown timezone."""
         iana = windows_tz_to_iana("Invalid Timezone")
-        
+
         assert iana is None
 
 
@@ -196,9 +196,9 @@ class TestTimezoneConversion:
     def test_convert_to_server_tz_from_utc(self):
         """Test converting UTC datetime to server timezone."""
         utc_time = datetime.datetime(2025, 1, 1, 20, 0, tzinfo=datetime.timezone.utc)
-        
+
         local_time = convert_to_server_tz(utc_time)
-        
+
         assert local_time.tzinfo is not None
         # If server is in UTC, times will be equal; otherwise they differ
         server_tz = get_server_timezone()
@@ -211,9 +211,9 @@ class TestTimezoneConversion:
     def test_convert_to_timezone_with_valid_tz(self):
         """Test converting datetime to specific timezone."""
         utc_time = datetime.datetime(2025, 1, 1, 20, 0, tzinfo=datetime.timezone.utc)
-        
+
         ny_time = convert_to_timezone(utc_time, "America/New_York")
-        
+
         assert ny_time.tzinfo is not None
         # New York is UTC-5 in winter
         assert ny_time.hour == 15
@@ -221,9 +221,9 @@ class TestTimezoneConversion:
     def test_convert_to_timezone_with_invalid_tz_raises(self):
         """Test convert_to_timezone raises on invalid timezone."""
         import zoneinfo
-        
+
         utc_time = datetime.datetime(2025, 1, 1, 20, 0, tzinfo=datetime.timezone.utc)
-        
+
         with pytest.raises(zoneinfo.ZoneInfoNotFoundError):
             convert_to_timezone(utc_time, "Invalid/Timezone")
 
@@ -234,26 +234,26 @@ class TestParseRequestTimezone:
     def test_parse_request_timezone_with_valid_tz(self):
         """Test parsing valid timezone string."""
         tz = parse_request_timezone("America/Los_Angeles")
-        
+
         assert tz is not None
         assert str(tz) in ("America/Los_Angeles", "tzfile('/usr/share/zoneinfo/America/Los_Angeles')")
 
     def test_parse_request_timezone_with_none_returns_utc(self):
         """Test parsing None returns UTC."""
         tz = parse_request_timezone(None)
-        
+
         assert tz == datetime.timezone.utc
 
     def test_parse_request_timezone_with_empty_string_returns_utc(self):
         """Test parsing empty string returns UTC."""
         tz = parse_request_timezone("")
-        
+
         assert tz == datetime.timezone.utc
 
     def test_parse_request_timezone_with_invalid_tz_returns_utc(self):
         """Test parsing invalid timezone returns UTC."""
         tz = parse_request_timezone("Invalid/Timezone")
-        
+
         assert tz == datetime.timezone.utc
 
     def test_parse_request_timezone_caching(self):
@@ -261,7 +261,7 @@ class TestParseRequestTimezone:
         # Call twice with same input
         tz1 = parse_request_timezone("America/Chicago")
         tz2 = parse_request_timezone("America/Chicago")
-        
+
         # Should return same object from cache
         assert tz1 is tz2
 
@@ -277,7 +277,7 @@ class TestParseRequestTimezone:
 def test_tz_abbrev_mapping(abbrev: str, expected_iana: str):
     """Test timezone abbreviation mappings."""
     detector = TimezoneDetector()
-    
+
     assert abbrev in detector.TZ_ABBREV_MAP
     assert detector.TZ_ABBREV_MAP[abbrev] == expected_iana
 
@@ -291,7 +291,7 @@ def test_tz_abbrev_mapping(abbrev: str, expected_iana: str):
 def test_windows_tz_mapping(windows_tz: str, expected_iana: str):
     """Test Windows timezone mappings."""
     result = windows_tz_to_iana(windows_tz)
-    
+
     assert result == expected_iana
 
 
@@ -301,25 +301,25 @@ class TestTimezoneAliasResolution:
     def test_resolve_timezone_alias_with_us_pacific(self):
         """Test resolving US/Pacific alias."""
         result = resolve_timezone_alias("US/Pacific")
-        
+
         assert result == "America/Los_Angeles"
 
     def test_resolve_timezone_alias_with_gmt(self):
         """Test resolving GMT alias to UTC."""
         result = resolve_timezone_alias("GMT")
-        
+
         assert result == "UTC"
 
     def test_resolve_timezone_alias_with_non_alias(self):
         """Test that non-alias timezones are returned unchanged."""
         result = resolve_timezone_alias("America/New_York")
-        
+
         assert result == "America/New_York"
 
     def test_resolve_timezone_alias_with_legacy_name(self):
         """Test resolving legacy timezone names."""
         result = resolve_timezone_alias("PST8PDT")
-        
+
         assert result == "America/Los_Angeles"
 
 
@@ -329,31 +329,31 @@ class TestTimezoneNormalization:
     def test_normalize_timezone_name_with_windows_tz(self):
         """Test normalizing Windows timezone name."""
         result = normalize_timezone_name("Pacific Standard Time")
-        
+
         assert result == "America/Los_Angeles"
 
     def test_normalize_timezone_name_with_alias(self):
         """Test normalizing timezone alias."""
         result = normalize_timezone_name("US/Eastern")
-        
+
         assert result == "America/New_York"
 
     def test_normalize_timezone_name_with_canonical_tz(self):
         """Test normalizing canonical IANA timezone."""
         result = normalize_timezone_name("Europe/London")
-        
+
         assert result == "Europe/London"
 
     def test_normalize_timezone_name_with_invalid_tz(self):
         """Test normalizing invalid timezone returns None."""
         result = normalize_timezone_name("Invalid/Timezone")
-        
+
         assert result is None
 
     def test_normalize_timezone_name_with_empty_string(self):
         """Test normalizing empty string returns None."""
         result = normalize_timezone_name("")
-        
+
         assert result is None
 
     @pytest.mark.smoke  # Critical path: Timezone normalization validation
@@ -361,12 +361,12 @@ class TestTimezoneNormalization:
         """Test comprehensive timezone normalization for common cases."""
         # Windows timezone
         assert normalize_timezone_name("Eastern Standard Time") == "America/New_York"
-        
+
         # Timezone alias
         assert normalize_timezone_name("GMT") == "UTC"
-        
+
         # Canonical IANA
         assert normalize_timezone_name("Asia/Tokyo") == "Asia/Tokyo"
-        
+
         # Invalid
         assert normalize_timezone_name("BadTimezone") is None

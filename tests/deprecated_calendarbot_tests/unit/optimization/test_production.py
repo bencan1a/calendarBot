@@ -51,7 +51,7 @@ def main():
     print("Starting application")  # TODO: Replace with logging
     logger.info("Application started")
     logger.debug("Debug information")
-    
+
     try:
         process_data()
     except Exception as e:

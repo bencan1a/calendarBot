@@ -397,7 +397,7 @@ describe('CalendarBot Lite - What\'s Next View', () => {
             await Promise.resolve();
             await Promise.resolve();
             await Promise.resolve();
-    
+
             expect(document.querySelector('.next-meeting-title').textContent).toBe('Plenty of time');
         });
     });
@@ -482,7 +482,7 @@ describe('CalendarBot Lite - What\'s Next View', () => {
             window.calendarBotCleanup();
 
             jest.advanceTimersByTime(120000);
-            
+
             expect(fetchMock.mock.calls.filter(call => call[0] === '/api/whats-next').length).toBe(0);
         });
     });
@@ -520,17 +520,17 @@ describe('CalendarBot Lite - What\'s Next View', () => {
             );
 
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
- 
+
             require('../../calendarbot_lite/whatsnext.js');
- 
+
             jest.advanceTimersByTime(100);
             jest.runOnlyPendingTimers();
             await Promise.resolve();
             await Promise.resolve();
- 
+
             // Accept either an explicit API fetch failure log or the retry.log emitted on HTTP error
             expect(consoleLogSpy.mock.calls.flat().join(' ')).toMatch(/API fetch failed|Retrying in|HTTP 500|Internal Server Error/);
- 
+
             consoleLogSpy.mockRestore();
         });
     });

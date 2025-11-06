@@ -37,11 +37,11 @@ def test_lite_runner_initialization_when_valid_specs_then_loads_successfully(
 ) -> None:
     """Test that LiteTestRunner initializes correctly with valid specs."""
     runner = LiteTestRunner(specs_file, fixtures_dir)
-    
+
     # Verify runner loads test specs
     assert len(runner.test_specs) > 0
     assert all(isinstance(spec, dict) for spec in runner.test_specs)
-    
+
     # Verify required fields are present in each spec
     required_fields = ['test_id', 'description', 'category', 'ics_file', 'datetime_override', 'expected']
     for spec in runner.test_specs:
@@ -54,7 +54,7 @@ def test_lite_runner_initialization_when_missing_specs_then_raises_error() -> No
     """Test that LiteTestRunner raises error when specs file is missing."""
     nonexistent_specs = Path("/does/not/exist/specs.yaml")
     fixtures_dir = Path(__file__).parent / "fixtures" / "ics"
-    
+
     with pytest.raises(FileNotFoundError, match="Test specs file not found"):
         LiteTestRunner(nonexistent_specs, fixtures_dir)
 
@@ -63,7 +63,7 @@ def test_lite_runner_initialization_when_missing_specs_then_raises_error() -> No
 def test_lite_runner_initialization_when_missing_fixtures_then_raises_error(specs_file: Path) -> None:
     """Test that LiteTestRunner raises error when fixtures directory is missing."""
     nonexistent_fixtures = Path("/does/not/exist/fixtures")
-    
+
     with pytest.raises(FileNotFoundError, match="Fixtures directory not found"):
         LiteTestRunner(specs_file, nonexistent_fixtures)
 
@@ -153,24 +153,24 @@ def test_lite_runner_json_report_generation_when_results_exist_then_generates_va
             error_message="Mock error",
         ),
     ]
-    
+
     report = lite_runner.generate_json_report(mock_results)
-    
+
     # Verify report structure
     assert 'summary' in report
     assert 'tests' in report
-    
+
     # Verify summary
     summary = report['summary']
     assert summary['total_tests'] == 2
     assert summary['passed'] == 1
     assert summary['failed'] == 1
     assert summary['success_rate'] == 0.5
-    
+
     # Verify test details
     tests = report['tests']
     assert len(tests) == 2
-    
+
     test1, test2 = tests
     assert test1['test_id'] == "test_1"
     assert test1['passed'] is True
@@ -202,9 +202,9 @@ def test_lite_runner_summary_string_generation_when_results_exist_then_generates
             error_message="Mock error",
         ),
     ]
-    
+
     summary = lite_runner.generate_summary_string(mock_results)
-    
+
     # Verify summary contains expected information
     assert "CalendarBot Lite Test Results" in summary
     assert "Total tests: 2" in summary

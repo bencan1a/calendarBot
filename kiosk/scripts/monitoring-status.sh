@@ -54,51 +54,51 @@ init_directories() {
 # Validate prerequisites
 validate_prerequisites() {
     local missing_tools=()
-    
+
     if ! command -v jq >/dev/null 2>&1; then
         missing_tools+=("jq")
     fi
-    
+
     if ! command -v journalctl >/dev/null 2>&1; then
         missing_tools+=("journalctl")
     fi
-    
+
     if ! command -v curl >/dev/null 2>&1; then
         missing_tools+=("curl")
     fi
-    
+
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
         log_error "Missing required tools: ${missing_tools[*]}"
         return 1
     fi
-    
+
     return 0
 }
 
 # Get current system metrics
 get_system_metrics() {
     log_debug "Collecting system metrics"
-    
+
     local metrics='{}'
-    
+
     # CPU metrics
     if [[ -f /proc/loadavg ]]; then
         local load_avg
         load_avg=$(cat /proc/loadavg | cut -d' ' -f1-3)
         metrics=$(echo "$metrics" | jq --arg load "$load_avg" '.cpu.load_average = $load')
-        
+
         local load_1m
         load_1m=$(echo "$load_avg" | cut -d' ' -f1)
         metrics=$(echo "$metrics" | jq --argjson load "$load_1m" '.cpu.load_1m = $load')
     fi
-    
+
     # Memory metrics
     if [[ -f /proc/meminfo ]]; then
         local mem_total mem_available mem_free
         mem_total=$(awk '/MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo "0")
         mem_available=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || echo "0")
         mem_free=$(awk '/MemFree:/ {print $2}' /proc/meminfo 2>/dev/null || echo "0")
-        
+
         local mem_used=$((mem_total - mem_available))
         local mem_usage_pct
         if [[ $mem_total -gt 0 ]]; then
@@ -106,7 +106,7 @@ get_system_metrics() {
         else
             mem_usage_pct=0
         fi
-        
+
         metrics=$(echo "$metrics" | jq \
             --argjson total "$mem_total" \
             --argjson available "$mem_available" \
@@ -121,7 +121,7 @@ get_system_metrics() {
                 usage_percent: $usage_pct
             }')
     fi
-    
+
     # Disk metrics
     if command -v df >/dev/null 2>&1; then
         local disk_info
@@ -132,7 +132,7 @@ get_system_metrics() {
             disk_used=$(echo "$disk_info" | awk '{print $3}')
             disk_available=$(echo "$disk_info" | awk '{print $4}')
             disk_usage_pct=$(echo "$disk_info" | awk '{print $5}' | sed 's/%//')
-            
+
             metrics=$(echo "$metrics" | jq \
                 --argjson total "$disk_total" \
                 --argjson used "$disk_used" \
@@ -146,14 +146,14 @@ get_system_metrics() {
                 }')
         fi
     fi
-    
+
     # Uptime
     if [[ -f /proc/uptime ]]; then
         local uptime_seconds
         uptime_seconds=$(cut -d' ' -f1 /proc/uptime | cut -d'.' -f1)
         metrics=$(echo "$metrics" | jq --argjson uptime "$uptime_seconds" '.uptime_seconds = $uptime')
     fi
-    
+
     # Temperature (if available)
     if [[ -f /sys/class/thermal/thermal_zone0/temp ]]; then
         local temp_raw temp_celsius
@@ -161,22 +161,22 @@ get_system_metrics() {
         temp_celsius=$((temp_raw / 1000))
         metrics=$(echo "$metrics" | jq --argjson temp "$temp_celsius" '.temperature_celsius = $temp')
     fi
-    
+
     echo "$metrics"
 }
 
 # Get CalendarBot service status
 get_service_status() {
     log_debug "Checking service status"
-    
+
     local status='{}'
-    
+
     # Check server health endpoint
     local health_response health_status
     if curl -s --max-time 5 http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
         health_response=$(curl -s --max-time 5 http://127.0.0.1:8080/api/health 2>/dev/null || echo '{}')
         health_status=$(echo "$health_response" | jq -r '.status // "unknown"')
-        
+
         status=$(echo "$status" | jq \
             --arg status "$health_status" \
             --argjson health "$health_response" \
@@ -192,17 +192,17 @@ get_service_status() {
             health_data: null
         }')
     fi
-    
+
     # Check systemd services
     local services=("calendarbot-kiosk@bencan" "calendarbot-kiosk-watchdog@bencan")
     local service_states='[]'
-    
+
     for service in "${services[@]}"; do
         if command -v systemctl >/dev/null 2>&1; then
             local service_status service_active service_enabled
             service_active=$(systemctl is-active "$service" 2>/dev/null || echo "unknown")
             service_enabled=$(systemctl is-enabled "$service" 2>/dev/null || echo "unknown")
-            
+
             local service_info
             service_info=$(jq -n \
                 --arg name "$service" \
@@ -214,28 +214,28 @@ get_service_status() {
                     enabled: $enabled,
                     healthy: ($active == "active")
                 }')
-            
+
             service_states=$(echo "$service_states" | jq ". + [$service_info]")
         fi
     done
-    
+
     status=$(echo "$status" | jq --argjson services "$service_states" '.services = $services')
-    
+
     echo "$status"
 }
 
 # Get recent monitoring events
 get_recent_events() {
     local hours_back="${1:-24}"
-    
+
     log_debug "Collecting events from last $hours_back hours"
-    
+
     local since
     since=$(date -d "$hours_back hours ago" -Iseconds)
-    
+
     # Query journald for recent CalendarBot events
     local events='[]'
-    
+
     if command -v journalctl >/dev/null 2>&1; then
         local raw_events
         raw_events=$(journalctl \
@@ -245,29 +245,29 @@ get_recent_events() {
             --no-pager \
             --quiet \
             2>/dev/null | head -1000)  # Limit to prevent memory issues
-        
+
         # Process and filter events
         while IFS= read -r line; do
             if [[ -n "$line" ]]; then
                 local message
                 message=$(echo "$line" | jq -r '.MESSAGE // empty' 2>/dev/null)
-                
+
                 if [[ -n "$message" ]] && echo "$message" | jq . >/dev/null 2>&1; then
                     events=$(echo "$events" | jq ". + [$message]")
                 fi
             fi
         done <<< "$raw_events"
     fi
-    
+
     echo "$events"
 }
 
 # Calculate event statistics
 calculate_event_stats() {
     local events="$1"
-    
+
     log_debug "Calculating event statistics"
-    
+
     local stats
     stats=$(echo "$events" | jq '{
         total_events: length,
@@ -282,32 +282,32 @@ calculate_event_stats() {
         error_count: map(select(.level == "ERROR" or .level == "CRITICAL")) | length,
         recovery_actions: map(select(.recovery_level and (.recovery_level | tonumber) > 0)) | length,
         critical_events: map(select(.level == "CRITICAL")) | length,
-        recent_errors: map(select(.level == "ERROR" or .level == "CRITICAL")) | 
+        recent_errors: map(select(.level == "ERROR" or .level == "CRITICAL")) |
                       sort_by(.timestamp) | reverse | .[0:5]
     }')
-    
+
     echo "$stats"
 }
 
 # Get trend data from historical reports
 get_trend_data() {
     local days_back="${1:-7}"
-    
+
     log_debug "Collecting trend data for $days_back days"
-    
+
     local trends='[]'
-    
+
     # Look for daily reports
     for ((i=0; i<days_back; i++)); do
         local date_str
         date_str=$(date -d "$i days ago" +%Y-%m-%d)
-        
+
         local report_file="$REPORTS_DIR/daily_${date_str}.json"
-        
+
         if [[ -f "$report_file" ]]; then
             local report_data
             report_data=$(cat "$report_file" 2>/dev/null || echo '{}')
-            
+
             if [[ -n "$report_data" ]] && echo "$report_data" | jq . >/dev/null 2>&1; then
                 local trend_point
                 trend_point=$(echo "$report_data" | jq \
@@ -319,15 +319,15 @@ get_trend_data() {
                         recovery_actions: .summary.recovery_actions.total // 0,
                         critical_count: (.summary.by_level[] | select(.level == "CRITICAL") | .count) // 0
                     }')
-                
+
                 trends=$(echo "$trends" | jq ". + [$trend_point]")
             fi
         fi
     done
-    
+
     # Sort by date
     trends=$(echo "$trends" | jq 'sort_by(.date)')
-    
+
     echo "$trends"
 }
 
@@ -335,40 +335,40 @@ get_trend_data() {
 generate_dashboard_status() {
     local output_file="$1"
     local real_time="${2:-true}"
-    
+
     log_info "Generating dashboard status (real-time: $real_time)"
-    
+
     local timestamp
     timestamp=$(date -Iseconds)
-    
+
     # Collect all data
     local system_metrics service_status
     system_metrics=$(get_system_metrics)
     service_status=$(get_service_status)
-    
+
     # Get recent events
     local recent_events event_stats
     recent_events=$(get_recent_events 24)
     event_stats=$(calculate_event_stats "$recent_events")
-    
+
     # Determine overall health status
     local overall_status="healthy"
     local server_status
     server_status=$(echo "$service_status" | jq -r '.server.status')
-    
+
     if [[ "$server_status" == "critical" ]] || [[ "$server_status" == "unreachable" ]]; then
         overall_status="critical"
     elif [[ "$server_status" == "degraded" ]]; then
         overall_status="degraded"
     fi
-    
+
     # Check for recent critical events
     local critical_count
     critical_count=$(echo "$event_stats" | jq -r '.critical_events')
     if [[ $critical_count -gt 0 ]]; then
         overall_status="critical"
     fi
-    
+
     # Build base status
     local status
     status=$(jq -n \
@@ -387,14 +387,14 @@ generate_dashboard_status() {
             events: $events,
             uptime_hours: (($system.uptime_seconds // 0) / 3600 | floor)
         }')
-    
+
     # Add trend data if enabled and not real-time only
     if [[ "$INCLUDE_TRENDS" == "true" && "$real_time" != "true" ]]; then
         local trends
         trends=$(get_trend_data 7)
         status=$(echo "$status" | jq --argjson trends "$trends" '.trends = $trends')
     fi
-    
+
     # Add health indicators for dashboard compatibility
     local indicators
     indicators=$(jq -n '{
@@ -408,9 +408,9 @@ generate_dashboard_status() {
         --argjson services "$service_status" \
         --argjson system "$system_metrics" \
         --argjson events "$event_stats")
-    
+
     status=$(echo "$status" | jq --argjson indicators "$indicators" '.health_indicators = $indicators')
-    
+
     # Add Grafana-compatible metrics
     local grafana_metrics
     grafana_metrics=$(echo "$status" | jq '{
@@ -424,27 +424,27 @@ generate_dashboard_status() {
         calendarbot_critical_events_24h: (.events.critical_events // 0),
         calendarbot_uptime_hours: .uptime_hours
     }')
-    
+
     status=$(echo "$status" | jq --argjson metrics "$grafana_metrics" '.metrics = $metrics')
-    
+
     # Write output
     echo "$status" > "$output_file"
-    
+
     log_info "Dashboard status generated: $output_file"
 }
 
 # Generate Prometheus metrics format
 generate_prometheus_metrics() {
     local output_file="$1"
-    
+
     log_info "Generating Prometheus metrics"
-    
+
     local status_file="$TEMP_DIR/status.json"
     generate_dashboard_status "$status_file" "true"
-    
+
     local status
     status=$(cat "$status_file")
-    
+
     # Generate Prometheus format
     cat > "$output_file" <<EOF
 # HELP calendarbot_up CalendarBot server is reachable
@@ -479,25 +479,25 @@ calendarbot_recovery_actions_24h $(echo "$status" | jq -r '.metrics.calendarbot_
 # TYPE calendarbot_uptime_hours gauge
 calendarbot_uptime_hours $(echo "$status" | jq -r '.metrics.calendarbot_uptime_hours')
 EOF
-    
+
     log_info "Prometheus metrics generated: $output_file"
 }
 
 # Check cache validity
 is_cache_valid() {
     local cache_file="$1"
-    
+
     if [[ ! -f "$cache_file" ]]; then
         return 1
     fi
-    
+
     local cache_age
     cache_age=$(( $(date +%s) - $(stat -c %Y "$cache_file" 2>/dev/null || echo 0) ))
-    
+
     if [[ $cache_age -gt $STATUS_CACHE_TTL ]]; then
         return 1
     fi
-    
+
     return 0
 }
 
@@ -552,7 +552,7 @@ EOF
 main() {
     local command=""
     local output_file=""
-    
+
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -596,28 +596,28 @@ main() {
                 ;;
         esac
     done
-    
+
     if [[ -z "$command" ]]; then
         log_error "No command specified"
         show_usage
         exit 1
     fi
-    
+
     # Validate output file for most commands
     if [[ "$command" != "health" && -z "$output_file" ]]; then
         log_error "$command command requires output file argument"
         exit 1
     fi
-    
+
     # Initialize
     init_directories
-    
+
     if ! validate_prerequisites; then
         exit 1
     fi
-    
+
     log_debug "Starting $SCRIPT_NAME v$VERSION with command: $command"
-    
+
     # Check cache for status commands
     local cache_file="$CACHE_DIR/status-cache.json"
     if [[ "$CACHE_ENABLED" == "true" && "$command" == "status" && -n "$output_file" ]]; then
@@ -627,7 +627,7 @@ main() {
             exit 0
         fi
     fi
-    
+
     # Execute command
     case $command in
         status)
@@ -645,17 +645,17 @@ main() {
         health)
             local health_file="$TEMP_DIR/health.json"
             generate_dashboard_status "$health_file" "true"
-            
+
             local status overall_server
             status=$(cat "$health_file")
             overall_server=$(echo "$status" | jq -r '.status')
-            
+
             echo "CalendarBot Health Status: $overall_server"
             echo "Server reachable: $(echo "$status" | jq -r '.services.server.reachable')"
             echo "Memory usage: $(echo "$status" | jq -r '.system.memory.usage_percent')%"
             echo "Disk usage: $(echo "$status" | jq -r '.system.disk.usage_percent')%"
             echo "Recent errors: $(echo "$status" | jq -r '.events.error_count')"
-            
+
             # Exit with error code if not healthy
             if [[ "$overall_server" != "healthy" ]]; then
                 exit 1

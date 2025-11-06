@@ -1,6 +1,6 @@
 /**
  * CalendarBot Gesture Handler
- * 
+ *
  * Implements Kindle-style gesture interface for settings panel access.
  * Handles top-zone detection, drag tracking, and panel reveal/dismiss gestures.
  */

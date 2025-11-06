@@ -46,7 +46,7 @@ class TestMorningSummaryRequest:
     def test_request_when_default_values_then_valid(self):
         """Test request creation with default values."""
         request = MorningSummaryRequest()
-        
+
         assert request.date is None
         assert request.timezone == "UTC"
         assert request.detail_level == "normal"
@@ -56,7 +56,7 @@ class TestMorningSummaryRequest:
     def test_request_when_max_events_exceeds_limit_then_clamped(self):
         """Test max_events validation clamps to performance limit."""
         request = MorningSummaryRequest(max_events=100)
-        
+
         assert request.max_events == MAX_EVENTS_LIMIT
 
     def test_request_when_custom_values_then_preserved(self):
@@ -68,7 +68,7 @@ class TestMorningSummaryRequest:
             prefer_ssml=True,
             max_events=25,
         )
-        
+
         assert request.date == "2023-12-01"
         assert request.timezone == "America/Los_Angeles"
         assert request.detail_level == "detailed"
@@ -83,26 +83,26 @@ class TestFreeBlock:
         """Test significant free block detection."""
         start_time = datetime(2023, 12, 1, 9, 0, tzinfo=timezone.utc)
         end_time = datetime(2023, 12, 1, 9, 45, tzinfo=timezone.utc)
-        
+
         block = FreeBlock(
             start_time=start_time,
             end_time=end_time,
             duration_minutes=45,
         )
-        
+
         assert block.is_significant is True
 
     def test_free_block_when_30_minutes_then_not_significant(self):
         """Test non-significant free block detection."""
         start_time = datetime(2023, 12, 1, 9, 0, tzinfo=timezone.utc)
         end_time = datetime(2023, 12, 1, 9, 30, tzinfo=timezone.utc)
-        
+
         block = FreeBlock(
             start_time=start_time,
             end_time=end_time,
             duration_minutes=30,
         )
-        
+
         assert block.is_significant is False
 
     def test_get_spoken_duration_when_30_minutes_then_formatted(self):
@@ -112,7 +112,7 @@ class TestFreeBlock:
             end_time=datetime.now(timezone.utc),
             duration_minutes=30,
         )
-        
+
         assert block.get_spoken_duration() == "30-minute"
 
     def test_get_spoken_duration_when_60_minutes_then_one_hour(self):
@@ -122,7 +122,7 @@ class TestFreeBlock:
             end_time=datetime.now(timezone.utc),
             duration_minutes=60,
         )
-        
+
         assert block.get_spoken_duration() == "one-hour"
 
     def test_get_spoken_duration_when_90_minutes_then_hour_and_minutes(self):
@@ -132,7 +132,7 @@ class TestFreeBlock:
             end_time=datetime.now(timezone.utc),
             duration_minutes=90,
         )
-        
+
         assert block.get_spoken_duration() == "1-hour 30-minute"
 
     def test_get_spoken_start_time_when_9_am_then_formatted(self):
@@ -162,13 +162,13 @@ class TestFreeBlock:
     def test_get_spoken_start_time_when_noon_then_formatted(self):
         """Test spoken start time formatting for noon."""
         start_time = datetime(2023, 12, 1, 12, 0, tzinfo=timezone.utc)
-        
+
         block = FreeBlock(
             start_time=start_time,
             end_time=datetime.now(timezone.utc),
             duration_minutes=60,
         )
-        
+
         assert block.get_spoken_start_time() == "noon"
 
 
@@ -183,7 +183,7 @@ class TestMeetingInsight:
             start_time=datetime.now(timezone.utc),
             end_time=datetime.now(timezone.utc),
         )
-        
+
         short_subject = insight.get_short_subject()
         words = short_subject.split()
         assert len(words) <= 6
@@ -197,7 +197,7 @@ class TestMeetingInsight:
             start_time=datetime.now(timezone.utc),
             end_time=datetime.now(timezone.utc),
         )
-        
+
         assert insight.get_short_subject() == "Quick sync"
 
     def test_get_spoken_start_time_when_various_times_then_formatted(self):
@@ -226,7 +226,7 @@ def sample_events():
     """Create sample calendar events for testing."""
     # Create events for December 1, 2023 (tomorrow in tests)
     base_date = datetime(2023, 12, 1, tzinfo=timezone.utc)
-    
+
     events = [
         # Early meeting at 7:00 AM
         LiteCalendarEvent(
@@ -242,7 +242,7 @@ def sample_events():
             ),
             show_as=LiteEventStatus.BUSY,
         ),
-        
+
         # Normal meeting at 9:00 AM
         LiteCalendarEvent(
             id="morning-meeting",
@@ -258,7 +258,7 @@ def sample_events():
             show_as=LiteEventStatus.BUSY,
             location=LiteLocation(display_name="Conference Room A"),
         ),
-        
+
         # Back-to-back meeting at 10:00 AM (no gap)
         LiteCalendarEvent(
             id="back-to-back-meeting",
@@ -275,7 +275,7 @@ def sample_events():
             is_online_meeting=True,
             online_meeting_url="https://teams.microsoft.com/example",
         ),
-        
+
         # Focus Time block at 11:30 AM (should not count as meeting)
         LiteCalendarEvent(
             id="focus-time",
@@ -290,7 +290,7 @@ def sample_events():
             ),
             show_as=LiteEventStatus.BUSY,
         ),
-        
+
         # All-day actionable event
         LiteCalendarEvent(
             id="all-day-actionable",
@@ -306,7 +306,7 @@ def sample_events():
             is_all_day=True,
             show_as=LiteEventStatus.BUSY,
         ),
-        
+
         # All-day non-actionable event (birthday)
         LiteCalendarEvent(
             id="birthday",
@@ -322,7 +322,7 @@ def sample_events():
             is_all_day=True,
             show_as=LiteEventStatus.FREE,
         ),
-        
+
         # Cancelled meeting (should be filtered out)
         LiteCalendarEvent(
             id="cancelled-meeting",
@@ -339,7 +339,7 @@ def sample_events():
             is_cancelled=True,
         ),
     ]
-    
+
     return events
 
 
@@ -365,30 +365,30 @@ class TestMorningSummaryService:
         with patch.object(service, "_get_tomorrow_date", return_value=mock_tomorrow_date):
             request = MorningSummaryRequest(timezone="UTC")
             result = await service.generate_summary(sample_events, request)
-            
+
             # Basic analysis verification (Story 1)
             assert isinstance(result, MorningSummaryResult)
             assert result.timeframe_start.hour == MORNING_START_HOUR
             assert result.timeframe_end.hour == MORNING_END_HOUR
-            
+
             # Meeting equivalents calculation (Story 4)
             # 3 timed meetings (early, morning, back-to-back) + 0.5 for all-day actionable
             # Focus time doesn't count, cancelled meeting filtered out, birthday not actionable
             expected_equivalents = 3.5
             assert result.total_meetings_equivalent == expected_equivalents
-            
+
             # Density classification (Story 4)
             assert result.density == DensityLevel.MODERATE  # 3.5 equivalents = moderate
-            
+
             # Early start detection (Story 2)
             assert result.early_start_flag is True  # 7:00 AM meeting
-            
+
             # Back-to-back meetings (Story 3)
             assert result.back_to_back_count == 1  # 9-10 AM and 10-11 AM meetings
-            
+
             # Meeting insights - Focus Time should be excluded from insights
             assert len(result.meeting_insights) == 3  # Excluding cancelled and focus time
-            
+
             # Speech text contains evening delivery context (Story 5)
             assert "Good evening" in result.speech_text
             assert "tomorrow" in result.speech_text.lower()
@@ -412,22 +412,22 @@ class TestMorningSummaryService:
             ),
             show_as=LiteEventStatus.BUSY,
         )
-        
+
         with patch.object(service, "_get_tomorrow_date", return_value=mock_tomorrow_date):
             request = MorningSummaryRequest(timezone="UTC")
             result = await service.generate_summary([early_event], request)
-            
+
             # Early start flag should be True
             assert result.early_start_flag is True
-            
+
             # Wake-up recommendation calculation
             wake_up_time = result.wake_up_recommendation_time
             assert wake_up_time is not None
-            
+
             # Should be 90 minutes before meeting, but minimum 6:00 AM
             expected_wake_up = datetime(2023, 12, 1, 6, 0, tzinfo=timezone.utc)
             assert wake_up_time == expected_wake_up
-            
+
             # Speech should mention very early start
             assert "very early" in result.speech_text.lower()
 
@@ -463,18 +463,18 @@ class TestMorningSummaryService:
                 ),
             ),
         ]
-        
+
         with patch.object(service, "_get_tomorrow_date", return_value=mock_tomorrow_date):
             request = MorningSummaryRequest(timezone="UTC")
             result = await service.generate_summary(events, request)
-            
+
             # Should have free blocks
             assert len(result.free_blocks) >= 1
-            
+
             # Check for significant free block between meetings (9:00 - 10:30 = 90 minutes)
             significant_blocks = [fb for fb in result.free_blocks if fb.is_significant]
             assert len(significant_blocks) >= 1
-            
+
             longest_block = result.longest_free_block
             assert longest_block is not None
             assert longest_block.duration_minutes >= SIGNIFICANT_FREE_BLOCK_MINUTES
@@ -484,7 +484,7 @@ class TestMorningSummaryService:
         self, service, mock_tomorrow_date
     ):
         """Test morning schedule density classification (Story 4)."""
-        
+
         # Test light schedule (1 meeting)
         light_events = [
             LiteCalendarEvent(
@@ -500,11 +500,11 @@ class TestMorningSummaryService:
                 ),
             )
         ]
-        
+
         with patch.object(service, "_get_tomorrow_date", return_value=mock_tomorrow_date):
             request = MorningSummaryRequest(timezone="UTC")
             result = await service.generate_summary(light_events, request)
-            
+
             assert result.density == DensityLevel.LIGHT
             assert "light morning schedule" in result.speech_text.lower()
 
@@ -539,14 +539,14 @@ class TestMorningSummaryService:
                 ),
             ),
         ]
-        
+
         with patch.object(service, "_get_tomorrow_date", return_value=mock_tomorrow_date):
             request = MorningSummaryRequest(timezone="UTC")
             result = await service.generate_summary(focus_events, request)
-            
+
             # Focus Time should not count toward meeting equivalents
             assert result.total_meetings_equivalent == 0.0
-            
+
             # Should mention 0 meeting equivalents but not "completely free morning"
             # since there are still Focus Time events scheduled
             assert "0 meeting equivalents" in result.speech_text
@@ -587,14 +587,14 @@ class TestMorningSummaryService:
                 is_all_day=True,
             ),
         ]
-        
+
         with patch.object(service, "_get_tomorrow_date", return_value=mock_tomorrow_date):
             request = MorningSummaryRequest(timezone="UTC")
             result = await service.generate_summary(all_day_events, request)
-            
+
             # Only actionable all-day events should count (0.5 equivalents)
             assert result.total_meetings_equivalent == 0.5
-            
+
             # Should mention actionable all-day event in speech
             assert "Annual Conference" in result.speech_text
 
@@ -606,7 +606,7 @@ class TestMorningSummaryService:
         with patch.object(service, "_get_tomorrow_date", return_value=mock_tomorrow_date):
             request = MorningSummaryRequest(timezone="UTC")
             result = await service.generate_summary([], request)
-            
+
             # Should have encouraging message for free morning
             assert "completely free morning" in result.speech_text
             assert "great opportunity" in result.speech_text.lower()
@@ -620,7 +620,7 @@ class TestMorningSummaryService:
         # Create maximum number of events to test performance
         max_events = []
         base_time = datetime(2023, 12, 1, 6, 0, tzinfo=timezone.utc)
-        
+
         for i in range(MAX_EVENTS_LIMIT):
             event = LiteCalendarEvent(
                 id=f"event-{i}",
@@ -635,17 +635,17 @@ class TestMorningSummaryService:
                 ),
             )
             max_events.append(event)
-        
+
         with patch.object(service, "_get_tomorrow_date", return_value=mock_tomorrow_date):
             request = MorningSummaryRequest(timezone="UTC")
-            
+
             start_time = time.time()
             result = await service.generate_summary(max_events, request)
             elapsed_time = time.time() - start_time
-            
+
             # Should complete within performance target
             assert elapsed_time < PERFORMANCE_TARGET_SECONDS
-            
+
             # Should return valid result
             assert isinstance(result, MorningSummaryResult)
             assert result.speech_text is not None
@@ -654,7 +654,7 @@ class TestMorningSummaryService:
     async def test_generate_summary_when_invalid_input_then_error_handling(self, service):
         """Test error handling for invalid inputs."""
         request = MorningSummaryRequest()
-        
+
         # Test with non-list events
         with pytest.raises(ValueError, match="Events must be a list"):
             await service.generate_summary("not-a-list", request)
@@ -674,22 +674,22 @@ class TestMorningSummaryService:
                     time_zone="UTC",
                 ),
             )
-            
+
             assert service._is_focus_time(event) is True
 
     def test_service_when_caching_then_performance_improved(self, service):
         """Test caching functionality improves performance."""
         events = []
         request = MorningSummaryRequest()
-        
+
         # Generate cache key
         cache_key = service._get_cache_key(events, request)
         assert isinstance(cache_key, str)
-        
+
         # Test cache miss
         cached_result = service._get_cached_result(cache_key)
         assert cached_result is None
-        
+
         # Test cache storage and retrieval
         mock_result = MorningSummaryResult(
             timeframe_start=datetime.now(timezone.utc),
@@ -706,9 +706,9 @@ class TestMorningSummaryService:
                 },
             },
         )
-        
+
         service._cache_result(cache_key, mock_result)
-        
+
         cached_result = service._get_cached_result(cache_key)
         assert cached_result is not None
         assert cached_result.speech_text == "Test speech"
@@ -725,7 +725,7 @@ class TestMorningSummaryResult:
             start_time=datetime(2023, 12, 1, 7, 0, tzinfo=timezone.utc),
             end_time=datetime(2023, 12, 1, 8, 0, tzinfo=timezone.utc),
         )
-        
+
         result = MorningSummaryResult(
             timeframe_start=datetime(2023, 12, 1, 6, 0, tzinfo=timezone.utc),
             timeframe_end=datetime(2023, 12, 1, 12, 0, tzinfo=timezone.utc),
@@ -742,10 +742,10 @@ class TestMorningSummaryResult:
                 },
             },
         )
-        
+
         wake_up_time = result.wake_up_recommendation_time
         assert wake_up_time is not None
-        
+
         # Should be 90 minutes before meeting, but minimum 6:00 AM
         expected_wake_up = datetime(2023, 12, 1, 6, 0, tzinfo=timezone.utc)
         assert wake_up_time == expected_wake_up
@@ -777,13 +777,13 @@ class TestMorningSummaryResult:
             end_time=datetime(2023, 12, 1, 9, 30, tzinfo=timezone.utc),
             duration_minutes=30,
         )
-        
+
         long_block = FreeBlock(
             start_time=datetime(2023, 12, 1, 10, 0, tzinfo=timezone.utc),
             end_time=datetime(2023, 12, 1, 11, 30, tzinfo=timezone.utc),
             duration_minutes=90,
         )
-        
+
         result = MorningSummaryResult(
             timeframe_start=datetime(2023, 12, 1, 6, 0, tzinfo=timezone.utc),
             timeframe_end=datetime(2023, 12, 1, 12, 0, tzinfo=timezone.utc),
@@ -800,7 +800,7 @@ class TestMorningSummaryResult:
                 },
             },
         )
-        
+
         longest_block = result.longest_free_block
         assert longest_block is not None
         assert longest_block.duration_minutes == 90
@@ -836,7 +836,7 @@ class TestServiceFactory:
         """Test service factory returns singleton instance."""
         service1 = get_morning_summary_service()
         service2 = get_morning_summary_service()
-        
+
         assert service1 is service2
         assert isinstance(service1, MorningSummaryService)
 
@@ -850,19 +850,19 @@ class TestSpeechGeneration:
     ):
         """Test speech generation contains proper evening delivery context."""
         service = MorningSummaryService()
-        
+
         with patch.object(service, "_get_tomorrow_date", return_value=mock_tomorrow_date):
             request = MorningSummaryRequest(timezone="UTC")
             result = await service.generate_summary(sample_events, request)
-            
+
             speech = result.speech_text
-            
+
             # Must start with evening greeting
             assert speech.startswith("Good evening.")
-            
+
             # Must reference tomorrow throughout
             assert "tomorrow" in speech.lower()
-            
+
             # Should not use first person (avoiding "your")
             # Should use second person appropriately
             assert "you" in speech.lower()
@@ -871,7 +871,7 @@ class TestSpeechGeneration:
     async def test_speech_when_early_start_then_urgency_appropriate(self):
         """Test speech urgency for early start scenarios."""
         service = MorningSummaryService()
-        
+
         # Very early meeting (7:00 AM)
         very_early_event = LiteCalendarEvent(
             id="very-early",
@@ -885,7 +885,7 @@ class TestSpeechGeneration:
                 time_zone="UTC",
             ),
         )
-        
+
         # Slightly early meeting (7:45 AM)
         early_event = LiteCalendarEvent(
             id="early",
@@ -899,16 +899,16 @@ class TestSpeechGeneration:
                 time_zone="UTC",
             ),
         )
-        
+
         mock_tomorrow = datetime(2023, 12, 1, 0, 0, 0, tzinfo=timezone.utc)
-        
+
         with patch.object(service, "_get_tomorrow_date", return_value=mock_tomorrow):
             request = MorningSummaryRequest(timezone="UTC")
-            
+
             # Test very early
             result_very_early = await service.generate_summary([very_early_event], request)
             assert "very early" in result_very_early.speech_text.lower()
-            
+
             # Test early but not very early
             result_early = await service.generate_summary([early_event], request)
             assert "early" in result_early.speech_text.lower()

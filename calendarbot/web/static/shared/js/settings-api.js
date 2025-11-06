@@ -1,6 +1,6 @@
 /**
  * CalendarBot Settings API Client
- * 
+ *
  * Handles all API communication for settings management, including
  * CRUD operations, validation, and error handling with retry logic.
  */
@@ -26,7 +26,7 @@ class SettingsAPI {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
             }
@@ -69,7 +69,7 @@ class SettingsAPI {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
             }
@@ -104,7 +104,7 @@ class SettingsAPI {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
             }
@@ -141,7 +141,7 @@ class SettingsAPI {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
             }
@@ -176,7 +176,7 @@ class SettingsAPI {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
             }
@@ -213,7 +213,7 @@ class SettingsAPI {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
             }
@@ -250,7 +250,7 @@ class SettingsAPI {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
             }
@@ -377,17 +377,17 @@ class SettingsAPI {
         for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
             try {
                 const response = await fetch(url, options);
-                
+
                 // Don't retry on client errors (4xx), only on server errors (5xx) and network issues
                 if (response.ok || (response.status >= 400 && response.status < 500)) {
                     return response;
                 }
-                
+
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                
+
             } catch (error) {
                 lastError = error;
-                
+
                 if (attempt < this.retryAttempts) {
                     if (!window.CALENDARBOT_PRODUCTION) console.warn(`SettingsAPI: Attempt ${attempt} failed, retrying in ${this.retryDelay}ms:`, error.message);
                     await this.delay(this.retryDelay * attempt); // Exponential backoff
@@ -423,7 +423,7 @@ class SettingsAPI {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
             }
@@ -458,7 +458,7 @@ class SettingsAPI {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
             }
@@ -495,7 +495,7 @@ class SettingsAPI {
             });
 
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
             }

@@ -58,7 +58,7 @@ class TestAlexaLaunchIntent:
                 "last_meeting_end_iso": None
             }
         }
-        
+
         # Mock the morning summary call (second call when switching to morning summary mode)
         morning_response = {
             "speech_text": "Good evening. You have a completely free morning. Great opportunity for deep work.",
@@ -70,7 +70,7 @@ class TestAlexaLaunchIntent:
                 "density": "light"
             }
         }
-        
+
         # Configure mock to return different values for different calls
         mock_api.side_effect = [launch_response, morning_response]
 
@@ -80,7 +80,7 @@ class TestAlexaLaunchIntent:
         assert "completely free morning" in response.speech_text
         assert response.card_title == "Tomorrow Morning Summary"
         assert response.ssml is not None
-        
+
         # Verify both API calls were made
         assert mock_api.call_count == 2
         mock_api.assert_any_call("/api/alexa/launch-summary")
@@ -125,13 +125,13 @@ class TestAlexaLaunchIntent:
         # Test help intent
         event = {"request": {"type": "IntentRequest", "intent": {"name": "AMAZON.HelpIntent"}}}
         result = lambda_handler(event, None)
-        
+
         assert "I can help you with your calendar" in result["response"]["outputSpeech"]["text"]
-        
+
         # Test invalid request
         event = {"invalid": "request"}
         result = lambda_handler(event, None)
-        
+
         assert "invalid request" in result["response"]["outputSpeech"]["text"]
 
 
@@ -154,7 +154,7 @@ class TestLaunchSummaryEndpoint:
     def test_compute_last_meeting_end_for_today_no_meetings(self):
         """Test done-for-day computation with no meetings."""
         result = _compute_last_meeting_end_for_today("America/Los_Angeles", (), None)
-        
+
         assert result["has_meetings_today"] is False
         assert result["last_meeting_start_iso"] is None
         assert result["last_meeting_end_iso"] is None
@@ -167,9 +167,9 @@ class TestLaunchSummaryEndpoint:
             "start": now.replace(hour=14, minute=0, second=0, microsecond=0),
             "duration_seconds": 3600,
         }
-        
+
         result = _compute_last_meeting_end_for_today("UTC", (today_meeting,), None)
-        
+
         assert result["has_meetings_today"] is True
         assert result["last_meeting_start_iso"] is not None
         assert result["last_meeting_end_iso"] is not None
@@ -180,14 +180,14 @@ class TestLaunchSummaryEndpoint:
         request = Mock()
         request.headers = {"Authorization": "Bearer test-token"}
         assert _check_bearer_token(request, "test-token") is True
-        
+
         # Mock request with invalid token
         request.headers = {"Authorization": "Bearer wrong-token"}
         assert _check_bearer_token(request, "test-token") is False
-        
+
         # Mock request without token
         request.headers = {}
         assert _check_bearer_token(request, "test-token") is False
-        
+
         # Mock request with no required token
         assert _check_bearer_token(request, None) is True

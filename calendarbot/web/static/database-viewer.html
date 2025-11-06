@@ -10,20 +10,20 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: #f5f5f7;
             color: #1d1d1f;
             line-height: 1.6;
         }
-        
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
-        
+
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -33,18 +33,18 @@
             text-align: center;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
         }
-        
+
         .header h1 {
             font-size: 2.5rem;
             font-weight: 600;
             margin-bottom: 10px;
         }
-        
+
         .header p {
             font-size: 1.1rem;
             opacity: 0.9;
         }
-        
+
         .panel {
             background: white;
             border-radius: 12px;
@@ -53,7 +53,7 @@
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
             border: 1px solid #e5e5e7;
         }
-        
+
         .panel-title {
             font-size: 1.3rem;
             font-weight: 600;
@@ -63,24 +63,24 @@
             align-items: center;
             gap: 10px;
         }
-        
+
         .icon {
             width: 20px;
             height: 20px;
             fill: currentColor;
         }
-        
+
         .query-section {
             display: grid;
             gap: 20px;
         }
-        
+
         .table-selector-container {
             display: flex;
             align-items: center;
             padding: 10px 0;
         }
-        
+
         .table-selector {
             padding: 8px 12px;
             border: 2px solid #e5e5e7;
@@ -92,13 +92,13 @@
             transition: border-color 0.2s ease;
             min-width: 200px;
         }
-        
+
         .table-selector:focus {
             outline: none;
             border-color: #007aff;
             box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
         }
-        
+
         .query-input {
             width: 100%;
             min-height: 120px;
@@ -111,19 +111,19 @@
             resize: vertical;
             transition: border-color 0.2s ease;
         }
-        
+
         .query-input:focus {
             outline: none;
             border-color: #007aff;
             box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
         }
-        
+
         .button-group {
             display: flex;
             gap: 15px;
             flex-wrap: wrap;
         }
-        
+
         .btn {
             padding: 12px 24px;
             border: none;
@@ -136,37 +136,37 @@
             align-items: center;
             gap: 8px;
         }
-        
+
         .btn-primary {
             background: #007aff;
             color: white;
         }
-        
+
         .btn-primary:hover:not(:disabled) {
             background: #0056b3;
             transform: translateY(-1px);
         }
-        
+
         .btn-secondary {
             background: #f1f1f3;
             color: #1d1d1f;
             border: 1px solid #d1d1d6;
         }
-        
+
         .btn-secondary:hover:not(:disabled) {
             background: #e8e8ed;
         }
-        
+
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
         }
-        
+
         .sample-queries {
             display: grid;
             gap: 10px;
         }
-        
+
         .sample-query {
             background: #f8f9fa;
             border: 1px solid #e9ecef;
@@ -177,16 +177,16 @@
             font-family: 'SF Mono', Monaco, monospace;
             font-size: 13px;
         }
-        
+
         .sample-query:hover {
             background: #e9ecef;
             border-color: #007aff;
         }
-        
+
         .results-container {
             margin-top: 25px;
         }
-        
+
         .results-info {
             display: flex;
             justify-content: space-between;
@@ -197,19 +197,19 @@
             border-radius: 6px;
             font-size: 14px;
         }
-        
+
         .results-table-container {
             overflow-x: auto;
             border-radius: 8px;
             border: 1px solid #e5e5e7;
         }
-        
+
         .results-table {
             width: 100%;
             border-collapse: collapse;
             background: white;
         }
-        
+
         .results-table th {
             background: #f8f9fa;
             padding: 12px 15px;
@@ -221,22 +221,22 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
+
         .results-table td {
             padding: 12px 15px;
             border-bottom: 1px solid #f1f1f3;
             font-size: 14px;
             font-family: 'SF Mono', Monaco, monospace;
         }
-        
+
         .results-table tr:nth-child(even) {
             background-color: #fafafa;
         }
-        
+
         .results-table tr:hover {
             background-color: #f0f8ff;
         }
-        
+
         .alert {
             padding: 15px 20px;
             border-radius: 8px;
@@ -245,31 +245,31 @@
             align-items: flex-start;
             gap: 10px;
         }
-        
+
         .alert-error {
             background: #fff5f5;
             border: 1px solid #fed7d7;
             color: #c53030;
         }
-        
+
         .alert-success {
             background: #f0fff4;
             border: 1px solid #9ae6b4;
             color: #2f855a;
         }
-        
+
         .alert-info {
             background: #ebf8ff;
             border: 1px solid #90cdf4;
             color: #2b6cb0;
         }
-        
+
         .loading {
             display: inline-flex;
             align-items: center;
             gap: 8px;
         }
-        
+
         .spinner {
             width: 16px;
             height: 16px;
@@ -278,30 +278,30 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
+
         .hidden {
             display: none;
         }
-        
+
         .database-info {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
-        
+
         .info-card {
             background: #f8f9fa;
             padding: 15px;
             border-radius: 8px;
             border: 1px solid #e9ecef;
         }
-        
+
         .info-card h4 {
             font-size: 14px;
             font-weight: 600;
@@ -310,34 +310,34 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
+
         .info-card p {
             font-size: 18px;
             font-weight: 600;
             color: #1d1d1f;
         }
-        
+
         @media (max-width: 768px) {
             .container {
                 padding: 15px;
             }
-            
+
             .header h1 {
                 font-size: 2rem;
             }
-            
+
             .panel {
                 padding: 20px;
             }
-            
+
             .button-group {
                 flex-direction: column;
             }
-            
+
             .btn {
                 justify-content: center;
             }
-            
+
             .results-info {
                 flex-direction: column;
                 gap: 10px;
@@ -389,7 +389,7 @@
                 </svg>
                 SQL Query
             </div>
-            
+
             <div class="query-section">
                 <div class="table-selector-container">
                     <label for="table-selector" style="font-weight: 500; margin-right: 10px;">Default Table:</label>
@@ -397,13 +397,13 @@
                         <option value="">Loading tables...</option>
                     </select>
                 </div>
-                
-                <textarea 
-                    id="query-input" 
-                    class="query-input" 
+
+                <textarea
+                    id="query-input"
+                    class="query-input"
                     placeholder="Enter your SQL query here...&#10;&#10;Example: SELECT * FROM cached_events LIMIT 10;"
                 ></textarea>
-                
+
                 <div class="button-group">
                     <button id="execute-btn" class="btn btn-primary">
                         <svg class="icon" viewBox="0 0 24 24">
@@ -435,7 +435,7 @@
                 </svg>
                 Sample Queries
             </div>
-            
+
             <div class="sample-queries">
                 <div class="sample-query" data-query="SELECT * FROM cached_events WHERE date(start_dt) = date('now', 'localtime') ORDER BY start_dt;">
                     📅 Show today's events: SELECT * FROM cached_events WHERE date(start_dt) = date('now', 'localtime') ORDER BY start_dt;
@@ -496,7 +496,7 @@
                 this.executeBtn.addEventListener('click', () => this.executeQuery());
                 this.clearBtn.addEventListener('click', () => this.clearQuery());
                 this.tablesBtn.addEventListener('click', () => this.showTables());
-                
+
                 // Table selector change event
                 this.tableSelector.addEventListener('change', (e) => {
                     this.currentTable = e.target.value;
@@ -505,7 +505,7 @@
                         this.queryInput.placeholder = `Enter your SQL query here...\n\nExample: SELECT * FROM ${this.currentTable} LIMIT 10;`;
                     }
                 });
-                
+
                 this.sampleQueries.forEach(query => {
                     query.addEventListener('click', () => {
                         const sql = query.getAttribute('data-query');
@@ -525,7 +525,7 @@
                 try {
                     const response = await fetch('/api/database/info');
                     const data = await response.json();
-                    
+
                     if (data.success) {
                         this.updateDatabaseInfo(data.data);
                     } else {
@@ -540,7 +540,7 @@
                 document.getElementById('db-status').textContent = 'Connected';
                 document.getElementById('db-tables').textContent = info.tables_count || '-';
                 document.getElementById('db-records').textContent = info.total_records || '-';
-                document.getElementById('db-updated').textContent = 
+                document.getElementById('db-updated').textContent =
                     info.last_updated ? new Date(info.last_updated).toLocaleString() : '-';
             }
 
@@ -564,7 +564,7 @@
                     });
 
                     const data = await response.json();
-                    
+
                     if (data.success) {
                         this.displayResults(data.data, query);
                     } else {
@@ -581,7 +581,7 @@
                 try {
                     const response = await fetch('/api/database/tables');
                     const data = await response.json();
-                    
+
                     if (data.success) {
                         this.displayResults(data.data, 'SHOW TABLES');
                     } else {
@@ -594,7 +594,7 @@
 
             displayResults(results, query) {
                 this.resultsPanel.classList.remove('hidden');
-                
+
                 const container = this.resultsContainer;
                 container.innerHTML = '';
 
@@ -623,7 +623,7 @@
                 // Create table
                 const tableContainer = document.createElement('div');
                 tableContainer.className = 'results-table-container';
-                
+
                 const table = document.createElement('table');
                 table.className = 'results-table';
 
@@ -631,23 +631,23 @@
                 if (results.columns && results.columns.length > 0) {
                     const thead = document.createElement('thead');
                     const headerRow = document.createElement('tr');
-                    
+
                     results.columns.forEach(column => {
                         const th = document.createElement('th');
                         th.textContent = column;
                         headerRow.appendChild(th);
                     });
-                    
+
                     thead.appendChild(headerRow);
                     table.appendChild(thead);
                 }
 
                 // Table body
                 const tbody = document.createElement('tbody');
-                
+
                 results.rows.forEach(row => {
                     const tr = document.createElement('tr');
-                    
+
                     if (results.columns) {
                         results.columns.forEach(column => {
                             const td = document.createElement('td');
@@ -663,7 +663,7 @@
                             tr.appendChild(td);
                         });
                     }
-                    
+
                     tbody.appendChild(tr);
                 });
 
@@ -731,7 +731,7 @@
                 try {
                     const response = await fetch('/api/database/tables');
                     const data = await response.json();
-                    
+
                     if (data.success && data.data) {
                         this.tables = data.data.rows.map(row => row.name);
                         this.populateTableSelector();
@@ -746,13 +746,13 @@
 
             populateTableSelector() {
                 this.tableSelector.innerHTML = '';
-                
+
                 // Add default option
                 const defaultOption = document.createElement('option');
                 defaultOption.value = '';
                 defaultOption.textContent = '-- Select a table --';
                 this.tableSelector.appendChild(defaultOption);
-                
+
                 // Add table options
                 this.tables.forEach(table => {
                     const option = document.createElement('option');
@@ -771,14 +771,14 @@
                 if (!this.tables.includes('raw_events')) {
                     return; // Table doesn't exist
                 }
-                
+
                 try {
                     const response = await fetch('/api/database/query', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ query: 'SELECT COUNT(*) as count FROM raw_events' })
                     });
-                    
+
                     const data = await response.json();
                     if (data.success && data.data && data.data.rows[0]) {
                         const count = data.data.rows[0].count;
@@ -818,12 +818,12 @@
                         </div>
                     </div>
                 `;
-                
+
                 // Insert after header, before first panel
                 const container = document.querySelector('.container');
                 const firstPanel = container.querySelector('.panel');
                 container.insertBefore(notificationDiv, firstPanel);
-                
+
                 // Bind populate button event
                 const populateBtn = document.getElementById('populate-raw-events-btn');
                 populateBtn.addEventListener('click', () => this.populateRawEvents(populateBtn));
@@ -832,25 +832,25 @@
             async populateRawEvents(button) {
                 const statusDiv = document.getElementById('ics-fetch-status');
                 const statusText = document.getElementById('fetch-status-text');
-                
+
                 // Show loading state
                 button.disabled = true;
                 statusDiv.style.display = 'block';
                 statusText.textContent = 'Fetching ICS data from sources...';
-                
+
                 try {
                     // Call backend endpoint to populate raw_events
                     const response = await fetch('/api/database/populate-raw-events', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'}
                     });
-                    
+
                     const data = await response.json();
-                    
+
                     if (data.success) {
                         statusText.textContent = `✅ Successfully populated ${data.count || 0} raw events`;
                         statusDiv.querySelector('.spinner').style.display = 'none';
-                        
+
                         // Refresh the page after 2 seconds
                         setTimeout(() => {
                             window.location.reload();

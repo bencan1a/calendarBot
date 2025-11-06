@@ -254,7 +254,7 @@ class TestBasicTagBalanceCheck:
     def test_basic_tag_balance_check_when_balanced_tags_then_true(self):
         """Test validation of properly balanced tags."""
         allowed_tags = {"speak", "emphasis", "prosody", "break"}
-        
+
         ssml = "<speak><emphasis>text</emphasis></speak>"
         assert _basic_tag_balance_check(ssml, allowed_tags) is True
 
@@ -264,14 +264,14 @@ class TestBasicTagBalanceCheck:
     def test_basic_tag_balance_check_when_self_closing_tags_then_true(self):
         """Test validation of self-closing tags."""
         allowed_tags = {"speak", "break"}
-        
+
         ssml = "<speak>text<break time='0.3s'/>more text</speak>"
         assert _basic_tag_balance_check(ssml, allowed_tags) is True
 
     def test_basic_tag_balance_check_when_unbalanced_tags_then_false(self):
         """Test validation of unbalanced tags."""
         allowed_tags = {"speak", "emphasis"}
-        
+
         ssml = "<speak><emphasis>text</speak>"  # Missing closing emphasis
         assert _basic_tag_balance_check(ssml, allowed_tags) is False
 
@@ -281,14 +281,14 @@ class TestBasicTagBalanceCheck:
     def test_basic_tag_balance_check_when_disallowed_tags_then_false(self):
         """Test validation with disallowed tags."""
         allowed_tags = {"speak", "emphasis"}
-        
+
         ssml = "<speak><voice name='Amy'>text</voice></speak>"
         assert _basic_tag_balance_check(ssml, allowed_tags) is False
 
     def test_basic_tag_balance_check_when_malformed_tags_then_false(self):
         """Test validation of malformed tags."""
         allowed_tags = {"speak", "emphasis"}
-        
+
         ssml = "<speak><emphasis>text<emphasis></speak>"  # Unclosed tag
         assert _basic_tag_balance_check(ssml, allowed_tags) is False
 
@@ -323,7 +323,7 @@ class TestShouldIncludeDuration:
             "duration_threshold_long": 7200,  # 2 hours
             "duration_threshold_short": 600,  # 10 minutes
         }
-        
+
         assert _should_include_duration(300, config) is True  # 5 min < 10 min threshold
         assert _should_include_duration(900, config) is False  # Between thresholds
         assert _should_include_duration(8000, config) is True  # > 2 hour threshold
@@ -394,7 +394,7 @@ class TestRenderMeetingSsml:
             "location": "",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is not None
         assert result.startswith("<speak>")
@@ -412,7 +412,7 @@ class TestRenderMeetingSsml:
             "location": "",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is not None
         assert result.startswith("<speak>")
@@ -430,7 +430,7 @@ class TestRenderMeetingSsml:
             "location": "",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is not None
         assert result.startswith("<speak>")
@@ -448,7 +448,7 @@ class TestRenderMeetingSsml:
             "location": "",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is not None
         assert "..." in result  # Should be truncated
@@ -463,7 +463,7 @@ class TestRenderMeetingSsml:
             "location": "Conference Room A",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is not None
         assert "Conference Room A" in result
@@ -478,7 +478,7 @@ class TestRenderMeetingSsml:
             "location": "https://zoom.us/meeting",
             "is_online_meeting": True,
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is not None
         assert "joining online" in result
@@ -493,7 +493,7 @@ class TestRenderMeetingSsml:
             "location": "",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is not None
         assert "&amp;" in result
@@ -514,7 +514,7 @@ class TestRenderMeetingSsml:
             "duration_spoken": "30 minutes",
         }
         config = {"enable_ssml": False}
-        
+
         result = render_meeting_ssml(meeting, config)
         assert result is None
 
@@ -526,7 +526,7 @@ class TestRenderMeetingSsml:
             "subject": None,  # This might cause issues in string operations
             "seconds_until_start": "invalid",  # Non-integer
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is None
         mock_logger.exception.assert_called()
@@ -541,7 +541,7 @@ class TestRenderTimeUntilSsml:
             "subject": "Standup",
             "duration_spoken": "5 minutes",
         }
-        
+
         result = render_time_until_ssml(180, meeting)  # 3 minutes
         assert result is not None
         assert result.startswith("<speak>")
@@ -556,7 +556,7 @@ class TestRenderTimeUntilSsml:
             "subject": "Team Meeting",
             "duration_spoken": "2 hours and 15 minutes",
         }
-        
+
         result = render_time_until_ssml(8100, meeting)  # 2h 15m
         assert result is not None
         assert 'level="strong"' in result  # Strong emphasis on time
@@ -575,7 +575,7 @@ class TestRenderTimeUntilSsml:
             "subject": "All Hands",
             "duration_spoken": "1 hour",
         }
-        
+
         result = render_time_until_ssml(3600, meeting)
         assert result is not None
         assert "All Hands" in result
@@ -604,7 +604,7 @@ class TestRenderTimeUntilSsml:
             "subject": "Very Long Meeting Title That Definitely Exceeds Reasonable Length Limits For Time-Until Responses",
             "duration_spoken": "2 hours and 30 minutes",
         }
-        
+
         result = render_time_until_ssml(9000, meeting)
         # Should either truncate or return None if too long
         if result is not None:
@@ -637,12 +637,12 @@ class TestSsmlPerformanceConstraints:
             "location": "Conference Room",
             "is_online_meeting": False,
         }
-        
+
         # Test with default limit
         result = render_meeting_ssml(meeting)
         if result:
             assert len(result) <= DEFAULT_CONFIG["ssml_max_chars"]
-        
+
         # Test with custom lower limit
         config = {"ssml_max_chars": 100}
         result = render_meeting_ssml(meeting, config)
@@ -655,7 +655,7 @@ class TestSsmlPerformanceConstraints:
             "subject": "Meeting",
             "duration_spoken": "1 hour",
         }
-        
+
         result = render_time_until_ssml(3600, meeting)
         if result:
             assert len(result) <= 300
@@ -665,7 +665,7 @@ class TestSsmlPerformanceConstraints:
         # Create SSML that exceeds default 500 char limit
         long_content = "Very long content " * 50
         ssml = f"<speak>{long_content}</speak>"
-        
+
         assert validate_ssml(ssml) is False
 
     def test_template_constants_are_efficient(self):
@@ -675,14 +675,14 @@ class TestSsmlPerformanceConstraints:
             PROSODY,
             WRAP_SPEAK,
         )
-        
+
         # Ensure templates are strings with format placeholders
         assert isinstance(WRAP_SPEAK, str)
         assert "{body}" in WRAP_SPEAK
-        
+
         assert isinstance(PROSODY, str)
         assert "{rate}" in PROSODY and "{pitch}" in PROSODY
-        
+
         assert isinstance(EMPHASIS_STRONG, str)
         assert "{text}" in EMPHASIS_STRONG
 
@@ -693,12 +693,12 @@ class TestRenderDoneForDaySsml:
     def test_render_done_for_day_ssml_when_no_meetings_today_then_relaxed_positive_tone(self):
         """Test SSML generation for no meetings today scenario."""
         speech_text = "You have no meetings today. Enjoy your free day!"
-        
+
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text)
         assert result is not None
         assert result.startswith("<speak>")
         assert result.endswith("</speak>")
-        
+
         # Should have relaxed pacing for no meetings
         assert 'rate="medium"' in result or 'pitch="medium"' in result
         # Should emphasize the positive aspects
@@ -710,12 +710,12 @@ class TestRenderDoneForDaySsml:
     def test_render_done_for_day_ssml_when_had_meetings_with_done_message_then_celebratory_tone(self):
         """Test SSML generation for done-for-day with completed meetings."""
         speech_text = "You're all done for today!"
-        
+
         result = render_done_for_day_ssml(has_meetings_today=True, speech_text=speech_text)
         assert result is not None
         assert result.startswith("<speak>")
         assert result.endswith("</speak>")
-        
+
         # Should have strong emphasis for celebration
         assert 'level="strong"' in result  # Strong celebratory emphasis
         assert "You&apos;re all done for today!" in result  # Escaped text
@@ -723,12 +723,12 @@ class TestRenderDoneForDaySsml:
     def test_render_done_for_day_ssml_when_will_be_done_future_then_emphasizes_time(self):
         """Test SSML generation for future completion time."""
         speech_text = "You'll be done at 6:00 pm."
-        
+
         result = render_done_for_day_ssml(has_meetings_today=True, speech_text=speech_text)
         assert result is not None
         assert result.startswith("<speak>")
         assert result.endswith("</speak>")
-        
+
         # Should emphasize the completion time
         assert 'level="strong"' in result  # Strong emphasis on time
         # Time should be wrapped in say-as tag (SSML format without space: 6:00pm)
@@ -738,12 +738,12 @@ class TestRenderDoneForDaySsml:
     def test_render_done_for_day_ssml_when_had_meetings_generic_message_then_moderate_emphasis(self):
         """Test SSML generation for generic done-for-day message."""
         speech_text = "You have meetings today, but I couldn't determine when your last one ends."
-        
+
         result = render_done_for_day_ssml(has_meetings_today=True, speech_text=speech_text)
         assert result is not None
         assert result.startswith("<speak>")
         assert result.endswith("</speak>")
-        
+
         # Should use moderate emphasis for generic messages
         assert 'level="moderate"' in result
         assert "couldn&apos;t" in result  # Escaped text should be present
@@ -751,12 +751,12 @@ class TestRenderDoneForDaySsml:
     def test_render_done_for_day_ssml_when_no_meetings_without_enjoy_phrase_then_relaxed_tone(self):
         """Test SSML generation for no meetings without 'Enjoy your free day!' phrase."""
         speech_text = "You have no meetings today."
-        
+
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text)
         assert result is not None
         assert result.startswith("<speak>")
         assert result.endswith("</speak>")
-        
+
         # Should use relaxed pacing
         assert 'rate="medium"' in result and 'pitch="medium"' in result
         assert speech_text in result
@@ -764,10 +764,10 @@ class TestRenderDoneForDaySsml:
     def test_render_done_for_day_ssml_when_special_chars_in_speech_then_escaped(self):
         """Test SSML generation with special characters in speech text."""
         speech_text = "Your meeting 'Q&A Session' ended at 3 PM. You're done!"
-        
+
         result = render_done_for_day_ssml(has_meetings_today=True, speech_text=speech_text)
         assert result is not None
-        
+
         # Special characters should be escaped
         assert "&apos;" in result  # Single quote
         assert "&amp;" in result  # Ampersand
@@ -777,11 +777,11 @@ class TestRenderDoneForDaySsml:
         # Empty string
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text="")
         assert result is None
-        
+
         # Whitespace only
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text="   ")
         assert result is None
-        
+
         # Non-string input
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=None)  # type: ignore
         assert result is None
@@ -790,7 +790,7 @@ class TestRenderDoneForDaySsml:
         """Test SSML generation when disabled in config."""
         speech_text = "You have no meetings today. Enjoy your free day!"
         config = {"enable_ssml": False}
-        
+
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text, config=config)
         assert result is None
 
@@ -802,7 +802,7 @@ class TestRenderDoneForDaySsml:
             "ssml_max_chars": 200,  # Lower limit
             "allowed_tags": {"speak", "prosody", "emphasis", "break"}
         }
-        
+
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text, config=config)
         assert result is not None
         assert len(result) <= 200
@@ -810,7 +810,7 @@ class TestRenderDoneForDaySsml:
     def test_render_done_for_day_ssml_when_long_speech_text_then_handles_gracefully(self):
         """Test SSML generation with very long speech text."""
         long_speech = "Your last meeting today ended at 3:30 PM " * 20 + "You're done for the day!"
-        
+
         result = render_done_for_day_ssml(has_meetings_today=True, speech_text=long_speech)
         # Should either truncate appropriately or return None if too long
         if result is not None:
@@ -821,7 +821,7 @@ class TestRenderDoneForDaySsml:
         # Force validation failure with very strict character limit
         speech_text = "You have no meetings today. Enjoy your free day!"
         config = {"ssml_max_chars": 50}  # Too small for any real SSML
-        
+
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text, config=config)
         assert result is None
 
@@ -832,7 +832,7 @@ class TestRenderDoneForDaySsml:
         # Force an exception by making _escape_text_for_ssml_preserving_tags raise an exception
         mock_escape.side_effect = Exception("Test exception")
         speech_text = "You have no meetings today."
-        
+
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text)
         assert result is None
         mock_logger.exception.assert_called()
@@ -840,17 +840,17 @@ class TestRenderDoneForDaySsml:
     def test_render_done_for_day_ssml_generates_valid_ssml_structure(self):
         """Test that generated SSML has valid structure."""
         speech_text = "You have no meetings today. Enjoy your free day!"
-        
+
         result = render_done_for_day_ssml(has_meetings_today=False, speech_text=speech_text)
         assert result is not None
-        
+
         # Should pass validation
         assert validate_ssml(result) is True
-        
+
         # Should have proper speak wrapper
         assert result.startswith("<speak>")
         assert result.endswith("</speak>")
-        
+
         # Should contain valid SSML tags only
         allowed_tags = {"speak", "prosody", "emphasis", "break"}
         assert _basic_tag_balance_check(result, allowed_tags) is True
@@ -859,14 +859,14 @@ class TestRenderDoneForDaySsml:
         """Test that different meeting scenarios generate appropriately different SSML."""
         no_meetings_text = "You have no meetings today. Enjoy your free day!"
         had_meetings_text = "You're all done for today!"
-        
+
         no_meetings_result = render_done_for_day_ssml(has_meetings_today=False, speech_text=no_meetings_text)
         had_meetings_result = render_done_for_day_ssml(has_meetings_today=True, speech_text=had_meetings_text)
-        
+
         assert no_meetings_result is not None
         assert had_meetings_result is not None
         assert no_meetings_result != had_meetings_result
-        
+
         # No meetings should have relaxed tone indicators
         assert 'pitch="medium"' in no_meetings_result
         # Had meetings (all done) should have strong celebratory emphasis
@@ -885,10 +885,10 @@ class TestSsmlUserStoryCompliance:
             "location": "",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is not None
-        
+
         # Story 1 requirements:
         # - Uses <prosody rate="fast"> for time-critical info
         assert 'rate="fast"' in result
@@ -908,10 +908,10 @@ class TestSsmlUserStoryCompliance:
             "location": "",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is not None
-        
+
         # Story 2 requirements:
         # - Uses <prosody rate="medium"> or no rate modification
         assert 'rate="medium"' in result or 'rate="fast"' not in result
@@ -930,10 +930,10 @@ class TestSsmlUserStoryCompliance:
             "location": "Conference Room A",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is not None
-        
+
         # Story 4 requirements:
         # - Include location after meeting title
         assert "Conference Room A" in result
@@ -958,10 +958,10 @@ class TestSsmlUserStoryCompliance:
             "location": "",
             "is_online_meeting": False,
         }
-        
+
         result = render_meeting_ssml(meeting)
         assert result is not None
-        
+
         # Story 5 requirements:
         # - Truncate to first 47 characters + "..." (50 total)
         # - Truncation at word boundaries when possible
@@ -977,11 +977,11 @@ class TestSsmlUserStoryCompliance:
             "subject": "Team Meeting",
             "duration_spoken": "3 minutes",
         }
-        
+
         # Test urgent timing
         result = render_time_until_ssml(180, meeting)  # 3 minutes
         assert result is not None
-        
+
         # Story 7 requirements:
         # - Lead with time information, not meeting title
         time_portion = result.split("until your next meeting")[0]
@@ -997,16 +997,16 @@ class TestSsmlUserStoryCompliance:
         # - Basic SSML tag validation
         valid_ssml = '<speak><emphasis level="strong">Test</emphasis></speak>'
         assert validate_ssml(valid_ssml) is True
-        
+
         # - Character limit validation
         long_ssml = f"<speak>{'A' * 8500}</speak>"  # Exceeds 8000 char Alexa limit
         assert validate_ssml(long_ssml, max_chars=8000) is False
-        
+
         # - Escape special characters
         text_with_special = "Test & <Example>"
         escaped = _escape_text_for_ssml(text_with_special)
         assert "&amp;" in escaped and "&lt;" in escaped
-        
+
         # - Remove unsupported SSML tags
         invalid_ssml = '<speak><voice name="Amy">Test</voice></speak>'
         default_allowed = {"speak", "prosody", "emphasis", "break"}

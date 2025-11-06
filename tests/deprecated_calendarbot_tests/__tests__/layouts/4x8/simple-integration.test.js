@@ -39,13 +39,13 @@ describe('4x8 layout simple integration', () => {
                 </body>
             </html>
         `;
-        
+
         // Mock fetch for API calls
         global.fetch = jest.fn().mockResolvedValue({
             ok: true,
             json: () => Promise.resolve({ events: [] })
         });
-        
+
         jest.clearAllTimers();
         jest.useFakeTimers();
     });
@@ -65,7 +65,7 @@ describe('4x8 layout simple integration', () => {
     test('navigation button clicks trigger handlers', () => {
         // Test all navigation buttons
         const actions = ['prev', 'next', 'refresh', 'theme', 'layout'];
-        
+
         actions.forEach(action => {
             const button = document.querySelector(`[data-action="${action}"]`);
             if (button) {
@@ -79,7 +79,7 @@ describe('4x8 layout simple integration', () => {
         // Test keyboard shortcuts
         const keys = [
             { key: 'ArrowLeft' },
-            { key: 'ArrowRight' }, 
+            { key: 'ArrowRight' },
             { key: 'r' },
             { key: 'R' },
             { key: 't' },
@@ -100,7 +100,7 @@ describe('4x8 layout simple integration', () => {
     test('theme detection and switching', () => {
         // Test theme detection from HTML class
         document.documentElement.className = 'theme-dark';
-        
+
         // Trigger theme-related functionality
         const themeBtn = document.querySelector('[data-action="theme"]');
         if (themeBtn) {
@@ -124,7 +124,7 @@ describe('4x8 layout simple integration', () => {
     test('auto refresh mechanism', () => {
         // Test auto-refresh timers
         jest.advanceTimersByTime(5 * 60 * 1000); // 5 minutes
-        
+
         expect(global.fetch).toHaveBeenCalledTimes(0); // May be called by auto-refresh
     });
 
@@ -132,10 +132,10 @@ describe('4x8 layout simple integration', () => {
         // Test previous/next navigation
         const prevBtn = document.querySelector('[data-action="prev"]');
         const nextBtn = document.querySelector('[data-action="next"]');
-        
+
         if (prevBtn) prevBtn.click();
         if (nextBtn) nextBtn.click();
-        
+
         expect(true).toBe(true);
     });
 
@@ -143,15 +143,15 @@ describe('4x8 layout simple integration', () => {
         // Test responsive behavior
         window.innerWidth = 800;
         window.innerHeight = 600;
-        
+
         const resizeEvent = new Event('resize');
         window.dispatchEvent(resizeEvent);
-        
+
         // Change to mobile size
         window.innerWidth = 375;
         window.innerHeight = 812;
         window.dispatchEvent(resizeEvent);
-        
+
         expect(true).toBe(true);
     });
 
@@ -182,21 +182,21 @@ describe('4x8 layout simple integration', () => {
         const touchStart = new TouchEvent('touchstart', {
             touches: [{ clientX: 100, clientY: 100 }]
         });
-        
+
         const touchEnd = new TouchEvent('touchend', {
             changedTouches: [{ clientX: 200, clientY: 100 }]
         });
-        
+
         document.dispatchEvent(touchStart);
         document.dispatchEvent(touchEnd);
-        
+
         expect(true).toBe(true);
     });
 
     test('error handling', () => {
         // Test error scenarios
         global.fetch.mockRejectedValueOnce(new Error('Network error'));
-        
+
         const refreshBtn = document.querySelector('[data-action="refresh"]');
         if (refreshBtn) {
             refreshBtn.click();
@@ -209,7 +209,7 @@ describe('4x8 layout simple integration', () => {
         // Test calendar grid rendering
         const weekView = document.querySelector('.week-view');
         const dayColumns = document.querySelectorAll('.day-column');
-        
+
         expect(weekView).toBeTruthy();
         expect(dayColumns.length).toBeGreaterThan(0);
     });
@@ -227,7 +227,7 @@ describe('4x8 layout simple integration', () => {
         const statusLine = document.querySelector('.status-line');
         const headerInfo = document.querySelector('.header-info');
         const dateInfo = document.querySelector('.date-info');
-        
+
         expect(statusLine).toBeTruthy();
         expect(headerInfo).toBeTruthy();
         expect(dateInfo).toBeTruthy();
@@ -238,15 +238,15 @@ describe('4x8 layout simple integration', () => {
         if (typeof window.initializeApp === 'function') {
             window.initializeApp();
         }
-        
+
         if (typeof window.updateCalendar === 'function') {
             window.updateCalendar();
         }
-        
+
         if (typeof window.refresh === 'function') {
             window.refresh();
         }
-        
+
         expect(true).toBe(true);
     });
 
@@ -256,7 +256,7 @@ describe('4x8 layout simple integration', () => {
             const result = window.formatDate(new Date());
             expect(typeof result).toBe('string');
         }
-        
+
         if (typeof window.formatTime === 'function') {
             const result = window.formatTime(new Date());
             expect(typeof result).toBe('string');
@@ -279,11 +279,11 @@ describe('4x8 layout simple integration', () => {
             const button = document.querySelector(`[data-action="${combo.action}"]`);
             if (button) {
                 button.click();
-                
+
                 // Test multiple rapid clicks
                 button.click();
                 button.click();
-                
+
                 // Test while button is disabled
                 button.disabled = true;
                 button.click();
@@ -304,7 +304,7 @@ describe('4x8 layout simple integration', () => {
         if (weekView) {
             // Test different week configurations
             const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-            
+
             days.forEach(day => {
                 const dayColumn = document.querySelector(`[data-day="${day}"]`);
                 if (!dayColumn) {
@@ -341,7 +341,7 @@ describe('4x8 layout simple integration', () => {
         const dataScenarios = [
             // Empty calendar
             { events: [] },
-            
+
             // Single day with events
             { events: [
                 {
@@ -351,7 +351,7 @@ describe('4x8 layout simple integration', () => {
                     location: 'Conference Room A'
                 }
             ]},
-            
+
             // Multiple days with events
             { events: [
                 {
@@ -370,7 +370,7 @@ describe('4x8 layout simple integration', () => {
                     end: '2024-01-17T17:00:00Z'
                 }
             ]},
-            
+
             // Overlapping events
             { events: [
                 {
@@ -379,12 +379,12 @@ describe('4x8 layout simple integration', () => {
                     end: '2024-01-15T12:00:00Z'
                 },
                 {
-                    title: 'Event 2', 
+                    title: 'Event 2',
                     start: '2024-01-15T11:00:00Z',
                     end: '2024-01-15T13:00:00Z'
                 }
             ]},
-            
+
             // All-day events
             { events: [
                 {
@@ -394,7 +394,7 @@ describe('4x8 layout simple integration', () => {
                     allDay: true
                 }
             ]},
-            
+
             // Events with various properties
             { events: [
                 {
@@ -426,26 +426,26 @@ describe('4x8 layout simple integration', () => {
     test('theme system comprehensive testing', () => {
         // Test theme system thoroughly
         const themes = [
-            'light', 'dark', 'eink', 'high-contrast', 
+            'light', 'dark', 'eink', 'high-contrast',
             'auto', 'system', 'custom-blue', 'custom-green'
         ];
 
         themes.forEach(theme => {
             // Set theme class
             document.documentElement.className = `theme-${theme} other-classes`;
-            
+
             // Trigger DOMContentLoaded to detect theme
             document.dispatchEvent(new Event('DOMContentLoaded'));
-            
+
             // Test theme toggle functionality
             const themeBtn = document.querySelector('[data-action="theme"]');
             if (themeBtn) {
                 themeBtn.click();
             }
-            
+
             // Test keyboard theme toggle
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }));
-            
+
             // Test theme persistence
             if (typeof localStorage !== 'undefined') {
                 localStorage.setItem('theme', theme);
@@ -459,11 +459,11 @@ describe('4x8 layout simple integration', () => {
 
     test('auto refresh comprehensive testing', () => {
         jest.useFakeTimers();
-        
+
         // Test different auto-refresh intervals
         const intervals = [
             30000,     // 30 seconds
-            60000,     // 1 minute  
+            60000,     // 1 minute
             300000,    // 5 minutes
             600000,    // 10 minutes
             1800000,   // 30 minutes
@@ -472,7 +472,7 @@ describe('4x8 layout simple integration', () => {
 
         intervals.forEach(interval => {
             jest.advanceTimersByTime(interval);
-            
+
             // Verify fetch might be called for auto-refresh
             expect(global.fetch).toHaveBeenCalledTimes(0); // May or may not be called
         });
@@ -480,14 +480,14 @@ describe('4x8 layout simple integration', () => {
         // Test visibility change affecting auto-refresh
         Object.defineProperty(document, 'hidden', { value: true, writable: true });
         document.dispatchEvent(new Event('visibilitychange'));
-        
+
         jest.advanceTimersByTime(300000); // 5 minutes while hidden
-        
+
         Object.defineProperty(document, 'hidden', { value: false, writable: true });
         document.dispatchEvent(new Event('visibilitychange'));
-        
+
         jest.advanceTimersByTime(60000); // 1 minute after becoming visible
-        
+
         jest.useRealTimers();
     });
 
@@ -499,26 +499,26 @@ describe('4x8 layout simple integration', () => {
             { key: 't', shiftKey: true },
             { key: 'l', altKey: true },
             { key: 'ArrowLeft', metaKey: true },
-            
+
             // Function keys
             { key: 'F5' }, // Refresh
             { key: 'F11' }, // Fullscreen
-            
+
             // Special keys
             { key: 'Home' },
             { key: 'End' },
             { key: 'PageUp' },
             { key: 'PageDown' },
-            
+
             // Number keys
             { key: '1' }, { key: '2' }, { key: '3' }, { key: '4' },
-            
+
             // Letter keys that might have functions
             { key: 'h' }, // Help?
             { key: 'q' }, // Quit?
             { key: 'n' }, // New?
             { key: 's' }, // Save?
-            
+
             // Arrow key combinations
             { key: 'ArrowUp' },
             { key: 'ArrowDown' },
@@ -529,7 +529,7 @@ describe('4x8 layout simple integration', () => {
         keyboardCombinations.forEach(keyConfig => {
             const event = new KeyboardEvent('keydown', keyConfig);
             document.dispatchEvent(event);
-            
+
             // Also test keyup events
             const keyupEvent = new KeyboardEvent('keyup', keyConfig);
             document.dispatchEvent(keyupEvent);
@@ -551,18 +551,18 @@ describe('4x8 layout simple integration', () => {
         breakpoints.forEach(bp => {
             Object.defineProperty(window, 'innerWidth', { value: bp.width, writable: true });
             Object.defineProperty(window, 'innerHeight', { value: bp.height, writable: true });
-            
+
             // Trigger resize event
             const resizeEvent = new Event('resize');
             window.dispatchEvent(resizeEvent);
-            
+
             // Test orientation change
             window.dispatchEvent(new Event('orientationchange'));
-            
+
             // Test different device pixel ratios
             Object.defineProperty(window, 'devicePixelRatio', { value: 1, writable: true });
             window.dispatchEvent(resizeEvent);
-            
+
             Object.defineProperty(window, 'devicePixelRatio', { value: 2, writable: true });
             window.dispatchEvent(resizeEvent);
         });
@@ -575,12 +575,12 @@ describe('4x8 layout simple integration', () => {
             new Error('Failed to fetch'),
             new Error('Network request failed'),
             new Error('Request timeout'),
-            
+
             // API errors
             new Error('404 Not Found'),
             new Error('500 Internal Server Error'),
             new Error('403 Forbidden'),
-            
+
             // Data errors
             new Error('Invalid JSON response'),
             new Error('Malformed data'),
@@ -589,7 +589,7 @@ describe('4x8 layout simple integration', () => {
 
         errorTypes.forEach(error => {
             global.fetch.mockRejectedValueOnce(error);
-            
+
             // Trigger refresh that should cause error
             const refreshBtn = document.querySelector('[data-action="refresh"]');
             if (refreshBtn) {
@@ -608,7 +608,7 @@ describe('4x8 layout simple integration', () => {
 
         badResponses.forEach(response => {
             global.fetch.mockResolvedValueOnce(response);
-            
+
             const refreshBtn = document.querySelector('[data-action="refresh"]');
             if (refreshBtn) {
                 refreshBtn.click();
@@ -628,8 +628,8 @@ describe('4x8 layout simple integration', () => {
                     }
                 }
             },
-            
-            // Next week navigation  
+
+            // Next week navigation
             () => {
                 const nextBtn = document.querySelector('[data-action="next"]');
                 if (nextBtn) {
@@ -638,7 +638,7 @@ describe('4x8 layout simple integration', () => {
                     }
                 }
             },
-            
+
             // Keyboard navigation
             () => {
                 for (let i = 0; i < 5; i++) {
@@ -646,12 +646,12 @@ describe('4x8 layout simple integration', () => {
                     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
                 }
             },
-            
+
             // Mixed navigation
             () => {
                 const prevBtn = document.querySelector('[data-action="prev"]');
                 const nextBtn = document.querySelector('[data-action="next"]');
-                
+
                 if (prevBtn && nextBtn) {
                     prevBtn.click();
                     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
@@ -672,15 +672,15 @@ describe('4x8 layout simple integration', () => {
                 const events = document.querySelectorAll('.event');
                 events.forEach(event => {
                     event.click();
-                    
+
                     // Test double click
                     event.dispatchEvent(new MouseEvent('dblclick'));
-                    
+
                     // Test right click (context menu)
                     event.dispatchEvent(new MouseEvent('contextmenu'));
                 });
             },
-            
+
             // Hover effects
             () => {
                 const events = document.querySelectorAll('.event');
@@ -691,7 +691,7 @@ describe('4x8 layout simple integration', () => {
                     event.dispatchEvent(new MouseEvent('mouseout'));
                 });
             },
-            
+
             // Keyboard interaction with events
             () => {
                 const events = document.querySelectorAll('.event');
@@ -717,7 +717,7 @@ describe('4x8 layout simple integration', () => {
                 document.dispatchEvent(new Event('load'));
                 document.body.classList.remove('loading');
             },
-            
+
             // Error state
             () => {
                 document.body.classList.add('error');
@@ -726,7 +726,7 @@ describe('4x8 layout simple integration', () => {
                 errorMsg.textContent = 'Failed to load calendar data';
                 document.body.appendChild(errorMsg);
             },
-            
+
             // Empty state
             () => {
                 const calendarContent = document.querySelector('.calendar-content');
@@ -734,7 +734,7 @@ describe('4x8 layout simple integration', () => {
                     calendarContent.innerHTML = '<div class="empty-state">No events found</div>';
                 }
             },
-            
+
             // Success state with data
             () => {
                 document.body.classList.add('loaded');
@@ -758,20 +758,20 @@ describe('4x8 layout simple integration', () => {
                     calendarContent.setAttribute('role', 'main');
                     calendarContent.setAttribute('aria-label', '4x8 Calendar View');
                 }
-                
+
                 const dayColumns = document.querySelectorAll('.day-column');
                 dayColumns.forEach((column, index) => {
                     column.setAttribute('role', 'region');
                     column.setAttribute('aria-label', `Day ${index + 1} events`);
                 });
             },
-            
+
             // Focus management
             () => {
                 const focusableElements = document.querySelectorAll(
                     'button, [data-action], .event, [tabindex]:not([tabindex="-1"])'
                 );
-                
+
                 focusableElements.forEach(element => {
                     element.focus();
                     element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
@@ -779,7 +779,7 @@ describe('4x8 layout simple integration', () => {
                     element.blur();
                 });
             },
-            
+
             // Screen reader announcements
             () => {
                 const announcement = document.createElement('div');
@@ -797,7 +797,7 @@ describe('4x8 layout simple integration', () => {
     test('comprehensive event coverage boost', () => {
         // Test many more events to trigger additional code paths
         const allElements = document.querySelectorAll('*');
-        
+
         // Test various event types on all elements
         const eventTypes = [
             'click', 'dblclick', 'mousedown', 'mouseup', 'mouseover', 'mouseout',
@@ -871,10 +871,10 @@ describe('4x8 layout simple integration', () => {
         // Test various document states
         Object.defineProperty(document, 'readyState', { value: 'loading', writable: true });
         document.dispatchEvent(new Event('readystatechange'));
-        
+
         Object.defineProperty(document, 'readyState', { value: 'interactive', writable: true });
         document.dispatchEvent(new Event('readystatechange'));
-        
+
         Object.defineProperty(document, 'readyState', { value: 'complete', writable: true });
         document.dispatchEvent(new Event('readystatechange'));
 
@@ -909,7 +909,7 @@ describe('4x8 layout simple integration', () => {
     test('stress test with rapid events', () => {
         // Test rapid-fire events to trigger any debouncing or throttling logic
         const testElement = document.querySelector('.calendar-content');
-        
+
         // Rapid clicks
         for (let i = 0; i < 50; i++) {
             testElement.click();
@@ -922,10 +922,10 @@ describe('4x8 layout simple integration', () => {
 
         // Rapid mouse moves
         for (let i = 0; i < 50; i++) {
-            testElement.dispatchEvent(new MouseEvent('mousemove', { 
-                clientX: i * 10, 
+            testElement.dispatchEvent(new MouseEvent('mousemove', {
+                clientX: i * 10,
                 clientY: i * 5,
-                bubbles: true 
+                bubbles: true
             }));
         }
 

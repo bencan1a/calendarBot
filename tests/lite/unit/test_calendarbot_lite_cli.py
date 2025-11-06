@@ -17,20 +17,20 @@ class TestCalendarbotLiteCLI:
         """Test parser creation with default configuration."""
         parser = _create_parser()
         args = parser.parse_args([])
-        
+
         assert args.port is None
 
     def test_create_parser_when_port_specified_then_parsed_correctly(self) -> None:
         """Test parser correctly handles --port argument."""
         parser = _create_parser()
         args = parser.parse_args(["--port", "3000"])
-        
+
         assert args.port == 3000
 
     def test_create_parser_when_invalid_port_then_raises_error(self) -> None:
         """Test parser raises error for invalid port values."""
         parser = _create_parser()
-        
+
         with pytest.raises(SystemExit):
             parser.parse_args(["--port", "invalid"])
 
@@ -38,13 +38,13 @@ class TestCalendarbotLiteCLI:
         """Test parser handles negative port numbers (validation happens later)."""
         parser = _create_parser()
         args = parser.parse_args(["--port", "-1"])
-        
+
         assert args.port == -1
 
     def test_create_parser_when_help_requested_then_shows_usage(self) -> None:
         """Test parser shows help message with correct usage information."""
         parser = _create_parser()
-        
+
         with pytest.raises(SystemExit):
             parser.parse_args(["--help"])
 
@@ -56,9 +56,9 @@ class TestCalendarbotLiteCLI:
             mock_server._create_skipped_store_if_available.return_value = None
             mock_server.start_server = Mock()
             mock_import.return_value = mock_server
-            
+
             run_server(None)
-            
+
             mock_server.start_server.assert_called_once()
             config_arg = mock_server.start_server.call_args[0][0]
             assert config_arg.get("server_port") == 8080
@@ -71,12 +71,12 @@ class TestCalendarbotLiteCLI:
             mock_server._create_skipped_store_if_available.return_value = None
             mock_server.start_server = Mock()
             mock_import.return_value = mock_server
-            
+
             args = Mock()
             args.port = 9999
-            
+
             run_server(args)
-            
+
             mock_server.start_server.assert_called_once()
             config_arg = mock_server.start_server.call_args[0][0]
             assert config_arg.get("server_port") == 9999
@@ -89,12 +89,12 @@ class TestCalendarbotLiteCLI:
             mock_server._create_skipped_store_if_available.return_value = None
             mock_server.start_server = Mock()
             mock_import.return_value = mock_server
-            
+
             args = Mock()
             args.port = "invalid"
-            
+
             run_server(args)
-            
+
             # Check that warning was logged about invalid port
             assert any("Invalid port value" in record.message for record in caplog.records)
 
@@ -106,12 +106,12 @@ class TestCalendarbotLiteCLI:
             mock_server._create_skipped_store_if_available.return_value = None
             mock_server.start_server = Mock()
             mock_import.return_value = mock_server
-            
+
             args = Mock()
             args.port = 3000
-            
+
             run_server(args)
-            
+
             mock_server.start_server.assert_called_once()
             config_arg = mock_server.start_server.call_args[0][0]
             assert config_arg.get("server_port") == 3000
@@ -124,12 +124,12 @@ class TestCalendarbotLiteCLI:
             mock_server._create_skipped_store_if_available.return_value = None
             mock_server.start_server = Mock()
             mock_import.return_value = mock_server
-            
+
             args = Mock()
             args.port = 0
-            
+
             run_server(args)
-            
+
             mock_server.start_server.assert_called_once()
             config_arg = mock_server.start_server.call_args[0][0]
             assert config_arg.get("server_port") == 0
@@ -138,9 +138,9 @@ class TestCalendarbotLiteCLI:
         """Test run_server raises NotImplementedError when server module import fails."""
         with patch('importlib.import_module') as mock_import:
             mock_import.side_effect = ImportError("Module not found")
-            
+
             with pytest.raises(NotImplementedError) as exc_info:
                 run_server(None)
-            
+
             assert "calendarbot_lite server not available" in str(exc_info.value)
             assert "Module not found" in str(exc_info.value)

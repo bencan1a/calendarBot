@@ -92,17 +92,17 @@ describe('SettingsAPI Functions', () => {
         for (let attempt = 1; attempt <= retryAttempts; attempt++) {
           try {
             const response = await fetch(url, options);
-            
+
             // Don't retry on client errors (4xx), only on server errors (5xx) and network issues
             if (response.ok || (response.status >= 400 && response.status < 500)) {
               return response;
             }
-            
+
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            
+
           } catch (error) {
             lastError = error;
-            
+
             if (attempt < retryAttempts) {
               await this.delay(retryDelay * attempt);
             }
@@ -185,7 +185,7 @@ describe('SettingsAPI Functions', () => {
         };
 
         const result = global.validateSettings(validSettings);
-        
+
         expect(result.isValid).toBe(true);
         expect(result.errors).toHaveLength(0);
       });
@@ -204,7 +204,7 @@ describe('SettingsAPI Functions', () => {
 
       it('should validate empty settings object', () => {
         const result = global.validateSettings({});
-        
+
         expect(result.isValid).toBe(true);
         expect(result.errors).toHaveLength(0);
       });
@@ -222,7 +222,7 @@ describe('SettingsAPI Functions', () => {
         };
 
         const result = global.validateSettings(invalidSettings);
-        
+
         expect(result.isValid).toBe(false);
         expect(result.errors.length).toBeGreaterThan(2);
       });
@@ -241,7 +241,7 @@ describe('SettingsAPI Functions', () => {
         };
 
         const errors = global.validateEventFilters(validFilters);
-        
+
         expect(errors).toHaveLength(0);
       });
 
@@ -252,7 +252,7 @@ describe('SettingsAPI Functions', () => {
         };
 
         const errors = global.validateEventFilters(invalidFilters);
-        
+
         expect(errors).toContain('hide_all_day_events must be a boolean');
       });
 
@@ -263,7 +263,7 @@ describe('SettingsAPI Functions', () => {
         };
 
         const errors = global.validateEventFilters(invalidFilters);
-        
+
         expect(errors).toContain('title_patterns must be an array');
       });
 
@@ -279,7 +279,7 @@ describe('SettingsAPI Functions', () => {
         };
 
         const errors = global.validateEventFilters(invalidFilters);
-        
+
         expect(errors.length).toBeGreaterThan(3);
         expect(errors.some(error => error.includes('must be a non-empty string'))).toBe(true);
         expect(errors.some(error => error.includes('not a valid regex'))).toBe(true);
@@ -295,7 +295,7 @@ describe('SettingsAPI Functions', () => {
         };
 
         const errors = global.validateEventFilters(validFilters);
-        
+
         expect(errors).toHaveLength(0);
       });
 
@@ -308,7 +308,7 @@ describe('SettingsAPI Functions', () => {
         };
 
         const errors = global.validateEventFilters(validFilters);
-        
+
         expect(errors).toHaveLength(0);
       });
     });
@@ -330,7 +330,7 @@ describe('SettingsAPI Functions', () => {
         global.fetch.mockResolvedValueOnce(mockResponse);
 
         const result = await global.fetchWithRetry('/api/test', {});
-        
+
         expect(result).toBe(mockResponse);
         expect(global.fetch).toHaveBeenCalledTimes(1);
       });
@@ -344,7 +344,7 @@ describe('SettingsAPI Functions', () => {
         global.fetch.mockResolvedValueOnce(mockResponse);
 
         const result = await global.fetchWithRetry('/api/test', {});
-        
+
         expect(result).toBe(mockResponse);
         expect(global.fetch).toHaveBeenCalledTimes(1);
       });
@@ -352,7 +352,7 @@ describe('SettingsAPI Functions', () => {
       it('should retry on server errors (5xx)', async () => {
         // Mock delay to resolve immediately
         const delaySpy = jest.spyOn(mockSettingsAPI, 'delay').mockResolvedValue();
-        
+
         const failResponse = {
           ok: false,
           status: 500,
@@ -363,45 +363,45 @@ describe('SettingsAPI Functions', () => {
           status: 200,
           statusText: 'OK'
         };
-        
+
         global.fetch
           .mockResolvedValueOnce(failResponse)
           .mockResolvedValueOnce(failResponse)
           .mockResolvedValueOnce(successResponse);
 
         const result = await global.fetchWithRetry('/api/test', {});
-        
+
         expect(result).toBe(successResponse);
         expect(global.fetch).toHaveBeenCalledTimes(3);
-        
+
         delaySpy.mockRestore();
       }, 15000);
 
       it('should throw error after all retry attempts fail', async () => {
         // Mock delay to resolve immediately
         const delaySpy = jest.spyOn(mockSettingsAPI, 'delay').mockResolvedValue();
-        
+
         const error = new Error('Network error');
         global.fetch.mockRejectedValue(error);
 
         await expect(global.fetchWithRetry('/api/test', {})).rejects.toThrow('Network error');
         expect(global.fetch).toHaveBeenCalledTimes(3);
-        
+
         delaySpy.mockRestore();
       }, 15000);
 
       it('should implement exponential backoff delay', async () => {
         const error = new Error('Network error');
         global.fetch.mockRejectedValue(error);
-        
+
         const delaySpy = jest.spyOn(mockSettingsAPI, 'delay').mockResolvedValue();
-        
+
         try {
           await global.fetchWithRetry('/api/test', {});
         } catch (e) {
           // Expected to fail
         }
-        
+
         expect(delaySpy).toHaveBeenCalledWith(1000); // First retry delay
         expect(delaySpy).toHaveBeenCalledWith(2000); // Second retry delay
       }, 15000);
@@ -412,37 +412,37 @@ describe('SettingsAPI Functions', () => {
     describe('when creating delays for retry logic', () => {
       it('should return a promise', () => {
         const result = global.delay(100);
-        
+
         expect(result).toBeInstanceOf(Promise);
       });
 
       it('should resolve after specified time', async () => {
         const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
-        
+
         const delayPromise = global.delay(100);
-        
+
         // Fast-forward time
         jest.advanceTimersByTime(100);
-        
+
         await delayPromise;
-        
+
         expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 100);
-        
+
         setTimeoutSpy.mockRestore();
       }, 5000);
 
       it('should handle zero delay', async () => {
         const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
-        
+
         const delayPromise = global.delay(0);
-        
+
         // Fast-forward time
         jest.advanceTimersByTime(0);
-        
+
         await delayPromise;
-        
+
         expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 0);
-        
+
         setTimeoutSpy.mockRestore();
       }, 5000);
     });

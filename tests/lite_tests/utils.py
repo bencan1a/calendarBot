@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 
 def find_free_port() -> int:
     """Find an available TCP port on localhost.
-    
+
     Returns:
         Available port number
-        
+
     Raises:
         OSError: If no free port can be found
     """
@@ -40,30 +40,30 @@ def find_free_port() -> int:
 
 def start_simple_http_server(path: Path, port: int) -> subprocess.Popen:
     """Start a simple HTTP server serving files from the given path.
-    
+
     Args:
         path: Directory to serve files from
         port: Port to bind the server to
-        
+
     Returns:
         Subprocess handle for the HTTP server
-        
+
     Raises:
         FileNotFoundError: If path doesn't exist
         OSError: If server fails to start
     """
     if not path.exists():
         raise FileNotFoundError(f"Path {path} does not exist")
-    
+
     # Use Python's built-in HTTP server module
     cmd = [
         "python", "-m", "http.server", str(port),
         "--bind", "127.0.0.1",
         "--directory", str(path)
     ]
-    
+
     logger.debug("Starting HTTP server: %s", " ".join(cmd))
-    
+
     # Start the server with output redirected to avoid noise
     process = subprocess.Popen(
         cmd,
@@ -71,10 +71,10 @@ def start_simple_http_server(path: Path, port: int) -> subprocess.Popen:
         stderr=subprocess.PIPE,
         cwd=str(path)
     )
-    
+
     # Give the server a moment to start
     time.sleep(0.5)
-    
+
     # Check if the process started successfully
     if process.poll() is not None:
         stdout, stderr = process.communicate()
@@ -82,52 +82,52 @@ def start_simple_http_server(path: Path, port: int) -> subprocess.Popen:
             f"HTTP server failed to start. Exit code: {process.returncode}. "
             f"Stderr: {stderr.decode()}"
         )
-    
+
     return process
 
 
 def start_calendarbot_lite(port: int, env_overrides: Dict[str, str]) -> subprocess.Popen:
     """Start calendarbot_lite server as a subprocess.
-    
+
     Args:
         port: Port for the calendarbot_lite server
         env_overrides: Environment variables to set for the process
-        
+
     Returns:
         Subprocess handle for calendarbot_lite server
-        
+
     Raises:
         OSError: If server fails to start
     """
     env = os.environ.copy()
     env.update(env_overrides)
-    
+
     cmd = ["python", "-m", "calendarbot_lite", "--port", str(port)]
-    
+
     logger.debug("Starting calendarbot_lite: %s", " ".join(cmd))
     logger.debug("Environment overrides: %s", env_overrides)
-    
+
     process = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=env
     )
-    
+
     return process
 
 
 def wait_for_whats_next(port: int, timeout: float = 30.0, retry_interval: float = 1.0) -> Dict[str, Any]:
     """Wait for whats-next endpoint to be ready and return response.
-    
+
     Args:
         port: Port of the calendarbot_lite server
         timeout: Maximum time to wait in seconds
         retry_interval: Time between retry attempts in seconds
-        
+
     Returns:
         JSON response from whats-next endpoint
-        
+
     Raises:
         TimeoutError: If endpoint doesn't become ready within timeout
         Exception: If endpoint returns error or invalid JSON
@@ -135,7 +135,7 @@ def wait_for_whats_next(port: int, timeout: float = 30.0, retry_interval: float 
     url = f"http://127.0.0.1:{port}/api/whats-next"
     start_time = time.time()
     last_error = None
-    
+
     while time.time() - start_time < timeout:
         try:
             with urlopen(url, timeout=10) as response:
@@ -145,13 +145,13 @@ def wait_for_whats_next(port: int, timeout: float = 30.0, retry_interval: float 
                     return data
                 else:
                     last_error = f"HTTP {response.status}: {response.reason}"
-                    
+
         except Exception as e:
             last_error = str(e)
             logger.debug("Waiting for whats-next endpoint (attempt failed: %s)", last_error)
-        
+
         time.sleep(retry_interval)
-    
+
     raise TimeoutError(
         f"whats-next endpoint not ready after {timeout}s. Last error: {last_error}"
     )
@@ -159,11 +159,11 @@ def wait_for_whats_next(port: int, timeout: float = 30.0, retry_interval: float 
 
 def compare_expected_actual(expected: Dict[str, Any], actual: Dict[str, Any]) -> Tuple[bool, Dict[str, Any]]:
     """Compare expected vs actual test results.
-    
+
     Args:
         expected: Expected test result structure
         actual: Actual API response from whats-next
-        
+
     Returns:
         Tuple of (pass_bool, diff_structure)
     """
@@ -174,7 +174,7 @@ def compare_expected_actual(expected: Dict[str, Any], actual: Dict[str, Any]) ->
         "missing_fields": [],
         "extra_fields": [],
     }
-    
+
     # Support two schemas: legacy 'events' array and current 'meeting' object.
     if "meeting" in expected or "meeting" in actual:
         expected_meeting = expected.get("meeting", {})
@@ -235,39 +235,39 @@ def compare_expected_actual(expected: Dict[str, Any], actual: Dict[str, Any]) ->
                         )
                 except Exception as e:
                     diff_struct["differences"].append(f"Failed to compare meeting duration_seconds: {e}")
-        
+
         # Top-level key checks
         expected_keys = set(expected.keys())
         actual_keys = set(actual.keys())
         diff_struct["missing_fields"] = list(expected_keys - actual_keys)
         diff_struct["extra_fields"] = list(actual_keys - expected_keys)
-        
+
         has_differences = len(diff_struct["differences"]) > 0 or len(diff_struct["missing_fields"]) > 0
         return (not has_differences), diff_struct
 
     # Fallback to legacy 'events' array comparison
     expected_events = expected.get("events", [])
     actual_events = actual.get("events", [])
-    
+
     if len(expected_events) != len(actual_events):
         diff_struct["differences"].append(
             f"Event count mismatch: expected {len(expected_events)}, got {len(actual_events)}"
         )
-    
+
     # Compare individual events
     for i, expected_event in enumerate(expected_events):
         if i >= len(actual_events):
             diff_struct["differences"].append(f"Missing event at index {i}: {expected_event}")
             continue
-            
+
         actual_event = actual_events[i]
-        
+
         # Compare key fields
         for field in ["start_datetime", "end_datetime", "summary", "uid"]:
             if field in expected_event:
                 expected_val = expected_event[field]
                 actual_val = actual_event.get(field)
-                
+
                 if field.endswith("_datetime"):
                     # Normalize datetime comparison
                     if not _datetime_matches(expected_val, actual_val):
@@ -279,47 +279,47 @@ def compare_expected_actual(expected: Dict[str, Any], actual: Dict[str, Any]) ->
                         diff_struct["differences"].append(
                             f"Event {i} {field} mismatch: expected {expected_val}, got {actual_val}"
                         )
-    
+
     # Check for missing/extra fields in top-level response
     expected_keys = set(expected.keys())
     actual_keys = set(actual.keys())
-    
+
     diff_struct["missing_fields"] = list(expected_keys - actual_keys)
     diff_struct["extra_fields"] = list(actual_keys - expected_keys)
-    
+
     # Determine if test passes
     has_differences = (
         len(diff_struct["differences"]) > 0 or
         len(diff_struct["missing_fields"]) > 0
     )
-    
+
     pass_bool = not has_differences
-    
+
     return pass_bool, diff_struct
 
 
 def _datetime_matches(expected: str, actual: Optional[str]) -> bool:
     """Compare datetime strings with normalization.
-    
+
     Args:
         expected: Expected datetime string
         actual: Actual datetime string (may be None)
-        
+
     Returns:
         True if datetimes match when normalized
     """
     if actual is None:
         return False
-    
+
     try:
         # Normalize both to UTC for comparison
         expected_dt = normalize_datetime_to_utc(expected)
         actual_dt = normalize_datetime_to_utc(actual)
-        
+
         # Allow small time differences (up to 1 minute) to account for processing delays
         diff_seconds = abs((expected_dt - actual_dt).total_seconds())
         return diff_seconds <= 60.0
-        
+
     except Exception as e:
         logger.warning("Failed to parse datetimes for comparison: %s", e)
         return False
@@ -327,13 +327,13 @@ def _datetime_matches(expected: str, actual: Optional[str]) -> bool:
 
 def normalize_datetime_to_utc(iso_str: str) -> datetime:
     """Normalize ISO 8601 datetime string to UTC datetime object.
-    
+
     Args:
         iso_str: ISO 8601 datetime string (with or without timezone)
-        
+
     Returns:
         UTC datetime object
-        
+
     Raises:
         ValueError: If datetime string cannot be parsed
     """
@@ -347,17 +347,17 @@ def normalize_datetime_to_utc(iso_str: str) -> datetime:
         else:
             # Assume UTC if no timezone specified
             dt = datetime.fromisoformat(iso_str).replace(tzinfo=timezone.utc)
-        
+
         # Convert to UTC
         return dt.astimezone(timezone.utc)
-        
+
     except Exception as e:
         raise ValueError(f"Cannot parse datetime '{iso_str}': {e}") from e
 
 
 def cleanup_processes(*processes: subprocess.Popen) -> None:
     """Gracefully terminate subprocess handles.
-    
+
     Args:
         *processes: Variable number of subprocess.Popen objects to clean up
     """

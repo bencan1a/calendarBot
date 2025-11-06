@@ -22,7 +22,7 @@ class TestCreateParser:
     def test_create_parser_when_called_then_returns_parser(self) -> None:
         """Test parser creation returns ArgumentParser instance."""
         parser = _create_parser()
-        
+
         assert parser is not None
         assert parser.prog == "calendarbot_lite"
         assert parser.description is not None
@@ -31,7 +31,7 @@ class TestCreateParser:
     def test_create_parser_when_called_then_has_port_argument(self) -> None:
         """Test parser includes --port argument."""
         parser = _create_parser()
-        
+
         # Parse with port argument
         args = parser.parse_args(["--port", "3000"])
         assert args.port == 3000
@@ -39,14 +39,14 @@ class TestCreateParser:
     def test_create_parser_when_no_args_then_port_is_none(self) -> None:
         """Test parser when no arguments provided."""
         parser = _create_parser()
-        
+
         args = parser.parse_args([])
         assert args.port is None
 
     def test_create_parser_when_invalid_port_then_raises_error(self) -> None:
         """Test parser rejects non-integer port values."""
         parser = _create_parser()
-        
+
         with pytest.raises(SystemExit):
             parser.parse_args(["--port", "invalid"])
 
@@ -63,10 +63,10 @@ class TestMain:
         mock_run_server = Mock()
         monkeypatch.setattr("calendarbot_lite.__main__.run_server", mock_run_server)
         monkeypatch.setattr("sys.argv", ["calendarbot_lite"])
-        
+
         with pytest.raises(SystemExit) as exc_info:
             main()
-        
+
         assert exc_info.value.code == 0
         mock_run_server.assert_called_once()
 
@@ -77,10 +77,10 @@ class TestMain:
         mock_run_server = Mock()
         monkeypatch.setattr("calendarbot_lite.__main__.run_server", mock_run_server)
         monkeypatch.setattr("sys.argv", ["calendarbot_lite", "--port", "5000"])
-        
+
         with pytest.raises(SystemExit):
             main()
-        
+
         call_args = mock_run_server.call_args[0][0]
         assert isinstance(call_args, Namespace)
         assert call_args.port == 5000
@@ -92,10 +92,10 @@ class TestMain:
         mock_run_server = Mock(side_effect=NotImplementedError("Server not ready"))
         monkeypatch.setattr("calendarbot_lite.__main__.run_server", mock_run_server)
         monkeypatch.setattr("sys.argv", ["calendarbot_lite"])
-        
+
         with pytest.raises(SystemExit) as exc_info:
             main()
-        
+
         assert exc_info.value.code == 0
         captured = capsys.readouterr()
         assert "calendarbot_lite server is not implemented yet" in captured.out
@@ -108,10 +108,10 @@ class TestMain:
         mock_run_server = Mock(side_effect=NotImplementedError("Test error"))
         monkeypatch.setattr("calendarbot_lite.__main__.run_server", mock_run_server)
         monkeypatch.setattr("sys.argv", ["calendarbot_lite"])
-        
+
         with pytest.raises(SystemExit):
             main()
-        
+
         captured = capsys.readouterr()
         assert "To continue development:" in captured.out
         assert "calendarbot_lite.api.server" in captured.out
@@ -123,10 +123,10 @@ class TestMain:
         mock_run_server = Mock()
         monkeypatch.setattr("calendarbot_lite.__main__.run_server", mock_run_server)
         monkeypatch.setattr("sys.argv", ["calendarbot_lite"])
-        
+
         with pytest.raises(SystemExit) as exc_info:
             main()
-        
+
         assert exc_info.value.code == 0
         call_args = mock_run_server.call_args[0][0]
         assert call_args.port is None  # Default behavior
@@ -142,10 +142,10 @@ class TestMainIntegration:
     ) -> None:
         """Test main exits with non-zero on parser error."""
         monkeypatch.setattr("sys.argv", ["calendarbot_lite", "--port", "invalid"])
-        
+
         with pytest.raises(SystemExit) as exc_info:
             main()
-        
+
         assert exc_info.value.code != 0
 
     def test_main_when_called_creates_parser_and_calls_run_server(
@@ -155,14 +155,14 @@ class TestMainIntegration:
         mock_run_server = Mock()
         mock_parser = Mock()
         mock_parser.parse_args.return_value = Namespace(port=8080)
-        
+
         monkeypatch.setattr("calendarbot_lite.__main__.run_server", mock_run_server)
         monkeypatch.setattr("calendarbot_lite.__main__._create_parser", lambda: mock_parser)
         monkeypatch.setattr("sys.argv", ["calendarbot_lite", "--port", "8080"])
-        
+
         with pytest.raises(SystemExit) as exc_info:
             main()
-        
+
         assert exc_info.value.code == 0
         mock_parser.parse_args.assert_called_once()
         mock_run_server.assert_called_once()
@@ -180,7 +180,7 @@ class TestMainEdgeCases:
         mock_run_server = Mock(side_effect=ValueError("Unexpected error"))
         monkeypatch.setattr("calendarbot_lite.__main__.run_server", mock_run_server)
         monkeypatch.setattr("sys.argv", ["calendarbot_lite"])
-        
+
         with pytest.raises(ValueError, match="Unexpected error"):
             main()
 
@@ -191,6 +191,6 @@ class TestMainEdgeCases:
         mock_run_server = Mock(side_effect=KeyboardInterrupt())
         monkeypatch.setattr("calendarbot_lite.__main__.run_server", mock_run_server)
         monkeypatch.setattr("sys.argv", ["calendarbot_lite"])
-        
+
         with pytest.raises(KeyboardInterrupt):
             main()

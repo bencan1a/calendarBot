@@ -1,6 +1,6 @@
 /**
  * CalendarBot Settings Panel Controller
- * 
+ *
  * Main controller for the settings panel that coordinates between
  * gesture handler, API client, and form management with auto-save.
  */
@@ -98,15 +98,15 @@ class SettingsPanel {
                     <h2 id="settings-title" class="settings-title">Settings</h2>
                     <button class="settings-close" aria-label="Close settings" type="button">×</button>
                 </div>
-                
+
                 <div class="settings-content">
                     <!-- Status Messages -->
                     <div id="settings-status" class="settings-status settings-hidden" role="alert"></div>
-                    
+
                     <!-- Event Filtering Section -->
                     <section class="settings-section">
                         <h3 class="settings-section-title">Event Filtering</h3>
-                        
+
                         <!-- All-day Events Toggle -->
                         <div class="settings-field">
                             <label class="settings-toggle">
@@ -118,14 +118,14 @@ class SettingsPanel {
                                 Hide calendar blocks, vacation days, and other all-day events from view
                             </div>
                         </div>
-                        
+
                         <!-- Title Pattern Filters -->
                         <div class="settings-field">
                             <label class="settings-label" for="pattern-input">Meeting Title Filters</label>
                             <div class="settings-description settings-mb-md">
                                 Filter out meetings by title patterns. Use exact text or regular expressions.
                             </div>
-                            
+
                             <!-- Quick Add Patterns -->
                             <div class="quick-add-patterns">
                                 <button type="button" class="quick-add-button" data-pattern="Daily Standup">+ Daily Standup</button>
@@ -133,7 +133,7 @@ class SettingsPanel {
                                 <button type="button" class="quick-add-button" data-pattern="Break">+ Break</button>
                                 <button type="button" class="quick-add-button" data-pattern="Review">+ Review</button>
                             </div>
-                            
+
                             <!-- Custom Pattern Input -->
                             <div class="settings-field settings-mt-md">
                                 <div style="display: flex; gap: 8px;">
@@ -147,16 +147,16 @@ class SettingsPanel {
                                 </div>
                                 <div id="pattern-validation" class="settings-description" style="color: var(--settings-error); margin-top: 4px; display: none;"></div>
                             </div>
-                            
+
                             <!-- Pattern List -->
                             <div id="pattern-list" class="filter-pattern-list settings-mt-md"></div>
                         </div>
                     </section>
-                    
+
                     <!-- Display Settings Section -->
                     <section class="settings-section">
                         <h3 class="settings-section-title">Display Preferences</h3>
-                        
+
                         <!-- Default Layout -->
                         <div class="settings-field">
                             <label class="settings-label">Default Layout</label>
@@ -175,7 +175,7 @@ class SettingsPanel {
                                 </label>
                             </div>
                         </div>
-                        
+
                         <!-- Display Density -->
                         <div class="settings-field">
                             <label class="settings-label" for="display-density">Information Density</label>
@@ -188,7 +188,7 @@ class SettingsPanel {
                                 Controls how much detail is shown and spacing between elements
                             </div>
                         </div>
-                        
+
                         <!-- Auto-refresh Interval (WhatsNextView only) -->
                         <div class="settings-field" id="auto-refresh-field" style="display: none;">
                             <label class="settings-label" for="auto-refresh-interval">Auto-refresh Frequency</label>
@@ -204,7 +204,7 @@ class SettingsPanel {
                             </div>
                         </div>
                     </section>
-                    
+
                     <!-- Actions -->
                     <section class="settings-section">
                         <div style="display: flex; gap: 12px; justify-content: space-between; flex-wrap: wrap;">
@@ -218,7 +218,7 @@ class SettingsPanel {
                             </div>
                         </div>
                     </section>
-                    
+
                     <!-- Save Status -->
                     <div id="save-status" class="settings-text-center settings-mt-md" style="font-size: var(--text-sm); color: var(--settings-text-secondary);">
                         <span id="save-status-text">Changes saved automatically</span>

@@ -1,7 +1,7 @@
 # Alexa Integration Component
 
-**Component:** 2 of 5 - Alexa Voice Interface  
-**Purpose:** Voice interface handlers, request validation, response generation, SSML rendering, caching  
+**Component:** 2 of 5 - Alexa Voice Interface
+**Purpose:** Voice interface handlers, request validation, response generation, SSML rendering, caching
 **Last Updated:** 2025-11-03
 
 ---
@@ -74,7 +74,7 @@ Core intent handler implementations with shared base class.
   - [`validate_params()`](../../calendarbot_lite/alexa_handlers.py:79) - Pydantic-based parameter validation
   - [`check_auth()`](../../calendarbot_lite/alexa_handlers.py:97) - Bearer token authentication
   - `handle()` - Abstract method for request processing
-  
+
 **Handler Implementations:**
 - `NextMeetingHandler` - "What's my next meeting?" intent
 - `TimeUntilHandler` - "How long until my next meeting?" intent
@@ -196,7 +196,7 @@ Speech Synthesis Markup Language (SSML) generation with urgency-aware formatting
   - Urgency-based pacing (fast for imminent, normal for distant)
   - Emphasis on meeting subject
   - Location and online meeting indicators
-  
+
 - `render_time_until_ssml()` - Time-until SSML with duration emphasis
 - `render_done_for_day_ssml()` - End-of-day SSML
 - `render_launch_summary_ssml()` - Launch summary SSML
@@ -341,10 +341,10 @@ Base class pattern used by all Alexa handlers:
 ```python
 class AlexaEndpointBase(ABC):
     """Base class for Alexa endpoints with common logic."""
-    
+
     # Subclass must specify parameter model
     param_model: type[BaseModel] = AlexaRequestParams
-    
+
     def __init__(
         self,
         bearer_token: Optional[str],
@@ -355,15 +355,15 @@ class AlexaEndpointBase(ABC):
     ):
         """Initialize with dependencies."""
         ...
-    
+
     def validate_params(self, request: Any) -> BaseModel:
         """Validate query params using param_model."""
         ...
-    
+
     def check_auth(self, request: Any) -> None:
         """Check bearer token authentication."""
         ...
-    
+
     @abstractmethod
     async def handle(
         self,
@@ -385,13 +385,13 @@ All Alexa responses follow this pattern:
     "meeting": {...},           # NextMeeting
     "seconds_until_start": 300, # TimeUntil
     "has_meetings_today": True, # DoneForDay
-    
+
     # Voice output (always present)
     "speech_text": "Your next meeting is Team Standup in 5 minutes",
-    
+
     # Enhanced speech (optional, if SSML generated)
     "ssml": "<speak><prosody rate=\"fast\">...</prosody></speak>",
-    
+
     # Visual display (optional)
     "card": {
         "title": "Next Meeting",
@@ -547,28 +547,28 @@ from .alexa_registry import AlexaHandlerRegistry
 )
 class CustomHandler(AlexaEndpointBase):
     """Handler for custom intent."""
-    
+
     param_model = AlexaRequestParams  # Or custom params class
-    
+
     def __init__(self, bearer_token, time_provider, skipped_store, **kwargs):
         super().__init__(bearer_token, time_provider, skipped_store, **kwargs)
         # Custom initialization
-    
+
     async def handle(self, request, event_window_ref, window_lock):
         """Process custom intent."""
         # Validate params
         params = self.validate_params(request)
-        
+
         # Check auth
         self.check_auth(request)
-        
+
         # Read event window
         async with window_lock:
             window = tuple(event_window_ref[0])
-        
+
         # Process events
         result = process_custom_logic(window, params)
-        
+
         # Return response
         return {
             "custom_data": result,
@@ -591,17 +591,17 @@ async def test_custom_handler_when_valid_request_then_returns_response():
         time_provider=lambda: datetime.now(timezone.utc),
         skipped_store=None
     )
-    
+
     request = MockRequest(
         query={"tz": "UTC"},
         headers={"Authorization": "Bearer test_token"}
     )
-    
+
     event_window_ref = [(test_event1, test_event2)]
     window_lock = asyncio.Lock()
-    
+
     response = await handler.handle(request, event_window_ref, window_lock)
-    
+
     assert response["speech_text"] == "Expected text"
     assert "custom_data" in response
 ```
@@ -614,16 +614,16 @@ async def test_custom_handler_when_valid_request_then_returns_response():
 # In alexa_precompute_stages.py
 class CustomPrecomputeStage:
     """Precompute custom handler responses."""
-    
+
     def __init__(self, time_provider, skipped_store):
         self.time_provider = time_provider
         self.skipped_store = skipped_store
         self._name = "CustomPrecompute"
-    
+
     @property
     def name(self) -> str:
         return self._name
-    
+
     async def process(self, context: ProcessingContext) -> ProcessingResult:
         """Precompute custom response."""
         result = ProcessingResult(
@@ -631,19 +631,19 @@ class CustomPrecomputeStage:
             events_in=len(context.events),
             events_out=len(context.events),
         )
-        
+
         # Process events
         custom_data = compute_custom_data(context.events)
-        
+
         # Store in extra
         if "precomputed_responses" not in context.extra:
             context.extra["precomputed_responses"] = {}
-        
+
         context.extra["precomputed_responses"]["custom"] = {
             "custom_data": custom_data,
             "speech_text": f"Custom result: {custom_data}"
         }
-        
+
         return result
 ```
 
@@ -658,7 +658,7 @@ async def handle(self, request, event_window_ref, window_lock):
         if precomputed:
             logger.info("Using precomputed custom response")
             return precomputed
-    
+
     # Fallback to real-time processing
     return await self._process_realtime(request, event_window_ref, window_lock)
 ```
@@ -674,43 +674,43 @@ def render_custom_ssml(
     config: Optional[dict[str, Any]] = None
 ) -> Optional[str]:
     """Render custom SSML markup.
-    
+
     Args:
         data: Custom data dictionary
         config: Optional configuration overrides
-    
+
     Returns:
         SSML string or None on error
     """
     try:
         cfg = {**DEFAULT_CONFIG, **(config or {})}
-        
+
         if not cfg.get("enable_ssml", True):
             return None
-        
+
         # Build SSML content
         parts = ['<speak>']
-        
+
         if data.get("is_urgent"):
             parts.append('<prosody rate="fast">')
-        
+
         parts.append('<emphasis level="strong">')
         parts.append(_escape_text_for_ssml(data.get("title", "")))
         parts.append('</emphasis>')
-        
+
         if data.get("is_urgent"):
             parts.append('</prosody>')
-        
+
         parts.append('</speak>')
-        
+
         ssml = "".join(parts)
-        
+
         # Validate
         if not _validate_ssml(ssml, cfg):
             return None
-        
+
         return ssml
-        
+
     except Exception:
         logger.exception("Custom SSML generation failed")
         return None
@@ -744,7 +744,7 @@ from datetime import datetime, timezone
 @pytest.mark.asyncio
 async def test_next_meeting_handler_when_has_meeting_then_returns_meeting():
     """Test NextMeetingHandler with valid meeting."""
-    
+
     # Setup
     handler = NextMeetingHandler(
         bearer_token="test_token",
@@ -753,12 +753,12 @@ async def test_next_meeting_handler_when_has_meeting_then_returns_meeting():
         response_cache=None,
         precompute_getter=None,
     )
-    
+
     # Mock request
     request = Mock()
     request.query = {"tz": "UTC"}
     request.headers = {"Authorization": "Bearer test_token"}
-    
+
     # Mock event window
     event = LiteCalendarEvent(
         id="test-id",
@@ -768,10 +768,10 @@ async def test_next_meeting_handler_when_has_meeting_then_returns_meeting():
     )
     event_window_ref = [(event,)]
     window_lock = asyncio.Lock()
-    
+
     # Execute
     response = await handler.handle(request, event_window_ref, window_lock)
-    
+
     # Assert
     assert response["meeting"] is not None
     assert response["meeting"]["subject"] == "Test Meeting"
@@ -812,9 +812,9 @@ class EventCountRequestParams(BaseModel):
 )
 class EventCountHandler(AlexaEndpointBase):
     """Handler for event count queries."""
-    
+
     param_model = EventCountRequestParams
-    
+
     async def handle(
         self,
         request: Any,
@@ -824,42 +824,42 @@ class EventCountHandler(AlexaEndpointBase):
         """Get count of events in next N hours."""
         # Validate params
         params = self.validate_params(request)
-        
+
         # Check auth
         self.check_auth(request)
-        
+
         # Get current time
         now = self.time_provider()
-        
+
         # Calculate time range
         cutoff = now + timedelta(hours=params.hours_ahead)
-        
+
         # Read event window
         async with window_lock:
             window = tuple(event_window_ref[0])
-        
+
         # Count events in range
         count = 0
         for event in window:
             if not isinstance(event.start.date_time, datetime):
                 continue
-            
+
             start_dt = event.start.date_time
             if start_dt >= now and start_dt < cutoff:
                 # Check skip status
                 if self.skipped_store and self.skipped_store.is_skipped(event.id):
                     continue
                 count += 1
-        
+
         # Generate response
         hours_text = f"{params.hours_ahead} hours" if params.hours_ahead != 1 else "1 hour"
         speech_text = f"You have {count} meetings in the next {hours_text}"
-        
+
         if count == 0:
             speech_text = f"You have no meetings in the next {hours_text}"
         elif count == 1:
             speech_text = f"You have 1 meeting in the next {hours_text}"
-        
+
         return {
             "event_count": count,
             "hours_ahead": params.hours_ahead,
@@ -878,13 +878,13 @@ def render_custom_announcement_ssml(
     """Render SSML for event announcement with urgency awareness."""
     try:
         cfg = {**DEFAULT_CONFIG, **(config or {})}
-        
+
         if not cfg.get("enable_ssml", True):
             return None
-        
+
         seconds_until = event.get("seconds_until_start", 3600)
         subject = event.get("subject", "Meeting")
-        
+
         # Determine urgency
         if seconds_until < 300:  # <5 minutes
             rate = "fast"
@@ -895,19 +895,19 @@ def render_custom_announcement_ssml(
         else:
             rate = "medium"
             emphasis = "reduced"
-        
+
         # Build SSML
         parts = ['<speak>']
-        
+
         # Urgent meetings get faster pacing
         if rate != "medium":
             parts.append(f'<prosody rate="{rate}">')
-        
+
         # Add emphasis on subject
         parts.append(f'<emphasis level="{emphasis}">')
         parts.append(_escape_text_for_ssml(subject))
         parts.append('</emphasis>')
-        
+
         # Add timing
         if seconds_until < 300:
             parts.append(' <break time="0.3s"/> ')
@@ -916,21 +916,21 @@ def render_custom_announcement_ssml(
             duration = event.get("duration_spoken", "")
             if duration:
                 parts.append(f' {_escape_text_for_ssml(duration)}')
-        
+
         if rate != "medium":
             parts.append('</prosody>')
-        
+
         parts.append('</speak>')
-        
+
         ssml = "".join(parts)
-        
+
         # Validate length
         if len(ssml) > cfg.get("ssml_max_chars", 500):
             logger.warning("SSML too long, truncating")
             return None
-        
+
         return ssml
-        
+
     except Exception:
         logger.exception("SSML generation failed")
         return None
@@ -944,29 +944,29 @@ async def handle(self, request, event_window_ref, window_lock):
     # Validate and auth
     params = self.validate_params(request)
     self.check_auth(request)
-    
+
     # Check cache
     if self.response_cache:
         cache_key = self.response_cache.generate_key(
             handler_name=self.__class__.__name__,
             params={"tz": params.tz or "UTC"}
         )
-        
+
         cached = self.response_cache.get(cache_key)
         if cached:
             logger.debug("Cache hit for %s", cache_key)
             return cached
-    
+
     # Process request
     response = await self._process_request(
         params, event_window_ref, window_lock
     )
-    
+
     # Cache response
     if self.response_cache:
         self.response_cache.set(cache_key, response)
         logger.debug("Cached response for %s", cache_key)
-    
+
     return response
 ```
 

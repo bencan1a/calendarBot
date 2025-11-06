@@ -525,3 +525,94 @@ jobs:
         path: |
           coverage.xml
         retention-days: 7
+
+  # STAGE 6: Pi Zero 2W Performance Gate (resource-constrained validation)
+  pi-performance-gate:
+    name: Pi Zero 2W Performance Validation
+    runs-on: ubuntu-latest
+    needs: [critical-path]
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
+
+    - name: Create virtual environment
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
+
+    - name: Set venv in PATH
+      run: |
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+
+    - name: Install dependencies
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: |
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -e .[dev]
+
+    - name: Run Pi Zero 2W performance benchmark (resource-constrained)
+      timeout-minutes: 10
+      run: |
+        echo "========================================"
+        echo "Pi Zero 2W Performance Gate"
+        echo "========================================"
+        echo "Platform: x86_64 with Pi Zero 2W resource constraints"
+        echo "CPUs: 1.0 core"
+        echo "Memory: 512MB"
+        echo "Note: Running on native x86_64 with resource limits"
+        echo "      (ARM emulation too slow for CI; thresholds adjusted)"
+        echo "========================================"
+        echo ""
+
+        # Run benchmark with resource constraints using systemd-run
+        # This constrains CPU and memory without Docker overhead
+        echo "🚀 Running performance benchmark with resource limits..."
+        echo ""
+
+        systemd-run --user --scope \
+          -p CPUQuota=100% \
+          -p MemoryMax=512M \
+          -p MemorySwapMax=0 \
+          venv/bin/python tests/ci_performance_benchmark.py --run fifty --output pi_perf_results.json
+
+        echo ""
+        echo "📊 Performance Results:"
+        cat pi_perf_results.json | python -m json.tool
+
+    - name: Validate performance thresholds
+      run: |
+        echo ""
+        echo "========================================"
+        echo "Validating Pi Zero 2W Performance"
+        echo "========================================"
+
+        venv/bin/python scripts/validate_pi_perf.py pi_perf_results.json \
+          --max-parse-time 200ms \
+          --max-memory-delta 50MB \
+          --max-total-memory 150MB \
+          --max-overall-time 250ms \
+          --verbose
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v4
+      if: always() && hashFiles('pi_perf_results.json') != ''
+      with:
+        name: pi-performance-results
+        path: pi_perf_results.json
+        retention-days: 30

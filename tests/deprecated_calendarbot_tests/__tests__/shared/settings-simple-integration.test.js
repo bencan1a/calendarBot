@@ -80,7 +80,7 @@ describe('settings-panel simple integration', () => {
         // Test panel toggle
         const toggleBtn = document.querySelector('.settings-toggle');
         const panel = document.querySelector('#settings-panel');
-        
+
         if (toggleBtn) {
             toggleBtn.click();
             // Panel might toggle open/closed state
@@ -102,23 +102,23 @@ describe('settings-panel simple integration', () => {
                 // Trigger input events
                 input.focus();
                 input.blur();
-                
+
                 if (input.type === 'text') {
                     input.value = 'test value';
                     input.dispatchEvent(new Event('input'));
                 }
-                
+
                 if (input.type === 'number') {
                     input.value = '10';
                     input.dispatchEvent(new Event('input'));
                     input.dispatchEvent(new Event('change'));
                 }
-                
+
                 if (input.type === 'checkbox') {
                     input.checked = !input.checked;
                     input.dispatchEvent(new Event('change'));
                 }
-                
+
                 if (input.tagName === 'SELECT') {
                     input.value = 'dark';
                     input.dispatchEvent(new Event('change'));
@@ -136,13 +136,13 @@ describe('settings-panel simple integration', () => {
             regexInput.value = '.*test.*';
             regexInput.dispatchEvent(new Event('input'));
             regexInput.dispatchEvent(new Event('blur'));
-            
+
             // Test invalid regex
             regexInput.value = '[unclosed';
             regexInput.dispatchEvent(new Event('input'));
             regexInput.dispatchEvent(new Event('blur'));
         }
-        
+
         expect(true).toBe(true);
     });
 
@@ -154,12 +154,12 @@ describe('settings-panel simple integration', () => {
             const intervalInput = document.querySelector('#refresh-interval');
             const autoRefreshInput = document.querySelector('#auto-refresh');
             const themeSelect = document.querySelector('#theme-selector');
-            
+
             if (regexInput) regexInput.value = '.*meeting.*';
             if (intervalInput) intervalInput.value = '10';
             if (autoRefreshInput) autoRefreshInput.checked = false;
             if (themeSelect) themeSelect.value = 'dark';
-            
+
             // Submit form
             form.dispatchEvent(new Event('submit'));
         }
@@ -208,7 +208,7 @@ describe('settings-panel simple integration', () => {
         // Test error scenarios
         if (global.SettingsAPI) {
             global.SettingsAPI.updateSettings.mockRejectedValueOnce(new Error('Save failed'));
-            
+
             try {
                 await global.SettingsAPI.updateSettings({});
             } catch (error) {
@@ -223,7 +223,7 @@ describe('settings-panel simple integration', () => {
             // Simulate validation error
             errorContainer.textContent = 'Invalid regex pattern';
             errorContainer.style.display = 'block';
-            
+
             expect(errorContainer.textContent).toBe('Invalid regex pattern');
         }
     });
@@ -234,7 +234,7 @@ describe('settings-panel simple integration', () => {
             // Simulate save success
             statusContainer.textContent = 'Settings saved successfully';
             statusContainer.style.display = 'block';
-            
+
             expect(statusContainer.textContent).toBe('Settings saved successfully');
         }
     });
@@ -247,13 +247,13 @@ describe('settings-panel simple integration', () => {
 
         focusableElements.forEach(element => {
             element.focus();
-            
+
             // Test Enter key
             element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-            
+
             // Test Tab key
             element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
-            
+
             // Test Escape key
             element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
         });
@@ -265,7 +265,7 @@ describe('settings-panel simple integration', () => {
         // Test ARIA attributes and accessibility
         const settingsPanel = document.querySelector('#settings-panel');
         const toggleBtn = document.querySelector('.settings-toggle');
-        
+
         if (toggleBtn && settingsPanel) {
             // Check for accessibility attributes
             expect(toggleBtn.getAttribute('aria-label')).toBeTruthy();
@@ -278,17 +278,17 @@ describe('settings-panel simple integration', () => {
         // Test responsive behavior
         window.innerWidth = 375; // Mobile width
         window.dispatchEvent(new Event('resize'));
-        
+
         window.innerWidth = 1024; // Desktop width
         window.dispatchEvent(new Event('resize'));
-        
+
         expect(true).toBe(true);
     });
 
     test('form validation states', () => {
         const form = document.querySelector('#settings-form');
         const inputs = form?.querySelectorAll('input, select');
-        
+
         inputs?.forEach(input => {
             // Test various validation states
             input.classList.add('valid');

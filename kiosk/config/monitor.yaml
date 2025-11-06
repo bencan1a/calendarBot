@@ -37,7 +37,7 @@ monitor:
     browser_heartbeat_fail_count: 2
     # Maximum browser restarts per hour before escalating
     max_browser_restarts_per_hour: 4
-    # Maximum service restarts per hour before escalating  
+    # Maximum service restarts per hour before escalating
     max_service_restarts_per_hour: 2
     # Maximum reboots per 24 hours (last resort)
     max_reboots_per_day: 1
@@ -50,7 +50,7 @@ monitor:
     browser_detect_cmd: "pgrep -f 'chromium.*--kiosk' || pgrep -f 'epiphany.*--kiosk'"
     # Command to launch browser (will be executed via shell)
     browser_launch_cmd: |
-      export DISPLAY=:0 && cd /home/{user} && 
+      export DISPLAY=:0 && cd /home/{user} &&
       chromium --no-memcheck --kiosk --enable-low-end-device-mode --noerrdialogs \
         --no-first-run --no-default-browser-check \
         --disable-session-crashed-bubble \
@@ -62,7 +62,7 @@ monitor:
         http://$(hostname -I | awk '{{print $1}}'):8080 &
     # Command to gracefully stop browser
     browser_stop_cmd: "pkill -TERM -f 'chromium.*--kiosk'; sleep 8; pkill -KILL -f 'chromium.*--kiosk' 2>/dev/null || true"
-    # Command to check X server availability  
+    # Command to check X server availability
     x_health_cmd: "DISPLAY=:0 xdpyinfo >/dev/null 2>&1"
     # Systemd unit name for kiosk service
     kiosk_systemd_unit: "calendarbot-kiosk@{user}.service"

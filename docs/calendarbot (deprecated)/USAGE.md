@@ -78,7 +78,7 @@ export CALENDARBOT_LOG_LEVEL="INFO"
 Supports any RFC 5545 compliant calendar:
 
 - **Microsoft Outlook/Office 365**: Published calendar ICS URLs
-- **Google Calendar**: Secret iCal format URLs  
+- **Google Calendar**: Secret iCal format URLs
 - **Apple iCloud Calendar**: Public calendar ICS URLs
 - **CalDAV Servers**: Nextcloud, Radicale, SOGo
 - **Any ICS feed**: Direct `.ics` file URLs
