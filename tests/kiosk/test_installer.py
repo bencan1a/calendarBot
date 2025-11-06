@@ -1006,7 +1006,7 @@ class TestUpdateMode:
 
         # Verify update mode is recognized (flag was processed)
         # The installer should run without error when --update is set
-        assert "Configuration validated" in result.stdout or                "update" in result.stdout.lower()
+        assert "Configuration validated" in result.stdout or "update" in result.stdout.lower()
 
     def test_installer_when_update_in_config_then_enables_update_mode(
         self, installer_harness, basic_config
