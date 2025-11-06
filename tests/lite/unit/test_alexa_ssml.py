@@ -228,142 +228,293 @@ class TestTruncateTitle:
 class TestApplySubstitutions:
     """Tests for _apply_substitutions helper function (Phase 1)."""
 
-    def test_apply_substitutions_when_q1_then_wrapped(self):
-        """Test substitution for Q1."""
+    def test_apply_substitutions_q1_preserves_surrounding_text(self):
+        """Test Q1 substitution preserves context and text structure."""
         text = "Q1 Planning Session"
         result = _apply_substitutions(text)
-        assert '<sub alias="first quarter">Q1</sub>' in result
-        assert "Planning Session" in result
+        # Verify exact output - substitution replaces only Q1
+        assert result == '<sub alias="first quarter">Q1</sub> Planning Session'
 
-    def test_apply_substitutions_when_q4_then_wrapped(self):
-        """Test substitution for Q4."""
-        text = "Q4 Planning"
-        result = _apply_substitutions(text)
-        assert '<sub alias="fourth quarter">Q4</sub>' in result
+    def test_apply_substitutions_all_quarters(self):
+        """Test all quarter abbreviations (Q1-Q4) are substituted correctly."""
+        test_cases = [
+            ("Q1", '<sub alias="first quarter">Q1</sub>'),
+            ("Q2", '<sub alias="second quarter">Q2</sub>'),
+            ("Q3", '<sub alias="third quarter">Q3</sub>'),
+            ("Q4", '<sub alias="fourth quarter">Q4</sub>'),
+        ]
+        for text, expected in test_cases:
+            assert _apply_substitutions(text) == expected
 
-    def test_apply_substitutions_when_1_1_colon_then_wrapped(self):
-        """Test substitution for 1:1 format."""
-        text = "Weekly 1:1 meeting"
-        result = _apply_substitutions(text)
-        assert '<sub alias="one on one">1:1</sub>' in result
+    def test_apply_substitutions_one_on_one_formats(self):
+        """Test both 1:1 and 1-1 formats are substituted."""
+        # Both colon and dash formats should work
+        assert _apply_substitutions("1:1") == '<sub alias="one on one">1:1</sub>'
+        assert _apply_substitutions("1-1") == '<sub alias="one on one">1-1</sub>'
 
-    def test_apply_substitutions_when_1_1_dash_then_wrapped(self):
-        """Test substitution for 1-1 format."""
-        text = "Manager 1-1"
+    def test_apply_substitutions_multiple_occurrences_all_replaced(self):
+        """Test multiple abbreviations are all substituted independently."""
+        text = "Q1 1:1 planning and Q2 review with 1-1 followup"
         result = _apply_substitutions(text)
-        assert '<sub alias="one on one">1-1</sub>' in result
-
-    def test_apply_substitutions_when_multiple_abbrevs_then_all_wrapped(self):
-        """Test substitution with multiple abbreviations."""
-        text = "Q1 1:1 planning and Q2 review"
-        result = _apply_substitutions(text)
+        # Verify all 4 abbreviations are substituted
+        assert result.count("<sub") == 4
         assert '<sub alias="first quarter">Q1</sub>' in result
         assert '<sub alias="one on one">1:1</sub>' in result
         assert '<sub alias="second quarter">Q2</sub>' in result
+        assert '<sub alias="one on one">1-1</sub>' in result
 
-    def test_apply_substitutions_when_no_abbrevs_then_unchanged(self):
-        """Test text without abbreviations."""
-        text = "Regular meeting title"
+    def test_apply_substitutions_word_boundaries_respected(self):
+        """Test substitutions only occur at word boundaries."""
+        # Should NOT substitute Q1 in the middle of a word
+        text = "IQ1000 device"
+        result = _apply_substitutions(text)
+        assert result == text  # No substitution should occur
+
+    def test_apply_substitutions_at_string_boundaries(self):
+        """Test substitutions work at start and end of string."""
+        # At start
+        assert _apply_substitutions("Q1") == '<sub alias="first quarter">Q1</sub>'
+        # At end
+        text = "Planning for Q1"
+        result = _apply_substitutions(text)
+        assert result == 'Planning for <sub alias="first quarter">Q1</sub>'
+
+    def test_apply_substitutions_with_punctuation(self):
+        """Test substitutions work with adjacent punctuation."""
+        text = "Q1, Q2, and Q3."
+        result = _apply_substitutions(text)
+        # Punctuation should be preserved
+        assert result == '<sub alias="first quarter">Q1</sub>, <sub alias="second quarter">Q2</sub>, and <sub alias="third quarter">Q3</sub>.'
+
+    def test_apply_substitutions_preserves_text_without_matches(self):
+        """Test text without abbreviations is returned unchanged."""
+        text = "Regular meeting title with no abbreviations"
         result = _apply_substitutions(text)
         assert result == text
 
-    def test_apply_substitutions_when_custom_config_then_uses_config(self):
-        """Test with custom substitution config."""
-        config = {"substitutions": {"API": "A P I"}}
-        text = "API Review"
-        result = _apply_substitutions(text, config)
-        # Should not substitute API as it's not in default pattern
-        assert "API Review" in result
+    def test_apply_substitutions_empty_string(self):
+        """Test empty string returns empty string."""
+        assert _apply_substitutions("") == ""
 
-    def test_apply_substitutions_when_non_string_then_empty(self):
-        """Test handling non-string input."""
+    def test_apply_substitutions_whitespace_only(self):
+        """Test whitespace-only string is preserved."""
+        assert _apply_substitutions("   ") == "   "
+
+    def test_apply_substitutions_with_custom_substitutions(self):
+        """Test custom substitution config extends default mappings."""
+        # Custom config merges with defaults
+        config = {"substitutions": {"Q1": "quarter one", "Q2": "quarter two"}}
+        text = "Q1 and Q2"
+        result = _apply_substitutions(text, config)
+        # Both should use custom substitutions
+        assert result == '<sub alias="quarter one">Q1</sub> and <sub alias="quarter two">Q2</sub>'
+
+    def test_apply_substitutions_handles_non_string_input(self):
+        """Test non-string input returns empty string."""
         assert _apply_substitutions(None) == ""  # type: ignore
         assert _apply_substitutions(123) == ""  # type: ignore
+        assert _apply_substitutions([]) == ""  # type: ignore
 
 
 class TestWrapWithEmotion:
     """Tests for _wrap_with_emotion helper function (Phase 1)."""
 
-    def test_wrap_with_emotion_when_excited_medium_then_wrapped(self):
-        """Test wrapping with excited emotion at medium intensity."""
-        text = "You're all done for today!"
-        result = _wrap_with_emotion(text, "excited", "medium")
-        assert result == '<amazon:emotion name="excited" intensity="medium">You\'re all done for today!</amazon:emotion>'
+    def test_wrap_with_emotion_default_parameters(self):
+        """Test wrapping with default emotion parameters (excited, medium)."""
+        text = "Great news!"
+        result = _wrap_with_emotion(text)
+        assert result == '<amazon:emotion name="excited" intensity="medium">Great news!</amazon:emotion>'
 
-    def test_wrap_with_emotion_when_excited_low_then_wrapped(self):
-        """Test wrapping with excited emotion at low intensity."""
-        text = "Great news"
+    def test_wrap_with_emotion_all_intensity_levels(self):
+        """Test all valid intensity levels produce correct output."""
+        text = "Test"
+        intensities = ["low", "medium", "high"]
+        for intensity in intensities:
+            result = _wrap_with_emotion(text, "excited", intensity)
+            assert f'intensity="{intensity}"' in result
+            assert 'name="excited"' in result
+            assert ">Test</amazon:emotion>" in result
+
+    def test_wrap_with_emotion_all_emotion_types(self):
+        """Test all valid emotion types produce correct output."""
+        text = "Message"
+        emotions = ["excited", "disappointed", "empathetic"]
+        for emotion in emotions:
+            result = _wrap_with_emotion(text, emotion, "medium")
+            assert f'name="{emotion}"' in result
+            assert 'intensity="medium"' in result
+            assert ">Message</amazon:emotion>" in result
+
+    def test_wrap_with_emotion_preserves_special_characters(self):
+        """Test that special characters in text are preserved."""
+        text = "You're all done & ready!"
+        result = _wrap_with_emotion(text, "excited", "high")
+        # Text should be preserved exactly (no escaping in this function)
+        assert ">You're all done & ready!</amazon:emotion>" in result
+
+    def test_wrap_with_emotion_handles_multiline_text(self):
+        """Test emotion wrapping works with multiline text."""
+        text = "Line 1\nLine 2"
         result = _wrap_with_emotion(text, "excited", "low")
-        assert result == '<amazon:emotion name="excited" intensity="low">Great news</amazon:emotion>'
+        assert result == '<amazon:emotion name="excited" intensity="low">Line 1\nLine 2</amazon:emotion>'
 
-    def test_wrap_with_emotion_when_disappointed_then_wrapped(self):
-        """Test wrapping with disappointed emotion."""
-        text = "Sorry about that"
-        result = _wrap_with_emotion(text, "disappointed", "medium")
-        assert 'name="disappointed"' in result
-        assert 'intensity="medium"' in result
-
-    def test_wrap_with_emotion_when_empty_text_then_unchanged(self):
-        """Test handling empty text."""
+    def test_wrap_with_emotion_empty_string_returns_empty(self):
+        """Test empty string is returned as-is."""
         assert _wrap_with_emotion("") == ""
-        assert _wrap_with_emotion("   ") == "   "
 
-    def test_wrap_with_emotion_when_non_string_then_unchanged(self):
-        """Test handling non-string input."""
+    def test_wrap_with_emotion_whitespace_only_returns_unchanged(self):
+        """Test whitespace-only strings are returned unchanged."""
+        assert _wrap_with_emotion("   ") == "   "
+        assert _wrap_with_emotion("\n\t") == "\n\t"
+
+    def test_wrap_with_emotion_single_space_returns_unchanged(self):
+        """Test single space is considered empty and returned unchanged."""
+        assert _wrap_with_emotion(" ") == " "
+
+    def test_wrap_with_emotion_handles_very_long_text(self):
+        """Test emotion wrapping works with long text strings."""
+        text = "A" * 1000
+        result = _wrap_with_emotion(text, "excited", "medium")
+        assert result.startswith('<amazon:emotion name="excited" intensity="medium">')
+        assert result.endswith('</amazon:emotion>')
+        assert text in result
+
+    def test_wrap_with_emotion_non_string_returns_unchanged(self):
+        """Test non-string input is returned as-is."""
         assert _wrap_with_emotion(None) is None  # type: ignore
         assert _wrap_with_emotion(123) == 123  # type: ignore
+        assert _wrap_with_emotion([]) == []  # type: ignore
 
 
 class TestWrapParagraph:
     """Tests for _wrap_paragraph helper function (Phase 1)."""
 
-    def test_wrap_paragraph_when_text_then_wrapped(self):
-        """Test wrapping text in paragraph tags."""
+    def test_wrap_paragraph_simple_text(self):
+        """Test wrapping simple text in paragraph tags."""
         text = "Good evening."
         result = _wrap_paragraph(text)
         assert result == "<p>Good evening.</p>"
 
-    def test_wrap_paragraph_when_multiline_then_wrapped(self):
-        """Test wrapping multiline text."""
-        text = "First sentence. Second sentence."
+    def test_wrap_paragraph_multiline_text_preserved(self):
+        """Test multiline text structure is preserved within tags."""
+        text = "First sentence.\nSecond sentence."
         result = _wrap_paragraph(text)
-        assert result == "<p>First sentence. Second sentence.</p>"
+        assert result == "<p>First sentence.\nSecond sentence.</p>"
 
-    def test_wrap_paragraph_when_empty_text_then_unchanged(self):
-        """Test handling empty text."""
+    def test_wrap_paragraph_with_special_characters(self):
+        """Test paragraph wrapping preserves special characters."""
+        text = "Meeting at 3:00 & discussion"
+        result = _wrap_paragraph(text)
+        # No escaping should happen in this function
+        assert result == "<p>Meeting at 3:00 & discussion</p>"
+
+    def test_wrap_paragraph_with_existing_ssml_tags(self):
+        """Test paragraph wrapping works with nested SSML tags."""
+        text = '<emphasis level="strong">Important</emphasis>'
+        result = _wrap_paragraph(text)
+        assert result == '<p><emphasis level="strong">Important</emphasis></p>'
+
+    def test_wrap_paragraph_very_long_text(self):
+        """Test paragraph wrapping handles very long text."""
+        text = "Word " * 500  # 500 words
+        result = _wrap_paragraph(text.strip())
+        assert result.startswith("<p>")
+        assert result.endswith("</p>")
+        assert text.strip() in result
+
+    def test_wrap_paragraph_empty_string_returns_empty(self):
+        """Test empty string is returned unchanged."""
         assert _wrap_paragraph("") == ""
-        assert _wrap_paragraph("   ") == "   "
 
-    def test_wrap_paragraph_when_non_string_then_unchanged(self):
-        """Test handling non-string input."""
+    def test_wrap_paragraph_whitespace_only_returns_unchanged(self):
+        """Test whitespace-only strings are returned unchanged."""
+        assert _wrap_paragraph("   ") == "   "
+        assert _wrap_paragraph("\n") == "\n"
+        assert _wrap_paragraph("\t") == "\t"
+
+    def test_wrap_paragraph_single_word(self):
+        """Test single word is wrapped correctly."""
+        assert _wrap_paragraph("Hello") == "<p>Hello</p>"
+
+    def test_wrap_paragraph_with_leading_trailing_whitespace(self):
+        """Test text with whitespace is wrapped including whitespace."""
+        text = "  Text with spaces  "
+        result = _wrap_paragraph(text)
+        assert result == "<p>  Text with spaces  </p>"
+
+    def test_wrap_paragraph_non_string_returns_unchanged(self):
+        """Test non-string input is returned as-is."""
         assert _wrap_paragraph(None) is None  # type: ignore
         assert _wrap_paragraph(123) == 123  # type: ignore
+        assert _wrap_paragraph([]) == []  # type: ignore
 
 
 class TestWrapSentence:
     """Tests for _wrap_sentence helper function (Phase 1)."""
 
-    def test_wrap_sentence_when_text_then_wrapped(self):
-        """Test wrapping text in sentence tags."""
+    def test_wrap_sentence_simple_sentence(self):
+        """Test wrapping a simple sentence in sentence tags."""
         text = "Your next meeting is in 5 minutes."
         result = _wrap_sentence(text)
         assert result == "<s>Your next meeting is in 5 minutes.</s>"
 
-    def test_wrap_sentence_when_short_text_then_wrapped(self):
-        """Test wrapping short text."""
-        text = "Hello."
+    def test_wrap_sentence_short_text(self):
+        """Test wrapping very short text."""
+        text = "Hi."
         result = _wrap_sentence(text)
-        assert result == "<s>Hello.</s>"
+        assert result == "<s>Hi.</s>"
 
-    def test_wrap_sentence_when_empty_text_then_unchanged(self):
-        """Test handling empty text."""
+    def test_wrap_sentence_without_punctuation(self):
+        """Test wrapping text without ending punctuation."""
+        text = "Meeting started"
+        result = _wrap_sentence(text)
+        assert result == "<s>Meeting started</s>"
+
+    def test_wrap_sentence_with_special_characters(self):
+        """Test sentence wrapping preserves special characters."""
+        text = "Q&A session at 2:00 pm"
+        result = _wrap_sentence(text)
+        # No escaping in this function
+        assert result == "<s>Q&A session at 2:00 pm</s>"
+
+    def test_wrap_sentence_with_nested_tags(self):
+        """Test sentence wrapping with nested SSML tags."""
+        text = '<break time="0.5s"/>Next item'
+        result = _wrap_sentence(text)
+        assert result == '<s><break time="0.5s"/>Next item</s>'
+
+    def test_wrap_sentence_multiline_text(self):
+        """Test sentence wrapping preserves line breaks."""
+        text = "Line 1\nLine 2"
+        result = _wrap_sentence(text)
+        assert result == "<s>Line 1\nLine 2</s>"
+
+    def test_wrap_sentence_very_long_text(self):
+        """Test sentence wrapping handles long text."""
+        text = "A" * 500
+        result = _wrap_sentence(text)
+        assert result == f"<s>{text}</s>"
+
+    def test_wrap_sentence_empty_string_returns_empty(self):
+        """Test empty string is returned unchanged."""
         assert _wrap_sentence("") == ""
-        assert _wrap_sentence("   ") == "   "
 
-    def test_wrap_sentence_when_non_string_then_unchanged(self):
-        """Test handling non-string input."""
+    def test_wrap_sentence_whitespace_only_returns_unchanged(self):
+        """Test whitespace-only strings are returned unchanged."""
+        assert _wrap_sentence("   ") == "   "
+        assert _wrap_sentence("\t\n") == "\t\n"
+
+    def test_wrap_sentence_with_whitespace_around_text(self):
+        """Test text with surrounding whitespace is wrapped including whitespace."""
+        text = "  Hello world  "
+        result = _wrap_sentence(text)
+        assert result == "<s>  Hello world  </s>"
+
+    def test_wrap_sentence_non_string_returns_unchanged(self):
+        """Test non-string input is returned as-is."""
         assert _wrap_sentence(None) is None  # type: ignore
         assert _wrap_sentence(123) == 123  # type: ignore
+        assert _wrap_sentence({}) == {}  # type: ignore
 
 
 class TestComposeFragments:
