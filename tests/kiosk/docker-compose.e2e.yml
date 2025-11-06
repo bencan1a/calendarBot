@@ -1,0 +1,28 @@
+services:
+  calendarbot-e2e:
+    build:
+      context: ../../
+      dockerfile: tests/kiosk/Dockerfile.e2e
+    container_name: calendarbot-e2e-test
+    privileged: true
+    environment:
+      - CALENDARBOT_E2E_TEST=true
+    volumes:
+      - ../..:/workspace:rw
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
+    networks:
+      - e2e-network
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/health-check"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+networks:
+  e2e-network:
+    driver: bridge
