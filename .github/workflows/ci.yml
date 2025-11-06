@@ -228,7 +228,7 @@ jobs:
 
     - name: Upload test artifacts
       uses: actions/upload-artifact@v4
-      if: always()
+      if: always() && (hashFiles('coverage.xml') != '' || hashFiles('coverage.json') != '' || hashFiles('pytest-results.xml') != '')
       with:
         name: test-results
         path: |
@@ -281,10 +281,41 @@ jobs:
 
     - name: Download coverage artifacts
       uses: actions/download-artifact@v4
+      continue-on-error: true
+      id: download-artifacts
       with:
         name: test-results
 
+    - name: Check if coverage data is available
+      id: check-coverage
+      run: |
+        if [ -f "coverage.json" ]; then
+          echo "available=true" >> $GITHUB_OUTPUT
+          echo "Coverage data found"
+        else
+          echo "available=false" >> $GITHUB_OUTPUT
+          echo "No coverage data available (no tests were run)"
+        fi
+
+    - name: No tests run message
+      if: steps.check-coverage.outputs.available == 'false'
+      run: |
+        echo "============================================================"
+        echo "No Tests Run - No Coverage Data Available"
+        echo "============================================================"
+        echo ""
+        echo "The smart test selector determined that no tests needed to"
+        echo "run based on the changed files. This typically happens when:"
+        echo ""
+        echo "  - No Python files in calendarbot_lite/ were changed"
+        echo "  - Only non-code files were modified (docs, config, etc.)"
+        echo "  - Critical path tests already validated the changes"
+        echo ""
+        echo "Full test suite validation runs nightly at 2 AM UTC."
+        echo "============================================================"
+
     - name: Display coverage summary (informational)
+      if: steps.check-coverage.outputs.available == 'true'
       run: |
         cat > show_coverage.py << 'EOF'
         import json
@@ -320,6 +351,7 @@ jobs:
         venv/bin/python show_coverage.py
 
     - name: Coverage analysis for changed files
+      if: steps.check-coverage.outputs.available == 'true'
       continue-on-error: true
       run: |
         cat > changed_files_coverage.py << 'EOF'
