@@ -153,10 +153,13 @@ def render_meeting_ssml(
             emphasized_title = EMPHASIS_MODERATE.format(text=truncated_subject)
             time_phrase = _escape_text_for_ssml(duration_spoken)
 
+            # Use prosody for calm delivery, then wrap in sentences
             opening = _wrap_sentence(f"Your next meeting is {emphasized_title}.")
+            opening_with_prosody = PROSODY.format(rate="medium", pitch="medium", text=opening)
             timing = _wrap_sentence(f"It starts {time_phrase}.")
 
-            content = f"{opening}{timing}"
+            # Combine and optionally apply conversational domain
+            content = f"{opening_with_prosody}{timing}"
             content = _apply_conversational_domain(content, cfg)
 
             fragments.append(content)
