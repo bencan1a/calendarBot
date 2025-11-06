@@ -226,6 +226,22 @@ async def record_client_success(client_id: str = "default") -> None:
             logger.debug("Reset error count for healthy client '%s'", client_id)
 
 
+async def get_client_health(client_id: str = "default") -> dict[str, float]:
+    """Get health metrics for a client.
+
+    Args:
+        client_id: Identifier of the client
+
+    Returns:
+        Dictionary with error_count, last_error_time, and created_time.
+        Returns empty dict if client doesn't exist.
+    """
+    async with _client_lock:
+        if client_id in _client_health:
+            return _client_health[client_id].copy()
+        return {}
+
+
 async def _recreate_client_if_unhealthy(client_id: str) -> None:
     """Recreate client if it's determined to be unhealthy.
 

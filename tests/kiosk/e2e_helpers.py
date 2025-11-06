@@ -136,10 +136,71 @@ def container_service_status(container, service: str) -> dict:
     }
 
 
+def prepare_repository_in_container(
+    container,
+    target_user: str = "testuser",
+    target_path: str = "/home/testuser/calendarBot",
+) -> None:
+    """Copy workspace to target location to simulate existing repo.
+
+    This avoids git clone issues in E2E tests by copying the mounted
+    workspace to the expected installation location.
+
+    Args:
+        container: Docker container
+        target_user: User who should own the repo
+        target_path: Where to copy the repository
+
+    Raises:
+        RuntimeError: If copy fails
+    """
+    # Create parent directory
+    parent_dir = "/".join(target_path.split("/")[:-1])
+
+    exit_code, output = container.exec_run(
+        f"mkdir -p {parent_dir}",
+        privileged=True,
+    )
+
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to create parent directory: {output.decode()}")
+
+    # Copy workspace to target path
+    exit_code, output = container.exec_run(
+        f"cp -r /workspace {target_path}",
+        privileged=True,
+    )
+
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to copy workspace: {output.decode()}")
+
+    # Set ownership
+    exit_code, output = container.exec_run(
+        f"chown -R {target_user}:{target_user} {target_path}",
+        privileged=True,
+    )
+
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to set ownership: {output.decode()}")
+
+    # Remove venv if it exists (host venv is not compatible with container)
+    venv_path = f"{target_path}/venv"
+    exit_code, output = container.exec_run(
+        f"rm -rf {venv_path}",
+        privileged=True,
+    )
+
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to remove venv: {output.decode()}")
+
+    logger.info(f"Prepared repository at {target_path} for user {target_user}")
+
+
 def run_installer_in_container(
     container,
     config_yaml: str,
     extra_args: Optional[List[str]] = None,
+    prep_repo: bool = True,
 ) -> Tuple[int, str, str]:
     """Run install-kiosk.sh in container.
 
@@ -147,6 +208,7 @@ def run_installer_in_container(
         container: Docker container
         config_yaml: YAML config string to write to /tmp/install-config.yaml
         extra_args: Additional args (e.g., ["--update", "--dry-run"])
+        prep_repo: If True, copy workspace to target location before install
 
     Returns:
         tuple: (exit_code, stdout, stderr)
@@ -154,6 +216,10 @@ def run_installer_in_container(
     Raises:
         RuntimeError: If config file cannot be written
     """
+    # Prepare repository if requested (simulate existing installation)
+    if prep_repo:
+        prepare_repository_in_container(container)
+
     # Write config file to container using heredoc (simple and reliable)
     config_path = "/tmp/install-config.yaml"
 

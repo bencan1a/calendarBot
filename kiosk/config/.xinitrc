@@ -2,7 +2,7 @@
 # Minimal kiosk X session for Chromium + Matchbox
 
 export DISPLAY=:0
-URL="http://$(hostname -I | awk '{print $1}'):8080"
+URL="http://localhost:8080/whatsnext.html"
 LOG="$HOME/kiosk/kiosk.log"
 exec >>"$LOG" 2>&1
 

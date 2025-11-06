@@ -167,12 +167,12 @@ validate_config() {
     if [[ "${CFG_sections_section_1_base:-true}" == "true" ]]; then
         if [[ -z "${CFG_system_username:-}" ]]; then
             log_error "Missing required config: system.username"
-            ((errors++))
+            errors=$((errors + 1))
         fi
 
         if [[ -z "${CFG_calendarbot_ics_url:-}" ]] || [[ "${CFG_calendarbot_ics_url}" == *"YOUR_CALENDAR"* ]]; then
             log_error "Missing or invalid config: calendarbot.ics_url"
-            ((errors++))
+            errors=$((errors + 1))
         fi
     fi
 
@@ -206,7 +206,7 @@ detect_current_state() {
     fi
 
     # Check if virtual environment exists
-    if [[ -d "${CFG_system_venv_dir:-${CFG_system_repo_dir}/venv}" ]]; then
+    if [[ -d "${CFG_system_venv_dir:-${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}/venv}" ]]; then
         INSTALLED_STATE[venv_exists]=true
         log_verbose "Virtual environment: Found"
     else
@@ -573,7 +573,7 @@ verify_section_1() {
     # Check if service is running
     if ! systemctl is-active "calendarbot-kiosk@${CFG_system_username}.service" &>/dev/null; then
         log_error "CalendarBot service is not running"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check if API is responding
@@ -600,7 +600,7 @@ install_section_2_kiosk() {
     log_info "Installing X server and browser packages..."
     install_apt_packages \
         xserver-xorg xinit x11-xserver-utils \
-        matchbox-window-manager chromium-browser \
+        matchbox-window-manager chromium \
         xdotool dbus-x11
 
     # Install PyYAML
@@ -888,19 +888,19 @@ verify_section_2() {
     # Check if watchdog service is running
     if ! systemctl is-active "calendarbot-kiosk-watchdog@${CFG_system_username}.service" &>/dev/null; then
         log_error "Watchdog service is not running"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check if watchdog binary exists and is executable
     if [[ ! -x "/usr/local/bin/calendarbot-watchdog" ]]; then
         log_error "Watchdog binary not found or not executable"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check if state file exists
     if [[ ! -f "/var/local/calendarbot-watchdog/state.json" ]]; then
         log_error "Watchdog state file not found"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     if [[ $errors -eq 0 ]]; then
@@ -979,14 +979,19 @@ install_section_3_alexa() {
             log_dry_run "Would start Caddy service"
         else
             log_info "Starting Caddy service..."
-            systemctl start caddy
+            # Note: Caddy may fail to start if backend service isn't running yet
+            # This is expected during installation - Caddy will start on next reboot
+            if ! systemctl start caddy; then
+                log_warning "Caddy service failed to start (backend may not be running yet)"
+                log_warning "Caddy will be started automatically on next system boot"
+            fi
         fi
     else
         if [[ "$DRY_RUN" == "true" ]]; then
             log_dry_run "Would reload Caddy service"
         else
             log_info "Reloading Caddy service..."
-            systemctl reload caddy
+            systemctl reload caddy || log_warning "Caddy reload failed"
         fi
     fi
 
@@ -1112,21 +1117,21 @@ verify_section_3() {
 
     # Check if Caddy is running
     if ! systemctl is-active caddy &>/dev/null; then
-        log_error "Caddy service is not running"
-        ((errors++))
+        log_warning "Caddy service is not running (will start on system boot)"
+        errors=$((errors + 1))
     fi
 
     # Check if Caddyfile exists
     if [[ ! -f "/etc/caddy/Caddyfile" ]]; then
         log_error "Caddyfile not found"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check if bearer token is set in .env
     local env_file="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}/.env"
     if ! grep -q "CALENDARBOT_ALEXA_BEARER_TOKEN" "$env_file"; then
         log_error "Bearer token not set in .env"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     if [[ $errors -eq 0 ]]; then
@@ -1326,8 +1331,8 @@ $cleanup_cron * * * /usr/local/bin/log-aggregator.sh cleanup >> /var/log/calenda
 */$status_interval * * * * /usr/local/bin/monitoring-status.sh status $status_output 2>&1
 EOF
 
-    # Install new crontab
-    sudo -u "${CFG_system_username}" crontab "$temp_cron"
+    # Install new crontab (pipe through stdin to avoid permission issues)
+    cat "$temp_cron" | sudo -u "${CFG_system_username}" crontab -
     rm -f "$temp_cron"
 
     log_success "Monitoring cron jobs configured"
@@ -1350,8 +1355,8 @@ configure_log_shipping() {
 
 # CalendarBot log shipping configuration
 CALENDARBOT_LOG_SHIPPER_ENABLED=${CFG_monitoring_log_shipping_enabled:-true}
-CALENDARBOT_WEBHOOK_URL=${CFG_monitoring_log_shipping_webhook_url}
-CALENDARBOT_WEBHOOK_TOKEN=${CFG_monitoring_log_shipping_webhook_token}
+CALENDARBOT_WEBHOOK_URL=${CFG_monitoring_log_shipping_webhook_url:-}
+CALENDARBOT_WEBHOOK_TOKEN=${CFG_monitoring_log_shipping_webhook_token:-}
 CALENDARBOT_WEBHOOK_TIMEOUT=${CFG_monitoring_log_shipping_webhook_timeout:-10}
 CALENDARBOT_WEBHOOK_INSECURE=${CFG_monitoring_log_shipping_webhook_insecure:-false}
 EOF
@@ -1368,7 +1373,7 @@ verify_section_4() {
     # Check if logrotate config exists
     if [[ ! -f "/etc/logrotate.d/calendarbot-watchdog" ]]; then
         log_error "Logrotate configuration not found"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check if monitoring scripts exist
