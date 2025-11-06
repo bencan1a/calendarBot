@@ -1,0 +1,98 @@
+# Dockerfile for CalendarBot Kiosk E2E Testing
+# Base: Debian Bookworm with systemd support for testing service installation
+
+FROM debian:bookworm-slim
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install systemd and core dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    systemd \
+    systemd-sysv \
+    dbus \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    git \
+    build-essential \
+    rsyslog \
+    cron \
+    nginx \
+    ufw \
+    curl \
+    wget \
+    ca-certificates \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Remove unnecessary systemd services to speed up container startup
+RUN systemctl mask \
+    systemd-timesyncd.service \
+    systemd-networkd.service \
+    systemd-resolved.service \
+    systemd-logind.service \
+    getty@.service \
+    console-getty.service \
+    container-getty@.service
+
+# Create test user with NOPASSWD sudo access
+RUN useradd -m -s /bin/bash testuser && \
+    echo "testuser ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/testuser && \
+    chmod 0440 /etc/sudoers.d/testuser
+
+# Create mock X server and browser commands
+RUN echo '#!/bin/bash\necho "[MOCK] startx: Would start X server"\ntouch /tmp/.X0-lock\nexit 0' > /usr/bin/startx && \
+    chmod +x /usr/bin/startx
+
+RUN echo '#!/bin/bash\necho "[MOCK] xinit: $@"\nexit 0' > /usr/bin/xinit && \
+    chmod +x /usr/bin/xinit
+
+RUN echo '#!/bin/bash\necho "[MOCK] xdotool: $@"\nexit 0' > /usr/bin/xdotool && \
+    chmod +x /usr/bin/xdotool
+
+RUN echo '#!/bin/bash\necho "[MOCK] chromium-browser: $@"\nexit 0' > /usr/bin/chromium-browser && \
+    chmod +x /usr/bin/chromium-browser
+
+RUN echo '#!/bin/bash\necho "[MOCK] chromium: $@"\nexit 0' > /usr/bin/chromium && \
+    chmod +x /usr/bin/chromium
+
+RUN echo '#!/bin/bash\necho "[MOCK] ufw: $@"\nexit 0' > /usr/sbin/ufw && \
+    chmod +x /usr/sbin/ufw
+
+# Create health check script
+RUN echo '#!/bin/bash\n\
+# Health check for E2E test container\n\
+\n\
+# Check systemd is running\n\
+if ! systemctl is-system-running --quiet 2>/dev/null; then\n\
+    echo "ERROR: systemd not running"\n\
+    exit 1\n\
+fi\n\
+\n\
+# Check dbus is available\n\
+if ! [ -S /run/dbus/system_bus_socket ]; then\n\
+    echo "ERROR: dbus socket not available"\n\
+    exit 1\n\
+fi\n\
+\n\
+# Check test user exists\n\
+if ! id testuser >/dev/null 2>&1; then\n\
+    echo "ERROR: testuser does not exist"\n\
+    exit 1\n\
+fi\n\
+\n\
+echo "Health check passed"\n\
+exit 0' > /usr/local/bin/health-check && \
+    chmod +x /usr/local/bin/health-check
+
+# Expose port for CalendarBot web interface
+EXPOSE 8080
+
+# Set working directory (matches volume mount point)
+WORKDIR /workspace
+
+# Start systemd as PID 1
+CMD ["/sbin/init"]

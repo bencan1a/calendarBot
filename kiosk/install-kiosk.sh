@@ -90,6 +90,12 @@ die() {
 }
 
 check_root() {
+    # Allow tests to bypass root check
+    if [[ "${TEST_MODE:-false}" == "true" ]]; then
+        log_verbose "Running in TEST_MODE - bypassing root check"
+        return 0
+    fi
+
     if [[ $EUID -ne 0 ]]; then
         die "This script must be run as root (use sudo)" 4
     fi
@@ -660,13 +666,12 @@ install_section_2_kiosk() {
     local monitor_config_dir="/etc/calendarbot-monitor"
     local monitor_config_file="$monitor_config_dir/monitor.yaml"
 
-    mkdir -p "$monitor_config_dir"
-    backup_file "$monitor_config_file"
-
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_dry_run "Would deploy watchdog configuration"
+        log_dry_run "Would deploy watchdog configuration to $monitor_config_file"
     else
         log_info "Deploying watchdog configuration..."
+        mkdir -p "$monitor_config_dir"
+        backup_file "$monitor_config_file"
         create_monitor_config "$monitor_config_file"
     fi
 
