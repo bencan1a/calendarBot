@@ -1030,7 +1030,7 @@ class TestUpdateMode:
         assert result.returncode == 0, f"Installer failed: {result.stderr}"
 
         # Verify config was loaded and processed
-        assert "Configuration validated" in result.stdout or s"Loading configuration" in result.stdout
+        assert "Configuration validated" in result.stdout or "Loading configuration" in result.stdout
 
 
 @pytest.mark.unit
