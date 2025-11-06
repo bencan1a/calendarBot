@@ -24,21 +24,51 @@ EMPHASIS_STRONG = '<emphasis level="strong">{text}</emphasis>'
 EMPHASIS_MODERATE = '<emphasis level="moderate">{text}</emphasis>'
 EMPHASIS_REDUCED = '<emphasis level="reduced">{text}</emphasis>'
 BREAK = '<break time="{t}s"/>'
+PARAGRAPH = "<p>{text}</p>"
+SENTENCE = "<s>{text}</s>"
+EMOTION = '<amazon:emotion name="{name}" intensity="{intensity}">{text}</amazon:emotion>'
+SUBSTITUTION = '<sub alias="{alias}">{text}</sub>'
 
 # Regex patterns for time detection and tag preservation (compiled once for performance)
 # Pattern for times: H:MM am/pm or HH:MM am/pm
 TIME_PATTERN = re.compile(r"\b(\d{1,2}):(\d{2})\s+(am|pm)\b", re.IGNORECASE)
 # Pattern for say-as tags: <say-as ...>...</say-as>
 SAY_AS_TAG_PATTERN = re.compile(r"(<say-as[^>]*>.*?</say-as>)", re.DOTALL)
+# Pattern for preserving SSML tags in general (say-as, sub, amazon:emotion, p, s)
+SSML_TAG_PATTERN = re.compile(
+    r"(<(?:say-as|sub|amazon:emotion|p|s)[^>]*>.*?</(?:say-as|sub|amazon:emotion|p|s)>|<(?:say-as|sub)[^>]*/?>)",
+    re.DOTALL,
+)
+# Pattern for abbreviation substitutions: Q1-Q4, 1:1, 1-1
+ABBREVIATION_PATTERN = re.compile(r"\b(Q[1-4]|1[:-]1)\b")
 
 # Configuration defaults
 DEFAULT_CONFIG = {
     "enable_ssml": True,
     "ssml_max_chars": 500,
-    "allowed_tags": {"speak", "prosody", "emphasis", "break", "say-as"},
+    "allowed_tags": {
+        "speak",
+        "prosody",
+        "emphasis",
+        "break",
+        "say-as",
+        "p",
+        "s",
+        "amazon:emotion",
+        "sub",
+    },
     "duration_threshold_long": 3600,  # Include duration if >3600s (60 minutes)
     "duration_threshold_short": 900,  # Include duration if <900s (15 minutes)
     "title_max_chars": 50,
+    # Substitution mappings for common abbreviations
+    "substitutions": {
+        "Q1": "first quarter",
+        "Q2": "second quarter",
+        "Q3": "third quarter",
+        "Q4": "fourth quarter",
+        "1:1": "one on one",
+        "1-1": "one on one",
+    },
 }
 
 # Urgency thresholds (seconds)
@@ -279,8 +309,11 @@ def render_done_for_day_ssml(
         # Wrap time patterns with <say-as> tags BEFORE escaping
         speech_with_times = _wrap_times_with_say_as(speech_text.strip())
 
-        # Escape the speech text for SSML (preserving <say-as> tags)
-        safe_speech = _escape_text_for_ssml_preserving_tags(speech_with_times)
+        # Apply substitutions for abbreviations
+        speech_with_subs = _apply_substitutions(speech_with_times, cfg)
+
+        # Escape the speech text for SSML (preserving SSML tags)
+        safe_speech = _escape_text_for_ssml_preserving_tags(speech_with_subs)
 
         fragments = []
 
@@ -301,8 +334,9 @@ def render_done_for_day_ssml(
                 else:
                     fragments.append(PROSODY_RATE.format(rate="medium", text=safe_speech))
             elif "you&apos;re all done for today" in safe_speech.lower():
-                # Celebratory tone for being finished
-                fragments.append(EMPHASIS_STRONG.format(text=safe_speech))
+                # Celebratory tone for being finished - use excited emotion
+                emotional_text = _wrap_with_emotion(safe_speech, "excited", "medium")
+                fragments.append(emotional_text)
             elif "couldn&apos;t determine" in safe_speech.lower():
                 # Error/uncertainty case - moderate emphasis
                 fragments.append(EMPHASIS_MODERATE.format(text=safe_speech))
@@ -440,8 +474,11 @@ def render_morning_summary_ssml(
         # Wrap time patterns with <say-as> tags BEFORE escaping
         speech_with_times = _wrap_times_with_say_as(speech_text.strip())
 
-        # Escape the speech text for SSML (preserving <say-as> tags)
-        safe_speech = _escape_text_for_ssml_preserving_tags(speech_with_times)
+        # Apply substitutions for abbreviations
+        speech_with_subs = _apply_substitutions(speech_with_times, cfg)
+
+        # Escape the speech text for SSML (preserving SSML tags)
+        safe_speech = _escape_text_for_ssml_preserving_tags(speech_with_subs)
 
         fragments = []
 
@@ -508,24 +545,23 @@ def render_morning_summary_ssml(
                 fragments.append(EMPHASIS_MODERATE.format(text=safe_speech))
 
         elif "completely free morning" in safe_speech.lower():
-            # Handle free morning with positive emphasis
+            # Handle free morning with positive emphasis and emotion
             if "good evening" in safe_speech.lower():
                 parts = safe_speech.split(".", 1)
                 if len(parts) >= 2:
                     greeting_part = parts[0].strip() + "."
                     content_part = parts[1].strip()
 
-                    fragments.extend(
-                        [
-                            PROSODY.format(rate="medium", pitch="medium", text=greeting_part),
-                            BREAK.format(t="0.4"),
-                            EMPHASIS_MODERATE.format(text=content_part),
-                        ]
+                    # Wrap greeting in paragraph for natural pause
+                    greeting_para = _wrap_paragraph(greeting_part)
+                    # Wrap content with excited emotion
+                    content_emotional = _wrap_paragraph(
+                        _wrap_with_emotion(content_part, "excited", "low")
                     )
+
+                    fragments.extend([greeting_para, content_emotional])
                 else:
-                    fragments.append(
-                        PROSODY.format(rate="medium", pitch="medium", text=safe_speech)
-                    )
+                    fragments.append(_wrap_paragraph(safe_speech))
             # Emphasize the positive aspect of free time
             elif "completely free" in safe_speech.lower():
                 free_parts = safe_speech.split("completely free", 1)
@@ -541,29 +577,40 @@ def render_morning_summary_ssml(
                         ]
                     )
                 else:
-                    fragments.append(
-                        PROSODY.format(rate="medium", pitch="medium", text=safe_speech)
-                    )
+                    fragments.append(_wrap_paragraph(safe_speech))
             else:
-                fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                fragments.append(_wrap_paragraph(safe_speech))
 
-        # Standard morning summary - natural conversational flow
+        # Standard morning summary - natural conversational flow with paragraphs
         elif "good evening" in safe_speech.lower():
-            # Split greeting from content for natural pacing
+            # Split greeting from content for natural pacing with paragraph tags
             parts = safe_speech.split(".", 1)
             if len(parts) >= 2:
                 greeting_part = parts[0].strip() + "."
                 content_part = parts[1].strip()
 
-                fragments.extend(
-                    [
-                        PROSODY.format(rate="medium", pitch="medium", text=greeting_part),
-                        BREAK.format(t="0.3"),
-                        content_part,
-                    ]
-                )
+                # Split content into sentences for paragraph structure
+                sentences = [
+                    s.strip() + "." for s in content_part.rstrip(".").split(".") if s.strip()
+                ]
+
+                # First paragraph is greeting
+                fragments.append(_wrap_paragraph(greeting_part))
+
+                # Additional sentences as paragraphs
+                for sentence in sentences:
+                    # Add emotion for encouragement phrases
+                    if (
+                        "you&apos;ve got this" in sentence.lower()
+                        or "busy morning" in sentence.lower()
+                    ):
+                        fragments.append(
+                            _wrap_paragraph(_wrap_with_emotion(sentence, "excited", "low"))
+                        )
+                    else:
+                        fragments.append(_wrap_paragraph(sentence))
             else:
-                fragments.append(PROSODY.format(rate="medium", pitch="medium", text=safe_speech))
+                fragments.append(_wrap_paragraph(safe_speech))
         else:
             # No greeting, natural flow
             fragments.append(safe_speech)
@@ -675,6 +722,105 @@ def _wrap_times_with_say_as(text: str) -> str:
     return TIME_PATTERN.sub(replace_time, text)
 
 
+def _apply_substitutions(text: str, config: Optional[dict[str, Any]] = None) -> str:
+    """Apply substitution tags for common abbreviations in text.
+
+    This function detects common abbreviations like Q1-Q4, 1:1, 1-1 and wraps them
+    with SSML <sub> tags for consistent pronunciation.
+
+    Args:
+        text: Plain text containing potential abbreviations
+        config: Optional configuration with custom substitutions
+
+    Returns:
+        Text with abbreviations wrapped in <sub> tags
+
+    Examples:
+        >>> _apply_substitutions("Q4 Planning Session")
+        'Q4 Planning Session<sub alias="fourth quarter">Q4</sub> Planning Session'
+        >>> _apply_substitutions("Weekly 1:1 meeting")
+        'Weekly <sub alias="one on one">1:1</sub> meeting'
+    """
+    if not isinstance(text, str):
+        return ""
+
+    # Merge config substitutions with defaults
+    cfg = {**DEFAULT_CONFIG, **(config or {})}
+    substitutions = cfg.get("substitutions", {})
+
+    def replace_abbreviation(match: re.Match[str]) -> str:
+        abbrev = match.group(0)
+        alias = substitutions.get(abbrev, None)
+        if alias:
+            return SUBSTITUTION.format(alias=alias, text=abbrev)
+        return abbrev
+
+    return ABBREVIATION_PATTERN.sub(replace_abbreviation, text)
+
+
+def _wrap_with_emotion(
+    text: str,
+    emotion_name: Literal["excited", "disappointed", "empathetic"] = "excited",
+    intensity: Literal["low", "medium", "high"] = "medium",
+) -> str:
+    """Wrap text with amazon:emotion SSML tag for emotional expression.
+
+    Args:
+        text: Text to wrap with emotion
+        emotion_name: Name of emotion (excited, disappointed, empathetic)
+        intensity: Intensity level (low, medium, high)
+
+    Returns:
+        Text wrapped in <amazon:emotion> tags
+
+    Examples:
+        >>> _wrap_with_emotion("You're all done for today!", "excited", "medium")
+        '<amazon:emotion name="excited" intensity="medium">You\\'re all done for today!</amazon:emotion>'
+    """
+    if not isinstance(text, str) or not text.strip():
+        return text
+
+    return EMOTION.format(name=emotion_name, intensity=intensity, text=text)
+
+
+def _wrap_paragraph(text: str) -> str:
+    """Wrap text in paragraph SSML tag for natural pauses.
+
+    Args:
+        text: Text to wrap in paragraph tags
+
+    Returns:
+        Text wrapped in <p> tags
+
+    Examples:
+        >>> _wrap_paragraph("Good evening.")
+        '<p>Good evening.</p>'
+    """
+    if not isinstance(text, str) or not text.strip():
+        return text
+
+    return PARAGRAPH.format(text=text)
+
+
+def _wrap_sentence(text: str) -> str:
+    """Wrap text in sentence SSML tag for explicit sentence boundaries.
+
+    Args:
+        text: Text to wrap in sentence tags
+
+    Returns:
+        Text wrapped in <s> tags
+
+    Examples:
+        >>> _wrap_sentence("Your next meeting is in 5 minutes.")
+        '<s>Your next meeting is in 5 minutes.</s>'
+    """
+    if not isinstance(text, str) or not text.strip():
+        return text
+
+    return SENTENCE.format(text=text)
+
+
 def _select_urgency(seconds_until: int) -> Literal["fast", "standard", "relaxed"]:
     """Select urgency level based on time until meeting.
 
@@ -713,7 +859,7 @@ def _escape_text_for_ssml_preserving_tags(text: str) -> str:
     """Escape special characters in text for safe SSML inclusion while preserving SSML tags.
 
     This function escapes XML special characters but preserves legitimate SSML tags
-    like <say-as> that have been intentionally added.
+    like <say-as>, <sub>, <amazon:emotion>, <p>, <s> that have been intentionally added.
 
     Args:
         text: Text with potential SSML tags to escape
@@ -725,13 +871,13 @@ def _escape_text_for_ssml_preserving_tags(text: str) -> str:
         return ""
 
     # Split text into tag and non-tag segments using pre-compiled pattern
-    segments = SAY_AS_TAG_PATTERN.split(text)
+    segments = SSML_TAG_PATTERN.split(text)
 
     result_segments = []
     for segment in segments:
-        # Check if this segment is a complete say-as tag by verifying it matches the pattern
-        if segment and SAY_AS_TAG_PATTERN.match(segment):
-            # This is a complete, valid say-as tag - preserve it as is
+        # Check if this segment is a complete SSML tag by verifying it matches the pattern
+        if segment and SSML_TAG_PATTERN.match(segment):
+            # This is a complete, valid SSML tag - preserve it as is
             result_segments.append(segment)
         else:
             # This is regular text - escape it using shared logic
