@@ -23,6 +23,11 @@ on:
     paths:
       - .github/workflows/copilot-setup-steps.yml
 
+# Prevent duplicate workflow runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   PYTHON_VERSION: "3.12"
 
