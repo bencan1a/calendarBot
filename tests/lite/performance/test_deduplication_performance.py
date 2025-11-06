@@ -154,7 +154,7 @@ class TestDeduplicationPerformance:
         # Test with two sizes: 1000 and 2000 events
         size_1 = 1000
         size_2 = 2000
-        
+
         # Measure time for size_1
         events_1 = generate_events(size_1, duplicate_rate=0.1)
         gc.collect()
@@ -193,12 +193,12 @@ class TestDeduplicationPerformance:
         time_2 = median_timing(events_2)
 
         ratio = time_2 / time_1 if time_1 > 0 else 0
-        
+
         # Allow significant variance (1.5-3.0x) due to system noise, but should not be 4x
         assert (
             1.5 <= ratio <= 3.0
         ), f"Complexity appears worse than O(n): ratio={ratio:.2f} (expected ~2.0)"
-    
+
     def test_deduplicate_no_duplicates_overhead(self, event_merger):
         """Test performance when there are no duplicates (best case)."""
         events = generate_events(1000, duplicate_rate=0.0)
@@ -252,7 +252,7 @@ class TestPipelineDeduplicationPerformance:
         # Test with two sizes
         size_1 = 1000
         size_2 = 2000
-        
+
         # Measure time for size_1
         events_1 = generate_events(size_1, duplicate_rate=0.1)
         context_1 = ProcessingContext()
