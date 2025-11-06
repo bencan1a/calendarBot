@@ -268,17 +268,28 @@ class TestMonitoringStatusScript:
 
     def test_monitoring_status_when_health_then_shows_health_info(self) -> None:
         """Test that monitoring status health command works."""
-        result = subprocess.run(
-            ["bash", str(self.script_path), "health"],
-            capture_output=True,
-            text=True,
-            timeout=15
-        )
-        
-        # Should provide health information regardless of server status
-        assert "CalendarBot Health Status:" in result.stdout
-        assert "Server reachable:" in result.stdout
-        assert "Memory usage:" in result.stdout
+        with tempfile.TemporaryDirectory() as temp_dir:
+            script_content = Path(self.script_path).read_text()
+            temp_script = Path(temp_dir) / "monitoring-status-test.sh"
+
+            modified_content = script_content.replace(
+                'readonly DATA_DIR="/var/local/calendarbot-watchdog"',
+                f'readonly DATA_DIR="{temp_dir}/watchdog"'
+            )
+            temp_script.write_text(modified_content)
+            temp_script.chmod(0o755)
+
+            result = subprocess.run(
+                ["bash", str(temp_script), "health"],
+                capture_output=True,
+                text=True,
+                timeout=15
+            )
+
+            # Should provide health information regardless of server status
+            assert "CalendarBot Health Status:" in result.stdout
+            assert "Server reachable:" in result.stdout
+            assert "Memory usage:" in result.stdout
 
     def test_monitoring_status_when_status_to_file_then_creates_json(self) -> None:
         """Test that monitoring status creates valid JSON output file."""
@@ -519,26 +530,37 @@ class TestEndToEndMonitoring:
                 "message": "Test critical event for script chain",
                 "details": {"test": True}
             }
-            
+
             # Write test event to temp file
             event_file = Path(temp_dir) / "test_event.json"
             event_file.write_text(json.dumps(test_event))
-            
+
+            # Create modified script with temp directory
+            script_content = Path("kiosk/scripts/critical-event-filter.sh").read_text()
+            temp_script = Path(temp_dir) / "critical-filter-test.sh"
+
+            modified_content = script_content.replace(
+                'readonly STATE_DIR="/var/local/calendarbot-watchdog"',
+                f'readonly STATE_DIR="{temp_dir}/watchdog"'
+            )
+            temp_script.write_text(modified_content)
+            temp_script.chmod(0o755)
+
             # Test that critical filter can process the event
             env = os.environ.copy()
             env["CALENDARBOT_FILTER_DRY_RUN"] = "true"
             env["CALENDARBOT_FILTER_DEBUG"] = "true"
-            
+
             # Feed event to critical filter
             result = subprocess.run(
-                ["bash", "kiosk/scripts/critical-event-filter.sh", "stream"],
+                ["bash", str(temp_script), "stream"],
                 input=json.dumps(test_event),
                 capture_output=True,
                 text=True,
                 timeout=15,
                 env=env
             )
-            
+
             # Should process without error
             assert result.returncode == 0 or "Processing critical event" in result.stderr
 
