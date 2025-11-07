@@ -1973,6 +1973,346 @@ calendarbot:
 
 
 # ==============================================================================
+# Progressive Installation Tests - Full End-to-End
+# ==============================================================================
+
+@pytest.mark.integration
+@pytest.mark.e2e
+class TestProgressiveInstallation:
+    """Progressive installation test that validates full deployment flow.
+
+    This test class uses a single container (class-scoped) to run a complete
+    installation progressively: Section 1 → 2 → 3 → 4.
+
+    After installation completes, the test validates:
+    - CalendarBot server boots successfully
+    - Critical API endpoints are responsive
+    - Core functionality works end-to-end
+
+    This mirrors real-world deployment where sections are installed sequentially.
+    """
+
+    @pytest.fixture(scope="class")
+    def installed_container(self, progressive_container):
+        """Install all sections progressively on a single container.
+
+        This fixture runs once for the entire test class and installs
+        all 4 sections sequentially on the same container.
+
+        Args:
+            progressive_container: Class-scoped container fixture
+
+        Yields:
+            Container with full CalendarBot installation
+        """
+        from .e2e_helpers import (
+            run_installer_in_container,
+            prepare_repository_in_container,
+        )
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Prepare repository
+        prepare_repository_in_container(progressive_container)
+
+        # Full installation config - all sections enabled
+        config_yaml = """sections:
+  section_1_base: true
+  section_2_kiosk: true
+  section_3_alexa: true
+  section_4_monitoring: true
+
+system:
+  username: testuser
+  home_dir: /home/testuser
+  repo_dir: /home/testuser/calendarBot
+  venv_dir: /home/testuser/calendarBot/venv
+
+calendarbot:
+  ics_url: "http://example.com/test-calendar.ics"
+  web_port: 8080
+  debug: true
+  bearer_token: "test-bearer-token-for-e2e"
+
+kiosk:
+  display: ":0"
+  resolution: "1920x1080"
+  chromium_flags: "--kiosk --noerrdialogs --disable-infobars"
+
+alexa:
+  domain: "test.example.com"
+  email: "test@example.com"
+  enable_ssl: false  # Skip SSL for testing
+
+monitoring:
+  enable_health_checks: true
+  check_interval_minutes: 5
+  log_retention_days: 7
+"""
+
+        logger.info("=" * 70)
+        logger.info("PROGRESSIVE INSTALLATION: Installing all sections sequentially")
+        logger.info("=" * 70)
+
+        # Run full installation
+        exit_code, stdout, stderr = run_installer_in_container(
+            progressive_container,
+            config_yaml,
+            prep_repo=False,  # Already prepared above
+        )
+
+        if exit_code != 0:
+            logger.error("Progressive installation failed!")
+            logger.error(f"STDOUT:\n{stdout}")
+            logger.error(f"STDERR:\n{stderr}")
+            pytest.fail(f"Installation failed with exit code {exit_code}")
+
+        logger.info("=" * 70)
+        logger.info("PROGRESSIVE INSTALLATION: Complete!")
+        logger.info("=" * 70)
+
+        # Wait for server to respond (accept both 200 and 503 during startup)
+        logger.info("Waiting for CalendarBot server to respond...")
+        max_attempts = 30
+        for attempt in range(max_attempts):
+            result = progressive_container.exec_run(
+                ["curl", "-s", "-w", "\\n%{http_code}", "http://127.0.0.1:8080/api/health"],
+            )
+            if result.exit_code == 0:
+                output = result.output.decode('utf-8', errors='replace')
+                lines = output.strip().split('\n')
+                if len(lines) >= 2:
+                    http_code = lines[-1]
+                    # Accept both 200 (ok) and 503 (degraded) as valid responses
+                    if http_code in ['200', '503']:
+                        logger.info(f"Server responding after {attempt + 1} attempts (HTTP {http_code})")
+                        break
+            if attempt < max_attempts - 1:
+                time.sleep(2)
+        else:
+            # Get service logs if server never responded
+            result = progressive_container.exec_run(
+                ["journalctl", "-u", "calendarbot-kiosk@testuser.service", "-n", "50"],
+                privileged=True,
+            )
+            logs = result.output.decode('utf-8', errors='replace')
+            logger.warning(f"Server did not respond within {max_attempts * 2}s. Logs:\n{logs}")
+
+        yield progressive_container
+
+    def test_01_installation_completes_successfully(self, installed_container):
+        """Test that progressive installation completes without errors.
+
+        This test verifies that all 4 sections install successfully in sequence.
+        """
+        from .e2e_helpers import container_file_exists, container_dir_exists
+
+        # Verify key files from each section exist
+
+        # Section 1: Base installation
+        assert container_dir_exists(installed_container, "/home/testuser/calendarBot"), \
+            "Repository not installed"
+        assert container_file_exists(installed_container, "/home/testuser/calendarBot/venv/bin/python"), \
+            "Virtual environment not created"
+
+        # Section 2: Kiosk
+        assert container_file_exists(installed_container, "/home/testuser/.xinitrc"), \
+            "Kiosk .xinitrc not installed"
+
+        # Section 3: Alexa (we skip actual SSL/nginx in test mode)
+        # Just verify the service file exists
+        assert container_file_exists(installed_container,
+                                     "/etc/systemd/system/calendarbot-kiosk@.service"), \
+            "CalendarBot service not installed"
+
+        # Section 4: Monitoring
+        # Verify monitoring scripts were deployed (if applicable)
+        # For now, just verify service is enabled
+        result = installed_container.exec_run(
+            ["systemctl", "is-enabled", "calendarbot-kiosk@testuser.service"],
+            privileged=True,
+        )
+        assert result.exit_code == 0, \
+            f"CalendarBot service not enabled: {result.output.decode()}"
+
+    def test_02_calendarbot_service_starts(self, installed_container):
+        """Test that CalendarBot systemd service starts successfully."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Restart service to ensure clean state
+        logger.info("Restarting CalendarBot service...")
+        result = installed_container.exec_run(
+            ["systemctl", "restart", "calendarbot-kiosk@testuser.service"],
+            privileged=True,
+        )
+
+        if result.exit_code != 0:
+            logger.error(f"Service restart failed: {result.output.decode()}")
+
+        # Wait for service to be fully active and server to be ready
+        logger.info("Waiting for service to become active...")
+        time.sleep(15)  # Give server time to start and bind ports
+
+        # Check service status
+        result = installed_container.exec_run(
+            ["systemctl", "status", "calendarbot-kiosk@testuser.service"],
+            privileged=True,
+        )
+
+        output = result.output.decode('utf-8', errors='replace')
+        logger.info(f"Service status:\n{output}")
+
+        # Check if service is active
+        result = installed_container.exec_run(
+            ["systemctl", "is-active", "calendarbot-kiosk@testuser.service"],
+            privileged=True,
+        )
+
+        assert result.exit_code == 0, \
+            f"CalendarBot service is not active. Status:\n{output}"
+
+    def test_03_server_responds_to_health_check(self, installed_container):
+        """Test that CalendarBot server responds to health check endpoint."""
+        import logging
+        import json
+        logger = logging.getLogger(__name__)
+
+        # Wait for server to respond with valid health data
+        # Accept both 200 (ok) and 503 (degraded during startup) as valid responses
+        max_attempts = 30
+        last_response = None
+        for attempt in range(max_attempts):
+            result = installed_container.exec_run(
+                ["curl", "-s", "-w", "\\n%{http_code}", "http://127.0.0.1:8080/api/health"],
+            )
+
+            if result.exit_code == 0:
+                output = result.output.decode('utf-8', errors='replace')
+                lines = output.strip().split('\n')
+                if len(lines) >= 2:
+                    response_body = '\n'.join(lines[:-1])
+                    http_code = lines[-1]
+                    last_response = (http_code, response_body)
+
+                    # Accept both 200 (ok) and 503 (degraded) as valid
+                    if http_code in ['200', '503']:
+                        try:
+                            data = json.loads(response_body)
+                            logger.info(f"Health check responded on attempt {attempt + 1}")
+                            logger.info(f"HTTP {http_code}, Status: {data.get('status', 'unknown')}")
+                            logger.info(f"Response: {response_body[:200]}...")
+
+                            # Verify expected fields exist
+                            assert 'status' in data, "Health response missing 'status' field"
+                            assert 'server_time_iso' in data, "Health response missing 'server_time_iso' field"
+                            return  # Test passed
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"Invalid JSON response: {e}")
+
+            if attempt < max_attempts - 1:
+                logger.debug(f"Health check attempt {attempt + 1} failed, retrying...")
+                time.sleep(2)
+        else:
+            # Check service logs if health check failed
+            result = installed_container.exec_run(
+                ["journalctl", "-u", "calendarbot-kiosk@testuser.service", "-n", "50"],
+                privileged=True,
+            )
+            logs = result.output.decode('utf-8', errors='replace')
+            last_resp_str = f"Last response: {last_response}" if last_response else "No response received"
+            pytest.fail(f"Server health check failed after {max_attempts} attempts.\n{last_resp_str}\n\nService logs:\n{logs}")
+
+    def test_04_api_endpoints_are_responsive(self, installed_container):
+        """Test that critical API endpoints respond correctly."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Test /api/whats-next endpoint
+        result = installed_container.exec_run(
+            ["curl", "-s", "-w", "\\n%{http_code}", "http://127.0.0.1:8080/api/whats-next"],
+        )
+
+        assert result.exit_code == 0, \
+            f"curl command failed with exit code {result.exit_code}"
+
+        output = result.output.decode('utf-8', errors='replace')
+        lines = output.strip().split('\n')
+
+        assert len(lines) >= 2, f"Unexpected curl output format: {output}"
+
+        response_body = '\n'.join(lines[:-1])
+        http_code = lines[-1]
+
+        logger.info(f"/api/whats-next HTTP {http_code}")
+        logger.info(f"/api/whats-next response: {response_body[:200]}...")  # First 200 chars
+
+        # Expect 200 OK for API endpoints
+        assert http_code == '200', \
+            f"/api/whats-next returned HTTP {http_code}, expected 200. Response: {response_body[:500]}"
+
+        # Verify response is valid JSON
+        import json
+        try:
+            data = json.loads(response_body)
+            assert isinstance(data, dict), "Response should be JSON object"
+            assert 'meeting' in data, "Response should have 'meeting' field"
+            logger.info(f"/api/whats-next returned valid JSON with meeting field")
+        except json.JSONDecodeError as e:
+            pytest.fail(f"/api/whats-next returned invalid JSON: {e}\nResponse: {response_body[:500]}")
+
+    def test_05_static_files_are_served(self, installed_container):
+        """Test that static files (HTML, CSS, JS) are served correctly."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Test root HTML page
+        result = installed_container.exec_run(
+            ["curl", "-s", "-w", "\\n%{http_code}", "http://127.0.0.1:8080/"],
+        )
+
+        assert result.exit_code == 0, \
+            f"curl command failed with exit code {result.exit_code}"
+
+        output = result.output.decode('utf-8', errors='replace')
+        lines = output.strip().split('\n')
+
+        assert len(lines) >= 2, f"Unexpected curl output format: {output}"
+
+        response_body = '\n'.join(lines[:-1])
+        http_code = lines[-1]
+
+        logger.info(f"Root page HTTP {http_code}")
+
+        # Expect 200 OK for static pages
+        assert http_code == '200', \
+            f"Root page returned HTTP {http_code}, expected 200. Response: {response_body[:500]}"
+
+        # Verify it's HTML content
+        assert "<!DOCTYPE html>" in response_body or "<html" in response_body, \
+            "Root page should return HTML content"
+
+        logger.info("Root page loads successfully")
+
+    def test_06_server_handles_invalid_requests(self, installed_container):
+        """Test that server handles invalid requests gracefully."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Test 404 handling
+        result = installed_container.exec_run(
+            ["curl", "-s", "-w", "%{http_code}", "-o", "/dev/null",
+             "http://127.0.0.1:8080/nonexistent-endpoint"],
+        )
+
+        http_code = result.output.decode('utf-8', errors='replace').strip()
+        logger.info(f"404 test returned HTTP {http_code}")
+
+        assert http_code == "404", \
+            f"Invalid endpoint should return 404, got {http_code}"
+
+
+# ==============================================================================
 # Idempotency Tests (marked for future implementation)
 # ==============================================================================
 

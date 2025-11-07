@@ -214,6 +214,81 @@ def clean_container(e2e_container):
     return e2e_container
 
 
+@pytest.fixture(scope="class")
+def progressive_container(docker_client, e2e_image) -> Generator:
+    """Create persistent E2E container for progressive testing.
+
+    This fixture creates a container that persists across all tests in a class,
+    allowing progressive installation testing (section 1 → 2 → 3 → 4).
+
+    Args:
+        docker_client: Docker client fixture
+        e2e_image: E2E image name fixture
+
+    Yields:
+        docker.models.containers.Container: Running container with systemd ready
+
+    Raises:
+        docker.errors.ContainerError: If container fails to start
+        TimeoutError: If systemd does not become ready in time
+    """
+    container = None
+
+    try:
+        # Create container with workspace volume mount
+        workspace_path = Path(__file__).parent.parent.parent
+        logger.info(f"Creating progressive test container")
+        logger.info(f"Mounting workspace: {workspace_path} -> /workspace")
+
+        container = docker_client.containers.create(
+            image=e2e_image,
+            name=f"calendarbot-e2e-progressive-{int(time.time())}",
+            privileged=True,
+            environment={
+                "CALENDARBOT_E2E_TEST": "true",
+            },
+            volumes={
+                str(workspace_path): {
+                    "bind": "/workspace",
+                    "mode": "rw"
+                }
+            },
+            tmpfs={
+                "/run": "",
+                "/run/lock": "",
+                "/tmp": "",
+            },
+            detach=True,
+        )
+
+        logger.info(f"Created progressive container: {container.name}")
+
+        # Start container
+        container.start()
+        logger.info(f"Started progressive container: {container.name}")
+
+        # Wait for systemd to be ready
+        _wait_for_systemd(container, timeout=30)
+
+        logger.info(f"Progressive container ready: {container.name}")
+        yield container
+
+    finally:
+        # Cleanup
+        if container:
+            try:
+                logger.info(f"Stopping progressive container: {container.name}")
+                container.stop(timeout=10)
+            except Exception as e:
+                logger.warning(f"Error stopping container: {e}")
+
+            try:
+                logger.info(f"Removing progressive container: {container.name}")
+                container.remove(force=True)
+            except Exception as e:
+                logger.warning(f"Error removing container: {e}")
+
+
 def _wait_for_systemd(container, timeout: int = 30) -> None:
     """Wait for systemd to be ready in container.
 

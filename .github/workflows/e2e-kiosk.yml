@@ -70,13 +70,13 @@ jobs:
         echo "✓ E2E Docker image built successfully"
         docker images | grep calendarbot-e2e
 
-    - name: Run E2E tests
+    - name: Run E2E Isolation Tests
       timeout-minutes: 20
       run: |
         echo "========================================"
-        echo "Running Kiosk E2E Installation Tests"
+        echo "Running Kiosk E2E Isolation Tests"
         echo "========================================"
-        echo "Tests: 6 comprehensive E2E installation tests"
+        echo "Tests: 6 section-specific isolation tests"
         echo "Duration: ~10-15 minutes (installs packages in containers)"
         echo "========================================"
         echo ""
@@ -84,12 +84,36 @@ jobs:
         venv/bin/pytest tests/kiosk/test_installer.py::TestInstallerE2E \
           -v \
           --tb=short \
-          --junit-xml=e2e-test-results.xml
+          --junit-xml=e2e-isolation-test-results.xml
 
-    - name: Upload test results
+    - name: Run E2E Progressive Installation Test
+      timeout-minutes: 15
+      run: |
+        echo "========================================"
+        echo "Running Progressive Installation Test"
+        echo "========================================"
+        echo "Tests: Full installation + runtime validation"
+        echo "Duration: ~5-7 minutes (single install + API tests)"
+        echo "========================================"
+        echo ""
+
+        venv/bin/pytest tests/kiosk/test_installer.py::TestProgressiveInstallation \
+          -v \
+          --tb=short \
+          --junit-xml=e2e-progressive-test-results.xml
+
+    - name: Upload isolation test results
       uses: actions/upload-artifact@v4
-      if: always() && hashFiles('e2e-test-results.xml') != ''
+      if: always() && hashFiles('e2e-isolation-test-results.xml') != ''
       with:
-        name: e2e-test-results
-        path: e2e-test-results.xml
+        name: e2e-isolation-test-results
+        path: e2e-isolation-test-results.xml
+        retention-days: 7
+
+    - name: Upload progressive test results
+      uses: actions/upload-artifact@v4
+      if: always() && hashFiles('e2e-progressive-test-results.xml') != ''
+      with:
+        name: e2e-progressive-test-results
+        path: e2e-progressive-test-results.xml
         retention-days: 7
