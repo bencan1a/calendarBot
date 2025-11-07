@@ -15,7 +15,6 @@ What these tests DON'T:
 - Test actual service startup (systemd in container has limitations)
 """
 
-import time
 import pytest
 import yaml
 
