@@ -75,7 +75,7 @@ import os
 from typing import Optional
 
 # Initialize health tracker (replaces global health variables)
-from calendarbot_lite.core.health_tracker import HealthTracker
+from calendarbot_lite.core.health_tracker import HealthTracker, get_system_diagnostics
 
 _health_tracker = HealthTracker()
 
@@ -1275,7 +1275,9 @@ async def _make_app(  # type: ignore[no-untyped-def]
     # Get the package directory for static file serving
     from pathlib import Path
 
-    package_dir = Path(__file__).resolve().parent
+    # Get calendarbot_lite package directory (parent of api/)
+    # server.py is at calendarbot_lite/api/server.py, so parent.parent = calendarbot_lite/
+    package_dir = Path(__file__).resolve().parent.parent
 
     # Import route registration functions
     from calendarbot_lite.api.routes import (
@@ -1300,7 +1302,7 @@ async def _make_app(  # type: ignore[no-untyped-def]
         event_to_api_model=_event_to_api_model,
         is_focus_time_event=_is_focus_time_event,
         serialize_iso=_serialize_iso,
-        get_system_diagnostics=_get_system_diagnostics,
+        get_system_diagnostics=get_system_diagnostics,
         compute_last_meeting_end_for_today=_compute_last_meeting_end_for_today,
         get_server_timezone=_get_server_timezone,
     )

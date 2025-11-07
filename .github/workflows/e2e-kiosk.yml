@@ -1,8 +1,11 @@
 name: Kiosk E2E Installation Tests
 
 on:
-  # Manual trigger only - run on-demand to validate kiosk installation changes
+  schedule:
+    # Run every night at 3 AM UTC (1 hour after full suite)
+    - cron: '0 3 * * *'
   workflow_dispatch:
+    # Manual trigger also available
 
 env:
   PYTHON_VERSION: "3.12"
@@ -11,7 +14,7 @@ jobs:
   kiosk-e2e-tests:
     name: Kiosk E2E Installation Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
     - name: Checkout code
@@ -44,7 +47,11 @@ jobs:
       if: steps.venv-cache.outputs.cache-hit != 'true'
       run: |
         pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -e .[dev] docker pyyaml
+        pip install --prefer-binary -e .[dev]
+
+    - name: Install E2E test dependencies
+      run: |
+        pip install -e .[e2e]
 
     - name: Build E2E Docker image
       run: |
@@ -63,23 +70,50 @@ jobs:
         echo "✓ E2E Docker image built successfully"
         docker images | grep calendarbot-e2e
 
-    - name: Run E2E tests
-      timeout-minutes: 15
+    - name: Run E2E Isolation Tests
+      timeout-minutes: 20
       run: |
         echo "========================================"
-        echo "Running Kiosk E2E Tests"
+        echo "Running Kiosk E2E Isolation Tests"
+        echo "========================================"
+        echo "Tests: 6 section-specific isolation tests"
+        echo "Duration: ~10-15 minutes (installs packages in containers)"
         echo "========================================"
         echo ""
 
-        venv/bin/pytest tests/kiosk/test_e2e_placeholder.py \
+        venv/bin/pytest tests/kiosk/test_installer.py::TestInstallerE2E \
           -v \
           --tb=short \
-          --junit-xml=e2e-test-results.xml
+          --junit-xml=e2e-isolation-test-results.xml
 
-    - name: Upload test results
+    - name: Run E2E Progressive Installation Test
+      timeout-minutes: 15
+      run: |
+        echo "========================================"
+        echo "Running Progressive Installation Test"
+        echo "========================================"
+        echo "Tests: Full installation + runtime validation"
+        echo "Duration: ~5-7 minutes (single install + API tests)"
+        echo "========================================"
+        echo ""
+
+        venv/bin/pytest tests/kiosk/test_installer.py::TestProgressiveInstallation \
+          -v \
+          --tb=short \
+          --junit-xml=e2e-progressive-test-results.xml
+
+    - name: Upload isolation test results
       uses: actions/upload-artifact@v4
-      if: always() && hashFiles('e2e-test-results.xml') != ''
+      if: always() && hashFiles('e2e-isolation-test-results.xml') != ''
       with:
-        name: e2e-test-results
-        path: e2e-test-results.xml
+        name: e2e-isolation-test-results
+        path: e2e-isolation-test-results.xml
+        retention-days: 7
+
+    - name: Upload progressive test results
+      uses: actions/upload-artifact@v4
+      if: always() && hashFiles('e2e-progressive-test-results.xml') != ''
+      with:
+        name: e2e-progressive-test-results
+        path: e2e-progressive-test-results.xml
         retention-days: 7

@@ -180,6 +180,7 @@ class TestSkippedEventsFilterStage:
         assert result.success is True
         assert result.events_in == 2
         assert result.events_out == 2
+        assert result.events_filtered == 0  # No events filtered
         assert len(context.events) == 2
 
 
@@ -237,10 +238,11 @@ class TestEventLimitStage:
 
     @pytest.mark.asyncio
     async def test_limit_events_to_max(self) -> None:
-        """Test that events are limited to maximum count."""
+        """Test that events are limited to maximum count and earliest events are kept."""
+        # Create events with scrambled subject names to ensure we're testing time-based limiting
         events = [
             create_test_event(
-                f"event-{i}", f"Meeting {i}",
+                f"event-{i}", f"Meeting-{chr(90 - i)}",  # Z, Y, X, ... to avoid alphabetical matching
                 datetime(2025, 11, 1, 10 + i, 0, tzinfo=timezone.utc)
             )
             for i in range(10)
@@ -255,6 +257,37 @@ class TestEventLimitStage:
         assert result.events_out == 5
         assert result.events_filtered == 5
         assert len(context.events) == 5
+
+        # Verify the first 5 events (earliest by time) are kept
+        assert context.events[0].id == "event-0"
+        assert context.events[1].id == "event-1"
+        assert context.events[2].id == "event-2"
+        assert context.events[3].id == "event-3"
+        assert context.events[4].id == "event-4"
+
+        # Verify times are the earliest 5
+        assert context.events[0].start.date_time == datetime(2025, 11, 1, 10, 0, tzinfo=timezone.utc)
+        assert context.events[4].start.date_time == datetime(2025, 11, 1, 14, 0, tzinfo=timezone.utc)
+
+        # Verify all events are in chronological order (like sort test does)
+        for i in range(len(context.events) - 1):
+            current_time = context.events[i].start.date_time
+            next_time = context.events[i + 1].start.date_time
+            assert current_time <= next_time, \
+                f"Event {i} (ID: {context.events[i].id}) at {current_time} should be before " \
+                f"event {i+1} (ID: {context.events[i+1].id}) at {next_time}"
+
+        # Also verify the specific times for all 5 events (not just first and last)
+        expected_times = [
+            datetime(2025, 11, 1, 10, 0, tzinfo=timezone.utc),
+            datetime(2025, 11, 1, 11, 0, tzinfo=timezone.utc),
+            datetime(2025, 11, 1, 12, 0, tzinfo=timezone.utc),
+            datetime(2025, 11, 1, 13, 0, tzinfo=timezone.utc),
+            datetime(2025, 11, 1, 14, 0, tzinfo=timezone.utc),
+        ]
+        for i, expected_time in enumerate(expected_times):
+            assert context.events[i].start.date_time == expected_time, \
+                f"Event {i} should have time {expected_time}, got {context.events[i].start.date_time}"
 
     @pytest.mark.asyncio
     async def test_no_limit_if_under_max(self) -> None:
@@ -291,7 +324,14 @@ class TestEventProcessingPipeline:
 
     @pytest.mark.asyncio
     async def test_pipeline_with_multiple_stages(self) -> None:
-        """Test pipeline with multiple stages."""
+        """Test pipeline with multiple stages and verify each stage contributes.
+
+        This test verifies that:
+        1. Deduplication stage removes duplicates (4 -> 3 events)
+        2. Skipped filter stage removes skipped events (3 -> 2 events)
+        3. Event limit stage has no effect if already at/below limit (2 -> 2 events)
+        4. Final result contains only the expected events
+        """
         # Create test data with duplicates, skipped events, and extra events
         events = [
             create_test_event(
@@ -309,27 +349,65 @@ class TestEventProcessingPipeline:
             ),
         ]
 
-        # Build pipeline
+        # Verify initial state
+        assert len(events) == 4, "Should start with 4 events"
+
+        # To verify each stage's contribution, we need to run stages individually
+        # then compare with full pipeline run
+
+        # Step 1: Run deduplication stage only
+        context_dedupe = ProcessingContext(events=events.copy(), skipped_event_ids={"event-2"})
+        dedupe_stage = DeduplicationStage()
+        dedupe_result = await dedupe_stage.process(context_dedupe)
+
+        assert dedupe_result.success is True
+        assert dedupe_result.events_in == 4
+        assert dedupe_result.events_out == 3, "Deduplication should remove 1 duplicate (4 -> 3)"
+        assert dedupe_result.events_filtered == 1
+        assert len(context_dedupe.events) == 3
+
+        # Step 2: Run skipped filter stage after deduplication
+        filter_stage = SkippedEventsFilterStage()
+        filter_result = await filter_stage.process(context_dedupe)
+
+        assert filter_result.success is True
+        assert filter_result.events_in == 3
+        assert filter_result.events_out == 2, "Filter should remove 1 skipped event (3 -> 2)"
+        assert filter_result.events_filtered == 1
+        assert len(context_dedupe.events) == 2
+        assert all(e.id != "event-2" for e in context_dedupe.events), "Skipped event should be removed"
+
+        # Step 3: Run event limit stage (should have no effect since already at 2)
+        limit_stage = EventLimitStage(max_events=2)
+        limit_result = await limit_stage.process(context_dedupe)
+
+        assert limit_result.success is True
+        assert limit_result.events_in == 2
+        assert limit_result.events_out == 2, "Limit stage should not remove events (already at limit)"
+        assert limit_result.events_filtered == 0
+        assert len(context_dedupe.events) == 2
+
+        # Now run the full pipeline and verify same result
         pipeline = EventProcessingPipeline()
         pipeline.add_stage(DeduplicationStage())
         pipeline.add_stage(SkippedEventsFilterStage())
         pipeline.add_stage(EventLimitStage(max_events=2))
 
-        # Process
-        context = ProcessingContext(
-            events=events,
-            skipped_event_ids={"event-2"}
-        )
-        result = await pipeline.process(context)
+        context_full = ProcessingContext(events=events.copy(), skipped_event_ids={"event-2"})
+        result_full = await pipeline.process(context_full)
 
         # Verify pipeline succeeded
-        assert result.success is True
-        # Note: Deduplication and limiting now log at INFO level, not WARNING
+        assert result_full.success is True
+        assert result_full.events_out == 2
 
-        # Verify final state
-        assert len(context.events) == 2  # Limited to 2
-        assert all(e.id != "event-2" for e in context.events)  # Skipped filtered
-        # Duplicates should be removed
+        # Verify final state matches stage-by-stage result
+        assert len(context_full.events) == 2  # Limited to 2
+        assert all(e.id != "event-2" for e in context_full.events)  # Skipped filtered
+
+        # Verify duplicate was removed (event-1 should appear only once)
+        event_ids = [e.id for e in context_full.events]
+        assert event_ids.count("event-1") == 1, "Duplicate event-1 should be removed"
+        assert "event-3" in event_ids, "Non-duplicate, non-skipped event should remain"
 
     @pytest.mark.asyncio
     async def test_pipeline_builder_pattern(self) -> None:
@@ -363,18 +441,20 @@ class TestSortStage:
         """Test that events are sorted by start time."""
         from calendarbot_lite.domain.pipeline_stages import SortStage
 
-        # Create events out of order
-        event3 = create_test_event(
-            "event-3", "Last", datetime(2025, 11, 1, 14, 0, tzinfo=timezone.utc)
+        # Create events with scrambled subject names that DON'T match chronological order
+        # This ensures we're testing actual datetime sorting, not accidental subject ordering
+        event_zebra = create_test_event(
+            "event-3", "Zebra Meeting", datetime(2025, 11, 1, 14, 0, tzinfo=timezone.utc)
         )
-        event1 = create_test_event(
-            "event-1", "First", datetime(2025, 11, 1, 10, 0, tzinfo=timezone.utc)
+        event_apple = create_test_event(
+            "event-1", "Apple Meeting", datetime(2025, 11, 1, 10, 0, tzinfo=timezone.utc)
         )
-        event2 = create_test_event(
-            "event-2", "Second", datetime(2025, 11, 1, 12, 0, tzinfo=timezone.utc)
+        event_monkey = create_test_event(
+            "event-2", "Monkey Meeting", datetime(2025, 11, 1, 12, 0, tzinfo=timezone.utc)
         )
 
-        context = ProcessingContext(events=[event3, event1, event2])
+        # Add events in random order (not time order, not alphabetical order)
+        context = ProcessingContext(events=[event_zebra, event_apple, event_monkey])
         stage = SortStage()
         result = await stage.process(context)
 
@@ -382,10 +462,19 @@ class TestSortStage:
         assert result.events_out == 3
         assert len(context.events) == 3
 
-        # Verify events are sorted
-        assert context.events[0].subject == "First"
-        assert context.events[1].subject == "Second"
-        assert context.events[2].subject == "Last"
+        # Verify events are sorted by actual start time (not subject)
+        assert context.events[0].subject == "Apple Meeting"
+        assert context.events[1].subject == "Monkey Meeting"
+        assert context.events[2].subject == "Zebra Meeting"
+
+        # Verify datetime values are in ascending order
+        assert context.events[0].start.date_time == datetime(2025, 11, 1, 10, 0, tzinfo=timezone.utc)
+        assert context.events[1].start.date_time == datetime(2025, 11, 1, 12, 0, tzinfo=timezone.utc)
+        assert context.events[2].start.date_time == datetime(2025, 11, 1, 14, 0, tzinfo=timezone.utc)
+
+        # Verify times are strictly ascending
+        for i in range(len(context.events) - 1):
+            assert context.events[i].start.date_time <= context.events[i + 1].start.date_time
 
     @pytest.mark.asyncio
     async def test_sort_empty_list(self) -> None:

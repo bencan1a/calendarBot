@@ -32,25 +32,35 @@
         <step>Identify public APIs, CLI handlers, and core functions to test.</step>
         <step>Locate flaky or slow tests and reason about root causes.</step>
         <step>Decide which tests should be unit (isolated) vs integration (cross-component).</step>
+        <step>Review existing tests for anti-patterns: conditional assertions, over-mocking, accepting multiple outcomes.</step>
       </steps>
     </phase>
 
     <phase name="implementation">
       <description>Write tests following best practices for speed, clarity, and maintainability.</description>
+      <critical_requirements>
+        <requirement priority="1">ALL assertions must be unconditional (no if/else in test body)</requirement>
+        <requirement priority="2">Test ONE specific expected outcome, not multiple possibilities</requirement>
+        <requirement priority="3">Tests must fail if production code breaks (verify implementation, not just types)</requirement>
+      </critical_requirements>
       <steps>
+        <step>Write unconditional assertions that always execute and verify specific outcomes.</step>
+        <step>Mock external dependencies (HTTP, filesystem, time) NOT business logic.</step>
         <step>Prefer small, behavior-focused tests that assert real outputs rather than over-mocking.</step>
         <step>Use parametrization and fixtures to reduce duplication and test matrix size.</step>
-        <step>Mock external systems only when they are non-deterministic or very slow (network, third-party APIs, hardware).</step>
         <step>Keep tests deterministic: avoid time-dependent assertions, use controlled clocks or deterministic seeds when needed.</step>
+        <step>Add comprehensive docstrings: what test verifies, what it does NOT verify, architectural limitations.</step>
       </steps>
     </phase>
 
     <phase name="validation">
       <description>Ensure tests are reliable and fast in CI and locally.</description>
       <steps>
+        <step>Validate each test against three questions: Does it verify BEHAVIOR? Will it FAIL if broken? Are assertions UNCONDITIONAL?</step>
         <step>Run tests with conservative timeouts and ensure they pass repeatedly.</step>
         <step>Tag slow or integration tests with markers (e.g., @pytest.mark.slow, @pytest.mark.integration) and exclude them from fast runs.</step>
         <step>Add clear teardown/cleanup to prevent resource leakage between tests.</step>
+        <step>Review against anti-patterns checklist (see 2_best_practices.xml for complete list).</step>
       </steps>
     </phase>
   </main_workflow>

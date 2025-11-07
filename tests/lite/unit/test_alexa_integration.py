@@ -231,9 +231,13 @@ class TestAlexaSsmlIntegration:
         # Should complete within 100ms (architectural requirement)
         assert generation_time < 0.1, f"SSML generation took {generation_time:.3f}s, exceeds 100ms limit"
 
-        if result:
-            # Should be under character limit
-            assert len(result) <= 500, f"SSML length {len(result)} exceeds 500 character limit"
+        # SSML must be generated for valid meeting data
+        assert result is not None, "SSML must be generated for valid meeting data"
+        assert len(result) <= 500, f"SSML length {len(result)} exceeds 500 character limit"
+
+        # Verify SSML structure is valid
+        assert result.startswith("<speak>"), "SSML must start with <speak> tag"
+        assert result.endswith("</speak>"), "SSML must end with </speak> tag"
 
     def test_ssml_character_limits_integration(self):
         """Test SSML respects character limits across all scenarios."""
@@ -249,13 +253,19 @@ class TestAlexaSsmlIntegration:
         }
 
         result = render_meeting_ssml(long_meeting_data)
-        if result:
+        # SSML generation might return None if content exceeds limits or is truncated too much
+        # But if it returns a value, it must respect character limits
+        if result is not None:
             assert len(result) <= 500, "Meeting SSML should respect 500 char limit"
+            assert result.startswith("<speak>"), "SSML must start with <speak> tag"
+            assert result.endswith("</speak>"), "SSML must end with </speak> tag"
 
         # Test time-until with long title
         time_result = render_time_until_ssml(1800, long_meeting_data)
-        if time_result:
+        if time_result is not None:
             assert len(time_result) <= 300, "Time-until SSML should respect 300 char limit"
+            assert time_result.startswith("<speak>"), "SSML must start with <speak> tag"
+            assert time_result.endswith("</speak>"), "SSML must end with </speak> tag"
 
     def test_urgency_mapping_integration(self):
         """Test urgency-based SSML generation across time thresholds."""
@@ -286,9 +296,10 @@ class TestAlexaSsmlIntegration:
             }
 
             result = render_meeting_ssml(meeting_data)
-            if result:
-                assert result.startswith("<speak>")
-                assert result.endswith("</speak>")
+            # SSML must be generated for valid meeting data
+            assert result is not None, f"SSML must be generated for urgency level {expected_urgency}"
+            assert result.startswith("<speak>"), "SSML must start with <speak> tag"
+            assert result.endswith("</speak>"), "SSML must end with </speak> tag"
 
     def test_special_character_escaping_integration(self):
         """Test that special characters are properly escaped in SSML output."""
@@ -316,8 +327,12 @@ class TestAlexaSsmlIntegration:
             }
 
             result = render_meeting_ssml(meeting_data)
-            if result:
-                assert expected_escape in result, f"SSML output should contain escaped version of {original}"
+            # SSML must be generated for valid meeting data
+            assert result is not None, f"SSML must be generated for meeting with special characters: {original}"
+            assert expected_escape in result, f"SSML output should contain escaped version of {original}"
+            # Verify SSML structure
+            assert result.startswith("<speak>"), "SSML must start with <speak> tag"
+            assert result.endswith("</speak>"), "SSML must end with </speak> tag"
 
     def test_location_handling_integration(self):
         """Test location and online meeting handling in SSML."""
@@ -332,16 +347,24 @@ class TestAlexaSsmlIntegration:
         # Test physical location
         physical_meeting = {**base_meeting, "location": "Conference Room A", "is_online_meeting": False}
         result = render_meeting_ssml(physical_meeting)
-        if result:
-            assert "Conference Room A" in result
-            assert 'level="reduced"' in result  # Location should have reduced emphasis
+        # SSML must be generated for valid meeting data
+        assert result is not None, "SSML must be generated for meeting with physical location"
+        assert "Conference Room A" in result, "Location should be included in SSML"
+        assert 'level="reduced"' in result, "Location should have reduced emphasis"
+        # Verify SSML structure
+        assert result.startswith("<speak>"), "SSML must start with <speak> tag"
+        assert result.endswith("</speak>"), "SSML must end with </speak> tag"
 
         # Test online meeting
         online_meeting = {**base_meeting, "location": "https://zoom.us/j/123", "is_online_meeting": True}
         result = render_meeting_ssml(online_meeting)
-        if result:
-            assert "joining online" in result
-            assert "zoom.us" not in result  # URL should not appear in speech
+        # SSML must be generated for online meetings
+        assert result is not None, "SSML must be generated for online meeting"
+        assert "joining online" in result, "Online meeting phrase should be included"
+        assert "zoom.us" not in result, "URL should not appear in speech"
+        # Verify SSML structure
+        assert result.startswith("<speak>"), "SSML must start with <speak> tag"
+        assert result.endswith("</speak>"), "SSML must end with </speak> tag"
 
     def test_title_truncation_integration(self):
         """Test title truncation functionality in SSML generation."""
@@ -363,9 +386,13 @@ class TestAlexaSsmlIntegration:
         }
 
         result = render_meeting_ssml(meeting_data)
-        if result:
-            assert "..." in result
-            assert len(result) <= 500
+        # SSML must be generated even for long titles (should truncate)
+        assert result is not None, "SSML must be generated for meeting with long title (should truncate)"
+        assert "..." in result, "Long title should be truncated with ellipsis"
+        assert len(result) <= 500, "SSML must respect 500 character limit"
+        # Verify SSML structure
+        assert result.startswith("<speak>"), "SSML must start with <speak> tag"
+        assert result.endswith("</speak>"), "SSML must end with </speak> tag"
 
     def test_validation_integration_with_generated_ssml(self):
         """Test that generated SSML passes validation checks."""
@@ -403,13 +430,26 @@ class TestAlexaSsmlIntegration:
         for meeting_data in test_meetings:
             # Test meeting SSML
             meeting_ssml = render_meeting_ssml(meeting_data)
-            if meeting_ssml:
-                assert validate_ssml(meeting_ssml), f"Generated meeting SSML failed validation: {meeting_ssml}"
+            # SSML must be generated for valid meeting data
+            assert meeting_ssml is not None, f"SSML must be generated for meeting: {meeting_data['subject']}"
+            assert validate_ssml(meeting_ssml), f"Generated meeting SSML failed validation: {meeting_ssml}"
+            # Verify XML is well-formed
+            import xml.etree.ElementTree as ET
+            try:
+                ET.fromstring(meeting_ssml)
+            except ET.ParseError as e:
+                pytest.fail(f"SSML is not well-formed XML: {e}")
 
             # Test time-until SSML
             time_ssml = render_time_until_ssml(meeting_data["seconds_until_start"], meeting_data)
-            if time_ssml:
-                assert validate_ssml(time_ssml, max_chars=300), f"Generated time SSML failed validation: {time_ssml}"
+            # SSML must be generated for time-until queries
+            assert time_ssml is not None, f"SSML must be generated for time-until: {meeting_data['subject']}"
+            assert validate_ssml(time_ssml, max_chars=300), f"Generated time SSML failed validation: {time_ssml}"
+            # Verify XML is well-formed
+            try:
+                ET.fromstring(time_ssml)
+            except ET.ParseError as e:
+                pytest.fail(f"Time SSML is not well-formed XML: {e}")
 
     def test_config_override_integration(self):
         """Test SSML generation with configuration overrides."""
@@ -426,14 +466,18 @@ class TestAlexaSsmlIntegration:
         # Test with SSML disabled
         config_disabled = {"enable_ssml": False}
         result = render_meeting_ssml(meeting_data, config_disabled)
-        assert result is None
+        assert result is None, "SSML should not be generated when disabled in config"
 
         # Test with custom character limit
         config_short = {"ssml_max_chars": 100}
         result = render_meeting_ssml(meeting_data, config_short)
-        if result:
-            assert len(result) <= 100
+        # SSML generation might return None if content can't fit in custom limit
+        # But if it returns a value, it must respect the limit
+        if result is not None:
+            assert len(result) <= 100, "SSML must respect custom character limit"
+            assert result.startswith("<speak>"), "SSML must start with <speak> tag"
+            assert result.endswith("</speak>"), "SSML must end with </speak> tag"
 
         # Test time-until with disabled SSML
         time_result = render_time_until_ssml(1800, meeting_data, config_disabled)
-        assert time_result is None
+        assert time_result is None, "Time-until SSML should not be generated when disabled in config"

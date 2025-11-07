@@ -123,11 +123,124 @@ def test_whats_next_backend_frontend_consistency(test_settings, tmp_path):
 
   <assertion_guidance>
     <rule>Assert public outputs and side effects rather than internal calls.</rule>
+    <critical_rule>ALL assertions must be unconditional - no if/else in test body.</critical_rule>
     <examples>
       <item>Prefer assert render_output(...) == expected_json</item>
       <item>Avoid asserting that a specific internal function was called unless contract requires it</item>
     </examples>
   </assertion_guidance>
+
+  <anti_pattern_examples>
+    <overview>Common anti-patterns found in CalendarBot test suite with corrections. See docs/pytest-best-practices.md for complete guide.</overview>
+
+    <anti_pattern name="conditional_assertions">
+      <bad><![CDATA[
+# BAD - assertions may not execute
+def test_process_events():
+    result = process(events)
+    if len(result.events) > 0:
+        assert result.events[0].status == "active"  # Skipped if empty!
+    else:
+        pass  # Test passes without checking anything
+]]></bad>
+      <good><![CDATA[
+# GOOD - unconditional, tests specific outcome
+def test_process_events():
+    result = process(events)
+    assert len(result.events) == 2  # Always executes
+    assert result.events[0].status == "active"
+    assert result.events[1].status == "pending"
+]]></good>
+    </anti_pattern>
+
+    <anti_pattern name="accepting_multiple_outcomes">
+      <bad><![CDATA[
+# BAD - accepts any boolean value
+def test_parser():
+    result = parse(ics_content)
+    assert result.success is True or result.success is False  # Always passes!
+]]></bad>
+      <good><![CDATA[
+# GOOD - tests specific expected outcome
+def test_parser():
+    result = parse(valid_ics_content)
+    assert result.success is True
+    assert result.event_count == 5
+    assert result.error_message is None
+]]></good>
+    </anti_pattern>
+
+    <anti_pattern name="over_mocking">
+      <bad><![CDATA[
+# BAD - mocks business logic
+def test_event_filter(mocker):
+    mock_filter = mocker.patch("app.filter_events")
+    mock_filter.return_value = [event1]  # Not testing actual filter!
+    result = process_calendar(events)
+    assert len(result) == 1
+]]></bad>
+      <good><![CDATA[
+# GOOD - tests real filtering logic
+def test_event_filter():
+    busy_event = Event(status="busy")
+    free_event = Event(status="free")
+    result = filter_busy_events([busy_event, free_event])
+    assert result == [busy_event]  # Verifies actual logic
+]]></good>
+    </anti_pattern>
+
+    <anti_pattern name="weak_assertions">
+      <bad><![CDATA[
+# BAD - only checks type, not value
+def test_correlation_id():
+    result = handler.process(request)
+    assert isinstance(result.correlation_id, str)  # Passes with any string!
+]]></bad>
+      <good><![CDATA[
+# GOOD - verifies actual value propagation
+def test_correlation_id():
+    result = handler.process(request_id="test-123")
+    assert result.correlation_id == "test-123"  # Would fail if propagation breaks
+]]></good>
+    </anti_pattern>
+
+    <anti_pattern name="testing_effects_not_causes">
+      <bad><![CDATA[
+# BAD - only checks effect
+def test_event_filtering():
+    result = parse_and_filter(ics_content)
+    assert len(result.events) == 0  # WHY is it empty?
+]]></bad>
+      <good><![CDATA[
+# GOOD - verifies cause of empty result
+def test_event_filtering():
+    result = parse_and_filter(ics_content_with_only_free_events)
+    assert result.success is True
+    assert result.events == []
+    assert result.filtered_count == 3  # Shows WHY empty
+    assert "filtered 3 FREE events" in result.message
+]]></good>
+    </anti_pattern>
+  </anti_pattern_examples>
+
+  <three_question_validation>
+    <overview>Before committing any test, ask these three questions:</overview>
+    <question number="1">
+      <text>Does this test verify BEHAVIOR (not just types)?</text>
+      <bad>assert isinstance(event.id, str)</bad>
+      <good>assert event.id == "expected-123"</good>
+    </question>
+    <question number="2">
+      <text>Will this test FAIL if the production code breaks?</text>
+      <bad>assert len(events) >= 0  # Always true</bad>
+      <good>assert len(events) == 5  # Fails if logic changes</good>
+    </question>
+    <question number="3">
+      <text>Are ALL assertions UNCONDITIONAL (no if statements)?</text>
+      <bad>if result: assert result.status == "ok"</bad>
+      <good>assert result is not None; assert result.status == "ok"</good>
+    </question>
+  </three_question_validation>
 
   <update_tests_over_impl>
     <rule>When behavior differs from tests, update tests to match intended functionality. Never change production code solely to satisfy a test that encodes incorrect behavior.</rule>

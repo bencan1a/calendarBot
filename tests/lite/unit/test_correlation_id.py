@@ -217,42 +217,95 @@ class TestCorrelationIdLogging:
 
 
 class TestCorrelationIdPropagation:
-    """Test correlation ID propagation to external services."""
+    """Test correlation ID propagation to external services.
+
+    Note: These tests verify that the correlation ID infrastructure works correctly:
+    1. Helper function creates headers with correlation ID from context
+    2. Helper function omits correlation ID when not in context
+    3. Integration tests in test_lite_fetcher.py verify end-to-end propagation
+       through actual HTTP requests (LiteICSFetcher uses these helpers)
+    """
 
     @pytest.mark.asyncio
-    async def test_http_client_includes_correlation_id(self):
-        """Test HTTP client includes correlation ID in outgoing requests."""
-        # This is an integration test that would need actual HTTP client usage
-        # For now, we test the helper function
+    async def test_http_client_helper_includes_correlation_id_from_context(self):
+        """Test that correlation ID helper function adds X-Request-ID when context is set.
+
+        This verifies the helper function that lite_fetcher.py uses to add correlation
+        IDs to outgoing HTTP requests. The actual HTTP propagation is tested in the
+        fetcher integration tests.
+        """
         from calendarbot_lite.core.http_client import _get_headers_with_correlation_id
 
         # Set correlation ID in context
-        test_id = "http-client-test-id"
+        test_id = "helper-test-id-789"
         request_id_var.set(test_id)
 
-        # Get headers
-        headers = _get_headers_with_correlation_id()
+        try:
+            # Get headers from helper (this is what fetcher calls)
+            headers = _get_headers_with_correlation_id()
 
-        # Should include correlation ID
-        assert "X-Request-ID" in headers
-        assert headers["X-Request-ID"] == test_id
+            # Verify correlation ID is in headers that will be sent
+            assert "X-Request-ID" in headers, \
+                "X-Request-ID should be in headers when correlation ID is in context"
+            assert headers["X-Request-ID"] == test_id, \
+                f"X-Request-ID should match context value, got {headers.get('X-Request-ID')}"
 
-        # Clean up
-        request_id_var.set("")
+            # Verify it's a complete header set (includes browser headers)
+            assert "User-Agent" in headers, "Should include browser headers"
+            assert "Mozilla" in headers["User-Agent"], "Should have browser-like User-Agent"
+
+        finally:
+            # Clean up
+            request_id_var.set("")
 
     @pytest.mark.asyncio
-    async def test_http_client_no_correlation_id_when_not_set(self):
-        """Test HTTP client doesn't include invalid correlation ID."""
+    async def test_http_client_helper_omits_correlation_id_when_no_context(self):
+        """Test HTTP client helper doesn't include X-Request-ID when no context is set.
+
+        Verifies that when there's no correlation ID in context, the helper function
+        doesn't add an invalid or placeholder X-Request-ID header.
+        """
         from calendarbot_lite.core.http_client import _get_headers_with_correlation_id
 
-        # Clear context
+        # Clear context (simulate no incoming request correlation ID)
         request_id_var.set("")
 
         # Get headers
         headers = _get_headers_with_correlation_id()
 
-        # Should not include X-Request-ID
-        assert "X-Request-ID" not in headers
+        # Should not include X-Request-ID when no correlation ID is set
+        assert "X-Request-ID" not in headers, \
+            "X-Request-ID should not be in headers when no correlation ID in context"
+
+        # But should still have other browser headers
+        assert "User-Agent" in headers, "Should still include browser headers"
+        assert len(headers) > 0, "Should have at least browser headers"
+
+    @pytest.mark.asyncio
+    async def test_http_client_helper_omits_invalid_correlation_id(self):
+        """Test HTTP client helper omits X-Request-ID when context has invalid/placeholder value.
+
+        Verifies that the 'no-request-id' placeholder is not propagated to external services.
+        """
+        from calendarbot_lite.core.http_client import _get_headers_with_correlation_id
+
+        # Set placeholder/invalid correlation ID
+        request_id_var.set("no-request-id")
+
+        try:
+            # Get headers
+            headers = _get_headers_with_correlation_id()
+
+            # Should not include the placeholder value
+            assert "X-Request-ID" not in headers, \
+                "Placeholder 'no-request-id' should not be propagated to external services"
+
+            # Should still have browser headers
+            assert "User-Agent" in headers
+
+        finally:
+            # Clean up
+            request_id_var.set("")
 
 
 if __name__ == "__main__":
