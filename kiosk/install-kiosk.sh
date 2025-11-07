@@ -1516,7 +1516,7 @@ main() {
         log_info "Remove --dry-run flag to perform actual installation."
     else
         # Show backup information
-        if [[ ${#CHANGED_FILES[@]} -gt 0 ]]; then
+        if [[ "${!CHANGED_FILES[@]}" ]]; then
             log_info "Backups created:"
             for file in "${!CHANGED_FILES[@]}"; do
                 log_info "  $file -> ${CHANGED_FILES[$file]}"
