@@ -2010,13 +2010,27 @@ class TestProgressiveInstallation:
             prepare_repository_in_container,
         )
         import logging
+        import os
+        from pathlib import Path
         logger = logging.getLogger(__name__)
 
         # Prepare repository
         prepare_repository_in_container(progressive_container)
 
+        # Read ICS URL from workspace .env file for realistic testing
+        # This validates that fetch/parse works with real calendar data
+        workspace_ics_url = 'http://example.com/test-calendar.ics'  # fallback
+        workspace_env = Path(__file__).parent.parent.parent / '.env'
+        if workspace_env.exists():
+            with open(workspace_env, 'r') as f:
+                for line in f:
+                    if line.strip().startswith('CALENDARBOT_ICS_URL='):
+                        workspace_ics_url = line.split('=', 1)[1].strip()
+                        break
+        logger.info(f"Using ICS URL for E2E test: {workspace_ics_url[:60]}...")
+
         # Full installation config - all sections enabled
-        config_yaml = """sections:
+        config_yaml = f"""sections:
   section_1_base: true
   section_2_kiosk: true
   section_3_alexa: true
@@ -2029,7 +2043,7 @@ system:
   venv_dir: /home/testuser/calendarBot/venv
 
 calendarbot:
-  ics_url: "http://example.com/test-calendar.ics"
+  ics_url: "{workspace_ics_url}"
   web_port: 8080
   debug: true
   bearer_token: "test-bearer-token-for-e2e"
@@ -2257,7 +2271,18 @@ monitoring:
             data = json.loads(response_body)
             assert isinstance(data, dict), "Response should be JSON object"
             assert 'meeting' in data, "Response should have 'meeting' field"
-            logger.info(f"/api/whats-next returned valid JSON with meeting field")
+
+            # Validate that ICS fetch/parse worked by checking if we got actual event data
+            meeting = data.get('meeting')
+            if meeting is not None:
+                assert isinstance(meeting, dict), "Meeting should be a dict"
+                assert 'subject' in meeting, "Meeting should have 'subject' field"
+                assert 'meeting_id' in meeting, "Meeting should have 'meeting_id' field"
+                logger.info(f"/api/whats-next returned event: '{meeting.get('subject', 'N/A')}'")
+                logger.info("✓ ICS fetch and parse validated - received real calendar data")
+            else:
+                logger.info("/api/whats-next returned no upcoming meetings (meeting=null)")
+                logger.info("✓ API working but no events in calendar")
         except json.JSONDecodeError as e:
             pytest.fail(f"/api/whats-next returned invalid JSON: {e}\nResponse: {response_body[:500]}")
 
