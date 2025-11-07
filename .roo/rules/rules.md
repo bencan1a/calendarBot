@@ -52,6 +52,28 @@ See [AGENTS.md](../AGENTS.md#-application-context--scale) for complete scale and
 - **Naming**: `test_function_when_condition_then_expected`
 - **Coverage**: Normal/edge/error cases, mock externals, async tests
 
+### Critical Anti-Patterns to Avoid
+1. ❌ **Conditional assertions** - No `if` statements in test body, assertions must always execute
+2. ❌ **Testing effects, not causes** - Verify WHY something happened, not just THAT it happened
+3. ❌ **Over-mocking** - Mock external dependencies (HTTP, filesystem, time), NOT business logic
+4. ❌ **Accepting multiple outcomes** - Test ONE specific expected outcome, not "A or B or C"
+5. ❌ **Tests that don't fail when broken** - Must fail if production code breaks
+
+### Core Principles
+- **Unconditional Assertions**: Every assertion must execute on every test run
+- **Test One Outcome**: Each test verifies ONE specific behavior path
+- **Must Fail If Broken**: Verify implementation details, not just types
+- **Mock Strategically**: Mock I/O boundaries (network, disk, time), not domain logic
+- **Modern Pytest**: Assertion rewriting provides excellent error messages without custom messages
+
+### Quick Validation
+Ask three questions before committing:
+1. Does this test verify BEHAVIOR (not just types)?
+2. Will this test FAIL if the production code breaks?
+3. Are ALL assertions UNCONDITIONAL (no if statements)?
+
+See [docs/pytest-best-practices.md](../docs/pytest-best-practices.md) for comprehensive patterns and examples.
+
 ## CODE QUALITY REQUIREMENTS
 - **Naming**: Descriptive, codebase-consistent
 - **Documentation**: Comprehensive docstrings (Args, Returns, Raises)

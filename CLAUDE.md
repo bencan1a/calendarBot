@@ -62,6 +62,13 @@ pytest tests/lite/ -v
 pytest tests/lite/ -m "unit"
 ```
 
+**Test Quality Standards:**
+- All assertions must be unconditional (no `if` statements in test body)
+- Test ONE specific outcome, not multiple possibilities
+- Mock external I/O (HTTP, filesystem, time) NOT business logic
+- Tests must fail if production code breaks
+- See [docs/pytest-best-practices.md](docs/pytest-best-practices.md) for complete guide
+
 ### Code Quality
 ```bash
 # Format code

@@ -554,6 +554,89 @@ Coverage is configured in [pyproject.toml](pyproject.toml#L390-L413):
 - **Excluded**: `calendarbot/*` (archived code)
 - **Reports**: Terminal, HTML (htmlcov/), XML
 
+### Test Quality Standards
+
+**Core Principles:**
+- **Unconditional Assertions**: All assertions must execute on every test run (no `if` statements in test body)
+- **Test One Outcome**: Each test verifies ONE specific behavior, not multiple possibilities
+- **Must Fail If Broken**: Tests must verify implementation details that would fail if code breaks
+- **Strategic Mocking**: Mock external dependencies (HTTP, filesystem, time), NOT business logic
+
+**Critical Anti-Patterns to Avoid:**
+
+1. ❌ **Conditional Assertions**
+   ```python
+   # BAD - assertion might not execute
+   if len(result) > 0:
+       assert result[0].status == "active"
+   ```
+   ```python
+   # GOOD - always executes
+   assert len(result) == 1
+   assert result[0].status == "active"
+   ```
+
+2. ❌ **Accepting Multiple Outcomes**
+   ```python
+   # BAD - accepts any result
+   assert result.success is True or result.success is False
+   ```
+   ```python
+   # GOOD - tests specific expected outcome
+   assert result.success is True
+   assert result.event_count == 5
+   ```
+
+3. ❌ **Over-Mocking Business Logic**
+   ```python
+   # BAD - mocks domain logic
+   mock_filter.return_value = [event1, event2]
+   result = process_events(events)
+   ```
+   ```python
+   # GOOD - tests real filtering logic
+   result = process_events([busy_event, free_event])
+   assert result == [busy_event]  # Verifies actual filter behavior
+   ```
+
+4. ❌ **Testing Effects Instead of Causes**
+   ```python
+   # BAD - only checks effect
+   assert len(result.events) == 0
+   ```
+   ```python
+   # GOOD - verifies WHY it's empty
+   assert result.success is True
+   assert result.events == []
+   assert "no events match filter" in result.message
+   ```
+
+5. ❌ **Tests That Don't Fail When Broken**
+   ```python
+   # BAD - checks type only
+   assert isinstance(result.correlation_id, str)
+   ```
+   ```python
+   # GOOD - verifies actual value propagation
+   result = handler.process(request_id="test-123")
+   assert result.correlation_id == "test-123"
+   ```
+
+**Quick Validation Checklist:**
+
+Before committing tests, ask:
+1. ✅ Does this test verify BEHAVIOR (not just types)?
+2. ✅ Will this test FAIL if the production code breaks?
+3. ✅ Are ALL assertions UNCONDITIONAL (no if statements)?
+
+**Modern Pytest Conventions:**
+
+- **Assertion Rewriting**: Pytest provides excellent error messages automatically - custom error messages are unnecessary for simple assertions
+- **Docstrings**: Document what the test verifies, what it does NOT verify, and any architectural limitations
+- **Mock Level**: Mock at I/O boundaries (aiohttp, pathlib, time) not at business logic layer
+
+See [docs/pytest-best-practices.md](docs/pytest-best-practices.md) for comprehensive guide with all 10 anti-patterns, testing patterns by category, and detailed examples.
+
 ---
 
 ## Critical Non-Obvious Patterns

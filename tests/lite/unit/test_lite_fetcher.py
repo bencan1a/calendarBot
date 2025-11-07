@@ -31,6 +31,7 @@ def seeded_random(monkeypatch):
 
 
 def test_calculate_backoff_when_attempts_increase_then_backoff_increases() -> None:
+    """Test exponential backoff increases with retry attempts (2^attempt * factor + jitter)."""
     fetcher = LiteICSFetcher(DummySettings())
     b0 = fetcher._calculate_backoff(attempt=0, corruption_detected=False, max_retries=3, backoff_factor=2.0)
     b1 = fetcher._calculate_backoff(attempt=1, corruption_detected=False, max_retries=3, backoff_factor=2.0)
@@ -41,6 +42,7 @@ def test_calculate_backoff_when_attempts_increase_then_backoff_increases() -> No
 
 
 def test_calculate_backoff_when_corruption_detected_then_capped_and_doubled() -> None:
+    """Test corruption detection triggers immediate capped backoff (prevents retry storms on bad data)."""
     fetcher = LiteICSFetcher(DummySettings())
     # Use a large attempt so base_backoff would normally be big, but corruption should cap it
     backoff = fetcher._calculate_backoff(attempt=10, corruption_detected=True, max_retries=3, backoff_factor=2.0)
@@ -49,6 +51,7 @@ def test_calculate_backoff_when_corruption_detected_then_capped_and_doubled() ->
 
 
 def test_get_conditional_headers_returns_expected_keys() -> None:
+    """Test conditional headers generation (If-None-Match, If-Modified-Since) for HTTP caching."""
     fetcher = LiteICSFetcher(DummySettings())
     headers = fetcher.get_conditional_headers(etag='"abc"', last_modified="Mon, 01 Jan 2000 00:00:00 GMT")
     assert headers["If-None-Match"] == '"abc"'
@@ -59,6 +62,10 @@ def test_get_conditional_headers_returns_expected_keys() -> None:
 
 
 def test_validate_url_for_ssrf_blocks_non_http_and_missing_hostname() -> None:
+    """Test SSRF protection blocks non-HTTP schemes and malformed URLs.
+
+    Prevents Server-Side Request Forgery by ensuring only valid HTTP/HTTPS URLs with hostnames.
+    """
     fetcher = LiteICSFetcher(DummySettings())
     # Non-HTTP scheme
     assert fetcher._validate_url_for_ssrf("ftp://example.com/resource") is False
@@ -76,6 +83,7 @@ def make_fake_response(status_code=200, headers=None, text="BEGIN:VCALENDAR\nEND
 
 
 def test_create_response_handles_304_not_modified() -> None:
+    """Test HTTP 304 Not Modified returns success with ETag/Last-Modified (uses cached data)."""
     fetcher = LiteICSFetcher(DummySettings())
     resp = make_fake_response(status_code=304, headers={"etag": "etag-val", "last-modified": "LM"})
     result = fetcher._create_response(resp)
@@ -86,6 +94,7 @@ def test_create_response_handles_304_not_modified() -> None:
 
 
 def test_create_response_handles_empty_content_as_error() -> None:
+    """Test empty/whitespace-only response content returns error (prevents parsing failures)."""
     fetcher = LiteICSFetcher(DummySettings())
     resp = make_fake_response(status_code=200, headers={}, text="   ")
     result = fetcher._create_response(resp)

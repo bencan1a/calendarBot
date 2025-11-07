@@ -640,14 +640,23 @@ class TestSsmlPerformanceConstraints:
 
         # Test with default limit
         result = render_meeting_ssml(meeting)
-        if result:
-            assert len(result) <= DEFAULT_CONFIG["ssml_max_chars"]
+        # SSML must be generated for valid meeting data
+        assert result is not None, "SSML must be generated for valid meeting data"
+        assert len(result) <= DEFAULT_CONFIG["ssml_max_chars"], \
+            f"SSML length {len(result)} exceeds default limit {DEFAULT_CONFIG['ssml_max_chars']}"
+        # Verify SSML structure
+        assert result.startswith("<speak>"), "SSML must start with <speak> tag"
+        assert result.endswith("</speak>"), "SSML must end with </speak> tag"
 
         # Test with custom lower limit
         config = {"ssml_max_chars": 100}
         result = render_meeting_ssml(meeting, config)
-        if result:
-            assert len(result) <= 100
+        # SSML generation might return None if content can't fit in strict limit
+        # But if it returns a value, it must respect the limit
+        if result is not None:
+            assert len(result) <= 100, f"SSML length {len(result)} exceeds custom limit 100"
+            assert result.startswith("<speak>"), "SSML must start with <speak> tag"
+            assert result.endswith("</speak>"), "SSML must end with </speak> tag"
 
     def test_time_until_ssml_respects_300_char_limit(self):
         """Test that time-until SSML respects 300 character limit."""
@@ -657,8 +666,12 @@ class TestSsmlPerformanceConstraints:
         }
 
         result = render_time_until_ssml(3600, meeting)
-        if result:
-            assert len(result) <= 300
+        # SSML must be generated for valid time-until data
+        assert result is not None, "SSML must be generated for time-until query"
+        assert len(result) <= 300, f"Time-until SSML length {len(result)} exceeds 300 character limit"
+        # Verify SSML structure
+        assert result.startswith("<speak>"), "SSML must start with <speak> tag"
+        assert result.endswith("</speak>"), "SSML must end with </speak> tag"
 
     def test_validation_rejects_oversized_ssml(self):
         """Test that validation rejects SSML exceeding limits."""
@@ -669,14 +682,20 @@ class TestSsmlPerformanceConstraints:
         assert validate_ssml(ssml) is False
 
     def test_template_constants_are_efficient(self):
-        """Test that SSML templates are pre-defined for efficiency."""
+        """Test that SSML template formatting is fast (pre-defined constants).
+
+        This test verifies that using pre-defined string templates with .format()
+        is efficient for SSML generation, as required by the 100ms Alexa response
+        time budget.
+        """
+        import time
         from calendarbot_lite.alexa.alexa_ssml import (
             EMPHASIS_STRONG,
             PROSODY,
             WRAP_SPEAK,
         )
 
-        # Ensure templates are strings with format placeholders
+        # Verify templates are strings with format placeholders
         assert isinstance(WRAP_SPEAK, str)
         assert "{body}" in WRAP_SPEAK
 
@@ -685,6 +704,27 @@ class TestSsmlPerformanceConstraints:
 
         assert isinstance(EMPHASIS_STRONG, str)
         assert "{text}" in EMPHASIS_STRONG
+
+        # Measure template formatting performance
+        # Using pre-defined templates should be fast (< 1ms for 1000 operations)
+        iterations = 1000
+        start_time = time.perf_counter()
+
+        for i in range(iterations):
+            # Simulate typical SSML generation operations
+            _ = WRAP_SPEAK.format(body="Test content")
+            _ = PROSODY.format(rate="fast", pitch="high", text="Meeting")
+            _ = EMPHASIS_STRONG.format(text="Important")
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+        # Should be very fast (< 10ms for 1000 iterations of 3 operations each)
+        # This validates that template string formatting is efficient
+        assert elapsed_ms < 10.0, (
+            f"Template formatting took {elapsed_ms:.2f}ms for {iterations} iterations "
+            f"(3 operations each), expected < 10ms. "
+            f"This indicates templates are not efficiently pre-compiled."
+        )
 
 
 class TestRenderDoneForDaySsml:
