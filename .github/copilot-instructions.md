@@ -56,12 +56,6 @@ bandit -r calendarbot_lite
 
 ### Common Tasks
 ```bash
-# Debug recurring events
-python scripts/debug_recurring_events.py --env .env --output /tmp/debug.json
-
-# Kill stuck processes
-./scripts/kill_calendarbot.sh --force
-
 # Run pre-commit checks
 pre-commit run --all-files
 ```
@@ -137,7 +131,7 @@ tests/
 - **Temporary Files**: Write to `tmp/` (gitignored)
 - **Documentation**: Write to `docs/` for permanent docs
 - **Configuration**: Root directory only (`.env`, `pyproject.toml`)
-- **Never Create**: Planning markdown files - work in memory
+- **Project Plans**: Create markdown files in `project-plans/` directory at root
 
 ---
 
@@ -410,12 +404,6 @@ python scripts/debug_recurring_events.py \
   --output /tmp/rrule_debug.json \
   --limit 50 \
   --compare-dateutil
-```
-
-### Kill Stuck Processes
-
-```bash
-./scripts/kill_calendarbot.sh --force
 ```
 
 ---
