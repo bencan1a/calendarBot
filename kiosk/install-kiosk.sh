@@ -982,8 +982,8 @@ install_section_3_alexa() {
             # Note: Caddy may fail to start if backend service isn't running yet
             # This is expected during installation - Caddy will start on next reboot
             if ! systemctl start caddy; then
-                log_warning "Caddy service failed to start (backend may not be running yet)"
-                log_warning "Caddy will be started automatically on next system boot"
+                log_info "Caddy service failed to start (backend may not be running yet). This is normal during installation."
+                log_info "Caddy will be started automatically on next system boot."
             fi
         fi
     else
