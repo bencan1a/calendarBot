@@ -4,7 +4,11 @@
 # the CalendarBot development environment with all necessary dependencies,
 # tools, and configuration.
 #
-# Documentation: https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/customize-the-agent-environment
+# Documentation:
+# - GitHub Copilot Setup: https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/customize-the-agent-environment
+# - Project-Specific Guidance: .github/copilot-instructions.md (QUICK REFERENCE)
+# - Comprehensive Guide: AGENTS.md
+# - Custom Agents: .github/agents/README.md
 #
 # Key Features:
 # 1. Python 3.12 with virtual environment
@@ -192,12 +196,25 @@ jobs:
           python -m calendarbot_lite
 
         📚 Documentation:
-          - AGENTS.md - Agent guidance and patterns
+          - .github/copilot-instructions.md - Copilot agent guidance (QUICK REFERENCE)
+          - AGENTS.md - Comprehensive development guide
+          - CLAUDE.md - Quick reference for Claude Code
           - README.md - Project overview
+          - .github/agents/README.md - Custom agent documentation
           - .env.example - Environment variable reference
+
+        🎯 Active Development:
+          - calendarbot_lite/ - Main codebase (ALL development here)
+          - kiosk/ - Raspberry Pi kiosk deployment (PRIMARY use case)
+          - calendarbot/ - Archived legacy code (DO NOT MODIFY)
 
         ⚠️  Required Secrets (configure in repo settings):
           - CALENDARBOT_ICS_URL (required for calendar operations)
           - CALENDARBOT_ALEXA_BEARER_TOKEN (optional, for Alexa testing)
+
+        📖 For Complete Guidance:
+          - Start with .github/copilot-instructions.md for quick reference
+          - See AGENTS.md for comprehensive development patterns
+          - Review test quality standards in docs/pytest-best-practices.md
 
         EOF
