@@ -5,12 +5,12 @@ Provides utilities for interacting with Docker containers during E2E tests.
 
 import logging
 import time
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Any
 
 logger = logging.getLogger(__name__)
 
 
-def container_file_exists(container, path: str) -> bool:
+def container_file_exists(container: Any, path: str) -> bool:
     """Check if file exists in container.
 
     Args:
@@ -24,7 +24,7 @@ def container_file_exists(container, path: str) -> bool:
     return exit_code == 0
 
 
-def container_dir_exists(container, path: str) -> bool:
+def container_dir_exists(container: Any, path: str) -> bool:
     """Check if directory exists in container.
 
     Args:
@@ -38,7 +38,7 @@ def container_dir_exists(container, path: str) -> bool:
     return exit_code == 0
 
 
-def container_read_file(container, path: str) -> str:
+def container_read_file(container: Any, path: str) -> str:
     """Read file contents from container.
 
     Args:
@@ -66,7 +66,7 @@ def container_read_file(container, path: str) -> str:
     return output.decode('utf-8', errors='replace')
 
 
-def container_service_enabled(container, service: str) -> bool:
+def container_service_enabled(container: Any, service: str) -> bool:
     """Check if systemd service is enabled.
 
     Args:
@@ -86,7 +86,7 @@ def container_service_enabled(container, service: str) -> bool:
     return exit_code == 0
 
 
-def container_service_active(container, service: str) -> bool:
+def container_service_active(container: Any, service: str) -> bool:
     """Check if systemd service is active (running).
 
     Args:
@@ -106,7 +106,7 @@ def container_service_active(container, service: str) -> bool:
     return exit_code == 0
 
 
-def container_service_status(container, service: str) -> dict:
+def container_service_status(container: Any, service: str) -> dict[str, Any]:
     """Get detailed systemd service status.
 
     Args:
@@ -137,7 +137,7 @@ def container_service_status(container, service: str) -> dict:
 
 
 def prepare_repository_in_container(
-    container,
+    container: Any,
     target_user: str = "testuser",
     target_path: str = "/home/testuser/calendarBot",
 ) -> None:
@@ -207,7 +207,7 @@ def prepare_repository_in_container(
 
 
 def run_installer_in_container(
-    container,
+    container: Any,
     config_yaml: str,
     extra_args: Optional[List[str]] = None,
     prep_repo: bool = True,
@@ -273,7 +273,7 @@ def run_installer_in_container(
 
 
 def container_exec(
-    container,
+    container: Any,
     command: str,
     privileged: bool = False,
     user: Optional[str] = None,
@@ -291,7 +291,7 @@ def container_exec(
     Returns:
         tuple: (exit_code, output)
     """
-    exec_kwargs = {
+    exec_kwargs: dict[str, Any] = {
         "privileged": privileged,
     }
 
@@ -308,7 +308,7 @@ def container_exec(
     return exit_code, output_str
 
 
-def container_get_file_permissions(container, path: str) -> Optional[str]:
+def container_get_file_permissions(container: Any, path: str) -> Optional[str]:
     """Get file permissions in symbolic format (e.g., 'rwxr-xr-x').
 
     Args:
@@ -329,7 +329,7 @@ def container_get_file_permissions(container, path: str) -> Optional[str]:
     return output.decode('utf-8', errors='replace').strip()
 
 
-def container_get_file_owner(container, path: str) -> Optional[Tuple[str, str]]:
+def container_get_file_owner(container: Any, path: str) -> Optional[Tuple[str, str]]:
     """Get file owner and group.
 
     Args:
@@ -355,7 +355,7 @@ def container_get_file_owner(container, path: str) -> Optional[Tuple[str, str]]:
 
 
 def container_wait_for_service(
-    container,
+    container: Any,
     service: str,
     timeout: int = 30,
     check_interval: int = 1,

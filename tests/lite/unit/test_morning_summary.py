@@ -733,7 +733,13 @@ class TestMorningSummaryService:
         # Cache retrieval should be at least 10x faster than generation
         # Cache retrieval is just a dict lookup (~microseconds)
         # Generation involves processing events, formatting, etc. (~milliseconds)
-        speedup_factor = uncached_time / cached_time if cached_time > 0 else float('inf')
+        # Only calculate speedup if cached_time is above minimum threshold (1 microsecond)
+        # to avoid flaky tests on slow CI or timer resolution issues
+        MIN_TIME_THRESHOLD = 1e-6  # 1 microsecond
+        if cached_time > MIN_TIME_THRESHOLD:
+            speedup_factor = uncached_time / cached_time
+        else:
+            speedup_factor = float('inf')
 
         # Assertion: cache should provide at least 10x speedup
         # (In practice, it's usually 100x+ faster)

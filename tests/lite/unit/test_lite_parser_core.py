@@ -275,7 +275,7 @@ class TestParseEventFiltering:
         # If parser is fixed to filter FREE events, change this to: assert len(result.events) == 0
         assert len(result.events) == 1, \
             "Parser currently keeps TRANSPARENT events (maps to 'tentative'). " \
-            "Got {len(result.events)} events. If this fails, parser behavior changed - update test."
+            f"Got {len(result.events)} events. If this fails, parser behavior changed - update test."
 
         # Verify the event was parsed correctly with 'tentative' status
         event = result.events[0]

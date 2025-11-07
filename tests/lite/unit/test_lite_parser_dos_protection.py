@@ -4,6 +4,7 @@ Tests protection against infinite loop attacks from malformed or malicious ICS f
 """
 
 import asyncio
+import re
 import time
 
 import pytest
@@ -520,7 +521,8 @@ END:VCALENDAR"""
         "Error message should not contain debug traces"
 
     # Should not contain raw stack traces (line numbers from internal code)
-    assert "File \"" not in msg and "line " not in msg.lower(), \
+    # Use regex to avoid false positives from words like "online", "timeline"
+    assert not re.search(r'File "[^"]+", line \d+', msg), \
         "Error message should not contain stack traces"
 
     # Error message SHOULD contain the limit (this is expected user-facing info)

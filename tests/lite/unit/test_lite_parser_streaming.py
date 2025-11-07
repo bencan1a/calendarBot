@@ -295,7 +295,7 @@ SUMMARY:Incomplete Event
         # If parsing failed, there should be an error message
         assert result.error_message is not None, \
             "Failed parse should have error_message"
-        error_or_warnings = result.error_message.lower() + " ".join(result.warnings).lower()
+        error_or_warnings = (result.error_message or "").lower() + " ".join(result.warnings).lower()
         assert "incomplete" in error_or_warnings or "missing" in error_or_warnings, \
             f"Incomplete ICS should mention 'incomplete' or 'missing' in error/warnings. Got: {result.error_message}, {result.warnings}"
 

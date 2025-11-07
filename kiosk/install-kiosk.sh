@@ -1331,8 +1331,8 @@ $cleanup_cron * * * /usr/local/bin/log-aggregator.sh cleanup >> /var/log/calenda
 */$status_interval * * * * /usr/local/bin/monitoring-status.sh status $status_output 2>&1
 EOF
 
-    # Install new crontab (pipe through stdin to avoid permission issues)
-    cat "$temp_cron" | sudo -u "${CFG_system_username}" crontab -
+    # Install new crontab
+    sudo -u "${CFG_system_username}" crontab "$temp_cron"
     rm -f "$temp_cron"
 
     log_success "Monitoring cron jobs configured"
@@ -1516,7 +1516,7 @@ main() {
         log_info "Remove --dry-run flag to perform actual installation."
     else
         # Show backup information
-        if [[ "${!CHANGED_FILES[@]}" ]]; then
+        if [[ ${#CHANGED_FILES[@]} -gt 0 ]]; then
             log_info "Backups created:"
             for file in "${!CHANGED_FILES[@]}"; do
                 log_info "  $file -> ${CHANGED_FILES[$file]}"
