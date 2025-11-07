@@ -7,14 +7,14 @@ import pytest
 import docker
 import time
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Any
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
-def docker_client():
+def docker_client() -> Generator[docker.DockerClient, None, None]:
     """Docker client for managing containers.
 
     Yields:
@@ -33,7 +33,7 @@ def docker_client():
 
 
 @pytest.fixture(scope="module")
-def e2e_image(docker_client) -> str:
+def e2e_image(docker_client: docker.DockerClient) -> str:
     """Build E2E image once per test module.
 
     Builds the CalendarBot E2E test image if it doesn't exist or needs updating.
@@ -79,7 +79,7 @@ def e2e_image(docker_client) -> str:
 
 
 @pytest.fixture(scope="function")
-def e2e_container(docker_client, e2e_image) -> Generator:
+def e2e_container(docker_client: docker.DockerClient, e2e_image: str) -> Generator[Any, None, None]:
     """Create fresh E2E container for each test.
 
     Creates a new container with systemd support, waits for systemd to be ready,
@@ -154,7 +154,7 @@ def e2e_container(docker_client, e2e_image) -> Generator:
 
 
 @pytest.fixture
-def clean_container(e2e_container):
+def clean_container(e2e_container: Any) -> Any:
     """Ensure container is clean before test.
 
     Removes any CalendarBot installation from previous tests to ensure
@@ -215,7 +215,7 @@ def clean_container(e2e_container):
 
 
 @pytest.fixture(scope="class")
-def progressive_container(docker_client, e2e_image) -> Generator:
+def progressive_container(docker_client: docker.DockerClient, e2e_image: str) -> Generator[Any, None, None]:
     """Create persistent E2E container for progressive testing.
 
     This fixture creates a container that persists across all tests in a class,
@@ -289,7 +289,7 @@ def progressive_container(docker_client, e2e_image) -> Generator:
                 logger.warning(f"Error removing container: {e}")
 
 
-def _wait_for_systemd(container, timeout: int = 30) -> None:
+def _wait_for_systemd(container: Any, timeout: int = 30) -> None:
     """Wait for systemd to be ready in container.
 
     Args:
