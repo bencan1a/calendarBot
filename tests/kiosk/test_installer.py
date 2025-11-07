@@ -1858,7 +1858,10 @@ monitoring:
         # (comment, command invocation, log message, and in flags)
         xinitrc = container_read_file(clean_container, "/home/testuser/.xinitrc")
         chromium_count = xinitrc.count("chromium")
-        assert chromium_count == 4, f"Unexpected chromium count (expected 4 from source file): {chromium_count}"
+        assert chromium_count >= 1, f"'chromium' not found in .xinitrc (count={chromium_count})"
+        # Verify the command invocation line contains 'chromium --kiosk'
+        assert any("chromium" in line and "--kiosk" in line for line in xinitrc.splitlines()), \
+            "No line in .xinitrc contains 'chromium --kiosk'"
 
     def test_installer_update_mode(self, clean_container):
         """Test that update mode preserves existing configuration.

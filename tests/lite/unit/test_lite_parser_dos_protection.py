@@ -131,7 +131,7 @@ async def test_dos_protection_timeout():
             self.count = 0
             # Use short sleep per iteration to keep iterations low
             # but cumulative time exceeds timeout
-            self.sleep_time = (MAX_PARSER_TIMEOUT_SECONDS + 5) / 3  # 3 iterations = 35+ seconds
+            self.sleep_time = (MAX_PARSER_TIMEOUT_SECONDS + 5) / 3  # Assumes MAX_PARSER_TIMEOUT_SECONDS={}: 3 iterations = {}+ seconds".format(MAX_PARSER_TIMEOUT_SECONDS, MAX_PARSER_TIMEOUT_SECONDS + 5)
 
         def __aiter__(self):
             return self
