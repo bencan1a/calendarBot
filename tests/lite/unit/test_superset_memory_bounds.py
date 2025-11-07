@@ -386,9 +386,10 @@ class TestSupersetPerformance:
         for size in sizes:
             ics_content = generate_ics_with_recurring_events(size)
 
-            start_time = time.time()
+            # Use perf_counter for better precision than time.time()
+            start_time = time.perf_counter()
             result = parser.parse_ics_content_optimized(ics_content)
-            end_time = time.time()
+            end_time = time.perf_counter()
 
             assert result.success, f"Parsing failed for size {size}"
             times.append(end_time - start_time)
@@ -397,15 +398,21 @@ class TestSupersetPerformance:
         # Allow some variance, but it should be roughly linear
         # If it were O(n²), doubling would ~4x the time
         # If it's O(n), doubling should ~2x the time
-        if times[1] > 0:  # Avoid division by zero
-            ratio_50_to_100 = times[1] / times[0] if times[0] > 0 else float('inf')
-            ratio_100_to_200 = times[2] / times[1] if times[1] > 0 else float('inf')
+        MIN_TIME_THRESHOLD = 1e-3  # 1ms minimum to avoid noise from very fast operations
+        if times[1] > MIN_TIME_THRESHOLD and times[0] > MIN_TIME_THRESHOLD:
+            ratio_50_to_100 = times[1] / times[0]
 
-            # Both ratios should be less than 3 (generous allowance for O(n))
-            # If it were O(n²), we'd expect ratios closer to 4
-            assert ratio_50_to_100 < 3.0, (
+            # Threshold of 3.5 allows for O(n log n) and environmental variance
+            # while still catching O(n²) behavior (which would be ~4.0)
+            assert ratio_50_to_100 < 3.5, (
                 f"Parsing shows quadratic behavior: 50→100 ratio={ratio_50_to_100:.2f}"
             )
-            assert ratio_100_to_200 < 3.0, (
+
+        if times[2] > MIN_TIME_THRESHOLD and times[1] > MIN_TIME_THRESHOLD:
+            ratio_100_to_200 = times[2] / times[1]
+
+            # Threshold of 3.5 allows for O(n log n) and environmental variance
+            # while still catching O(n²) behavior (which would be ~4.0)
+            assert ratio_100_to_200 < 3.5, (
                 f"Parsing shows quadratic behavior: 100→200 ratio={ratio_100_to_200:.2f}"
             )

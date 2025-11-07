@@ -5,12 +5,12 @@ Provides utilities for interacting with Docker containers during E2E tests.
 
 import logging
 import time
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Any
 
 logger = logging.getLogger(__name__)
 
 
-def container_file_exists(container, path: str) -> bool:
+def container_file_exists(container: Any, path: str) -> bool:
     """Check if file exists in container.
 
     Args:
@@ -24,7 +24,7 @@ def container_file_exists(container, path: str) -> bool:
     return exit_code == 0
 
 
-def container_dir_exists(container, path: str) -> bool:
+def container_dir_exists(container: Any, path: str) -> bool:
     """Check if directory exists in container.
 
     Args:
@@ -38,7 +38,7 @@ def container_dir_exists(container, path: str) -> bool:
     return exit_code == 0
 
 
-def container_read_file(container, path: str) -> str:
+def container_read_file(container: Any, path: str) -> str:
     """Read file contents from container.
 
     Args:
@@ -66,7 +66,7 @@ def container_read_file(container, path: str) -> str:
     return output.decode('utf-8', errors='replace')
 
 
-def container_service_enabled(container, service: str) -> bool:
+def container_service_enabled(container: Any, service: str) -> bool:
     """Check if systemd service is enabled.
 
     Args:
@@ -86,7 +86,7 @@ def container_service_enabled(container, service: str) -> bool:
     return exit_code == 0
 
 
-def container_service_active(container, service: str) -> bool:
+def container_service_active(container: Any, service: str) -> bool:
     """Check if systemd service is active (running).
 
     Args:
@@ -106,7 +106,7 @@ def container_service_active(container, service: str) -> bool:
     return exit_code == 0
 
 
-def container_service_status(container, service: str) -> dict:
+def container_service_status(container: Any, service: str) -> dict[str, Any]:
     """Get detailed systemd service status.
 
     Args:
@@ -136,10 +136,81 @@ def container_service_status(container, service: str) -> dict:
     }
 
 
+def prepare_repository_in_container(
+    container: Any,
+    target_user: str = "testuser",
+    target_path: str = "/home/testuser/calendarBot",
+) -> None:
+    """Copy workspace to target location to simulate existing repo.
+
+    This avoids git clone issues in E2E tests by copying the mounted
+    workspace to the expected installation location.
+
+    Args:
+        container: Docker container
+        target_user: User who should own the repo
+        target_path: Where to copy the repository
+
+    Raises:
+        RuntimeError: If copy fails
+    """
+    # Create parent directory
+    parent_dir = "/".join(target_path.split("/")[:-1])
+
+    exit_code, output = container.exec_run(
+        f"mkdir -p {parent_dir}",
+        privileged=True,
+    )
+
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to create parent directory: {output.decode()}")
+
+    # Copy workspace to target path
+    exit_code, output = container.exec_run(
+        f"cp -r /workspace {target_path}",
+        privileged=True,
+    )
+
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to copy workspace: {output.decode()}")
+
+    # Set ownership
+    exit_code, output = container.exec_run(
+        f"chown -R {target_user}:{target_user} {target_path}",
+        privileged=True,
+    )
+
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to set ownership: {output.decode()}")
+
+    # Remove venv if it exists (host venv is not compatible with container)
+    venv_path = f"{target_path}/venv"
+    exit_code, output = container.exec_run(
+        f"rm -rf {venv_path}",
+        privileged=True,
+    )
+
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to remove venv: {output.decode()}")
+
+    # Remove .env file to ensure installer creates fresh one with test config
+    env_path = f"{target_path}/.env"
+    exit_code, output = container.exec_run(
+        f"rm -f {env_path}",
+        privileged=True,
+    )
+
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to remove .env: {output.decode()}")
+
+    logger.info(f"Prepared repository at {target_path} for user {target_user}")
+
+
 def run_installer_in_container(
-    container,
+    container: Any,
     config_yaml: str,
     extra_args: Optional[List[str]] = None,
+    prep_repo: bool = True,
 ) -> Tuple[int, str, str]:
     """Run install-kiosk.sh in container.
 
@@ -147,6 +218,7 @@ def run_installer_in_container(
         container: Docker container
         config_yaml: YAML config string to write to /tmp/install-config.yaml
         extra_args: Additional args (e.g., ["--update", "--dry-run"])
+        prep_repo: If True, copy workspace to target location before install
 
     Returns:
         tuple: (exit_code, stdout, stderr)
@@ -154,6 +226,10 @@ def run_installer_in_container(
     Raises:
         RuntimeError: If config file cannot be written
     """
+    # Prepare repository if requested (simulate existing installation)
+    if prep_repo:
+        prepare_repository_in_container(container)
+
     # Write config file to container using heredoc (simple and reliable)
     config_path = "/tmp/install-config.yaml"
 
@@ -197,7 +273,7 @@ def run_installer_in_container(
 
 
 def container_exec(
-    container,
+    container: Any,
     command: str,
     privileged: bool = False,
     user: Optional[str] = None,
@@ -215,7 +291,7 @@ def container_exec(
     Returns:
         tuple: (exit_code, output)
     """
-    exec_kwargs = {
+    exec_kwargs: dict[str, Any] = {
         "privileged": privileged,
     }
 
@@ -232,7 +308,7 @@ def container_exec(
     return exit_code, output_str
 
 
-def container_get_file_permissions(container, path: str) -> Optional[str]:
+def container_get_file_permissions(container: Any, path: str) -> Optional[str]:
     """Get file permissions in symbolic format (e.g., 'rwxr-xr-x').
 
     Args:
@@ -253,7 +329,7 @@ def container_get_file_permissions(container, path: str) -> Optional[str]:
     return output.decode('utf-8', errors='replace').strip()
 
 
-def container_get_file_owner(container, path: str) -> Optional[Tuple[str, str]]:
+def container_get_file_owner(container: Any, path: str) -> Optional[Tuple[str, str]]:
     """Get file owner and group.
 
     Args:
@@ -279,7 +355,7 @@ def container_get_file_owner(container, path: str) -> Optional[Tuple[str, str]]:
 
 
 def container_wait_for_service(
-    container,
+    container: Any,
     service: str,
     timeout: int = 30,
     check_interval: int = 1,

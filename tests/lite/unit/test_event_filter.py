@@ -216,16 +216,17 @@ class TestEventWindowManager:
         assert "sources failed" in message.lower()
 
     async def test_update_window_with_window_size_limit(self):
-        """Should limit window to specified size."""
+        """Should limit window to first 50 events by time (keep earliest)."""
         event_window_ref: list[tuple[Any, ...]] = [()]
         window_lock = asyncio.Lock()
 
         now = datetime.datetime(2025, 11, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
 
-        # Create 100 future events
+        # Create 100 future events with scrambled subject names
+        # This ensures we're testing time-based limiting, not subject-based
         base_time = datetime.datetime(2025, 11, 1, 14, 0, 0, tzinfo=datetime.timezone.utc)
         parsed_events = [
-            {"subject": f"Event {i}", "start": base_time + datetime.timedelta(hours=i)}
+            {"subject": f"Event-{chr(65 + (i % 26))}-{i}", "start": base_time + datetime.timedelta(hours=i)}
             for i in range(100)
         ]
 
@@ -237,6 +238,21 @@ class TestEventWindowManager:
         assert count == 50
         assert len(event_window_ref[0]) == 50
 
+        # Verify we kept the earliest 50 events by time
+        assert event_window_ref[0][0]["subject"] == "Event-A-0"
+        assert event_window_ref[0][49]["subject"] == "Event-X-49"
+        assert event_window_ref[0][-1]["subject"] == "Event-X-49"
+
+        # Verify start times are the first 50 chronologically
+        assert event_window_ref[0][0]["start"] == base_time
+        assert event_window_ref[0][49]["start"] == base_time + datetime.timedelta(hours=49)
+
+        # Verify all times are in ascending order
+        for i in range(len(event_window_ref[0]) - 1):
+            current_time = event_window_ref[0][i]["start"]
+            next_time = event_window_ref[0][i + 1]["start"]
+            assert current_time <= next_time
+
     async def test_update_window_sorts_by_start_time(self):
         """Should sort events by start time."""
         event_window_ref: list[tuple[Any, ...]] = [()]
@@ -244,11 +260,12 @@ class TestEventWindowManager:
 
         now = datetime.datetime(2025, 11, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
 
-        # Events in random order
+        # Events with scrambled subject names that DON'T match chronological order
+        # This ensures we're testing actual datetime sorting, not accidental subject ordering
         parsed_events = [
-            {"subject": "Event 3", "start": datetime.datetime(2025, 11, 1, 18, 0, 0, tzinfo=datetime.timezone.utc)},
-            {"subject": "Event 1", "start": datetime.datetime(2025, 11, 1, 14, 0, 0, tzinfo=datetime.timezone.utc)},
-            {"subject": "Event 2", "start": datetime.datetime(2025, 11, 1, 16, 0, 0, tzinfo=datetime.timezone.utc)},
+            {"subject": "Zebra Project", "start": datetime.datetime(2025, 11, 1, 18, 0, 0, tzinfo=datetime.timezone.utc)},
+            {"subject": "Apple Standup", "start": datetime.datetime(2025, 11, 1, 14, 0, 0, tzinfo=datetime.timezone.utc)},
+            {"subject": "Monkey Review", "start": datetime.datetime(2025, 11, 1, 16, 0, 0, tzinfo=datetime.timezone.utc)},
         ]
 
         updated, count, message = await self.manager.update_window(
@@ -256,6 +273,21 @@ class TestEventWindowManager:
         )
 
         assert updated is True
-        assert event_window_ref[0][0]["subject"] == "Event 1"
-        assert event_window_ref[0][1]["subject"] == "Event 2"
-        assert event_window_ref[0][2]["subject"] == "Event 3"
+        assert count == 3
+        assert len(event_window_ref[0]) == 3
+
+        # Verify events are sorted by actual start time (not subject)
+        assert event_window_ref[0][0]["subject"] == "Apple Standup"
+        assert event_window_ref[0][1]["subject"] == "Monkey Review"
+        assert event_window_ref[0][2]["subject"] == "Zebra Project"
+
+        # Verify datetime values are in ascending order
+        assert event_window_ref[0][0]["start"] == datetime.datetime(2025, 11, 1, 14, 0, 0, tzinfo=datetime.timezone.utc)
+        assert event_window_ref[0][1]["start"] == datetime.datetime(2025, 11, 1, 16, 0, 0, tzinfo=datetime.timezone.utc)
+        assert event_window_ref[0][2]["start"] == datetime.datetime(2025, 11, 1, 18, 0, 0, tzinfo=datetime.timezone.utc)
+
+        # Verify times are strictly ascending
+        for i in range(len(event_window_ref[0]) - 1):
+            current_time = event_window_ref[0][i]["start"]
+            next_time = event_window_ref[0][i + 1]["start"]
+            assert current_time <= next_time

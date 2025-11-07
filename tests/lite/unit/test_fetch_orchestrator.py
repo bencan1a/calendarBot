@@ -68,11 +68,12 @@ async def test_fetch_all_sources_when_tasks_return_events_then_combines(monkeypa
             await asyncio.sleep(0)  # yield control
             return [{"source": src_cfg["name"], "id": 1}]
 
-    # Create orchestrator instance under test
+    # Create orchestrator instance under test with tracked health tracker
+    dummy_health_tracker = DummyHealthTracker()
     orchestrator_obj = FetchOrchestrator(
         fetch_and_parse_source=fake_fetch_and_parse,
         window_manager=DummyWindowManager(),
-        health_tracker=DummyHealthTracker(),
+        health_tracker=dummy_health_tracker,
         monitoring_logger=DummyMonitoringLogger(),
     )
 
@@ -87,10 +88,17 @@ async def test_fetch_all_sources_when_tasks_return_events_then_combines(monkeypa
 
     sources = [{"name": "a"}, {"name": "b"}]
     parsed = await orchestrator_obj.fetch_all_sources(sources, fetch_concurrency=2, rrule_days=5)
+
     # Should combine two lists (one per source)
     assert isinstance(parsed, list)
     assert len(parsed) == 2
     assert {e["source"] for e in parsed} == {"a", "b"}
+
+    # Verify health tracker was NOT called (fetch_all_sources doesn't track health)
+    # Health tracking happens in refresh_once, not fetch_all_sources
+    assert dummy_health_tracker.attempts == 0
+    assert dummy_health_tracker.successes == 0
+    assert dummy_health_tracker.heartbeats == 0
 
 
 @pytest.mark.asyncio
@@ -112,10 +120,11 @@ async def test_fetch_all_sources_when_task_raises_then_skips_and_continues(monke
             return await bad_fetch(semaphore, src_cfg, rrule_days, shared_http_client)
         return await ok_fetch(semaphore, src_cfg, rrule_days, shared_http_client)
 
+    dummy_health_tracker = DummyHealthTracker()
     orchestrator_obj = FetchOrchestrator(
         fetch_and_parse_source=dispatch_fetch,
         window_manager=DummyWindowManager(),
-        health_tracker=DummyHealthTracker(),
+        health_tracker=dummy_health_tracker,
         monitoring_logger=DummyMonitoringLogger(),
     )
 
@@ -127,7 +136,14 @@ async def test_fetch_all_sources_when_task_raises_then_skips_and_continues(monke
 
     sources = [{"name": "ok"}, {"name": "fail", "bad": True}, {"name": "also_ok"}]
     parsed = await orchestrator_obj.fetch_all_sources(sources, fetch_concurrency=2, rrule_days=3)
+
     # One task raised, two succeeded => 2 events
     assert isinstance(parsed, list)
     assert len(parsed) == 2
     assert {e["source"] for e in parsed} == {"ok", "also_ok"}
+
+    # Verify health tracker was NOT called (fetch_all_sources doesn't track health)
+    # Health tracking happens in refresh_once, not fetch_all_sources
+    assert dummy_health_tracker.attempts == 0
+    assert dummy_health_tracker.successes == 0
+    assert dummy_health_tracker.heartbeats == 0

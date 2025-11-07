@@ -43,7 +43,7 @@ def run_command(cmd: List[str], check: bool = True) -> subprocess.CompletedProce
 
 
 def get_changed_files(base_branch: str = "origin/main", verbose: bool = False) -> List[str]:
-    """Get list of changed Python files compared to base branch."""
+    """Get list of changed Python files and kiosk files compared to base branch."""
     # First try to compare with base branch
     result = run_command(
         ["git", "diff", "--name-only", base_branch, "HEAD"],
@@ -65,13 +65,16 @@ def get_changed_files(base_branch: str = "origin/main", verbose: bool = False) -
                 print("Warning: Could not compare with HEAD~1, checking working tree", file=sys.stderr)
             result = run_command(["git", "diff", "--name-only"], check=False)
 
-    changed = [
-        f for f in result.stdout.splitlines()
-        if f.endswith('.py') and Path(f).exists()
-    ]
+    changed = []
+    for f in result.stdout.splitlines():
+        if not Path(f).exists():
+            continue
+        # Include Python files OR kiosk directory files
+        if f.endswith('.py') or f.startswith('kiosk/'):
+            changed.append(f)
 
     if verbose:
-        print(f"Found {len(changed)} changed Python files")
+        print(f"Found {len(changed)} changed files (Python + kiosk)")
         for f in changed:
             print(f"  - {f}")
 
@@ -309,6 +312,24 @@ def main():
     )
     affected_tests.update(import_tests)
 
+    # Strategy 3: Kiosk file mapping (check if any kiosk/ files changed)
+    kiosk_files_changed = any(f.startswith('kiosk/') for f in changed_files)
+    kiosk_tests = set()
+    if kiosk_files_changed:
+        # If kiosk files changed, include kiosk unit tests (not slow E2E tests)
+        kiosk_test_dir = Path("tests/kiosk")
+        if kiosk_test_dir.exists():
+            # Include only non-E2E kiosk tests (E2E tests run nightly)
+            for test_file in kiosk_test_dir.glob("test_*.py"):
+                # Skip E2E tests (they run nightly due to ~10min duration)
+                if "test_installer.py" not in str(test_file):
+                    kiosk_tests.add(str(test_file))
+
+            if args.verbose:
+                print(f"Kiosk files changed - including {len(kiosk_tests)} kiosk unit tests (E2E tests run nightly)")
+
+        affected_tests.update(kiosk_tests)
+
     # Always include critical path tests
     critical_tests = get_critical_path_tests(args.test_dir, args.verbose)
     affected_tests.update(critical_tests)
@@ -328,6 +349,7 @@ def main():
     print(f"Affected tests: {len(affected_tests)}")
     print(f"  - From coverage: {len(coverage_tests)}")
     print(f"  - From imports: {len(import_tests)}")
+    print(f"  - From kiosk changes: {len(kiosk_tests)}")
     print(f"  - Critical path: {len(critical_tests)}")
     print(f"{'='*60}")
     print(f"\nOutput written to: {args.output}")

@@ -8,6 +8,7 @@ import pytest
 from calendarbot_lite.core.http_client import (
     StreamingHTTPResponse,
     close_all_clients,
+    get_client_health,
     get_fallback_client,
     get_shared_client,
     record_client_error,
@@ -90,14 +91,31 @@ class TestSharedHTTPClient:
         """Test that client health tracking records errors correctly."""
         await close_all_clients()
 
-        # Record errors
+        # Record errors and verify state changes
         await record_client_error("test_client")
+
+        # Verify first error recorded
+        health = await get_client_health("test_client")
+        assert health["error_count"] == 1
+        assert health["last_error_time"] > 0
+
+        # Record more errors
         await record_client_error("test_client")
         await record_client_error("test_client")
 
-        # This should trigger client recreation
+        # Verify error count increased
+        health = await get_client_health("test_client")
+        assert health["error_count"] == 3
+        assert health["last_error_time"] > 0
+
+        # This should trigger client recreation (3 errors >= HEALTH_ERROR_THRESHOLD)
         client = await get_shared_client("test_client")
         assert isinstance(client, httpx.AsyncClient)
+
+        # Verify health was reset after recreation
+        health_after_recreate = await get_client_health("test_client")
+        assert health_after_recreate["error_count"] == 0
+        assert "created_time" in health_after_recreate
 
         await close_all_clients()
 
@@ -105,10 +123,24 @@ class TestSharedHTTPClient:
         """Test that client health tracking records success correctly."""
         await close_all_clients()
 
-        # Record some errors then success
+        # Record some errors and verify state
         await record_client_error("test_client")
+        await record_client_error("test_client")
+
+        # Verify errors were recorded
+        health = await get_client_health("test_client")
+        assert health["error_count"] == 2
+        assert health["last_error_time"] > 0
+
+        # Record success and verify error count reset
         await record_client_success("test_client")
 
+        # Verify error count was reset to 0
+        health_after_success = await get_client_health("test_client")
+        assert health_after_success["error_count"] == 0
+        # last_error_time remains but error_count is reset
+
+        # Client should still be healthy and reusable
         client = await get_shared_client("test_client")
         assert isinstance(client, httpx.AsyncClient)
 

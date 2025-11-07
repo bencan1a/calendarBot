@@ -677,41 +677,85 @@ class TestMorningSummaryService:
 
             assert service._is_focus_time(event) is True
 
-    def test_service_when_caching_then_performance_improved(self, service):
-        """Test caching functionality improves performance."""
+    @pytest.mark.asyncio
+    async def test_service_when_caching_then_performance_improved(self, service, mock_tomorrow_date):
+        """Test caching functionality improves performance.
+
+        This test verifies that retrieving cached results is significantly faster
+        than generating new summaries, which is critical for reducing Alexa
+        response times and Raspberry Pi CPU load.
+        """
+        # Create events for testing
         events = []
-        request = MorningSummaryRequest()
+        base_time = datetime(2023, 12, 1, 6, 0, tzinfo=timezone.utc)
+        for i in range(10):  # Small number for quick testing
+            event = LiteCalendarEvent(
+                id=f"event-{i}",
+                subject=f"Meeting {i}",
+                start=LiteDateTimeInfo(
+                    date_time=base_time + timedelta(minutes=i * 30),
+                    time_zone="UTC",
+                ),
+                end=LiteDateTimeInfo(
+                    date_time=base_time + timedelta(minutes=i * 30 + 25),
+                    time_zone="UTC",
+                ),
+            )
+            events.append(event)
+
+        request = MorningSummaryRequest(timezone="UTC")
+
+        # Measure time for first generation (cache miss)
+        with patch.object(service, "_get_tomorrow_date", return_value=mock_tomorrow_date):
+            start_time = time.perf_counter()
+            result_uncached = await service.generate_summary(events, request)
+            uncached_time = time.perf_counter() - start_time
+
+        # Verify result was generated
+        assert isinstance(result_uncached, MorningSummaryResult)
+        assert result_uncached.speech_text is not None
 
         # Generate cache key
         cache_key = service._get_cache_key(events, request)
-        assert isinstance(cache_key, str)
 
-        # Test cache miss
+        # Store result in cache
+        service._cache_result(cache_key, result_uncached)
+
+        # Measure time for cache retrieval
+        start_time = time.perf_counter()
         cached_result = service._get_cached_result(cache_key)
-        assert cached_result is None
+        cached_time = time.perf_counter() - start_time
 
-        # Test cache storage and retrieval
-        mock_result = MorningSummaryResult(
-            timeframe_start=datetime.now(timezone.utc),
-            timeframe_end=datetime.now(timezone.utc),
-            total_meetings_equivalent=0.0,
-            early_start_flag=False,
-            density=DensityLevel.LIGHT,
-            speech_text="Test speech",
-            metadata={
-                "preview_for": "tomorrow_morning",
-                "generation_context": {
-                    "delivery_time": "evening",
-                    "reference_day": "tomorrow",
-                },
-            },
+        # Verify cached result matches
+        assert cached_result is not None
+        assert cached_result.speech_text == result_uncached.speech_text
+
+        # Cache retrieval should be at least 10x faster than generation
+        # Cache retrieval is just a dict lookup (~microseconds)
+        # Generation involves processing events, formatting, etc. (~milliseconds)
+        # Only calculate speedup if cached_time is above minimum threshold (1 microsecond)
+        # to avoid flaky tests on slow CI or timer resolution issues
+        MIN_TIME_THRESHOLD = 1e-6  # 1 microsecond
+        if cached_time > MIN_TIME_THRESHOLD:
+            speedup_factor = uncached_time / cached_time
+        else:
+            speedup_factor = float('inf')
+
+        # Assertion: cache should provide at least 10x speedup
+        # (In practice, it's usually 100x+ faster)
+        assert speedup_factor >= 10.0, (
+            f"Cache speedup only {speedup_factor:.1f}x "
+            f"(uncached: {uncached_time*1000:.2f}ms, cached: {cached_time*1000:.2f}ms). "
+            f"Expected at least 10x improvement. "
+            f"This indicates caching is not providing performance benefit."
         )
 
-        service._cache_result(cache_key, mock_result)
-
-        cached_result = service._get_cached_result(cache_key)
-        assert cached_result is not None
-        assert cached_result.speech_text == "Test speech"
+        # Also verify absolute performance: cached retrieval should be < 1ms
+        cached_time_ms = cached_time * 1000
+        assert cached_time_ms < 1.0, (
+            f"Cache retrieval took {cached_time_ms:.3f}ms, expected < 1ms. "
+            f"This indicates cache implementation is inefficient."
+        )
 
 
 class TestMorningSummaryResult:
