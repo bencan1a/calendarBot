@@ -67,7 +67,7 @@ concurrency:
 
 ### nightly-full-suite.yml
 - **Triggers**: `schedule` (cron) and `workflow_dispatch`
-- **Why no concurrency control**: 
+- **Why no concurrency control**:
   - Scheduled jobs run once per day (no risk of overlap)
   - Manual triggers are rare and intentional
   - No PR events, so no duplicate run risk
