@@ -93,6 +93,10 @@ def make_event_with_basic_props() -> ICalEvent:
 
 
 def test_parse_event_component_when_valid_then_returns_event() -> None:
+    """Test successful parsing of complete VEVENT component with all standard fields.
+
+    Verifies: basic properties, online meeting URL detection, organizer status, attendees.
+    """
     dt_parser = DummyDateTimeParser()
     attendee_parser = DummyAttendeeParser()
     settings = DummySettings()
@@ -112,6 +116,10 @@ def test_parse_event_component_when_valid_then_returns_event() -> None:
 
 
 def test_parse_event_component_when_missing_dtstart_then_returns_none() -> None:
+    """Test that events without DTSTART are skipped (return None).
+
+    DTSTART is required per iCalendar spec - events without it are invalid.
+    """
     dt_parser = DummyDateTimeParser()
     attendee_parser = DummyAttendeeParser()
     parser = LiteEventComponentParser(dt_parser, attendee_parser, DummySettings())  # type: ignore[arg-type]
@@ -124,6 +132,11 @@ def test_parse_event_component_when_missing_dtstart_then_returns_none() -> None:
 
 
 def test_collect_exdate_props_handles_multiple_forms() -> None:
+    """Test EXDATE collection handles single dates, lists, and multiple EXDATE properties.
+
+    EXDATE can appear in various forms in ICS: single property, multiple properties,
+    or list-valued property. Parser must handle all forms.
+    """
     dt_parser = DummyDateTimeParser()
     attendee_parser = DummyAttendeeParser()
     parser = LiteEventComponentParser(dt_parser, attendee_parser, DummySettings())  # type: ignore[arg-type]
@@ -141,6 +154,12 @@ def test_collect_exdate_props_handles_multiple_forms() -> None:
 
 
 def test_map_transparency_to_status_with_ms_deleted_and_following_logic() -> None:
+    """Test Microsoft-specific transparency mapping (X-OUTLOOK-DELETED, Following: prefix).
+
+    Microsoft calendars use non-standard fields:
+    - X-OUTLOOK-DELETED=TRUE maps to FREE (filtered out)
+    - "Following:" prefix with FREE override maps to TENTATIVE
+    """
     dt_parser = DummyDateTimeParser()
     attendee_parser = DummyAttendeeParser()
     parser = LiteEventComponentParser(dt_parser, attendee_parser, DummySettings())  # type: ignore[arg-type]

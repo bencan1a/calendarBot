@@ -127,10 +127,12 @@ def test_format_duration_spoken_exact_minute_then_1_minute():
     ],
 )
 def test_format_duration_spoken_minutes_range_then_expected(seconds, expected):
+    """Test minute formatting rounds down (61-119s = 1 minute, up to 3599s = 59 minutes)."""
     assert server._format_duration_spoken(seconds) == expected
 
 
 def test_format_duration_spoken_exact_hour_then_1_hour():
+    """Test 3600 seconds (exact hour) is formatted as '1 hour'."""
     assert server._format_duration_spoken(3600) == "in 1 hour"
 
 
@@ -142,24 +144,29 @@ def test_format_duration_spoken_hours_with_minutes_then_expected():
 
 
 def test_format_duration_spoken_negative_then_in_the_past():
+    """Test negative durations (past events) return 'in the past'."""
     assert server._format_duration_spoken(-10) == "in the past"
 
 
 def test_serialize_iso_none_then_none():
+    """Test None input returns None (graceful handling of missing datetimes)."""
     assert server._serialize_iso(None) is None
 
 
 def test_serialize_iso_naive_datetime_then_assume_utc():
+    """Test naive datetime (no timezone) is assumed to be UTC and gets Z suffix."""
     dt = datetime.datetime(2025, 10, 28, 12, 0, 0)
     assert server._serialize_iso(dt) == "2025-10-28T12:00:00Z"
 
 
 def test_serialize_iso_utc_datetime_then_z_suffix():
+    """Test datetime with explicit UTC timezone is serialized with Z suffix."""
     dt = datetime.datetime(2025, 10, 28, 12, 0, tzinfo=datetime.timezone.utc)
     assert server._serialize_iso(dt) == "2025-10-28T12:00:00Z"
 
 
 def test_serialize_iso_non_utc_timezone_then_converted_to_z():
+    """Test non-UTC timezone (Asia/Tokyo) is converted to UTC before serialization."""
     tokyo = zoneinfo.ZoneInfo("Asia/Tokyo")
     dt = datetime.datetime(2025, 10, 28, 21, 0, tzinfo=tokyo)
     # 21:00 JST is 12:00Z
@@ -167,6 +174,7 @@ def test_serialize_iso_non_utc_timezone_then_converted_to_z():
 
 
 def test_serialize_iso_pacific_timezone_then_converted_to_z():
+    """Test US Pacific timezone (America/Los_Angeles) is converted to UTC."""
     pacific = zoneinfo.ZoneInfo("America/Los_Angeles")
     dt = datetime.datetime(2025, 10, 28, 5, 0, tzinfo=pacific)
     # 05:00 PDT (-7) is 12:00Z

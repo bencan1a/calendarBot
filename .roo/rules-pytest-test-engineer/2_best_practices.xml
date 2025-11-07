@@ -5,10 +5,37 @@
   </overview>
 
   <testing_philosophy>
+    <principle name="unconditional_assertions">
+      <rule>All assertions must execute on every test run. No conditional logic (if/else) in test body.</rule>
+      <rationale>Conditional assertions may not execute, allowing broken code to pass tests.</rationale>
+      <enforcement>CRITICAL - Every test must have unconditional assertions that always verify behavior.</enforcement>
+    </principle>
+
+    <principle name="test_one_outcome">
+      <rule>Each test verifies ONE specific expected outcome, not multiple possibilities.</rule>
+      <rationale>Tests that accept "A or B or C" don't validate correct behavior, just any behavior.</rationale>
+      <example_bad>assert result.success is True or result.success is False</example_bad>
+      <example_good>assert result.success is True; assert result.event_count == 5</example_good>
+    </principle>
+
+    <principle name="must_fail_if_broken">
+      <rule>Tests must verify implementation details that would fail if production code breaks.</rule>
+      <rationale>Tests that only check types (isinstance) won't catch actual bugs in logic.</rationale>
+      <example_bad>assert isinstance(result.id, str)</example_bad>
+      <example_good>assert result.id == expected_request_id</example_good>
+    </principle>
+
     <principle name="test_real_behavior">
       <rule>Prefer testing actual functionality rather than mocking everything.</rule>
       <rationale>Over-mocking hides integration bugs and reduces confidence in tests.</rationale>
       <exceptions>When external systems are non-deterministic, slow, or unavailable in CI.</exceptions>
+    </principle>
+
+    <principle name="strategic_mocking">
+      <rule>Mock external dependencies (HTTP, filesystem, time), NOT business logic.</rule>
+      <rationale>Mocking domain logic makes tests trivial and unable to catch bugs.</rationale>
+      <mock_these>aiohttp.ClientSession, pathlib operations, time.time(), external APIs</mock_these>
+      <dont_mock_these>Event filtering, parsing logic, validation rules, business calculations</dont_mock_these>
     </principle>
 
     <principle name="tests_follow_code">
@@ -78,11 +105,77 @@
     <practice>Maintain a README under tests/ explaining how suites are organized and run.</practice>
   </documentation_and_examples>
 
+  <modern_pytest_conventions>
+    <assertion_rewriting>
+      <rule>Pytest's assertion rewriting provides excellent error messages automatically.</rule>
+      <practice>Custom error messages are unnecessary for simple assertions like `assert x == y`.</practice>
+      <use_messages_when>Complex conditions that need explanation, or when assertion failure reason isn't obvious.</use_messages_when>
+    </assertion_rewriting>
+
+    <docstrings>
+      <rule>Every test should have a comprehensive docstring.</rule>
+      <include>What the test verifies, what it does NOT verify, architectural limitations</include>
+      <example>"""Test that busy events are filtered correctly.
+
+      Verifies: Event filtering logic removes FREE events, keeps BUSY/TENTATIVE
+      Does NOT verify: ICS parsing (covered separately)
+      """</example>
+    </docstrings>
+
+    <verify_causes_not_effects>
+      <rule>Test WHY something happened, not just THAT it happened.</rule>
+      <example_bad>assert len(events) == 0</example_bad>
+      <example_good>assert events == []; assert "no busy events" in result.message</example_good>
+    </verify_causes_not_effects>
+  </modern_pytest_conventions>
+
+  <critical_anti_patterns>
+    <overview>Ten critical anti-patterns identified from CalendarBot test suite audit. See docs/pytest-best-practices.md for detailed examples.</overview>
+
+    <anti_pattern id="1">
+      <name>Conditional Assertions</name>
+      <description>Using if/else in test body where assertions may not execute</description>
+      <severity>CRITICAL</severity>
+    </anti_pattern>
+
+    <anti_pattern id="2">
+      <name>Accepting Multiple Outcomes</name>
+      <description>Tests that pass with A or B or C, not validating specific behavior</description>
+      <severity>HIGH</severity>
+    </anti_pattern>
+
+    <anti_pattern id="3">
+      <name>Over-Mocking</name>
+      <description>Mocking business logic instead of just external dependencies</description>
+      <severity>HIGH</severity>
+    </anti_pattern>
+
+    <anti_pattern id="4">
+      <name>Testing Effects Instead of Causes</name>
+      <description>Checking THAT something happened without verifying WHY</description>
+      <severity>MEDIUM</severity>
+    </anti_pattern>
+
+    <anti_pattern id="5">
+      <name>Tests That Don't Fail When Broken</name>
+      <description>Weak assertions (isinstance, > 0) that pass even when logic breaks</description>
+      <severity>HIGH</severity>
+    </anti_pattern>
+
+    <reference>See /home/devcontainers/calendarBot/docs/pytest-best-practices.md for complete list of 10 anti-patterns with examples</reference>
+  </critical_anti_patterns>
+
   <quality_checklist>
-    <item>Does the test assert behavior, not internals?</item>
-    <item>Is the test fast (<1s preferred for unit tests)?</item>
-    <item>Are fixtures minimal and reusable?</item>
-    <item>Are integration tests marked and isolated?</item>
-    <item>Is the smoke test present and reliable?</item>
+    <overview>Ask these three questions before committing any test:</overview>
+    <question>1. Does this test verify BEHAVIOR (not just types)?</question>
+    <question>2. Will this test FAIL if the production code breaks?</question>
+    <question>3. Are ALL assertions UNCONDITIONAL (no if statements)?</question>
+
+    <additional_checks>
+      <item>Is the test fast (less than 1s for unit tests)?</item>
+      <item>Are fixtures minimal and reusable?</item>
+      <item>Are integration tests marked and isolated?</item>
+      <item>Is the smoke test present and reliable?</item>
+    </additional_checks>
   </quality_checklist>
 </best_practices>
