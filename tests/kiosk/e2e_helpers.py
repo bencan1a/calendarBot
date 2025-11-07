@@ -193,6 +193,16 @@ def prepare_repository_in_container(
     if exit_code != 0:
         raise RuntimeError(f"Failed to remove venv: {output.decode()}")
 
+    # Remove .env file to ensure installer creates fresh one with test config
+    env_path = f"{target_path}/.env"
+    exit_code, output = container.exec_run(
+        f"rm -f {env_path}",
+        privileged=True,
+    )
+
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to remove .env: {output.decode()}")
+
     logger.info(f"Prepared repository at {target_path} for user {target_user}")
 
 
