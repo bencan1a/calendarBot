@@ -1450,8 +1450,7 @@ calendarbot:
         # Verify Python can import calendarbot_lite
         result = clean_container.exec_run(
             ["bash", "-c",
-             "cd /home/testuser/calendarBot && "
-             "./venv/bin/python -c 'import calendarbot_lite; print(calendarbot_lite.__file__)'"],
+             "cd /home/testuser/calendarBot && ./venv/bin/python -c 'import calendarbot_lite; print(calendarbot_lite.__file__)'"],
             user="testuser"
         )
         assert result.exit_code == 0, f"Cannot import calendarbot_lite: {result.output.decode()}"
