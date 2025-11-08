@@ -18,10 +18,10 @@ Custom agents are specialized AI assistants with domain-specific knowledge and t
 
 ## Available Agents
 
-### my-agent
+### my-agent (Principal Engineer)
 
-**Type**: Principal-level Software Engineering Agent  
-**Expertise**: Engineering excellence, technical leadership, pragmatic implementation  
+**Type**: Principal-level Software Engineering Agent
+**Expertise**: Engineering excellence, technical leadership, pragmatic implementation
 **File**: [my-agent.md](my-agent.md)
 
 **Capabilities**:
@@ -46,6 +46,105 @@ Custom agents are specialized AI assistants with domain-specific knowledge and t
 "What's the best approach for implementing X feature?"
 "Evaluate the trade-offs between approach A and B"
 "Provide engineering guidance on code structure"
+```
+
+---
+
+### security-agent (Security Expert)
+
+**Type**: Application Security Specialist
+**Expertise**: Vulnerability assessment, secure coding, OWASP Top 10, Python security
+**File**: [security-agent.md](security-agent.md)
+
+**Capabilities**:
+- Security vulnerability scanning and assessment
+- Input validation and sanitization
+- Authentication and authorization best practices
+- Cryptographic operations and secure random generation
+- API security (bearer tokens, rate limiting, CORS)
+- IoT/embedded system security hardening
+- Dependency vulnerability auditing
+
+**When to Use**:
+- Security code reviews
+- Vulnerability assessment and remediation
+- Implementing authentication/authorization
+- Hardening API endpoints
+- Secure configuration for Raspberry Pi deployment
+- Reviewing third-party dependencies for vulnerabilities
+
+**Example Invocations**:
+```
+"Review this endpoint for security vulnerabilities"
+"How should I securely validate bearer tokens?"
+"Assess security risks in this ICS parsing code"
+"Provide security hardening recommendations for systemd service"
+```
+
+---
+
+### ics-calendar-agent (ICS Calendar Expert)
+
+**Type**: Calendar Format and Processing Specialist
+**Expertise**: RFC 5545 (iCalendar), RRULE recurrence, timezone handling
+**File**: [ics-calendar-agent.md](ics-calendar-agent.md)
+
+**Capabilities**:
+- ICS/iCalendar format parsing and validation
+- RRULE recurrence rule expansion and edge cases
+- Timezone conversion and DST handling
+- Calendar provider specifics (Microsoft 365, Google, iCloud)
+- Event filtering and date range processing
+- Performance optimization for calendar processing
+
+**When to Use**:
+- ICS parsing and validation issues
+- RRULE expansion problems or edge cases
+- Timezone conversion bugs
+- Calendar-specific feature implementation
+- Event filtering and prioritization
+- Performance issues with calendar processing
+
+**Example Invocations**:
+```
+"Fix this RRULE expansion to handle last Friday of month"
+"Why are all-day events showing with time components?"
+"Optimize this calendar parsing for large ICS files"
+"Handle timezone conversion for recurring events across DST"
+```
+
+---
+
+### performance-agent (Performance Expert)
+
+**Type**: Performance Optimization Specialist
+**Expertise**: Raspberry Pi optimization, memory efficiency, async I/O
+**File**: [performance-agent.md](performance-agent.md)
+
+**Capabilities**:
+- Memory optimization for resource-constrained systems
+- CPU efficiency and algorithmic optimization
+- Async I/O patterns and best practices
+- Caching strategies and implementation
+- Startup time optimization
+- Runtime monitoring and graceful degradation
+- Raspberry Pi Zero 2W specific tuning
+
+**When to Use**:
+- High memory usage issues
+- Slow response times or request latency
+- CPU bottlenecks and performance profiling
+- Optimizing startup time
+- Implementing efficient caching
+- Resource exhaustion problems
+- Performance testing and benchmarking
+
+**Example Invocations**:
+```
+"Reduce memory usage in calendar refresh process"
+"Optimize this RRULE expansion for faster processing"
+"Implement efficient caching for ICS feeds"
+"Profile and fix performance bottleneck in event filtering"
 ```
 
 ---
@@ -208,6 +307,6 @@ To improve agent effectiveness:
 
 ---
 
-**Last Updated**: 2025-11-07  
-**Number of Agents**: 1 (my-agent)  
+**Last Updated**: 2025-11-08
+**Number of Agents**: 4 (my-agent, security-agent, ics-calendar-agent, performance-agent)
 **For Main Documentation**: See [../.github/copilot-instructions.md](../copilot-instructions.md)

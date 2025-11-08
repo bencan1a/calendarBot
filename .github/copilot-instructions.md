@@ -13,8 +13,8 @@ This file provides project-specific context, patterns, and workflows to maximize
 - **Scale**: Personal project for 1-5 users on resource-constrained hardware
 - **Philosophy**: Keep it simple, optimize for low resource usage, no enterprise patterns
 
-**Active Codebase**: `calendarbot_lite/` - All development work happens here  
-**Kiosk System**: `kiosk/` - Production deployment system  
+**Active Codebase**: `calendarbot_lite/` - All development work happens here
+**Kiosk System**: `kiosk/` - Production deployment system
 **Archived Code**: `calendarbot/` - Legacy app, DO NOT modify
 
 ---
@@ -139,8 +139,8 @@ tests/
 
 ### Python Conventions
 
-**Line Length**: 100 characters  
-**Target**: Python 3.12+  
+**Line Length**: 100 characters
+**Target**: Python 3.12+
 **Tools**: ruff (replaces black + flake8)
 
 ### Type Annotations
@@ -514,7 +514,7 @@ Before committing, verify:
 
 ---
 
-**Last Updated**: 2025-11-07  
-**Active Project**: `calendarbot_lite/`  
-**Primary Use Case**: Raspberry Pi kiosk deployment  
+**Last Updated**: 2025-11-08
+**Active Project**: `calendarbot_lite/`
+**Primary Use Case**: Raspberry Pi kiosk deployment
 **For Complete Guidance**: See [AGENTS.md](../AGENTS.md)
