@@ -514,7 +514,7 @@ Before committing, verify:
 
 ---
 
-**Last Updated**: 2025-11-07
+**Last Updated**: 2025-11-08
 **Active Project**: `calendarbot_lite/`
 **Primary Use Case**: Raspberry Pi kiosk deployment
 **For Complete Guidance**: See [AGENTS.md](../AGENTS.md)
