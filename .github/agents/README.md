@@ -20,8 +20,8 @@ Custom agents are specialized AI assistants with domain-specific knowledge and t
 
 ### my-agent
 
-**Type**: Principal-level Software Engineering Agent  
-**Expertise**: Engineering excellence, technical leadership, pragmatic implementation  
+**Type**: Principal-level Software Engineering Agent
+**Expertise**: Engineering excellence, technical leadership, pragmatic implementation
 **File**: [my-agent.md](my-agent.md)
 
 **Capabilities**:
@@ -208,6 +208,6 @@ To improve agent effectiveness:
 
 ---
 
-**Last Updated**: 2025-11-07  
-**Number of Agents**: 1 (my-agent)  
+**Last Updated**: 2025-11-07
+**Number of Agents**: 1 (my-agent)
 **For Main Documentation**: See [../.github/copilot-instructions.md](../copilot-instructions.md)
