@@ -200,7 +200,7 @@ def get_parser():
 async def startup():
     # Start server immediately
     await start_server()
-    
+
     # Load calendar in background
     asyncio.create_task(initial_calendar_load())
 ```
@@ -276,7 +276,7 @@ load_avg = psutil.getloadavg()
 # Efficient filtering with generators
 def filter_events(events, now, max_days=7):
     end_time = now + timedelta(days=max_days)
-    
+
     for event in events:  # Generator, not list
         if event.start < now:
             continue  # Skip past events

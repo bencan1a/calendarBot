@@ -298,6 +298,12 @@ mypy calendarbot_lite
 - [Infrastructure](docs/lite/04-infrastructure.md)
 - [Configuration & Dependencies](docs/lite/05-configuration-dependencies.md)
 
+### Security Documentation
+
+- **[docs/SECURITY_RECOMMENDATIONS.md](docs/SECURITY_RECOMMENDATIONS.md)** - Quick security reference & actionable fixes
+- **[docs/ALEXA_LAMBDA_SECURITY_ASSESSMENT.md](docs/ALEXA_LAMBDA_SECURITY_ASSESSMENT.md)** - Comprehensive security assessment
+- **[docs/RATE_LIMITING.md](docs/RATE_LIMITING.md)** - Rate limiting implementation details
+
 ---
 
 ## Deployment
