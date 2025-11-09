@@ -1,6 +1,6 @@
 # Security Recommendations - Quick Reference
 
-**Assessment Date**: November 8, 2025  
+**Assessment Date**: November 8, 2025
 **Full Report**: See [ALEXA_LAMBDA_SECURITY_ASSESSMENT.md](ALEXA_LAMBDA_SECURITY_ASSESSMENT.md)
 
 ---
@@ -17,9 +17,9 @@ CalendarBot's Alexa integration has **strong baseline security** but is missing 
 
 ### 🔴 CRITICAL: Missing Alexa Request Signature Verification
 
-**Status**: Not implemented  
-**Risk**: Unauthorized Lambda invocations, bypass of Amazon security controls  
-**Required For**: Publishing skill to Alexa Skills Store  
+**Status**: Not implemented
+**Risk**: Unauthorized Lambda invocations, bypass of Amazon security controls
+**Required For**: Publishing skill to Alexa Skills Store
 **Effort**: Medium (4-8 hours)
 
 **Quick Fix**: Use `ask-sdk-core` library for automatic signature verification:
@@ -37,7 +37,7 @@ sb = SkillBuilder()
 class NextMeetingIntentHandler(AbstractRequestHandler):
     def can_handle(self, handler_input):
         return is_intent_name("GetNextMeetingIntent")(handler_input)
-    
+
     def handle(self, handler_input):
         # Call your existing handle_get_next_meeting_intent() logic
         response_data = handle_get_next_meeting_intent()
@@ -56,7 +56,7 @@ def lambda_handler(event, context):
     return skill.invoke(event, context)  # Signature verification happens here
 ```
 
-**Decision Point**: 
+**Decision Point**:
 - ✅ Implementing skill for personal use only? **Can defer** (document risk)
 - ⚠️ Planning to publish skill? **Must implement immediately**
 
@@ -64,8 +64,8 @@ def lambda_handler(event, context):
 
 ### 🟡 MEDIUM: HTTPS Not Enforced in Lambda Configuration
 
-**Status**: Can accept HTTP URLs  
-**Risk**: Bearer token exposure if misconfigured  
+**Status**: Can accept HTTP URLs
+**Risk**: Bearer token exposure if misconfigured
 **Effort**: Low (1 hour)
 
 **Quick Fix**: Add validation in `alexa_skill_backend.py`:
@@ -76,7 +76,7 @@ def validate_configuration() -> None:
     """Validate Lambda environment configuration."""
     if not CALENDARBOT_ENDPOINT:
         raise ValueError("CALENDARBOT_ENDPOINT not set")
-    
+
     # Enforce HTTPS (allow http://localhost for local testing only)
     if not CALENDARBOT_ENDPOINT.startswith("https://"):
         if not CALENDARBOT_ENDPOINT.startswith("http://localhost"):
@@ -84,7 +84,7 @@ def validate_configuration() -> None:
                 f"CALENDARBOT_ENDPOINT must use https:// in production. "
                 f"Got: {CALENDARBOT_ENDPOINT}"
             )
-    
+
     if not CALENDARBOT_BEARER_TOKEN:
         raise ValueError("CALENDARBOT_BEARER_TOKEN not set")
 
@@ -98,8 +98,8 @@ validate_configuration()
 
 ### 🟡 MEDIUM: No Timestamp Validation (Replay Attacks)
 
-**Status**: Not implemented  
-**Risk**: Captured requests can be replayed  
+**Status**: Not implemented
+**Risk**: Captured requests can be replayed
 **Effort**: Low (2 hours) OR document as acceptable risk
 
 **Quick Fix Option 1** - Add to `alexa_handlers.py`:
@@ -110,7 +110,7 @@ from datetime import datetime, timezone
 def check_auth(self, request: web.Request) -> None:
     """Check bearer token and timestamp."""
     # Existing bearer token check...
-    
+
     # Add timestamp validation
     request_time_header = request.headers.get("X-Amzn-Request-Time")
     if request_time_header:
@@ -120,7 +120,7 @@ def check_auth(self, request: web.Request) -> None:
             )
             now = datetime.now(timezone.utc)
             age_seconds = (now - request_timestamp).total_seconds()
-            
+
             if age_seconds > 150:  # Alexa's window
                 raise AlexaAuthenticationError("Request too old")
         except ValueError:
@@ -289,6 +289,6 @@ bandit -r calendarbot_lite/
 
 ---
 
-**Last Updated**: November 8, 2025  
-**Assessment**: Security Expert Agent  
+**Last Updated**: November 8, 2025
+**Assessment**: Security Expert Agent
 **Status**: Production-ready for personal use (with documented risks)
