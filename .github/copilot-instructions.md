@@ -457,6 +457,7 @@ python scripts/debug_recurring_events.py \
 - **[CLAUDE.md](../CLAUDE.md)** - Quick reference for Claude Code
 - **[README.md](../README.md)** - Project overview
 - **[.env.example](../.env.example)** - Environment variable reference
+- **[agent-projects/doc-update-project.md](../agent-projects/doc-update-project.md)** - Documentation update strategy and guidelines
 
 ### Kiosk Documentation
 

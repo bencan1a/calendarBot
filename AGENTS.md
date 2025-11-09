@@ -152,6 +152,8 @@ pytest tests/lite/ -m "not slow"
 - **Tests**: `tests/lite/` or `tests/lite_tests/` - Test modules
 - **Temporary Files**: `tmp/` - Debug scripts, analysis reports (gitignored)
 - **Documentation**: `docs/` - Permanent documentation and guides
+- **Project Plans**: `project-plans/` - Strategic planning and feature design documents
+- **Agent Projects**: `agent-projects/` - Documentation strategies and agent-specific guidance
 - **Scripts**: `scripts/` - Utility scripts for development/debugging
 - **Configuration**: Root directory - CLAUDE.md, AGENTS.md, README.md, .env
 
