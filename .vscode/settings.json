@@ -28,5 +28,24 @@
             "path": "/usr/bin/bash"
         }
     },
-    "testing.coverageToolbarEnabled": true
+    "testing.coverageToolbarEnabled": true,
+    "python.analysis.exclude": [
+        "calendarbot/**",
+        "tests/**",
+        "scripts/**",
+        "**/__pycache__/**",
+        "**/.pytest_cache/**",
+        "**/venv/**",
+        "**/.venv/**"
+    ],
+    "python.analysis.ignore": [
+        "calendarbot/**"
+    ],
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/calendarbot_lite"
+    ],
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "warning",
+        "reportMissingTypeStubs": "none"
+    }
 }
