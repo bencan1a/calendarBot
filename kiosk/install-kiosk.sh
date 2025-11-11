@@ -1320,6 +1320,7 @@ configure_monitoring_cron() {
 
     # Get current crontab for user
     local temp_cron=$(mktemp)
+    chmod 644 "$temp_cron"  # Make readable by user
     sudo -u "${CFG_system_username}" crontab -l 2>/dev/null > "$temp_cron" || true
 
     # Remove existing CalendarBot cron jobs
