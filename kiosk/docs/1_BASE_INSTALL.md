@@ -84,21 +84,21 @@ Clone the repository to your user's home directory:
 cd ~
 
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/calendarBot.git
+git clone https://github.com/YOUR_USERNAME/calendarbot.git
 
 # Navigate to repository
-cd calendarBot
+cd calendarbot
 ```
 
 **Alternative: Clone specific branch**
 ```bash
 # Clone a specific branch or tag
-git clone -b <branch-name> https://github.com/YOUR_USERNAME/calendarBot.git
+git clone -b <branch-name> https://github.com/YOUR_USERNAME/calendarbot.git
 ```
 
 **Verify clone:**
 ```bash
-ls -la ~/calendarBot
+ls -la ~/calendarbot
 # Should show: calendarbot_lite/, kiosk/, docs/, etc.
 ```
 
@@ -109,8 +109,8 @@ ls -la ~/calendarBot
 Create an isolated Python environment for CalendarBot:
 
 ```bash
-# From ~/calendarBot directory
-cd ~/calendarBot
+# From ~/calendarbot directory
+cd ~/calendarbot
 
 # Create virtual environment
 python3 -m venv venv
@@ -120,7 +120,7 @@ source venv/bin/activate
 
 # Verify activation (prompt should show "(venv)")
 which python
-# Should show: /home/bencan/calendarBot/venv/bin/python
+# Should show: /home/bencan/calendarbot/venv/bin/python
 
 # Upgrade pip to latest version
 pip install --upgrade pip
@@ -128,12 +128,12 @@ pip install --upgrade pip
 
 **Important**: Always activate the virtual environment before running CalendarBot commands:
 ```bash
-source ~/calendarBot/venv/bin/activate
+source ~/calendarbot/venv/bin/activate
 ```
 
 **Add to .bashrc for convenience (optional):**
 ```bash
-echo 'alias cbenv="source ~/calendarBot/venv/bin/activate"' >> ~/.bashrc
+echo 'alias cbenv="source ~/calendarbot/venv/bin/activate"' >> ~/.bashrc
 source ~/.bashrc
 
 # Now you can use: cbenv
@@ -147,7 +147,7 @@ Install all required Python packages:
 
 ```bash
 # Ensure virtual environment is activated
-source ~/calendarBot/venv/bin/activate
+source ~/calendarbot/venv/bin/activate
 
 # Install from requirements.txt
 pip install -r requirements.txt
@@ -189,7 +189,7 @@ Create configuration file from template:
 
 ```bash
 # Copy example environment file
-cd ~/calendarBot
+cd ~/calendarbot
 cp .env.example .env
 
 # Edit configuration
@@ -269,7 +269,7 @@ Before creating a service, test the server runs correctly:
 
 ```bash
 # Activate virtual environment
-source ~/calendarBot/venv/bin/activate
+source ~/calendarbot/venv/bin/activate
 
 # Run server in foreground
 python -m calendarbot_lite
@@ -336,7 +336,7 @@ Deploy the CalendarBot systemd service for automatic startup and management:
 
 ```bash
 # Copy the service file from the repository
-sudo cp ~/calendarBot/kiosk/service/calendarbot-kiosk.service \
+sudo cp ~/calendarbot/kiosk/service/calendarbot-kiosk.service \
   /etc/systemd/system/calendarbot-lite@.service
 ```
 
@@ -378,7 +378,7 @@ sudo systemctl status calendarbot-lite@bencan.service
       Tasks: 3 (limit: 512)
      Memory: 45.2M
      CGroup: /system.slice/system-calendarbot\x2dlite.slice/calendarbot-lite@bencan.service
-             └─12345 /home/bencan/calendarBot/venv/bin/python -m calendarbot_lite
+             └─12345 /home/bencan/calendarbot/venv/bin/python -m calendarbot_lite
 ```
 
 **Key indicators of success:**
@@ -484,7 +484,7 @@ sudo systemctl is-enabled calendarbot-lite@bencan.service
 
 ```bash
 # Pull latest changes
-cd ~/calendarBot
+cd ~/calendarbot
 git pull
 
 # Activate virtual environment
@@ -504,7 +504,7 @@ sudo systemctl status calendarbot-lite@bencan.service
 
 ```bash
 # Edit .env file
-nano ~/calendarBot/.env
+nano ~/calendarbot/.env
 
 # Restart service to reload configuration
 sudo systemctl restart calendarbot-lite@bencan.service
@@ -567,8 +567,8 @@ Before proceeding to Section 2, verify all items:
 
 **Installation:**
 - [ ] System packages installed (python3, git, etc.)
-- [ ] Repository cloned to `~/calendarBot`
-- [ ] Virtual environment created at `~/calendarBot/venv`
+- [ ] Repository cloned to `~/calendarbot`
+- [ ] Virtual environment created at `~/calendarbot/venv`
 - [ ] Python dependencies installed without errors
 - [ ] `.env` file exists with valid ICS URL
 
@@ -596,9 +596,9 @@ Summary of files created or modified in this section:
 
 | File Path | Purpose | User Editable |
 |-----------|---------|---------------|
-| `~/calendarBot/` | Repository clone | No (via git) |
-| `~/calendarBot/venv/` | Python virtual environment | No |
-| `~/calendarBot/.env` | Environment configuration | **Yes** |
+| `~/calendarbot/` | Repository clone | No (via git) |
+| `~/calendarbot/venv/` | Python virtual environment | No |
+| `~/calendarbot/.env` | Environment configuration | **Yes** |
 | `/etc/systemd/system/calendarbot-lite@.service` | systemd service | Rarely |
 
 ---
@@ -617,10 +617,10 @@ sudo journalctl -u calendarbot-lite@bencan.service -n 50
 1. **Missing or invalid .env file**
    ```bash
    # Check file exists
-   ls -la ~/calendarBot/.env
+   ls -la ~/calendarbot/.env
 
    # Verify ICS URL is set
-   grep CALENDARBOT_ICS_URL ~/calendarBot/.env
+   grep CALENDARBOT_ICS_URL ~/calendarbot/.env
    ```
 
 2. **Port 8080 already in use**
@@ -638,7 +638,7 @@ sudo journalctl -u calendarbot-lite@bencan.service -n 50
 3. **Virtual environment missing or broken**
    ```bash
    # Recreate virtual environment
-   cd ~/calendarBot
+   cd ~/calendarbot
    rm -rf venv
    python3 -m venv venv
    source venv/bin/activate
@@ -651,7 +651,7 @@ sudo journalctl -u calendarbot-lite@bencan.service -n 50
 4. **Python dependency errors**
    ```bash
    # Check for missing packages
-   source ~/calendarBot/venv/bin/activate
+   source ~/calendarbot/venv/bin/activate
    python -c "import aiohttp, httpx, icalendar"
 
    # Reinstall if errors
@@ -669,7 +669,7 @@ sudo ss -tlnp | grep 8080
 **If showing 127.0.0.1:8080:**
 ```bash
 # Edit .env to bind to all interfaces
-nano ~/calendarBot/.env
+nano ~/calendarbot/.env
 # Set: CALENDARBOT_WEB_HOST=0.0.0.0
 
 # Restart service
@@ -720,7 +720,7 @@ free -h
 **If memory high (>200MB):**
 ```bash
 # Increase refresh interval to reduce load
-nano ~/calendarBot/.env
+nano ~/calendarbot/.env
 # Set: CALENDARBOT_REFRESH_INTERVAL=600  # 10 minutes
 
 # Restart service

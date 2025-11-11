@@ -133,7 +133,7 @@ The watchdog daemon requires PyYAML for configuration:
 
 ```bash
 # Activate CalendarBot virtual environment
-source ~/calendarBot/venv/bin/activate
+source ~/calendarbot/venv/bin/activate
 
 # Install PyYAML
 pip install PyYAML
@@ -150,7 +150,7 @@ Create X session initialization script:
 
 ```bash
 # Copy .xinitrc template from repository
-cp ~/calendarBot/kiosk/config/.xinitrc ~/.xinitrc
+cp ~/calendarbot/kiosk/config/.xinitrc ~/.xinitrc
 
 # Make executable
 chmod +x ~/.xinitrc
@@ -197,7 +197,7 @@ Configure `.bash_profile` to automatically start the X session when logging in t
 **Copy the template .bash_profile:**
 ```bash
 # Copy .bash_profile from repository
-cp ~/calendarBot/kiosk/config/.bash-profile ~/.bash_profile
+cp ~/calendarbot/kiosk/config/.bash-profile ~/.bash_profile
 
 # Review the configuration
 cat ~/.bash_profile
@@ -236,7 +236,7 @@ Deploy the watchdog monitoring daemon step-by-step:
 
 ```bash
 # Copy watchdog daemon
-sudo cp ~/calendarBot/kiosk/config/calendarbot-watchdog /usr/local/bin/
+sudo cp ~/calendarbot/kiosk/config/calendarbot-watchdog /usr/local/bin/
 sudo chmod +x /usr/local/bin/calendarbot-watchdog
 
 # Verify
@@ -250,7 +250,7 @@ sudo chmod +x /usr/local/bin/calendarbot-watchdog
 sudo mkdir -p /etc/calendarbot-monitor
 
 # Copy configuration
-sudo cp ~/calendarBot/kiosk/config/monitor.yaml /etc/calendarbot-monitor/
+sudo cp ~/calendarbot/kiosk/config/monitor.yaml /etc/calendarbot-monitor/
 
 # Review configuration
 sudo cat /etc/calendarbot-monitor/monitor.yaml
@@ -272,7 +272,7 @@ sudo chown bencan:bencan /var/local/calendarbot-watchdog
 
 ```bash
 # Copy service file
-sudo cp ~/calendarBot/kiosk/service/calendarbot-kiosk-watchdog@.service /etc/systemd/system/
+sudo cp ~/calendarbot/kiosk/service/calendarbot-kiosk-watchdog@.service /etc/systemd/system/
 
 # Reload systemd
 sudo systemctl daemon-reload
@@ -386,7 +386,7 @@ recovery:
 
   # Level 1: Browser restart
   browser_restart:
-    launch_script: "/home/bencan/calendarBot/kiosk/scripts/launch-browser.sh"
+    launch_script: "/home/bencan/calendarbot/kiosk/scripts/launch-browser.sh"
     verification_delay_s: 30              # Wait 30 sec to verify
 
   # Level 2: X session restart
@@ -649,7 +649,7 @@ Summary of files created or modified in this section:
 | `/etc/systemd/system/[removed - not used]` | X session service (Option A) | Rarely |
 | `/etc/sudoers.d/calendarbot-watchdog` | Sudo privileges | No |
 | `/var/local/calendarbot-watchdog/state.json` | Watchdog state | Auto-managed |
-| `~/calendarBot/kiosk/scripts/launch-browser.sh` | Browser launcher | No |
+| `~/calendarbot/kiosk/scripts/launch-browser.sh` | Browser launcher | No |
 | `~/kiosk/kiosk.log` | X session logs | Auto-generated |
 | `~/kiosk/browser-launch.log` | Browser launch logs | Auto-generated |
 

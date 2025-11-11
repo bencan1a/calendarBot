@@ -249,7 +249,7 @@ curl -v https://ashwoodgrove.net/api/whats-next 2>&1 | grep "SSL"
 # Expected: See SSL certificate info
 
 # 4. Run security scanner
-cd /home/runner/work/calendarBot/calendarBot
+cd /home/runner/work/calendarbot/calendarbot
 . venv/bin/activate
 bandit -r calendarbot_lite/
 # Expected: No high/critical issues

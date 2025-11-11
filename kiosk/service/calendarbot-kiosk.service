@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=%i
 Group=%i
-WorkingDirectory=/home/%i/calendarBot
+WorkingDirectory=/home/%i/calendarbot
 Environment="PATH=/home/%i/calendarbot/venv/bin:/usr/local/bin:/usr/bin:/bin"
 ExecStart=/home/%i/calendarbot/venv/bin/python -m calendarbot_lite
 Restart=on-failure

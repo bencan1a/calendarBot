@@ -30,8 +30,8 @@ CalendarBot Lite provides focused ICS calendar parsing, RRULE expansion, and nat
 
 ```bash
 # Clone repository
-git clone https://github.com/bencan1a/calendarBot.git
-cd calendarBot
+git clone https://github.com/bencan1a/calendarbot.git
+cd calendarbot
 
 # Install dependencies
 pip install -r requirements.txt
@@ -91,7 +91,7 @@ The `kiosk/` directory provides a **production-ready Raspberry Pi kiosk deployme
 
 ```bash
 # 1. Configure
-cd ~/calendarBot/kiosk
+cd ~/calendarbot/kiosk
 cp install-config.example.yaml install-config.yaml
 nano install-config.yaml  # Set your username and ICS URL
 
@@ -313,7 +313,7 @@ mypy calendarbot_lite
 For production deployment on Raspberry Pi with auto-login, watchdog monitoring, and kiosk display:
 
 ```bash
-cd ~/calendarBot/kiosk
+cd ~/calendarbot/kiosk
 sudo ./install-kiosk.sh --config install-config.yaml
 ```
 
@@ -384,6 +384,6 @@ Key patterns:
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/bencan1a/calendarBot/issues)
+- **Issues**: [GitHub Issues](https://github.com/bencan1a/calendarbot/issues)
 - **Documentation**: See [docs/lite/](docs/lite/) for detailed guides
 - **Questions**: Open a discussion on GitHub

@@ -40,7 +40,7 @@ class TestInstallerE2E:
         """Test Section 1: Base CalendarBot installation.
 
         Verifies:
-        - Repository is cloned to /home/testuser/calendarBot
+        - Repository is cloned to /home/testuser/calendarbot
         - Virtual environment is created with dependencies
         - systemd service is installed and enabled
         - .env file is created with correct values
@@ -49,8 +49,8 @@ class TestInstallerE2E:
         # Create config with only Section 1 enabled
         config_content = """system:
   username: testuser
-  repo_dir: /home/testuser/calendarBot
-  venv_dir: /home/testuser/calendarBot/venv
+  repo_dir: /home/testuser/calendarbot
+  venv_dir: /home/testuser/calendarbot/venv
 sections:
   section_1_base: true
   section_2_kiosk: false
@@ -72,30 +72,30 @@ calendarbot:
 
         # ✅ VERIFY: Repository was cloned
         assert container_dir_exists(
-            clean_container, "/home/testuser/calendarBot"
+            clean_container, "/home/testuser/calendarbot"
         ), "Repository directory not found"
         assert container_dir_exists(
-            clean_container, "/home/testuser/calendarBot/.git"
+            clean_container, "/home/testuser/calendarbot/.git"
         ), "Repository .git directory not found"
 
         # ✅ VERIFY: Virtual environment created
         assert container_file_exists(
-            clean_container, "/home/testuser/calendarBot/venv/bin/python"
+            clean_container, "/home/testuser/calendarbot/venv/bin/python"
         ), "Python venv not found"
         assert container_file_exists(
-            clean_container, "/home/testuser/calendarBot/venv/bin/pip"
+            clean_container, "/home/testuser/calendarbot/venv/bin/pip"
         ), "Pip in venv not found"
 
         # ✅ VERIFY: Dependencies installed (check one key package)
         exit_code, output = container_exec(
             clean_container,
-            "/home/testuser/calendarBot/venv/bin/pip list | grep aiohttp",
+            "/home/testuser/calendarbot/venv/bin/pip list | grep aiohttp",
             user="testuser",
         )
         assert exit_code == 0, "aiohttp not installed in venv"
 
         # ✅ VERIFY: .env file created with correct values
-        env_file = container_read_file(clean_container, "/home/testuser/calendarBot/.env")
+        env_file = container_read_file(clean_container, "/home/testuser/calendarbot/.env")
         assert (
             "CALENDARBOT_ICS_URL=http://example.com/test-calendar.ics" in env_file
         ), "ICS URL not in .env"
@@ -124,7 +124,7 @@ calendarbot:
         # ✅ VERIFY: Python can import calendarbot_lite
         exit_code, output = container_exec(
             clean_container,
-            "cd /home/testuser/calendarBot && "
+            "cd /home/testuser/calendarbot && "
             "./venv/bin/python -c 'import calendarbot_lite; print(calendarbot_lite.__file__)'",
             user="testuser",
         )
@@ -144,8 +144,8 @@ calendarbot:
         # Create config with section_1_base AND section_2_kiosk enabled
         config_content = """system:
   username: testuser
-  repo_dir: /home/testuser/calendarBot
-  venv_dir: /home/testuser/calendarBot/venv
+  repo_dir: /home/testuser/calendarbot
+  venv_dir: /home/testuser/calendarbot/venv
 sections:
   section_1_base: true
   section_2_kiosk: true

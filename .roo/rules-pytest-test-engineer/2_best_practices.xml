@@ -162,7 +162,7 @@
       <severity>HIGH</severity>
     </anti_pattern>
 
-    <reference>See /home/devcontainers/calendarBot/docs/pytest-best-practices.md for complete list of 10 anti-patterns with examples</reference>
+    <reference>See /home/devcontainers/calendarbot/docs/pytest-best-practices.md for complete list of 10 anti-patterns with examples</reference>
   </critical_anti_patterns>
 
   <quality_checklist>

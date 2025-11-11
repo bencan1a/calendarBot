@@ -8,9 +8,9 @@ describe('CalendarBot Lite - What\'s Next View', () => {
 
     beforeEach(() => {
         // Clean up any previous instance
-        if (window.calendarBotCleanup) {
-            window.calendarBotCleanup();
-            delete window.calendarBotCleanup;
+        if (window.calendarbotCleanup) {
+            window.calendarbotCleanup();
+            delete window.calendarbotCleanup;
         }
 
         // Set up DOM
@@ -62,9 +62,9 @@ describe('CalendarBot Lite - What\'s Next View', () => {
     });
 
     afterEach(() => {
-        if (window.calendarBotCleanup) {
-            window.calendarBotCleanup();
-            delete window.calendarBotCleanup;
+        if (window.calendarbotCleanup) {
+            window.calendarbotCleanup();
+            delete window.calendarbotCleanup;
         }
 
         jest.clearAllTimers();
@@ -81,7 +81,7 @@ describe('CalendarBot Lite - What\'s Next View', () => {
         test('should initialize and expose cleanup function', () => {
             require('../../calendarbot_lite/whatsnext.js');
 
-            expect(typeof window.calendarBotCleanup).toBe('function');
+            expect(typeof window.calendarbotCleanup).toBe('function');
         });
 
         test('should cache DOM elements on load', () => {
@@ -479,7 +479,7 @@ describe('CalendarBot Lite - What\'s Next View', () => {
 
             fetchMock.mockClear();
 
-            window.calendarBotCleanup();
+            window.calendarbotCleanup();
 
             jest.advanceTimersByTime(120000);
 

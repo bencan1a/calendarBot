@@ -672,6 +672,6 @@
     }
 
     // Expose cleanup function globally for manual cleanup if needed
-    window.calendarBotCleanup = cleanup;
+    window.calendarbotCleanup = cleanup;
 
 })();

@@ -325,7 +325,7 @@ The **`kiosk/`** directory provides a production-ready Raspberry Pi kiosk deploy
 **Automated Installation (Recommended):**
 ```bash
 # 1. Configure
-cd ~/calendarBot/kiosk
+cd ~/calendarbot/kiosk
 cp install-config.example.yaml install-config.yaml
 nano install-config.yaml  # Set username and ICS URL
 

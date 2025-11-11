@@ -343,7 +343,7 @@ Add the bearer token to CalendarBot configuration:
 
 ```bash
 # Edit .env file
-nano ~/calendarBot/.env
+nano ~/calendarbot/.env
 ```
 
 **Add or update:**
@@ -412,7 +412,7 @@ sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.backup
 
 ```bash
 # Copy from repository
-sudo cp ~/calendarBot/kiosk/config/enhanced_caddyfile /etc/caddy/Caddyfile
+sudo cp ~/calendarbot/kiosk/config/enhanced_caddyfile /etc/caddy/Caddyfile
 
 # Edit to use your domain
 sudo nano /etc/caddy/Caddyfile
@@ -699,7 +699,7 @@ The Lambda function code is located in your CalendarBot repository:
 
 ```bash
 # View the Lambda function code
-cat ~/calendarBot/alexa_skill_backend.py
+cat ~/calendarbot/alexa_skill_backend.py
 ```
 
 **Upload to Lambda:**
@@ -1055,7 +1055,7 @@ Summary of files created or modified in this section:
 |-----------|---------|---------------|
 | `/etc/caddy/Caddyfile` | Caddy reverse proxy configuration | **Yes** |
 | `/var/log/caddy/access.log` | Caddy access logs | Auto-generated |
-| `~/calendarBot/.env` | Updated with bearer token | **Yes** |
+| `~/calendarbot/.env` | Updated with bearer token | **Yes** |
 
 **AWS Resources:**
 - Lambda Function: `calendarbot-alexa-skill`
@@ -1212,7 +1212,7 @@ NEW_TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
 echo "New token: $NEW_TOKEN"
 
 # 2. Update CalendarBot .env
-nano ~/calendarBot/.env
+nano ~/calendarbot/.env
 # Update CALENDARBOT_ALEXA_BEARER_TOKEN
 
 # 3. Restart CalendarBot
@@ -1326,7 +1326,7 @@ echo | openssl s_client -connect ashwoodgrove.net:443 2>/dev/null | \
 mkdir -p ~/calendarbot-backups
 
 # Backup CalendarBot config
-cp ~/calendarBot/.env ~/calendarbot-backups/.env.backup
+cp ~/calendarbot/.env ~/calendarbot-backups/.env.backup
 
 # Backup Caddyfile
 sudo cp /etc/caddy/Caddyfile ~/calendarbot-backups/Caddyfile.backup

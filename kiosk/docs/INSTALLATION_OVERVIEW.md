@@ -342,7 +342,7 @@ sudo journalctl -u calendarbot-* -f
 mkdir -p ~/calendarbot-backup
 
 # Backup configurations
-cp ~/calendarBot/.env ~/calendarbot-backup/
+cp ~/calendarbot/.env ~/calendarbot-backup/
 cp /etc/calendarbot-monitor/monitor.yaml ~/calendarbot-backup/
 cp /etc/caddy/Caddyfile ~/calendarbot-backup/  # if using Alexa
 
@@ -373,7 +373,7 @@ tar -czf ~/calendarbot-backup-$(date +%Y%m%d).tar.gz ~/calendarbot-backup/
 sudo journalctl -u calendarbot-lite@bencan.service -n 50
 
 # Verify configuration
-cat ~/calendarBot/.env | grep CALENDARBOT_ICS_URL
+cat ~/calendarbot/.env | grep CALENDARBOT_ICS_URL
 ```
 
 **Browser not launching:**

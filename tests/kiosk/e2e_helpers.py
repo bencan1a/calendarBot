@@ -139,7 +139,7 @@ def container_service_status(container: Any, service: str) -> dict[str, Any]:
 def prepare_repository_in_container(
     container: Any,
     target_user: str = "testuser",
-    target_path: str = "/home/testuser/calendarBot",
+    target_path: str = "/home/testuser/calendarbot",
 ) -> None:
     """Copy workspace to target location to simulate existing repo.
 

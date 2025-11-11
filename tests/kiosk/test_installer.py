@@ -244,8 +244,8 @@ def basic_config():
     return {
         "system": {
             "username": "testuser",
-            "repo_dir": "/home/testuser/calendarBot",
-            "venv_dir": "/home/testuser/calendarBot/venv"
+            "repo_dir": "/home/testuser/calendarbot",
+            "venv_dir": "/home/testuser/calendarbot/venv"
         },
         "calendarbot": {
             "ics_url": "https://example.com/calendar.ics",
@@ -1363,7 +1363,7 @@ class TestInstallerE2E:
         """Test Section 1: Base CalendarBot installation.
 
         Verifies:
-        - Repository is cloned to /home/testuser/calendarBot
+        - Repository is cloned to /home/testuser/calendarbot
         - Virtual environment is created with dependencies
         - systemd service is installed and enabled
         - .env file is created with correct values
@@ -1385,8 +1385,8 @@ class TestInstallerE2E:
 system:
   username: testuser
   home_dir: /home/testuser
-  repo_dir: /home/testuser/calendarBot
-  venv_dir: /home/testuser/calendarBot/venv
+  repo_dir: /home/testuser/calendarbot
+  venv_dir: /home/testuser/calendarbot/venv
 
 calendarbot:
   ics_url: "http://example.com/test-calendar.ics"
@@ -1402,26 +1402,26 @@ calendarbot:
         assert exit_code == 0, f"Installer failed:\n{stdout}\n{stderr}"
 
         # Verify repository was cloned
-        assert container_dir_exists(clean_container, "/home/testuser/calendarBot"), \
+        assert container_dir_exists(clean_container, "/home/testuser/calendarbot"), \
             "Repository directory not found"
-        assert container_dir_exists(clean_container, "/home/testuser/calendarBot/.git"), \
+        assert container_dir_exists(clean_container, "/home/testuser/calendarbot/.git"), \
             "Git directory not found"
 
         # Verify virtual environment created
-        assert container_file_exists(clean_container, "/home/testuser/calendarBot/venv/bin/python"), \
+        assert container_file_exists(clean_container, "/home/testuser/calendarbot/venv/bin/python"), \
             "Python virtual environment not found"
-        assert container_file_exists(clean_container, "/home/testuser/calendarBot/venv/bin/pip"), \
+        assert container_file_exists(clean_container, "/home/testuser/calendarbot/venv/bin/pip"), \
             "pip not found in virtual environment"
 
         # Verify dependencies installed (check one key package)
         result = clean_container.exec_run(
-            ["bash", "-c", "/home/testuser/calendarBot/venv/bin/pip list | grep aiohttp"],
+            ["bash", "-c", "/home/testuser/calendarbot/venv/bin/pip list | grep aiohttp"],
             user="testuser"
         )
         assert result.exit_code == 0, "aiohttp not installed in venv"
 
         # Verify .env file created with correct values
-        env_file = container_read_file(clean_container, "/home/testuser/calendarBot/.env")
+        env_file = container_read_file(clean_container, "/home/testuser/calendarbot/.env")
         assert "CALENDARBOT_ICS_URL=http://example.com/test-calendar.ics" in env_file, \
             "ICS URL not found in .env"
         assert "CALENDARBOT_WEB_PORT=8080" in env_file, \
@@ -1450,7 +1450,7 @@ calendarbot:
         # Verify Python can import calendarbot_lite
         result = clean_container.exec_run(
             ["bash", "-c",
-             "cd /home/testuser/calendarBot && ./venv/bin/python -c 'import calendarbot_lite; print(calendarbot_lite.__file__)'"],
+             "cd /home/testuser/calendarbot && ./venv/bin/python -c 'import calendarbot_lite; print(calendarbot_lite.__file__)'"],
             user="testuser"
         )
         assert result.exit_code == 0, f"Cannot import calendarbot_lite: {result.output.decode()}"
@@ -1482,8 +1482,8 @@ calendarbot:
 system:
   username: testuser
   home_dir: /home/testuser
-  repo_dir: /home/testuser/calendarBot
-  venv_dir: /home/testuser/calendarBot/venv
+  repo_dir: /home/testuser/calendarbot
+  venv_dir: /home/testuser/calendarbot/venv
 
 calendarbot:
   ics_url: "http://example.com/calendar.ics"
@@ -1595,8 +1595,8 @@ kiosk:
 system:
   username: testuser
   home_dir: /home/testuser
-  repo_dir: /home/testuser/calendarBot
-  venv_dir: /home/testuser/calendarBot/venv
+  repo_dir: /home/testuser/calendarbot
+  venv_dir: /home/testuser/calendarbot/venv
 
 calendarbot:
   ics_url: "http://example.com/calendar.ics"
@@ -1628,7 +1628,7 @@ alexa:
 
         # Verify bearer token added to .env
         env_file = container_read_file(
-            clean_container, "/home/testuser/calendarBot/.env"
+            clean_container, "/home/testuser/calendarbot/.env"
         )
         assert "CALENDARBOT_ALEXA_BEARER_TOKEN" in env_file, \
             "Bearer token not set in .env"
@@ -1666,8 +1666,8 @@ alexa:
 system:
   username: testuser
   home_dir: /home/testuser
-  repo_dir: /home/testuser/calendarBot
-  venv_dir: /home/testuser/calendarBot/venv
+  repo_dir: /home/testuser/calendarbot
+  venv_dir: /home/testuser/calendarbot/venv
 
 calendarbot:
   ics_url: "http://example.com/calendar.ics"
@@ -1779,8 +1779,8 @@ monitoring:
 system:
   username: testuser
   home_dir: /home/testuser
-  repo_dir: /home/testuser/calendarBot
-  venv_dir: /home/testuser/calendarBot/venv
+  repo_dir: /home/testuser/calendarbot
+  venv_dir: /home/testuser/calendarbot/venv
 
 calendarbot:
   ics_url: "http://example.com/calendar.ics"
@@ -1816,7 +1816,7 @@ monitoring:
         assert "Installing" in output1 or "Creating" in output1 or "Configuring" in output1
 
         # Get state after first run
-        venv_mtime1 = clean_container.exec_run("stat -c %Y /home/testuser/calendarBot/venv").output
+        venv_mtime1 = clean_container.exec_run("stat -c %Y /home/testuser/calendarbot/venv").output
         service_mtime1 = clean_container.exec_run("stat -c %Y /etc/systemd/system/calendarbot-kiosk@.service").output
 
         # Wait a moment to ensure timestamps would change if files were recreated
@@ -1840,12 +1840,12 @@ monitoring:
                "Second run should detect existing installation"
 
         # VERIFY: Files still exist (not deleted)
-        assert container_file_exists(clean_container, "/home/testuser/calendarBot/venv/bin/python")
+        assert container_file_exists(clean_container, "/home/testuser/calendarbot/venv/bin/python")
         assert container_file_exists(clean_container, "/etc/systemd/system/calendarbot-kiosk@.service")
         assert container_file_exists(clean_container, "/home/testuser/.xinitrc")
 
         # VERIFY: Venv wasn't recreated (timestamps unchanged)
-        venv_mtime2 = clean_container.exec_run("stat -c %Y /home/testuser/calendarBot/venv").output
+        venv_mtime2 = clean_container.exec_run("stat -c %Y /home/testuser/calendarbot/venv").output
         assert venv_mtime1 == venv_mtime2, "Venv was recreated (should be skipped)"
 
         # VERIFY: Services still enabled
@@ -1892,8 +1892,8 @@ monitoring:
 system:
   username: testuser
   home_dir: /home/testuser
-  repo_dir: /home/testuser/calendarBot
-  venv_dir: /home/testuser/calendarBot/venv
+  repo_dir: /home/testuser/calendarbot
+  venv_dir: /home/testuser/calendarbot/venv
 
 calendarbot:
   ics_url: "http://example.com/original-calendar.ics"
@@ -1921,12 +1921,12 @@ calendarbot:
         # USER MODIFIES .env (simulating manual customization)
         clean_container.exec_run(
             ["bash", "-c",
-             "echo 'CALENDARBOT_CUSTOM_SETTING=user_customized_value' >> /home/testuser/calendarBot/.env"],
+             "echo 'CALENDARBOT_CUSTOM_SETTING=user_customized_value' >> /home/testuser/calendarbot/.env"],
             user="testuser"
         )
 
         # Verify custom setting was added
-        env_before = container_read_file(clean_container, "/home/testuser/calendarBot/.env")
+        env_before = container_read_file(clean_container, "/home/testuser/calendarbot/.env")
         assert "CALENDARBOT_CUSTOM_SETTING=user_customized_value" in env_before
 
         # RUN UPDATE MODE
@@ -1943,7 +1943,7 @@ calendarbot:
         assert "--update" in output2 or "Updating" in output2 or "update" in output2.lower()
 
         # VERIFY: Custom .env setting preserved
-        env_after = container_read_file(clean_container, "/home/testuser/calendarBot/.env")
+        env_after = container_read_file(clean_container, "/home/testuser/calendarbot/.env")
         assert "CALENDARBOT_CUSTOM_SETTING=user_customized_value" in env_after, \
             "Custom .env setting was lost during update"
 
@@ -1952,22 +1952,22 @@ calendarbot:
         assert "CALENDARBOT_WEB_PORT=8080" in env_after
 
         # VERIFY: Git repository still exists (update should git pull, not reclone)
-        assert container_dir_exists(clean_container, "/home/testuser/calendarBot/.git")
+        assert container_dir_exists(clean_container, "/home/testuser/calendarbot/.git")
 
         # VERIFY: Git repository has remote configured (enables git pull)
         result = clean_container.exec_run(
-            ["bash", "-c", "cd /home/testuser/calendarBot && git remote -v"],
+            ["bash", "-c", "cd /home/testuser/calendarbot && git remote -v"],
             user="testuser"
         )
         # In E2E test with copied workspace, git remote should be present
         assert result.exit_code == 0, "Git remote not configured"
 
         # VERIFY: Venv still exists (update should update packages, not recreate)
-        assert container_file_exists(clean_container, "/home/testuser/calendarBot/venv/bin/python")
+        assert container_file_exists(clean_container, "/home/testuser/calendarbot/venv/bin/python")
 
         # VERIFY: Pip is still working (implies dependencies could be updated)
         result = clean_container.exec_run(
-            ["bash", "-c", "/home/testuser/calendarBot/venv/bin/pip --version"],
+            ["bash", "-c", "/home/testuser/calendarbot/venv/bin/pip --version"],
             user="testuser"
         )
         assert result.exit_code == 0, \
@@ -2041,8 +2041,8 @@ class TestProgressiveInstallation:
 system:
   username: testuser
   home_dir: /home/testuser
-  repo_dir: /home/testuser/calendarBot
-  venv_dir: /home/testuser/calendarBot/venv
+  repo_dir: /home/testuser/calendarbot
+  venv_dir: /home/testuser/calendarbot/venv
 
 calendarbot:
   ics_url: "{workspace_ics_url}"
@@ -2126,9 +2126,9 @@ monitoring:
         # Verify key files from each section exist
 
         # Section 1: Base installation
-        assert container_dir_exists(installed_container, "/home/testuser/calendarBot"), \
+        assert container_dir_exists(installed_container, "/home/testuser/calendarbot"), \
             "Repository not installed"
-        assert container_file_exists(installed_container, "/home/testuser/calendarBot/venv/bin/python"), \
+        assert container_file_exists(installed_container, "/home/testuser/calendarbot/venv/bin/python"), \
             "Virtual environment not created"
 
         # Section 2: Kiosk

@@ -14,15 +14,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bencan1a/calendarBot.git"
+    "url": "git+https://github.com/bencan1a/calendarbot.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/bencan1a/calendarBot/issues"
+    "url": "https://github.com/bencan1a/calendarbot/issues"
   },
-  "homepage": "https://github.com/bencan1a/calendarBot#readme",
+  "homepage": "https://github.com/bencan1a/calendarbot#readme",
   "devDependencies": {
     "@babel/core": "^7.28.0",
     "@babel/preset-env": "^7.28.0",

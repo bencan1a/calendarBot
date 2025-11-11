@@ -86,7 +86,7 @@ Configure automatic log rotation to prevent disk space issues.
 
 ```bash
 # Deploy logrotate configuration
-sudo cp ~/calendarBot/kiosk/config/logrotate-calendarbot-watchdog \
+sudo cp ~/calendarbot/kiosk/config/logrotate-calendarbot-watchdog \
   /etc/logrotate.d/calendarbot-watchdog
 
 # Review configuration
@@ -155,7 +155,7 @@ sudo mkdir -p /var/log/calendarbot
 sudo chown syslog:adm /var/log/calendarbot
 
 # Deploy rsyslog configuration
-sudo cp ~/calendarBot/kiosk/config/rsyslog-calendarbot.conf \
+sudo cp ~/calendarbot/kiosk/config/rsyslog-calendarbot.conf \
   /etc/rsyslog.d/50-calendarbot.conf
 
 # Test configuration
@@ -218,8 +218,8 @@ Install scripts for generating daily/weekly reports and monitoring status.
 
 ```bash
 # Copy scripts to system bin
-sudo cp ~/calendarBot/kiosk/scripts/log-aggregator.sh /usr/local/bin/
-sudo cp ~/calendarBot/kiosk/scripts/monitoring-status.sh /usr/local/bin/
+sudo cp ~/calendarbot/kiosk/scripts/log-aggregator.sh /usr/local/bin/
+sudo cp ~/calendarbot/kiosk/scripts/monitoring-status.sh /usr/local/bin/
 sudo chmod +x /usr/local/bin/log-aggregator.sh
 sudo chmod +x /usr/local/bin/monitoring-status.sh
 
@@ -333,7 +333,7 @@ Set up webhook-based remote log shipping for critical events.
 
 ```bash
 # Copy log shipper script
-sudo cp ~/calendarBot/kiosk/scripts/log-shipper.sh /usr/local/bin/
+sudo cp ~/calendarbot/kiosk/scripts/log-shipper.sh /usr/local/bin/
 sudo chmod +x /usr/local/bin/log-shipper.sh
 ```
 

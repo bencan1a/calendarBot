@@ -2,7 +2,7 @@
 
 **Date**: 2025-11-05
 **Reviewer**: Principal Software Engineer (Martin Fowler style)
-**Repository**: bencan1a/calendarBot
+**Repository**: bencan1a/calendarbot
 **Scope**: Core calendar parsing modules in calendarbot_lite
 
 ---

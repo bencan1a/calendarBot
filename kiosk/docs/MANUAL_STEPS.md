@@ -197,7 +197,7 @@ sudo systemctl reload caddy
 
 1. Find the Lambda code in your repository:
    ```bash
-   cat ~/calendarBot/calendarbot_lite/alexa_skill_backend.py
+   cat ~/calendarbot/calendarbot_lite/alexa_skill_backend.py
    ```
 
 2. In AWS Console, scroll to **Code source**
@@ -209,7 +209,7 @@ sudo systemctl reload caddy
 **Option B: ZIP Upload** (for larger dependencies)
 
 ```bash
-cd ~/calendarBot/calendarbot_lite
+cd ~/calendarbot/calendarbot_lite
 zip lambda_function.zip alexa_skill_backend.py
 
 # Upload via console: Code source → Upload from → .zip file
@@ -549,7 +549,7 @@ If you need to change the bearer token:
 
 2. **Update CalendarBot .env**:
    ```bash
-   nano ~/calendarBot/.env
+   nano ~/calendarbot/.env
    # Update CALENDARBOT_ALEXA_BEARER_TOKEN
    sudo systemctl restart calendarbot-lite@USERNAME.service
    ```

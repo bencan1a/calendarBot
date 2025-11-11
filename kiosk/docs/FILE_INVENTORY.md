@@ -24,7 +24,7 @@ This inventory provides:
 
 | Source Path | Destination | Purpose | Editable |
 |-------------|-------------|---------|----------|
-| `.env.example` | `~/calendarBot/.env` | Environment configuration | **YES** |
+| `.env.example` | `~/calendarbot/.env` | Environment configuration | **YES** |
 
 **Deployment:**
 ```bash
@@ -54,14 +54,14 @@ sudo systemctl enable calendarbot-lite@bencan.service
 
 | Path | Purpose | Owner | Permissions |
 |------|---------|-------|-------------|
-| `~/calendarBot/` | Repository clone | bencan:bencan | 755 |
-| `~/calendarBot/venv/` | Python virtual environment | bencan:bencan | 755 |
+| `~/calendarbot/` | Repository clone | bencan:bencan | 755 |
+| `~/calendarbot/venv/` | Python virtual environment | bencan:bencan | 755 |
 
 **Creation:**
 ```bash
 cd ~
-git clone https://github.com/YOUR_USERNAME/calendarBot.git
-cd calendarBot
+git clone https://github.com/YOUR_USERNAME/calendarbot.git
+cd calendarbot
 python3 -m venv venv
 ```
 
@@ -79,7 +79,7 @@ python3 -m venv venv
 **Deployment:**
 ```bash
 # .xinitrc
-cp ~/calendarBot/kiosk/config/.xinitrc ~/.xinitrc
+cp ~/calendarbot/kiosk/config/.xinitrc ~/.xinitrc
 chmod +x ~/.xinitrc
 
 # .bash_profile
@@ -198,11 +198,11 @@ sudo chown caddy:caddy /var/log/caddy
 
 | File | Changes | Purpose |
 |------|---------|---------|
-| `~/calendarBot/.env` | Add `CALENDARBOT_ALEXA_BEARER_TOKEN` | Bearer token for Alexa auth |
+| `~/calendarbot/.env` | Add `CALENDARBOT_ALEXA_BEARER_TOKEN` | Bearer token for Alexa auth |
 
 **Update:**
 ```bash
-nano ~/calendarBot/.env
+nano ~/calendarbot/.env
 # Add: CALENDARBOT_ALEXA_BEARER_TOKEN=YOUR_TOKEN_HERE
 sudo systemctl restart calendarbot-lite@bencan.service
 ```
@@ -342,11 +342,11 @@ sudo chown -R bencan:bencan /var/local/calendarbot-watchdog
 
 | Source Path | Destination | Purpose | Editable |
 |-------------|-------------|---------|----------|
-| `kiosk/scripts/cleanup-port.sh` | `~/calendarBot/kiosk/scripts/cleanup-port.sh` | Port conflict resolution | NO |
+| `kiosk/scripts/cleanup-port.sh` | `~/calendarbot/kiosk/scripts/cleanup-port.sh` | Port conflict resolution | NO |
 
 **Usage:**
 ```bash
-~/calendarBot/kiosk/scripts/cleanup-port.sh 8080
+~/calendarbot/kiosk/scripts/cleanup-port.sh 8080
 ```
 
 ---
@@ -416,7 +416,7 @@ chmod 755 ~/.xinitrc
 chmod 644 ~/.bash_profile
 
 # Scripts
-chmod 755 ~/calendarBot/kiosk/scripts/*.sh
+chmod 755 ~/calendarbot/kiosk/scripts/*.sh
 
 # Logs (auto-managed)
 chmod 644 ~/kiosk/*.log
@@ -432,7 +432,7 @@ sudo chmod 755 /var/log/calendarbot-watchdog
 sudo chmod 755 /var/local/calendarbot-watchdog
 
 # User directories
-chmod 755 ~/calendarBot
+chmod 755 ~/calendarbot
 chmod 755 ~/kiosk
 ```
 
@@ -442,8 +442,8 @@ chmod 755 ~/kiosk
 
 ### Section 1: Base Install
 ```bash
-git clone https://github.com/YOUR_USERNAME/calendarBot.git ~/calendarBot
-cd ~/calendarBot
+git clone https://github.com/YOUR_USERNAME/calendarbot.git ~/calendarbot
+cd ~/calendarbot
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -456,7 +456,7 @@ sudo systemctl enable --now calendarbot-lite@bencan.service
 ### Section 2: Kiosk & Watchdog
 ```bash
 sudo apt-get install -y xserver-xorg xinit chromium-browser xdotool matchbox-window-manager
-cp ~/calendarBot/kiosk/config/.xinitrc ~/.xinitrc
+cp ~/calendarbot/kiosk/config/.xinitrc ~/.xinitrc
 chmod +x ~/.xinitrc
 # Configure auto-login and .bash_profile (see Section 2, Steps 10-11)
 # Deploy watchdog manually (see Section 2, Steps 1-9)
@@ -467,16 +467,16 @@ sudo systemctl enable --now calendarbot-kiosk-watchdog@bencan.service
 ```bash
 sudo apt install caddy
 python3 -c "import secrets; print(secrets.token_urlsafe(32))"  # Generate token
-nano ~/calendarBot/.env  # Add token
-sudo cp ~/calendarBot/kiosk/config/enhanced_caddyfile /etc/caddy/Caddyfile
+nano ~/calendarbot/.env  # Add token
+sudo cp ~/calendarbot/kiosk/config/enhanced_caddyfile /etc/caddy/Caddyfile
 sudo nano /etc/caddy/Caddyfile  # Edit domain
 sudo systemctl reload caddy
 ```
 
 ### Section 4: Monitoring & Log Management
 ```bash
-sudo cp ~/calendarBot/kiosk/config/logrotate-calendarbot-watchdog /etc/logrotate.d/
-sudo cp ~/calendarBot/kiosk/scripts/*.sh /usr/local/bin/
+sudo cp ~/calendarbot/kiosk/config/logrotate-calendarbot-watchdog /etc/logrotate.d/
+sudo cp ~/calendarbot/kiosk/scripts/*.sh /usr/local/bin/
 sudo chmod +x /usr/local/bin/*.sh
 crontab -e  # Add cron jobs
 ```
@@ -486,7 +486,7 @@ crontab -e  # Add cron jobs
 ## File Checklist by Section
 
 ### Section 1 Files
-- [ ] `~/calendarBot/.env`
+- [ ] `~/calendarbot/.env`
 - [ ] `/etc/systemd/system/calendarbot-lite@.service`
 
 ### Section 2 Files
@@ -499,7 +499,7 @@ crontab -e  # Add cron jobs
 
 ### Section 3 Files
 - [ ] `/etc/caddy/Caddyfile`
-- [ ] `~/calendarBot/.env` (updated with bearer token)
+- [ ] `~/calendarbot/.env` (updated with bearer token)
 - [ ] AWS Lambda function: `calendarbot-alexa-skill`
 - [ ] Alexa skill: "Calendar Bot" (Amazon Developer Console)
 

@@ -38,8 +38,8 @@ Complete before starting any installation:
 ### Installation Steps
 
 - [ ] System packages installed (python3, python3-venv, git, curl, jq)
-- [ ] Repository cloned to `~/calendarBot`
-- [ ] Virtual environment created: `~/calendarBot/venv/`
+- [ ] Repository cloned to `~/calendarbot`
+- [ ] Virtual environment created: `~/calendarbot/venv/`
 - [ ] Virtual environment activated: `source venv/bin/activate`
 - [ ] Python dependencies installed: `pip install -r requirements.txt`
 - [ ] `.env` file created from `.env.example`
@@ -136,7 +136,7 @@ Complete before starting any installation:
 - [ ] Caddy installed: `caddy version` works
 - [ ] Bearer token generated: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`
 - [ ] Bearer token saved securely
-- [ ] Bearer token added to `~/calendarBot/.env` as `CALENDARBOT_ALEXA_BEARER_TOKEN`
+- [ ] Bearer token added to `~/calendarbot/.env` as `CALENDARBOT_ALEXA_BEARER_TOKEN`
 - [ ] CalendarBot service restarted: `sudo systemctl restart calendarbot-lite@bencan.service`
 - [ ] Caddyfile deployed to `/etc/caddy/Caddyfile`
 - [ ] Caddyfile edited with your domain name
@@ -372,7 +372,7 @@ curl http://localhost:8080/api/whats-next
 sudo journalctl -u <service-name> -n 50
 
 # Check configuration
-cat ~/calendarBot/.env
+cat ~/calendarbot/.env
 cat /etc/calendarbot-monitor/monitor.yaml
 
 # Restart service

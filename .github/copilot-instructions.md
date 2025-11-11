@@ -329,7 +329,7 @@ The **kiosk deployment is the PRIMARY production use case**. It provides:
 
 ```bash
 # 1. Configure
-cd ~/calendarBot/kiosk
+cd ~/calendarbot/kiosk
 cp install-config.example.yaml install-config.yaml
 nano install-config.yaml  # Set username and ICS URL
 

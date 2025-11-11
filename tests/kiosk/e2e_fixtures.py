@@ -176,7 +176,7 @@ def clean_container(e2e_container: Any) -> Any:
         "rm -f /etc/systemd/system/multi-user.target.wants/calendarbot-*.service",
         "systemctl daemon-reload",
         # Clean testuser home directory (but don't delete user)
-        "rm -rf /home/testuser/calendarBot",
+        "rm -rf /home/testuser/calendarbot",
         "rm -f /home/testuser/.xinitrc",
         "rm -f /home/testuser/.bash_history",
         # Remove installation artifacts
