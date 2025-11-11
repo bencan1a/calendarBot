@@ -808,7 +808,7 @@ recovery:
     restart_cmd: "pkill -TERM chromium"
     verification_delay_s: ${CFG_kiosk_watchdog_recovery_browser_restart_delay_s:-30}
   x_restart:
-    restart_cmd: "pkill -TERM Xorg"
+    restart_cmd: "sudo systemctl restart getty@tty1.service"
     verification_delay_s: ${CFG_kiosk_watchdog_recovery_x_restart_delay_s:-60}
   service_restart:
     restart_cmd: "sudo systemctl restart calendarbot-kiosk@${CFG_system_username}.service"
@@ -871,6 +871,7 @@ configure_sudoers() {
 ${CFG_system_username} ALL=NOPASSWD: /sbin/reboot
 ${CFG_system_username} ALL=NOPASSWD: /bin/systemctl restart calendarbot-kiosk@*.service
 ${CFG_system_username} ALL=NOPASSWD: /bin/systemctl status calendarbot-kiosk@*.service
+${CFG_system_username} ALL=NOPASSWD: /bin/systemctl restart getty@tty1.service
 EOF
 
     chmod 440 "$sudoers_file"

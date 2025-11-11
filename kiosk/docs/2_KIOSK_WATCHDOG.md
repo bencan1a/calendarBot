@@ -391,7 +391,7 @@ recovery:
 
   # Level 2: X session restart
   x_restart:
-    restart_cmd: "sudo systemctl restart [removed - not used]"
+    restart_cmd: "sudo systemctl restart getty@tty1.service"
     verification_delay_s: 60              # Wait 60 sec to verify
 ```
 
