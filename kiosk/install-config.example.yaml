@@ -32,10 +32,10 @@ system:
   home_dir: /home/bencan
 
   # CalendarBot repository location
-  repo_dir: /home/bencan/calendarBot
+  repo_dir: /home/bencan/calendarbot
 
   # Virtual environment location
-  venv_dir: /home/bencan/calendarBot/venv
+  venv_dir: /home/bencan/calendarbot/venv
 
 # ============================================================================
 # SECTION 1: BASE CALENDARBOT CONFIGURATION

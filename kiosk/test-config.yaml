@@ -10,8 +10,8 @@ sections:
 system:
   username: devcontainers
   home_dir: /home/devcontainers
-  repo_dir: /home/devcontainers/calendarBot
-  venv_dir: /home/devcontainers/calendarBot/venv
+  repo_dir: /home/devcontainers/calendarbot
+  venv_dir: /home/devcontainers/calendarbot/venv
 
 calendarbot:
   ics_url: "https://outlook.office365.com/owa/calendar/test123/calendar.ics"

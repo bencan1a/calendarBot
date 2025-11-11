@@ -8,8 +8,8 @@ Type=simple
 User=%i
 Group=%i
 WorkingDirectory=/home/%i/calendarBot
-Environment="PATH=/home/%i/calendarBot/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/home/%i/calendarBot/venv/bin/python -m calendarbot_lite
+Environment="PATH=/home/%i/calendarbot/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/%i/calendarbot/venv/bin/python -m calendarbot_lite
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal

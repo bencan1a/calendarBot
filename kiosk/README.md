@@ -10,7 +10,7 @@ The **automated installer** (`install-kiosk.sh`) deploys and configures all kios
 
 ```bash
 # 1. Configure
-cd ~/calendarBot/kiosk
+cd ~/calendarbot/kiosk
 cp install-config.example.yaml install-config.yaml
 nano install-config.yaml  # Set your username and ICS URL
 
@@ -60,7 +60,7 @@ sudo reboot
 **For first-time setup**, use the [**Automated Installation**](docs/AUTOMATED_INSTALLATION.md):
 
 ```bash
-cd ~/calendarBot/kiosk
+cd ~/calendarbot/kiosk
 sudo ./install-kiosk.sh --config install-config.yaml --dry-run  # Preview
 sudo ./install-kiosk.sh --config install-config.yaml            # Install
 sudo reboot                                                       # Start kiosk

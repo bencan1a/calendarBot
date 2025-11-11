@@ -60,8 +60,8 @@ SSH into your Raspberry Pi:
 
 ```bash
 cd ~
-git clone https://github.com/YOUR_USERNAME/calendarBot.git
-cd calendarBot/kiosk
+git clone https://github.com/YOUR_USERNAME/calendarbot.git
+cd calendarbot/kiosk
 ```
 
 ### 2. Create Configuration File
@@ -583,10 +583,10 @@ Common causes:
 Solution:
 ```bash
 # Verify .env
-cat ~/calendarBot/.env
+cat ~/calendarbot/.env
 
 # Test manually
-cd ~/calendarBot
+cd ~/calendarbot
 source venv/bin/activate
 python -m calendarbot_lite
 ```
@@ -606,7 +606,7 @@ Common causes:
 Solution:
 ```bash
 # Install PyYAML
-cd ~/calendarBot
+cd ~/calendarbot
 source venv/bin/activate
 pip install PyYAML
 
@@ -682,7 +682,7 @@ See [MANUAL_STEPS.md](MANUAL_STEPS.md#troubleshooting-alexa-skill-issues) for co
 **Quick checks:**
 ```bash
 # Verify bearer token in .env
-grep CALENDARBOT_ALEXA_BEARER_TOKEN ~/calendarBot/.env
+grep CALENDARBOT_ALEXA_BEARER_TOKEN ~/calendarbot/.env
 
 # Verify Caddy is running
 sudo systemctl status caddy
@@ -699,7 +699,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 ### Updating CalendarBot Code
 
 ```bash
-cd ~/calendarBot
+cd ~/calendarbot
 git pull
 
 # Re-run installer in update mode
@@ -711,7 +711,7 @@ sudo ./install-kiosk.sh --config install-config.yaml --update
 
 ```bash
 # Edit configuration
-nano ~/calendarBot/kiosk/install-config.yaml
+nano ~/calendarbot/kiosk/install-config.yaml
 
 # Apply changes
 sudo ./install-kiosk.sh --config install-config.yaml --update
@@ -724,7 +724,7 @@ sudo ./install-kiosk.sh --config install-config.yaml --update
 python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 # 2. Update config
-nano ~/calendarBot/kiosk/install-config.yaml
+nano ~/calendarbot/kiosk/install-config.yaml
 # Set: alexa.bearer_token: "NEW_TOKEN"
 
 # 3. Apply
@@ -856,7 +856,7 @@ sudo systemctl disable calendarbot-*
 
 # Remove files
 sudo rm /etc/systemd/system/calendarbot-*
-sudo rm -rf ~/calendarBot
+sudo rm -rf ~/calendarbot
 sudo rm /usr/local/bin/calendarbot-watchdog
 sudo rm -rf /var/log/calendarbot-watchdog
 sudo rm -rf /var/local/calendarbot-watchdog

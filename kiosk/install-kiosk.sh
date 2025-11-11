@@ -200,7 +200,7 @@ detect_current_state() {
     log_info "Detecting current installation state..."
 
     # Check if repository exists
-    if [[ -d "${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}" ]]; then
+    if [[ -d "${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarbot}" ]]; then
         INSTALLED_STATE[repo_exists]=true
         log_verbose "Repository: Found"
     else
@@ -209,7 +209,7 @@ detect_current_state() {
     fi
 
     # Check if virtual environment exists
-    if [[ -d "${CFG_system_venv_dir:-${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}/venv}" ]]; then
+    if [[ -d "${CFG_system_venv_dir:-${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarbot}/venv}" ]]; then
         INSTALLED_STATE[venv_exists]=true
         log_verbose "Virtual environment: Found"
     else
@@ -370,7 +370,7 @@ install_section_1_base() {
         build-essential git curl jq htop
 
     # Set up repository
-    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}"
+    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarbot}"
     local repo_owner="${CFG_system_username}"
 
     if [[ "${INSTALLED_STATE[repo_exists]}" == "false" ]]; then
@@ -380,7 +380,7 @@ install_section_1_base() {
             log_info "Cloning repository..."
             local parent_dir="$(dirname "$repo_dir")"
             sudo -u "$repo_owner" mkdir -p "$parent_dir"
-            sudo -u "$repo_owner" git clone https://github.com/YOUR_USERNAME/calendarBot.git "$repo_dir" || \
+            sudo -u "$repo_owner" git clone https://github.com/YOUR_USERNAME/calendarbot.git "$repo_dir" || \
                 die "Failed to clone repository. Please check the URL." 1
         fi
     else
@@ -607,7 +607,7 @@ install_section_2_kiosk() {
         xdotool dbus-x11
 
     # Install PyYAML
-    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}"
+    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarbot}"
     local venv_dir="${CFG_system_venv_dir:-$repo_dir/venv}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -840,7 +840,7 @@ Requires=calendarbot-kiosk@%i.service
 [Service]
 Type=simple
 User=%i
-WorkingDirectory=/home/%i/calendarBot
+WorkingDirectory=/home/%i/calendarbot
 ExecStart=/usr/bin/python3 /usr/local/bin/calendarbot-watchdog --config /etc/calendarbot-monitor/monitor.yaml --user %i
 Restart=always
 RestartSec=10
@@ -946,7 +946,7 @@ install_section_3_alexa() {
     fi
 
     # Update .env with bearer token
-    local env_file="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}/.env"
+    local env_file="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarbot}/.env"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_dry_run "Would add bearer token to .env"
@@ -1037,7 +1037,7 @@ install_caddy() {
 
 deploy_caddyfile() {
     local caddyfile="/etc/caddy/Caddyfile"
-    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}"
+    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarbot}"
     local source_caddyfile="$repo_dir/kiosk/config/enhanced_caddyfile"
 
     backup_file "$caddyfile"
@@ -1131,7 +1131,7 @@ verify_section_3() {
     fi
 
     # Check if bearer token is set in .env
-    local env_file="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}/.env"
+    local env_file="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarbot}/.env"
     if ! grep -q "CALENDARBOT_ALEXA_BEARER_TOKEN" "$env_file"; then
         log_error "Bearer token not set in .env"
         errors=$((errors + 1))
@@ -1151,7 +1151,7 @@ verify_section_3() {
 install_section_4_monitoring() {
     log_info "===== SECTION 4: Monitoring & Log Management ====="
 
-    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}"
+    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarbot}"
 
     # Deploy logrotate configuration
     if [[ "${CFG_monitoring_logrotate_enabled:-true}" == "true" ]]; then
@@ -1186,7 +1186,7 @@ install_section_4_monitoring() {
 
 deploy_logrotate() {
     local logrotate_file="/etc/logrotate.d/calendarbot-watchdog"
-    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}"
+    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarbot}"
     local source_logrotate="$repo_dir/kiosk/config/logrotate-calendarbot-watchdog"
 
     backup_file "$logrotate_file"
@@ -1272,7 +1272,7 @@ EOF
 }
 
 deploy_monitoring_scripts() {
-    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarBot}"
+    local repo_dir="${CFG_system_repo_dir:-/home/${CFG_system_username}/calendarbot}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_dry_run "Would deploy monitoring scripts"
