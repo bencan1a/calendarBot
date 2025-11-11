@@ -567,26 +567,26 @@ class RecoveryManager:
             return False
 
     def restart_x_session(self, user: str, state: dict[str, Any]) -> bool:
-        """Level 3: Restart X session via systemd service.
+        """Level 3: Restart X session by killing and restarting X.
 
-        This restarts the X session systemd service which manages:
-        X server (Xorg) → .xinitrc → browser
+        Kills the X server, waits for it to exit, then starts a new X session:
+        startx → .xinitrc → browser
 
-        The systemd service (calendarbot-kiosk-x@{user}.service) handles
-        automatic restart with Restart=always policy.
+        No sudo required as the watchdog runs as the same user that started X.
         """
         self.logger.log_event('INFO', 'recovery', 'x.restart.start', action_taken=True)
 
         try:
-            # Get restart command from config (defaults to systemctl restart)
+            # Get restart command from config
+            # Default: kill X, wait for full exit, then start new X on display :0 vt1
             restart_cmd = self.recovery_config.get('x_restart', {}).get('restart_cmd',
-                'sudo systemctl restart calendarbot-kiosk-x@{user}.service')
+                'pkill -TERM Xorg; sleep 3; startx -- :0 vt1 &')
 
-            # Restart X session via systemd
+            # Execute restart command
             subprocess.run(restart_cmd.format(user=user), check=False, shell=True, timeout=30)
 
             self.logger.log_event('INFO', 'recovery', 'x.restart.launched',
-                                {'details': 'X session service restarted via systemd'})
+                                {'details': 'X server killed and restarted'})
 
             # Verification delay - X restart takes longer as full stack needs to start
             verify_delay = self.recovery_config.get('x_restart', {}).get('verification_delay_s', 60)

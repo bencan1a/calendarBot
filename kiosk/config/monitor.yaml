@@ -137,9 +137,10 @@ monitor:
       restart_verification_delay_s: 30
     # Browser progressive recovery - Level 2: X session restart
     x_restart:
-      # Command to restart X session (with auto-login)
-      # Kills X server, getty auto-login restarts session: login → .bash_profile → startx → .xinitrc → browser
-      restart_cmd: "pkill -TERM Xorg"
+      # Command to restart X session (kill X, then start new X session)
+      # Kills X server, waits for clean exit, then starts new X: startx → .xinitrc → browser
+      # No sudo required - runs as logged-in user on tty1
+      restart_cmd: "pkill -TERM Xorg; sleep 3; startx -- :0 vt1 &"
       # Verification delay after X restart (seconds) - longer as full stack restarts
       verification_delay_s: 60
     # Level 3: Service restart settings

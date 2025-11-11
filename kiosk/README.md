@@ -204,23 +204,23 @@ recovery:
     reload_delay_s: 15
 
   x_restart:
-    restart_cmd: "sudo systemctl restart calendarbot-kiosk-x@{user}.service"
+    restart_cmd: "pkill -TERM Xorg; sleep 3; startx -- :0 vt1 &"
     verification_delay_s: 60
 ```
 
 ### Sudoers Configuration
 
-The watchdog requires sudo privileges for service management.
+The watchdog requires sudo privileges for service management and system reboots.
 
 Location: `/etc/sudoers.d/calendarbot-watchdog`
 
 ```
-bencan ALL=NOPASSWD: /bin/systemctl restart calendarbot-lite@*.service
-bencan ALL=NOPASSWD: /bin/systemctl restart [removed - not used]
-bencan ALL=NOPASSWD: /bin/systemctl status calendarbot-lite@*.service
-bencan ALL=NOPASSWD: /bin/systemctl status [removed - not used]
+bencan ALL=NOPASSWD: /bin/systemctl restart calendarbot-kiosk@*.service
+bencan ALL=NOPASSWD: /bin/systemctl status calendarbot-kiosk@*.service
 bencan ALL=NOPASSWD: /sbin/reboot
 ```
+
+**Note:** X session restart does NOT require sudo - it runs as the logged-in user.
 
 ## Testing
 
@@ -243,13 +243,19 @@ sudo journalctl -u calendarbot-kiosk-watchdog@bencan.service -f
 ### Test X Session Restart
 
 ```bash
-# Restart X
-sudo systemctl restart auto-login + .bash_profile + X session
+# Kill X server (watchdog will detect and restart it)
+pkill -TERM Xorg
+
+# Or manually restart X (what watchdog does)
+pkill -TERM Xorg; sleep 3; startx -- :0 vt1 &
 
 # Verify processes after 10 seconds
 sleep 10
 ps aux | grep Xorg
 ps aux | grep chromium
+
+# Watch logs to see watchdog recovery
+journalctl -u calendarbot-kiosk-watchdog@bencan.service -f
 ```
 
 ### Check Browser Heartbeat
