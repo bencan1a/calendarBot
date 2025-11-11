@@ -149,6 +149,9 @@ load_config() {
         value="${value%\'}"
         value="${value#\'}"
 
+        # Strip inline comments and trailing whitespace
+        value=$(echo "$value" | sed 's/\s*#.*$//')
+
         # Export to environment
         export "CFG_${key}=${value}"
         log_verbose "Config: $key = $value"
