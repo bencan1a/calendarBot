@@ -480,7 +480,7 @@ sudo chown caddy:caddy /var/log/caddy
 
 ## Step 8: Configure Firewall
 
-Allow HTTP and HTTPS traffic through firewall.
+Allow HTTP, HTTPS, and CalendarBot web server traffic through firewall.
 
 ```bash
 # Install UFW if not already installed
@@ -494,6 +494,9 @@ sudo ufw allow 80/tcp
 
 # Allow HTTPS (port 443)
 sudo ufw allow 443/tcp
+
+# Allow CalendarBot web server (port 8080) - required for local/direct access
+sudo ufw allow 8080/tcp
 
 # Enable firewall
 sudo ufw enable
@@ -511,9 +514,14 @@ To                         Action      From
 22/tcp                     ALLOW       Anywhere
 80/tcp                     ALLOW       Anywhere
 443/tcp                    ALLOW       Anywhere
+8080/tcp                   ALLOW       Anywhere
 ```
 
-**Note**: Port 8080 should NOT be exposed externally. Only Caddy on localhost should access it.
+**Security Note**: Port 8080 is opened to allow local network access to the kiosk display (e.g., from your laptop/phone on the same network). If you want to restrict this to local network only, use:
+```bash
+# Allow only from local network (example: 192.168.1.0/24)
+sudo ufw allow from 192.168.1.0/24 to any port 8080 proto tcp
+```
 
 ---
 

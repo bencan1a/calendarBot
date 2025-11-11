@@ -142,7 +142,7 @@ If certificates fail to acquire:
 
 1. **Check DNS**: Ensure DNS points to your public IP
 2. **Check Port 80**: Let's Encrypt requires port 80 for verification
-3. **Check Firewall**: Ensure UFW allows ports 80 and 443
+3. **Check Firewall**: Ensure UFW allows ports 80, 443, and 8080
 4. **Check Caddy Logs**: `sudo journalctl -u caddy -n 50`
 
 **Rate Limits:** Let's Encrypt has a rate limit of **5 certificates per domain per week**. Use staging for testing:

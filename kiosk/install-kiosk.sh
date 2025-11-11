@@ -1107,6 +1107,10 @@ configure_firewall() {
     ufw allow 80/tcp
     ufw allow 443/tcp
 
+    # Allow CalendarBot web server port
+    local web_port="${CFG_calendarbot_web_port:-8080}"
+    ufw allow "${web_port}/tcp"
+
     # Enable firewall
     echo "y" | ufw enable
 

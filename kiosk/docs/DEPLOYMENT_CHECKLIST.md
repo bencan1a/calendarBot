@@ -141,7 +141,7 @@ Complete before starting any installation:
 - [ ] Caddyfile deployed to `/etc/caddy/Caddyfile`
 - [ ] Caddyfile edited with your domain name
 - [ ] Caddy log directory created: `/var/log/caddy/`
-- [ ] Firewall configured: UFW allows ports 22, 80, 443
+- [ ] Firewall configured: UFW allows ports 22, 80, 443, 8080
 - [ ] Caddy service enabled: `sudo systemctl enable caddy`
 - [ ] Caddy service started: `sudo systemctl start caddy`
 
