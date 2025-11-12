@@ -165,9 +165,9 @@ jobs:
           # Check if we found the version in the changelog
           if [ ! -s "$CHANGELOG_FILE" ]; then
             echo "No changelog entry found for version $VERSION"
-            echo "body=Release $VERSION" >> "$CHANGELOG_FILE"
+            echo "body=Release $VERSION" >> $GITHUB_OUTPUT
+            exit 0
           fi
-
           # Read the changelog content and set as output
           {
             echo 'body<<EOF'
