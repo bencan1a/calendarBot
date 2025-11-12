@@ -1,0 +1,98 @@
+name: Documentation Self-Healing
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'calendarbot_lite/**'
+      - 'agent-projects/**'
+      - 'pyproject.toml'
+      - '*.json'
+  schedule:
+    # Nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild even if no changes detected'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      
+      - name: Run documentation builder
+        run: |
+          python tools/build_context.py --root .
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git add docs/CONTEXT.md docs/SUMMARY.md docs/CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No documentation changes detected"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Documentation changes detected"
+          fi
+      
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true' || github.event.inputs.force_rebuild == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add docs/CONTEXT.md docs/SUMMARY.md docs/CHANGELOG.md
+          git commit -m "docs: Auto-update documentation [skip ci]" || echo "No changes to commit"
+          git push
+      
+      - name: Upload documentation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: |
+            docs/CONTEXT.md
+            docs/SUMMARY.md
+            docs/CHANGELOG.md
+            docs/facts.json
+          retention-days: 30
+      
+      - name: Summary
+        run: |
+          echo "## Documentation Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Generated Files" >> $GITHUB_STEP_SUMMARY
+          echo "- CONTEXT.md: $(stat -c%s docs/CONTEXT.md | awk '{printf "%.1f KB", $1/1024}')" >> $GITHUB_STEP_SUMMARY
+          echo "- SUMMARY.md: $(stat -c%s docs/SUMMARY.md | awk '{printf "%.1f KB", $1/1024}')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Changes" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check_changes.outputs.changed }}" == "true" ]; then
+            echo "✅ Documentation updated and committed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No changes detected" >> $GITHUB_STEP_SUMMARY
+          fi
