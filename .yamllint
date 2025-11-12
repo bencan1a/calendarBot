@@ -1,0 +1,45 @@
+# yamllint configuration for CalendarBot
+# Focuses on syntax validation while being lenient on style
+
+extends: default
+
+rules:
+  # Disable overly strict rules for practical use
+  line-length:
+    max: 120
+    level: warning
+
+  # Allow files without document start marker
+  document-start: disable
+
+  # Allow truthy values like 'on', 'off', 'yes', 'no' (common in GitHub Actions)
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off', 'yes', 'no']
+    check-keys: false
+
+  # Be more lenient with comments
+  comments:
+    min-spaces-from-content: 1
+
+  comments-indentation: disable
+
+  # Allow some indentation flexibility for readability
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+
+  # Allow extra spaces in brackets for readability
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+
+# Ignore certain paths
+ignore: |
+  venv/
+  .venv/
+  node_modules/
+  build/
+  dist/
+  htmlcov/
+  .git/
+
