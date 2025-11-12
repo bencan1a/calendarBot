@@ -1,0 +1,50 @@
+{
+  "name": "CalendarBot Lite",
+  "description": "A lightweight Alexa skill backend with ICS calendar processing for Raspberry Pi kiosk deployment",
+  "purpose": "Provide voice-based calendar queries via Alexa and 24/7 visual calendar display on a kiosk screen",
+  "primary_use_case": "Raspberry Pi Zero 2W kiosk with 24/7 calendar display. The primary production deployment is a kiosk system showing calendar events on a dedicated screen, with Alexa voice integration as a secondary interface.",
+  "scale": {
+    "users": "1-5 users (personal/family project)",
+    "deployment": "Single instance on Raspberry Pi Zero 2W",
+    "project_type": "Personal project - not enterprise scale"
+  },
+  "resource_constraints": {
+    "memory": "<100MB RAM idle, <150MB under load (Pi Zero 2W has 512MB total)",
+    "cpu": "ARM Cortex-A53 quad-core 1GHz (single-threaded performance critical)",
+    "startup_time": "<10 seconds for application startup",
+    "disk": "SD card storage - minimize writes for longevity"
+  },
+  "codebase": {
+    "active": "calendarbot_lite",
+    "active_description": "Primary codebase under active development. All new features and changes go here.",
+    "archived": "calendarbot",
+    "archived_description": "Legacy codebase - DO NOT MODIFY. Kept for historical reference only. All development has migrated to calendarbot_lite/."
+  },
+  "key_technologies": {
+    "runtime": "Python 3.12+",
+    "web_framework": "aiohttp (async HTTP server)",
+    "calendar_parsing": "icalendar library for ICS parsing",
+    "recurrence": "dateutil.rrule for RRULE expansion",
+    "alexa": "Custom Alexa skill integration (ask-sdk-core)",
+    "deployment": "systemd services on Raspberry Pi OS",
+    "testing": "pytest with async support, pytest-cov, pytest-mock"
+  },
+  "architecture_principles": {
+    "simplicity": "Keep it simple - avoid enterprise patterns for a personal project",
+    "resource_optimization": "Optimize for low memory and CPU usage on Pi Zero 2W",
+    "single_instance": "Designed for single-instance deployment, no horizontal scaling",
+    "breaking_changes_ok": "Breaking changes are acceptable - controlled deployment, no API versioning needed"
+  },
+  "deployment_context": {
+    "kiosk_system": "Primary use case - systemd services manage both the web server and kiosk display",
+    "watchdog_monitoring": "Progressive recovery system (soft reload → browser restart → X session restart)",
+    "auto_login": "Automatic login and X session start for kiosk user",
+    "browser": "Chromium in kiosk mode displaying calendar at http://localhost:8080"
+  },
+  "documentation_structure": {
+    "permanent_docs": "docs/ - Permanent documentation (guides, architecture, security)",
+    "agent_projects": "agent-projects/ - Active project plans and work-in-progress documentation",
+    "agent_tmp": "agent-tmp/ - Temporary files, auto-pruned after 7 days (gitignored)",
+    "project_plans": "project-plans/ - Archived project planning documents"
+  }
+}
