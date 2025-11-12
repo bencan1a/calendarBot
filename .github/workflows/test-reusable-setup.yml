@@ -1,4 +1,6 @@
 name: Test Reusable Setup Workflow
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
