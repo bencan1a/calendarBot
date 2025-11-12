@@ -9,8 +9,9 @@ monitor:
     interval_s: 30
     # HTML render probe interval (seconds) - heavier check
     render_probe_interval_s: 60
-    # X session responsiveness check interval (seconds)
-    x_health_interval_s: 120
+    # X session responsiveness check interval (seconds) - DISABLED (browser heartbeat is sufficient)
+    # X check has auth issues from systemd context and is redundant with browser heartbeat
+    x_health_interval_s: 999999
     # Browser heartbeat check interval (seconds) - check for stuck browsers
     browser_heartbeat_check_interval_s: 60
     # Browser heartbeat timeout (seconds) - consider stale after this time
@@ -137,10 +138,10 @@ monitor:
       restart_verification_delay_s: 30
     # Browser progressive recovery - Level 2: X session restart
     x_restart:
-      # Command to restart X session (kill X, then start new X session)
-      # Kills X server, waits for clean exit, then starts new X: startx → .xinitrc → browser
-      # No sudo required - runs as logged-in user on tty1
-      restart_cmd: "pkill -TERM Xorg; sleep 3; startx -- :0 vt1 &"
+      # Command to restart getty service (triggers console auto-login → .bash_profile → X)
+      # This restarts the entire login session, which starts X via the user's .bash_profile
+      # Requires sudo access via /etc/sudoers.d/calendarbot-watchdog
+      restart_cmd: "sudo systemctl restart getty@tty1.service"
       # Verification delay after X restart (seconds) - longer as full stack restarts
       verification_delay_s: 60
     # Level 3: Service restart settings
