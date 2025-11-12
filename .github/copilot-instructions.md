@@ -41,6 +41,15 @@ pytest tests/lite/ -m "not slow"
 
 ### Code Quality (REQUIRED before commit)
 ```bash
+# Using Makefile targets (recommended)
+make check-yaml    # Validate YAML syntax
+make format        # Format code with ruff
+make lint          # Lint and auto-fix with ruff
+make typecheck     # Type check with mypy
+make security      # Security scan with bandit
+make check         # Run all quality checks
+
+# Or run tools directly
 # Format code
 ruff format calendarbot_lite
 
@@ -56,6 +65,12 @@ bandit -r calendarbot_lite
 
 ### Common Tasks
 ```bash
+# Using Makefile
+make help          # Show all available targets
+make test          # Run all tests
+make test-smoke    # Run smoke tests
+make clean         # Clean build artifacts
+
 # Run pre-commit checks
 pre-commit run --all-files
 ```

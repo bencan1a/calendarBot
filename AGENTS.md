@@ -296,6 +296,20 @@ python scripts/write_test_fixtures.py
 
 ### Code Quality
 
+**Using Makefile targets (recommended):**
+```bash
+make help          # Show all available targets
+make check-yaml    # Validate YAML syntax
+make check         # Run all quality checks (YAML, lint, type, security)
+make format        # Format code with ruff
+make lint          # Lint and auto-fix with ruff
+make lint-check    # Lint without auto-fix
+make typecheck     # Type check with mypy
+make security      # Security scan with bandit
+```
+
+**Running tools directly:**
+
 **Linting and formatting (using ruff):**
 ```bash
 ruff check calendarbot_lite      # Check for issues

@@ -20,8 +20,7 @@ check-yaml: ## Validate YAML syntax in all YAML files
 		! -path "./htmlcov/*" \
 		! -path "./build/*" \
 		! -path "./dist/*" \
-		-exec echo "Checking: {}" \; \
-		-exec yamllint {} \;
+		-print0 | xargs -0 yamllint
 	@echo "✓ YAML validation complete"
 
 .PHONY: format

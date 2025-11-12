@@ -42,3 +42,4 @@ ignore: |
   dist/
   htmlcov/
   .git/
+
