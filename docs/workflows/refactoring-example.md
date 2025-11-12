@@ -1,6 +1,6 @@
-# Example: Refactoring to Use Reusable Setup
+# Example: Refactoring to Use Python Setup Action
 
-This document demonstrates how to refactor an existing workflow to use the reusable Python setup workflow.
+This document demonstrates how to refactor an existing workflow to use the Python setup composite action.
 
 ## Before: Traditional Approach
 
@@ -98,7 +98,9 @@ jobs:
 - 🔴 Inconsistency risk (easy to forget updates)
 - 🔴 Verbose and cluttered workflow file
 
-## After: Using Reusable Workflow
+## After: Using Composite Action
+
+The composite action can be used as a single step in any job, replacing all the setup boilerplate:
 
 ```yaml
 name: Example Workflow
@@ -109,156 +111,127 @@ on:
   pull_request:
 
 jobs:
-  # Setup Python once, share across jobs
-  setup:
-    name: Setup Python Environment
-    uses: ./.github/workflows/reusable-setup.yml
-    with:
-      python-version: '3.12'
-      install-dev: true
-
   lint:
     name: Lint Code
-    needs: setup
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-
-    - name: Cache virtual environment
-      uses: actions/cache@v4
-      with:
-        path: venv
-        key: venv-${{ runner.os }}-py3.12-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-        restore-keys: |
-          venv-${{ runner.os }}-py3.12-
-
-    - name: Set venv in PATH
-      run: |
-        echo "$PWD/venv/bin" >> $GITHUB_PATH
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
-
-    - name: Run linting
-      run: ruff check calendarbot_lite
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/setup-python
+    - run: ruff check calendarbot_lite
 
   test:
     name: Run Tests
-    needs: setup
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-
-    - name: Cache virtual environment
-      uses: actions/cache@v4
-      with:
-        path: venv
-        key: venv-${{ runner.os }}-py3.12-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-        restore-keys: |
-          venv-${{ runner.os }}-py3.12-
-
-    - name: Set venv in PATH
-      run: |
-        echo "$PWD/venv/bin" >> $GITHUB_PATH
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
-
-    - name: Run tests
-      run: pytest tests/lite/ -v
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/setup-python
+    - run: pytest tests/lite/ -v
 ```
 
 **Benefits:**
 - ✅ Single source of truth for Python setup
-- ✅ Reduces duplication (setup job handles all setup logic)
+- ✅ Drastically reduces duplication (6 steps total vs 24)
 - ✅ Easy to update (change once, affects all workflows)
 - ✅ Consistent setup across all jobs
 - ✅ Cleaner, more readable workflow files
-- ✅ Cache is populated once and can be restored in each job using the same cache key
+- ✅ Each job independently benefits from intelligent caching
+- ✅ Can be combined with other steps in the same job
 
-**Note:** Each job still needs to restore the cache and set up PATH, but the
-heavy lifting (venv creation and dependency installation) is done once.
+## Advanced Usage
 
-## Even Better: Per-Job Setup
-
-For truly independent jobs, use the reusable workflow directly in each job:
+### Different Python Versions
 
 ```yaml
-name: Example Workflow
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-
 jobs:
-  lint:
-    name: Lint Code
-    uses: ./.github/workflows/reusable-setup.yml
-    with:
-      python-version: '3.12'
-      install-dev: true
-
-  # Can run a custom job after setup
-  lint-check:
-    name: Run Linting
-    needs: lint
+  test-py312:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.12'
+      - run: pytest tests/
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-
-    - name: Restore cache
-      uses: actions/cache@v4
-      with:
-        path: venv
-        key: venv-${{ runner.os }}-py3.12-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-
-    - name: Set venv in PATH
-      run: |
-        echo "$PWD/venv/bin" >> $GITHUB_PATH
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
-
-    - name: Run linting
-      run: ruff check calendarbot_lite
+  test-py311:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.11'
+      - run: pytest tests/
 ```
 
-## Best Practice: Composite Setup
+### Production vs Dev Dependencies
 
-For even more reusability, you could also create a composite action for the
-cache restoration steps. However, the reusable workflow is simpler for most cases.
+```yaml
+jobs:
+  build-production:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python
+        with:
+          install-dev: 'false'  # Production dependencies only
+      - run: python -m build
+
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python
+        with:
+          install-dev: 'true'   # Dev dependencies for testing
+      - run: pytest tests/
+```
+
+### Separate Caches for Different Jobs
+
+```yaml
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python
+        with:
+          cache-key-suffix: 'unit'
+      - run: pytest tests/unit/
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python
+        with:
+          cache-key-suffix: 'e2e'
+      - run: pip install selenium  # Additional E2E dependencies
+      - run: pytest tests/e2e/
+```
 
 ## Migration Checklist
 
 When refactoring an existing workflow:
 
-- [ ] Identify all Python setup steps
-- [ ] Replace with reusable workflow call
-- [ ] Verify Python version matches
-- [ ] Confirm dev dependencies requirement
+- [ ] Identify all Python setup steps in your workflow
+- [ ] Replace setup steps with `uses: ./.github/actions/setup-python`
+- [ ] Verify Python version matches your requirements
+- [ ] Confirm dev dependencies requirement (default is true)
 - [ ] Test the refactored workflow
-- [ ] Check cache behavior is correct
-- [ ] Verify job dependencies are preserved
-- [ ] Update any workflow-specific cache keys if needed
+- [ ] Check cache behavior is working correctly
+- [ ] Verify all dependent jobs still work
 
-## Common Patterns
+## Why Composite Actions?
 
-### Pattern 1: Different Python Versions
+Composite actions offer several advantages for this use case:
 
-```yaml
+- **Flexibility**: Can be used as a step within any job
+- **Simplicity**: Just add one line to use complete setup
+- **Composability**: Easily combine with other actions and steps
+- **No job overhead**: Runs in the same job, no separate runner needed
+- **Direct outputs**: Access outputs immediately in the same job
+
+Compared to reusable workflows (which must be entire jobs), composite actions are better suited for setup tasks that are part of a larger workflow.
 jobs:
   test-py312:
     uses: ./.github/workflows/reusable-setup.yml

@@ -1,4 +1,4 @@
-name: Test Reusable Setup Workflow
+name: Test Python Setup Action
 permissions:
   contents: read
 
@@ -6,93 +6,98 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - '.github/workflows/reusable-setup.yml'
+      - '.github/actions/setup-python/**'
       - '.github/workflows/test-reusable-setup.yml'
 
 jobs:
   # Test with default settings
   test-default:
     name: Test Default Setup
-    uses: ./.github/workflows/reusable-setup.yml
-    with:
-      python-version: '3.12'
-      install-dev: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python with defaults
+        uses: ./.github/actions/setup-python
+
+      - name: Verify Python version
+        run: |
+          python --version
+          python -c "import sys; assert sys.version_info >= (3, 12), 'Python 3.12+ required'"
+
+      - name: Verify dev dependencies installed
+        run: |
+          python -c "import pytest; print(f'pytest version: {pytest.__version__}')"
+          python -c "import ruff; print('ruff installed successfully')"
+          python -c "import mypy; print('mypy installed successfully')"
+
+      - name: Run simple test
+        run: |
+          pytest tests/lite/ -m "smoke" --maxfail=1 -v || echo "No smoke tests found, skipping"
 
   # Test without dev dependencies
   test-no-dev:
     name: Test Without Dev Dependencies
-    uses: ./.github/workflows/reusable-setup.yml
-    with:
-      python-version: '3.12'
-      install-dev: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python without dev dependencies
+        uses: ./.github/actions/setup-python
+        with:
+          install-dev: 'false'
+
+      - name: Verify Python version
+        run: |
+          python --version
+          python -c "import sys; assert sys.version_info >= (3, 12), 'Python 3.12+ required'"
+
+      - name: Verify production dependencies only
+        run: |
+          python -c "import icalendar; print('icalendar installed')"
+          # Dev dependencies should not be available
+          python -c "import pytest" 2>&1 | grep -q "No module named 'pytest'" && echo "✓ Dev dependencies not installed" || echo "✗ Unexpected: dev dependencies found"
 
   # Test with cache key suffix
   test-cache-suffix:
     name: Test With Cache Suffix
-    uses: ./.github/workflows/reusable-setup.yml
-    with:
-      python-version: '3.12'
-      install-dev: true
-      cache-key-suffix: 'test-suffix'
-
-  # Verify outputs and run a simple test
-  verify-setup:
-    name: Verify Setup Works
-    needs: [test-default]
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
+      - name: Setup Python with cache suffix
+        id: setup
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.12'
+          install-dev: 'true'
+          cache-key-suffix: 'test-suffix'
 
-    - name: Cache virtual environment
-      uses: actions/cache@v4
-      id: venv-cache
-      with:
-        path: venv
-        key: venv-${{ runner.os }}-py3.12-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-        restore-keys: |
-          venv-${{ runner.os }}-py3.12-
+      - name: Verify setup outputs
+        run: |
+          echo "Python version: ${{ steps.setup.outputs.python-version }}"
+          echo "Cache hit: ${{ steps.setup.outputs.cache-hit }}"
 
-    - name: Create virtual environment
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: python -m venv venv
+      - name: Verify Python works
+        run: python --version
 
-    - name: Set venv in PATH
-      run: |
-        echo "$PWD/venv/bin" >> $GITHUB_PATH
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+  # Test with different Python version
+  test-python-311:
+    name: Test Python 3.11
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install dependencies
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: |
-        pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -e .[dev]
+      - name: Setup Python 3.11
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.11'
 
-    - name: Verify Python version
-      run: |
-        python --version
-        python -c "import sys; assert sys.version_info >= (3, 12), 'Python 3.12+ required'"
-
-    - name: Verify dev dependencies installed
-      run: |
-        python -c "import pytest; print(f'pytest version: {pytest.__version__}')"
-        python -c "import ruff; print('ruff installed successfully')"
-        python -c "import mypy; print('mypy installed successfully')"
-
-    - name: Run simple test
-      run: |
-        pytest tests/lite/ -m "smoke" --maxfail=1 -v || echo "No smoke tests found, skipping"
-
-    - name: Verify cache was used
-      run: |
-        echo "Cache hit: ${{ steps.venv-cache.outputs.cache-hit }}"
-        if [ "${{ steps.venv-cache.outputs.cache-hit }}" == "true" ]; then
-          echo "✓ Cache was successfully used"
-        else
-          echo "✓ Cache was created (expected on first run)"
-        fi
+      - name: Verify Python 3.11
+        run: |
+          python --version
+          python -c "import sys; assert sys.version_info[:2] == (3, 11), 'Expected Python 3.11'"

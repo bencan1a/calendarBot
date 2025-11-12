@@ -1,28 +1,29 @@
-# Reusable Python Setup Workflow
+# Python Setup Composite Action
 
 ## Overview
 
-The `reusable-setup.yml` workflow provides a standardized way to set up Python with dependency caching across all GitHub Actions workflows. This promotes DRY (Don't Repeat Yourself) principles and ensures consistent Python environment setup.
+The `setup-python` composite action provides a standardized way to set up Python with dependency caching that can be used as a step in any GitHub Actions job. This promotes DRY (Don't Repeat Yourself) principles and ensures consistent Python environment setup.
 
 ## Location
 
-`.github/workflows/reusable-setup.yml`
+`.github/actions/setup-python/action.yml`
 
 ## Features
 
 - ✅ Configurable Python version (default: 3.12)
 - ✅ Intelligent venv caching (based on requirements.txt and pyproject.toml)
 - ✅ Optional dev dependencies installation
-- ✅ Optional cache key suffix for workflow-specific caching
+- ✅ Optional cache key suffix for job-specific caching
 - ✅ Outputs Python version and cache hit status
 - ✅ Uses latest actions/setup-python@v5
+- ✅ Can be used as a step within any job
 
 ## Inputs
 
 | Input | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `python-version` | string | No | `'3.12'` | Python version to use |
-| `install-dev` | boolean | No | `true` | Install with dev dependencies (`.[dev]`) |
+| `install-dev` | string | No | `'true'` | Install with dev dependencies (`.[dev]`) |
 | `cache-key-suffix` | string | No | `''` | Optional suffix for cache key differentiation |
 
 ## Outputs
@@ -38,8 +39,16 @@ The `reusable-setup.yml` workflow provides a standardized way to set up Python w
 
 ```yaml
 jobs:
-  my-job:
-    uses: ./.github/workflows/reusable-setup.yml
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: ./.github/actions/setup-python
+      
+      - name: Run tests
+        run: pytest tests/
 ```
 
 This will:
@@ -50,9 +59,11 @@ This will:
 ### Custom Python Version
 
 ```yaml
-jobs:
-  my-job:
-    uses: ./.github/workflows/reusable-setup.yml
+steps:
+  - uses: actions/checkout@v4
+  
+  - name: Setup Python 3.11
+    uses: ./.github/actions/setup-python
     with:
       python-version: '3.11'
 ```
@@ -60,11 +71,13 @@ jobs:
 ### Without Dev Dependencies
 
 ```yaml
-jobs:
-  my-job:
-    uses: ./.github/workflows/reusable-setup.yml
+steps:
+  - uses: actions/checkout@v4
+  
+  - name: Setup Python (production only)
+    uses: ./.github/actions/setup-python
     with:
-      install-dev: false
+      install-dev: 'false'
 ```
 
 This installs only production dependencies (no pytest, ruff, mypy, etc.).
@@ -72,49 +85,36 @@ This installs only production dependencies (no pytest, ruff, mypy, etc.).
 ### With Cache Key Suffix
 
 ```yaml
-jobs:
-  my-job:
-    uses: ./.github/workflows/reusable-setup.yml
+steps:
+  - uses: actions/checkout@v4
+  
+  - name: Setup Python for E2E tests
+    uses: ./.github/actions/setup-python
     with:
       cache-key-suffix: 'e2e-tests'
 ```
 
-Useful when you need separate caches for different workflows (e.g., unit tests vs e2e tests with additional dependencies).
-
-### Full Configuration
-
-```yaml
-jobs:
-  my-job:
-    uses: ./.github/workflows/reusable-setup.yml
-    with:
-      python-version: '3.12'
-      install-dev: true
-      cache-key-suffix: 'custom-suffix'
-```
+Useful when you need separate caches for different jobs (e.g., unit tests vs e2e tests with additional dependencies).
 
 ### Using Outputs
 
 ```yaml
-jobs:
-  setup:
-    uses: ./.github/workflows/reusable-setup.yml
-    with:
-      python-version: '3.12'
-
-  test:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check Python version
-        run: |
-          echo "Python version used: ${{ needs.setup.outputs.python-version }}"
-          echo "Cache was hit: ${{ needs.setup.outputs.cache-hit }}"
+steps:
+  - uses: actions/checkout@v4
+  
+  - name: Setup Python
+    id: setup
+    uses: ./.github/actions/setup-python
+  
+  - name: Check setup results
+    run: |
+      echo "Python version: ${{ steps.setup.outputs.python-version }}"
+      echo "Cache was hit: ${{ steps.setup.outputs.cache-hit }}"
 ```
 
 ## Cache Behavior
 
-The workflow caches the entire `venv` directory with a key based on:
+The action caches the entire `venv` directory with a key based on:
 
 1. Operating system (`runner.os`)
 2. Python version (`inputs.python-version`)
@@ -143,7 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - uses: actions/cache@v4
@@ -159,45 +159,20 @@ jobs:
           pip install --upgrade pip setuptools wheel
           pip install --prefer-binary -e .[dev]
         if: steps.cache.outputs.cache-hit != 'true'
+      - run: pytest tests/
 ```
 
-### After (Using Reusable Workflow)
+### After (Using Composite Action)
 
 ```yaml
 jobs:
   test:
-    uses: ./.github/workflows/reusable-setup.yml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python
+      - run: pytest tests/
 ```
-
-## Validation
-
-To validate YAML syntax of all workflows:
-
-```bash
-make check-yaml
-```
-
-Or directly:
-
-```bash
-python3 scripts/validate_yaml.py
-```
-
-## Testing
-
-A test workflow is available to verify the reusable setup works correctly:
-
-```bash
-# Trigger test workflow via GitHub UI or CLI
-gh workflow run test-reusable-setup.yml
-```
-
-The test workflow validates:
-- Default setup with dev dependencies
-- Setup without dev dependencies
-- Setup with custom cache key suffix
-- Cache functionality
-- Python version and dependency availability
 
 ## Implementation Details
 
@@ -213,11 +188,11 @@ The test workflow validates:
 
 Dependencies are only installed when:
 1. Cache miss occurs (first run or dependencies changed)
-2. The installation steps check `steps.venv-cache.outputs.cache-hit != 'true'`
+2. The installation steps check cache-hit status
 
 ### venv in PATH
 
-The workflow sets two environment variables for subsequent steps:
+The action sets two environment variables for subsequent steps:
 - `GITHUB_PATH`: Adds `venv/bin` to PATH
 - `VIRTUAL_ENV`: Points to the venv directory
 
@@ -227,7 +202,7 @@ This allows subsequent steps to use Python commands without explicitly activatin
 
 1. **Use specific Python versions** - Avoid floating versions like `'3.x'`
 2. **Match production Python version** - Use the same version as your deployment target
-3. **Use cache-key-suffix sparingly** - Only when workflows truly need separate caches
+3. **Use cache-key-suffix sparingly** - Only when jobs truly need separate caches
 4. **Monitor cache usage** - GitHub has 10GB cache limit per repository
 5. **Keep dependencies pinned** - Use `requirements.txt` or lock files for reproducibility
 
@@ -254,25 +229,23 @@ Ensure:
 - `python-version` input is set correctly
 - No later steps override the Python setup
 
-## Future Improvements
+## Advantages Over Reusable Workflows
 
-Potential enhancements:
-- Support for poetry/pipenv
-- Conditional installation of optional dependency groups
-- Pre-commit hook caching
-- Tox environment caching
-- Multiple Python version matrix support
+Unlike reusable workflows (which must be entire jobs), composite actions:
+- ✅ Can be used as steps within a job
+- ✅ Allow combining setup with other actions in the same job
+- ✅ Simpler to use - just add as a step
+- ✅ Better suited for setup tasks that are part of a larger job
 
 ## Related Files
 
-- `.github/workflows/reusable-setup.yml` - The reusable workflow
+- `.github/actions/setup-python/action.yml` - The composite action
 - `.github/workflows/test-reusable-setup.yml` - Test workflow
-- `scripts/validate_yaml.py` - YAML validation script
-- `Makefile` - Contains `check-yaml` target
+- `docs/workflows/refactoring-example.md` - Before/after examples
 - `pyproject.toml` - Project dependencies definition
 
 ## References
 
-- [GitHub Reusable Workflows](https://docs.github.com/en/actions/using-workflows/reusing-workflows)
+- [GitHub Composite Actions](https://docs.github.com/en/actions/creating-actions/creating-a-composite-action)
 - [actions/setup-python](https://github.com/actions/setup-python)
 - [actions/cache](https://github.com/actions/cache)
