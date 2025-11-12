@@ -436,7 +436,15 @@ class TestAlexaSsmlIntegration:
             # Verify XML is well-formed
             import xml.etree.ElementTree as ET
             try:
-                ET.fromstring(meeting_ssml)
+                # Add Amazon namespace declaration if needed for XML parsing
+                ssml_to_parse = meeting_ssml
+                if 'amazon:' in meeting_ssml and 'xmlns:amazon=' not in meeting_ssml:
+                    ssml_to_parse = meeting_ssml.replace(
+                        '<speak>',
+                        '<speak xmlns:amazon="https://developer.amazon.com/alexa/ssml">',
+                        1
+                    )
+                ET.fromstring(ssml_to_parse)
             except ET.ParseError as e:
                 pytest.fail(f"SSML is not well-formed XML: {e}")
 
@@ -447,7 +455,15 @@ class TestAlexaSsmlIntegration:
             assert validate_ssml(time_ssml, max_chars=300), f"Generated time SSML failed validation: {time_ssml}"
             # Verify XML is well-formed
             try:
-                ET.fromstring(time_ssml)
+                # Add Amazon namespace declaration if needed for XML parsing
+                ssml_to_parse = time_ssml
+                if 'amazon:' in time_ssml and 'xmlns:amazon=' not in time_ssml:
+                    ssml_to_parse = time_ssml.replace(
+                        '<speak>',
+                        '<speak xmlns:amazon="https://developer.amazon.com/alexa/ssml">',
+                        1
+                    )
+                ET.fromstring(ssml_to_parse)
             except ET.ParseError as e:
                 pytest.fail(f"Time SSML is not well-formed XML: {e}")
 

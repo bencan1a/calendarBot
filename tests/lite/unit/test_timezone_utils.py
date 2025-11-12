@@ -200,12 +200,14 @@ class TestTimezoneConversion:
         local_time = convert_to_server_tz(utc_time)
 
         assert local_time.tzinfo is not None
-        # If server is in UTC, times will be equal; otherwise they differ
+        # Verify timezone conversion occurred
         server_tz = get_server_timezone()
         if server_tz == "UTC":
-            assert local_time.replace(tzinfo=datetime.timezone.utc) == utc_time
+            # Same timezone, so hour should be the same
+            assert local_time.hour == utc_time.hour
         else:
-            assert local_time != utc_time  # Should be different time in non-UTC TZ
+            # Different timezone, so local hour representation should differ
+            assert local_time.hour != utc_time.hour
 
     @pytest.mark.smoke  # Critical path: Timezone conversion validation
     def test_convert_to_timezone_with_valid_tz(self):

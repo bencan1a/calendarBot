@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from calendarbot_lite.calendar.lite_datetime_utils import serialize_datetime_utc
@@ -63,7 +64,7 @@ def register_api_routes(
         last_probe_iso = (
             None
             if last_probe_ts is None
-            else serialize_iso(time_provider().replace(microsecond=0).fromtimestamp(last_probe_ts))
+            else serialize_iso(datetime.fromtimestamp(last_probe_ts, tz=UTC).replace(microsecond=0))
         )
 
         # Get rate limiter statistics if available

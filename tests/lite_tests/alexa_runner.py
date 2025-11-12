@@ -543,7 +543,19 @@ class AlexaTestRunner:
 
         # Validate XML structure
         try:
-            root = ET.fromstring(ssml)
+            # Add Amazon namespace declaration if not present to enable XML parsing
+            # Alexa's SSML parser is lenient and doesn't require this, but Python's
+            # XML parser is strict about namespace prefixes
+            ssml_to_parse = ssml
+            if 'amazon:' in ssml and 'xmlns:amazon=' not in ssml:
+                # Add namespace declaration to <speak> tag
+                ssml_to_parse = ssml.replace(
+                    '<speak>',
+                    '<speak xmlns:amazon="https://developer.amazon.com/alexa/ssml">',
+                    1
+                )
+
+            root = ET.fromstring(ssml_to_parse)
 
             # Check root tag is <speak>
             if root.tag != 'speak':
