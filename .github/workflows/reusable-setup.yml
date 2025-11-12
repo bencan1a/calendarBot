@@ -1,0 +1,75 @@
+name: Reusable Python Setup
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: 'Python version to use'
+        required: false
+        type: string
+        default: '3.12'
+      install-dev:
+        description: 'Install with dev dependencies'
+        required: false
+        type: boolean
+        default: true
+      cache-key-suffix:
+        description: 'Optional suffix for cache key differentiation'
+        required: false
+        type: string
+        default: ''
+    outputs:
+      python-version:
+        description: 'Python version that was set up'
+        value: ${{ jobs.setup.outputs.python-version }}
+      cache-hit:
+        description: 'Whether venv was restored from cache'
+        value: ${{ jobs.setup.outputs.cache-hit }}
+
+jobs:
+  setup:
+    name: Python Setup
+    runs-on: ubuntu-latest
+    outputs:
+      python-version: ${{ steps.setup-python.outputs.python-version }}
+      cache-hit: ${{ steps.venv-cache.outputs.cache-hit }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ inputs.python-version }}
+      id: setup-python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Cache virtual environment
+      uses: actions/cache@v4
+      id: venv-cache
+      with:
+        path: venv
+        key: venv-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}${{ inputs.cache-key-suffix != '' && format('-{0}', inputs.cache-key-suffix) || '' }}
+        restore-keys: |
+          venv-${{ runner.os }}-py${{ inputs.python-version }}-
+
+    - name: Create virtual environment
+      if: steps.venv-cache.outputs.cache-hit != 'true'
+      run: python -m venv venv
+
+    - name: Set venv in PATH
+      run: |
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
+        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+
+    - name: Install dependencies (with dev)
+      if: steps.venv-cache.outputs.cache-hit != 'true' && inputs.install-dev
+      run: |
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -e .[dev]
+
+    - name: Install dependencies (without dev)
+      if: steps.venv-cache.outputs.cache-hit != 'true' && !inputs.install-dev
+      run: |
+        pip install --upgrade pip setuptools wheel
+        pip install --prefer-binary -e .
