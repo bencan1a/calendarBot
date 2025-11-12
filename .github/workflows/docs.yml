@@ -21,6 +21,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # Let documentation builds complete
+
 permissions:
   contents: write
 

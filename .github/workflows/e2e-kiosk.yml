@@ -7,6 +7,10 @@ on:
   workflow_dispatch:
     # Manual trigger also available
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # Let E2E tests complete
+
 env:
   PYTHON_VERSION: "3.12"
 

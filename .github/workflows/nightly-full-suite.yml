@@ -7,6 +7,10 @@ on:
   workflow_dispatch:
     # Allow manual trigger
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # Let nightly tests complete
+
 env:
   PYTHON_VERSION: "3.12"
   COVERAGE_THRESHOLD: 70

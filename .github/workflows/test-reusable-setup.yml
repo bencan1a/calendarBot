@@ -9,6 +9,10 @@ on:
       - '.github/actions/setup-python/**'
       - '.github/workflows/test-reusable-setup.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Test with default settings
   test-default:
