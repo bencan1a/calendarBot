@@ -83,17 +83,32 @@ class EventPrioritizer:
 
             candidate_events.append((ev, seconds_until))
 
-            # Check for time-based grouping and prioritization
-            if len(candidate_events) >= 2:
-                priority_result = self._apply_priority_logic(candidate_events, seconds_until)
-                if priority_result:
-                    return priority_result
+        # If no candidates found, return None
+        if not candidate_events:
+            return None
 
-        # Return first qualifying event if no prioritization was applied
-        if candidate_events:
-            return candidate_events[0]
+        # Sort candidates by time (earliest first)
+        candidate_events.sort(key=lambda x: x[1])
 
-        return None
+        # Apply priority logic to events that start at similar time to the earliest event
+        earliest_time = candidate_events[0][1]
+        early_group = [
+            (ev, secs)
+            for ev, secs in candidate_events
+            if abs(secs - earliest_time) <= self.time_grouping_threshold_seconds
+        ]
+
+        # If there are multiple events at similar time, apply prioritization
+        if len(early_group) > 1:
+            logger.debug(
+                "PRIORITY: Multiple events at similar time to earliest, applying prioritization"
+            )
+            priority_result = self._apply_priority_early_group(early_group)
+            if priority_result:
+                return priority_result
+
+        # Return earliest event
+        return candidate_events[0]
 
     def _is_skipped(self, event: LiteCalendarEvent, skipped_store: object | None) -> bool:
         """Check if event is skipped by user.
@@ -118,6 +133,45 @@ class EventPrioritizer:
         except Exception as e:
             logger.warning("skipped_store.is_skipped raised: %s", e)
             return False
+
+    def _apply_priority_early_group(
+        self,
+        early_group: list[tuple[LiteCalendarEvent, int]],
+    ) -> tuple[LiteCalendarEvent, int] | None:
+        """Apply prioritization logic to a group of events at similar times.
+
+        Args:
+            early_group: List of (event, seconds_until) tuples at similar times
+
+        Returns:
+            Selected (event, seconds_until) or None if no prioritization needed
+        """
+        # Categorize events
+        business_events = []
+        lunch_events = []
+
+        for cand_ev, cand_seconds in early_group:
+            category = self._categorize_event(cand_ev)
+
+            if category == EventCategory.LUNCH:
+                lunch_events.append((cand_ev, cand_seconds))
+                logger.debug("PRIORITY: Categorized as lunch event: %s", cand_ev.subject or "")
+            else:
+                business_events.append((cand_ev, cand_seconds))
+                logger.debug("PRIORITY: Categorized as business event: %s", cand_ev.subject or "")
+
+        # Prioritize business events over lunch
+        if business_events:
+            # Sort business events by time and take the earliest
+            business_events.sort(key=lambda x: x[1])
+            selected_ev, selected_seconds = business_events[0]
+            logger.debug("PRIORITY: Selected earliest business event over lunch")
+            return selected_ev, selected_seconds
+
+        # No business events, use first available
+        selected_ev, selected_seconds = early_group[0]
+        logger.debug("PRIORITY: No business events found, using first available")
+        return selected_ev, selected_seconds
 
     def _apply_priority_logic(
         self,
