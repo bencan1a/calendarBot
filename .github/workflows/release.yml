@@ -159,7 +159,7 @@ jobs:
 
           # Extract the changelog section using awk
           awk -v version="$VERSION" '
-            /^## \['"$VERSION"'\]/ { found=1; next }
+            $0 ~ "^## \\[" version "\\]" { found=1; next }
             found && /^## / { exit }
             found { print }
           ' CHANGELOG.md > "$CHANGELOG_FILE"
