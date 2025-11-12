@@ -1,8 +1,8 @@
 # CalendarBot Alexa & Lambda Integration Security Assessment
 
-**Assessment Date**: November 8, 2025  
-**Scope**: Alexa integration, AWS Lambda backend, Caddy reverse proxy, authentication mechanisms  
-**Assessor**: Security Expert Agent  
+**Assessment Date**: November 8, 2025
+**Scope**: Alexa integration, AWS Lambda backend, Caddy reverse proxy, authentication mechanisms
+**Assessor**: Security Expert Agent
 **Project**: CalendarBot Lite (Personal Raspberry Pi Deployment)
 
 ---
@@ -76,8 +76,8 @@ Alexa Voice → Amazon Alexa Service → AWS Lambda (alexa_skill_backend.py)
 
 ### 1. Missing Alexa Request Signature Verification [CRITICAL]
 
-**Severity**: CRITICAL  
-**CVSS Score**: 9.1 (Critical)  
+**Severity**: CRITICAL
+**CVSS Score**: 9.1 (Critical)
 **CWE**: CWE-345 (Insufficient Verification of Data Authenticity)
 
 #### Description
@@ -130,7 +130,7 @@ sb = SkillBuilder()
 class LaunchRequestHandler(AbstractRequestHandler):
     def can_handle(self, handler_input):
         return is_request_type("LaunchRequest")(handler_input)
-    
+
     def handle(self, handler_input):
         # Your existing logic here
         pass
@@ -160,18 +160,18 @@ def verify_alexa_request(event: dict, context: Any) -> bool:
     request_timestamp = event.get("request", {}).get("timestamp")
     if not request_timestamp:
         return False
-    
+
     request_time = datetime.fromisoformat(request_timestamp.replace('Z', '+00:00'))
     now = datetime.now(timezone.utc)
     if abs((now - request_time).total_seconds()) > 150:
         logger.warning("Request timestamp too old: %s", request_timestamp)
         return False
-    
+
     # 2. Verify signature (requires access to HTTP headers)
     # Note: Lambda function event doesn't include HTTP headers directly
     # You need to configure Lambda to receive headers via API Gateway integration
     # This is complex - using ASK SDK is strongly recommended
-    
+
     return True
 ```
 
@@ -189,8 +189,8 @@ def verify_alexa_request(event: dict, context: Any) -> bool:
 
 ### 2. HTTP Requests Allowed to CalendarBot Backend [MEDIUM]
 
-**Severity**: MEDIUM  
-**CVSS Score**: 5.3 (Medium)  
+**Severity**: MEDIUM
+**CVSS Score**: 5.3 (Medium)
 **CWE**: CWE-319 (Cleartext Transmission of Sensitive Information)
 
 #### Description
@@ -222,7 +222,7 @@ def validate_configuration() -> None:
     """Validate Lambda environment configuration at startup."""
     if not CALENDARBOT_ENDPOINT:
         raise ValueError("CALENDARBOT_ENDPOINT environment variable not set")
-    
+
     if not CALENDARBOT_ENDPOINT.startswith("https://"):
         # Allow http:// only for localhost testing
         if not CALENDARBOT_ENDPOINT.startswith("http://localhost") and \
@@ -231,10 +231,10 @@ def validate_configuration() -> None:
                 "CALENDARBOT_ENDPOINT must use https:// (not http://) in production. "
                 f"Got: {CALENDARBOT_ENDPOINT}"
             )
-    
+
     if not CALENDARBOT_BEARER_TOKEN:
         raise ValueError("CALENDARBOT_BEARER_TOKEN environment variable not set")
-    
+
     if len(CALENDARBOT_BEARER_TOKEN) < 32:
         logger.warning(
             "CALENDARBOT_BEARER_TOKEN is weak (length: %d). "
@@ -267,8 +267,8 @@ CALENDARBOT_ENDPOINT = http://ashwoodgrove.net  # ❌ DO NOT USE
 
 ### 3. No Timestamp Validation for Replay Attacks [MEDIUM]
 
-**Severity**: MEDIUM  
-**CVSS Score**: 4.3 (Medium)  
+**Severity**: MEDIUM
+**CVSS Score**: 4.3 (Medium)
 **CWE**: CWE-294 (Authentication Bypass by Capture-replay)
 
 #### Description
@@ -306,15 +306,15 @@ def check_auth(self, request: web.Request) -> None:
     """Check if request has valid bearer token and timestamp."""
     if not self.bearer_token:
         return  # No token configured, allow all requests
-    
+
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         raise AlexaAuthenticationError("Missing or malformed Authorization header")
-    
+
     token = auth_header[7:]  # Remove "Bearer " prefix
     if token != self.bearer_token:
         raise AlexaAuthenticationError("Invalid bearer token")
-    
+
     # NEW: Validate X-Amzn-Request-Time header if present (from API Gateway)
     request_time_header = request.headers.get("X-Amzn-Request-Time")
     if request_time_header:
@@ -322,7 +322,7 @@ def check_auth(self, request: web.Request) -> None:
             request_timestamp = datetime.fromisoformat(request_time_header.replace('Z', '+00:00'))
             now = datetime.now(timezone.utc)
             age_seconds = (now - request_timestamp).total_seconds()
-            
+
             if age_seconds > 150:  # Match Alexa's 150-second window
                 raise AlexaAuthenticationError(
                     f"Request timestamp too old: {age_seconds:.0f} seconds"
@@ -351,14 +351,14 @@ For a personal Raspberry Pi deployment with HTTPS, the combination of:
 
 ### 4. Bearer Token in Environment Variables [MEDIUM - Acceptable Risk]
 
-**Severity**: MEDIUM (Acceptable for personal deployment)  
-**CVSS Score**: 4.0 (Medium)  
+**Severity**: MEDIUM (Acceptable for personal deployment)
+**CVSS Score**: 4.0 (Medium)
 **CWE**: CWE-798 (Use of Hard-coded Credentials)
 
 #### Description
 
 Bearer tokens are stored in environment variables:
-- Lambda: `CALENDARBOT_BEARER_TOKEN` 
+- Lambda: `CALENDARBOT_BEARER_TOKEN`
 - CalendarBot Lite: `CALENDARBOT_ALEXA_BEARER_TOKEN`
 
 This is a standard practice but has risks:
@@ -412,8 +412,8 @@ CALENDARBOT_BEARER_TOKEN = get_secret("calendarbot/bearer-token")
 
 ### 5. Hardcoded Timeout Values [LOW]
 
-**Severity**: LOW  
-**CVSS Score**: 2.0 (Low)  
+**Severity**: LOW
+**CVSS Score**: 2.0 (Low)
 **CWE**: CWE-1188 (Insecure Default Initialization of Resource)
 
 #### Description
@@ -441,8 +441,8 @@ Current implementation is acceptable. The 10-second default is reasonable for ca
 
 ### 6. Caddy Configuration: Missing HTTPS Enforcement [LOW]
 
-**Severity**: LOW  
-**CVSS Score**: 2.5 (Low)  
+**Severity**: LOW
+**CVSS Score**: 2.5 (Low)
 **CWE**: CWE-311 (Missing Encryption of Sensitive Data)
 
 #### Description
@@ -485,7 +485,7 @@ ashwoodgrove.net {
         header_up X-Forwarded-Proto {scheme}
         header_up Authorization {header.Authorization}
     }
-    
+
     # Security headers
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -493,7 +493,7 @@ ashwoodgrove.net {
         X-Frame-Options "DENY"
         X-XSS-Protection "1; mode=block"
     }
-    
+
     log {
         output file /var/log/caddy/access.log
         level INFO
@@ -733,7 +733,7 @@ For personal deployment, manual security testing is sufficient:
    ```bash
    # Should return 401
    curl https://ashwoodgrove.net/api/alexa/next-meeting
-   
+
    # Should return 401
    curl -H "Authorization: Bearer wrong-token" https://ashwoodgrove.net/api/alexa/next-meeting
    ```
@@ -867,6 +867,6 @@ However, the **missing Alexa request signature verification** is a critical vuln
 
 ---
 
-**Assessment Completed**: November 8, 2025  
-**Next Review**: Recommended after implementing critical findings  
+**Assessment Completed**: November 8, 2025
+**Next Review**: Recommended after implementing critical findings
 **Contact**: Security Expert Agent

@@ -297,3 +297,7 @@ claude-flow.ps1
 hive-mind-prompt-*.txt
 .claude-flow/metrics/
 .claude/checkpoints/
+
+# Agent temporary files (auto-pruned after 7 days)
+agent-tmp/
+
