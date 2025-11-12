@@ -19,6 +19,8 @@ env:
 jobs:
   code-quality:
     name: Code Complexity & Quality Metrics
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
