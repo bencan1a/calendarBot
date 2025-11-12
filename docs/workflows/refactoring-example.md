@@ -182,7 +182,7 @@ jobs:
 - ✅ Easy to update (change once, affects all workflows)
 - ✅ Consistent setup across all jobs
 - ✅ Cleaner, more readable workflow files
-- ✅ Cache is populated once and shared
+- ✅ Cache is populated once and can be restored in each job using the same cache key
 
 **Note:** Each job still needs to restore the cache and set up PATH, but the
 heavy lifting (venv creation and dependency installation) is done once.
