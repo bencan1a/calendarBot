@@ -86,7 +86,7 @@ jobs:
 
     - name: Run simple test
       run: |
-        venv/bin/pytest tests/lite/ -m "smoke" --maxfail=1 -v || echo "No smoke tests found, skipping"
+        pytest tests/lite/ -m "smoke" --maxfail=1 -v || echo "No smoke tests found, skipping"
 
     - name: Verify cache was used
       run: |
