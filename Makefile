@@ -69,7 +69,7 @@ test-coverage: ## Run tests with coverage report
 .PHONY: test-unit
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."
-	@./run_lite_tests.sh --markers "unit"
+	@./run_lite_tests.sh --markers unit
 	@echo "✓ Unit tests complete"
 
 .PHONY: test-fast
@@ -81,7 +81,7 @@ test-fast: ## Run fast tests (exclude slow tests)
 .PHONY: test-smoke
 test-smoke: ## Run smoke tests
 	@echo "Running smoke tests..."
-	@./run_lite_tests.sh --markers "smoke"
+	@./run_lite_tests.sh --markers smoke
 	@echo "✓ Smoke tests complete"
 
 .PHONY: check
