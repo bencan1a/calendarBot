@@ -28,6 +28,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          # yamllint disable-line rule:line-length
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
           fetch-depth: 0  # Need full history for changelog extraction
 
@@ -86,6 +87,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          # yamllint disable-line rule:line-length
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
           fetch-depth: 0
 
@@ -125,6 +127,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          # yamllint disable-line rule:line-length
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
           fetch-depth: 0
 
       - name: Determine version from tag
