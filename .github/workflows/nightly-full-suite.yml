@@ -19,74 +19,74 @@ jobs:
     timeout-minutes: 60
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Full history for complete analysis
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for complete analysis
 
-    - name: Set up Python with dependencies
-      uses: ./.github/actions/setup-python
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        install-dev: 'true'
-        use-uv: 'true'
+      - name: Set up Python with dependencies
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          install-dev: 'true'
+          use-uv: 'true'
 
-    - name: Run complete test suite with coverage
-      run: |
-        echo "Running FULL test suite (no smart selection)"
-        venv/bin/python tests/ci_test_runner.py --full-regression
+      - name: Run complete test suite with coverage
+        run: |
+          echo "Running FULL test suite (no smart selection)"
+          venv/bin/python tests/ci_test_runner.py --full-regression
 
-    - name: Generate coverage reports
-      run: |
-        venv/bin/python tests/ci_test_runner.py --coverage-report
+      - name: Generate coverage reports
+        run: |
+          venv/bin/python tests/ci_test_runner.py --coverage-report
 
-    - name: Validate coverage threshold
-      run: |
-        cat > check_coverage.py << 'EOF'
-        import json
-        with open("coverage.json") as f:
+      - name: Validate coverage threshold
+        run: |
+          cat > check_coverage.py << 'EOF'
+          import json
+          with open("coverage.json") as f:
             cov = json.load(f)
             total = cov["totals"]["percent_covered"]
             threshold = ${{ env.COVERAGE_THRESHOLD }}
             print(f"Coverage: {total:.2f}% (threshold: {threshold}%)")
             if total < threshold:
                 raise SystemExit(f"Coverage {total:.2f}% is below threshold {threshold}%")
-        EOF
-        venv/bin/python check_coverage.py
+          EOF
+          venv/bin/python check_coverage.py
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      if: always()
-      with:
-        file: ./coverage.xml
-        flags: nightly-full-suite
-        name: nightly-full-coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage.xml
+          flags: nightly-full-suite
+          name: nightly-full-coverage
 
-    - name: Upload test artifacts
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: nightly-test-results
-        path: |
-          coverage.xml
-          coverage.json
-          pytest-results.xml
-        retention-days: 14  # Keep longer for analysis
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-test-results
+          path: |
+            coverage.xml
+            coverage.json
+            pytest-results.xml
+          retention-days: 14  # Keep longer for analysis
 
-    - name: Update testmon baseline
-      if: success()
-      run: |
-        # Generate fresh testmon baseline for smart selection
-        venv/bin/pytest tests/lite/ --testmon --collect-only
+      - name: Update testmon baseline
+        if: success()
+        run: |
+          # Generate fresh testmon baseline for smart selection
+          venv/bin/pytest tests/lite/ --testmon --collect-only
 
-    - name: Cache updated testmon data
-      if: success()
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          .testmondata
-          .coverage
-        key: testmon-baseline-${{ runner.os }}-${{ github.sha }}
+      - name: Cache updated testmon data
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .testmondata
+            .coverage
+          key: testmon-baseline-${{ runner.os }}-${{ github.sha }}
 
   # Performance benchmarks (comprehensive)
   performance-suite:
@@ -96,34 +96,34 @@ jobs:
     timeout-minutes: 30
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python with dependencies
-      uses: ./.github/actions/setup-python
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        install-dev: 'true'
-        use-uv: 'true'
+      - name: Set up Python with dependencies
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          install-dev: 'true'
+          use-uv: 'true'
 
-    - name: Run comprehensive performance benchmarks
-      run: |
-        echo "Running ALL performance benchmark suites"
-        # Run the full performance suite (not just Pi Zero2 gate)
-        venv/bin/python tests/ci_performance_benchmark.py --run fifty --output nightly_perf_50.json
+      - name: Run comprehensive performance benchmarks
+        run: |
+          echo "Running ALL performance benchmark suites"
+          # Run the full performance suite (not just Pi Zero2 gate)
+          venv/bin/python tests/ci_performance_benchmark.py --run fifty --output nightly_perf_50.json
 
-        # Additional benchmark sizes if available
-        if grep -q "hundred" tests/ci_performance_benchmark.py; then
+          # Additional benchmark sizes if available
+          if grep -q "hundred" tests/ci_performance_benchmark.py; then
           venv/bin/python tests/ci_performance_benchmark.py --run hundred --output nightly_perf_100.json || true
-        fi
+          fi
 
-    - name: Upload performance results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: nightly-performance-results
-        path: nightly_perf_*.json
-        retention-days: 30
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-performance-results
+          path: nightly_perf_*.json
+          retention-days: 30
 
   # Code quality deep scan
   quality-deep-scan:
@@ -132,27 +132,27 @@ jobs:
     needs: [full-regression]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python with dependencies
-      uses: ./.github/actions/setup-python
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        install-dev: 'true'
-        use-uv: 'true'
+      - name: Set up Python with dependencies
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          install-dev: 'true'
+          use-uv: 'true'
 
-    - name: Run comprehensive security scan
-      run: |
-        venv/bin/python tests/ci_test_runner.py --security
+      - name: Run comprehensive security scan
+        run: |
+          venv/bin/python tests/ci_test_runner.py --security
 
-    - name: Run linting
-      run: |
-        venv/bin/python tests/ci_test_runner.py --lint
+      - name: Run linting
+        run: |
+          venv/bin/python tests/ci_test_runner.py --lint
 
-    - name: Run type checking
-      run: |
-        venv/bin/python tests/ci_test_runner.py --type-check
+      - name: Run type checking
+        run: |
+          venv/bin/python tests/ci_test_runner.py --type-check
 
   # Summary report
   nightly-summary:
@@ -162,25 +162,25 @@ jobs:
     if: always()
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Generate summary report
-      run: |
-        echo "# Nightly Full Test Suite Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Date**: $(date -u)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## Job Status" >> $GITHUB_STEP_SUMMARY
-        echo "- Full Regression: ${{ needs.full-regression.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Performance Suite: ${{ needs.performance-suite.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Quality Deep Scan: ${{ needs.quality-deep-scan.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+      - name: Generate summary report
+        run: |
+          echo "# Nightly Full Test Suite Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Job Status" >> $GITHUB_STEP_SUMMARY
+          echo "- Full Regression: ${{ needs.full-regression.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance Suite: ${{ needs.performance-suite.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Quality Deep Scan: ${{ needs.quality-deep-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-        if [[ "${{ needs.full-regression.result }}" == "success" ]] && \
+          if [[ "${{ needs.full-regression.result }}" == "success" ]] && \
            [[ "${{ needs.performance-suite.result }}" == "success" ]] && \
            [[ "${{ needs.quality-deep-scan.result }}" == "success" ]]; then
           echo "✅ **All nightly checks passed**" >> $GITHUB_STEP_SUMMARY
-        else
+          else
           echo "❌ **Some nightly checks failed - review results above**" >> $GITHUB_STEP_SUMMARY
-        fi
+          fi

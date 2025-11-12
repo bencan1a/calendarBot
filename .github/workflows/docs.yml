@@ -41,7 +41,7 @@ jobs:
         with:
           python-version: '3.12'
           install-dev: 'false'
-        use-uv: 'true'
+          use-uv: 'true'
 
       - name: Run documentation builder
         run: |

@@ -11,8 +11,8 @@ help: ## Show this help message
 .PHONY: check-yaml
 check-yaml: ## Validate YAML syntax in all YAML files
 	@echo "Validating YAML syntax..."
-	@yamllint --version
-	@find . -type f \( -name "*.yaml" -o -name "*.yml" \) \
+	@. venv/bin/activate && yamllint --version
+	@. venv/bin/activate && find . -type f \( -name "*.yaml" -o -name "*.yml" \) \
 		! -path "./venv/*" \
 		! -path "./.venv/*" \
 		! -path "./node_modules/*" \
@@ -84,8 +84,55 @@ test-smoke: ## Run smoke tests
 	@echo "✓ Smoke tests complete"
 
 .PHONY: check
-check: check-yaml lint-check typecheck security ## Run all quality checks (YAML, lint, type, security)
-	@echo "✓ All checks passed"
+check: ## Run all quality checks (YAML, lint, type, security) with error summary
+	@echo "Running all quality checks..."
+	@echo ""
+	@failed=0; \
+	echo "1/4 Checking YAML syntax..."; \
+	if $(MAKE) -s check-yaml 2>&1 | grep -v "^make"; then \
+		echo "  ✓ YAML validation passed"; \
+	else \
+		echo "  ✗ YAML validation failed"; \
+		failed=$$((failed + 1)); \
+	fi; \
+	echo ""; \
+	echo "2/4 Checking code style (ruff)..."; \
+	if $(MAKE) -s lint-check 2>&1 | grep -v "^make"; then \
+		echo "  ✓ Lint check passed"; \
+	else \
+		echo "  ✗ Lint check failed"; \
+		failed=$$((failed + 1)); \
+	fi; \
+	echo ""; \
+	echo "3/4 Checking types (mypy)..."; \
+	if $(MAKE) -s typecheck 2>&1 | grep -v "^make"; then \
+		echo "  ✓ Type check passed"; \
+	else \
+		echo "  ✗ Type check failed"; \
+		failed=$$((failed + 1)); \
+	fi; \
+	echo ""; \
+	echo "4/4 Checking security (bandit)..."; \
+	if $(MAKE) -s security 2>&1 | grep -v "^make"; then \
+		echo "  ✓ Security scan passed"; \
+	else \
+		echo "  ✗ Security scan failed"; \
+		failed=$$((failed + 1)); \
+	fi; \
+	echo ""; \
+	echo "========================================"; \
+	if [ $$failed -eq 0 ]; then \
+		echo "✓ All checks passed (0 failures)"; \
+		exit 0; \
+	else \
+		echo "✗ $$failed check(s) failed"; \
+		echo "Run individual checks for details:"; \
+		echo "  make check-yaml"; \
+		echo "  make lint-check"; \
+		echo "  make typecheck"; \
+		echo "  make security"; \
+		exit 1; \
+	fi
 
 .PHONY: precommit
 precommit: format lint typecheck test-fast ## Run pre-commit checks (format, lint, typecheck, fast tests)

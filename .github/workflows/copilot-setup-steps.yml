@@ -44,117 +44,117 @@ jobs:
     environment: copilot  # Access secrets from the "copilot" environment
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Full history for git operations
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git operations
 
-    - name: Set up Python with dependencies
-      uses: ./.github/actions/setup-python
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        install-dev: 'true'
-        use-uv: 'true'
+      - name: Set up Python with dependencies
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          install-dev: 'true'
+          use-uv: 'true'
 
-    - name: Install additional type stubs
-      run: |
-        pip install --prefer-binary types-pytz types-python-dateutil
+      - name: Install additional type stubs
+        run: |
+          pip install --prefer-binary types-pytz types-python-dateutil
 
     # Install and configure pre-commit
-    - name: Install pre-commit hooks
-      run: |
-        # Ensure pre-commit is installed (should be in dev dependencies)
-        pip install pre-commit
-        # Install git hooks from .pre-commit-config.yaml
-        pre-commit install --install-hooks
-        # Verify installation
-        pre-commit --version
-        echo "Pre-commit hooks installed successfully"
+      - name: Install pre-commit hooks
+        run: |
+          # Ensure pre-commit is installed (should be in dev dependencies)
+          pip install pre-commit
+          # Install git hooks from .pre-commit-config.yaml
+          pre-commit install --install-hooks
+          # Verify installation
+          pre-commit --version
+          echo "Pre-commit hooks installed successfully"
 
     # Configure environment variables from GitHub secrets
-    - name: Setup environment variables
-      run: |
-        cat > .env << 'EOF'
-        # CalendarBot Environment Configuration for Copilot
-        # Generated from GitHub Actions secrets
+      - name: Setup environment variables
+        run: |
+          cat > .env << 'EOF'
+          # CalendarBot Environment Configuration for Copilot
+          # Generated from GitHub Actions secrets
 
-        # ICS Calendar URL (Required)
-        CALENDARBOT_ICS_URL=${{ vars.CALENDARBOT_ICS_URL || 'https://outlook.office365.com/owa/calendar/example/calendar.ics' }}
+          # ICS Calendar URL (Required)
+          CALENDARBOT_ICS_URL=${{ vars.CALENDARBOT_ICS_URL || 'https://outlook.office365.com/owa/calendar/example/calendar.ics' }}
 
-        # Server Configuration
-        CALENDARBOT_WEB_HOST=0.0.0.0
-        CALENDARBOT_WEB_PORT=8080
-        CALENDARBOT_REFRESH_INTERVAL=300
+          # Server Configuration
+          CALENDARBOT_WEB_HOST=0.0.0.0
+          CALENDARBOT_WEB_PORT=8080
+          CALENDARBOT_REFRESH_INTERVAL=300
 
-        # Alexa Integration (Optional)
-        CALENDARBOT_ALEXA_BEARER_TOKEN=${{ secrets.CALENDARBOT_ALEXA_BEARER_TOKEN || '' }}
+          # Alexa Integration (Optional)
+          CALENDARBOT_ALEXA_BEARER_TOKEN=${{ secrets.CALENDARBOT_ALEXA_BEARER_TOKEN || '' }}
 
-        # Development Settings
-        CALENDARBOT_DEBUG=true
-        CALENDARBOT_LOG_LEVEL=DEBUG
-        CALENDARBOT_NONINTERACTIVE=true
+          # Development Settings
+          CALENDARBOT_DEBUG=true
+          CALENDARBOT_LOG_LEVEL=DEBUG
+          CALENDARBOT_NONINTERACTIVE=true
 
-        # CI/Testing Settings
-        CALENDARBOT_TEST_TIME=2025-11-05T12:00:00
-        EOF
+          # CI/Testing Settings
+          CALENDARBOT_TEST_TIME=2025-11-05T12:00:00
+          EOF
 
-        echo "Environment configuration created"
-        echo "Note: Using secrets if available, otherwise using safe defaults"
+          echo "Environment configuration created"
+          echo "Note: Using secrets if available, otherwise using safe defaults"
 
     # Verify development environment is functional
-    - name: Verify environment setup
-      run: |
-        echo "=== Environment Verification ==="
-        echo "Python version:"
-        python --version
+      - name: Verify environment setup
+        run: |
+          echo "=== Environment Verification ==="
+          echo "Python version:"
+          python --version
 
-        echo -e "\nPip packages:"
-        pip list | grep -E "(pytest|ruff|mypy|bandit|pre-commit)" || true
+          echo -e "\nPip packages:"
+          pip list | grep -E "(pytest|ruff|mypy|bandit|pre-commit)" || true
 
-        echo -e "\nPre-commit hooks:"
-        pre-commit --version
-        pre-commit run --all-files --hook-stage manual trailing-whitespace || true
+          echo -e "\nPre-commit hooks:"
+          pre-commit --version
+          pre-commit run --all-files --hook-stage manual trailing-whitespace || true
 
-        echo -e "\nCalendarBot modules:"
-        python -c "import calendarbot_lite; print(f'calendarbot_lite imported successfully from {calendarbot_lite.__file__}')"
+          echo -e "\nCalendarBot modules:"
+          python -c "import calendarbot_lite; print(f'calendarbot_lite imported successfully from {calendarbot_lite.__file__}')"
 
-        echo -e "\n=== Setup Complete ==="
-        echo "✅ Python 3.12 configured"
-        echo "✅ Virtual environment with cached dependencies"
-        echo "✅ Pre-commit hooks installed"
-        echo "✅ Environment variables configured"
-        echo "✅ Development tools available (ruff, mypy, bandit)"
-        echo ""
-        echo "Ready for Copilot coding session!"
+          echo -e "\n=== Setup Complete ==="
+          echo "✅ Python 3.12 configured"
+          echo "✅ Virtual environment with cached dependencies"
+          echo "✅ Pre-commit hooks installed"
+          echo "✅ Environment variables configured"
+          echo "✅ Development tools available (ruff, mypy, bandit)"
+          echo ""
+          echo "Ready for Copilot coding session!"
 
     # Cache test data and pytest cache for faster test runs
-    - name: Cache pytest data
-      uses: actions/cache@v4
-      with:
-        path: |
-          .pytest_cache
-          .testmondata
-          .coverage
-        key: pytest-${{ runner.os }}-${{ github.ref }}-${{ github.sha }}
-        restore-keys: |
-          pytest-${{ runner.os }}-${{ github.ref }}-
-          pytest-${{ runner.os }}-
+      - name: Cache pytest data
+        uses: actions/cache@v4
+        with:
+          path: |
+            .pytest_cache
+            .testmondata
+            .coverage
+          key: pytest-${{ runner.os }}-${{ github.ref }}-${{ github.sha }}
+          restore-keys: |
+            pytest-${{ runner.os }}-${{ github.ref }}-
+            pytest-${{ runner.os }}-
 
     # Provide helpful summary
-    - name: Environment Summary
-      run: |
-        cat << 'EOF'
+      - name: Environment Summary
+        run: |
+          cat << 'EOF'
 
-        ╔════════════════════════════════════════════════════════════════╗
-        ║  GitHub Copilot Environment Setup Complete                     ║
-        ╚════════════════════════════════════════════════════════════════╝
+          ╔════════════════════════════════════════════════════════════════╗
+          ║  GitHub Copilot Environment Setup Complete                     ║
+          ╚════════════════════════════════════════════════════════════════╝
 
-        📦 Dependencies: Installed and cached
-        🔧 Tools: ruff, mypy, bandit, pytest, pre-commit
-        🔑 Environment: .env configured from secrets
-        🪝 Pre-commit: Hooks installed and ready
+          📦 Dependencies: Installed and cached
+          🔧 Tools: ruff, mypy, bandit, pytest, pre-commit
+          🔑 Environment: .env configured from secrets
+          🪝 Pre-commit: Hooks installed and ready
 
-        🚀 Quick Commands:
+          🚀 Quick Commands:
 
           # Run tests
           pytest tests/lite/ -v
@@ -176,7 +176,7 @@ jobs:
           # Start server
           python -m calendarbot_lite
 
-        📚 Documentation:
+          📚 Documentation:
           - .github/copilot-instructions.md - Copilot agent guidance (QUICK REFERENCE)
           - AGENTS.md - Comprehensive development guide
           - CLAUDE.md - Quick reference for Claude Code
@@ -184,18 +184,18 @@ jobs:
           - .github/agents/README.md - Custom agent documentation
           - .env.example - Environment variable reference
 
-        🎯 Active Development:
+          🎯 Active Development:
           - calendarbot_lite/ - Main codebase (ALL development here)
           - kiosk/ - Raspberry Pi kiosk deployment (PRIMARY use case)
           - calendarbot/ - Archived legacy code (DO NOT MODIFY)
 
-        ⚠️  Required Secrets (configure in repo settings):
+          ⚠️  Required Secrets (configure in repo settings):
           - CALENDARBOT_ICS_URL (required for calendar operations)
           - CALENDARBOT_ALEXA_BEARER_TOKEN (optional, for Alexa testing)
 
-        📖 For Complete Guidance:
+          📖 For Complete Guidance:
           - Start with .github/copilot-instructions.md for quick reference
           - See AGENTS.md for comprehensive development patterns
           - Review test quality standards in docs/pytest-best-practices.md
 
-        EOF
+          EOF

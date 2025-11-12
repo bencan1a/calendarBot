@@ -42,4 +42,6 @@ ignore: |
   dist/
   htmlcov/
   .git/
+  tmp/
+  tests/deprecated_calendarbot_tests/
 

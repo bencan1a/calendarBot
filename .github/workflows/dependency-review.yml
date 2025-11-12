@@ -53,7 +53,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           install-dev: 'false'
-        use-uv: 'true'
+          use-uv: 'true'
 
       - name: Install pip-audit and safety
         run: |
@@ -355,7 +355,8 @@ jobs:
               f.write(comment)
 
           # Also write to GitHub output
-          with open('${{ github.output }}', 'a') as f:
+          import os
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write('COMMENT<<EOF\n')
               f.write(comment)
               f.write('\nEOF\n')

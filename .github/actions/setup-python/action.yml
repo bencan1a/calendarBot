@@ -42,7 +42,14 @@ runs:
       id: venv-cache
       with:
         path: venv
-        key: venv-${{ runner.os }}-py${{ inputs.python-version }}-${{ inputs.use-uv == 'true' && 'uv-' || '' }}${{ hashFiles('requirements.txt', 'pyproject.toml') }}${{ inputs.cache-key-suffix != '' && format('-{0}', inputs.cache-key-suffix) || '' }}
+        key: |
+          venv-${{ runner.os }}-py${{ inputs.python-version }}-${{
+            inputs.use-uv == 'true' && 'uv-' || ''
+          }}${{
+            hashFiles('requirements.txt', 'pyproject.toml')
+          }}${{
+            inputs.cache-key-suffix != '' && format('-{0}', inputs.cache-key-suffix) || ''
+          }}
         restore-keys: |
           venv-${{ runner.os }}-py${{ inputs.python-version }}-${{ inputs.use-uv == 'true' && 'uv-' || '' }}
           venv-${{ runner.os }}-py${{ inputs.python-version }}-
