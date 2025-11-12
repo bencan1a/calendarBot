@@ -49,35 +49,16 @@ jobs:
       with:
         fetch-depth: 0  # Full history for git operations
 
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v4
+    - name: Set up Python with dependencies
+      uses: ./.github/actions/setup-python
       with:
         python-version: ${{ env.PYTHON_VERSION }}
+        install-dev: 'true'
+        use-uv: 'true'
 
-    # Reuse the same caching strategy as ci.yml to avoid reinstalling dependencies
-    - name: Cache virtual environment
-      uses: actions/cache@v4
-      id: venv-cache
-      with:
-        path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-        restore-keys: |
-          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
-
-    - name: Create virtual environment
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: python -m venv venv
-
-    - name: Set venv in PATH
+    - name: Install additional type stubs
       run: |
-        echo "$PWD/venv/bin" >> $GITHUB_PATH
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
-
-    - name: Install dependencies
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: |
-        pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -e .[dev] types-pytz types-python-dateutil
+        pip install --prefer-binary types-pytz types-python-dateutil
 
     # Install and configure pre-commit
     - name: Install pre-commit hooks

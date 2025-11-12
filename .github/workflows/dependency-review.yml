@@ -1,0 +1,407 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    paths:
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - '.github/workflows/dependency-review.yml'
+  workflow_dispatch:
+    inputs:
+      severity_level:
+        description: 'Minimum severity to report (low, moderate, high, critical)'
+        required: false
+        default: 'moderate'
+        type: choice
+        options:
+          - low
+          - moderate
+          - high
+          - critical
+
+# Prevent duplicate workflow runs for PRs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.12"
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  # Job 1: Audit dependencies for vulnerabilities
+  dependency-audit:
+    name: Scan Dependencies (pip-audit + safety)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    outputs:
+      audit_status: ${{ steps.audit.outputs.status }}
+      has_critical: ${{ steps.check_critical.outputs.has_critical }}
+      audit_report: ${{ steps.audit.outputs.report_path }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python with dependencies
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          install-dev: 'false'
+        use-uv: 'true'
+
+      - name: Install pip-audit and safety
+        run: |
+          pip install pip-audit safety
+
+      - name: Run pip-audit scan
+        id: pip_audit
+        continue-on-error: true
+        run: |
+          echo "## pip-audit Dependency Scan" > audit_summary.txt
+          echo "" >> audit_summary.txt
+
+          # Run pip-audit and capture output
+          pip-audit --desc --format json > pip-audit-report.json 2>&1 || true
+
+          # Also get human-readable output
+          pip-audit --desc > pip-audit-report.txt 2>&1 || true
+
+          # Count vulnerabilities by severity
+          if [ -f pip-audit-report.json ]; then
+            python << 'EOF'
+          import json
+          try:
+              with open('pip-audit-report.json', 'r') as f:
+                  data = json.load(f)
+                  vulns = data.get('vulnerabilities', [])
+                  critical = len([v for v in vulns if v.get('vulnerability_id', '').startswith('CVE')])
+                  print(f"Total vulnerabilities found: {len(vulns)}")
+                  print(f"Critical vulnerabilities: {critical}")
+          except Exception as e:
+              print(f"Error parsing pip-audit output: {e}")
+          EOF
+          fi
+
+      - name: Run safety check
+        id: safety
+        continue-on-error: true
+        run: |
+          echo "## safety Vulnerability Scan" >> audit_summary.txt
+          echo "" >> audit_summary.txt
+
+          # Run safety check and capture output
+          safety check --json > safety-report.json 2>&1 || true
+          safety check --detailed-output > safety-report.txt 2>&1 || true
+
+      - name: Aggregate audit results
+        id: audit
+        continue-on-error: true
+        run: |
+          python << 'EOF'
+          import json
+          import os
+          from pathlib import Path
+
+          # Initialize report
+          report = {
+              "pip_audit": {"vulnerabilities": [], "summary": None},
+              "safety": {"vulnerabilities": [], "summary": None},
+              "aggregated": {
+                  "total": 0,
+                  "critical": 0,
+                  "high": 0,
+                  "moderate": 0,
+                  "low": 0
+              }
+          }
+
+          # Parse pip-audit results
+          if Path('pip-audit-report.json').exists():
+              try:
+                  with open('pip-audit-report.json', 'r') as f:
+                      data = json.load(f)
+                      report['pip_audit']['vulnerabilities'] = data.get('vulnerabilities', [])
+                      report['pip_audit']['summary'] = data.get('summary', {})
+              except Exception as e:
+                  print(f"Warning: Could not parse pip-audit JSON: {e}")
+
+          # Parse safety results
+          if Path('safety-report.json').exists():
+              try:
+                  with open('safety-report.json', 'r') as f:
+                      data = json.load(f)
+                      # Safety returns a list of vulnerabilities
+                      report['safety']['vulnerabilities'] = data if isinstance(data, list) else []
+              except Exception as e:
+                  print(f"Warning: Could not parse safety JSON: {e}")
+
+          # Aggregate results
+          all_vulns = report['pip_audit']['vulnerabilities'] + report['safety']['vulnerabilities']
+          report['aggregated']['total'] = len(all_vulns)
+
+          # Count by severity (pip-audit uses numeric severity, safety uses strings)
+          for vuln in report['pip_audit']['vulnerabilities']:
+              severity = vuln.get('vulnerability_id', '').split('-')[0].lower() if 'vulnerability_id' in vuln else 'unknown'
+              if 'critical' in severity or vuln.get('fix_versions') is None:
+                  report['aggregated']['critical'] += 1
+              elif 'high' in severity:
+                  report['aggregated']['high'] += 1
+              elif 'moderate' in severity or 'medium' in severity:
+                  report['aggregated']['moderate'] += 1
+              else:
+                  report['aggregated']['low'] += 1
+
+          for vuln in report['safety']['vulnerabilities']:
+              severity = vuln.get('severity', 'low').lower()
+              if severity == 'critical':
+                  report['aggregated']['critical'] += 1
+              elif severity == 'high':
+                  report['aggregated']['high'] += 1
+              elif severity in ['moderate', 'medium']:
+                  report['aggregated']['moderate'] += 1
+              else:
+                  report['aggregated']['low'] += 1
+
+          # Write aggregated report
+          with open('dependency-audit-report.json', 'w') as f:
+              json.dump(report, f, indent=2)
+
+          # Write summary to stdout
+          print("\n" + "="*60)
+          print("AGGREGATED VULNERABILITY SUMMARY")
+          print("="*60)
+          print(f"Total Vulnerabilities: {report['aggregated']['total']}")
+          print(f"  Critical: {report['aggregated']['critical']}")
+          print(f"  High:     {report['aggregated']['high']}")
+          print(f"  Moderate: {report['aggregated']['moderate']}")
+          print(f"  Low:      {report['aggregated']['low']}")
+          print("="*60)
+
+          # Determine overall status
+          status = "pass"
+          if report['aggregated']['critical'] > 0 or report['aggregated']['high'] > 0:
+              status = "fail"
+          elif report['aggregated']['moderate'] > 0:
+              status = "warn"
+
+          print(f"Status: {status.upper()}")
+
+          with open('audit_status.txt', 'w') as f:
+              f.write(status)
+
+          # Set outputs for other jobs
+          print(f"status={status}")
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"status={status}\n")
+              f.write(f"report_path=dependency-audit-report.json\n")
+
+          EOF
+
+      - name: Check for critical vulnerabilities
+        id: check_critical
+        run: |
+          python << 'EOF'
+          import json
+          import os
+          from pathlib import Path
+
+          has_critical = False
+          if Path('dependency-audit-report.json').exists():
+              with open('dependency-audit-report.json', 'r') as f:
+                  report = json.load(f)
+                  if report['aggregated']['critical'] > 0:
+                      has_critical = True
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"has_critical={'true' if has_critical else 'false'}\n")
+
+          EOF
+
+      - name: Upload pip-audit report
+        uses: actions/upload-artifact@v4
+        if: always() && hashFiles('pip-audit-report.json') != ''
+        with:
+          name: dependency-audit-reports
+          path: |
+            pip-audit-report.json
+            pip-audit-report.txt
+          retention-days: 30
+
+      - name: Upload safety report
+        uses: actions/upload-artifact@v4
+        if: always() && hashFiles('safety-report.json') != ''
+        with:
+          name: dependency-audit-reports
+          path: |
+            safety-report.json
+            safety-report.txt
+          retention-days: 30
+
+      - name: Upload aggregated report
+        uses: actions/upload-artifact@v4
+        if: always() && hashFiles('dependency-audit-report.json') != ''
+        with:
+          name: dependency-audit-reports
+          path: dependency-audit-report.json
+          retention-days: 30
+
+      - name: Fail on critical vulnerabilities
+        if: failure() || steps.check_critical.outputs.has_critical == 'true'
+        run: |
+          echo "❌ CRITICAL: Security vulnerabilities detected!"
+          echo ""
+          echo "Critical vulnerabilities must be resolved before merging."
+          echo "Review the dependency audit reports for details."
+          exit 1
+
+  # Job 2: Comment on PR with vulnerability findings
+  comment-pr:
+    name: Post Vulnerability Report to PR
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && always()
+    needs: [dependency-audit]
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download audit reports
+        uses: actions/download-artifact@v4
+        id: download
+        with:
+          name: dependency-audit-reports
+        continue-on-error: true
+
+      - name: Generate PR comment
+        id: comment_body
+        run: |
+          python << 'EOF'
+          import json
+          from pathlib import Path
+
+          # Read aggregated report
+          comment = "## Dependency Security Review\n\n"
+
+          report_exists = Path('dependency-audit-report.json').exists()
+
+          if not report_exists:
+              comment += "⚠️ No vulnerability reports generated (dependencies may have failed to install)\n"
+          else:
+              with open('dependency-audit-report.json', 'r') as f:
+                  report = json.load(f)
+
+              agg = report['aggregated']
+
+              # Emoji indicators
+              emoji_map = {
+                  'critical': '🔴',
+                  'high': '🟠',
+                  'moderate': '🟡',
+                  'low': '🟢'
+              }
+
+              # Summary table
+              comment += "### Vulnerability Summary\n\n"
+              comment += "| Severity | Count | Status |\n"
+              comment += "|----------|-------|--------|\n"
+              comment += f"| {emoji_map['critical']} Critical | {agg['critical']} | " + ("❌ Block merge" if agg['critical'] > 0 else "✓ OK") + " |\n"
+              comment += f"| {emoji_map['high']} High | {agg['high']} | " + ("❌ Block merge" if agg['high'] > 0 else "✓ OK") + " |\n"
+              comment += f"| {emoji_map['moderate']} Moderate | {agg['moderate']} | " + ("⚠️ Review" if agg['moderate'] > 0 else "✓ OK") + " |\n"
+              comment += f"| {emoji_map['low']} Low | {agg['low']} | " + ("ℹ️ Informational" if agg['low'] > 0 else "✓ OK") + " |\n\n"
+
+              comment += f"**Total Vulnerabilities**: {agg['total']}\n\n"
+
+              # Status indicator
+              if agg['critical'] > 0:
+                  comment += "### ❌ Status: FAILED\n\n"
+                  comment += "Critical vulnerabilities detected. Merge is blocked.\n\n"
+                  comment += "#### Required Actions:\n"
+                  comment += "1. Review detected vulnerabilities in the audit reports\n"
+                  comment += "2. Update vulnerable dependencies to patched versions\n"
+                  comment += "3. Re-run this workflow after updating dependencies\n\n"
+              elif agg['high'] > 0:
+                  comment += "### ⚠️ Status: WARNING\n\n"
+                  comment += "High-severity vulnerabilities detected. Review required before merge.\n\n"
+              elif agg['moderate'] > 0:
+                  comment += "### ⚠️ Status: REVIEW RECOMMENDED\n\n"
+                  comment += "Moderate-severity vulnerabilities detected. Consider updating dependencies.\n\n"
+              else:
+                  comment += "### ✓ Status: PASSED\n\n"
+                  comment += "No concerning vulnerabilities detected.\n\n"
+
+              # Details
+              comment += "### Details\n\n"
+
+              if report['pip_audit']['vulnerabilities']:
+                  comment += "#### pip-audit Results\n\n"
+                  comment += "View pip-audit-report.txt in artifacts for detailed output.\n\n"
+
+              if report['safety']['vulnerabilities']:
+                  comment += "#### safety Results\n\n"
+                  comment += "View safety-report.txt in artifacts for detailed output.\n\n"
+
+          comment += "---\n"
+          comment += "*Scanned with [pip-audit](https://pypi.org/project/pip-audit/) and [safety](https://pypi.org/project/safety/) on Python ${{ env.PYTHON_VERSION }}*\n"
+
+          # Write comment to file for use in next step
+          with open('pr_comment.md', 'w') as f:
+              f.write(comment)
+
+          # Also write to GitHub output
+          with open('${{ github.output }}', 'a') as f:
+              f.write('COMMENT<<EOF\n')
+              f.write(comment)
+              f.write('\nEOF\n')
+
+          EOF
+
+      - name: Find existing comment
+        id: find_comment
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/find-comment@v2
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: 'Dependency Security Review'
+
+      - name: Create or update PR comment
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-id: ${{ steps.find_comment.outputs.comment_id }}
+          edit-mode: replace
+          body: ${{ steps.comment_body.outputs.COMMENT }}
+
+  # Job 3: Security gate - block merge on critical vulnerabilities
+  security-gate:
+    name: Security Gate Check
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [dependency-audit]
+    timeout-minutes: 2
+
+    steps:
+      - name: Check for critical vulnerabilities
+        run: |
+          if [[ "${{ needs.dependency-audit.outputs.has_critical }}" == "true" ]]; then
+            echo "❌ SECURITY GATE FAILED"
+            echo ""
+            echo "Critical vulnerabilities detected in dependencies."
+            echo "Merge is blocked until vulnerabilities are resolved."
+            echo ""
+            echo "Review the dependency audit reports for details:"
+            echo "  - pip-audit-report.txt"
+            echo "  - safety-report.txt"
+            exit 1
+          else
+            echo "✓ Security gate passed"
+            echo "Status: ${{ needs.dependency-audit.outputs.audit_status }}"
+          fi

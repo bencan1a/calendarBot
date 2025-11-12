@@ -41,6 +41,7 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         install-dev: 'true'
+        use-uv: 'true'
 
     - name: Install additional type stubs
       run: |
@@ -71,6 +72,7 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         install-dev: 'true'
+        use-uv: 'true'
 
     - name: Run critical path tests
       run: venv/bin/python tests/ci_test_runner.py --critical-path
@@ -93,6 +95,7 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         install-dev: 'true'
+        use-uv: 'true'
 
     - name: Cache pytest-testmon data
       uses: actions/cache@v4
@@ -198,6 +201,7 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         install-dev: 'true'
+        use-uv: 'true'
 
     - name: Download coverage artifacts
       uses: actions/download-artifact@v4
@@ -400,37 +404,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v4
+    - name: Set up Python with dependencies
+      uses: ./.github/actions/setup-python
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Cache virtual environment
-      uses: actions/cache@v4
-      id: venv-cache
-      with:
-        path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-        restore-keys: |
-          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
-
-    - name: Create virtual environment
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: python -m venv venv
-
-    - name: Set venv in PATH
-      run: |
-        echo "$PWD/venv/bin" >> $GITHUB_PATH
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
-
-    - name: Install UV package manager
-      run: pip install uv
-
-    - name: Install dependencies
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: |
-        uv pip install --system --upgrade pip setuptools wheel
-        uv pip install --system --prefer-binary -e .[dev]
+        install-dev: 'true'
+        use-uv: 'true'
 
     - name: Validate calendarbot_lite startup
       run: |
@@ -460,37 +439,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v4
+    - name: Set up Python with dependencies
+      uses: ./.github/actions/setup-python
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Cache virtual environment
-      uses: actions/cache@v4
-      id: venv-cache
-      with:
-        path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-        restore-keys: |
-          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
-
-    - name: Create virtual environment
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: python -m venv venv
-
-    - name: Set venv in PATH
-      run: |
-        echo "$PWD/venv/bin" >> $GITHUB_PATH
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
-
-    - name: Install UV package manager
-      run: pip install uv
-
-    - name: Install dependencies
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: |
-        uv pip install --system --upgrade pip setuptools wheel
-        uv pip install --system --prefer-binary -e .[dev]
+        install-dev: 'true'
+        use-uv: 'true'
 
     - name: Run Pi Zero 2W performance benchmark (resource-constrained)
       timeout-minutes: 10
