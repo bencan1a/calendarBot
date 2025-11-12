@@ -88,6 +88,7 @@ agent-projects/refactor-alexa-handlers/
 ## See Also
 
 - [../../AGENTS.md](../../AGENTS.md) - Agent guidance and workflow
-- [../../IMPLEMENTATION_ROADMAP.md](../../IMPLEMENTATION_ROADMAP.md) - Migration roadmap
+- [../../project-plans/python-template-migration/IMPLEMENTATION_ROADMAP.md](../../project-plans/python-template-migration/IMPLEMENTATION_ROADMAP.md) - Migration roadmap
+- [../../project-plans/python-template-migration/AGENT_PROMPTS.md](../../project-plans/python-template-migration/AGENT_PROMPTS.md) - Ready-to-use agent prompts
 - `../docs/` - Permanent documentation
 - `../agent-tmp/` - Temporary files (gitignored)

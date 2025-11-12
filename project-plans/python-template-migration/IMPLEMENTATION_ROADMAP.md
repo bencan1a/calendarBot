@@ -551,7 +551,7 @@ tests/ export-ignore
 
 1. **UV Compatibility**: UV might have edge cases
    - Mitigation: Test thoroughly, keep pip as fallback
-   
+
 2. **Documentation Size**: CONTEXT.md might exceed 150KB
    - Mitigation: Adjust truncation logic, prioritize recent content
 
