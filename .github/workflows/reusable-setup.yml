@@ -1,4 +1,6 @@
 name: Reusable Python Setup
+permissions:
+  contents: read
 
 # Reusable workflow for standardized Python environment setup with caching
 # Promotes DRY principles and ensures consistent setup across all workflows
