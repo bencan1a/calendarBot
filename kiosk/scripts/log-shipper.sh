@@ -28,21 +28,21 @@ ENABLED="${CALENDARBOT_LOG_SHIPPER_ENABLED:-false}"
 log_info() {
     echo "$(date -Iseconds) [INFO] $*" >&2
     if command -v logger >/dev/null 2>&1; then
-        logger -t "$SCRIPT_NAME" -p daemon.info "$*" || true
+        logger -t "$SCRIPT_NAME" -p daemon.info "$*" 2>/dev/null || true
     fi
 }
 
 log_warn() {
     echo "$(date -Iseconds) [WARN] $*" >&2
     if command -v logger >/dev/null 2>&1; then
-        logger -t "$SCRIPT_NAME" -p daemon.warning "$*" || true
+        logger -t "$SCRIPT_NAME" -p daemon.warning "$*" 2>/dev/null || true
     fi
 }
 
 log_error() {
     echo "$(date -Iseconds) [ERROR] $*" >&2
     if command -v logger >/dev/null 2>&1; then
-        logger -t "$SCRIPT_NAME" -p daemon.error "$*" || true
+        logger -t "$SCRIPT_NAME" -p daemon.error "$*" 2>/dev/null || true
     fi
 }
 
@@ -50,7 +50,7 @@ log_debug() {
     if [[ "$DEBUG_MODE" == "true" ]]; then
         echo "$(date -Iseconds) [DEBUG] $*" >&2
         if command -v logger >/dev/null 2>&1; then
-            logger -t "$SCRIPT_NAME" -p daemon.debug "$*" || true
+            logger -t "$SCRIPT_NAME" -p daemon.debug "$*" 2>/dev/null || true
         fi
     fi
 }
