@@ -187,7 +187,6 @@ jobs:
           🎯 Active Development:
           - calendarbot_lite/ - Main codebase (ALL development here)
           - kiosk/ - Raspberry Pi kiosk deployment (PRIMARY use case)
-          - calendarbot/ - Archived legacy code (DO NOT MODIFY)
 
           ⚠️  Required Secrets (configure in repo settings):
           - CALENDARBOT_ICS_URL (required for calendar operations)

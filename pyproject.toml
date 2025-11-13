@@ -100,7 +100,8 @@ Repository = "https://github.com/calendarbot/calendarbot"
 Changelog = "https://github.com/calendarbot/calendarbot/blob/main/CHANGELOG.md"
 
 [project.scripts]
-calendarbot = "calendarbot.__main__:main"
+# Entry points for command-line tools
+# calendarbot_lite runs as a module: python -m calendarbot_lite
 
 [project.gui-scripts]
 # Future GUI entry points can be added here
@@ -110,20 +111,6 @@ package-dir = {"" = "."}
 packages = {find = {}}
 
 [tool.setuptools.package-data]
-calendarbot = [
-    "py.typed",
-    "web/static/*.css",
-    "web/static/*.js",
-    "web/static/*.ico",
-    "web/static/shared/**/*.css",
-    "web/static/shared/**/*.js",
-    "web/static/layouts/**/*.css",
-    "web/static/layouts/**/*.js",
-    "web/static/layouts/**/*.json",
-    "web/templates/*.html",
-    "theme-images/*.bmp",
-    "config/config.yaml.example",
-]
 calendarbot_lite = [
     "*.html",
     "*.css",
@@ -131,7 +118,8 @@ calendarbot_lite = [
 ]
 
 [tool.setuptools.dynamic]
-version = {attr = "calendarbot.__version__"}
+# Dynamic version from calendarbot_lite package
+version = {attr = "calendarbot_lite.__version__"}
 
 # Development tool configurations
 [tool.ruff]
@@ -154,7 +142,6 @@ exclude = [
     "venv",
     "env",
     "tests",
-    "calendarbot/display/epaper/drivers",
 ]
 
 # Linting configuration
@@ -239,9 +226,9 @@ line-ending = "auto"
 
 [tool.bandit]
 # Bandit security analysis configuration
-# Only scan the calendarbot_lite package directory (active code), not archived calendarbot/
+# Only scan the calendarbot_lite package directory (active code)
 include = ["calendarbot_lite"]
-exclude_dirs = ["tests", "venv", ".venv", "build", "dist", "calendarbot"]
+exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
 skips = [
     "B101",  # Test for use of assert
     "B601",  # Parameterized shell calls (we validate inputs)
@@ -267,7 +254,6 @@ warn_unreachable = true
 strict_equality = true
 explicit_package_bases = true
 # Exclude build artifacts, test files, and utility scripts from strict type checking
-# Also exclude the archived calendarbot/ directory (active project is calendarbot_lite/)
 exclude = [
     "venv/",
     ".venv/",
@@ -276,7 +262,6 @@ exclude = [
     "tests/",
     "backup/",
     "scripts/",
-    "calendarbot/"
 ]
 
 [[tool.mypy.overrides]]
@@ -314,7 +299,6 @@ python_functions = ["test_*"]
 
 # Exclude problematic directories from test discovery
 norecursedirs = [
-    "deprecated_calendarbot_tests",
     "bad_unit_tests",
     "backup",
     ".git",
@@ -435,9 +419,6 @@ omit = [
     "setup.py",
     "manage.py",
     "format_and_stage.py",
-
-    # Exclude archived calendarbot directory (deprecated - use calendarbot_lite)
-    "calendarbot/*",
 ]
 
 [tool.coverage.report]
