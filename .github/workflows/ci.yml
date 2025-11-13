@@ -1,4 +1,4 @@
-name: CI/CD Pipeline (Fail-Fast Sequential)
+name: CI/CD Pipeline
 
 on:
   push:

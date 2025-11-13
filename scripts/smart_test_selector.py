@@ -321,9 +321,19 @@ def main():
         if kiosk_test_dir.exists():
             # Include only non-E2E kiosk tests (E2E tests run nightly)
             for test_file in kiosk_test_dir.glob("test_*.py"):
-                # Skip E2E tests (they run nightly due to ~10min duration)
-                if "test_installer.py" not in str(test_file):
-                    kiosk_tests.add(str(test_file))
+                # Skip tests marked with @pytest.mark.e2e (they run nightly)
+                try:
+                    content = test_file.read_text()
+                    if "@pytest.mark.e2e" in content:
+                        if args.verbose:
+                            print(f"  Skipping E2E test: {test_file.name}")
+                        continue
+                except Exception as e:
+                    if args.verbose:
+                        print(f"  Warning: Could not read {test_file}: {e}")
+                    continue
+
+                kiosk_tests.add(str(test_file))
 
             if args.verbose:
                 print(f"Kiosk files changed - including {len(kiosk_tests)} kiosk unit tests (E2E tests run nightly)")

@@ -633,7 +633,7 @@ install_section_2_kiosk() {
 
         # Update browser URL if customized
         if [[ -n "${CFG_kiosk_browser_url:-}" ]]; then
-            sed -i "s|http://localhost:8080/whatsnext.html|${CFG_kiosk_browser_url}|g" "$xinitrc_file"
+            sed -i "s|URL=\"http://127.0.0.1:8080/\"|URL=\"${CFG_kiosk_browser_url}\"|g" "$xinitrc_file"
         fi
     fi
 
@@ -1525,7 +1525,7 @@ main() {
         log_info "Remove --dry-run flag to perform actual installation."
     else
         # Show backup information
-        if [[ ${#CHANGED_FILES[@]} -gt 0 ]]; then
+        if [[ -v CHANGED_FILES ]] && [[ ${#CHANGED_FILES[@]} -gt 0 ]]; then
             log_info "Backups created:"
             for file in "${!CHANGED_FILES[@]}"; do
                 log_info "  $file -> ${CHANGED_FILES[$file]}"
