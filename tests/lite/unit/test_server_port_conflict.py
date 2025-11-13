@@ -13,39 +13,20 @@ class TestImportProcessUtilities:
     """Test the _import_process_utilities function."""
 
     @patch("calendarbot_lite.api.server.logger")
-    def test_import_process_utilities_when_success_then_returns_functions(self, mock_logger):
-        """Test successful import of process utilities."""
-        # Mock the successful import by mocking the module directly
-        mock_check_port = Mock()
-        mock_find_process = Mock()
-        mock_auto_cleanup = Mock()
+    def test_import_process_utilities_always_returns_none_after_calendarbot_removal(
+        self, mock_logger
+    ):
+        """Test that process utilities are no longer available after calendarbot module removal.
+        
+        The legacy calendarbot.utils.process module has been removed along with the
+        archived calendarbot package. This functionality is no longer available.
+        """
+        result = _import_process_utilities()
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "calendarbot.utils.process": MagicMock(
-                    check_port_availability=mock_check_port,
-                    find_process_using_port=mock_find_process,
-                    auto_cleanup_before_start=mock_auto_cleanup,
-                )
-            },
-        ):
-            result = _import_process_utilities()
-
-            assert len(result) == 3
-            assert result[0] is not None
-            assert result[1] is not None
-            assert result[2] is not None
-
-    @patch("calendarbot_lite.api.server.logger")
-    def test_import_process_utilities_when_import_error_then_returns_none(self, mock_logger):
-        """Test import failure returns None values."""
-        with patch("builtins.__import__", side_effect=ImportError("Module not found")):
-            result = _import_process_utilities()
-
-            assert result == (None, None, None)
-            mock_logger.warning.assert_called_once()
-            assert "Process utilities not available" in mock_logger.warning.call_args[0][0]
+        assert result == (None, None, None)
+        # Should log at debug level since this is expected behavior
+        mock_logger.debug.assert_called_once()
+        assert "Process utilities not available" in mock_logger.debug.call_args[0][0]
 
 
 class TestHandlePortConflict:
@@ -53,15 +34,18 @@ class TestHandlePortConflict:
 
     @patch("calendarbot_lite.api.server._import_process_utilities")
     @patch("calendarbot_lite.api.server.logger")
-    def test_handle_port_conflict_when_utilities_missing_then_returns_false(
+    def test_handle_port_conflict_when_utilities_missing_then_returns_true(
         self, mock_logger, mock_import
     ):
-        """Test when process utilities are not available."""
+        """Test when process utilities are not available (expected after calendarbot removal).
+        
+        Should return True to allow server to proceed - aiohttp will handle actual conflicts.
+        """
         mock_import.return_value = (None, None, None)
 
         result = _handle_port_conflict("localhost", 8080)
 
-        assert result is False
+        assert result is True
         mock_logger.warning.assert_called_once()
         assert "Port conflict resolution not available" in mock_logger.warning.call_args[0][0]
 

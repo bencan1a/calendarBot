@@ -729,7 +729,6 @@ Create debug scripts in `tmp/` directory (gitignored):
 #!/usr/bin/env python3
 """Debug RRULE expansion issues"""
 import sys
-sys.path.insert(0, '/home/pi/calendarbot')
 
 from calendarbot_lite.lite_rrule_expander import expand_rrule
 from datetime import datetime

@@ -101,18 +101,13 @@ except ImportError as e:
 
 
 def _import_process_utilities() -> Any:  # type: ignore[misc]
-    """Lazy import of process utilities to handle missing calendarbot module."""
-    try:
-        from calendarbot.utils.process import (  # type: ignore
-            auto_cleanup_before_start,
-            check_port_availability,
-            find_process_using_port,
-        )
-
-        return check_port_availability, find_process_using_port, auto_cleanup_before_start
-    except ImportError as e:
-        logger.warning("Process utilities not available: %s", e)
-        return None, None, None
+    """Lazy import of process utilities (removed with legacy calendarbot module).
+    
+    This functionality was part of the archived calendarbot module and is no longer
+    available in calendarbot_lite. Port conflict handling is now minimal.
+    """
+    logger.debug("Process utilities not available (legacy calendarbot module removed)")
+    return None, None, None
 
 
 class PortConflictError(Exception):
@@ -189,13 +184,16 @@ def _handle_port_conflict(host: str, port: int) -> bool:
 
     In non-interactive mode (CALENDARBOT_NONINTERACTIVE=true), automatically attempts
     cleanup without user prompts for systemd/journald compatibility.
+    
+    Note: Port conflict utilities were removed with the legacy calendarbot module.
+    This function now always returns True since automatic port checking is unavailable.
 
     Args:
         host: Host address to bind to
         port: Port number to bind to
 
     Returns:
-        True if port is available or conflict was resolved, False otherwise
+        True (port conflict resolution not available, proceed with startup)
     """
     check_port_availability, find_process_using_port, auto_cleanup_before_start = (
         _import_process_utilities()
@@ -203,7 +201,8 @@ def _handle_port_conflict(host: str, port: int) -> bool:
 
     if not check_port_availability:
         logger.warning("Port conflict resolution not available - process utilities missing")
-        return False
+        # Return True to allow server to proceed - aiohttp will handle actual port conflicts
+        return True
 
     # Check if port is available
     if check_port_availability(host, port):
