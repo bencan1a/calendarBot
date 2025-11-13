@@ -1,5 +1,5 @@
 # CalendarBot Context
-*Generated: 2025-11-12 19:28:55 UTC*
+*Generated: 2025-11-13 07:31:57 UTC*
 
 ---
 
@@ -2206,11 +2206,8 @@ Args:
 - **sort_and_limit_events()**
   Sort events by start time and limit to window size.
 
-Args:
-    events: List of event dictionaries
-    window_size: Maximum number of events to keep
-
-R...
+When multiple events have the same start time, they are sorted
+alphabetically by event ID to ensu...
 
 #### `domain/event_prioritizer.py`
 
