@@ -223,33 +223,19 @@ jobs:
 
           EOF
 
-      - name: Upload pip-audit report
+      - name: Upload dependency audit reports
         uses: actions/upload-artifact@v4
-        if: always() && hashFiles('pip-audit-report.json') != ''
+        if: always()
         with:
           name: dependency-audit-reports
           path: |
             pip-audit-report.json
             pip-audit-report.txt
-          retention-days: 30
-
-      - name: Upload safety report
-        uses: actions/upload-artifact@v4
-        if: always() && hashFiles('safety-report.json') != ''
-        with:
-          name: dependency-audit-reports
-          path: |
             safety-report.json
             safety-report.txt
+            dependency-audit-report.json
           retention-days: 30
-
-      - name: Upload aggregated report
-        uses: actions/upload-artifact@v4
-        if: always() && hashFiles('dependency-audit-report.json') != ''
-        with:
-          name: dependency-audit-reports
-          path: dependency-audit-report.json
-          retention-days: 30
+          if-no-files-found: ignore
 
       - name: Fail on critical vulnerabilities
         if: failure() || steps.check_critical.outputs.has_critical == 'true'
