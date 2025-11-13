@@ -184,13 +184,16 @@ def _handle_port_conflict(host: str, port: int) -> bool:
 
     In non-interactive mode (CALENDARBOT_NONINTERACTIVE=true), automatically attempts
     cleanup without user prompts for systemd/journald compatibility.
+    
+    Note: Port conflict utilities were removed with the legacy calendarbot module.
+    This function now always returns True since automatic port checking is unavailable.
 
     Args:
         host: Host address to bind to
         port: Port number to bind to
 
     Returns:
-        True if port is available or conflict was resolved, False otherwise
+        True (port conflict resolution not available, proceed with startup)
     """
     check_port_availability, find_process_using_port, auto_cleanup_before_start = (
         _import_process_utilities()
@@ -198,7 +201,8 @@ def _handle_port_conflict(host: str, port: int) -> bool:
 
     if not check_port_availability:
         logger.warning("Port conflict resolution not available - process utilities missing")
-        return False
+        # Return True to allow server to proceed - aiohttp will handle actual port conflicts
+        return True
 
     # Check if port is available
     if check_port_availability(host, port):

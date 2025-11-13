@@ -34,15 +34,18 @@ class TestHandlePortConflict:
 
     @patch("calendarbot_lite.api.server._import_process_utilities")
     @patch("calendarbot_lite.api.server.logger")
-    def test_handle_port_conflict_when_utilities_missing_then_returns_false(
+    def test_handle_port_conflict_when_utilities_missing_then_returns_true(
         self, mock_logger, mock_import
     ):
-        """Test when process utilities are not available."""
+        """Test when process utilities are not available (expected after calendarbot removal).
+        
+        Should return True to allow server to proceed - aiohttp will handle actual conflicts.
+        """
         mock_import.return_value = (None, None, None)
 
         result = _handle_port_conflict("localhost", 8080)
 
-        assert result is False
+        assert result is True
         mock_logger.warning.assert_called_once()
         assert "Port conflict resolution not available" in mock_logger.warning.call_args[0][0]
 
