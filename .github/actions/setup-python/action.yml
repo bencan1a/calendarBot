@@ -15,6 +15,10 @@ inputs:
     description: 'Optional suffix for cache key differentiation'
     required: false
     default: ''
+  use-uv:
+    description: 'Use UV package manager for faster dependency installation (10-100x faster than pip)'
+    required: false
+    default: 'false'
 
 outputs:
   python-version:
@@ -38,8 +42,16 @@ runs:
       id: venv-cache
       with:
         path: venv
-        key: venv-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}${{ inputs.cache-key-suffix != '' && format('-{0}', inputs.cache-key-suffix) || '' }}
+        key: |
+          venv-${{ runner.os }}-py${{ inputs.python-version }}-${{
+            inputs.use-uv == 'true' && 'uv-' || ''
+          }}${{
+            hashFiles('requirements.txt', 'pyproject.toml')
+          }}${{
+            inputs.cache-key-suffix != '' && format('-{0}', inputs.cache-key-suffix) || ''
+          }}
         restore-keys: |
+          venv-${{ runner.os }}-py${{ inputs.python-version }}-${{ inputs.use-uv == 'true' && 'uv-' || '' }}
           venv-${{ runner.os }}-py${{ inputs.python-version }}-
 
     - name: Create virtual environment
@@ -53,15 +65,32 @@ runs:
         echo "$PWD/venv/bin" >> $GITHUB_PATH
         echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
 
-    - name: Install dependencies (with dev)
-      if: steps.venv-cache.outputs.cache-hit != 'true' && inputs.install-dev == 'true'
+    # Install UV if requested (10-100x faster than pip)
+    - name: Install UV package manager
+      if: inputs.use-uv == 'true'
+      shell: bash
+      run: pip install uv
+
+    # Install dependencies with UV (faster) or pip (fallback)
+    - name: Install dependencies (with dev, using UV)
+      if: steps.venv-cache.outputs.cache-hit != 'true' && inputs.install-dev == 'true' && inputs.use-uv == 'true'
+      shell: bash
+      run: uv pip install --system -e .[dev]
+
+    - name: Install dependencies (with dev, using pip)
+      if: steps.venv-cache.outputs.cache-hit != 'true' && inputs.install-dev == 'true' && inputs.use-uv != 'true'
       shell: bash
       run: |
         pip install --upgrade pip setuptools wheel
         pip install --prefer-binary -e .[dev]
 
-    - name: Install dependencies (without dev)
-      if: steps.venv-cache.outputs.cache-hit != 'true' && inputs.install-dev != 'true'
+    - name: Install dependencies (without dev, using UV)
+      if: steps.venv-cache.outputs.cache-hit != 'true' && inputs.install-dev != 'true' && inputs.use-uv == 'true'
+      shell: bash
+      run: uv pip install --system -e .
+
+    - name: Install dependencies (without dev, using pip)
+      if: steps.venv-cache.outputs.cache-hit != 'true' && inputs.install-dev != 'true' && inputs.use-uv != 'true'
       shell: bash
       run: |
         pip install --upgrade pip setuptools wheel

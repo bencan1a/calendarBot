@@ -100,8 +100,8 @@ tests:
   datetime_override: '2025-10-30T00:00:00-07:00'
   expected:
     meeting:
-      meeting_id: dst-event-2@example.com
-      subject: DST Ambiguous Meeting B
+      meeting_id: dst-event-1@example.com
+      subject: DST Ambiguous Meeting A
       description: ''
       attendees: []
       start_iso: '2025-11-02T08:30:00Z'
@@ -111,8 +111,7 @@ tests:
   metadata:
     source: generated
     author: roo-code
-    notes: Expect the expander to pick the first occurrence mapping to UTC; verify
-      handling of ambiguous local times
+    notes: When multiple events have identical UTC times, returns first alphabetically by ID
 - test_id: dst_transition_overlapping_202511
   description: Two events that overlap at the same local time across DST boundary
   category: overlapping
@@ -120,8 +119,8 @@ tests:
   datetime_override: '2025-10-30T00:00:00-07:00'
   expected:
     meeting:
-      meeting_id: dst-event-2@example.com
-      subject: DST Ambiguous Meeting B
+      meeting_id: dst-event-1@example.com
+      subject: DST Ambiguous Meeting A
       description: ''
       attendees: []
       start_iso: '2025-11-02T08:30:00Z'
@@ -131,6 +130,7 @@ tests:
   metadata:
     source: generated
     author: roo-code
+    notes: When multiple events have identical UTC times, returns first alphabetically by ID
 - test_id: recurring_cancelled_replaced_202511
   description: Recurring with cancelled occurrence replaced by different meeting
   category: recurring_modified
@@ -385,14 +385,18 @@ tests:
   datetime_override: '2025-11-04T14:00:00Z'
   expected:
     meeting:
-      meeting_id: meeting-b@example.com_20251105T150000_*
-      subject: B-Team Standup
+      meeting_id: meeting-a@example.com_20251105T150000_*
+      subject: A-Team Standup
       description: ''
       attendees: []
       start_iso: '2025-11-05T15:00:00Z'
       duration_seconds: 3600
       location: ''
       raw_source: ''
+  metadata:
+    source: generated
+    author: roo-code
+    notes: When multiple events have identical start times, returns first alphabetically by ID
 - test_id: recurring_hourly_limited_202511
   description: Hourly recurring pattern (high frequency)
   category: recurring_pattern

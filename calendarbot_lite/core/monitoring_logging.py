@@ -478,7 +478,7 @@ def configure_monitoring_logging(
         log_level = "DEBUG"
 
     # Type narrowing: ensure log_level is str
-    assert isinstance(log_level, str)
+    assert isinstance(log_level, str)  # nosec B101  # Type narrowing only, not production logic
 
     # Setup local file path if directory provided
     local_file = None

@@ -7,6 +7,10 @@ on:
   workflow_dispatch:
     # Manual trigger also available
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # Let E2E tests complete
+
 env:
   PYTHON_VERSION: "3.12"
 
@@ -17,103 +21,81 @@ jobs:
     timeout-minutes: 25
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
+      - name: Set up Python with dependencies
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          install-dev: 'true'
+          use-uv: 'true'
 
-    - name: Cache virtual environment
-      uses: actions/cache@v4
-      id: venv-cache
-      with:
-        path: venv
-        key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-        restore-keys: |
-          venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
+      - name: Install E2E test dependencies
+        run: |
+          pip install -e .[e2e]
 
-    - name: Create virtual environment
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: python -m venv venv
+      - name: Build E2E Docker image
+        run: |
+          echo "========================================"
+          echo "Building Kiosk E2E Docker Image"
+          echo "========================================"
+          echo "Image: calendarbot-e2e:ci"
+          echo "Base: debian:bookworm (systemd-enabled)"
+          echo "Purpose: E2E kiosk installation testing"
+          echo "========================================"
+          echo ""
 
-    - name: Set venv in PATH
-      run: |
-        echo "$PWD/venv/bin" >> $GITHUB_PATH
-        echo "VIRTUAL_ENV=$PWD/venv" >> $GITHUB_ENV
+          docker build -f tests/kiosk/Dockerfile.e2e -t calendarbot-e2e:ci .
 
-    - name: Install dependencies
-      if: steps.venv-cache.outputs.cache-hit != 'true'
-      run: |
-        pip install --upgrade pip setuptools wheel
-        pip install --prefer-binary -e .[dev]
+          echo ""
+          echo "✓ E2E Docker image built successfully"
+          docker images | grep calendarbot-e2e
 
-    - name: Install E2E test dependencies
-      run: |
-        pip install -e .[e2e]
+      - name: Run E2E Isolation Tests
+        timeout-minutes: 20
+        run: |
+          echo "========================================"
+          echo "Running Kiosk E2E Isolation Tests"
+          echo "========================================"
+          echo "Tests: 6 section-specific isolation tests"
+          echo "Duration: ~10-15 minutes (installs packages in containers)"
+          echo "========================================"
+          echo ""
 
-    - name: Build E2E Docker image
-      run: |
-        echo "========================================"
-        echo "Building Kiosk E2E Docker Image"
-        echo "========================================"
-        echo "Image: calendarbot-e2e:ci"
-        echo "Base: debian:bookworm (systemd-enabled)"
-        echo "Purpose: E2E kiosk installation testing"
-        echo "========================================"
-        echo ""
+          venv/bin/pytest tests/kiosk/test_installer.py::TestInstallerE2E \
+            -v \
+            --tb=short \
+            --junit-xml=e2e-isolation-test-results.xml
 
-        docker build -f tests/kiosk/Dockerfile.e2e -t calendarbot-e2e:ci .
+      - name: Run E2E Progressive Installation Test
+        timeout-minutes: 15
+        run: |
+          echo "========================================"
+          echo "Running Progressive Installation Test"
+          echo "========================================"
+          echo "Tests: Full installation + runtime validation"
+          echo "Duration: ~5-7 minutes (single install + API tests)"
+          echo "========================================"
+          echo ""
 
-        echo ""
-        echo "✓ E2E Docker image built successfully"
-        docker images | grep calendarbot-e2e
+          venv/bin/pytest tests/kiosk/test_installer.py::TestProgressiveInstallation \
+            -v \
+            --tb=short \
+            --junit-xml=e2e-progressive-test-results.xml
 
-    - name: Run E2E Isolation Tests
-      timeout-minutes: 20
-      run: |
-        echo "========================================"
-        echo "Running Kiosk E2E Isolation Tests"
-        echo "========================================"
-        echo "Tests: 6 section-specific isolation tests"
-        echo "Duration: ~10-15 minutes (installs packages in containers)"
-        echo "========================================"
-        echo ""
+      - name: Upload isolation test results
+        uses: actions/upload-artifact@v4
+        if: always() && hashFiles('e2e-isolation-test-results.xml') != ''
+        with:
+          name: e2e-isolation-test-results
+          path: e2e-isolation-test-results.xml
+          retention-days: 7
 
-        venv/bin/pytest tests/kiosk/test_installer.py::TestInstallerE2E \
-          -v \
-          --tb=short \
-          --junit-xml=e2e-isolation-test-results.xml
-
-    - name: Run E2E Progressive Installation Test
-      timeout-minutes: 15
-      run: |
-        echo "========================================"
-        echo "Running Progressive Installation Test"
-        echo "========================================"
-        echo "Tests: Full installation + runtime validation"
-        echo "Duration: ~5-7 minutes (single install + API tests)"
-        echo "========================================"
-        echo ""
-
-        venv/bin/pytest tests/kiosk/test_installer.py::TestProgressiveInstallation \
-          -v \
-          --tb=short \
-          --junit-xml=e2e-progressive-test-results.xml
-
-    - name: Upload isolation test results
-      uses: actions/upload-artifact@v4
-      if: always() && hashFiles('e2e-isolation-test-results.xml') != ''
-      with:
-        name: e2e-isolation-test-results
-        path: e2e-isolation-test-results.xml
-        retention-days: 7
-
-    - name: Upload progressive test results
-      uses: actions/upload-artifact@v4
-      if: always() && hashFiles('e2e-progressive-test-results.xml') != ''
-      with:
-        name: e2e-progressive-test-results
-        path: e2e-progressive-test-results.xml
-        retention-days: 7
+      - name: Upload progressive test results
+        uses: actions/upload-artifact@v4
+        if: always() && hashFiles('e2e-progressive-test-results.xml') != ''
+        with:
+          name: e2e-progressive-test-results
+          path: e2e-progressive-test-results.xml
+          retention-days: 7

@@ -1,0 +1,323 @@
+name: Code Quality Analysis
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+# Prevent duplicate workflow runs for PRs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Complexity thresholds
+  COMPLEXITY_THRESHOLD: 10
+  VULTURE_CONFIDENCE: 80
+
+jobs:
+  code-quality:
+    name: Code Complexity & Quality Metrics
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python with dependencies
+      uses: ./.github/actions/setup-python
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        install-dev: 'false'
+        use-uv: 'true'
+        cache-key-suffix: 'quality'
+
+    - name: Install analysis tools
+      run: |
+        pip install radon vulture
+
+    - name: Run Radon Cyclomatic Complexity Analysis
+      continue-on-error: true
+      run: |
+        echo "Running Radon Cyclomatic Complexity Analysis..."
+        echo "Analyzing calendarbot_lite/ for functions with CC > ${{ env.COMPLEXITY_THRESHOLD }}"
+        echo ""
+        cd /tmp && radon cc -s -a "$GITHUB_WORKSPACE/calendarbot_lite/" | tee "$GITHUB_WORKSPACE/radon-cc.txt"
+        echo ""
+        echo "Radon CC analysis complete. Results saved to radon-cc.txt"
+
+    - name: Run Radon Maintainability Index Analysis
+      continue-on-error: true
+      run: |
+        echo "Running Radon Maintainability Index Analysis..."
+        echo ""
+        cd /tmp && radon mi "$GITHUB_WORKSPACE/calendarbot_lite/" | tee "$GITHUB_WORKSPACE/radon-mi.txt"
+        echo ""
+        echo "Radon MI analysis complete. Results saved to radon-mi.txt"
+
+    - name: Run Vulture Dead Code Detection
+      continue-on-error: true
+      run: |
+        echo "Running Vulture Dead Code Detection..."
+        echo "Analyzing calendarbot_lite/ for unused code (confidence > ${{ env.VULTURE_CONFIDENCE }}%)"
+        echo ""
+        cd /tmp && vulture "$GITHUB_WORKSPACE/calendarbot_lite/" --min-confidence ${{ env.VULTURE_CONFIDENCE }} | tee "$GITHUB_WORKSPACE/vulture-report.txt" || true
+        echo ""
+        echo "Vulture analysis complete. Results saved to vulture-report.txt"
+
+    - name: Upload quality reports as artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: code-quality-reports
+        path: |
+          radon-cc.txt
+          radon-mi.txt
+          vulture-report.txt
+        retention-days: 30
+
+  comment-pr:
+    name: Post Code Quality Report to PR
+    runs-on: ubuntu-latest
+    needs: [code-quality]
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python with dependencies
+      uses: ./.github/actions/setup-python
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        install-dev: 'false'
+        use-uv: 'true'
+
+    - name: Download quality reports
+      uses: actions/download-artifact@v4
+      with:
+        name: code-quality-reports
+
+    - name: Parse and format quality metrics
+      id: metrics
+      run: |
+        cat > parse_metrics.py << 'EOF'
+        import re
+        import os
+        from pathlib import Path
+
+        def parse_radon_cc(content):
+            """Parse Radon cyclomatic complexity output."""
+            high_complexity = []
+            lines = content.split('\n')
+
+            for line in lines:
+                # Match lines like: "calendarbot_lite/file.py:10:0: function_name - A (2)"
+                match = re.match(r'^calendarbot_lite/([^:]+):(\d+):.*?(\w+)\s+-\s+([A-E])\s+\((\d+)\)', line)
+                if match:
+                    file_path, line_num, func_name, grade, complexity = match.groups()
+                    cc = int(complexity)
+                    if cc > 10:  # Only report high complexity
+                        high_complexity.append({
+                            'file': file_path,
+                            'line': line_num,
+                            'function': func_name,
+                            'cc': cc,
+                            'grade': grade
+                        })
+
+            return sorted(high_complexity, key=lambda x: -x['cc'])
+
+        def parse_radon_mi(content):
+            """Parse Radon maintainability index output."""
+            mi_scores = {}
+            lines = content.split('\n')
+
+            for line in lines:
+                # Match lines like: "calendarbot_lite/file.py - A (85.3)"
+                match = re.match(r'^calendarbot_lite/([^:]+)\s+-\s+([A-E])\s+\((\d+\.?\d*)\)', line)
+                if match:
+                    file_path, grade, score = match.groups()
+                    mi_scores[file_path] = {
+                        'grade': grade,
+                        'score': float(score)
+                    }
+
+            return mi_scores
+
+        def parse_vulture(content):
+            """Parse Vulture dead code detection output."""
+            dead_code = []
+            lines = content.split('\n')
+
+            for line in lines:
+                # Match lines like: "calendarbot_lite/file.py:10: unused variable 'var' (80% confidence)"
+                if not line.strip() or line.startswith('='):
+                    continue
+
+                # Extract confidence level if present
+                match = re.match(
+                    r'calendarbot_lite/([^:]+):(\d+):\s+(.*?)\s+\((\d+)%',
+                    line
+                )
+                if match:
+                    file_path, line_num, description, confidence = match.groups()
+                    dead_code.append({
+                        'file': file_path,
+                        'line': line_num,
+                        'description': description,
+                        'confidence': int(confidence)
+                    })
+
+            return dead_code
+
+        # Read reports
+        radon_cc_file = Path('radon-cc.txt')
+        radon_mi_file = Path('radon-mi.txt')
+        vulture_file = Path('vulture-report.txt')
+
+        radon_cc_content = radon_cc_file.read_text() if radon_cc_file.exists() else ''
+        radon_mi_content = radon_mi_file.read_text() if radon_mi_file.exists() else ''
+        vulture_content = vulture_file.read_text() if vulture_file.exists() else ''
+
+        # Parse metrics
+        high_cc = parse_radon_cc(radon_cc_content)
+        mi_scores = parse_radon_mi(radon_mi_content)
+        dead_code = parse_vulture(vulture_content)
+
+        # Calculate summary statistics
+        total_files = len(mi_scores)
+        avg_mi = sum(m['score'] for m in mi_scores.values()) / total_files if total_files > 0 else 0
+        a_grade_files = sum(1 for m in mi_scores.values() if m['grade'] == 'A')
+        b_grade_files = sum(1 for m in mi_scores.values() if m['grade'] == 'B')
+
+        # Build markdown report
+        report = "## Code Quality Report\n\n"
+
+        # Cyclomatic Complexity Section
+        if high_cc:
+            report += "### 🔴 Cyclomatic Complexity (CC > 10)\n\n"
+            report += "| Function | File | Line | CC | Grade |\n"
+            report += "|----------|------|------|-------|-------|\n"
+            for item in high_cc[:10]:  # Limit to top 10
+                report += f"| {item['function']} | {item['file']} | {item['line']} | {item['cc']} | {item['grade']} |\n"
+
+            if len(high_cc) > 10:
+                report += f"\n... and {len(high_cc) - 10} more functions with high complexity\n\n"
+            else:
+                report += "\n"
+        else:
+            report += "### ✅ Cyclomatic Complexity\n\nAll functions have good complexity (CC ≤ 10)\n\n"
+
+        # Maintainability Index Section
+        if mi_scores:
+            report += "### 📊 Maintainability Index\n\n"
+            report += f"- **Files Analyzed**: {total_files}\n"
+            report += f"- **Average Score**: {avg_mi:.1f}\n"
+            report += f"- **Grade A (≥80)**: {a_grade_files} files\n"
+            report += f"- **Grade B (60-79)**: {b_grade_files} files\n\n"
+
+            # Show files with lower scores
+            low_mi = sorted(
+                [(f, m['score']) for f, m in mi_scores.items()],
+                key=lambda x: x[1]
+            )[:5]
+
+            if low_mi and low_mi[0][1] < 75:
+                report += "Files with lower maintainability:\n"
+                report += "| File | Score | Grade |\n"
+                report += "|------|-------|-------|\n"
+                for file_path, score in low_mi:
+                    grade = 'A' if score >= 80 else 'B' if score >= 60 else 'C'
+                    report += f"| {file_path} | {score:.1f} | {grade} |\n"
+                report += "\n"
+        else:
+            report += "### 📊 Maintainability Index\n\nNo data available\n\n"
+
+        # Dead Code Section
+        if dead_code:
+            report += "### 🗑️ Dead Code Detection (High Confidence)\n\n"
+            report += "| Type | File | Line | Description |\n"
+            report += "|------|------|------|-------------|\n"
+            for item in dead_code[:10]:  # Limit to top 10
+                item_type = "unused" if "unused" in item['description'] else "dead"
+                report += f"| {item_type} | {item['file']} | {item['line']} | {item['description']} |\n"
+
+            if len(dead_code) > 10:
+                report += f"\n... and {len(dead_code) - 10} more items\n\n"
+            else:
+                report += "\n"
+        else:
+            report += "### ✅ Dead Code Detection\n\nNo unused code detected\n\n"
+
+        # Footer
+        report += "---\n"
+        report += "> **Note**: This report is informational only and does not block merges. "
+        report += "High complexity functions should be considered for refactoring.\n"
+
+        # Output as GitHub env var
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            f.write(f"report<<EOF\n{report}\nEOF\n")
+
+        print("Metrics parsed successfully")
+        print(f"High complexity functions: {len(high_cc)}")
+        print(f"Dead code items: {len(dead_code)}")
+        print(f"Files analyzed: {total_files}")
+
+        EOF
+        python parse_metrics.py
+
+    - name: Post comment to PR
+      uses: actions/github-script@v7
+      if: always()
+      with:
+        script: |
+          const fs = require('fs');
+          const metrics = `${{ steps.metrics.outputs.report }}`;
+
+          if (!metrics.trim()) {
+            console.log('No metrics output available');
+            return;
+          }
+
+          // Check if comment already exists
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const existingComment = comments.find(comment =>
+            comment.user.type === 'Bot' &&
+            comment.body.includes('Code Quality Report')
+          );
+
+          const body = metrics;
+
+          if (existingComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: body
+            });
+            console.log('Updated existing quality report comment');
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+            console.log('Created new quality report comment');
+          }

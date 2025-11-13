@@ -4,7 +4,6 @@ Provides fixtures for managing Docker containers with systemd support.
 """
 
 import pytest
-import docker
 import time
 from pathlib import Path
 from typing import Generator, Any
@@ -12,9 +11,18 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Try to import docker, but don't fail if it's not available
+# This allows non-E2E tests to import this module without docker installed
+try:
+    import docker
+    DOCKER_AVAILABLE = True
+except ImportError:
+    DOCKER_AVAILABLE = False
+    docker = None  # type: ignore
+
 
 @pytest.fixture(scope="module")
-def docker_client() -> Generator[docker.DockerClient, None, None]:
+def docker_client() -> Generator[Any, None, None]:
     """Docker client for managing containers.
 
     Yields:
@@ -23,6 +31,10 @@ def docker_client() -> Generator[docker.DockerClient, None, None]:
     Raises:
         docker.errors.DockerException: If Docker daemon is not available
     """
+    if not DOCKER_AVAILABLE:
+        pytest.skip("docker package not installed - required for E2E tests")
+
+    assert docker is not None, "docker should be available"
     client = docker.from_env()
     try:
         # Verify Docker is accessible
@@ -33,7 +45,7 @@ def docker_client() -> Generator[docker.DockerClient, None, None]:
 
 
 @pytest.fixture(scope="module")
-def e2e_image(docker_client: docker.DockerClient) -> str:
+def e2e_image(docker_client: Any) -> str:
     """Build E2E image once per test module.
 
     Builds the CalendarBot E2E test image if it doesn't exist or needs updating.
@@ -73,13 +85,14 @@ def e2e_image(docker_client: docker.DockerClient) -> str:
         logger.info(f"Successfully built image: {image_name}")
         return image_name
 
-    except docker.errors.BuildError as e:
+    except Exception as e:
+        # Catch docker.errors.BuildError and other docker-related errors
         logger.error(f"Failed to build image: {e}")
         raise
 
 
 @pytest.fixture(scope="function")
-def e2e_container(docker_client: docker.DockerClient, e2e_image: str) -> Generator[Any, None, None]:
+def e2e_container(docker_client: Any, e2e_image: str) -> Generator[Any, None, None]:
     """Create fresh E2E container for each test.
 
     Creates a new container with systemd support, waits for systemd to be ready,
@@ -215,7 +228,7 @@ def clean_container(e2e_container: Any) -> Any:
 
 
 @pytest.fixture(scope="class")
-def progressive_container(docker_client: docker.DockerClient, e2e_image: str) -> Generator[Any, None, None]:
+def progressive_container(docker_client: Any, e2e_image: str) -> Generator[Any, None, None]:
     """Create persistent E2E container for progressive testing.
 
     This fixture creates a container that persists across all tests in a class,

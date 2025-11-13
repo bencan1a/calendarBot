@@ -283,7 +283,7 @@ def container_exec(
 
     Args:
         container: Docker container
-        command: Command to execute
+        command: Command to execute (will be wrapped in bash -c)
         privileged: Run with elevated privileges
         user: User to run command as (e.g., "testuser")
         workdir: Working directory for command
@@ -301,7 +301,10 @@ def container_exec(
     if workdir:
         exec_kwargs["workdir"] = workdir
 
-    exit_code, output = container.exec_run(command, **exec_kwargs)
+    # Wrap command in bash -c to support shell syntax (cd, &&, etc.)
+    cmd = ["bash", "-c", command]
+
+    exit_code, output = container.exec_run(cmd, **exec_kwargs)
 
     output_str = output.decode('utf-8', errors='replace')
 
