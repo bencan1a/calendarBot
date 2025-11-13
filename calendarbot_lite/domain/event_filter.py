@@ -176,6 +176,9 @@ class EventFilter:
     ) -> list[EventDict]:
         """Sort events by start time and limit to window size.
 
+        When multiple events have the same start time, they are sorted
+        alphabetically by event ID to ensure deterministic ordering.
+
         Args:
             events: List of event dictionaries
             window_size: Maximum number of events to keep
@@ -183,7 +186,7 @@ class EventFilter:
         Returns:
             Sorted and limited list of events
         """
-        sorted_events = sorted(events, key=lambda e: e["start"])
+        sorted_events = sorted(events, key=lambda e: (e["start"], e.get("id", "")))
         return sorted_events[:window_size]
 
 
