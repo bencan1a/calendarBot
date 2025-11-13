@@ -101,18 +101,13 @@ except ImportError as e:
 
 
 def _import_process_utilities() -> Any:  # type: ignore[misc]
-    """Lazy import of process utilities to handle missing calendarbot module."""
-    try:
-        from calendarbot.utils.process import (  # type: ignore
-            auto_cleanup_before_start,
-            check_port_availability,
-            find_process_using_port,
-        )
-
-        return check_port_availability, find_process_using_port, auto_cleanup_before_start
-    except ImportError as e:
-        logger.warning("Process utilities not available: %s", e)
-        return None, None, None
+    """Lazy import of process utilities (removed with legacy calendarbot module).
+    
+    This functionality was part of the archived calendarbot module and is no longer
+    available in calendarbot_lite. Port conflict handling is now minimal.
+    """
+    logger.debug("Process utilities not available (legacy calendarbot module removed)")
+    return None, None, None
 
 
 class PortConflictError(Exception):
