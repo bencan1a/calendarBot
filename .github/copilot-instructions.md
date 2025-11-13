@@ -15,7 +15,6 @@ This file provides project-specific context, patterns, and workflows to maximize
 
 **Active Codebase**: `calendarbot_lite/` - All development work happens here
 **Kiosk System**: `kiosk/` - Production deployment system
-**Archived Code**: `calendarbot/` - Legacy app, DO NOT modify
 
 ---
 
@@ -508,10 +507,6 @@ Override current time for testing:
 CALENDARBOT_TEST_TIME=2024-01-01T12:00:00 pytest tests/lite/
 ```
 
-### Archived Code
-
-**DO NOT modify `calendarbot/` directory** unless explicitly instructed. It's archived legacy code.
-
 ---
 
 ## 🎯 Success Criteria
@@ -525,7 +520,6 @@ Before committing, verify:
 5. ✅ Type checking clean: `mypy calendarbot_lite`
 6. ✅ Security scan clean: `bandit -r calendarbot_lite`
 7. ✅ Changes are minimal and surgical
-8. ✅ Archived `calendarbot/` directory untouched
 
 ---
 

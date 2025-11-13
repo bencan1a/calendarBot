@@ -100,7 +100,6 @@ pytest tests/lite/ -m "not slow and not network"    # Quick tests only
 **Minimum Standards:**
 - **Target**: 70% minimum coverage threshold
 - **Source**: `calendarbot_lite/` directory
-- **Excluded**: `calendarbot/` (archived code)
 - **Report**: Terminal + HTML (htmlcov-lite/)
 
 **Run with coverage:**

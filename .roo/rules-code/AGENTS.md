@@ -17,7 +17,6 @@ See main [AGENTS.md](../../AGENTS.md#-application-context--scale) for complete g
 - **Permanent Docs**: API docs, architecture go in `docs/` (version controlled)
 
 ## Project Structure Gotchas
-- **Dual Codebase**: `calendarbot/` (full) vs `calendarbot_lite/` (minimal) - use correct module imports
 - **Entry Points**: `calendarbot.__main__:main` vs `calendarbot_lite.run_server()` - different signatures
 - **Import Light**: `calendarbot_lite` avoids heavy deps - check before adding imports
 

@@ -357,14 +357,6 @@ Key patterns:
 
 ---
 
-## Archived Legacy Project
-
-> **Note**: The original `calendarbot/` terminal and web UI application is now **ARCHIVED** and no longer maintained.
->
-> See [calendarbot/DEPRECATED.md](calendarbot/DEPRECATED.md) for migration information.
-
----
-
 ## Contributing
 
 1. Fork the repository

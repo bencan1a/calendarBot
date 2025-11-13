@@ -17,7 +17,6 @@ See main [AGENTS.md](../../AGENTS.md#-application-context--scale) for complete g
 - **Debug Scripts**: Write temporary analysis scripts to `tmp/` (not `/scripts/`)
 
 ## System Architecture Constraints
-- **Dual Codebase Strategy**: `calendarbot/` (full-featured) vs `calendarbot_lite/` (minimal) - intentional separation for different use cases
 - **Async-First Design**: Core operations built on asyncio - maintain this pattern for consistency
 - **Single User Context**: No multi-tenancy concerns - simplifies architecture decisions
 

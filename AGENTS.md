@@ -8,15 +8,12 @@ This file provides essential context, patterns, and commands for AI agents worki
 
 ## ⚠️ CRITICAL: Project Structure
 
-### Active vs Archived Codebases
+### Project Structure
 
 - **ACTIVE PROJECT**: [`calendarbot_lite/`](calendarbot_lite/) - Alexa skill backend with ICS calendar processing
 - **KIOSK DEPLOYMENT**: [`kiosk/`](kiosk/) - Production-ready Raspberry Pi kiosk system (PRIMARY use case)
-- **ARCHIVED PROJECT**: [`calendarbot/`](calendarbot/) - Legacy terminal/web UI application (deprecated, no longer maintained)
 
 **DEFAULT BEHAVIOR**: Unless explicitly instructed otherwise, ALL development work should be in `calendarbot_lite/`.
-
-**DO NOT** modify code in the `calendarbot/` directory without explicit user instruction.
 
 ---
 

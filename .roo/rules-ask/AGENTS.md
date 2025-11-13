@@ -16,7 +16,6 @@ See main [AGENTS.md](../../AGENTS.md#-application-context--scale) for complete g
 
 ## Documentation Context
 - **CLAUDE.md**: Comprehensive existing documentation - refer to this for standard patterns and commands
-- **Dual Architecture**: Separate `calendarbot/` (full) and `calendarbot_lite/` (minimal) codebases with different capabilities
 - **Coverage History**: Target reduced from 85% to 70% temporarily until Jan 22, 2025 - context for coverage questions
 
 ## Non-Standard Tools

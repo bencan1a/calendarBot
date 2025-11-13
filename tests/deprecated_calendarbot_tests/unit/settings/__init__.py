@@ -1,1 +1,0 @@
-"""Settings unit tests package."""

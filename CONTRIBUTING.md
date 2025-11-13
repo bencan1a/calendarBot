@@ -253,7 +253,7 @@ make typecheck
 Configuration: [pyproject.toml#L253-L302](pyproject.toml#L253)
 - **Python version**: 3.12
 - **Strict mode**: Enabled
-- **Source**: `calendarbot_lite/` only (archived `calendarbot/` excluded)
+- **Source**: `calendarbot_lite/` only
 
 ### Security Scanning with Bandit
 
@@ -283,7 +283,6 @@ make check-yaml
 
 1. Create a feature branch: `git checkout -b feature/your-feature-name`
 2. Make your changes in `calendarbot_lite/` (the active codebase)
-3. Don't modify `calendarbot/` unless explicitly instructed (it's archived)
 
 ### Before Pushing
 
@@ -376,8 +375,6 @@ docs/INSTALLATION.md
   - `docs/` - Kiosk documentation
   - `config/` - Configuration files
   - `service/` - systemd unit files
-
-- `calendarbot/` - **ARCHIVED** project (do not modify)
 
 ---
 

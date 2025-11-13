@@ -15,8 +15,6 @@ This package is isolated from the main project codebase. It intentionally does N
 the full CalendarBot application at package import time. When appropriate, calendarbot_lite will
 reuse the following existing parser modules from the main project:
 
-- [`calendarbot/ics/parser.py`](calendarbot/ics/parser.py:1)
-- [`calendarbot/ics/rrule_expander.py`](calendarbot/ics/rrule_expander.py:1)
 - [`calendarbot/sources/ics_source.py`](calendarbot/sources/ics_source.py:1)
 
 NOTE: Those modules will be imported only at runtime (inside server or workers) to avoid heavy
