@@ -177,4 +177,60 @@ pre-commit-install: ## Install pre-commit hooks
 	@. venv/bin/activate && pre-commit install
 	@echo "✓ Pre-commit hooks installed"
 
+# Docker targets
+.PHONY: docker-build
+docker-build: ## Build Docker image
+	@echo "Building Docker image..."
+	docker build -t calendarbot-lite:latest .
+	@echo "✓ Docker image built"
+
+.PHONY: docker-build-no-cache
+docker-build-no-cache: ## Build Docker image without cache
+	@echo "Building Docker image (no cache)..."
+	docker build --no-cache -t calendarbot-lite:latest .
+	@echo "✓ Docker image built"
+
+.PHONY: docker-up
+docker-up: ## Start Docker container with docker-compose
+	@echo "Starting Docker container..."
+	docker-compose up -d
+	@echo "✓ Docker container started"
+	@echo "Access at: http://localhost:8080"
+
+.PHONY: docker-down
+docker-down: ## Stop Docker container
+	@echo "Stopping Docker container..."
+	docker-compose down
+	@echo "✓ Docker container stopped"
+
+.PHONY: docker-logs
+docker-logs: ## View Docker container logs
+	docker-compose logs -f
+
+.PHONY: docker-ps
+docker-ps: ## Show Docker container status
+	docker-compose ps
+
+.PHONY: docker-restart
+docker-restart: ## Restart Docker container
+	@echo "Restarting Docker container..."
+	docker-compose restart
+	@echo "✓ Docker container restarted"
+
+.PHONY: docker-clean
+docker-clean: ## Remove Docker containers, images, and volumes
+	@echo "Cleaning Docker resources..."
+	docker-compose down -v
+	docker rmi calendarbot-lite:latest 2>/dev/null || true
+	@echo "✓ Docker resources cleaned"
+
+.PHONY: docker-shell
+docker-shell: ## Open shell in running Docker container
+	docker-compose exec calendarbot bash
+
+.PHONY: docker-test
+docker-test: ## Test Docker container health
+	@echo "Testing Docker container health..."
+	@curl -f http://localhost:8080/api/health && echo "\n✓ Container is healthy" || echo "\n✗ Container health check failed"
+
 .DEFAULT_GOAL := help

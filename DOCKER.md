@@ -23,6 +23,24 @@ The Docker deployment provides:
 
 ### Installation Steps
 
+#### Option 1: Quick Start Script (Recommended)
+
+```bash
+# Clone and run the quick start script
+git clone https://github.com/bencan1a/calendarbot.git
+cd calendarbot
+./scripts/docker-quickstart.sh
+```
+
+The script will:
+- Check Docker installation
+- Create .env from template
+- Prompt for calendar URL configuration
+- Build and start the container
+- Verify the deployment
+
+#### Option 2: Manual Setup
+
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/bencan1a/calendarbot.git
