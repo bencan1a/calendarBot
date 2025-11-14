@@ -327,12 +327,28 @@ Enable production optimizations for non-kiosk deployments:
 CALENDARBOT_PRODUCTION=true python -m calendarbot_lite
 ```
 
-### Docker (Coming Soon)
+### Docker (Recommended for Isolated Deployment)
+
+Deploy CalendarBot in an isolated container environment:
 
 ```bash
-# Build and run with docker-compose
+# Configure environment
+cp .env.docker .env
+nano .env  # Set your calendar URL
+
+# Start container
 docker-compose up -d
+
+# View logs
+docker-compose logs -f
 ```
+
+See **[DOCKER.md](DOCKER.md)** for complete Docker deployment guide including:
+- Quick start instructions
+- Configuration options
+- Container management
+- Troubleshooting
+- Advanced deployment scenarios
 
 ### Systemd Service
 
