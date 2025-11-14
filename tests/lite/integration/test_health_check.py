@@ -353,12 +353,12 @@ class TestPortConflictHandling:
         mock_cleanup.assert_not_called()
 
     @patch("calendarbot_lite.api.server._import_process_utilities")
-    def test_handle_port_conflict_when_utilities_missing_then_returns_false(
+    def test_handle_port_conflict_when_utilities_missing_then_returns_true(
         self, mock_import: MagicMock
     ) -> None:
-        """Test that missing process utilities returns false."""
+        """Test that missing process utilities returns true to allow server startup."""
         mock_import.return_value = (None, None, None)
 
         result = server_module._handle_port_conflict("localhost", 8080)
 
-        assert result is False
+        assert result is True
