@@ -101,7 +101,7 @@
     "get-caller-file": "^2.0.5",
     "get-package-type": "^0.1.0",
     "get-stream": "^6.0.1",
-    "glob": "^10.4.5",
+    "glob": "^11.1.0",
     "graceful-fs": "^4.2.11",
     "harmony-reflect": "^1.6.2",
     "has-flag": "^4.0.0",
