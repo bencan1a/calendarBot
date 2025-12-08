@@ -9,8 +9,9 @@ services:
     restart: unless-stopped
     
     # Port mapping - expose CalendarBot web server and Alexa endpoints
+    # Bind to 0.0.0.0 to make it accessible from network (not just localhost)
     ports:
-      - "8080:8080"
+      - "0.0.0.0:8080:8080"
     
     # Environment variables from .env file
     env_file:
