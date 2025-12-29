@@ -8,11 +8,20 @@ This directory contains architecture plans, design documents, and implementation
 
 ### Lightweight UI Architecture (2025-12-29)
 
-**Status:** 🟡 Architecture Planning - Awaiting Approval
+**Status:** ✅ **Approved - Implementation Starting**
 
 **Problem:** Current kiosk runs X11 + Chromium (~260MB RAM) on Pi Zero 2W, which is resource-intensive and complex.
 
 **Proposal:** Replace with lightweight Python framebuffer UI using pygame (~15MB RAM).
+
+**Key Decisions:**
+- ✅ Pygame approved for framebuffer rendering
+- ✅ Remote backend support enabled
+- ✅ Use existing .env configuration
+- ✅ Bundle TTF fonts
+- ✅ Keep X11 kiosk as fallback
+- ✅ Resilient error handling (15min threshold)
+- ✅ Separate installer based on install-kiosk.sh
 
 **Documents:**
 
@@ -43,10 +52,10 @@ This directory contains architecture plans, design documents, and implementation
 - Reliability: Fewer failure points, simpler recovery
 
 **Next Steps:**
-- Review documents
-- Answer 10 open questions
-- Approve/modify plan
-- Begin Phase 1 implementation
+- ✅ Architecture approved by user
+- 🚀 Begin Phase 1: Core Rendering implementation
+- 📦 Set up framebuffer_ui package
+- 🎨 Implement pygame renderer with bundled fonts
 
 ---
 
@@ -70,7 +79,7 @@ This directory contains architecture plans, design documents, and implementation
 
 | Date | Document | Status | Author |
 |------|----------|--------|--------|
-| 2025-12-29 | Lightweight UI Architecture | Planning | Principal Engineer |
+| 2025-12-29 | Lightweight UI Architecture | ✅ Approved | Principal Engineer |
 
 ---
 

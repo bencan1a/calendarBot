@@ -1,7 +1,7 @@
 # Lightweight UI Architecture Plan for CalendarBot Pi Zero 2W
 
 **Date:** 2025-12-29  
-**Status:** Architecture Planning Phase  
+**Status:** ✅ **Approved - Implementation Phase**  
 **Target Platform:** Raspberry Pi Zero 2W (512MB RAM, ARM Cortex-A53)
 
 ---
@@ -232,16 +232,42 @@ class CalendarAPIClient:
     
     Responsibilities:
     - Poll /api/whats-next endpoint every 60 seconds
-    - Handle network errors gracefully
+    - Handle network errors gracefully (silent retry)
     - Parse JSON response
     - Maintain connection state
+    - Track last successful response time
+    - Only display errors after 15+ minutes of failures
+    
+    Configuration:
+    - Backend URL from CALENDARBOT_BACKEND_URL env var
+    - Supports localhost or remote backend
     """
     
-    async def fetch_whats_next(self, base_url: str) -> dict:
-        """Fetch next meeting from backend API."""
+    def __init__(self, backend_url: str):
+        self.backend_url = backend_url
+        self.last_success_time = None
+        self.consecutive_failures = 0
+        
+    async def fetch_whats_next(self) -> dict:
+        """Fetch next meeting from backend API.
+        
+        Returns cached data on transient errors.
+        Only raises exception after 15+ minutes of failures.
+        """
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"{base_url}/api/whats-next") as resp:
-                return await resp.json()
+            async with session.get(f"{self.backend_url}/api/whats-next") as resp:
+                data = await resp.json()
+                self.last_success_time = time.time()
+                self.consecutive_failures = 0
+                return data
+    
+    def should_show_error(self) -> bool:
+        """Only show error after 15+ minutes of failures."""
+        if self.last_success_time is None:
+            return self.consecutive_failures > 15  # 15 minutes at 60s intervals
+        
+        time_since_success = time.time() - self.last_success_time
+        return time_since_success > 900  # 15 minutes
 ```
 
 #### 1.3 Layout Engine
@@ -742,35 +768,63 @@ These features are **not included** in the initial implementation but could be a
 
 ---
 
-## 11. Open Questions for Review
+## 11. Architecture Decisions (User Review Complete) ✅
 
-Before proceeding with implementation, please provide feedback on:
+**All questions have been reviewed and decisions made:**
 
-1. **Technology Choice:** Is pygame the right choice, or prefer direct PIL framebuffer?
-2. **Deployment Model:** Should backend always run on same Pi, or allow remote backend?
-3. **Configuration Approach:** YAML file vs. environment variables vs. both?
-4. **Skip Button:** Current UI has skip button (touch). Framebuffer UI is read-only. Acceptable?
-5. **Font Handling:** Bundle TTF fonts or rely on system fonts?
-6. **Backward Compatibility:** Should old X11 kiosk remain available as fallback?
-7. **Fast Refresh Mode:** Keep 60s polling, or add faster updates when meeting is imminent?
-8. **Error Display:** Show connection errors on screen or just log them?
-9. **Installation Method:** Integrated into existing install-kiosk.sh or separate script?
-10. **Testing Requirements:** Unit tests only, or also E2E tests on real Pi hardware?
+1. **Technology Choice:** ✅ **Pygame approved** - Direct framebuffer rendering via pygame + SDL2
+2. **Deployment Model:** ✅ **Allow remote backend** - Backend can run on same Pi or remote device
+3. **Configuration Approach:** ✅ **Use .env** - Reuse existing environment-based configuration
+4. **Skip Button:** ⚠️ **Attempt touch input** - User prefers capability; will add evdev input handling if feasible
+5. **Font Handling:** ✅ **Bundle TTF fonts** - Package fonts to ensure consistent rendering
+6. **Backward Compatibility:** ✅ **Keep X11 kiosk** - Maintain as fallback; new UI as alternative mode
+7. **Fast Refresh Mode:** ✅ **60s fixed polling** - No adaptive refresh needed
+8. **Error Display:** ✅ **Resilient on-screen display** - Show errors only after 15+ minutes of failures; silent retry before then
+9. **Installation Method:** ✅ **Separate installer** - Create stripped-down version based on install-kiosk.sh
+10. **Testing Requirements:** ✅ **Unit tests only** - Developer provides unit tests; user performs manual E2E on Pi hardware
 
 ---
 
-## 12. Next Steps After Approval
+## 12. Implementation Plan (Approved) 🚀
 
-Once this architecture plan is approved:
+**Architecture approved. Ready to proceed with implementation:**
 
-1. Create `framebuffer_ui` package structure
-2. Implement Phase 1 (Core Rendering) with pygame
-3. Test rendering on Pi Zero 2W hardware
-4. Take screenshots for visual comparison
-5. Proceed to Phase 2 (API Integration)
-6. Create PR with working prototype for review
+### Implementation Phases
 
-**Estimated Timeline:** 3-4 weeks for full implementation and testing
+**Phase 1: Core Rendering (Week 1)**
+- Create `framebuffer_ui` package structure
+- Implement pygame framebuffer renderer
+- Bundle TTF fonts for consistent rendering
+- Test static rendering with mock data
+- Verify visual match to HTML/CSS design
+
+**Phase 2: API Integration (Week 1-2)**
+- Implement async API client (aiohttp)
+- Add .env configuration support
+- Integrate with `/api/whats-next` endpoint
+- Support remote backend via environment variable
+- Add resilient error handling (15min threshold)
+
+**Phase 3: Input Handling (Week 2)** ⚠️ *Optional/Stretch Goal*
+- Investigate evdev for touch input on framebuffer
+- Add skip button touch detection if feasible
+- Fallback to read-only if touch proves complex
+
+**Phase 4: Deployment (Week 2-3)**
+- Create separate installer script (based on install-kiosk.sh)
+- Write systemd service file for framebuffer UI
+- Add configuration validation
+- Test installation on Pi Zero 2W
+- Document backward compatibility with X11 kiosk
+
+**Phase 5: Testing & Polish (Week 3-4)**
+- Write unit tests for all components
+- Performance validation on Pi hardware
+- Memory profiling (target: <25MB RSS)
+- User manual E2E testing
+- Final documentation
+
+**Estimated Timeline:** 3-4 weeks for full implementation
 
 ---
 

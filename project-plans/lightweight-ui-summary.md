@@ -1,7 +1,7 @@
 # Lightweight UI Architecture - Executive Summary
 
 **Date:** 2025-12-29  
-**Status:** Architecture Planning - Awaiting Approval
+**Status:** ✅ **Approved - Ready for Implementation**
 
 ---
 
@@ -269,18 +269,20 @@ Implementation is successful if:
 
 ---
 
-## Questions for Review
+## Architecture Decisions ✅
 
-1. **Technology:** Pygame approved, or prefer direct PIL framebuffer?
-2. **Backend Location:** Same Pi or allow remote backend?
-3. **Configuration:** YAML file vs. env vars vs. both?
-4. **Skip Button:** Current UI has touch button. Read-only OK?
-5. **Fonts:** Bundle TTF or rely on system fonts?
-6. **Backward Compat:** Keep old X11 kiosk as fallback?
-7. **Refresh Rate:** 60s polling OK, or faster when meeting imminent?
-8. **Error Display:** Show errors on screen or just log?
-9. **Installation:** Integrate into install-kiosk.sh or separate?
-10. **Testing:** Unit tests only, or E2E on real Pi?
+**User review complete. The following decisions have been made:**
+
+1. **Technology:** ✅ **Pygame approved** for framebuffer rendering
+2. **Backend Location:** ✅ **Allow remote backend** (already supported via HTTP API)
+3. **Configuration:** ✅ **Use existing .env** configuration mechanism
+4. **Skip Button:** ⚠️ **Attempt touch input** if feasible; user prefers capability but willing to live without
+5. **Font Handling:** ✅ **Bundle TTF fonts** with package
+6. **Backward Compatibility:** ✅ **Keep X11 kiosk** as fallback; new UI as alternative mode
+7. **Refresh Rate:** ✅ **60s polling** (no adaptive refresh)
+8. **Error Display:** ✅ **On-screen, but resilient** (only show after 15+ minutes of failures)
+9. **Installation:** ✅ **Separate installer** based on install-kiosk.sh (stripped down)
+10. **Testing:** ✅ **Unit tests** provided; manual E2E on Pi by user
 
 ---
 
