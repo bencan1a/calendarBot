@@ -74,13 +74,26 @@ fi
 # Step 1: Install system dependencies
 print_header "Step 1: Installing System Dependencies"
 
+# Prevent any interactive prompts
+export DEBIAN_FRONTEND=noninteractive
+
+print_info "Updating package lists (this may take 30-60 seconds on Pi Zero 2W)..."
+if ! apt-get update; then
+    print_error "Failed to update package lists"
+    print_info "Try running: sudo apt-get update"
+    exit 1
+fi
+
 print_info "Installing SDL2 libraries..."
-apt-get update -qq
-apt-get install -y \
+if ! apt-get install -y --no-install-recommends \
     libsdl2-2.0-0 \
     libsdl2-ttf-2.0-0 \
     libdrm2 \
-    libgbm1
+    libgbm1; then
+    print_error "Failed to install SDL2 libraries"
+    print_info "Try running manually: sudo apt-get install -y libsdl2-2.0-0 libsdl2-ttf-2.0-0 libdrm2 libgbm1"
+    exit 1
+fi
 
 print_success "System dependencies installed"
 
