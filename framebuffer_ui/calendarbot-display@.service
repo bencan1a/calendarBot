@@ -1,0 +1,70 @@
+# CalendarBot Framebuffer Display Service
+# Lightweight pygame-based UI for Raspberry Pi Zero 2W
+#
+# Installation:
+#   sudo cp calendarbot-display@.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable calendarbot-display@USERNAME.service
+#   sudo systemctl start calendarbot-display@USERNAME.service
+#
+# View logs:
+#   journalctl -u calendarbot-display@USERNAME.service -f
+
+[Unit]
+Description=CalendarBot Framebuffer Display for %i
+Documentation=https://github.com/bencan1a/calendarbot
+After=network-online.target
+Wants=network-online.target
+
+# Optional: Require backend service on same machine
+# Uncomment if backend runs on localhost
+# Requires=calendarbot-lite@%i.service
+# After=calendarbot-lite@%i.service
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+
+# Working directory (adjust if installed elsewhere)
+WorkingDirectory=/home/%i/calendarbot
+
+# Environment variables for framebuffer mode
+Environment="SDL_VIDEODRIVER=kmsdrm"
+Environment="SDL_NOMOUSE=1"
+Environment="SDL_FBDEV=/dev/fb0"
+
+# Load environment from .env file
+EnvironmentFile=-/home/%i/calendarbot/.env
+
+# Python executable path
+ExecStart=/home/%i/calendarbot/venv/bin/python -m framebuffer_ui
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Process limits
+# CalendarBot framebuffer UI is designed to be lightweight
+MemoryMax=50M
+MemoryHigh=40M
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=calendarbot-display
+
+# Security hardening
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/tmp /var/tmp
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Allow access to graphics devices
+DeviceAllow=/dev/dri/card0 rw
+DeviceAllow=/dev/fb0 rw
+SupplementaryGroups=video
+
+[Install]
+WantedBy=multi-user.target

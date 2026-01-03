@@ -29,3 +29,6 @@ diskcache>=5.0.0
 
 # HTTP client for kiosk health checks
 aiohttp>=3.8.0
+
+# Framebuffer UI dependencies
+pygame>=2.5.0
