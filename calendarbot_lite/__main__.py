@@ -79,9 +79,8 @@ def main() -> NoReturn:
     args = parser.parse_args()
 
     # Validate argument combinations
-    if args.ui == "framebuffer" and args.backend == "remote":
-        if not args.backend_url:
-            parser.error("--backend-url is required when using --backend remote")
+    if args.ui == "framebuffer" and args.backend == "remote" and not args.backend_url:
+        parser.error("--backend-url is required when using --backend remote")
 
     if args.display_mode != "fullscreen" and args.ui == "none":
         print(

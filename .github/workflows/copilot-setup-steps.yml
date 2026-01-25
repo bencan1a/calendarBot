@@ -5,7 +5,8 @@
 # tools, and configuration.
 #
 # Documentation:
-# - GitHub Copilot Setup: https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/customize-the-agent-environment
+# - GitHub Copilot Setup:
+#   https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/customize-the-agent-environment
 # - Project-Specific Guidance: .github/copilot-instructions.md (QUICK REFERENCE)
 # - Comprehensive Guide: AGENTS.md
 # - Custom Agents: .github/agents/README.md
@@ -31,6 +32,9 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read      # Checkout repository
 
 env:
   PYTHON_VERSION: "3.12"
@@ -79,7 +83,10 @@ jobs:
           # Generated from GitHub Actions secrets
 
           # ICS Calendar URL (Required)
-          CALENDARBOT_ICS_URL=${{ vars.CALENDARBOT_ICS_URL || 'https://outlook.office365.com/owa/calendar/example/calendar.ics' }}
+          CALENDARBOT_ICS_URL=${{
+            vars.CALENDARBOT_ICS_URL ||
+            'https://outlook.office365.com/owa/calendar/example/calendar.ics'
+          }}
 
           # Server Configuration
           CALENDARBOT_WEB_HOST=0.0.0.0
@@ -113,10 +120,14 @@ jobs:
 
           echo -e "\nPre-commit hooks:"
           pre-commit --version
-          pre-commit run --all-files --hook-stage manual trailing-whitespace || true
+          pre-commit run --all-files --hook-stage manual \
+            trailing-whitespace || true
 
           echo -e "\nCalendarBot modules:"
-          python -c "import calendarbot_lite; print(f'calendarbot_lite imported successfully from {calendarbot_lite.__file__}')"
+          python -c "
+          import calendarbot_lite;
+          print(f'calendarbot_lite imported successfully from {calendarbot_lite.__file__}')
+          "
 
           echo -e "\n=== Setup Complete ==="
           echo "✅ Python 3.12 configured"

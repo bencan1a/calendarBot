@@ -65,7 +65,9 @@ jobs:
         echo "Running Vulture Dead Code Detection..."
         echo "Analyzing calendarbot_lite/ for unused code (confidence > ${{ env.VULTURE_CONFIDENCE }}%)"
         echo ""
-        cd /tmp && vulture "$GITHUB_WORKSPACE/calendarbot_lite/" --min-confidence ${{ env.VULTURE_CONFIDENCE }} | tee "$GITHUB_WORKSPACE/vulture-report.txt" || true
+        cd /tmp && vulture "$GITHUB_WORKSPACE/calendarbot_lite/" \
+          --min-confidence ${{ env.VULTURE_CONFIDENCE }} | \
+          tee "$GITHUB_WORKSPACE/vulture-report.txt" || true
         echo ""
         echo "Vulture analysis complete. Results saved to vulture-report.txt"
 

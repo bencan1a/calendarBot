@@ -21,6 +21,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read      # Checkout repository
+  actions: write      # Upload/download workflow artifacts
+
 env:
   PYTHON_VERSION: "3.12"
   COVERAGE_THRESHOLD: 70
@@ -112,7 +116,8 @@ jobs:
     - name: Determine test selection strategy
       id: test-strategy
       run: |
-        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] && [[ "${{ github.event.inputs.force_full_suite }}" == "true" ]]; then
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] && \
+           [[ "${{ github.event.inputs.force_full_suite }}" == "true" ]]; then
           echo "strategy=full" >> $GITHUB_OUTPUT
           echo "Running full test suite (manual trigger)"
         elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -174,7 +179,11 @@ jobs:
 
     - name: Upload test artifacts
       uses: actions/upload-artifact@v4
-      if: always() && (hashFiles('coverage.xml') != '' || hashFiles('coverage.json') != '' || hashFiles('pytest-results.xml') != '')
+      if: >
+        always() &&
+        (hashFiles('coverage.xml') != '' ||
+         hashFiles('coverage.json') != '' ||
+         hashFiles('pytest-results.xml') != '')
       with:
         name: test-results
         path: |

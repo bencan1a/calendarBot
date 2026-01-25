@@ -26,19 +26,16 @@ logger = logging.getLogger(__name__)
 class UIError(Exception):
     """Base exception for UI integration errors."""
 
-    pass
 
 
 class BackendConnectionError(UIError):
     """Raised when cannot connect to backend."""
 
-    pass
 
 
 class DisplayInitError(UIError):
     """Raised when display initialization fails."""
 
-    pass
 
 
 # ============================================================================
@@ -113,8 +110,8 @@ async def _start_local_backend(config: dict[str, Any]) -> None:
     """
     try:
         from calendarbot_lite.api.server import _create_skipped_store_if_available, _serve
-    except ImportError as exc:
-        logger.error("Cannot import calendarbot_lite.api.server: %s", exc)
+    except ImportError:
+        logger.exception("Cannot import calendarbot_lite.api.server")
         raise
 
     # Create skipped event store (returns None if not available)
@@ -171,7 +168,7 @@ async def _wait_for_backend_ready(
             try:
                 # Try to fetch health endpoint
                 async with session.get(health_url, timeout=aiohttp.ClientTimeout(total=5)) as response:
-                    if response.status == 200 or response.status == 503:
+                    if response.status in {200, 503}:
                         # Both 200 (ok) and 503 (degraded) are acceptable
                         # We just need the data_status fields
                         data = await response.json()
@@ -197,7 +194,7 @@ async def _wait_for_backend_ready(
                             elapsed,
                         )
 
-            except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            except (TimeoutError, aiohttp.ClientError) as exc:
                 # Backend not reachable yet, will retry
                 logger.debug(
                     "Backend health check failed (attempt %d, elapsed %.1fs): %s",
@@ -298,15 +295,16 @@ async def run_with_framebuffer_ui(
         # Start local backend in background task
         logger.info("Starting local backend server...")
 
-        assert backend_config is not None  # Already validated above
+        if backend_config is None:
+            raise ValueError("backend_config must be provided when backend_mode='local'")
         backend_task = asyncio.create_task(_start_local_backend(backend_config))
 
         # Construct localhost URL
-        host = backend_config.get("server_bind", "0.0.0.0")
+        host = backend_config.get("server_bind", "0.0.0.0")  # nosec B104 - intentional default for server bind
         port = backend_config.get("server_port", 8080)
 
         # If server binds to 0.0.0.0, client should connect to localhost
-        if host == "0.0.0.0":
+        if host == "0.0.0.0":  # nosec B104 - intentional check for all-interfaces bind
             host = "localhost"
 
         effective_url = f"http://{host}:{port}"
@@ -318,7 +316,8 @@ async def run_with_framebuffer_ui(
 
     else:  # remote mode
         # Use provided backend URL
-        assert backend_url is not None  # Already validated above
+        if backend_url is None:
+            raise ValueError("backend_url must be provided when backend_mode='remote'")
         effective_url = backend_url
         logger.info("Connecting to remote backend: %s", effective_url)
 
@@ -366,7 +365,7 @@ async def run_with_framebuffer_ui(
 
     for sig in (signal.SIGTERM, signal.SIGINT):
         with contextlib.suppress(NotImplementedError):
-            loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
+            loop.add_signal_handler(sig, lambda s: signal_handler(s), sig)
 
     try:
         # Run the UI main loop (blocking until quit)
@@ -375,8 +374,8 @@ async def run_with_framebuffer_ui(
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt")
 
-    except Exception as exc:
-        logger.exception("UI terminated with error: %s", exc)
+    except Exception:
+        logger.exception("UI terminated with error")
         raise
 
     finally:
@@ -386,15 +385,15 @@ async def run_with_framebuffer_ui(
         # Shutdown the UI app (stops loop, closes API client)
         try:
             await app.shutdown()
-        except Exception as exc:
-            logger.error("Error during UI shutdown: %s", exc)
+        except Exception:
+            logger.exception("Error during UI shutdown")
 
         # Clean up pygame (must be done AFTER run() exits)
         try:
             app.renderer.cleanup()
             logger.debug("Renderer cleaned up")
-        except Exception as exc:
-            logger.error("Error during renderer cleanup: %s", exc)
+        except Exception:
+            logger.exception("Error during renderer cleanup")
 
         # Stop local backend if running
         if backend_task is not None:
@@ -406,16 +405,16 @@ async def run_with_framebuffer_ui(
                 await backend_task
             except asyncio.CancelledError:
                 logger.debug("Backend task cancelled successfully")
-            except Exception as exc:
-                logger.error("Error during backend shutdown: %s", exc)
+            except Exception:
+                logger.exception("Error during backend shutdown")
 
         logger.info("Shutdown complete")
 
 
 __all__ = [
-    "UIError",
     "BackendConnectionError",
     "DisplayInitError",
+    "UIError",
     "configure_display_mode",
     "run_with_framebuffer_ui",
 ]

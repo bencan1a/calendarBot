@@ -30,7 +30,6 @@ env:
 permissions:
   contents: read
   pull-requests: write
-  security-events: write
 
 jobs:
   # Job 1: Audit dependencies for vulnerabilities
@@ -147,7 +146,10 @@ jobs:
 
           # Count by severity (pip-audit uses numeric severity, safety uses strings)
           for vuln in report['pip_audit']['vulnerabilities']:
-              severity = vuln.get('vulnerability_id', '').split('-')[0].lower() if 'vulnerability_id' in vuln else 'unknown'
+              severity = (
+                  vuln.get('vulnerability_id', '').split('-')[0].lower()
+                  if 'vulnerability_id' in vuln else 'unknown'
+              )
               if 'critical' in severity or vuln.get('fix_versions') is None:
                   report['aggregated']['critical'] += 1
               elif 'high' in severity:
@@ -297,10 +299,22 @@ jobs:
               comment += "### Vulnerability Summary\n\n"
               comment += "| Severity | Count | Status |\n"
               comment += "|----------|-------|--------|\n"
-              comment += f"| {emoji_map['critical']} Critical | {agg['critical']} | " + ("❌ Block merge" if agg['critical'] > 0 else "✓ OK") + " |\n"
-              comment += f"| {emoji_map['high']} High | {agg['high']} | " + ("❌ Block merge" if agg['high'] > 0 else "✓ OK") + " |\n"
-              comment += f"| {emoji_map['moderate']} Moderate | {agg['moderate']} | " + ("⚠️ Review" if agg['moderate'] > 0 else "✓ OK") + " |\n"
-              comment += f"| {emoji_map['low']} Low | {agg['low']} | " + ("ℹ️ Informational" if agg['low'] > 0 else "✓ OK") + " |\n\n"
+              comment += (
+                  f"| {emoji_map['critical']} Critical | {agg['critical']} | "
+                  + ("❌ Block merge" if agg['critical'] > 0 else "✓ OK") + " |\n"
+              )
+              comment += (
+                  f"| {emoji_map['high']} High | {agg['high']} | "
+                  + ("❌ Block merge" if agg['high'] > 0 else "✓ OK") + " |\n"
+              )
+              comment += (
+                  f"| {emoji_map['moderate']} Moderate | {agg['moderate']} | "
+                  + ("⚠️ Review" if agg['moderate'] > 0 else "✓ OK") + " |\n"
+              )
+              comment += (
+                  f"| {emoji_map['low']} Low | {agg['low']} | "
+                  + ("ℹ️ Informational" if agg['low'] > 0 else "✓ OK") + " |\n\n"
+              )
 
               comment += f"**Total Vulnerabilities**: {agg['total']}\n\n"
 
@@ -334,7 +348,11 @@ jobs:
                   comment += "View safety-report.txt in artifacts for detailed output.\n\n"
 
           comment += "---\n"
-          comment += "*Scanned with [pip-audit](https://pypi.org/project/pip-audit/) and [safety](https://pypi.org/project/safety/) on Python ${{ env.PYTHON_VERSION }}*\n"
+          comment += (
+              "*Scanned with [pip-audit](https://pypi.org/project/pip-audit/) "
+              "and [safety](https://pypi.org/project/safety/) "
+              "on Python ${{ env.PYTHON_VERSION }}*\n"
+          )
 
           # Write comment to file for use in next step
           with open('pr_comment.md', 'w') as f:

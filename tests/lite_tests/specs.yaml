@@ -445,7 +445,9 @@ tests:
   metadata:
     source: manual
     author: claude-code
-    notes: Validates that recurring events maintain local time (9am Pacific) across DST transition. UTC offset changes from -7 to -8 on Nov 2.
+    notes: >
+      Validates that recurring events maintain local time (9am Pacific)
+      across DST transition. UTC offset changes from -7 to -8 on Nov 2.
 - test_id: recurring_pacific_queried_eastern_202511
   description: Recurring event in Pacific timezone queried from Eastern timezone context
   category: recurring_timezone
@@ -483,7 +485,9 @@ tests:
   metadata:
     source: manual
     author: claude-code
-    notes: Validates DST spring forward handling. Meeting stays at 9am Eastern local time. UTC offset changes from -5 to -4 on Mar 8.
+    notes: >
+      Validates DST spring forward handling. Meeting stays at 9am Eastern
+      local time. UTC offset changes from -5 to -4 on Mar 8.
 - test_id: recurring_eastern_dst_exdate_202510
   description: Recurring meeting in Eastern timezone with EXDATE that spans DST boundary
   category: recurring_timezone

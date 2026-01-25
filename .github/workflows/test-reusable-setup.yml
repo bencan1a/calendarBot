@@ -62,7 +62,9 @@ jobs:
         run: |
           python -c "import icalendar; print('icalendar installed')"
           # Dev dependencies should not be available
-          python -c "import pytest" 2>&1 | grep -q "No module named 'pytest'" && echo "✓ Dev dependencies not installed" || echo "✗ Unexpected: dev dependencies found"
+          python -c "import pytest" 2>&1 | grep -q "No module named 'pytest'" && \
+            echo "✓ Dev dependencies not installed" || \
+            echo "✗ Unexpected: dev dependencies found"
 
   # Test with cache key suffix
   test-cache-suffix:
@@ -105,7 +107,12 @@ jobs:
 
       - name: Verify UV installed
         run: |
-          python -c "import subprocess; result = subprocess.run(['uv', '--version'], capture_output=True, text=True); print('UV version:', result.stdout); assert result.returncode == 0, 'UV not installed'"
+          python -c "
+          import subprocess;
+          result = subprocess.run(['uv', '--version'], capture_output=True, text=True);
+          print('UV version:', result.stdout);
+          assert result.returncode == 0, 'UV not installed'
+          "
 
       - name: Verify dev dependencies installed with UV
         run: |

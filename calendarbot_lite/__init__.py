@@ -168,8 +168,8 @@ def run_server(args: Optional[object] = None) -> None:
         # Import UI integration
         try:
             from calendarbot_lite.ui import run_with_framebuffer_ui
-        except ImportError as exc:
-            logger.error("framebuffer_ui module not available: %s", exc)
+        except ImportError:
+            logger.exception("framebuffer_ui module not available")
             print("\nError: framebuffer_ui dependencies not installed.", file=sys.stderr)
             print("Install with: pip install pygame", file=sys.stderr)
             sys.exit(1)

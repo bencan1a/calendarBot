@@ -238,6 +238,10 @@ skips = [
 severity = "medium"  # Flag medium and high severity issues
 confidence = "medium"  # Flag medium and high confidence issues
 
+# Note: Verbose logging warnings are filtered in Makefile security target
+# to suppress "[manager] WARNING" and "[tester] WARNING" messages about
+# test names in comments and nosec directives
+
 [tool.mypy]
 python_version = "3.12"
 warn_return_any = true

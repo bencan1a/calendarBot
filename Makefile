@@ -20,7 +20,7 @@ check-yaml: ## Validate YAML syntax in all YAML files
 		! -path "./htmlcov/*" \
 		! -path "./build/*" \
 		! -path "./dist/*" \
-		-print0 | xargs -0 yamllint
+		-print0 | xargs -0 yamllint --strict
 	@echo "✓ YAML validation complete"
 
 .PHONY: format
@@ -50,7 +50,7 @@ typecheck: ## Run mypy type checker
 .PHONY: security
 security: ## Run bandit security scanner
 	@echo "Running security scan..."
-	@. venv/bin/activate && bandit -r calendarbot_lite
+	@. venv/bin/activate && set -o pipefail && bandit -r calendarbot_lite 2>&1 | grep -v "\[manager\]\sWARNING" | grep -v "\[tester\]\sWARNING" | grep -v "\[main\]\sINFO"
 	@echo "✓ Security scan complete"
 
 .PHONY: test
@@ -89,7 +89,7 @@ check: ## Run all quality checks (YAML, lint, type, security) with error summary
 	@echo ""
 	@failed=0; \
 	echo "1/4 Checking YAML syntax..."; \
-	if $(MAKE) -s check-yaml 2>&1 | grep -v "^make"; then \
+	if $(MAKE) -s check-yaml 2>&1; then \
 		echo "  ✓ YAML validation passed"; \
 	else \
 		echo "  ✗ YAML validation failed"; \
@@ -97,7 +97,7 @@ check: ## Run all quality checks (YAML, lint, type, security) with error summary
 	fi; \
 	echo ""; \
 	echo "2/4 Checking code style (ruff)..."; \
-	if $(MAKE) -s lint-check 2>&1 | grep -v "^make"; then \
+	if $(MAKE) -s lint-check 2>&1; then \
 		echo "  ✓ Lint check passed"; \
 	else \
 		echo "  ✗ Lint check failed"; \
@@ -105,7 +105,7 @@ check: ## Run all quality checks (YAML, lint, type, security) with error summary
 	fi; \
 	echo ""; \
 	echo "3/4 Checking types (mypy)..."; \
-	if $(MAKE) -s typecheck 2>&1 | grep -v "^make"; then \
+	if $(MAKE) -s typecheck 2>&1; then \
 		echo "  ✓ Type check passed"; \
 	else \
 		echo "  ✗ Type check failed"; \
@@ -113,7 +113,7 @@ check: ## Run all quality checks (YAML, lint, type, security) with error summary
 	fi; \
 	echo ""; \
 	echo "4/4 Checking security (bandit)..."; \
-	if $(MAKE) -s security 2>&1 | grep -v "^make"; then \
+	if $(MAKE) -s security 2>&1; then \
 		echo "  ✓ Security scan passed"; \
 	else \
 		echo "  ✗ Security scan failed"; \

@@ -75,7 +75,10 @@ repos:
 
       # - id: config-validation
       #   name: "Configuration Validation"
-      #   entry: sh -c '. venv/bin/activate && python -c "import yaml; import calendarbot.config.settings; print(\"✅ Configuration validation passed\")"'
+      #   entry: >
+      #     sh -c '. venv/bin/activate && python -c
+      #     "import yaml; import calendarbot.config.settings;
+      #     print(\"✅ Configuration validation passed\")"'
       #   language: system
       #   pass_filenames: false
       #   files: ^(config/.*\.py|.*\.yaml|.*\.yml)$
