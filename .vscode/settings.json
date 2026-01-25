@@ -10,23 +10,10 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "python.testing.autoTestDiscoverOnSaveEnabled": false,
-    "mypy-type-checker.cwd": "${workspaceFolder}",
-    "mypy-type-checker.args": [
-        "exclude = [     \"venv/\",     \".venv/\",     \"build/\",     \"dist/\",     \"tests/\",     \"backup/\",     \"scripts/\" ]"
-    ],
-    "bandit.ignorePatterns": [
-        "exclude = [     \"venv/\",     \".venv/\",     \"build/\",     \"dist/\",     \"tests/\",     \"backup/\",     \"scripts/\" ]"
-    ],
     "testing.automaticallyOpenPeekView": "never",
     "testing.gutterEnabled": true,
     "testing.followRunningTest": true,
     "testing.defaultGutterClickAction": "run",
-    "terminal.integrated.defaultProfile.linux": "sh",
-    "terminal.integrated.profiles.linux": {
-        "sh": {
-            "path": "/usr/bin/bash"
-        }
-    },
     "testing.coverageToolbarEnabled": true,
     "python.analysis.exclude": [
         "calendarbot/**",

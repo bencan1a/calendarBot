@@ -2,32 +2,46 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "node",
-            "name": "Debug Jest Tests",
+            "name": "Python: Current Test File",
+            "type": "debugpy",
             "request": "launch",
-            "runtimeExecutable": "npx",
-            "runtimeArgs": [
-                "jest",
-                "--runInBand",
-                "--testPathPatterns=tests/__tests__"
+            "module": "pytest",
+            "args": [
+                "${file}",
+                "-v",
+                "-s"
             ],
-            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
-            "internalConsoleOptions": "neverOpen"
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         },
         {
-            "type": "node",
-            "name": "Debug Current Jest Test",
+            "name": "Python: All Lite Tests",
+            "type": "debugpy",
             "request": "launch",
-            "runtimeExecutable": "npx",
-            "runtimeArgs": [
-                "jest",
-                "--runInBand",
-                "${relativeFile}"
+            "module": "pytest",
+            "args": [
+                "tests/lite/",
+                "-v"
             ],
-            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
-            "internalConsoleOptions": "neverOpen"
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Python: CalendarBot Lite Server",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "calendarbot_lite",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }
