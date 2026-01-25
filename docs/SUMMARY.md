@@ -1,5 +1,5 @@
 # CalendarBot Component Summary
-*Generated: 2026-01-25 02:56:22 UTC*
+*Generated: 2026-01-25 05:53:48 UTC*
 
 ## Component Index
 
@@ -66,6 +66,9 @@
 
 ### `scripts/`
 - `scripts/performance_benchmark_lite.py`
+
+### `ui/`
+- `ui/__init__.py`
 
 ## Quick Links
 - [Full Context](CONTEXT.md)

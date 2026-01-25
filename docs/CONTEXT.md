@@ -1,5 +1,5 @@
 # CalendarBot Context
-*Generated: 2026-01-25 02:56:22 UTC*
+*Generated: 2026-01-25 05:53:48 UTC*
 
 ---
 
@@ -2534,10 +2534,10 @@ light so the package can be inspected without pulling in heavy runtime dependenc
 **Functions**:
 
 - **run_server()**
-  Start the calendarbot_lite server.
+  Start the calendarbot_lite server (with optional UI).
 
 This function attempts to import the runtime server implementation using
-importlib so we can capture and report im...
+importlib so we can ca...
 
 #### `__main__.py`
 
@@ -2598,3 +2598,35 @@ Args:
 
 This creates repeated VEVENT blocks until the approximate size is reached.
 If i...
+
+### Package: `ui`
+
+#### `ui/__init__.py`
+
+UI integration for calendarbot_lite.
+
+Provides adapters to run framebuffer_ui with the calendarbot_lite backend.
+Supports both embedded backend (local) and remote backend connection modes,
+plus windowed vs fullscreen display options.
+
+**Classes**:
+
+- **UIError**
+  Base exception for UI integration errors.
+
+- **BackendConnectionError**
+  Raised when cannot connect to backend.
+
+- **DisplayInitError**
+  Raised when display initialization fails.
+
+**Functions**:
+
+- **configure_display_mode()**
+  Configure SDL environment variables for display mode.
+
+Args:
+    mode: Display mode - either 'window' or 'fullscreen'
+
+Raises:
+    ValueError: If mode...
