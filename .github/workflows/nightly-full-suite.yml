@@ -7,6 +7,9 @@ on:
   workflow_dispatch:
     # Allow manual trigger
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false  # Let nightly tests complete
