@@ -1,15 +1,6 @@
 name: Documentation Self-Healing
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'docs/**'
-      - 'calendarbot_lite/**'
-      - 'agent-projects/**'
-      - 'pyproject.toml'
-      - '*.json'
   schedule:
     # Nightly at 2 AM UTC
     - cron: '0 2 * * *'
