@@ -310,8 +310,10 @@ async def run_with_framebuffer_ui(
         effective_url = f"http://{host}:{port}"
 
         # Wait for backend to be ready (polls health endpoint until initialized)
+        # Use longer timeout for local backend on resource-constrained devices
+        # (initial ICS refresh can take 60+ seconds on Pi Zero 2)
         logger.info("Waiting for backend initialization at %s", effective_url)
-        await _wait_for_backend_ready(effective_url)
+        await _wait_for_backend_ready(effective_url, max_wait_seconds=120)
         logger.info("Backend is ready and initialized")
 
     else:  # remote mode
@@ -322,8 +324,9 @@ async def run_with_framebuffer_ui(
         logger.info("Connecting to remote backend: %s", effective_url)
 
         # Wait for remote backend to be ready
+        # Use moderate timeout for remote backend (may need initial refresh)
         logger.info("Waiting for remote backend to be ready")
-        await _wait_for_backend_ready(effective_url)
+        await _wait_for_backend_ready(effective_url, max_wait_seconds=60)
         logger.info("Remote backend is ready")
 
     # Step 3: Configure framebuffer UI to use the backend
