@@ -13,8 +13,10 @@
 [Unit]
 Description=CalendarBot Framebuffer Display for %i
 Documentation=https://github.com/bencan1a/calendarbot
-After=network-online.target
+After=network-online.target systemd-user-sessions.service plymouth-quit.service
 Wants=network-online.target
+Conflicts=getty@tty1.service
+After=getty@tty1.service
 
 # Optional: Require backend service on same machine
 # Uncomment if backend runs on localhost
@@ -30,7 +32,9 @@ Group=%i
 WorkingDirectory=/home/%i/calendarbot
 
 # Environment variables for framebuffer mode
-Environment="SDL_VIDEODRIVER=kmsdrm"
+# Note: SDL_VIDEODRIVER is auto-detected (tries kmsdrm → fbcon → dummy)
+# Uncomment below to force a specific driver:
+# Environment="SDL_VIDEODRIVER=fbcon"
 Environment="SDL_NOMOUSE=1"
 Environment="SDL_FBDEV=/dev/fb0"
 
@@ -54,16 +58,17 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=calendarbot-display
 
-# Security hardening
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/tmp /var/tmp
-NoNewPrivileges=true
-PrivateTmp=true
+# Security hardening - DISABLED for framebuffer access troubleshooting
+# TODO: Re-enable once framebuffer access is working
+# ProtectSystem=strict
+# ProtectHome=read-only
+# ReadWritePaths=/tmp /var/tmp
+# NoNewPrivileges=true
+# PrivateTmp=true
 
 # Allow access to graphics devices
-DeviceAllow=/dev/dri/card0 rw
-DeviceAllow=/dev/fb0 rw
+#DeviceAllow=/dev/dri/card0 rw
+#DeviceAllow=/dev/fb0 rw
 SupplementaryGroups=video
 
 [Install]

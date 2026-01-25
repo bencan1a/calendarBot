@@ -57,7 +57,33 @@ sudo apt-get install -y libsdl2-2.0-0 libsdl2-ttf-2.0-0 libdrm2 libgbm1
 python3 --version  # Should be 3.12 or higher
 ```
 
-### Automated Installation
+### Recommended: TTY Auto-Login Installation
+
+**This is the recommended approach** - it runs the framebuffer UI from a TTY login, which gives pygame proper access to framebuffer drivers.
+
+```bash
+# Run installer as root
+cd ~/calendarbot
+sudo ./framebuffer_ui/install-tty-kiosk.sh USERNAME
+
+# Example:
+sudo ./framebuffer_ui/install-tty-kiosk.sh bencan
+
+# Reboot to start kiosk
+sudo reboot
+```
+
+The installer will:
+1. Make startup script executable
+2. Configure auto-login on TTY1
+3. Add kiosk startup to .bash_profile
+4. Disable systemd services (if any)
+
+**See [INSTALL_TTY_KIOSK.md](INSTALL_TTY_KIOSK.md) for complete documentation.**
+
+### Alternative: Systemd Service (May Not Work)
+
+⚠️ **Note:** Systemd service may not work properly on Raspberry Pi because pygame's SDL2 framebuffer drivers require TTY context. Use TTY auto-login instead.
 
 ```bash
 # Run installer as root

@@ -75,6 +75,9 @@ class FramebufferRenderer:
         if "SDL_NOMOUSE" not in os.environ:
             os.environ["SDL_NOMOUSE"] = "1"
 
+        # Disable audio to avoid ALSA/PulseAudio errors on headless systems
+        os.environ["SDL_AUDIODRIVER"] = "dummy"
+
         # Determine platform
         system = platform.system()
 
