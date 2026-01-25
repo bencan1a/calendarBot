@@ -72,60 +72,102 @@ class FramebufferRenderer:
     def _init_pygame(self) -> None:
         """Initialize pygame with framebuffer backend."""
         # Set SDL environment variables for framebuffer mode
-        # These can be overridden by the user if needed
-        if "SDL_VIDEODRIVER" not in os.environ or not os.environ.get("SDL_VIDEODRIVER"):
-            # Choose appropriate driver based on platform
-            system = platform.system()
-            if system == "Linux":
-                # Raspberry Pi: Use DRM/KMS (modern, hardware-accelerated)
-                # Can also use 'fbcon' for legacy framebuffer
-                os.environ["SDL_VIDEODRIVER"] = "kmsdrm"
-                logger.debug("SDL_VIDEODRIVER not set, using default for Linux: kmsdrm")
-            elif system == "Darwin":
-                # Mac: Use native Cocoa driver (auto-detect)
-                # Don't set SDL_VIDEODRIVER, let pygame auto-detect
-                logger.debug("SDL_VIDEODRIVER not set, letting pygame auto-detect for Mac (Cocoa)")
-            elif system == "Windows":
-                # Windows: Use native Windows driver (auto-detect)
-                logger.debug("SDL_VIDEODRIVER not set, letting pygame auto-detect for Windows")
-            else:
-                # Unknown platform: Let pygame auto-detect
-                logger.warning("Unknown platform %s, letting SDL auto-detect driver", system)
-
         if "SDL_NOMOUSE" not in os.environ:
             os.environ["SDL_NOMOUSE"] = "1"
 
-        # Initialize pygame
-        pygame.init()
-
-        # Create display surface
-        # Only use fullscreen on Linux (Raspberry Pi framebuffer mode)
-        # Mac/Windows use windowed mode for testing
+        # Determine platform
         system = platform.system()
+
+        # Try to initialize pygame with appropriate video driver
         if system == "Linux":
-            # Raspberry Pi: Try fullscreen framebuffer mode
-            try:
-                self.screen = pygame.display.set_mode(
-                    (self.width, self.height), pygame.FULLSCREEN
-                )
-                logger.info("Framebuffer display created (fullscreen)")
-            except pygame.error as e:
-                logger.warning(
-                    "Failed to create fullscreen display, falling back to windowed: %s",
-                    e,
-                )
-                # Fallback to windowed mode for testing
-                self.screen = pygame.display.set_mode((self.width, self.height))
-                logger.info("Windowed display created for testing")
+            self._init_pygame_linux()
         else:
-            # Mac/Windows: Use windowed mode for testing
-            self.screen = pygame.display.set_mode((self.width, self.height))
-            logger.info("Windowed display created for testing (%s)", system)
+            # Mac/Windows: Let pygame auto-detect, use windowed mode for testing
+            self._init_pygame_desktop(system)
 
         pygame.display.set_caption("CalendarBot")
 
         # Hide mouse cursor
         pygame.mouse.set_visible(False)
+
+    def _init_pygame_linux(self) -> None:
+        """Initialize pygame on Linux with driver fallback.
+
+        Tries video drivers in order of preference:
+        1. kmsdrm - Modern DRM/KMS (hardware-accelerated)
+        2. fbcon - Legacy framebuffer console
+        3. dummy - Software-only fallback
+        """
+        # If user has explicitly set SDL_VIDEODRIVER, respect it
+        user_driver = os.environ.get("SDL_VIDEODRIVER")
+        if user_driver:
+            logger.info("Using user-specified SDL_VIDEODRIVER: %s", user_driver)
+            pygame.init()
+            try:
+                self.screen = pygame.display.set_mode(
+                    (self.width, self.height), pygame.FULLSCREEN
+                )
+                logger.info("Framebuffer display created (fullscreen, driver=%s)", user_driver)
+                return
+            except pygame.error as e:
+                logger.warning(
+                    "Failed with user-specified driver %s: %s", user_driver, e
+                )
+                # Fall through to try standard drivers
+
+        # Try drivers in order of preference
+        drivers = [
+            ("kmsdrm", "DRM/KMS (hardware-accelerated)"),
+            ("fbcon", "legacy framebuffer console"),
+            ("dummy", "software-only fallback"),
+        ]
+
+        for driver, description in drivers:
+            try:
+                logger.debug("Trying SDL_VIDEODRIVER=%s (%s)", driver, description)
+                os.environ["SDL_VIDEODRIVER"] = driver
+
+                # Reinitialize pygame with new driver
+                if pygame.get_init():
+                    pygame.quit()
+                pygame.init()
+
+                # Try fullscreen mode
+                self.screen = pygame.display.set_mode(
+                    (self.width, self.height), pygame.FULLSCREEN
+                )
+                logger.info(
+                    "Framebuffer display created (fullscreen, driver=%s)", driver
+                )
+                return
+
+            except pygame.error as e:
+                logger.debug("Driver %s failed: %s", driver, e)
+                continue
+
+        # All drivers failed - raise error
+        raise RuntimeError(
+            "Failed to initialize pygame with any video driver. "
+            "Tried: kmsdrm, fbcon, dummy. "
+            "Check that /dev/fb0 exists and you have permission to access it."
+        )
+
+    def _init_pygame_desktop(self, system: str) -> None:
+        """Initialize pygame on desktop platforms (Mac/Windows).
+
+        Args:
+            system: Platform name from platform.system()
+        """
+        # Let pygame auto-detect the appropriate driver
+        logger.debug(
+            "SDL_VIDEODRIVER not set, letting pygame auto-detect for %s", system
+        )
+
+        pygame.init()
+
+        # Use windowed mode for testing
+        self.screen = pygame.display.set_mode((self.width, self.height))
+        logger.info("Windowed display created for testing (%s)", system)
 
     def _load_fonts(self) -> None:
         """Load TTF fonts for rendering.

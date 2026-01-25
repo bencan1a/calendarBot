@@ -73,13 +73,13 @@ def configure_display_mode(mode: str) -> None:
 
     else:  # fullscreen
         # Fullscreen mode (production on Raspberry Pi)
-        if "SDL_VIDEODRIVER" not in os.environ:
-            if system == "Linux":
-                # Use kmsdrm for direct framebuffer access on Linux
-                os.environ["SDL_VIDEODRIVER"] = "kmsdrm"
-                logger.debug("Set SDL_VIDEODRIVER=kmsdrm for fullscreen mode on Linux")
-            else:
-                logger.debug("Using default SDL driver for fullscreen mode on %s", system)
+        # Note: Video driver auto-detection is handled by framebuffer_ui.renderer
+        # It will try kmsdrm → fbcon → dummy automatically
+        # Users can override by setting SDL_VIDEODRIVER environment variable
+        if "SDL_VIDEODRIVER" in os.environ:
+            logger.debug("Using user-specified SDL_VIDEODRIVER=%s", os.environ["SDL_VIDEODRIVER"])
+        else:
+            logger.debug("Video driver will be auto-detected (kmsdrm → fbcon → dummy)")
 
         # Hide mouse cursor in fullscreen mode
         if "SDL_NOMOUSE" not in os.environ:

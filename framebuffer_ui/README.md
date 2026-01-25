@@ -138,13 +138,15 @@ This allows you to run the backend on a more powerful machine while keeping the 
 cd ~/calendarbot
 source venv/bin/activate
 
-# Set framebuffer mode
-export SDL_VIDEODRIVER=kmsdrm  # or 'fbcon'
-export SDL_NOMOUSE=1
+# Run the UI (video driver auto-detected)
+python -m framebuffer_ui
 
-# Run the UI
+# Or override video driver if needed
+export SDL_VIDEODRIVER=fbcon  # Force specific driver
 python -m framebuffer_ui
 ```
+
+**Note:** The UI automatically tries video drivers in order: `kmsdrm` → `fbcon` → `dummy`. You only need to set `SDL_VIDEODRIVER` manually if you want to force a specific driver.
 
 ### systemd Service (Production)
 
@@ -255,15 +257,28 @@ sudo reboot
 
 ### SDL Error: No available video device
 
-```bash
-# Check if DRM/KMS devices exist
-ls -la /dev/dri/
-ls -la /dev/fb0
+The UI automatically tries multiple video drivers (kmsdrm → fbcon → dummy), but if all fail:
 
-# Try alternative SDL driver
+```bash
+# Check if framebuffer/DRM devices exist
+ls -la /dev/dri/  # DRM/KMS devices (for kmsdrm driver)
+ls -la /dev/fb0   # Legacy framebuffer (for fbcon driver)
+
+# Check permissions
+groups  # Should include 'video' group
+
+# View detailed error logs
+journalctl -u calendarbot-display@USERNAME.service -n 50
+
+# Force specific driver (for debugging)
 export SDL_VIDEODRIVER=fbcon
 python -m framebuffer_ui
 ```
+
+**Common causes:**
+- Missing `/dev/fb0` or `/dev/dri/card0` - Driver modules not loaded
+- Permission denied - User not in `video` group
+- Display already in use - Another process using the framebuffer
 
 ### Memory Usage Higher Than Expected
 
