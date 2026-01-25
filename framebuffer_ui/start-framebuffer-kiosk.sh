@@ -43,7 +43,7 @@ clear
 
 # Run framebuffer UI
 echo "Starting CalendarBot Framebuffer UI..."
-python -m framebuffer_ui
+python -m calendarbot_lite --ui framebuffer --backend local
 
 # If it exits, wait before returning to shell
 echo ""
