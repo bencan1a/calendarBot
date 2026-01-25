@@ -39,6 +39,33 @@ Examples:
         help="Port number for the web server (default: 8080, or from CALENDARBOT_WEB_PORT env var)",
     )
 
+    parser.add_argument(
+        "--ui",
+        choices=["none", "framebuffer"],
+        default="none",
+        help="UI display mode (default: none)",
+    )
+
+    parser.add_argument(
+        "--display-mode",
+        choices=["window", "fullscreen"],
+        default="fullscreen",
+        help="Display mode for UI (default: fullscreen)",
+    )
+
+    parser.add_argument(
+        "--backend",
+        choices=["local", "remote"],
+        default="local",
+        help="Backend type (default: local)",
+    )
+
+    parser.add_argument(
+        "--backend-url",
+        metavar="URL",
+        help="URL for remote backend (required when --backend=remote)",
+    )
+
     return parser
 
 
@@ -50,6 +77,17 @@ def main() -> NoReturn:
     """
     parser = _create_parser()
     args = parser.parse_args()
+
+    # Validate argument combinations
+    if args.ui == "framebuffer" and args.backend == "remote":
+        if not args.backend_url:
+            parser.error("--backend-url is required when using --backend remote")
+
+    if args.display_mode != "fullscreen" and args.ui == "none":
+        print(
+            "Warning: --display-mode has no effect without --ui framebuffer",
+            file=sys.stderr,
+        )
 
     try:
         run_server(args)

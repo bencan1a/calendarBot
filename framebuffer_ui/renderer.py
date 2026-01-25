@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import platform
 from pathlib import Path
 from typing import Any
 
@@ -72,11 +73,24 @@ class FramebufferRenderer:
         """Initialize pygame with framebuffer backend."""
         # Set SDL environment variables for framebuffer mode
         # These can be overridden by the user if needed
-        if "SDL_VIDEODRIVER" not in os.environ:
-            # Default to kmsdrm (modern, hardware-accelerated)
-            # Can also use 'fbcon' for legacy framebuffer
-            os.environ["SDL_VIDEODRIVER"] = "kmsdrm"
-            logger.debug("SDL_VIDEODRIVER not set, using default: kmsdrm")
+        if "SDL_VIDEODRIVER" not in os.environ or not os.environ.get("SDL_VIDEODRIVER"):
+            # Choose appropriate driver based on platform
+            system = platform.system()
+            if system == "Linux":
+                # Raspberry Pi: Use DRM/KMS (modern, hardware-accelerated)
+                # Can also use 'fbcon' for legacy framebuffer
+                os.environ["SDL_VIDEODRIVER"] = "kmsdrm"
+                logger.debug("SDL_VIDEODRIVER not set, using default for Linux: kmsdrm")
+            elif system == "Darwin":
+                # Mac: Use native Cocoa driver (auto-detect)
+                # Don't set SDL_VIDEODRIVER, let pygame auto-detect
+                logger.debug("SDL_VIDEODRIVER not set, letting pygame auto-detect for Mac (Cocoa)")
+            elif system == "Windows":
+                # Windows: Use native Windows driver (auto-detect)
+                logger.debug("SDL_VIDEODRIVER not set, letting pygame auto-detect for Windows")
+            else:
+                # Unknown platform: Let pygame auto-detect
+                logger.warning("Unknown platform %s, letting SDL auto-detect driver", system)
 
         if "SDL_NOMOUSE" not in os.environ:
             os.environ["SDL_NOMOUSE"] = "1"
@@ -85,19 +99,28 @@ class FramebufferRenderer:
         pygame.init()
 
         # Create display surface
-        try:
-            self.screen = pygame.display.set_mode(
-                (self.width, self.height), pygame.FULLSCREEN
-            )
-            logger.info("Framebuffer display created (fullscreen)")
-        except pygame.error as e:
-            logger.warning(
-                "Failed to create fullscreen display, falling back to windowed: %s",
-                e,
-            )
-            # Fallback to windowed mode for testing
+        # Only use fullscreen on Linux (Raspberry Pi framebuffer mode)
+        # Mac/Windows use windowed mode for testing
+        system = platform.system()
+        if system == "Linux":
+            # Raspberry Pi: Try fullscreen framebuffer mode
+            try:
+                self.screen = pygame.display.set_mode(
+                    (self.width, self.height), pygame.FULLSCREEN
+                )
+                logger.info("Framebuffer display created (fullscreen)")
+            except pygame.error as e:
+                logger.warning(
+                    "Failed to create fullscreen display, falling back to windowed: %s",
+                    e,
+                )
+                # Fallback to windowed mode for testing
+                self.screen = pygame.display.set_mode((self.width, self.height))
+                logger.info("Windowed display created for testing")
+        else:
+            # Mac/Windows: Use windowed mode for testing
             self.screen = pygame.display.set_mode((self.width, self.height))
-            logger.info("Windowed display created for testing")
+            logger.info("Windowed display created for testing (%s)", system)
 
         pygame.display.set_caption("CalendarBot")
 
@@ -255,7 +278,7 @@ class FramebufferRenderer:
         # Background
         pygame.draw.rect(
             self.screen,
-            COLORS["gray-1"],
+            COLORS["gray-2"],
             (0, zone_y, self.width, zone_height),
         )
 

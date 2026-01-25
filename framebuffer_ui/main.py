@@ -79,6 +79,7 @@ class CalendarKioskApp:
                 await self._render_error_screen(str(error))
 
             # Handle pygame events (for clean exit)
+            pygame.event.pump()  # Force event queue update
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     logger.info("Received QUIT event")
@@ -88,9 +89,14 @@ class CalendarKioskApp:
                         logger.info("Received quit key")
                         self.running = False
 
-            # Wait before next update
+            # Wait before next update (interruptible sleep for responsive shutdown)
             if self.running:
-                await asyncio.sleep(self.config.refresh_interval)
+                # Sleep in 0.5-second increments to allow quick shutdown response
+                sleep_remaining = self.config.refresh_interval
+                while sleep_remaining > 0 and self.running:
+                    sleep_chunk = min(0.5, sleep_remaining)
+                    await asyncio.sleep(sleep_chunk)
+                    sleep_remaining -= sleep_chunk
 
         logger.info("Main event loop stopped")
 
@@ -176,10 +182,14 @@ class CalendarKioskApp:
     async def shutdown(self) -> None:
         """Graceful shutdown.
 
-        Cleans up resources in the correct order:
-        1. Stop main loop
+        Stops the main loop and closes resources.
+        Note: Renderer cleanup (pygame.quit) must happen AFTER the main loop
+        exits, since the loop uses pygame event handling.
+
+        Cleanup order:
+        1. Stop main loop (set running = False)
         2. Close API client
-        3. Clean up renderer
+        3. Renderer cleanup is done externally after run() completes
         """
         logger.info("Shutting down...")
 
@@ -187,9 +197,6 @@ class CalendarKioskApp:
 
         # Close API client
         await self.api_client.close()
-
-        # Clean up renderer
-        self.renderer.cleanup()
 
         logger.info("Shutdown complete")
 
@@ -229,7 +236,7 @@ async def main() -> None:
 
     def signal_handler(sig: Any) -> None:
         logger.info("Received signal: %s", sig)
-        asyncio.create_task(app.shutdown())
+        app.running = False  # Immediately stop the loop
 
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
@@ -244,6 +251,9 @@ async def main() -> None:
     finally:
         # Ensure clean shutdown
         await app.shutdown()
+
+        # Clean up pygame (must be done AFTER run() exits)
+        app.renderer.cleanup()
 
 
 if __name__ == "__main__":

@@ -16,11 +16,17 @@ import argparse
 import asyncio
 import logging
 import os
+import platform
 import sys
 from datetime import datetime, timedelta
 
 # Ensure windowed mode for testing
-os.environ["SDL_VIDEODRIVER"] = "x11"  # Force windowed mode
+# Set appropriate SDL driver for each platform
+if platform.system() != "Darwin":
+    # Linux/other: Use x11 for windowed mode testing
+    os.environ["SDL_VIDEODRIVER"] = "x11"
+# Mac: Don't set SDL_VIDEODRIVER - let renderer auto-detect Cocoa
+
 os.environ["SDL_NOMOUSE"] = "0"  # Show mouse for testing
 
 from framebuffer_ui.config import Config

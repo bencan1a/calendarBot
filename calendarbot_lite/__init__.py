@@ -75,7 +75,7 @@ def _init_logging(level_name: Optional[str]) -> None:
 
 
 def run_server(args: Optional[object] = None) -> None:
-    """Start the calendarbot_lite server.
+    """Start the calendarbot_lite server (with optional UI).
 
     This function attempts to import the runtime server implementation using
     importlib so we can capture and report import-time errors more clearly when
@@ -83,17 +83,20 @@ def run_server(args: Optional[object] = None) -> None:
     provides the expected entrypoint ``start_server``, we delegate to it.
 
     Args:
-        args: Optional command line arguments namespace containing --port and other options
+        args: Optional command line arguments namespace containing --port, --ui, and other options
 
     Behavior:
     - Initialize console logging early using CALENDARBOT_LOG_LEVEL (env) if present.
     - After loading any environment/config defaults from the server helper, update
       the log level from cfg['log_level'] when available.
     - Apply command line argument overrides to configuration.
-    - Delegate to the server's start_server(cfg, skipped) entrypoint.
+    - If args.ui == 'framebuffer': Run with framebuffer UI integration
+    - Otherwise: Run backend-only (delegate to server's start_server(cfg, skipped))
     """
     # Initialize early logging so import-time / startup messages are visible.
+    import asyncio
     import os
+    import sys
 
     _init_logging(os.environ.get("CALENDARBOT_LOG_LEVEL"))
 
@@ -151,36 +154,81 @@ def run_server(args: Optional[object] = None) -> None:
         # Do not fail startup due to logging configuration issues.
         logger.debug("Failed to apply configured log level", exc_info=True)
 
-    skipped = None
-    try:
-        creator = getattr(server, "_create_skipped_store_if_available", None)
-        if callable(creator):
-            skipped = creator()
-    except Exception:
+    # Extract UI parameters from args
+    ui_mode = getattr(args, "ui", "none")
+    backend_mode = getattr(args, "backend", "local")
+    display_mode = getattr(args, "display_mode", "fullscreen")
+    backend_url = getattr(args, "backend_url", None)
+
+    # Branch on UI mode
+    if ui_mode == "framebuffer":
+        # Run with framebuffer UI integration
+        logger.info("Starting calendarbot_lite with framebuffer UI")
+
+        # Import UI integration
+        try:
+            from calendarbot_lite.ui import run_with_framebuffer_ui
+        except ImportError as exc:
+            logger.error("framebuffer_ui module not available: %s", exc)
+            print("\nError: framebuffer_ui dependencies not installed.", file=sys.stderr)
+            print("Install with: pip install pygame", file=sys.stderr)
+            sys.exit(1)
+
+        # Validate arguments
+        if backend_mode == "remote" and backend_url is None:
+            logger.error("--backend-url required when --backend remote")
+            print("\nError: --backend-url is required when using --backend remote", file=sys.stderr)
+            sys.exit(1)
+
+        # Run with UI (blocking)
+        try:
+            asyncio.run(
+                run_with_framebuffer_ui(
+                    backend_mode=backend_mode,
+                    display_mode=display_mode,
+                    backend_url=backend_url,
+                    backend_config=cfg if backend_mode == "local" else None,
+                )
+            )
+        except KeyboardInterrupt:
+            logger.info("Interrupted by user")
+            sys.exit(130)  # Standard exit code for SIGINT (128 + 2)
+        except Exception:
+            logger.exception("UI terminated unexpectedly")
+            sys.exit(1)
+
+    else:
+        # Run backend-only (preserve existing behavior)
+        logger.info("Starting calendarbot_lite backend (no UI)")
+
         skipped = None
+        try:
+            creator = getattr(server, "_create_skipped_store_if_available", None)
+            if callable(creator):
+                skipped = creator()
+        except Exception:
+            skipped = None
 
-    start_fn = getattr(server, "start_server", None)
-    if not callable(start_fn):
-        raise NotImplementedError("calendarbot_lite server implementation missing start_server().")
+        start_fn = getattr(server, "start_server", None)
+        if not callable(start_fn):
+            raise NotImplementedError("calendarbot_lite server implementation missing start_server().")
 
-    logger.info("Starting calendarbot_lite server")
+        # Diagnostic startup information to help developers verify config/logging at launch.
+        try:
+            root_logger = logging.getLogger()
+            logger.debug(
+                "Effective root log level: %s", logging.getLevelName(root_logger.getEffectiveLevel())
+            )
+            # Only surface a small set of config keys to avoid leaking secrets into logs.
+            if isinstance(cfg, dict):
+                diagnostic_cfg = {
+                    k: cfg.get(k) for k in ("sources", "log_level", "server_bind", "server_port")
+                }
+            else:
+                diagnostic_cfg = str(cfg)
+            logger.debug("Resolved configuration (diagnostic): %s", diagnostic_cfg)
+        except Exception:
+            logger.debug("Failed to emit startup diagnostics", exc_info=True)
 
-    # Diagnostic startup information to help developers verify config/logging at launch.
-    try:
-        root_logger = logging.getLogger()
-        logger.debug(
-            "Effective root log level: %s", logging.getLevelName(root_logger.getEffectiveLevel())
-        )
-        # Only surface a small set of config keys to avoid leaking secrets into logs.
-        if isinstance(cfg, dict):
-            diagnostic_cfg = {
-                k: cfg.get(k) for k in ("sources", "log_level", "server_bind", "server_port")
-            }
-        else:
-            diagnostic_cfg = str(cfg)
-        logger.debug("Resolved configuration (diagnostic): %s", diagnostic_cfg)
-    except Exception:
-        logger.debug("Failed to emit startup diagnostics", exc_info=True)
-
-    # Delegate and block until shutdown. Any exceptions will propagate to the caller.
-    start_fn(cfg, skipped)
+        # Delegate and block until shutdown. Any exceptions will propagate to the caller.
+        start_fn(cfg, skipped)

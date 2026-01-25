@@ -75,6 +75,12 @@ def register_api_routes(
             except Exception as e:
                 logger.warning("Failed to get rate limiter stats: %s", e)
 
+        # Check initialization status for UI polling
+        initial_refresh_complete = health_tracker.get_last_refresh_success_timestamp() is not None
+        event_window_initialized = False
+        async with window_lock:
+            event_window_initialized = len(event_window_ref[0]) > 0
+
         # Build comprehensive health response
         health_data = {
             "status": health_status.status,
@@ -86,6 +92,8 @@ def register_api_routes(
             "data_status": {
                 "event_count": health_status.event_count,
                 "last_refresh_success_age_s": health_status.last_refresh_success_age_seconds,
+                "initial_refresh_complete": initial_refresh_complete,
+                "event_window_initialized": event_window_initialized,
             },
             "background_tasks": health_status.background_tasks,
             "display_probe": {
@@ -126,12 +134,19 @@ def register_api_routes(
 
         if result is None:
             # No upcoming events found
+            logger.debug(" /api/whats-next result: no upcoming meetings")
             return web.json_response({"meeting": None}, status=200)
 
         # Unpack result and build response
         event, seconds_until = result
         model = event_to_api_model(event)
         model["seconds_until_start"] = seconds_until
+
+        logger.debug(
+            " /api/whats-next result: event '%s' in %d seconds",
+            event.subject,
+            seconds_until,
+        )
 
         return web.json_response({"meeting": model}, status=200)
 

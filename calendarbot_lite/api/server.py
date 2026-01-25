@@ -1169,12 +1169,15 @@ async def _refresh_loop(
     logger.debug(" _refresh_loop starting with interval %d seconds", interval)
 
     # Perform an initial refresh immediately.
-    logger.debug(" Starting initial refresh")
+    logger.info("Starting initial backend refresh (fetching and parsing ICS sources)")
     try:
         await _refresh_once(
             config, skipped_store, event_window_ref, window_lock, shared_http_client, response_cache
         )
-        logger.debug(" Initial refresh completed")
+        # Get event count for logging
+        async with window_lock:
+            event_count = len(event_window_ref[0])
+        logger.info("Initial refresh completed successfully - backend ready to serve (%d events)", event_count)
     except Exception:
         logger.exception(
             "Initial refresh failed during _refresh_loop; config: %r, skipped_store: %r",

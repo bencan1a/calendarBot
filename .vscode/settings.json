@@ -33,5 +33,6 @@
     "python.analysis.diagnosticSeverityOverrides": {
         "reportMissingImports": "warning",
         "reportMissingTypeStubs": "none"
-    }
+    },
+    "makefile.configureOnOpen": false
 }

@@ -90,7 +90,12 @@ class CalendarAPIClient:
                 self.consecutive_failures = 0
                 self.last_successful_data = data
 
-                logger.debug("API fetch successful")
+                # Log response details
+                has_meeting = data.get("meeting") is not None
+                logger.debug(
+                    "API fetch successful - has_meeting: %s",
+                    has_meeting,
+                )
 
                 return data
 
