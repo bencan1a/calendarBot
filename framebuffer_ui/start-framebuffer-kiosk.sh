@@ -38,14 +38,36 @@ export SDL_NOMOUSE=1
 export SDL_FBDEV=/dev/fb0
 export SDL_AUDIODRIVER=dummy
 
+# Create log directory
+LOG_DIR="$HOME/calendarbot/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/framebuffer-kiosk-$(date +%Y%m%d-%H%M%S).log"
+
 # Clear the screen
 clear
 
-# Run framebuffer UI
+# Run framebuffer UI with detailed logging
 echo "Starting CalendarBot Framebuffer UI..."
-python -m calendarbot_lite --ui framebuffer --backend local
-
-# If it exits, wait before returning to shell
+echo "Logging to: $LOG_FILE"
 echo ""
-echo "CalendarBot exited. Press Enter to continue..."
+
+# Enable debug logging
+export CALENDARBOT_LOG_LEVEL=DEBUG
+
+# Run and capture all output
+python -m calendarbot_lite --ui framebuffer --backend local 2>&1 | tee "$LOG_FILE"
+
+# If it exits, show exit status and wait
+EXIT_CODE=$?
+echo ""
+echo "CalendarBot exited with code: $EXIT_CODE"
+echo "Log saved to: $LOG_FILE"
+echo ""
+if [ $EXIT_CODE -ne 0 ]; then
+    echo "=== Last 20 lines of log ==="
+    tail -n 20 "$LOG_FILE"
+    echo "=========================="
+fi
+echo ""
+echo "Press Enter to continue..."
 read
