@@ -43,6 +43,7 @@ class HealthTracker:
         self._last_render_probe: Optional[float] = None
         self._last_render_probe_ok: bool = False
         self._last_render_probe_notes: Optional[str] = None
+        self._source_health: dict[str, dict[str, Any]] = {}
 
     def record_refresh_attempt(self) -> None:
         """Record that a refresh attempt was made."""
@@ -237,6 +238,46 @@ class HealthTracker:
             Notes from last render probe, or None if no notes
         """
         return self._last_render_probe_notes
+
+    def record_source_failure(self, source_url: str, error_msg: str) -> None:
+        """Record a source fetch failure.
+
+        Args:
+            source_url: URL of the failing source
+            error_msg: Error message from the failure
+        """
+        if source_url not in self._source_health:
+            self._source_health[source_url] = {
+                "consecutive_failures": 0,
+                "last_error": None,
+                "last_success": None,
+                "last_error_time": None,
+            }
+
+        self._source_health[source_url]["consecutive_failures"] += 1
+        self._source_health[source_url]["last_error"] = error_msg
+        self._source_health[source_url]["last_error_time"] = time.time()
+
+    def record_source_success(self, source_url: str) -> None:
+        """Record a source fetch success.
+
+        Args:
+            source_url: URL of the successful source
+        """
+        if source_url not in self._source_health:
+            self._source_health[source_url] = {}
+
+        self._source_health[source_url]["consecutive_failures"] = 0
+        self._source_health[source_url]["last_error"] = None
+        self._source_health[source_url]["last_success"] = time.time()
+
+    def get_source_health_summary(self) -> dict[str, Any]:
+        """Get summary of all source health statuses.
+
+        Returns:
+            Dictionary mapping source URLs to health status dictionaries
+        """
+        return dict(self._source_health)
 
 
 def get_system_diagnostics() -> SystemDiagnostics:

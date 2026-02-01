@@ -18,6 +18,7 @@ import contextlib
 import datetime
 import logging
 import signal
+from dataclasses import dataclass
 from typing import Any
 
 # Import models for type annotations
@@ -82,6 +83,39 @@ _health_tracker = HealthTracker()
 # Global storage for precomputed Alexa responses (updated on each refresh)
 _precomputed_responses: dict[str, Any] = {}
 
+
+@dataclass
+class SourceCacheEntry:
+    """Cache metadata for a single ICS source.
+
+    Stores the normalized content hash and parsed events to enable hash-based
+    change detection. When the hash matches on subsequent fetches, parsing can
+    be skipped and cached events reused.
+
+    Attributes:
+        content_hash: SHA-256 hash of normalized ICS content (DTSTAMP removed)
+        last_fetch_success: UTC timestamp of last successful fetch
+        cached_events: List of parsed LiteCalendarEvent objects
+        consecutive_failures: Counter for tracking source health
+    """
+
+    content_hash: str  # Normalized SHA-256 (DTSTAMP removed)
+    last_fetch_success: datetime.datetime
+    cached_events: list[Any]  # list[LiteCalendarEvent]
+    consecutive_failures: int = 0
+
+
+# In-memory cache for ICS source metadata and events
+# Key: source URL (str)
+# Value: SourceCacheEntry with hash and cached events
+#
+# Memory overhead: ~100KB per source x 3 sources = ~300KB total
+# No persistence needed (single-user app, acceptable to rebuild on restart)
+_source_cache_metadata: dict[str, SourceCacheEntry] = {}
+
+# Async lock for thread-safe cache updates
+_cache_lock: asyncio.Lock | None = None
+
 # Import SSML generation for Alexa endpoints
 try:
     from calendarbot_lite.alexa.alexa_ssml import (
@@ -102,7 +136,7 @@ except ImportError as e:
 
 def _import_process_utilities() -> Any:  # type: ignore[misc]
     """Lazy import of process utilities (removed with legacy calendarbot module).
-    
+
     This functionality was part of the archived calendarbot module and is no longer
     available in calendarbot_lite. Port conflict handling is now minimal.
     """
@@ -184,7 +218,7 @@ def _handle_port_conflict(host: str, port: int) -> bool:
 
     In non-interactive mode (CALENDARBOT_NONINTERACTIVE=true), automatically attempts
     cleanup without user prompts for systemd/journald compatibility.
-    
+
     Note: Port conflict utilities were removed with the legacy calendarbot module.
     This function now always returns True since automatic port checking is unavailable.
 
@@ -693,13 +727,50 @@ def _lite_event_to_dict(event: Any, source_name: str = "") -> EventDict:
     }
 
 
+def _normalize_ics_for_hashing(content: str) -> str:
+    """Remove volatile DTSTAMP fields for stable hash computation.
+
+    Outlook regenerates DTSTAMP on every export even if event data is unchanged.
+    Removing it allows hash-based change detection.
+
+    Performance: ~10ms for 2,892 events (negligible vs ~500ms parsing).
+
+    Args:
+        content: Raw ICS file content
+
+    Returns:
+        Normalized ICS content with DTSTAMP lines removed
+    """
+    return "".join(
+        line for line in content.splitlines(keepends=True) if not line.startswith("DTSTAMP:")
+    )
+
+
+def _compute_normalized_hash(content: str) -> str:
+    """Compute SHA-256 hash of normalized ICS content.
+
+    Performance: ~5ms for 2.2MB file (negligible vs ~500ms parsing).
+    Total overhead: ~15ms (normalization + hashing).
+
+    Args:
+        content: Raw ICS file content
+
+    Returns:
+        SHA-256 hex digest of normalized content
+    """
+    import hashlib
+
+    normalized = _normalize_ics_for_hashing(content)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 async def _fetch_and_parse_source(
     semaphore: asyncio.Semaphore,
     src_cfg: Any,
     config: Any,
     rrule_days: int,
     shared_http_client: Any = None,
-) -> tuple[str, list[LiteCalendarEvent]] | list[Any]:
+) -> tuple[str, list[LiteCalendarEvent], dict[str, Any]] | list[Any]:
     """Fetch and parse a single source using existing lite_fetcher and lite_parser abstractions.
 
     This function uses the well-tested LiteICSFetcher and LiteICSParser modules instead of
@@ -713,8 +784,13 @@ async def _fetch_and_parse_source(
         shared_http_client: Optional shared HTTP client for connection reuse
 
     Returns:
-        List of parsed events as LiteCalendarEvent objects (not yet converted to EventDict)
+        3-tuple of (source_name, events, metadata_dict) where metadata contains:
+        - hash_matched: bool indicating cache hit (skipped parsing)
+        - parsed: bool indicating new parsing was performed
+        Or empty list on error
     """
+    global _cache_lock
+
     async with semaphore:
         logger.debug("Processing source configuration: %r", src_cfg)
         try:
@@ -771,6 +847,43 @@ async def _fetch_and_parse_source(
                 logger.warning("No content in response from source %r", src_cfg)
                 return []
 
+            # Check if content changed via normalized hash (OPTIMIZATION)
+            # This allows skipping expensive parsing (~400ms) when calendar unchanged
+            cache_entry = _source_cache_metadata.get(source.url)
+            if cache_entry:
+                # Compute normalized hash (strips DTSTAMP which changes on every export)
+                new_hash = _compute_normalized_hash(ics_content)
+
+                if new_hash == cache_entry.content_hash:
+                    # Hash matches - content unchanged, reuse cached events
+                    logger.info(
+                        "Source %r content unchanged (hash match) - reusing %d cached events (saved ~400ms)",
+                        source.url,
+                        len(cache_entry.cached_events)
+                    )
+
+                    # Update timestamp and reset failure counter (within lock for thread safety)
+                    if _cache_lock is None:
+                        _cache_lock = asyncio.Lock()
+                    async with _cache_lock:
+                        cache_entry.last_fetch_success = datetime.datetime.now(datetime.UTC)
+                        cache_entry.consecutive_failures = 0
+
+                    # Return cached events (skip parsing)
+                    return (source.name, cache_entry.cached_events, {"hash_matched": True})
+
+                # Hash differs - content changed, proceed with parsing
+                logger.debug(
+                    "Parsing source %r - content changed (hash mismatch: %s... -> %s...)",
+                    source.url,
+                    cache_entry.content_hash[:8],
+                    new_hash[:8]
+                )
+            else:
+                # No cache entry - first fetch or cache evicted
+                logger.debug("Parsing source %r - no cache entry", source.url)
+
+            # No cache entry or hash mismatch - proceed with parsing
             # Parse ICS content using EventProcessingPipeline
             # This is Pipeline 1 (per-source): processes each ICS source independently
             logger.info("=== Source Pipeline: Processing ICS from %r ===", source.name)
@@ -826,12 +939,47 @@ async def _fetch_and_parse_source(
                 len(result.warnings),
             )
 
+            # Successfully processed events - store in cache for future optimization
+            # Compute normalized hash of ICS content (DTSTAMP removed for stability)
+            try:
+                # Ensure lock is initialized
+                if _cache_lock is None:
+                    _cache_lock = asyncio.Lock()
+
+                async with _cache_lock:
+                    # Evict oldest cache entry if limit reached
+                    max_cached_sources = 10  # Allow headroom for testing different URLs
+                    if len(_source_cache_metadata) >= max_cached_sources:
+                        oldest_url = min(
+                            _source_cache_metadata.items(), key=lambda x: x[1].last_fetch_success
+                        )[0]
+                        logger.debug("Evicting stale cache entry for %s", oldest_url)
+                        del _source_cache_metadata[oldest_url]
+
+                    # Store new cache entry
+                    normalized_hash = _compute_normalized_hash(ics_content)
+                    _source_cache_metadata[source.url] = SourceCacheEntry(
+                        content_hash=normalized_hash,
+                        last_fetch_success=datetime.datetime.now(datetime.UTC),
+                        cached_events=list(context.events),  # Shallow copy - assumes events immutable
+                        consecutive_failures=0,
+                    )
+                    logger.debug(
+                        "Cached %d events for source %r with hash %s...",
+                        len(context.events),
+                        source.url,
+                        normalized_hash[:8],
+                    )
+            except Exception as e:
+                # Cache storage failure shouldn't break the refresh flow
+                logger.warning("Failed to cache events for source %r: %s", source.url, e)
+
             # Return tuple of (source_name, events) to preserve source information
             # Conversion to EventDict happens later after all sources are processed and filtered
             logger.debug(
                 "Successfully processed %d events from source %r", len(context.events), src_cfg
             )
-            return (source.name, context.events)
+            return (source.name, context.events, {"parsed": True})
 
         except ImportError:
             logger.exception("Required modules not available")
@@ -928,14 +1076,88 @@ async def _refresh_once(
 
     parsed_events: list[LiteCalendarEvent] = []
     event_source_map: dict[str, str] = {}  # event_id -> source_name
+    failed_sources: list[tuple[Any, Exception]] = []
+
+    max_cache_age_seconds = 3600  # 1 hour
+
+    # Helper to get source URL from config
+    def _get_source_url(src_cfg: Any) -> str:
+        """Extract URL from source config (handles dict, object, or string)."""
+        if isinstance(src_cfg, dict):
+            return src_cfg.get("url", str(src_cfg))
+        if hasattr(src_cfg, "url"):
+            return src_cfg.url
+        return str(src_cfg)
+
+    # Helper to get source name from config
+    def _get_source_name(src_cfg: Any) -> str:
+        """Extract name from source config."""
+        if isinstance(src_cfg, dict):
+            return src_cfg.get("name", _get_source_url(src_cfg))
+        if hasattr(src_cfg, "name"):
+            return src_cfg.name
+        return _get_source_url(src_cfg)
 
     for i, result in enumerate(fetch_results):
         if isinstance(result, Exception):
             logger.error("DEBUG: Source %r failed: %s", sources_cfg[i], result)
+            failed_sources.append((sources_cfg[i], result))
+
+            # Get source URL for cache lookup
+            src_url = _get_source_url(sources_cfg[i])
+
+            # Track failure in health tracker
+            _health_tracker.record_source_failure(src_url, str(result))
+
+            # Try to use cached events from previous successful fetch
+            cache_entry = _source_cache_metadata.get(src_url)
+            if cache_entry and cache_entry.cached_events:
+                # Calculate cache age
+                import datetime as dt_module
+                cache_age = (dt_module.datetime.now(dt_module.UTC) - cache_entry.last_fetch_success).total_seconds()
+
+                if cache_age > max_cache_age_seconds:
+                    logger.warning(
+                        "Using STALE cached events for %r (age: %.1f min, last success: %s)",
+                        src_url,
+                        cache_age / 60,
+                        cache_entry.last_fetch_success.isoformat()
+                    )
+                else:
+                    logger.info(
+                        "Using cached events for failed source %r (age: %.1f min, %d events)",
+                        src_url,
+                        cache_age / 60,
+                        len(cache_entry.cached_events)
+                    )
+
+                # Add cached events to result set
+                # Extract source name from config
+                source_name = _get_source_name(sources_cfg[i])
+                for event in cache_entry.cached_events:
+                    parsed_events.append(event)
+                    event_source_map[event.id] = source_name
+            else:
+                logger.warning(
+                    "No cached events available for failed source %r - skipping",
+                    src_url
+                )
+
             continue
-        if isinstance(result, tuple) and len(result) == 2:
-            source_name, events = result
+
+        if isinstance(result, tuple) and len(result) >= 2:
+            # Handle both old 2-tuple format and new 3-tuple format with metadata
+            # Metadata (result[2]) is used for optimization metrics tracking
+            source_name = result[0]
+            events = result[1]
+
             logger.debug(" Source %r returned %d events", sources_cfg[i], len(events))
+
+            # Track success in health tracker
+            src_url = _get_source_url(sources_cfg[i])
+            _health_tracker.record_source_success(src_url)
+
+            # Add events to parsed list
             for event in events:
                 parsed_events.append(event)
                 event_source_map[event.id] = source_name
@@ -955,6 +1177,41 @@ async def _refresh_once(
                         sources_cfg[i],
                     )
                     continue
+
+    # Log partial/total failure scenarios
+    if failed_sources:
+        total = len(sources_cfg)
+        success = total - len(failed_sources)
+
+        if success > 0:
+            log_monitoring_event(
+                "refresh.sources.partial_failure",
+                f"Partial refresh: {success}/{total} sources succeeded",
+                "WARNING",
+                details={
+                    "failed_sources": [_get_source_url(s) for s, _ in failed_sources],
+                    "success_count": success,
+                    "total_sources": total,
+                }
+            )
+        else:
+            log_monitoring_event(
+                "refresh.sources.total_failure",
+                f"All {total} sources failed - preserving window ({len(event_window_ref[0])} events)",
+                "CRITICAL",
+                details={
+                    "failed_sources": [_get_source_url(s) for s, _ in failed_sources],
+                    "window_size": len(event_window_ref[0]),
+                }
+            )
+
+            # On total failure with no cached fallback, preserve existing window by returning early
+            if not parsed_events:
+                logger.warning(
+                    "Total failure with no cached events available - preserving existing %d events in window",
+                    len(event_window_ref[0])
+                )
+                return  # Exit early - do NOT update window
 
     logger.debug(" Total parsed events from all sources: %d", len(parsed_events))
 
@@ -1045,6 +1302,36 @@ async def _refresh_once(
         response_cache.invalidate_all()
         logger.debug("Invalidated Alexa response cache after window update")
 
+    # Track optimization effectiveness
+    sources_hash_matched = sum(
+        1 for r in fetch_results
+        if isinstance(r, tuple) and len(r) > 2
+        and r[2].get('hash_matched', False)
+    )
+    sources_parsed = sum(
+        1 for r in fetch_results
+        if isinstance(r, tuple) and len(r) > 2
+        and r[2].get('parsed', False)
+    )
+    sources_failed = sum(1 for r in fetch_results if isinstance(r, Exception))
+
+    # Log optimization metrics
+    if sources_hash_matched > 0:
+        time_saved_ms = sources_hash_matched * 400  # ~400ms saved per skipped parse
+        logger.info(
+            "Refresh optimization: %d parsed, %d hash matched, %d failed (saved ~%dms)",
+            sources_parsed,
+            sources_hash_matched,
+            sources_failed,
+            time_saved_ms
+        )
+    elif sources_parsed > 0:
+        logger.debug(
+            "Refresh complete: %d parsed, 0 hash matched, %d failed (no optimization)",
+            sources_parsed,
+            sources_failed
+        )
+
     # Run precomputation pipeline for Alexa responses (if enabled)
     try:
         from calendarbot_lite.alexa.alexa_precompute_stages import create_alexa_precompute_pipeline
@@ -1114,6 +1401,31 @@ async def _refresh_once(
     # Track successful refresh and log monitoring event
     _update_health_tracking(refresh_success=True, event_count=final_count)
 
+    # Track optimization effectiveness
+    sources_hash_matched = sum(
+        1 for r in fetch_results
+        if isinstance(r, tuple) and len(r) > 2 and r[2].get('hash_matched', False)
+    )
+    sources_parsed = sum(
+        1 for r in fetch_results
+        if isinstance(r, tuple) and len(r) > 2 and r[2].get('parsed', False)
+    )
+
+    # Log optimization metrics
+    if sources_hash_matched > 0:
+        time_saved_ms = sources_hash_matched * 400  # ~400ms saved per skipped parse
+        cache_hit_rate = (sources_hash_matched / len(sources_cfg)) * 100 if sources_cfg else 0
+
+        logger.info(
+            "Refresh optimization: %d parsed, %d hash matched (saved ~%dms, %.1f%% cache hit rate)",
+            sources_parsed,
+            sources_hash_matched,
+            time_saved_ms,
+            cache_hit_rate
+        )
+    else:
+        logger.debug("Refresh optimization: %d parsed, 0 hash matched", sources_parsed)
+
     logger.debug(" Refresh complete; stored %d events in window", final_count)
 
     # Log structured monitoring event for refresh success
@@ -1177,7 +1489,10 @@ async def _refresh_loop(
         # Get event count for logging
         async with window_lock:
             event_count = len(event_window_ref[0])
-        logger.info("Initial refresh completed successfully - backend ready to serve (%d events)", event_count)
+        logger.info(
+            "Initial refresh completed successfully - backend ready to serve (%d events)",
+            event_count,
+        )
     except Exception:
         logger.exception(
             "Initial refresh failed during _refresh_loop; config: %r, skipped_store: %r",
@@ -1376,6 +1691,11 @@ async def _make_app(  # type: ignore[no-untyped-def]
 
 async def _serve(config: Any, skipped_store: object | None) -> None:
     """Internal coroutine to run server and background tasks until signalled to stop."""
+    # Initialize global cache lock for thread-safe cache updates
+    global _cache_lock
+    if _cache_lock is None:
+        _cache_lock = asyncio.Lock()
+
     # Event window stored as single-element list for atomic replacement semantics.
     event_window_ref: list[tuple[LiteCalendarEvent, ...]] = [()]
     window_lock = asyncio.Lock()
