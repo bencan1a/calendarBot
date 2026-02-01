@@ -7,7 +7,7 @@ layout format suitable for rendering by the pygame renderer.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 
@@ -70,7 +70,14 @@ class LayoutEngine:
         meeting_data = api_data.get("meeting")
 
         if not meeting_data:
-            return self._create_no_meeting_layout()
+            # Use status from API if available, otherwise create default
+            status_data = api_data.get("status", {})
+            status = StatusDisplay(
+                message=status_data.get("message", "No meetings scheduled"),
+                is_urgent=status_data.get("is_urgent", False),
+                is_critical=status_data.get("is_critical", False),
+            )
+            return self._create_no_meeting_layout(status)
 
         # Extract meeting fields
         subject = meeting_data.get("subject", "No meeting")
@@ -86,16 +93,17 @@ class LayoutEngine:
         meeting_time = self._format_meeting_time(start_iso, duration_seconds)
 
         # Create meeting display
-        meeting = MeetingDisplay(
-            title=subject, time=meeting_time, location=location
+        meeting = MeetingDisplay(title=subject, time=meeting_time, location=location)
+
+        # Use status from API response (single source of truth)
+        status_data = api_data.get("status", {})
+        status = StatusDisplay(
+            message=status_data.get("message", "Next meeting"),
+            is_urgent=status_data.get("is_urgent", False),
+            is_critical=status_data.get("is_critical", False),
         )
 
-        # Calculate status display
-        status = self._calculate_status(seconds_until_start, duration_seconds)
-
-        return LayoutData(
-            countdown=countdown, meeting=meeting, status=status, has_data=True
-        )
+        return LayoutData(countdown=countdown, meeting=meeting, status=status, has_data=True)
 
     def _calculate_countdown(self, seconds_until: int) -> CountdownDisplay:
         """Calculate countdown display from seconds until start.
@@ -135,9 +143,7 @@ class LayoutEngine:
             state=state,
         )
 
-    def _format_meeting_time(
-        self, start_iso: str | None, duration_seconds: int
-    ) -> str:
+    def _format_meeting_time(self, start_iso: str | None, duration_seconds: int) -> str:
         """Format meeting time range.
 
         Args:
@@ -152,100 +158,25 @@ class LayoutEngine:
 
         try:
             start_time = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
-            end_time = start_time.replace(
-                second=start_time.second + duration_seconds
-            )
+            end_time = start_time + timedelta(seconds=duration_seconds)
+
+            # Convert to local system timezone
+            start_local = start_time.astimezone()
+            end_local = end_time.astimezone()
 
             # Format as 12-hour time with AM/PM
-            start_str = start_time.strftime("%I:%M %p").lstrip("0")
-            end_str = end_time.strftime("%I:%M %p").lstrip("0")
+            start_str = start_local.strftime("%I:%M %p").lstrip("0")
+            end_str = end_local.strftime("%I:%M %p").lstrip("0")
 
             return f"{start_str} - {end_str}"
         except (ValueError, AttributeError):
             return ""
 
-    def _calculate_status(
-        self, seconds_until: int, duration_seconds: int
-    ) -> StatusDisplay:
-        """Calculate bottom status display.
+    def _create_no_meeting_layout(self, status: StatusDisplay | None = None) -> LayoutData:
+        """Create layout for when there are no meetings.
 
         Args:
-            seconds_until: Seconds until meeting starts
-            duration_seconds: Meeting duration in seconds
-
-        Returns:
-            StatusDisplay with message and urgency flags
-        """
-        minutes_until = seconds_until // 60
-
-        # Determine message and urgency based on time
-        if seconds_until <= 0:
-            # Meeting is happening now or has started
-            seconds_since_start = abs(seconds_until)
-
-            if seconds_since_start < duration_seconds:
-                # Meeting in progress
-                remaining_seconds = duration_seconds - seconds_since_start
-                remaining_minutes = remaining_seconds // 60
-
-                if remaining_minutes > 0:
-                    message = f"Meeting in progress - {remaining_minutes}m remaining"
-                else:
-                    message = "Meeting in progress - ending soon"
-
-                return StatusDisplay(
-                    message=message, is_urgent=True, is_critical=False
-                )
-            else:
-                # Meeting ended
-                return StatusDisplay(
-                    message="Meeting ended", is_urgent=False, is_critical=False
-                )
-
-        elif minutes_until <= 2:
-            # Starting very soon
-            return StatusDisplay(
-                message=f"Starting very soon - {minutes_until}m",
-                is_urgent=True,
-                is_critical=True,
-            )
-
-        elif minutes_until <= 15:
-            # Starting soon
-            return StatusDisplay(
-                message=f"Starting soon - {minutes_until}m",
-                is_urgent=True,
-                is_critical=False,
-            )
-
-        elif minutes_until <= 60:
-            # Starting within the hour
-            return StatusDisplay(
-                message=f"Starting within the hour - {minutes_until}m",
-                is_urgent=False,
-                is_critical=False,
-            )
-
-        else:
-            # Plenty of time
-            hours = minutes_until // 60
-            remaining_minutes = minutes_until % 60
-
-            if hours < 24:
-                if remaining_minutes == 0:
-                    message = f"Plenty of time - {hours}h"
-                else:
-                    message = f"Plenty of time - {hours}h {remaining_minutes}m"
-            else:
-                days = hours // 24
-                message = f"Next meeting in {days}d"
-
-            return StatusDisplay(
-                message=message, is_urgent=False, is_critical=False
-            )
-
-    def _create_no_meeting_layout(self) -> LayoutData:
-        """Create layout for when there are no meetings.
+            status: Optional status from API response
 
         Returns:
             LayoutData for no-meeting state
@@ -258,14 +189,11 @@ class LayoutEngine:
             state="normal",
         )
 
-        meeting = MeetingDisplay(
-            title="No upcoming meetings", time="", location=""
-        )
+        meeting = MeetingDisplay(title="No upcoming meetings", time="", location="")
 
-        status = StatusDisplay(
-            message="No meetings scheduled", is_urgent=False, is_critical=False
-        )
+        if status is None:
+            status = StatusDisplay(
+                message="No meetings scheduled", is_urgent=False, is_critical=False
+            )
 
-        return LayoutData(
-            countdown=countdown, meeting=meeting, status=status, has_data=False
-        )
+        return LayoutData(countdown=countdown, meeting=meeting, status=status, has_data=False)

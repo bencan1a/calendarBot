@@ -165,8 +165,8 @@
                     }
                 }
 
-                // Update bottom section display based on meeting timing
-                updateBottomSectionDisplay(meeting, elements);
+                // Update bottom section display using status from API
+                updateBottomSectionDisplay(data.status, elements);
 
             } else {
                 // No meeting data - show fallback
@@ -194,7 +194,8 @@
                     elements.countdownMinutes.textContent = '';
                 }
 
-                updateBottomSectionDisplay(null, elements);
+                // Use status from API response (includes no-meeting status)
+                updateBottomSectionDisplay(data.status, elements);
             }
 
             console.log('Display updated successfully');
@@ -206,90 +207,28 @@
     }
 
     /**
-     * Update bottom section display based on current meeting timing
-     * @param {Object} meeting - Current meeting data from server
+     * Update bottom section display using status from API response
+     * @param {Object} status - Status object from API {message, is_urgent, is_critical}
      * @param {Object} elements - Cached DOM elements
      */
-    function updateBottomSectionDisplay(meeting, elements) {
+    function updateBottomSectionDisplay(status, elements) {
         if (!elements.nextMeetingTime) {
             return;
         }
 
-        if (meeting && meeting.seconds_until_start !== undefined) {
-            const secondsUntil = meeting.seconds_until_start;
-            const minutesUntil = Math.floor(secondsUntil / 60);
+        // Use status from API response (single source of truth)
+        const message = status?.message || 'No meetings scheduled';
+        const isUrgent = status?.is_urgent || false;
+        const isCritical = status?.is_critical || false;
 
-            let contextText = 'Next meeting';
-            let timeText = '';
-            let isUrgent = false;
-            let isCritical = false;
-
-            if (secondsUntil <= 0) {
-                // Meeting is happening now or has started
-                const durationSeconds = meeting.duration_seconds || 0;
-                const secondsSinceStart = Math.abs(secondsUntil);
-
-                if (secondsSinceStart < durationSeconds) {
-                    contextText = 'Meeting in progress';
-                    const remainingSeconds = durationSeconds - secondsSinceStart;
-                    const remainingMinutes = Math.floor(remainingSeconds / 60);
-                    if (remainingMinutes > 0) {
-                        timeText = `${remainingMinutes}m remaining`;
-                    } else {
-                        timeText = 'ending soon';
-                    }
-                    isUrgent = true;
-                } else {
-                    contextText = 'Meeting ended';
-                    timeText = '';
-                }
-            } else if (minutesUntil <= 2) {
-                contextText = 'Starting very soon';
-                timeText = `${minutesUntil}m`;
-                isCritical = true;
-                isUrgent = true;
-            } else if (minutesUntil <= 15) {
-                contextText = 'Starting soon';
-                timeText = `${minutesUntil}m`;
-                isUrgent = true;
-            } else if (minutesUntil <= 60) {
-                contextText = 'Starting within the hour';
-                timeText = `${minutesUntil}m`;
-            } else {
-                const hours = Math.floor(minutesUntil / 60);
-                const minutes = minutesUntil % 60;
-                if (hours < 24) {
-                    contextText = 'Plenty of time';
-                    if (minutes === 0) {
-                        timeText = `${hours}h`;
-                    } else {
-                        timeText = `${hours}h ${minutes}m`;
-                    }
-                } else {
-                    contextText = 'Next meeting';
-                    const days = Math.floor(hours / 24);
-                    timeText = `${days}d`;
-                }
-            }
-
-            // Update content - only show context message, no time display
-            elements.nextMeetingTime.textContent = '';
-            if (elements.nextMeetingTitle) {
-                elements.nextMeetingTitle.textContent = contextText;
-            }
-
-            // Apply lightweight visual styling based on urgency
-            applyBottomSectionStyling(elements, isUrgent, isCritical);
-        } else {
-            // No meeting data - clear everything
-            elements.nextMeetingTime.textContent = '';
-            if (elements.nextMeetingTitle) {
-                elements.nextMeetingTitle.textContent = 'No meetings scheduled';
-            }
-
-            // Clear any styling
-            applyBottomSectionStyling(elements, false, false);
+        // Update content - only show status message
+        elements.nextMeetingTime.textContent = '';
+        if (elements.nextMeetingTitle) {
+            elements.nextMeetingTitle.textContent = message;
         }
+
+        // Apply lightweight visual styling based on urgency
+        applyBottomSectionStyling(elements, isUrgent, isCritical);
     }
 
     /**

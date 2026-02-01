@@ -119,6 +119,7 @@ def register_api_routes(
     async def whats_next(_request: Any) -> Any:
         """Find the next upcoming event with smart prioritization logic."""
         from calendarbot_lite.domain.event_prioritizer import EventPrioritizer
+        from calendarbot_lite.domain.status_calculator import calculate_status
 
         now = time_provider()
 
@@ -135,12 +136,26 @@ def register_api_routes(
         if result is None:
             # No upcoming events found
             logger.debug(" /api/whats-next result: no upcoming meetings")
-            return web.json_response({"meeting": None}, status=200)
+            return web.json_response(
+                {
+                    "meeting": None,
+                    "status": {
+                        "message": "No meetings scheduled",
+                        "is_urgent": False,
+                        "is_critical": False,
+                    },
+                },
+                status=200,
+            )
 
         # Unpack result and build response
         event, seconds_until = result
         model = event_to_api_model(event)
         model["seconds_until_start"] = seconds_until
+
+        # Calculate status using shared logic
+        duration_seconds = model.get("duration_seconds", 0)
+        status_info = calculate_status(seconds_until, duration_seconds)
 
         logger.debug(
             " /api/whats-next result: event '%s' in %d seconds",
@@ -148,7 +163,17 @@ def register_api_routes(
             seconds_until,
         )
 
-        return web.json_response({"meeting": model}, status=200)
+        return web.json_response(
+            {
+                "meeting": model,
+                "status": {
+                    "message": status_info.message,
+                    "is_urgent": status_info.is_urgent,
+                    "is_critical": status_info.is_critical,
+                },
+            },
+            status=200,
+        )
 
     async def post_skip(request: Any) -> Any:
         """Skip a meeting by ID."""
