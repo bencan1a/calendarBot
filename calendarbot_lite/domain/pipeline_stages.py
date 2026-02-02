@@ -59,17 +59,23 @@ class DeduplicationStage:
         )
 
         try:
-            # Track events by UID
-            unique_events: dict[str, LiteCalendarEvent] = {}
+            # Track events by composite key: (UID, recurrence_id)
+            # This allows exception instances (RECURRENCE-ID) to coexist with the master event
+            # Without this, recurring event exceptions get deduplicated away
+            unique_events: dict[tuple[str, str | None], LiteCalendarEvent] = {}
 
             for event in context.events:
-                if event.id not in unique_events:
-                    unique_events[event.id] = event
+                # Create composite key: exception instances have different recurrence_id
+                recurrence_id = getattr(event, "recurrence_id", None)
+                dedup_key = (event.id, recurrence_id)
+
+                if dedup_key not in unique_events:
+                    unique_events[dedup_key] = event
                 else:
                     # Keep the event with more information (attendees, body, etc.)
-                    existing = unique_events[event.id]
+                    existing = unique_events[dedup_key]
                     if self._has_more_info(event, existing):
-                        unique_events[event.id] = event
+                        unique_events[dedup_key] = event
 
             # Update context with deduplicated events
             deduplicated = list(unique_events.values())
