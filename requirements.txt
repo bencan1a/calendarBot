@@ -32,3 +32,6 @@ aiohttp>=3.8.0
 
 # Framebuffer UI dependencies
 pygame>=2.5.0
+
+# Console output colorization
+colorlog>=6.0.0
