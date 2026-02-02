@@ -152,7 +152,7 @@ class ResponseCache:
         self.cache.clear()
         self.stats["invalidations"] += 1
 
-        logger.info(
+        logger.debug(
             "Invalidated all cache entries (version %d → %d, cleared %d entries)",
             old_version,
             self.current_window_version,

@@ -88,7 +88,7 @@ class RateLimiter:
         # Background cleanup task
         self._cleanup_task: Optional[asyncio.Task[None]] = None
 
-        logger.info(
+        logger.debug(
             "RateLimiter initialized: per_ip=%d/min, per_token=%d/min, burst=%d/%ds",
             self.config.per_ip_limit,
             self.config.per_token_limit,

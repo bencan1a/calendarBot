@@ -160,7 +160,7 @@ async def get_shared_client(
                     "created_time": time.time(),
                 }
 
-                logger.info("Created shared HTTP client '%s'", client_id)
+                logger.debug("Created shared HTTP client '%s'", client_id)
 
             except Exception as e:
                 logger.exception("Failed to create shared HTTP client '%s'", client_id)

@@ -184,7 +184,7 @@ def register_alexa_routes(
         app.router.add_get(route, route_handler_func)
         registered_routes.append(route)
 
-    logger.info(
+    logger.debug(
         "Registered %d Alexa routes%s: %s",
         len(registered_routes),
         " with rate limiting" if rate_limiter else "",

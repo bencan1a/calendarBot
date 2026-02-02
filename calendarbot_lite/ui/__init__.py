@@ -69,7 +69,7 @@ def configure_display_mode(mode: str) -> None:
 
         # Show mouse cursor in windowed mode
         os.environ["SDL_NOMOUSE"] = "0"
-        logger.info("Configured SDL for windowed mode")
+        logger.debug("Configured SDL for windowed mode")
 
     else:  # fullscreen
         # Fullscreen mode (production on Raspberry Pi)
@@ -86,7 +86,7 @@ def configure_display_mode(mode: str) -> None:
             os.environ["SDL_NOMOUSE"] = "1"
             logger.debug("Set SDL_NOMOUSE=1 to hide cursor")
 
-        logger.info("Configured SDL for fullscreen mode")
+        logger.debug("Configured SDL for fullscreen mode")
 
 
 # ============================================================================
@@ -94,7 +94,10 @@ def configure_display_mode(mode: str) -> None:
 # ============================================================================
 
 
-async def _start_local_backend(config: dict[str, Any]) -> None:
+async def _start_local_backend(
+    config: dict[str, Any],
+    stop_event: asyncio.Event | None = None,
+) -> None:
     """Start calendarbot_lite backend server in background.
 
     This function runs the backend server using the same _serve() function
@@ -104,6 +107,9 @@ async def _start_local_backend(config: dict[str, Any]) -> None:
     Args:
         config: Backend configuration dictionary containing server settings
                 (e.g., server_port, server_bind, ics sources, etc.)
+        stop_event: Optional event to signal shutdown. If provided, the caller
+                   is responsible for signal handling. If None, the server
+                   registers its own signal handlers.
 
     Raises:
         ImportError: If calendarbot_lite.api.server module is not available
@@ -120,7 +126,8 @@ async def _start_local_backend(config: dict[str, Any]) -> None:
     logger.info("Starting local backend server on port %s", config.get("server_port", 8080))
 
     # Run the server (this is a blocking coroutine)
-    await _serve(config, skipped_store)
+    # Pass stop_event so caller can control shutdown
+    await _serve(config, skipped_store, external_stop_event=stop_event)
 
 
 async def _wait_for_backend_ready(
@@ -146,7 +153,8 @@ async def _wait_for_backend_ready(
     import aiohttp
 
     health_url = f"{backend_url}/api/health"
-    start_time = asyncio.get_event_loop().time()
+    loop = asyncio.get_running_loop()
+    start_time = loop.time()
     attempts = 0
     current_interval = check_interval
 
@@ -155,7 +163,7 @@ async def _wait_for_backend_ready(
 
     async with aiohttp.ClientSession() as session:
         while True:
-            elapsed = asyncio.get_event_loop().time() - start_time
+            elapsed = loop.time() - start_time
             if elapsed > max_wait_seconds:
                 raise BackendConnectionError(
                     f"Backend did not become ready within {max_wait_seconds} seconds. "
@@ -281,7 +289,7 @@ async def run_with_framebuffer_ui(
         raise ValueError("backend_config is required when backend_mode='local'")
 
     # Step 1: Configure SDL display mode
-    logger.info("Configuring display mode: %s", display_mode)
+    logger.debug("Configuring display mode: %s", display_mode)
     try:
         configure_display_mode(display_mode)
     except Exception as exc:
@@ -289,15 +297,19 @@ async def run_with_framebuffer_ui(
 
     # Step 2: Start backend or determine backend URL
     backend_task: Optional[asyncio.Task[None]] = None
+    backend_stop_event: Optional[asyncio.Event] = None
     effective_url: str
 
     if backend_mode == "local":
         # Start local backend in background task
-        logger.info("Starting local backend server...")
-
         if backend_config is None:
             raise ValueError("backend_config must be provided when backend_mode='local'")
-        backend_task = asyncio.create_task(_start_local_backend(backend_config))
+
+        # Create shared stop event for coordinated shutdown
+        backend_stop_event = asyncio.Event()
+        backend_task = asyncio.create_task(
+            _start_local_backend(backend_config, stop_event=backend_stop_event)
+        )
 
         # Construct localhost URL
         host = backend_config.get("server_bind", "0.0.0.0")  # nosec B104 - intentional default for server bind
@@ -312,9 +324,7 @@ async def run_with_framebuffer_ui(
         # Wait for backend to be ready (polls health endpoint until initialized)
         # Use longer timeout for local backend on resource-constrained devices
         # (initial ICS refresh can take 60+ seconds on Pi Zero 2)
-        logger.info("Waiting for backend initialization at %s", effective_url)
         await _wait_for_backend_ready(effective_url, max_wait_seconds=120)
-        logger.info("Backend is ready and initialized")
 
     else:  # remote mode
         # Use provided backend URL
@@ -360,11 +370,14 @@ async def run_with_framebuffer_ui(
     app = CalendarKioskApp(ui_config)
 
     # Set up signal handlers for graceful shutdown
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     def signal_handler(sig: int) -> None:
         logger.info("Received signal: %s", sig)
-        app.running = False  # Immediately stop the loop
+        app.running = False  # Immediately stop the UI loop
+        # Signal backend to stop gracefully (if running locally)
+        if backend_stop_event is not None:
+            backend_stop_event.set()
 
     for sig in (signal.SIGTERM, signal.SIGINT):
         with contextlib.suppress(NotImplementedError):
@@ -401,13 +414,24 @@ async def run_with_framebuffer_ui(
         # Stop local backend if running
         if backend_task is not None:
             logger.info("Stopping local backend...")
-            backend_task.cancel()
 
-            # Wait for backend to stop
+            # Signal graceful shutdown (may have already been set by signal handler)
+            if backend_stop_event is not None:
+                backend_stop_event.set()
+
+            # Wait for backend to stop gracefully with timeout
             try:
-                await backend_task
+                await asyncio.wait_for(backend_task, timeout=10.0)
+                logger.debug("Backend task stopped gracefully")
+            except TimeoutError:
+                logger.warning("Backend did not stop gracefully within 10s, cancelling")
+                backend_task.cancel()
+                try:
+                    await backend_task
+                except asyncio.CancelledError:
+                    logger.debug("Backend task cancelled after timeout")
             except asyncio.CancelledError:
-                logger.debug("Backend task cancelled successfully")
+                logger.debug("Backend task was cancelled")
             except Exception:
                 logger.exception("Error during backend shutdown")
 

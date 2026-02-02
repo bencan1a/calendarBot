@@ -199,7 +199,7 @@ class FetchOrchestrator:
         self.log_monitoring_event(
             "refresh.cycle.complete",
             f"Refresh cycle completed successfully - {final_count} events in window",
-            "INFO",
+            "DEBUG",
             details={
                 "events_parsed": len(parsed_events),
                 "events_in_window": final_count,

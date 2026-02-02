@@ -260,6 +260,7 @@ class MonitoringLogger:
 
         # Create Python logger
         self.logger = logging.getLogger(name)
+        self.logger.propagate = False  # Prevent duplication via root logger
         self.logger.setLevel(LOG_LEVELS.get(level.upper(), logging.INFO))
 
         # Avoid duplicate handlers if logger already exists

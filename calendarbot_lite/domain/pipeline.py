@@ -180,7 +180,7 @@ class EventProcessingPipeline:
         Returns:
             Aggregated result from all stages
         """
-        logger.info("Starting pipeline with %d stages", len(self.stages))
+        logger.debug("Starting pipeline with %d stages", len(self.stages))
 
         # Aggregate result across all stages
         aggregated_result = ProcessingResult(
@@ -199,7 +199,7 @@ class EventProcessingPipeline:
                     stage_result = await stage.process(context)
 
                     # Log stage completion
-                    logger.info(
+                    logger.debug(
                         "Stage %s/%s (%s) completed: success=%s, events_in=%s, events_out=%s, warnings=%s, errors=%s",
                         stage_num,
                         len(self.stages),
