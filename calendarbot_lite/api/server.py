@@ -134,20 +134,6 @@ except ImportError as e:
     render_morning_summary_ssml = None  # type: ignore[assignment]
 
 
-def _import_process_utilities() -> Any:  # type: ignore[misc]
-    """Lazy import of process utilities (removed with legacy calendarbot module).
-
-    This functionality was part of the archived calendarbot module and is no longer
-    available in calendarbot_lite. Port conflict handling is now minimal.
-    """
-    logger.debug("Process utilities not available (legacy calendarbot module removed)")
-    return None, None, None
-
-
-class PortConflictError(Exception):
-    """Raised when a port conflict cannot be resolved."""
-
-
 def _get_system_diagnostics() -> dict[str, Any]:
     """Get lightweight system diagnostics for health monitoring.
 
@@ -211,107 +197,6 @@ def _update_health_tracking(
         render_probe_ok=render_probe_ok,
         render_probe_notes=render_probe_notes,
     )
-
-
-def _handle_port_conflict(host: str, port: int) -> bool:
-    """Handle port conflicts by offering to terminate conflicting processes.
-
-    In non-interactive mode (CALENDARBOT_NONINTERACTIVE=true), automatically attempts
-    cleanup without user prompts for systemd/journald compatibility.
-
-    Note: Port conflict utilities were removed with the legacy calendarbot module.
-    This function now always returns True since automatic port checking is unavailable.
-
-    Args:
-        host: Host address to bind to
-        port: Port number to bind to
-
-    Returns:
-        True (port conflict resolution not available, proceed with startup)
-    """
-    check_port_availability, find_process_using_port, auto_cleanup_before_start = (
-        _import_process_utilities()
-    )
-
-    if not check_port_availability:
-        logger.warning("Port conflict resolution not available - process utilities missing")
-        # Return True to allow server to proceed - aiohttp will handle actual port conflicts
-        return True
-
-    # Check if port is available
-    if check_port_availability(host, port):
-        logger.debug("Port %d is available", port)
-        return True
-
-    logger.error("Port %d is already in use", port)
-
-    # Find the process using the port
-    port_process = None
-    if find_process_using_port:
-        port_process = find_process_using_port(port)
-        if port_process:
-            logger.warning(
-                "Process using port %d: PID %d (%s)", port, port_process.pid, port_process.command
-            )
-        else:
-            logger.warning("Port %d is occupied but could not identify the process", port)
-    else:
-        logger.warning("Port %d is occupied (process identification not available)", port)
-
-    # Check for non-interactive mode
-    noninteractive = os.environ.get("CALENDARBOT_NONINTERACTIVE", "").lower() in (
-        "true",
-        "1",
-        "yes",
-    )
-
-    if noninteractive:
-        # Non-interactive mode: automatically attempt cleanup
-        logger.info(
-            "Non-interactive mode: automatically attempting to terminate conflicting process on port %d",
-            port,
-        )
-
-        if auto_cleanup_before_start:
-            success = auto_cleanup_before_start(host, port, force=True)
-            if success:
-                logger.info("Successfully terminated conflicting process and freed port %d", port)
-                return True
-            logger.error("Failed to terminate conflicting process on port %d", port)
-            return False
-        logger.error("Auto cleanup function not available")
-        return False
-
-    # Interactive mode: prompt user
-    print(f"\nPort {port} is currently occupied.")
-    if port_process:
-        print(f"Process using the port: PID {port_process.pid} ({port_process.command})")
-
-    response = (
-        input("Would you like to attempt to terminate the process using this port? (y/N): ")
-        .strip()
-        .lower()
-    )
-
-    if response in ("y", "yes"):
-        logger.info("User confirmed termination of process using port %d", port)
-        print("Attempting to terminate the conflicting process...")
-
-        if auto_cleanup_before_start:
-            success = auto_cleanup_before_start(host, port, force=True)
-            if success:
-                logger.info("Successfully terminated conflicting process and freed port %d", port)
-                print(f"✓ Port {port} is now available")
-                return True
-            logger.error("Failed to terminate conflicting process on port %d", port)
-            print(f"✗ Failed to free port {port}")
-            return False
-        logger.error("Auto cleanup function not available")
-        print("✗ Port cleanup functionality not available")
-        return False
-    logger.info("User declined to terminate process using port %d", port)
-    print("Port conflict not resolved - server cannot start")
-    return False
 
 
 def _build_default_config_from_env() -> dict[str, Any]:
@@ -1432,7 +1317,7 @@ async def _refresh_once(
     log_monitoring_event(
         "refresh.cycle.complete",
         f"Refresh cycle completed successfully - {final_count} events in window",
-        "INFO",
+        "DEBUG",
         details={
             "events_parsed": len(parsed_events),
             "events_in_window": final_count,
@@ -1641,7 +1526,6 @@ async def _make_app(  # type: ignore[no-untyped-def]
         )
 
         rate_limiter = RateLimiter(rate_limit_config)
-        logger.info("Initialized rate limiter for Alexa endpoints")
     except ImportError:
         logger.warning(
             "Rate limiter module not available, Alexa endpoints will run without rate limiting"
@@ -1689,8 +1573,20 @@ async def _make_app(  # type: ignore[no-untyped-def]
     return app
 
 
-async def _serve(config: Any, skipped_store: object | None) -> None:
-    """Internal coroutine to run server and background tasks until signalled to stop."""
+async def _serve(
+    config: Any,
+    skipped_store: object | None,
+    external_stop_event: asyncio.Event | None = None,
+) -> None:
+    """Internal coroutine to run server and background tasks until signalled to stop.
+
+    Args:
+        config: Server configuration object/dict.
+        skipped_store: Optional store for skipped meetings.
+        external_stop_event: Optional event to signal shutdown. If provided,
+            signal handlers will NOT be registered (caller owns signal handling).
+            If None, signal handlers are registered internally.
+    """
     # Initialize global cache lock for thread-safe cache updates
     global _cache_lock
     if _cache_lock is None:
@@ -1699,7 +1595,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     # Event window stored as single-element list for atomic replacement semantics.
     event_window_ref: list[tuple[LiteCalendarEvent, ...]] = [()]
     window_lock = asyncio.Lock()
-    stop_event = asyncio.Event()
+    stop_event = external_stop_event or asyncio.Event()
 
     # Initialize Alexa response cache for improved performance
     response_cache = None
@@ -1707,7 +1603,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
         from calendarbot_lite.alexa.alexa_response_cache import ResponseCache
 
         response_cache = ResponseCache(max_size=100)
-        logger.info("Initialized Alexa response cache (max_size=100)")
+        logger.debug("Initialized Alexa response cache (max_size=100)")
     except ImportError:
         logger.debug("ResponseCache not available, caching disabled")
 
@@ -1715,7 +1611,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     shared_http_client = None
     try:
         shared_http_client = await get_shared_client("lite_server")
-        logger.info("Initialized shared HTTP client for connection reuse")
+        logger.debug("Initialized shared HTTP client for connection reuse")
     except Exception as e:
         logger.warning(
             "Failed to initialize shared HTTP client, falling back to individual clients: %s", e
@@ -1744,10 +1640,10 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     except Exception:
         logger.debug("Failed to emit config preview", exc_info=True)
 
-    logger.info(
-        "Creating web application (aiohttp may be imported). Config summary: %s",
+    logger.debug(
+        "Creating web application. Config: %s",
         ", ".join(
-            f"{k}={v!r}"
+            f"{k}={'<redacted>' if 'token' in k.lower() or 'secret' in k.lower() else v!r}"
             for k, v in (config.items() if isinstance(config, dict) else [("config", repr(config))])
         ),
     )
@@ -1769,57 +1665,73 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     await runner.setup()
 
     host = _get_config_value(config, "server_bind", "0.0.0.0")  # nosec: B104 - default bind for dev; allow override via config/env
-    port = int(_get_config_value(config, "server_port", 8080))
+    configured_port = int(_get_config_value(config, "server_port", 8080))
+    max_port_attempts = 10
 
-    # Check for port conflicts and handle them
-    if not _handle_port_conflict(host, port):
-        logger.error("Failed to resolve port conflict on %s:%d - server cannot start", host, port)
+    # Try configured port first, then increment if in use
+    site = None
+    actual_port = configured_port
+    for port_offset in range(max_port_attempts):
+        actual_port = configured_port + port_offset
+        site = web.TCPSite(runner, host=host, port=actual_port)
+        try:
+            await site.start()
+            break
+        except OSError as e:
+            if "address already in use" not in str(e).lower():
+                # Not a port conflict - re-raise
+                logger.exception("Failed to start server on %s:%d", host, actual_port)
+                log_monitoring_event(
+                    "server.startup.failure",
+                    f"Failed to start server on {host}:{actual_port}",
+                    "CRITICAL",
+                    details={"host": host, "port": actual_port, "error": str(e)},
+                    include_system_state=True,
+                )
+                raise
+            # Port in use - try next port
+            logger.debug("Port %d in use, trying next port", actual_port)
+            site = None
+    else:
+        # Exhausted all port attempts
+        logger.error(
+            "Could not find available port in range %d-%d",
+            configured_port,
+            configured_port + max_port_attempts - 1,
+        )
         log_monitoring_event(
-            "server.startup.port_conflict",
-            f"Port conflict on {host}:{port} could not be resolved",
+            "server.startup.port_exhausted",
+            f"No available port in range {configured_port}-{configured_port + max_port_attempts - 1}",
             "CRITICAL",
-            details={"host": host, "port": port},
+            details={"host": host, "configured_port": configured_port, "attempts": max_port_attempts},
             include_system_state=True,
         )
-        raise PortConflictError(f"Port {port} is occupied and could not be freed")
-
-    site = web.TCPSite(runner, host=host, port=port)
-    try:
-        await site.start()
-        logger.info("Server started successfully on %s:%d", host, port)
-
-        # Start rate limiter cleanup task if available
-        if "rate_limiter" in app:
-            await app["rate_limiter"].start()
-            logger.debug("Rate limiter cleanup task started")
-
-        log_monitoring_event(
-            "server.startup.success",
-            f"CalendarBot_Lite server started successfully on {host}:{port}",
-            "INFO",
-            details={"host": host, "port": port, "pid": os.getpid()},
-            include_system_state=True,
+        raise RuntimeError(
+            f"No available port found in range {configured_port}-{configured_port + max_port_attempts - 1}"
         )
-    except OSError as e:
-        if "Address already in use" in str(e):
-            logger.exception("Port %d is still occupied after conflict resolution", port)
-            log_monitoring_event(
-                "server.startup.port_still_occupied",
-                f"Port {port} still occupied after conflict resolution",
-                "CRITICAL",
-                details={"host": host, "port": port, "error": str(e)},
-                include_system_state=True,
-            )
-            raise RuntimeError(f"Port {port} is still occupied: {e}") from e
-        logger.exception("Failed to start server on %s:%d", host, port)
-        log_monitoring_event(
-            "server.startup.failure",
-            f"Failed to start server on {host}:{port}",
-            "CRITICAL",
-            details={"host": host, "port": port, "error": str(e)},
-            include_system_state=True,
+
+    # Log warning if using alternate port
+    if actual_port != configured_port:
+        logger.warning(
+            "Configured port %d was in use, using port %d instead",
+            configured_port,
+            actual_port,
         )
-        raise
+
+    logger.info("Server started successfully on %s:%d", host, actual_port)
+
+    # Start rate limiter cleanup task if available
+    if "rate_limiter" in app:
+        await app["rate_limiter"].start()
+        logger.debug("Rate limiter cleanup task started")
+
+    log_monitoring_event(
+        "server.startup.success",
+        f"CalendarBot_Lite server started successfully on {host}:{actual_port}",
+        "DEBUG",
+        details={"host": host, "port": actual_port, "pid": os.getpid()},
+        include_system_state=True,
+    )
 
     # Start background refresher task
     logger.debug(" Creating background refresher task")
@@ -1836,16 +1748,20 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     )
     logger.debug(" Background refresher task created: %r", refresher)
 
-    # Wire signals for graceful shutdown
+    # Wire signals for graceful shutdown (only if we own the stop_event)
     loop = asyncio.get_running_loop()
 
-    def _on_signal() -> None:
-        logger.info("Shutdown signal received")
-        stop_event.set()
+    if external_stop_event is None:
+        # We own signal handling - register handlers
+        def _on_signal() -> None:
+            logger.info("Shutdown signal received")
+            stop_event.set()
 
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        with contextlib.suppress(NotImplementedError):
-            loop.add_signal_handler(sig, _on_signal)
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            with contextlib.suppress(NotImplementedError):
+                loop.add_signal_handler(sig, _on_signal)
+    else:
+        logger.debug("Using external stop event - skipping signal handler registration")
 
     # Wait until stop_event is set (by signal) then cleanup.
     await stop_event.wait()
@@ -1853,7 +1769,7 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
     log_monitoring_event(
         "server.shutdown.start",
         "Server shutdown initiated",
-        "INFO",
+        "DEBUG",
         details={"uptime_seconds": _health_tracker.get_uptime_seconds()},
     )
 
@@ -1875,6 +1791,15 @@ async def _serve(config: Any, skipped_store: object | None) -> None:
         logger.debug("Shared HTTP clients cleaned up")
     except Exception as e:
         logger.warning("Error cleaning up shared HTTP clients: %s", e)
+
+    # Shutdown global orchestrator (thread pool cleanup)
+    try:
+        from calendarbot_lite.core.async_utils import shutdown_global_orchestrator
+
+        await shutdown_global_orchestrator()
+        logger.debug("Global orchestrator shutdown complete")
+    except Exception as e:
+        logger.warning("Error shutting down global orchestrator: %s", e)
 
     logger.info("Server shutdown complete")
 
@@ -1932,9 +1857,5 @@ def start_server(config: Any, skipped_store: object | None = None) -> None:
         asyncio.run(_serve(config, skipped_store))
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
-    except PortConflictError as e:
-        logger.exception("Server cannot start")
-        print(f"\nServer startup aborted: {e}")
-        print("Please resolve the port conflict and try again.")
     except Exception:
         logger.exception("Server terminated unexpectedly")
