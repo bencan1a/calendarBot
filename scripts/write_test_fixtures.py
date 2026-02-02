@@ -156,8 +156,8 @@ for name, content in fixtures.items():
     path.write_text(content, encoding="utf-8")
     print(f"Wrote {path}")
 
-# Overwrite specs.yaml in tests/lite_tests
-SPEC_PATH = Path("tests/lite_tests/specs.yaml")
+# Overwrite specs.yaml in tests/spec_runners
+SPEC_PATH = Path("tests/spec_runners/specs.yaml")
 specs = """version: "1.0"
 description: "Integration test suite for calendarbot_lite API (generated fixtures)"
 

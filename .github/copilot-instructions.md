@@ -136,7 +136,7 @@ tests/
 │   ├── unit/               # Unit tests
 │   ├── integration/        # Integration tests
 │   └── fixtures/           # Test data
-├── lite_tests/             # Additional test modules
+├── spec_runners/           # YAML-based API validators (not pytest)
 └── fixtures/               # Shared test fixtures
 ```
 

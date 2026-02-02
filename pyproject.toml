@@ -404,7 +404,7 @@ omit = [
     # Exclude all test directories and files
     "tests/*",
     "tests/lite/*",
-    "tests/lite_tests/*",
+    "tests/spec_runners/*",
     "*/tests/*",
     "*/test_*",
     "test_*.py",

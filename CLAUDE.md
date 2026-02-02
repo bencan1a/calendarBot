@@ -116,7 +116,7 @@ Production-ready Raspberry Pi kiosk deployment system:
 
 ### tests/
 - `tests/lite/` - Main test directory
-- `tests/lite_tests/` - Additional tests
+- `tests/spec_runners/` - YAML-based E2E API validators (not pytest)
 - `calendarbot_lite/test_*.py` - Co-located unit tests
 
 ### Configuration

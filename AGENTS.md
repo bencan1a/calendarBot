@@ -146,7 +146,7 @@ pytest tests/lite/ -m "not slow"
   - `core/` - Shared infrastructure (config, http_client, health_tracker, async_utils)
   - `domain/` - Business logic (event_filter, event_prioritizer, pipeline)
 - **Kiosk Deployment**: `kiosk/` - Raspberry Pi kiosk deployment system (project root)
-- **Tests**: `tests/lite/` or `tests/lite_tests/` - Test modules
+- **Tests**: `tests/lite/` - Main pytest suite; `tests/spec_runners/` - YAML-based API validators
 - **Temporary Files**: `tmp/` - Debug scripts, analysis reports (gitignored)
 - **Documentation**: `docs/` - Permanent documentation and guides
 - **Scripts**: `scripts/` - Utility scripts for development/debugging
@@ -249,7 +249,7 @@ See [.env.example](.env.example) for complete reference.
 ### Test Structure
 
 - `tests/lite/` - Main test directory for calendarbot_lite
-- `tests/lite_tests/` - Additional test modules
+- `tests/spec_runners/` - YAML-based E2E API validators (not pytest)
 - `calendarbot_lite/test_*.py` - Co-located unit tests for specific modules
 - `tests/fixtures/` - Test fixtures and sample data
 - `tests/deprecated_calendarbot_tests/` - Archived legacy tests (ignore)
@@ -527,7 +527,7 @@ python tmp/run_alexa_tests_report.py --suite comprehensive
 
 **Adding New Tests:**
 1. Create ICS fixture in `tests/fixtures/ics/alexa/`
-2. Add test specification to `tests/lite_tests/alexa_specs.yaml`
+2. Add test specification to `tests/spec_runners/alexa_specs.yaml`
 3. Set `suite: smoke` or `suite: comprehensive`
 4. Run pytest - test is automatically discovered
 

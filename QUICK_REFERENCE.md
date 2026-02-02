@@ -215,8 +215,8 @@ kiosk/                      # PRIMARY PRODUCTION - Raspberry Pi deployment
 └── docs/                  # Installation guides
 
 tests/
-├── lite/                  # Main test directory
-└── lite_tests/            # Additional tests
+├── lite/                  # Main test directory (pytest)
+└── spec_runners/          # YAML-based API validators
 
 docs/                       # Documentation
 scripts/                    # Development scripts

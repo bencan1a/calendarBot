@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.lite_tests.runner import LiteTestRunner
+from tests.spec_runners.runner import LiteTestRunner
 
 pytestmark = pytest.mark.unit
 
@@ -26,7 +26,7 @@ def test_lite_runner_initialization_when_missing_specs_then_raises_error() -> No
 @pytest.mark.unit
 def test_lite_runner_initialization_when_missing_fixtures_then_raises_error() -> None:
     """Test that LiteTestRunner raises error when fixtures directory is missing."""
-    specs_file = Path(__file__).parent.parent.parent / "lite_tests" / "specs.yaml"
+    specs_file = Path(__file__).parent.parent.parent / "spec_runners" / "specs.yaml"
     nonexistent_fixtures = Path("/does/not/exist/fixtures")
 
     with pytest.raises(FileNotFoundError, match="Fixtures directory not found"):

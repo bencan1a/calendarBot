@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.lite_tests.alexa_runner import AlexaTestResult, AlexaTestRunner
+from tests.spec_runners.alexa_runner import AlexaTestResult, AlexaTestRunner
 
 pytestmark = pytest.mark.integration
 
@@ -31,7 +31,7 @@ pytestmark = pytest.mark.integration
 @pytest.fixture
 def alexa_specs_file() -> Path:
     """Path to Alexa test specifications YAML file."""
-    return Path(__file__).parent.parent.parent / "lite_tests" / "alexa_specs.yaml"
+    return Path(__file__).parent.parent.parent / "spec_runners" / "alexa_specs.yaml"
 
 
 @pytest.fixture
@@ -152,7 +152,7 @@ def pytest_generate_tests(metafunc):
     """
     if "alexa_test_spec" in metafunc.fixturenames:
         # Load test specs
-        specs_file = Path(__file__).parent.parent.parent / "lite_tests" / "alexa_specs.yaml"
+        specs_file = Path(__file__).parent.parent.parent / "spec_runners" / "alexa_specs.yaml"
         fixtures_dir = Path(__file__).parent.parent.parent / "fixtures" / "ics"
 
         # Create runner to load specs (no suite filter - load all)
@@ -195,7 +195,7 @@ def test_individual_alexa_spec_execution(
 
     To add a new test:
     1. Add ICS file to tests/fixtures/ics/alexa/
-    2. Add entry to tests/lite_tests/alexa_specs.yaml with suite: smoke or comprehensive
+    2. Add entry to tests/spec_runners/alexa_specs.yaml with suite: smoke or comprehensive
     3. Run pytest - new test is automatically discovered
 
     Markers are applied during parametrization:
