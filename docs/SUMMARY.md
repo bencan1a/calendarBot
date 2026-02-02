@@ -7,11 +7,7 @@
 - `alexa/alexa_exceptions.py`
 - `alexa/alexa_handlers.py`
 - `alexa/alexa_models.py`
-- `alexa/alexa_precompute_stages.py`
 - `alexa/alexa_presentation.py`
-- `alexa/alexa_protocols.py`
-- `alexa/alexa_registry.py`
-- `alexa/alexa_response_cache.py`
 - `alexa/alexa_skill_backend.py`
 - `alexa/alexa_ssml.py`
 - `alexa/alexa_types.py`
@@ -19,9 +15,6 @@
 
 ### `api/`
 - `api/middleware/__init__.py`
-- `api/middleware/correlation_id.py`
-- `api/middleware/rate_limit_middleware.py`
-- `api/middleware/rate_limiter.py`
 - `api/routes/__init__.py`
 - `api/routes/alexa_routes.py`
 - `api/routes/api_routes.py`
@@ -45,7 +38,6 @@
 - `core/async_utils.py`
 - `core/config_manager.py`
 - `core/debug_helpers.py`
-- `core/dependencies.py`
 - `core/health_tracker.py`
 - `core/http_client.py`
 - `core/monitoring_logging.py`

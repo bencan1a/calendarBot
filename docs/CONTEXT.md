@@ -274,55 +274,6 @@ Returns:
 Raises:
     ValueError: I...
 
-#### `alexa/alexa_precompute_stages.py`
-
-Precomputation stages for Alexa responses.
-
-This module provides pipeline stages that precompute Alexa responses during
-event window refresh, allowing handlers to serve precomputed responses
-for common queries without reprocessing events.
-
-The precomputed responses are stored in context.extra["precomputed_responses"]
-and can be accessed by handlers to provide <10ms response times.
-
-**Classes**:
-
-- **NextMeetingPrecomputeStage**
-  Precompute next meeting response for default timezone.
-
-This stage finds the next upcoming meeting and generates a response
-compatible with the NextMeetingHandler, caching it for quick retrieval.
-
-- **TimeUntilPrecomputeStage**
-  Precompute time until next meeting for default timezone.
-
-This stage computes when the next meeting starts, optimized
-for the TimeUntilHandler endpoint.
-
-- **DoneForDayPrecomputeStage**
-  Precompute done-for-day response for default timezone.
-
-This stage determines when the user will be done with meetings today
-and generates a response compatible with the DoneForDayHandler.
-
-**Functions**:
-
-- **create_alexa_precompute_pipeline()**
-  Create pipeline for precomputing Alexa responses.
-
-Args:
-    skipped_store: Optional store for skipped events
-    default_tz: Default timezone for pre...
-
-- **name()**
-  Name of this processing stage.
-
-- **name()**
-  Name of this processing stage.
-
-- **name()**
-  Name of this processing stage.
-
 #### `alexa/alexa_presentation.py`
 
 Presentation layer for Alexa responses - separates business logic from SSML formatting.
@@ -408,239 +359,6 @@ This method generates the complete speech text including done-for-day informatio
 
 - **format_morning_summary()**
   Format morning summary as plain text.
-
-#### `alexa/alexa_protocols.py`
-
-Protocol definitions for Alexa handler dependencies.
-
-This module defines Protocol types for better type safety in Alexa handlers,
-replacing generic 'Any' type hints with explicit interface contracts.
-
-**Classes**:
-
-- **TimeProvider**
-  Protocol for time provider callables.
-
-- **SkippedStore**
-  Protocol for skipped events storage.
-
-- **DurationFormatter**
-  Protocol for duration formatting callables.
-
-- **ISOSerializer**
-  Protocol for datetime ISO serialization.
-
-- **TimezoneGetter**
-  Protocol for getting server timezone.
-
-- **PrecomputeGetter**
-  Protocol for getting precomputed responses.
-
-- **AlexaPresenter**
-  Protocol for Alexa response presenters.
-
-Presenters format data for Alexa responses, separating
-business logic from presentation concerns.
-
-**Functions**:
-
-- **is_skipped()**
-  Check if an event is marked as skipped.
-
-Args:
-    event_id: Event identifier
-
-Returns:
-    True if event is skipped, False otherwise
-
-- **format_next_meeting()**
-  Format next meeting data for speech.
-
-Args:
-    meeting_data: Meeting data dict with subject, time, etc. (None if no meetings)
-
-Returns:
-    Tuple of ...
-
-- **format_time_until()**
-  Format time until meeting for speech.
-
-Args:
-    seconds_until: Seconds until next meeting (0 if none)
-    meeting_data: Optional meeting data dict
-
-R...
-
-- **format_done_for_day()**
-  Format done-for-day information for speech.
-
-Args:
-    has_meetings_today: Whether user has meetings today
-    speech_text: Pre-generated speech text
-...
-
-- **format_launch_summary()**
-  Format launch summary into speech and optional SSML.
-
-Args:
-    done_info: Done-for-day information
-    primary_meeting: Next upcoming meeting (or Non...
-
-- **format_morning_summary()**
-  Format morning summary into speech and optional SSML.
-
-Args:
-    summary_result: MorningSummaryResult object
-
-Returns:
-    Tuple of (speech_text, opti...
-
-#### `alexa/alexa_registry.py`
-
-Registry pattern for Alexa intent handlers.
-
-This module provides a decorator-based registry system for registering Alexa intent handlers.
-New intents can be added by simply decorating the handler class.
-
-**Classes**:
-
-- **HandlerInfo**
-  Metadata about a registered Alexa handler.
-
-Attributes:
-    intent: The Alexa intent name (e.g., "GetNextMeetingIntent")
-    route: The HTTP route path (e.g., "/api/alexa/next-meeting")
-    handler_cl...
-
-- **AlexaHandlerRegistry**
-  Registry for Alexa intent handlers.
-
-Provides a decorator-based system for registering handlers and
-automatically generating routes.
-
-Example:
-    @AlexaHandlerRegistry.register(
-        intent="GetNe...
-
-**Functions**:
-
-- **get_handler_info_summary()**
-  Get a summary of all registered handlers.
-
-Returns:
-    Formatted string with handler information
-
-Example:
-    >>> print(get_handler_info_summary())
-...
-
-- **register()**
-  Decorator to register an Alexa handler.
-
-Args:
-    intent: Alexa intent name (e.g., "GetNextMeetingIntent")
-    route: HTTP route path (e.g., "/api/al...
-
-- **get_handlers()**
-  Get all registered handlers.
-
-Returns:
-    Dictionary mapping intent names to HandlerInfo objects
-
-- **get_handler()**
-  Get a specific handler by intent name.
-
-Args:
-    intent: Alexa intent name
-
-Returns:
-    HandlerInfo object or None if not found
-
-- **get_routes()**
-  Get all registered routes.
-
-Returns:
-    Dictionary mapping route paths to HandlerInfo objects
-
-- **clear()**
-  Clear all registered handlers.
-
-Note: This is primarily useful for testing.
-
-- **list_intents()**
-  List all registered intent names.
-
-Returns:
-    List of intent names
-
-- **list_routes()**
-  List all registered route paths.
-
-Returns:
-    List of route paths
-
-- **decorator()**
-  Register the handler class and return it unchanged.
-
-#### `alexa/alexa_response_cache.py`
-
-Response caching for Alexa handlers tied to event window version.
-
-This module provides a cache for Alexa responses that automatically invalidates
-when the event window is refreshed. Cache keys are based on handler name and
-request parameters, ensuring consistent responses within a window version.
-
-**Classes**:
-
-- **ResponseCache**
-  Cache for Alexa responses tied to event window version.
-
-The cache automatically invalidates all entries when the event window
-is refreshed, ensuring responses stay synchronized with current events.
-E...
-
-**Functions**:
-
-- **generate_key()**
-  Generate cache key from handler and params.
-
-The key incorporates:
-- Handler name (ensures different handlers don't collide)
-- Window version (auto-in...
-
-- **get()**
-  Get cached response if valid.
-
-Args:
-    key: Cache key from generate_key()
-
-Returns:
-    Cached response dict or None if not found/invalid
-
-- **set()**
-  Cache response for current window version.
-
-Args:
-    key: Cache key from generate_key()
-    response: Response dict to cache
-
-- **invalidate_all()**
-  Invalidate all cached responses (call on window refresh).
-
-This increments the window version, which causes all existing
-cache entries to be considere...
-
-- **get_stats()**
-  Get cache statistics.
-
-Returns:
-    Dict with cache statistics including:
-    - hits: Number of cache hits
-    - misses: Number of cache misses
-    - ...
-
-- **clear_stats()**
-  Clear cache statistics (useful for testing).
 
 #### `alexa/alexa_skill_backend.py`
 
@@ -862,121 +580,6 @@ Args:
 #### `api/middleware/__init__.py`
 
 Middleware components for request processing.
-
-This module provides middleware for cross-cutting concerns like request
-correlation ID tracking for distributed tracing.
-
-#### `api/middleware/correlation_id.py`
-
-Request correlation ID middleware for distributed tracing.
-
-This module provides middleware to extract or generate correlation IDs
-for request tracking across distributed system components (Alexa -> API
-Gateway -> Lambda -> CalendarBot -> Calendar Service).
-
-Correlation IDs enable:
-- End-to-end request tracing across services
-- Faster debugging by correlating logs
-- Performance analysis tracking request latency
-- Error investigation across service boundaries
-
-**Functions**:
-
-- **get_request_id()**
-  Get current request correlation ID from context.
-
-Returns:
-    Current request correlation ID, or "no-request-id" if not set
-
-Example:
-    >>> from ca...
-
-#### `api/middleware/rate_limit_middleware.py`
-
-Rate limiting middleware for aiohttp route handlers.
-
-This module provides decorator and middleware functions to apply rate limiting
-to Alexa endpoint handlers with minimal code changes.
-
-**Functions**:
-
-- **create_rate_limited_handler()**
-  Wrap a handler function with rate limiting.
-
-Args:
-    handler: Async handler function to wrap
-    rate_limiter: RateLimiter instance
-
-Returns:
-    Wr...
-
-- **rate_limit()**
-  Decorator to apply rate limiting to a handler function.
-
-Usage:
-    @rate_limit(my_rate_limiter)
-    async def my_handler(request):
-        return web...
-
-- **add_rate_limit_headers()**
-  Add X-RateLimit-* headers to response.
-
-#### `api/middleware/rate_limiter.py`
-
-Lightweight rate limiting middleware for Alexa endpoints.
-
-This module provides simple, memory-efficient rate limiting suitable for
-single-instance personal deployments on resource-constrained hardware like
-Raspberry Pi Zero 2W.
-
-Design Philosophy:
-- In-memory storage (no Redis/database dependency)
-- Sliding window algorithm for accurate tracking
-- Minimal memory footprint (~1KB per tracked IP/token)
-- Automatic cleanup of expired entries
-- Thread-safe for asyncio event loop
-
-**Classes**:
-
-- **RateLimitConfig**
-  Configuration for rate limiting.
-
-- **RateLimitEntry**
-  Tracking entry for rate limiting with sliding window.
-
-- **RateLimiter**
-  Lightweight in-memory rate limiter with sliding window algorithm.
-
-This implementation uses a sliding window to track requests, providing
-accurate rate limiting without the overhead of external storag...
-
-**Functions**:
-
-- **get_client_ip()**
-  Extract client IP address from request.
-
-Handles X-Forwarded-For header for proxy scenarios.
-
-Args:
-    request: aiohttp request object
-
-Returns:
-    ...
-
-- **get_bearer_token()**
-  Extract bearer token from Authorization header.
-
-Args:
-    request: aiohttp request object
-
-Returns:
-    Bearer token string or None if not present
-
-- **get_stats()**
-  Get rate limiter statistics.
-
-Returns:
-    Dictionary with rate limiter stats
 
 #### `api/routes/__init__.py`
 
@@ -1684,100 +1287,20 @@ Centralized async orchestration utilities for CalendarBot Lite.
 
 This module provides consistent patterns for async operations including:
 - ThreadPoolExecutor management with proper lifecycle
-- Event loop detection and safe execution
-- Timeout management with backoff strategies
-- Error handling with retry logic
-- Semaphore-based concurrency control
+- Event loop detection and safe execution from synchronous contexts
 - Async context manager utilities
-
-Design Goals:
-1. Eliminate scattered ThreadPoolExecutor usage across codebase
-2. Provide safe event loop handling for mixed sync/async contexts
-3. Centralize timeout and retry configuration
-4. Enable consistent error handling and logging patterns
-5. Simplify async code with reusable utilities
 
 Usage Example:
     ```python
-    from calendarbot_lite.core.async_utils import AsyncOrchestrator
+    from calendarbot_lite.core.async_utils import get_global_orchestrator
 
-    orchestrator = AsyncOrchestrator(max_workers=4)
+    orchestrator = get_global_orchestrator()
 
-    # Run async function with timeout
-    result = await orchestrator.run_with_timeout(
-        some_async_func(),
-        timeout=30.0
-    )
-
-    # Run sync function in executor
-    result = await orchestrator.run_in_executor(
-        some_blocking_func,
-        arg1,
-        arg2
-    )
-
-    # Gather multiple coroutines with timeout
-    results = await orchestrator.gather_with_timeout(
-        coro1(), coro2(), coro3(),
-        timeout=60.0
-    )
-
-    # Retry with exponential backoff
-    result = await orchestrator.retry_async(
-        flaky_async_func,
-        max_retries=3,
-        backoff=1.0
-    )
+    # Run async coroutine from synchronous context
+    result = orchestrator.run_coroutine_from_sync(some_async_func())
     ```
 
-Async Patterns Audit (conducted 2025-11-01):
-
-## ThreadPoolExecutor Usage:
-1. lite_rrule_expander.py (lines 1018-1031): Creates ThreadPoolExecutor to run
-   async code in new event loop when existing loop detected
-2. lite_parser.py (lines 390-403): Similar pattern for RRULE expansion
-
-## Async/Await Patterns:
-- asyncio.gather() for concurrent operations (fetch_orchestrator.py:67)
-- Semaphores for bounded concurrency (RRuleWorkerPool, FetchOrchestrator)
-- AsyncIterator for streaming (lite_rrule_expander.py:101)
-- Async context managers for locks and semaphores
-
-## Timeout Strategies:
-- http_client.py: httpx.Timeout with separate connect/read/write/pool timeouts
-  - connect=10.0s, read=30.0s, write=10.0s, pool=30.0s
-- RRuleWorkerPool: time budget per RRULE (200ms default)
-- No centralized timeout management - handled ad-hoc per operation
-
-## Error Handling:
-- http_client.py: Health tracking with error counts and client recreation
-- Try/except with logging throughout
-- No centralized retry logic - implemented per operation
-- Error recording: record_client_error(), record_client_success()
-
-## Concurrency Control:
-- asyncio.Semaphore for bounded concurrency
-- RRuleWorkerPool: max_concurrency=1 (Pi Zero 2W optimization)
-- FetchOrchestrator: fetch_concurrency=2-3 (bounded 1-3)
-- No centralized semaphore management
-
-## Common Patterns to Consolidate:
-1. Event loop detection with fallback to ThreadPoolExecutor
-2. Semaphore-based concurrency limiting
-3. Health tracking with error thresholds
-4. Timeout management with configurable durations
-5. Async streaming with cooperative yields
-
 **Classes**:
-
-- **AsyncOrchestratorError**
-  Base exception for AsyncOrchestrator errors.
-
-- **AsyncTimeoutError**
-  Raised when async operation exceeds timeout.
-
-- **AsyncRetryExhaustedError**
-  Raised when retry attempts are exhausted.
 
 - **AsyncOrchestrator**
   Centralized async operation orchestration with consistent patterns.
@@ -1785,7 +1308,7 @@ Async Patterns Audit (conducted 2025-11-01):
 Provides unified interface for:
 - ThreadPoolExecutor lifecycle management
 - Safe event loop detection and execution
-- Timeout manag...
+- Running coroutines from synchronous contexts
 
 **Functions**:
 
@@ -1794,25 +1317,18 @@ Provides unified interface for:
 
 Args:
     max_workers: Maximum thread pool workers
-    default_timeout: Default timeout for oper...
+
+Returns:
+    AsyncOrchestrator singleton instance
 
 - **run_coroutine_from_sync()**
   Run async coroutine from synchronous context.
 
 This is a SYNCHRONOUS method that safely executes async code whether
-or not there's already a running e...
+or not there's already a running event loop.
 
-- **get_health_stats()**
-  Get health statistics for monitoring.
-
-Returns:
-    Dictionary with health metrics
-
-- **run_in_new_loop()**
-  Run coroutine in a new event loop in separate thread.
-
-- **run_in_new_loop()**
-  Run coroutine in a new event loop in separate thread.
+- **shutdown_global_orchestrator()**
+  Shutdown the global orchestrator and release resources.
 
 #### `core/config_manager.py`
 
@@ -1889,31 +1405,6 @@ Supported keys (preferred):
   From parsed events, build a list of (event, rrule_string, exdates) tuples.
 
 The parsed events may be LiteCalendarEvent instances or dict-like objects ...
-
-#### `core/dependencies.py`
-
-Dependency injection container for calendarbot_lite server.
-
-**Classes**:
-
-- **AppDependencies**
-  Container for all application dependencies.
-
-This dataclass holds all the shared dependencies needed by various
-parts of the application, making it easier to test and maintain.
-
-- **DependencyContainer**
-  Factory for building application dependencies.
-
-**Functions**:
-
-- **build_dependencies()**
-  Build all application dependencies.
-
-Args:
-    config: Application configuration
-    skipped_store: Optional skipped events store
-    shared_http_clie...
 
 #### `core/health_tracker.py`
 
@@ -1997,24 +1488,13 @@ This module provides a connection pool manager that eliminates per-fetch
 httpx.AsyncClient creation and reduces network overhead through connection reuse.
 Configured with Pi Zero 2W-specific limits to balance performance and resource usage.
 
-**Classes**:
-
-- **StreamingHTTPResponse**
-  Wrapper for streaming HTTP response with peek capability.
-
-This class provides a way to peek at the initial bytes of an HTTP response
-to make buffering vs streaming decisions, while preserving the abi...
-
 **Functions**:
 
-- **headers()**
-  Get response headers.
+- **get_shared_client()**
+  Get or create shared HTTP client with connection pooling.
 
-- **status_code()**
-  Get response status code.
-
-- **raise_for_status()**
-  Raise an exception if response indicates an error.
+- **close_all_clients()**
+  Close all shared HTTP clients and release resources.
 
 #### `core/monitoring_logging.py`
 
@@ -2059,18 +1539,6 @@ Args:
 
 Returns:
     MonitoringLogger instance
-
-- **log_server_event()**
-  Log a server component event.
-
-- **log_watchdog_event()**
-  Log a watchdog component event.
-
-- **log_health_event()**
-  Log a health check component event.
-
-- **log_recovery_event()**
-  Log a recovery component event.
 
 - **to_dict()**
   Convert to dictionary following the standard schema.
@@ -2481,6 +1949,18 @@ This pipeline handles the full event processing flow:
 #### `domain/skipped_store.py`
 
 JSON-backed skipped-store for calendarbot_lite with 24-hour expiry and atomic writes.
+
+**Functions**:
+
+- **is_event_skipped()**
+  Check if an event is skipped using a skipped store.
+
+Args:
+    event_id: Event identifier string
+    store: Optional skipped store object
+
+Returns:
+    True if event is skipped, False otherwise (including on errors)
 
 **Classes**:
 
