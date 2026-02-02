@@ -24,9 +24,12 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from calendarbot_lite.api.server import _get_server_timezone, _now_utc
 from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
-from calendarbot_lite.core.timezone_utils import get_fallback_timezone as _get_fallback_timezone
+from calendarbot_lite.core.timezone_utils import (
+    get_fallback_timezone as _get_fallback_timezone,
+    get_server_timezone as _get_server_timezone,
+    now_utc as _now_utc,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +126,6 @@ class FreeBlock(BaseModel):
         try:
             import zoneinfo
 
-            from calendarbot_lite.api.server import _get_server_timezone
             from calendarbot_lite.calendar.lite_datetime_utils import format_time_for_speech
 
             # Use provided timezone or fallback to server timezone
@@ -169,7 +171,6 @@ class MeetingInsight(BaseModel):
         try:
             import zoneinfo
 
-            from calendarbot_lite.api.server import _get_server_timezone
             from calendarbot_lite.calendar.lite_datetime_utils import format_time_for_speech
 
             # Use provided timezone or fallback to server timezone

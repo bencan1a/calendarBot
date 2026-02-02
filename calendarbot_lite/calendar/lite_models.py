@@ -1,6 +1,6 @@
 """Data models for ICS calendar processing - CalendarBot Lite version."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Optional
 
@@ -402,3 +402,47 @@ class LiteCalendarEvent(BaseModel):
     def serialize_datetime(self, dt: datetime) -> str:
         """Serialize datetime fields to ISO format."""
         return dt.isoformat()
+
+
+# Internal helper classes for RRULE expansion
+# These classes are used to create lightweight event representations for recurring events
+
+
+class SimpleEvent:
+    """Lightweight event representation for RRULE expansion.
+
+    Used as a fallback when a full parsed event is not available.
+    Contains minimal attributes needed for recurring event expansion.
+    """
+
+    def __init__(self) -> None:
+        """Initialize a simple event with default None values."""
+        self.start: Any = None
+        self.end: Any = None
+        self.id: Any = None
+        self.subject: Any = None
+        self.body_preview: Any = None
+        self.is_recurring: Any = None
+        self.is_all_day: Any = None
+        self.is_cancelled: Any = None
+        self.is_online_meeting: Any = None
+        self.online_meeting_url: Any = None
+        self.last_modified_date_time: Any = None
+
+
+class DateTimeWrapper:
+    """Wrapper for datetime objects used in event expansion.
+
+    Provides a consistent interface for date_time and time_zone attributes
+    expected by the RRULE expander.
+    """
+
+    def __init__(self, dt: Any) -> None:
+        """Initialize datetime wrapper.
+
+        Args:
+            dt: Datetime object to wrap
+        """
+        self.date_time = dt
+        # Preserve timezone info if present, else default to UTC
+        self.time_zone = getattr(dt, "tzinfo", UTC)

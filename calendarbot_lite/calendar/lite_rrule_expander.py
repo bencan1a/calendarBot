@@ -12,7 +12,12 @@ import uuid
 
 from dateutil.rrule import rrulestr, rruleset
 
-from calendarbot_lite.calendar.lite_models import LiteCalendarEvent, LiteDateTimeInfo
+from calendarbot_lite.calendar.lite_models import (
+    DateTimeWrapper,
+    LiteCalendarEvent,
+    LiteDateTimeInfo,
+    SimpleEvent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -481,30 +486,20 @@ class LiteRRuleExpander(RRuleWorkerPool):
     ) -> list[Any]:
         """Legacy synchronous-style wrapper returning a list of expanded events.
 
-        Delegates to expand_event_to_list via asyncio.run for callers that expect a blocking call.
+        Delegates to expand_event_to_list via AsyncOrchestrator for callers that expect
+        a blocking call. The orchestrator handles event loop detection automatically,
+        working correctly whether called from sync or async contexts.
 
-        Note: Cannot be called from within an async context. Use expand_event_async() instead.
+        For pure async usage, prefer expand_event_async() or await expand_event_to_list().
         """
-
-        def check_not_in_event_loop() -> None:
-            """Ensure we're not already in an event loop."""
-            try:
-                asyncio.get_running_loop()
-                # If we get here, we're already in an event loop - can't use asyncio.run()
-                raise RuntimeError(
-                    "expand_event() cannot be called from async context. "
-                    "Use expand_event_async() or await expand_event_to_list() instead."
-                )
-            except RuntimeError as e:
-                # Check if this is the "no running event loop" error (which is what we want)
-                if "no running event loop" not in str(e).lower():
-                    # This is our custom error about being in async context
-                    raise
-                # No event loop running - safe to proceed
+        from calendarbot_lite.core.async_utils import get_global_orchestrator
 
         try:
-            check_not_in_event_loop()
-            return asyncio.run(self.expand_event_to_list(master_event, rrule_string, exdates))
+            orchestrator = get_global_orchestrator()
+            return orchestrator.run_coroutine_from_sync(
+                lambda: self.expand_event_to_list(master_event, rrule_string, exdates),
+                timeout=None,  # No timeout for RRULE expansion
+            )
         except Exception:
             logger.exception(
                 "LiteRRuleExpander.expand_event failed for master %s",
@@ -959,11 +954,9 @@ class RRuleOrchestrator:
         if parsed_event:
             return parsed_event
 
-        # Import helper classes from lite_parser
-        from calendarbot_lite.calendar.lite_parser import _SimpleEvent, _DateTimeWrapper
-
+        # Use helper classes from lite_models (imported at module level)
         # Synthesize a lightweight event object with minimal attributes
-        candidate_event = _SimpleEvent()
+        candidate_event = SimpleEvent()
 
         # Initialize is_all_day flag (will be set to True if date-only event detected)
         candidate_event.is_all_day = False
@@ -975,12 +968,12 @@ class RRuleOrchestrator:
 
             # Wrap start and end in simple containers expected by expander
             if isinstance(dtstart_raw, datetime):
-                candidate_event.start = _DateTimeWrapper(dtstart_raw)
+                candidate_event.start = DateTimeWrapper(dtstart_raw)
             elif isinstance(dtstart_raw, date):
                 # Handle date-only events (all-day events like birthdays, holidays)
                 # Convert date to datetime at midnight UTC
                 dt = datetime.combine(dtstart_raw, datetime.min.time())
-                candidate_event.start = _DateTimeWrapper(dt.replace(tzinfo=UTC))
+                candidate_event.start = DateTimeWrapper(dt.replace(tzinfo=UTC))
                 candidate_event.is_all_day = True
             else:
                 # fallback parse string - try both datetime and date formats
@@ -988,39 +981,39 @@ class RRuleOrchestrator:
                 try:
                     # Try datetime format first
                     dt = datetime.strptime(dt_str.rstrip("Z"), "%Y%m%dT%H%M%S")
-                    candidate_event.start = _DateTimeWrapper(dt.replace(tzinfo=UTC))
+                    candidate_event.start = DateTimeWrapper(dt.replace(tzinfo=UTC))
                 except ValueError:
                     # Try date format for all-day events
                     dt = datetime.strptime(dt_str, "%Y%m%d")
-                    candidate_event.start = _DateTimeWrapper(dt.replace(tzinfo=UTC))
+                    candidate_event.start = DateTimeWrapper(dt.replace(tzinfo=UTC))
                     candidate_event.is_all_day = True
 
             if dtend_raw and isinstance(dtend_raw, datetime):
-                candidate_event.end = _DateTimeWrapper(dtend_raw)
+                candidate_event.end = DateTimeWrapper(dtend_raw)
             elif dtend_raw and isinstance(dtend_raw, date):
                 # Handle date-only end for all-day events
                 dt = datetime.combine(dtend_raw, datetime.min.time())
-                candidate_event.end = _DateTimeWrapper(dt.replace(tzinfo=UTC))
+                candidate_event.end = DateTimeWrapper(dt.replace(tzinfo=UTC))
             elif dtend_raw:
                 dt_str = str(component.get("DTEND"))
                 try:
                     # Try datetime format first
                     dt = datetime.strptime(dt_str.rstrip("Z"), "%Y%m%dT%H%M%S")
-                    candidate_event.end = _DateTimeWrapper(dt.replace(tzinfo=UTC))
+                    candidate_event.end = DateTimeWrapper(dt.replace(tzinfo=UTC))
                 except ValueError:
                     # Try date format for all-day events
                     dt = datetime.strptime(dt_str, "%Y%m%d")
-                    candidate_event.end = _DateTimeWrapper(dt.replace(tzinfo=UTC))
+                    candidate_event.end = DateTimeWrapper(dt.replace(tzinfo=UTC))
             else:
                 # If DTEND missing, approximate using duration
                 # For all-day events, use 1 day; for timed events, use 1 hour
                 duration = timedelta(days=1) if candidate_event.is_all_day else timedelta(hours=1)
-                candidate_event.end = _DateTimeWrapper(candidate_event.start.date_time + duration)
+                candidate_event.end = DateTimeWrapper(candidate_event.start.date_time + duration)
         except Exception:
             # Last-resort defaults
             now = datetime.now(UTC)
-            candidate_event.start = _DateTimeWrapper(now)
-            candidate_event.end = _DateTimeWrapper(now + timedelta(hours=1))
+            candidate_event.start = DateTimeWrapper(now)
+            candidate_event.end = DateTimeWrapper(now + timedelta(hours=1))
 
         # Minimal metadata to make expansion operate
         candidate_event.id = comp_uid
