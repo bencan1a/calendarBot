@@ -14,10 +14,7 @@ from pydantic import BaseModel, ValidationError
 
 from calendarbot_lite.alexa.alexa_exceptions import (
     AlexaAuthenticationError,
-    AlexaDataAccessError,
-    AlexaEventProcessingError,
     AlexaHandlerError,
-    AlexaResponseGenerationError,
     AlexaValidationError,
 )
 from calendarbot_lite.alexa.alexa_models import (
@@ -250,23 +247,6 @@ class AlexaEndpointBase(ABC):
                 },
             )
             return web.json_response({"error": "Unauthorized"}, status=401)
-        except (AlexaEventProcessingError, AlexaDataAccessError, AlexaResponseGenerationError) as e:
-            latency_ms = (time.time() - start_time) * 1000
-            logger.exception("Handler error in %s", handler_name)
-            monitoring_logger.error(  # noqa: PLE1205, TRY400
-                "alexa.request.failed",
-                f"Handler error in {handler_name}",
-                details={
-                    "handler": handler_name,
-                    "latency_ms": round(latency_ms, 2),
-                    "error_type": type(e).__name__,
-                    "error": str(e),
-                    "status": 500,
-                },
-            )
-            return web.json_response(
-                {"error": "Internal server error", "message": str(e)}, status=500
-            )
         except AlexaHandlerError as e:
             # Catch any other custom exceptions
             latency_ms = (time.time() - start_time) * 1000
@@ -374,10 +354,7 @@ class AlexaEndpointBase(ABC):
             event: LiteCalendarEvent object
 
         Returns:
-            True if skipped, False otherwise
-
-        Raises:
-            AlexaDataAccessError: If skipped store access fails critically
+            True if skipped, False otherwise (also returns False on store access errors)
         """
         if self.skipped_store is None:
             return False
@@ -1173,6 +1150,40 @@ class MorningSummaryHandler(AlexaEndpointBase):
     # Use specialized validation model for morning summary
     param_model = MorningSummaryRequestParams
 
+    @staticmethod
+    def _empty_summary_metadata() -> AlexaMorningSummaryMetadata:
+        """Return empty summary metadata for error responses."""
+        return {
+            "preview_for": "",
+            "total_meetings_equivalent": 0.0,
+            "early_start_flag": False,
+            "density": "",
+            "back_to_back_count": 0,
+            "timeframe_start": "",
+            "timeframe_end": "",
+            "wake_up_recommendation": None,
+        }
+
+    def _build_error_response(
+        self, error_type: str, speech_text: str, status: int
+    ) -> web.Response:
+        """Build a standardized error response for morning summary.
+
+        Args:
+            error_type: Error description (e.g., "Bad request", "Internal server error")
+            speech_text: User-friendly speech text for Alexa
+            status: HTTP status code
+
+        Returns:
+            JSON response with error, speech_text, and empty summary
+        """
+        error_response: AlexaMorningSummaryResponse = {
+            "error": error_type,
+            "speech_text": speech_text,
+            "summary": self._empty_summary_metadata(),
+        }
+        return web.json_response(error_response, status=status)
+
     def __init__(
         self,
         bearer_token: Optional[str],
@@ -1273,52 +1284,22 @@ class MorningSummaryHandler(AlexaEndpointBase):
 
         except AlexaValidationError as e:
             logger.warning("Morning summary validation error: %s", e)
-            error_response: AlexaMorningSummaryResponse = {
-                "error": "Bad request",
-                "speech_text": "Sorry, I couldn't understand your request. Please try again.",
-                "summary": {
-                    "preview_for": "",
-                    "total_meetings_equivalent": 0.0,
-                    "early_start_flag": False,
-                    "density": "",
-                    "back_to_back_count": 0,
-                    "timeframe_start": "",
-                    "timeframe_end": "",
-                    "wake_up_recommendation": None,
-                },
-            }
-            return web.json_response(error_response, status=400)
+            return self._build_error_response(
+                "Bad request",
+                "Sorry, I couldn't understand your request. Please try again.",
+                400,
+            )
         except AlexaHandlerError:
             logger.exception("Morning summary handler error")
-            error_response = {
-                "error": "Internal server error",
-                "speech_text": "Sorry, I couldn't generate your morning summary right now. Please try again later.",
-                "summary": {
-                    "preview_for": "",
-                    "total_meetings_equivalent": 0.0,
-                    "early_start_flag": False,
-                    "density": "",
-                    "back_to_back_count": 0,
-                    "timeframe_start": "",
-                    "timeframe_end": "",
-                    "wake_up_recommendation": None,
-                },
-            }
-            return web.json_response(error_response, status=500)
+            return self._build_error_response(
+                "Internal server error",
+                "Sorry, I couldn't generate your morning summary right now. Please try again later.",
+                500,
+            )
         except Exception:
             logger.exception("Unexpected error in morning summary")
-            error_response = {
-                "error": "Internal server error",
-                "speech_text": "Sorry, I couldn't generate your morning summary right now. Please try again later.",
-                "summary": {
-                    "preview_for": "",
-                    "total_meetings_equivalent": 0.0,
-                    "early_start_flag": False,
-                    "density": "",
-                    "back_to_back_count": 0,
-                    "timeframe_start": "",
-                    "timeframe_end": "",
-                    "wake_up_recommendation": None,
-                },
-            }
-            return web.json_response(error_response, status=500)
+            return self._build_error_response(
+                "Internal server error",
+                "Sorry, I couldn't generate your morning summary right now. Please try again later.",
+                500,
+            )

@@ -9,11 +9,7 @@ pytestmark = pytest.mark.unit
 
 from calendarbot_lite.alexa.alexa_models import (
     AlexaRequestParams,
-    DoneForDayRequestParams,
-    LaunchSummaryRequestParams,
     MorningSummaryRequestParams,
-    NextMeetingRequestParams,
-    TimeUntilRequestParams,
 )
 
 
@@ -148,42 +144,3 @@ class TestMorningSummaryRequestParams:
         assert "max_events" in str(exc_info.value).lower()
 
 
-class TestNextMeetingRequestParams:
-    """Test next meeting request parameter validation."""
-
-    def test_inherits_from_base(self):
-        """Test NextMeetingRequestParams inherits base validation."""
-        params = NextMeetingRequestParams(tz="Europe/London")
-        assert params.tz == "Europe/London"
-
-    def test_invalid_timezone_inherited(self):
-        """Test invalid timezone validation is inherited."""
-        with pytest.raises(ValidationError):
-            NextMeetingRequestParams(tz="Bad/TZ")
-
-
-class TestTimeUntilRequestParams:
-    """Test time until request parameter validation."""
-
-    def test_inherits_from_base(self):
-        """Test TimeUntilRequestParams inherits base validation."""
-        params = TimeUntilRequestParams(tz="Asia/Tokyo")
-        assert params.tz == "Asia/Tokyo"
-
-
-class TestDoneForDayRequestParams:
-    """Test done for day request parameter validation."""
-
-    def test_inherits_from_base(self):
-        """Test DoneForDayRequestParams inherits base validation."""
-        params = DoneForDayRequestParams(tz="Australia/Sydney")
-        assert params.tz == "Australia/Sydney"
-
-
-class TestLaunchSummaryRequestParams:
-    """Test launch summary request parameter validation."""
-
-    def test_inherits_from_base(self):
-        """Test LaunchSummaryRequestParams inherits base validation."""
-        params = LaunchSummaryRequestParams(tz="America/Chicago")
-        assert params.tz == "America/Chicago"

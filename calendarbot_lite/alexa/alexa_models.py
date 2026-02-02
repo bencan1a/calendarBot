@@ -40,34 +40,6 @@ class AlexaRequestParams(BaseModel):
         return v
 
 
-class NextMeetingRequestParams(AlexaRequestParams):
-    """Request parameters for NextMeetingHandler.
-
-    Inherits all parameters from AlexaRequestParams.
-    """
-
-
-class TimeUntilRequestParams(AlexaRequestParams):
-    """Request parameters for TimeUntilHandler.
-
-    Inherits all parameters from AlexaRequestParams.
-    """
-
-
-class DoneForDayRequestParams(AlexaRequestParams):
-    """Request parameters for DoneForDayHandler.
-
-    Inherits all parameters from AlexaRequestParams.
-    """
-
-
-class LaunchSummaryRequestParams(AlexaRequestParams):
-    """Request parameters for LaunchSummaryHandler.
-
-    Inherits all parameters from AlexaRequestParams.
-    """
-
-
 class MorningSummaryRequestParams(BaseModel):
     """Request parameters for MorningSummaryHandler.
 
