@@ -422,18 +422,6 @@ class LiteICSFetcher:
                 # Merge existing headers with browser headers (browser headers take precedence)
                 combined_headers = {**headers, **DEFAULT_BROWSER_HEADERS}
 
-                # Add correlation ID for request tracing (if available, doesn't override existing)
-                try:
-                    from calendarbot_lite.api.middleware.correlation_id import get_request_id
-
-                    request_id = get_request_id()
-                    if request_id and request_id != "no-request-id":
-                        # Only add if not already present (allows client override)
-                        combined_headers.setdefault("X-Request-ID", request_id)
-                except (ImportError, AttributeError):
-                    # Middleware not available or no request context
-                    pass
-
                 # DEAD SIMPLE: Use httpx.get() to download entire file at once like a browser
                 logger.debug("Using dead simple GET request for %s", url)
                 response = await self.client.get(

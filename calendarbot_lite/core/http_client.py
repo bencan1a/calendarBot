@@ -51,25 +51,12 @@ DEFAULT_BROWSER_HEADERS: dict[str, str] = {
 
 
 def _get_headers_with_correlation_id() -> dict[str, str]:
-    """Get default headers with correlation ID for request tracing.
+    """Get default headers for HTTP requests.
 
     Returns:
-        Headers dictionary with correlation ID if available
+        Headers dictionary with browser-like headers
     """
-    headers = DEFAULT_BROWSER_HEADERS.copy()
-
-    # Add correlation ID if available from context
-    try:
-        from calendarbot_lite.api.middleware.correlation_id import get_request_id
-
-        request_id = get_request_id()
-        if request_id and request_id != "no-request-id":
-            headers["X-Request-ID"] = request_id
-    except (ImportError, AttributeError):
-        # Middleware not available or no request context
-        pass
-
-    return headers
+    return DEFAULT_BROWSER_HEADERS.copy()
 
 
 # Health check thresholds

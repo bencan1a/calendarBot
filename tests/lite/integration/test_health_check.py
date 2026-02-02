@@ -78,62 +78,6 @@ class TestHealthTracking:
         assert server_module._health_tracker.get_background_task_status()["last_heartbeat_age_s"] is not None
 
 
-class TestSystemDiagnostics:
-    """Test system diagnostics functionality."""
-
-    @patch("os.getloadavg")
-    def test_get_system_diagnostics_when_load_available_then_returns_load(self, mock_getloadavg: MagicMock) -> None:
-        """Test that system diagnostics returns load average when available."""
-        mock_getloadavg.return_value = (0.5, 1.0, 1.5)
-
-        diag = server_module._get_system_diagnostics()
-
-        assert diag["server_load_1m"] == 0.5
-
-    @patch("os.getloadavg", side_effect=OSError("Not available"))
-    def test_get_system_diagnostics_when_load_unavailable_then_returns_none(self, mock_getloadavg: MagicMock) -> None:
-        """Test that system diagnostics returns None when load average unavailable."""
-        diag = server_module._get_system_diagnostics()
-
-        assert diag["server_load_1m"] is None
-
-    @patch("builtins.open", create=True)
-    def test_get_system_diagnostics_when_meminfo_available_then_returns_memory(self, mock_open: MagicMock) -> None:
-        """Test that system diagnostics returns memory info when available."""
-        mock_file = MagicMock()
-        mock_file.__enter__.return_value = mock_file
-        mock_file.__iter__.return_value = iter([
-            "MemTotal:        8192000 kB\n",
-            "MemFree:         4096000 kB\n",
-            "MemAvailable:    6144000 kB\n",
-            "Buffers:          256000 kB\n"
-        ])
-        mock_open.return_value = mock_file
-
-        diag = server_module._get_system_diagnostics()
-
-        assert diag["free_mem_kb"] == 6144000
-
-    @patch("builtins.open", side_effect=FileNotFoundError("Not found"))
-    def test_get_system_diagnostics_when_meminfo_unavailable_then_returns_none(self, mock_open: MagicMock) -> None:
-        """Test that system diagnostics returns None when meminfo unavailable."""
-        diag = server_module._get_system_diagnostics()
-
-        assert diag["free_mem_kb"] is None
-
-    def test_get_system_diagnostics_when_no_system_info_then_returns_baseline_structure(self) -> None:
-        """Test that system diagnostics returns proper structure even without system info."""
-        with patch("os.getloadavg", side_effect=OSError), \
-             patch("builtins.open", side_effect=FileNotFoundError):
-
-            diag = server_module._get_system_diagnostics()
-
-        assert "server_load_1m" in diag
-        assert "free_mem_kb" in diag
-        assert diag["server_load_1m"] is None
-        assert diag["free_mem_kb"] is None
-
-
 class TestHealthEndpoint:
     """Test the /api/health endpoint."""
 
@@ -148,11 +92,9 @@ class TestHealthEndpoint:
         # Test health check function directly by creating it within the _make_app context
 
         with patch("calendarbot_lite.api.server._now_utc") as mock_now, \
-             patch("calendarbot_lite.api.server._get_system_diagnostics") as mock_diag, \
              patch("os.getpid", return_value=12345):
 
             mock_now.return_value = datetime.datetime(2025, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
-            mock_diag.return_value = {"server_load_1m": 0.5, "free_mem_kb": 1024000}
 
             # Mock the app creation components for context
             event_window_ref = [()]
@@ -167,53 +109,37 @@ class TestHealthEndpoint:
                 config, skipped_store, event_window_ref, window_lock, stop_event
             )
 
-            # Get the health_check function from module vars since it's defined locally in _make_app
-            # Instead, let's directly test by creating a mock response that mimics what we expect
+            # Test status determination logic directly using the health tracker
+            status = server_module._health_tracker.determine_overall_status()
 
-            # We'll test by calling the health check logic directly via mocked components
-            # Simulate no refresh state (already set in setup_method)
+            assert status == "degraded"
 
-            # Mock the web.json_response function to capture what would be returned
-            with patch("aiohttp.web.json_response") as mock_json_response:
-                mock_response = MagicMock()
-                mock_response.status = 503
-                mock_json_response.return_value = mock_response
+            # Test that health data structure is correct
+            health_data = {
+                "status": status,
+                "server_time_iso": "2025-01-01T12:00:00Z",
+                "server_status": {
+                    "uptime_s": 100,
+                    "pid": 12345
+                },
+                "last_refresh": {
+                    "last_success_iso": None,
+                    "last_attempt_iso": None,
+                    "last_success_delta_s": None,
+                    "event_count": 0
+                },
+                "background_tasks": [],
+                "display_probe": {
+                    "last_render_probe_iso": None,
+                    "last_probe_ok": False,
+                    "last_probe_notes": None
+                },
+            }
 
-                # Create health handler by accessing app's router (simplified approach)
-                # Since the internal structure is complex, we'll test the health logic components separately
-
-                # Test status determination logic directly using the health tracker
-                status = server_module._health_tracker.determine_overall_status()
-
-                assert status == "degraded"
-
-                # Test that health data structure is correct
-                health_data = {
-                    "status": status,
-                    "server_time_iso": "2025-01-01T12:00:00Z",
-                    "server_status": {
-                        "uptime_s": 100,
-                        "pid": 12345
-                    },
-                    "last_refresh": {
-                        "last_success_iso": None,
-                        "last_attempt_iso": None,
-                        "last_success_delta_s": None,
-                        "event_count": 0
-                    },
-                    "background_tasks": [],
-                    "display_probe": {
-                        "last_render_probe_iso": None,
-                        "last_probe_ok": False,
-                        "last_probe_notes": None
-                    },
-                    "diag": {"server_load_1m": 0.5, "free_mem_kb": 1024000}
-                }
-
-                # Verify the structure is correct
-                assert health_data["status"] == "degraded"
-                assert health_data["last_refresh"]["last_success_iso"] is None
-                assert health_data["server_status"]["pid"] == 12345
+            # Verify the structure is correct
+            assert health_data["status"] == "degraded"
+            assert health_data["last_refresh"]["last_success_iso"] is None
+            assert health_data["server_status"]["pid"] == 12345
 
     def test_health_status_logic_when_recent_success_then_returns_ok(self) -> None:
         """Test that health status logic returns ok when recent refresh succeeded."""

@@ -12,10 +12,14 @@ from typing import Optional
 
 
 class CorrelationIdFilter(logging.Filter):
-    """Add correlation ID to all log records for distributed tracing."""
+    """Add request ID placeholder to log records (correlation ID middleware removed).
+
+    Note: This filter now provides a static placeholder since distributed tracing
+    via correlation IDs was removed as unnecessary overhead for single-user deployment.
+    """
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """Add correlation ID to log record.
+        """Add request_id placeholder to log record.
 
         Args:
             record: Log record to enhance
@@ -23,15 +27,7 @@ class CorrelationIdFilter(logging.Filter):
         Returns:
             True to allow record to be logged
         """
-        # Import here to avoid circular dependency
-        try:
-            from calendarbot_lite.api.middleware.correlation_id import get_request_id
-
-            record.request_id = get_request_id()
-        except (ImportError, AttributeError):
-            # Fallback if middleware not available or no request context
-            record.request_id = "no-request-id"
-
+        record.request_id = "no-request-id"
         return True
 
 

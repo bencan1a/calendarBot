@@ -35,62 +35,12 @@ calendarbot_lite uses environment variables for configuration. Create a `.env` f
 - `CALENDARBOT_DEBUG` - Enable debug logging (true/false)
 - `CALENDARBOT_LOG_LEVEL` - Log level override (DEBUG, INFO, WARNING, ERROR)
 
-**Rate Limiting (Security):**
-- `CALENDARBOT_RATE_LIMIT_PER_IP` - Requests per minute per IP (default: 100)
-- `CALENDARBOT_RATE_LIMIT_PER_TOKEN` - Requests per minute per bearer token (default: 500)
-- `CALENDARBOT_RATE_LIMIT_BURST` - Max requests in burst window (default: 20)
-- `CALENDARBOT_RATE_LIMIT_BURST_WINDOW` - Burst window in seconds (default: 10)
-
 **Advanced/Testing:**
 - `CALENDARBOT_NONINTERACTIVE` - Disable interactive prompts (true/false)
 - `CALENDARBOT_TEST_TIME` - Override current time for testing (ISO format)
 - `CALENDARBOT_PRODUCTION` - Enable production mode optimizations (true/false)
 
 See `.env.example` for a complete reference with full CalendarBot vs calendarbot_lite variables.
-
-Rate Limiting
--------------
-CalendarBot Lite includes lightweight rate limiting to protect Alexa endpoints from DoS attacks. Rate limiting is automatically enabled for all Alexa API routes.
-
-**Features:**
-- **Per-IP Rate Limiting:** Limits requests per minute from each IP address
-- **Per-Token Rate Limiting:** Limits requests per minute for each bearer token
-- **Burst Protection:** Prevents rapid-fire attacks with short-window burst limits
-- **Sliding Window Algorithm:** Accurate tracking without clock-related edge cases
-- **In-Memory Storage:** No external dependencies (Redis, etc.) - suitable for Pi Zero 2W
-- **Automatic Cleanup:** Background task removes expired tracking entries
-
-**Default Limits:**
-- Per IP: 100 requests/minute
-- Per Token: 500 requests/minute
-- Burst: 20 requests in 10 seconds
-
-**HTTP Response Headers:**
-Rate-limited responses include standard headers:
-- `X-RateLimit-Limit-IP`: Maximum requests allowed per minute
-- `X-RateLimit-Remaining-IP`: Remaining requests in current window
-- `X-RateLimit-Reset`: Seconds until rate limit resets
-- `Retry-After`: Seconds to wait before retrying (429 responses only)
-
-**Monitoring:**
-Rate limiter statistics are exposed in the `/api/health` endpoint:
-```json
-{
-  "rate_limiting": {
-    "total_requests": 1234,
-    "rejected_requests": 5,
-    "rejection_rate": 0.004,
-    "tracked_ips": 3,
-    "tracked_tokens": 1,
-    "config": {
-      "per_ip_limit": 100,
-      "per_token_limit": 500,
-      "burst_limit": 20,
-      "burst_window_seconds": 10
-    }
-  }
-}
-```
 
 Developer quickstart
 --------------------

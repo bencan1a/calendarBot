@@ -67,14 +67,6 @@ def register_api_routes(
             else serialize_iso(datetime.fromtimestamp(last_probe_ts, tz=UTC).replace(microsecond=0))
         )
 
-        # Get rate limiter statistics if available
-        rate_limit_stats = None
-        if "rate_limiter" in app:
-            try:
-                rate_limit_stats = app["rate_limiter"].get_stats()
-            except Exception as e:
-                logger.warning("Failed to get rate limiter stats: %s", e)
-
         # Check initialization status for UI polling
         initial_refresh_complete = health_tracker.get_last_refresh_success_timestamp() is not None
         event_window_initialized = False
@@ -107,10 +99,6 @@ def register_api_routes(
                 "event_loop_running": diag.event_loop_running,
             },
         }
-
-        # Add rate limiter stats if available
-        if rate_limit_stats:
-            health_data["rate_limiting"] = rate_limit_stats
 
         # Return appropriate HTTP status based on health
         http_status = 200 if health_status.status == "ok" else 503

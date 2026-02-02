@@ -40,8 +40,6 @@ class ProcessingContext:
     # Configuration
     rrule_expansion_days: int = 14
     event_window_size: int = 50
-    max_stored_events: int = 1000
-    enable_streaming: bool = True
 
     # Time context
     now: Optional[datetime] = None
@@ -52,7 +50,6 @@ class ProcessingContext:
     raw_content: Optional[str] = None  # Raw ICS content
     raw_components: list[Any] = field(default_factory=list)  # iCalendar components
     events: list[LiteCalendarEvent] = field(default_factory=list)  # Parsed events
-    filtered_events: list[LiteCalendarEvent] = field(default_factory=list)  # After filtering
 
     # Metadata
     source_url: Optional[str] = None

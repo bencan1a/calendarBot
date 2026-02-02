@@ -80,16 +80,8 @@ class LogEntry:
         self.recovery_level = recovery_level
         self.system_state = system_state or {}
 
-        # Get request ID from context if not provided
-        if request_id is None:
-            try:
-                from calendarbot_lite.api.middleware.correlation_id import get_request_id
-
-                self.request_id = get_request_id()
-            except (ImportError, AttributeError):
-                self.request_id = "no-request-id"
-        else:
-            self.request_id = request_id
+        # Use provided request_id or default (correlation ID middleware removed)
+        self.request_id = request_id if request_id else "no-request-id"
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary following the standard schema."""

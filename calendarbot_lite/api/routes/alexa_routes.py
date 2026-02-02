@@ -17,8 +17,6 @@ from calendarbot_lite.alexa.alexa_handlers import (
     TimeUntilHandler,
 )
 from calendarbot_lite.alexa.alexa_presentation import SSMLPresenter
-from calendarbot_lite.api.middleware.rate_limit_middleware import create_rate_limited_handler
-from calendarbot_lite.api.middleware.rate_limiter import RateLimiter
 from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
 
 logger = logging.getLogger(__name__)
@@ -36,7 +34,6 @@ def register_alexa_routes(
     ssml_renderers: dict[str, object],
     get_server_timezone: Optional[Callable[[], str]] = None,
     response_cache: Any = None,
-    rate_limiter: Optional[RateLimiter] = None,
 ) -> None:
     """Register Alexa-specific API routes using consolidated handlers.
 
@@ -52,7 +49,6 @@ def register_alexa_routes(
         ssml_renderers: Dictionary of SSML rendering functions
         get_server_timezone: Optional function to get server timezone
         response_cache: Optional ResponseCache for caching handler responses
-        rate_limiter: Optional RateLimiter instance for rate limiting protection
     """
     # Create presenters for different handlers
     # NextMeetingHandler uses meeting SSML renderer
@@ -148,18 +144,11 @@ def register_alexa_routes(
             return route_handler
 
         route_handler_func = create_route_handler(handler)
-
-        # Apply rate limiting if rate_limiter is provided
-        if rate_limiter is not None:
-            route_handler_func = create_rate_limited_handler(route_handler_func, rate_limiter)
-            logger.debug("Applied rate limiting to route: %s", route)
-
         app.router.add_get(route, route_handler_func)
         registered_routes.append(route)
 
     logger.debug(
-        "Registered %d Alexa routes%s: %s",
+        "Registered %d Alexa routes: %s",
         len(registered_routes),
-        " with rate limiting" if rate_limiter else "",
         ", ".join(registered_routes),
     )

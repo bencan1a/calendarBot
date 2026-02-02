@@ -131,42 +131,6 @@ except ImportError as e:
     render_morning_summary_ssml = None  # type: ignore[assignment]
 
 
-def _get_system_diagnostics() -> dict[str, Any]:
-    """Get lightweight system diagnostics for health monitoring.
-
-    Returns:
-        Dictionary with system metrics, using None for unavailable values.
-    """
-    diag: dict[str, Any] = {
-        "server_load_1m": None,
-        "free_mem_kb": None,
-    }
-
-    try:
-        # Get 1-minute load average (Pi Zero 2W specific)
-        load_avg = os.getloadavg()
-        diag["server_load_1m"] = round(load_avg[0], 2)
-    except (OSError, AttributeError):
-        # getloadavg not available on all platforms
-        pass
-
-    try:
-        # Get free memory in KB - lightweight approach
-        with open("/proc/meminfo", encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("MemAvailable:"):
-                    # Extract value in KB
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        diag["free_mem_kb"] = int(parts[1])
-                    break
-    except (FileNotFoundError, ValueError, IndexError):
-        # /proc/meminfo not available or format unexpected
-        pass
-
-    return diag
-
-
 def _update_health_tracking(
     *,
     refresh_attempt: bool = False,
@@ -283,39 +247,6 @@ def _build_default_config_from_env() -> dict[str, Any]:
     alexa_token = os.environ.get("CALENDARBOT_ALEXA_BEARER_TOKEN")
     if alexa_token:
         cfg["alexa_bearer_token"] = alexa_token
-
-    # Rate limiting configuration
-    rate_limit_per_ip = os.environ.get("CALENDARBOT_RATE_LIMIT_PER_IP")
-    if rate_limit_per_ip:
-        try:
-            cfg["rate_limit_per_ip"] = int(rate_limit_per_ip)
-        except Exception:
-            logger.warning("Invalid CALENDARBOT_RATE_LIMIT_PER_IP=%r; ignoring", rate_limit_per_ip)
-
-    rate_limit_per_token = os.environ.get("CALENDARBOT_RATE_LIMIT_PER_TOKEN")
-    if rate_limit_per_token:
-        try:
-            cfg["rate_limit_per_token"] = int(rate_limit_per_token)
-        except Exception:
-            logger.warning(
-                "Invalid CALENDARBOT_RATE_LIMIT_PER_TOKEN=%r; ignoring", rate_limit_per_token
-            )
-
-    rate_limit_burst = os.environ.get("CALENDARBOT_RATE_LIMIT_BURST")
-    if rate_limit_burst:
-        try:
-            cfg["rate_limit_burst"] = int(rate_limit_burst)
-        except Exception:
-            logger.warning("Invalid CALENDARBOT_RATE_LIMIT_BURST=%r; ignoring", rate_limit_burst)
-
-    rate_limit_burst_window = os.environ.get("CALENDARBOT_RATE_LIMIT_BURST_WINDOW")
-    if rate_limit_burst_window:
-        try:
-            cfg["rate_limit_burst_window"] = int(rate_limit_burst_window)
-        except Exception:
-            logger.warning(
-                "Invalid CALENDARBOT_RATE_LIMIT_BURST_WINDOW=%r; ignoring", rate_limit_burst_window
-            )
 
     return cfg
 
@@ -783,7 +714,6 @@ async def _fetch_and_parse_source(
                 source_url=source.url,
                 source_name=source.name,
                 rrule_expansion_days=rrule_days,
-                enable_streaming=True,
             )
 
             # Process through pipeline
@@ -1410,11 +1340,8 @@ async def _make_app(  # type: ignore[no-untyped-def]
     else:
         logger.debug("aiohttp successfully imported; building web.Application")
 
-    # Import correlation ID middleware
-    from calendarbot_lite.api.middleware import correlation_id_middleware
-
-    # Create app with correlation ID middleware
-    app = web.Application(middlewares=[correlation_id_middleware])
+    # Create app (no middleware needed for single-user deployment)
+    app = web.Application()
 
     # Get the package directory for static file serving
     from pathlib import Path
@@ -1454,27 +1381,6 @@ async def _make_app(  # type: ignore[no-untyped-def]
     # Get bearer token from config for Alexa endpoints
     alexa_bearer_token = _get_config_value(_config, "alexa_bearer_token")
 
-    # Initialize rate limiter for Alexa endpoints
-    rate_limiter = None
-    try:
-        from calendarbot_lite.api.middleware.rate_limiter import RateLimitConfig, RateLimiter
-
-        # Get rate limit configuration from config or use defaults
-        rate_limit_config = RateLimitConfig(
-            per_ip_limit=int(_get_config_value(_config, "rate_limit_per_ip", 100)),
-            per_token_limit=int(_get_config_value(_config, "rate_limit_per_token", 500)),
-            burst_limit=int(_get_config_value(_config, "rate_limit_burst", 20)),
-            burst_window_seconds=int(_get_config_value(_config, "rate_limit_burst_window", 10)),
-        )
-
-        rate_limiter = RateLimiter(rate_limit_config)
-    except ImportError:
-        logger.warning(
-            "Rate limiter module not available, Alexa endpoints will run without rate limiting"
-        )
-    except Exception:
-        logger.exception("Failed to initialize rate limiter")
-
     # Create SSML renderers dictionary for Alexa routes
     ssml_renderers = {
         "meeting": render_meeting_ssml,
@@ -1496,19 +1402,11 @@ async def _make_app(  # type: ignore[no-untyped-def]
         ssml_renderers=ssml_renderers,  # type: ignore[arg-type]
         get_server_timezone=_get_server_timezone,
         response_cache=response_cache,
-        rate_limiter=rate_limiter,
     )
-
-    # Store rate limiter in app for access by health endpoint
-    if rate_limiter:
-        app["rate_limiter"] = rate_limiter
 
     # Provide a stop handler to allow external shutdown if needed
     async def _shutdown(_app):  # type: ignore[no-untyped-def]
         logger.info("Application shutdown requested")
-        # Stop rate limiter cleanup task
-        if rate_limiter:
-            await rate_limiter.stop()
 
     app.on_shutdown.append(_shutdown)
     return app
@@ -1653,11 +1551,6 @@ async def _serve(
         )
 
     logger.info("Server started successfully on %s:%d", host, actual_port)
-
-    # Start rate limiter cleanup task if available
-    if "rate_limiter" in app:
-        await app["rate_limiter"].start()
-        logger.debug("Rate limiter cleanup task started")
 
     log_monitoring_event(
         "server.startup.success",

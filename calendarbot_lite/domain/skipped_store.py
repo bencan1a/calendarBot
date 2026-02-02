@@ -14,6 +14,36 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def is_event_skipped(event_id: str, store: object | None) -> bool:
+    """Check if an event is skipped using a skipped store.
+
+    This is a shared utility function that safely handles:
+    - None stores (returns False)
+    - Stores without is_skipped method (returns False)
+    - Exceptions from is_skipped (logs warning, returns False)
+
+    Args:
+        event_id: The event/meeting ID to check
+        store: Optional object with is_skipped(event_id) method
+
+    Returns:
+        True if event is skipped, False otherwise
+    """
+    if store is None:
+        return False
+
+    is_skipped_fn = getattr(store, "is_skipped", None)
+    if not callable(is_skipped_fn):
+        return False
+
+    try:
+        result = is_skipped_fn(event_id)
+        return bool(result)
+    except Exception as e:
+        logger.warning("skipped_store.is_skipped raised: %s", e)
+        return False
+
+
 def _now_utc() -> datetime:
     """Return current UTC time as an aware datetime.
 

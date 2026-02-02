@@ -255,9 +255,9 @@ This component bridges the HTTP Server and Alexa Integration layers, consuming r
 
 **Key Classes:**
 - [`ProcessingContext`](../../calendarbot_lite/pipeline.py:32-67) - Context passed between stages
-  - Configuration: RRULE window, event limits, streaming flags
+  - Configuration: RRULE window, event limits
   - Time context: now, window_start, window_end
-  - Processing state: raw_content, events, filtered_events
+  - Processing state: raw_content, events
   - Metadata: source_url, calendar_metadata
   - User preferences: skipped_event_ids, user_email
 

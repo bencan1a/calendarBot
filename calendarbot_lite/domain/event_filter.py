@@ -6,6 +6,8 @@ import datetime
 import logging
 from typing import Any
 
+from calendarbot_lite.domain.skipped_store import is_event_skipped
+
 logger = logging.getLogger(__name__)
 
 # Type alias for event dictionaries
@@ -158,16 +160,7 @@ class EventFilter:
         """
         if skipped_store is None:
             return events
-
-        is_skipped_fn = getattr(skipped_store, "is_skipped", None)
-        if not callable(is_skipped_fn):
-            return events
-
-        try:
-            return [e for e in events if not is_skipped_fn(e["meeting_id"])]
-        except Exception as e:
-            logger.warning("skipped_store.is_skipped raised: %s", e)
-            return events
+        return [e for e in events if not is_event_skipped(e["meeting_id"], skipped_store)]
 
     def sort_and_limit_events(
         self,

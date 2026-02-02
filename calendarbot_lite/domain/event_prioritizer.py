@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Any
 
 from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
+from calendarbot_lite.domain.skipped_store import is_event_skipped
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ class EventPrioritizer:
                 continue
 
             # Skip user-skipped events
-            if self._is_skipped(ev, skipped_store):
+            if is_event_skipped(ev.id, skipped_store):
                 continue
 
             candidate_events.append((ev, seconds_until))
@@ -109,30 +110,6 @@ class EventPrioritizer:
 
         # Return earliest event
         return candidate_events[0]
-
-    def _is_skipped(self, event: LiteCalendarEvent, skipped_store: object | None) -> bool:
-        """Check if event is skipped by user.
-
-        Args:
-            event: LiteCalendarEvent object
-            skipped_store: Optional skipped store
-
-        Returns:
-            True if event is skipped, False otherwise
-        """
-        if skipped_store is None:
-            return False
-
-        is_skipped_fn = getattr(skipped_store, "is_skipped", None)
-        if not callable(is_skipped_fn):
-            return False
-
-        try:
-            result = is_skipped_fn(event.id)
-            return bool(result)
-        except Exception as e:
-            logger.warning("skipped_store.is_skipped raised: %s", e)
-            return False
 
     def _apply_priority_early_group(
         self,
@@ -170,60 +147,6 @@ class EventPrioritizer:
 
         # No business events, use first available
         selected_ev, selected_seconds = early_group[0]
-        logger.debug("PRIORITY: No business events found, using first available")
-        return selected_ev, selected_seconds
-
-    def _apply_priority_logic(
-        self,
-        candidate_events: list[tuple[LiteCalendarEvent, int]],
-        current_seconds_until: int,
-    ) -> tuple[LiteCalendarEvent, int] | None:
-        """Apply prioritization logic when multiple events occur at similar time.
-
-        Args:
-            candidate_events: List of (event, seconds_until) tuples
-            current_seconds_until: Seconds until current event
-
-        Returns:
-            Selected (event, seconds_until) or None if no prioritization needed
-        """
-        # Group events by time (within threshold)
-        current_time_group = [candidate_events[-1]]  # Latest event
-
-        for prev_ev, prev_seconds in candidate_events[:-1]:
-            if abs(current_seconds_until - prev_seconds) <= self.time_grouping_threshold_seconds:
-                current_time_group.append((prev_ev, prev_seconds))
-
-        # Only apply prioritization if we have multiple events at similar time
-        if len(current_time_group) <= 1:
-            return None
-
-        logger.debug("PRIORITY: Multiple events at similar time, applying prioritization")
-
-        # Categorize events
-        business_events = []
-        lunch_events = []
-
-        for cand_ev, cand_seconds in current_time_group:
-            category = self._categorize_event(cand_ev)
-
-            if category == EventCategory.LUNCH:
-                lunch_events.append((cand_ev, cand_seconds))
-                logger.debug("PRIORITY: Categorized as lunch event: %s", cand_ev.subject or "")
-            else:
-                business_events.append((cand_ev, cand_seconds))
-                logger.debug("PRIORITY: Categorized as business event: %s", cand_ev.subject or "")
-
-        # Prioritize business events over lunch
-        if business_events:
-            # Sort business events by time and take the earliest
-            business_events.sort(key=lambda x: x[1])
-            selected_ev, selected_seconds = business_events[0]
-            logger.debug("PRIORITY: Selected earliest business event over lunch")
-            return selected_ev, selected_seconds
-
-        # No business events, use first available
-        selected_ev, selected_seconds = current_time_group[0]
         logger.debug("PRIORITY: No business events found, using first available")
         return selected_ev, selected_seconds
 
