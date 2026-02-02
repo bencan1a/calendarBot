@@ -60,12 +60,6 @@ def mock_response_cache() -> Mock:
 
 
 @pytest.fixture
-def mock_precompute_getter() -> Mock:
-    """Provide a mock precompute getter."""
-    return Mock(return_value=None)
-
-
-@pytest.fixture
 def mock_presenter() -> Mock:
     """Provide a mock presenter."""
     presenter = Mock()
@@ -390,7 +384,6 @@ async def test_next_meeting_handler_when_meeting_exists_then_returns_meeting_inf
         time_provider=mock_time_provider,
         skipped_store=mock_skipped_store,
         response_cache=None,
-        precompute_getter=None,
         presenter=mock_presenter,  # type: ignore
         duration_formatter=lambda s: f"in {s} seconds",  # type: ignore
         iso_serializer=lambda dt: dt.isoformat(),  # type: ignore
@@ -426,7 +419,6 @@ async def test_next_meeting_handler_when_no_meetings_then_returns_none(
         time_provider=mock_time_provider,
         skipped_store=mock_skipped_store,
         response_cache=None,
-        precompute_getter=None,
         presenter=mock_presenter,  # type: ignore
     )
 
@@ -464,7 +456,6 @@ async def test_time_until_handler_when_meeting_exists_then_returns_time_info(
         time_provider=mock_time_provider,
         skipped_store=mock_skipped_store,
         response_cache=None,
-        precompute_getter=None,
         presenter=mock_presenter,  # type: ignore
         duration_formatter=lambda s: f"in {s} seconds",  # type: ignore
     )
@@ -498,7 +489,6 @@ async def test_time_until_handler_when_no_meetings_then_returns_none_seconds(
         time_provider=mock_time_provider,
         skipped_store=mock_skipped_store,
         response_cache=None,
-        precompute_getter=None,
         presenter=mock_presenter,  # type: ignore
     )
 
@@ -535,7 +525,6 @@ async def test_done_for_day_handler_when_meetings_today_then_returns_end_time(
         time_provider=mock_time_provider,
         skipped_store=mock_skipped_store,
         response_cache=None,
-        precompute_getter=None,
         presenter=mock_presenter,  # type: ignore
         iso_serializer=lambda dt: dt.isoformat() + "Z",  # type: ignore
     )
@@ -570,7 +559,6 @@ async def test_done_for_day_handler_when_no_meetings_today_then_returns_false(
         time_provider=mock_time_provider,
         skipped_store=mock_skipped_store,
         response_cache=None,
-        precompute_getter=None,
         presenter=mock_presenter,  # type: ignore
     )
 
@@ -620,7 +608,6 @@ async def test_done_for_day_handler_when_meetings_ended_then_returns_done_messag
         time_provider=mock_time_provider,
         skipped_store=mock_skipped_store,
         response_cache=None,
-        precompute_getter=None,
         presenter=mock_presenter,  # type: ignore
         iso_serializer=lambda dt: dt.isoformat() + "Z",  # type: ignore
     )
@@ -660,7 +647,6 @@ async def test_launch_summary_handler_when_meetings_today_then_returns_summary(
         time_provider=mock_time_provider,
         skipped_store=mock_skipped_store,
         response_cache=None,
-        precompute_getter=None,
         presenter=mock_presenter,  # type: ignore
         duration_formatter=lambda s: f"in {s} seconds",  # type: ignore
         iso_serializer=lambda dt: dt.isoformat(),  # type: ignore
@@ -696,7 +682,6 @@ async def test_launch_summary_handler_when_no_meetings_then_returns_free_message
         time_provider=mock_time_provider,
         skipped_store=mock_skipped_store,
         response_cache=None,
-        precompute_getter=None,
         presenter=mock_presenter,  # type: ignore
     )
 
@@ -762,7 +747,6 @@ async def test_launch_summary_handler_when_meeting_in_progress_then_acknowledges
         time_provider=mock_time_provider,
         skipped_store=mock_skipped_store,
         response_cache=None,
-        precompute_getter=None,
         presenter=mock_presenter,  # type: ignore
         duration_formatter=lambda s: f"in {s // 60} minutes",  # type: ignore
         iso_serializer=lambda dt: dt.isoformat(),  # type: ignore
@@ -798,45 +782,8 @@ async def test_launch_summary_handler_when_meeting_in_progress_then_acknowledges
 
 
 # ============================================================================
-# Caching and Precompute Tests
+# Caching Tests
 # ============================================================================
-
-
-@pytest.mark.unit
-async def test_handle_when_precompute_hit_then_returns_cached_response(
-    mock_time_provider: Mock,
-    mock_skipped_store: Mock,
-    mock_request: Mock,
-    mock_window_lock: AsyncMock,
-) -> None:
-    """Test that precomputed responses are returned immediately."""
-    precompute_data = {"precomputed": True, "meeting": None}
-    mock_precompute_getter = Mock(return_value=precompute_data)
-
-    class TestHandler(AlexaEndpointBase):
-        async def handle_request(self, request: Any, window: Any, now: Any) -> Any:
-            return web.json_response({"computed": True})
-
-    handler = TestHandler(
-        None,
-        mock_time_provider,
-        mock_skipped_store,
-        precompute_getter=mock_precompute_getter,
-    )
-
-    mock_request.query = {"tz": "UTC"}
-    event_window_ref: Any = [[]]
-
-    response = await handler.handle(mock_request, event_window_ref, mock_window_lock)
-
-    assert response.status == 200
-    body = response.body
-    import json
-
-    data = json.loads(body)  # type: ignore[arg-type]
-
-    assert data == precompute_data
-    assert "precomputed" in data
 
 
 @pytest.mark.unit

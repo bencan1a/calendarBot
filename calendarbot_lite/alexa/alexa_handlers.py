@@ -12,9 +12,6 @@ from typing import TYPE_CHECKING, Any, Optional
 from aiohttp import web
 from pydantic import BaseModel, ValidationError
 
-if TYPE_CHECKING:
-    from calendarbot_lite.alexa.alexa_response_cache import ResponseCache
-
 from calendarbot_lite.alexa.alexa_exceptions import (
     AlexaAuthenticationError,
     AlexaDataAccessError,
@@ -27,16 +24,6 @@ from calendarbot_lite.alexa.alexa_models import (
     AlexaRequestParams,
     MorningSummaryRequestParams,
 )
-from calendarbot_lite.alexa.alexa_protocols import (
-    AlexaPresenter,
-    DurationFormatter,
-    ISOSerializer,
-    PrecomputeGetter,
-    SkippedStore,
-    TimeProvider,
-    TimezoneGetter,
-)
-from calendarbot_lite.alexa.alexa_registry import AlexaHandlerRegistry
 from calendarbot_lite.alexa.alexa_types import (
     AlexaDoneForDayInfo,
     AlexaDoneForDayResponse,
@@ -71,7 +58,6 @@ class AlexaEndpointBase(ABC):
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
         response_cache: Optional[ResponseCache] = None,
-        precompute_getter: Optional[PrecomputeGetter] = None,
     ):
         """Initialize Alexa endpoint handler.
 
@@ -80,13 +66,11 @@ class AlexaEndpointBase(ABC):
             time_provider: Callable that returns current UTC time
             skipped_store: Optional store for skipped events
             response_cache: Optional ResponseCache for caching responses
-            precompute_getter: Optional function to get precomputed responses
         """
         self.bearer_token = bearer_token
         self.time_provider = time_provider
         self.skipped_store = skipped_store
         self.response_cache = response_cache
-        self.precompute_getter = precompute_getter
 
     def validate_params(self, request: web.Request) -> BaseModel:
         """Validate request query parameters using the handler's param model.
@@ -176,29 +160,6 @@ class AlexaEndpointBase(ABC):
                 )
                 return web.json_response({"error": "Bad request", "message": str(e)}, status=400)
 
-            # Check precomputed responses first (fastest path - <10ms)
-            if self.precompute_getter:
-                # Generate precompute key from handler name and query params
-                tz_param = request.query.get("tz", "UTC")
-                precompute_key = f"{handler_name}:{tz_param}"
-                precomputed = self.precompute_getter(precompute_key)
-                if precomputed:
-                    logger.debug("Precomputed response hit for %s", handler_name)
-                    latency_ms = (time.time() - start_time) * 1000
-                    monitoring_logger.info(  # noqa: PLE1205
-                        "alexa.request.completed",
-                        f"Request completed for {handler_name}",
-                        details={
-                            "handler": handler_name,
-                            "latency_ms": round(latency_ms, 2),
-                            "precompute_hit": True,
-                            "cache_hit": False,
-                            "timezone": tz_param,
-                            "status": 200,
-                        },
-                    )
-                    return web.json_response(precomputed)
-
             # Check cache before processing (if cache is enabled)
             cache_key = None
             if self.response_cache:
@@ -215,7 +176,6 @@ class AlexaEndpointBase(ABC):
                         details={
                             "handler": handler_name,
                             "latency_ms": round(latency_ms, 2),
-                            "precompute_hit": False,
                             "cache_hit": True,
                             "timezone": params.get("tz", "UTC"),
                             "status": 200,
@@ -253,7 +213,6 @@ class AlexaEndpointBase(ABC):
                 details={
                     "handler": handler_name,
                     "latency_ms": round(latency_ms, 2),
-                    "precompute_hit": False,
                     "cache_hit": False,
                     "timezone": request.query.get("tz", "UTC"),
                     "status": 200,
@@ -540,14 +499,6 @@ class AlexaEndpointBase(ABC):
         return response
 
 
-@AlexaHandlerRegistry.register(
-    intent="GetNextMeetingIntent",
-    route="/api/alexa/next-meeting",
-    description="Returns information about the next upcoming meeting",
-    ssml_enabled=True,
-    cache_enabled=True,
-    precompute_enabled=True,
-)
 class NextMeetingHandler(AlexaEndpointBase):
     """Handler for /api/alexa/next-meeting endpoint."""
 
@@ -557,7 +508,6 @@ class NextMeetingHandler(AlexaEndpointBase):
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
         response_cache: Optional[ResponseCache] = None,
-        precompute_getter: Optional[PrecomputeGetter] = None,
         presenter: Optional[AlexaPresenter] = None,
         duration_formatter: Optional[DurationFormatter] = None,
         iso_serializer: Optional[ISOSerializer] = None,
@@ -569,13 +519,12 @@ class NextMeetingHandler(AlexaEndpointBase):
             time_provider: Time provider callable
             skipped_store: Skipped events store
             response_cache: Optional ResponseCache for caching responses
-            precompute_getter: Optional function to get precomputed responses
             presenter: Optional presenter for formatting responses (AlexaPresenter)
             duration_formatter: Function to format duration in speech
             iso_serializer: Function to serialize datetime to ISO string
         """
         super().__init__(
-            bearer_token, time_provider, skipped_store, response_cache, precompute_getter
+            bearer_token, time_provider, skipped_store, response_cache
         )
         from calendarbot_lite.alexa.alexa_presentation import PlainTextPresenter
 
@@ -645,14 +594,6 @@ class NextMeetingHandler(AlexaEndpointBase):
         return web.json_response(response_data, status=200)
 
 
-@AlexaHandlerRegistry.register(
-    intent="GetTimeUntilNextMeetingIntent",
-    route="/api/alexa/time-until-next",
-    description="Returns time remaining until the next meeting",
-    ssml_enabled=True,
-    cache_enabled=True,
-    precompute_enabled=True,
-)
 class TimeUntilHandler(AlexaEndpointBase):
     """Handler for /api/alexa/time-until-next endpoint."""
 
@@ -662,7 +603,6 @@ class TimeUntilHandler(AlexaEndpointBase):
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
         response_cache: Optional[ResponseCache] = None,
-        precompute_getter: Optional[PrecomputeGetter] = None,
         presenter: Optional[AlexaPresenter] = None,
         duration_formatter: Optional[DurationFormatter] = None,
     ):
@@ -673,12 +613,11 @@ class TimeUntilHandler(AlexaEndpointBase):
             time_provider: Time provider callable
             skipped_store: Skipped events store
             response_cache: Optional ResponseCache for caching responses
-            precompute_getter: Optional function to get precomputed responses
             presenter: Optional presenter for formatting responses (AlexaPresenter)
             duration_formatter: Function to format duration in speech
         """
         super().__init__(
-            bearer_token, time_provider, skipped_store, response_cache, precompute_getter
+            bearer_token, time_provider, skipped_store, response_cache
         )
         from calendarbot_lite.alexa.alexa_presentation import PlainTextPresenter
 
@@ -739,14 +678,6 @@ class TimeUntilHandler(AlexaEndpointBase):
         return web.json_response(response_data, status=200)
 
 
-@AlexaHandlerRegistry.register(
-    intent="GetDoneForDayIntent",
-    route="/api/alexa/done-for-day",
-    description="Returns when the user will be done with meetings for the day",
-    ssml_enabled=True,
-    cache_enabled=True,
-    precompute_enabled=True,
-)
 class DoneForDayHandler(AlexaEndpointBase):
     """Handler for /api/alexa/done-for-day endpoint."""
 
@@ -756,7 +687,6 @@ class DoneForDayHandler(AlexaEndpointBase):
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
         response_cache: Optional[ResponseCache] = None,
-        precompute_getter: Optional[PrecomputeGetter] = None,
         presenter: Optional[AlexaPresenter] = None,
         iso_serializer: Optional[ISOSerializer] = None,
         get_server_timezone: Optional[TimezoneGetter] = None,
@@ -768,13 +698,12 @@ class DoneForDayHandler(AlexaEndpointBase):
             time_provider: Time provider callable
             skipped_store: Skipped events store
             response_cache: Optional ResponseCache for caching responses
-            precompute_getter: Optional function to get precomputed responses
             presenter: Optional presenter for formatting responses (AlexaPresenter)
             iso_serializer: Function to serialize datetime to ISO string
             get_server_timezone: Function to get server timezone
         """
         super().__init__(
-            bearer_token, time_provider, skipped_store, response_cache, precompute_getter
+            bearer_token, time_provider, skipped_store, response_cache
         )
         from calendarbot_lite.alexa.alexa_presentation import PlainTextPresenter
 
@@ -924,14 +853,6 @@ class DoneForDayHandler(AlexaEndpointBase):
             return "You have no meetings today. Enjoy your free day!"
 
 
-@AlexaHandlerRegistry.register(
-    intent="LaunchIntent",
-    route="/api/alexa/launch-summary",
-    description="Provides comprehensive summary when Alexa skill is launched",
-    ssml_enabled=True,
-    cache_enabled=True,
-    precompute_enabled=False,  # Launch summary combines multiple data sources
-)
 class LaunchSummaryHandler(AlexaEndpointBase):
     """Handler for /api/alexa/launch-summary endpoint."""
 
@@ -941,7 +862,6 @@ class LaunchSummaryHandler(AlexaEndpointBase):
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
         response_cache: Optional[ResponseCache] = None,
-        precompute_getter: Optional[PrecomputeGetter] = None,
         presenter: Optional[AlexaPresenter] = None,
         duration_formatter: Optional[DurationFormatter] = None,
         iso_serializer: Optional[ISOSerializer] = None,
@@ -954,14 +874,13 @@ class LaunchSummaryHandler(AlexaEndpointBase):
             time_provider: Time provider callable
             skipped_store: Skipped events store
             response_cache: Optional ResponseCache for caching responses
-            precompute_getter: Optional function to get precomputed responses
             presenter: Optional presenter for formatting responses (AlexaPresenter)
             duration_formatter: Function to format duration for speech
             iso_serializer: Function to serialize datetime to ISO string
             get_server_timezone: Function to get server timezone
         """
         super().__init__(
-            bearer_token, time_provider, skipped_store, response_cache, precompute_getter
+            bearer_token, time_provider, skipped_store, response_cache
         )
         from calendarbot_lite.alexa.alexa_presentation import PlainTextPresenter
 
@@ -1248,14 +1167,6 @@ class LaunchSummaryHandler(AlexaEndpointBase):
         return web.json_response(response_data, status=200)
 
 
-@AlexaHandlerRegistry.register(
-    intent="GetMorningSummaryIntent",
-    route="/api/alexa/morning-summary",
-    description="Provides detailed morning summary of upcoming events",
-    ssml_enabled=True,
-    cache_enabled=True,
-    precompute_enabled=False,  # Morning summary has complex parameters
-)
 class MorningSummaryHandler(AlexaEndpointBase):
     """Handler for /api/alexa/morning-summary endpoint."""
 
@@ -1268,7 +1179,6 @@ class MorningSummaryHandler(AlexaEndpointBase):
         time_provider: TimeProvider,
         skipped_store: SkippedStore | None,
         response_cache: Optional[ResponseCache] = None,
-        precompute_getter: Optional[PrecomputeGetter] = None,
         presenter: Optional[AlexaPresenter] = None,
         get_server_timezone: Optional[TimezoneGetter] = None,
     ):
@@ -1279,12 +1189,11 @@ class MorningSummaryHandler(AlexaEndpointBase):
             time_provider: Time provider callable
             skipped_store: Skipped events store
             response_cache: Optional ResponseCache for caching responses
-            precompute_getter: Optional function to get precomputed responses
             presenter: Optional presenter for formatting responses (AlexaPresenter)
             get_server_timezone: Function to get server timezone
         """
         super().__init__(
-            bearer_token, time_provider, skipped_store, response_cache, precompute_getter
+            bearer_token, time_provider, skipped_store, response_cache
         )
         from calendarbot_lite.alexa.alexa_presentation import PlainTextPresenter
 

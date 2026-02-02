@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from aiohttp import web
 
@@ -17,16 +17,6 @@ from calendarbot_lite.alexa.alexa_handlers import (
     TimeUntilHandler,
 )
 from calendarbot_lite.alexa.alexa_presentation import SSMLPresenter
-from calendarbot_lite.alexa.alexa_protocols import (
-    DurationFormatter,
-    ISOSerializer,
-    PrecomputeGetter,
-    SkippedStore,
-    TimeProvider,
-    TimezoneGetter,
-)
-from calendarbot_lite.alexa.alexa_registry import AlexaHandlerRegistry
-from calendarbot_lite.alexa.alexa_response_cache import ResponseCache
 from calendarbot_lite.api.middleware.rate_limit_middleware import create_rate_limited_handler
 from calendarbot_lite.api.middleware.rate_limiter import RateLimiter
 from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
@@ -39,14 +29,13 @@ def register_alexa_routes(
     bearer_token: Optional[str],
     event_window_ref: list[tuple[LiteCalendarEvent, ...]],
     window_lock: asyncio.Lock,
-    skipped_store: SkippedStore | None,
-    time_provider: TimeProvider,
-    duration_formatter: DurationFormatter,
-    iso_serializer: ISOSerializer,
+    skipped_store: Any,
+    time_provider: Callable[[], Any],
+    duration_formatter: Callable[[int], str],
+    iso_serializer: Callable[[Any], str],
     ssml_renderers: dict[str, object],
-    get_server_timezone: Optional[TimezoneGetter] = None,
-    response_cache: Optional[ResponseCache] = None,
-    precompute_getter: Optional[PrecomputeGetter] = None,
+    get_server_timezone: Optional[Callable[[], str]] = None,
+    response_cache: Any = None,
     rate_limiter: Optional[RateLimiter] = None,
 ) -> None:
     """Register Alexa-specific API routes using consolidated handlers.
@@ -63,7 +52,6 @@ def register_alexa_routes(
         ssml_renderers: Dictionary of SSML rendering functions
         get_server_timezone: Optional function to get server timezone
         response_cache: Optional ResponseCache for caching handler responses
-        precompute_getter: Optional function to get precomputed responses
         rate_limiter: Optional RateLimiter instance for rate limiting protection
     """
     # Create presenters for different handlers
@@ -90,7 +78,6 @@ def register_alexa_routes(
         time_provider=time_provider,
         skipped_store=skipped_store,
         response_cache=response_cache,
-        precompute_getter=precompute_getter,
         presenter=next_meeting_presenter,
         duration_formatter=duration_formatter,
         iso_serializer=iso_serializer,
@@ -101,7 +88,6 @@ def register_alexa_routes(
         time_provider=time_provider,
         skipped_store=skipped_store,
         response_cache=response_cache,
-        precompute_getter=precompute_getter,
         presenter=time_until_presenter,
         duration_formatter=duration_formatter,
     )
@@ -111,7 +97,6 @@ def register_alexa_routes(
         time_provider=time_provider,
         skipped_store=skipped_store,
         response_cache=response_cache,
-        precompute_getter=precompute_getter,
         presenter=done_for_day_presenter,
         iso_serializer=iso_serializer,
         get_server_timezone=get_server_timezone,
@@ -122,7 +107,6 @@ def register_alexa_routes(
         time_provider=time_provider,
         skipped_store=skipped_store,
         response_cache=response_cache,
-        precompute_getter=precompute_getter,
         presenter=launch_summary_presenter,
         duration_formatter=duration_formatter,
         iso_serializer=iso_serializer,
@@ -134,7 +118,6 @@ def register_alexa_routes(
         time_provider=time_provider,
         skipped_store=skipped_store,
         response_cache=response_cache,
-        precompute_getter=precompute_getter,
         presenter=morning_summary_presenter,
         get_server_timezone=get_server_timezone,
     )
@@ -149,16 +132,6 @@ def register_alexa_routes(
         "/api/alexa/launch-summary": launch_summary_handler,
         "/api/alexa/morning-summary": morning_summary_handler,
     }
-
-    # Validate all registered handlers have been instantiated
-    registry_routes = AlexaHandlerRegistry.get_routes()
-    for route, info in registry_routes.items():
-        if route not in handler_map:
-            logger.warning(
-                "Handler registered in registry but not instantiated: %s (%s)",
-                info.intent,
-                route,
-            )
 
     # Register routes using the handler map
     registered_routes = []

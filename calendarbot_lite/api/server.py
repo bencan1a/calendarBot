@@ -80,9 +80,6 @@ from calendarbot_lite.core.health_tracker import HealthTracker, get_system_diagn
 
 _health_tracker = HealthTracker()
 
-# Global storage for precomputed Alexa responses (updated on each refresh)
-_precomputed_responses: dict[str, Any] = {}
-
 
 @dataclass
 class SourceCacheEntry:
@@ -435,18 +432,6 @@ def _serialize_iso(dt: datetime.datetime | None) -> str | None:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=datetime.UTC)
     return dt.astimezone(datetime.UTC).isoformat().replace("+00:00", "Z")
-
-
-def _get_precomputed_response(cache_key: str) -> dict[str, Any] | None:
-    """Get precomputed Alexa response if available.
-
-    Args:
-        cache_key: Key for the precomputed response (e.g., "NextMeetingHandler:UTC")
-
-    Returns:
-        Precomputed response dict or None if not available
-    """
-    return _precomputed_responses.get(cache_key)
 
 
 def _compute_last_meeting_end_for_today(
@@ -1217,49 +1202,6 @@ async def _refresh_once(
             sources_failed
         )
 
-    # Run precomputation pipeline for Alexa responses (if enabled)
-    try:
-        from calendarbot_lite.alexa.alexa_precompute_stages import create_alexa_precompute_pipeline
-
-        # Get default timezone for precomputation
-        default_tz = _get_config_value(config, "default_timezone", "UTC")
-
-        # Create precomputation pipeline
-        precompute_pipeline = create_alexa_precompute_pipeline(
-            skipped_store=skipped_store,  # type: ignore[arg-type]
-            default_tz=default_tz,
-            time_provider=_now_utc,
-            duration_formatter=_format_duration_spoken,
-            iso_serializer=_serialize_iso,  # type: ignore[arg-type]
-            get_server_timezone=_get_server_timezone,  # type: ignore[arg-type]
-        )
-
-        # Run precomputation on the new events
-        from calendarbot_lite.domain.pipeline import ProcessingContext
-
-        precompute_context = ProcessingContext(events=list(final_events))
-        precompute_result = await precompute_pipeline.process(precompute_context)
-
-        # Extract and store precomputed responses globally
-        global _precomputed_responses
-        _precomputed_responses = precompute_context.extra.get("precomputed_responses", {})
-
-        if precompute_result.success:
-            logger.debug(
-                "Precomputed %d Alexa responses",
-                len(_precomputed_responses),
-            )
-        else:
-            logger.warning(
-                "Precomputation completed with errors: %s",
-                precompute_result.errors,
-            )
-
-    except ImportError:
-        logger.debug("Alexa precomputation not available")
-    except Exception as e:
-        logger.warning("Failed to precompute Alexa responses: %s", e)
-
     updated = True  # We successfully updated the window
     message = f"Updated event window with {final_count} events"
 
@@ -1554,7 +1496,6 @@ async def _make_app(  # type: ignore[no-untyped-def]
         ssml_renderers=ssml_renderers,  # type: ignore[arg-type]
         get_server_timezone=_get_server_timezone,
         response_cache=response_cache,
-        precompute_getter=_get_precomputed_response,
         rate_limiter=rate_limiter,
     )
 
@@ -1597,15 +1538,8 @@ async def _serve(
     window_lock = asyncio.Lock()
     stop_event = external_stop_event or asyncio.Event()
 
-    # Initialize Alexa response cache for improved performance
+    # Response cache disabled - provides no benefit for 1-5 users
     response_cache = None
-    try:
-        from calendarbot_lite.alexa.alexa_response_cache import ResponseCache
-
-        response_cache = ResponseCache(max_size=100)
-        logger.debug("Initialized Alexa response cache (max_size=100)")
-    except ImportError:
-        logger.debug("ResponseCache not available, caching disabled")
 
     # Initialize shared HTTP client for connection reuse optimization
     shared_http_client = None
