@@ -1,5 +1,5 @@
 # CalendarBot Component Summary
-*Generated: 2026-02-01 03:11:03 UTC*
+*Generated: 2026-02-02 03:11:00 UTC*
 
 ## Component Index
 
@@ -59,6 +59,7 @@
 - `domain/pipeline.py`
 - `domain/pipeline_stages.py`
 - `domain/skipped_store.py`
+- `domain/status_calculator.py`
 
 ### `root/`
 - `__init__.py`

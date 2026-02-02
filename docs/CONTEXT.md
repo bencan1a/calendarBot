@@ -1,5 +1,5 @@
 # CalendarBot Context
-*Generated: 2026-02-01 03:11:03 UTC*
+*Generated: 2026-02-02 03:11:00 UTC*
 
 ---
 
@@ -1041,8 +1041,12 @@ aiohttp is required to run the server (imported at startup).
 
 **Classes**:
 
-- **PortConflictError**
-  Raised when a port conflict cannot be resolved.
+- **SourceCacheEntry**
+  Cache metadata for a single ICS source.
+
+Stores the normalized content hash and parsed events to enable hash-based
+change detection. When the hash matches on subsequent fetches, parsing can
+be skipped...
 
 **Functions**:
 
@@ -2521,6 +2525,26 @@ Returns:
   Return mapping meeting_id -> expiry_iso for active (non-expired) entries.
 
 Expired entries are not included.
+
+#### `domain/status_calculator.py`
+
+Status message calculation for meeting displays.
+
+This module provides a single source of truth for calculating the status
+message shown in the bottom section of both the HTML and framebuffer UIs.
+
+**Classes**:
+
+- **StatusInfo**
+  Status information for meeting display.
+
+**Functions**:
+
+- **calculate_status()**
+  Calculate status message based on time until meeting.
+
+This is the single source of truth for status message logic used by
+both the HTML interface and...
 
 ### Package: `root`
 
