@@ -1,4 +1,9 @@
-"""Unit tests for Alexa skill backend timezone configuration."""
+"""Unit tests for Alexa skill backend timezone configuration.
+
+Note: These tests verify that the Alexa skill backend correctly uses the
+get_default_timezone function from timezone_utils. The actual timezone
+functionality is tested in test_timezone_utils.py.
+"""
 
 import os
 from contextlib import contextmanager

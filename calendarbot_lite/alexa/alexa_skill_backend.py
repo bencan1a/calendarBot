@@ -32,29 +32,9 @@ CALENDARBOT_ENDPOINT = os.environ.get("CALENDARBOT_ENDPOINT", "")
 CALENDARBOT_BEARER_TOKEN = os.environ.get("CALENDARBOT_BEARER_TOKEN", "")
 REQUEST_TIMEOUT = int(os.environ.get("REQUEST_TIMEOUT", "10"))
 
-
-def get_default_timezone() -> str:
-    """Get default timezone from environment with validation.
-
-    Returns:
-        Valid IANA timezone string (defaults to America/Los_Angeles)
-
-    Note:
-        This function validates the timezone and falls back gracefully
-        if the configured timezone is invalid.
-    """
-    import zoneinfo
-
-    # Get timezone from environment, default to Pacific time
-    timezone = os.environ.get("CALENDARBOT_DEFAULT_TIMEZONE", "America/Los_Angeles")
-
-    # Validate timezone
-    try:
-        zoneinfo.ZoneInfo(timezone)
-        return timezone
-    except Exception:
-        logger.warning("Invalid timezone %r, falling back to America/Los_Angeles", timezone)
-        return "America/Los_Angeles"
+# Import get_default_timezone from the canonical location
+# The implementation is in calendarbot_lite.core.timezone_utils
+from calendarbot_lite.core.timezone_utils import get_default_timezone  # noqa: E402
 
 
 class AlexaResponse:

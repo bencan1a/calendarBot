@@ -365,15 +365,15 @@ class TestMonitoringIntegration:
     def test_monitoring_logging_integration_when_server_import_then_no_errors(self) -> None:
         """Test that monitoring logging integrates with server without errors."""
         try:
-            from calendarbot_lite.core.monitoring_logging import get_logger, log_server_event
+            from calendarbot_lite.core.monitoring_logging import get_logger
             from calendarbot_lite.api.server import log_monitoring_event
 
             # Should import successfully
             logger = get_logger("test")
             assert logger is not None
 
-            # Should be able to call functions
-            result = log_server_event("test.import", "Import test")
+            # Should be able to call logger methods
+            result = logger.info("test.import", "Import test")
             assert isinstance(result, bool)
 
         except ImportError as e:

@@ -22,6 +22,7 @@ from typing import Any, Optional
 import httpx
 
 from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
+from calendarbot_lite.core.config_manager import parse_env_file
 from calendarbot_lite.calendar.lite_rrule_expander import expand_events_async
 from calendarbot_lite.calendar.lite_streaming_parser import parse_ics_stream
 
@@ -39,30 +40,29 @@ def read_env(env_path: str | Path) -> dict[str, Optional[str]]:
     Backwards compatibility:
       - If a legacy ICS_SOURCE key is present in .env, it will be mapped to CALENDARBOT_ICS_URL.
 
-    This is intentionally not a full dotenv implementation (keeps deps low).
+    Uses the canonical parse_env_file() from config_manager for parsing.
     """
     env: dict[str, Optional[str]] = {
         "CALENDARBOT_ICS_URL": None,
         "DATETIME_OVERRIDE": None,
         "CALENDARBOT_DEBUG": None,
     }
-    p = Path(env_path)
-    if not p.exists():
-        return env
-    for raw in p.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        k = k.strip()
-        v = v.strip().strip('"').strip("'")
-        # Accept both the new primary key and the legacy ICS_SOURCE for backwards compatibility
-        if k in {"ICS_SOURCE", "CALENDARBOT_ICS_URL"}:
-            env["CALENDARBOT_ICS_URL"] = v
-        elif k in env:
-            env[k] = v
+
+    # Use shared parsing from config_manager
+    parsed = parse_env_file(Path(env_path))
+
+    # Map legacy ICS_SOURCE to CALENDARBOT_ICS_URL
+    if "ICS_SOURCE" in parsed:
+        env["CALENDARBOT_ICS_URL"] = parsed["ICS_SOURCE"]
+    if "CALENDARBOT_ICS_URL" in parsed:
+        env["CALENDARBOT_ICS_URL"] = parsed["CALENDARBOT_ICS_URL"]
+
+    # Copy other supported keys
+    if "DATETIME_OVERRIDE" in parsed:
+        env["DATETIME_OVERRIDE"] = parsed["DATETIME_OVERRIDE"]
+    if "CALENDARBOT_DEBUG" in parsed:
+        env["CALENDARBOT_DEBUG"] = parsed["CALENDARBOT_DEBUG"]
+
     return env
 
 

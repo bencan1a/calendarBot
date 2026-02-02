@@ -5,10 +5,9 @@ import logging
 import tempfile
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
-from typing import Any, Dict
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -19,10 +18,6 @@ from calendarbot_lite.core.monitoring_logging import (
     SystemMetricsCollector,
     configure_monitoring_logging,
     get_logger,
-    log_server_event,
-    log_watchdog_event,
-    log_health_event,
-    log_recovery_event,
 )
 
 
@@ -336,40 +331,6 @@ class TestMonitoringLogger:
 
             error_call = mock_error.call_args_list[0]
             assert error_call[0][0] == "test.operation.error"
-
-
-class TestConvenienceFunctions:
-    """Test convenience logging functions."""
-
-    @patch('calendarbot_lite.core.monitoring_logging.get_logger')
-    def test_log_server_event_when_called_then_uses_server_logger(
-        self, mock_get_logger: MagicMock
-    ) -> None:
-        """Test that log_server_event uses server logger."""
-        mock_logger = MagicMock()
-        mock_get_logger.return_value = mock_logger
-
-        log_server_event("test.event", "Test message", "INFO", details={"key": "value"})
-
-        mock_get_logger.assert_called_once_with("server")
-        mock_logger.log.assert_called_once_with(
-            "INFO", "test.event", "Test message", details={"key": "value"}
-        )
-
-    @patch('calendarbot_lite.core.monitoring_logging.get_logger')
-    def test_log_recovery_event_when_called_then_includes_recovery_level(
-        self, mock_get_logger: MagicMock
-    ) -> None:
-        """Test that log_recovery_event includes recovery level."""
-        mock_logger = MagicMock()
-        mock_get_logger.return_value = mock_logger
-
-        log_recovery_event("recovery.action", "Recovery taken", "ERROR", recovery_level=2)
-
-        mock_get_logger.assert_called_once_with("recovery")
-        mock_logger.log.assert_called_once_with(
-            "ERROR", "recovery.action", "Recovery taken", recovery_level=2
-        )
 
 
 class TestLoggerConfiguration:

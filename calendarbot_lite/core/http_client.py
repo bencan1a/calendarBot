@@ -8,8 +8,7 @@ Configured with Pi Zero 2W-specific limits to balance performance and resource u
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator
-from typing import Any, Optional
+from typing import Optional
 
 import httpx
 
@@ -72,12 +71,6 @@ def _get_headers_with_correlation_id() -> dict[str, str]:
 
     return headers
 
-
-# Buffer threshold for streaming vs buffering decision (50 KiB)
-BUFFER_THRESHOLD_BYTES = 50 * 1024
-
-# Initial peek size for content analysis (1 KiB)
-INITIAL_PEEK_SIZE = 1024
 
 # Health check thresholds
 HEALTH_ERROR_THRESHOLD = 3  # Recreate client after 3 consecutive errors
@@ -226,22 +219,6 @@ async def record_client_success(client_id: str = "default") -> None:
             logger.debug("Reset error count for healthy client '%s'", client_id)
 
 
-async def get_client_health(client_id: str = "default") -> dict[str, float]:
-    """Get health metrics for a client.
-
-    Args:
-        client_id: Identifier of the client
-
-    Returns:
-        Dictionary with error_count, last_error_time, and created_time.
-        Returns empty dict if client doesn't exist.
-    """
-    async with _client_lock:
-        if client_id in _client_health:
-            return _client_health[client_id].copy()
-        return {}
-
-
 async def _recreate_client_if_unhealthy(client_id: str) -> None:
     """Recreate client if it's determined to be unhealthy.
 
@@ -308,114 +285,3 @@ async def get_fallback_client(
         verify=True,
         headers=DEFAULT_BROWSER_HEADERS,
     )
-
-
-class StreamingHTTPResponse:
-    """Wrapper for streaming HTTP response with peek capability.
-
-    This class provides a way to peek at the initial bytes of an HTTP response
-    to make buffering vs streaming decisions, while preserving the ability to
-    read the full response content.
-    """
-
-    def __init__(self, response: httpx.Response):
-        """Initialize streaming response wrapper.
-
-        Args:
-            response: The httpx.Response to wrap
-        """
-        self.response = response
-        self._initial_bytes: Optional[bytes] = None
-        self._peek_consumed = False
-
-    async def peek_initial_bytes(self, size: int = INITIAL_PEEK_SIZE) -> bytes:
-        """Peek at initial bytes without consuming the stream.
-
-        Args:
-            size: Number of bytes to peek at
-
-        Returns:
-            Initial bytes from the response
-
-        Raises:
-            RuntimeError: If peek has already been consumed
-        """
-        if self._peek_consumed:
-            raise RuntimeError("Peek has already been consumed")
-
-        if self._initial_bytes is None:
-            # Read initial chunk
-            async for chunk in self.response.aiter_bytes(chunk_size=size):
-                self._initial_bytes = chunk
-                break
-            else:
-                self._initial_bytes = b""
-
-        return self._initial_bytes
-
-    async def iter_bytes_with_peek(self, chunk_size: int = 8192) -> AsyncIterator[bytes]:
-        """Iterate over response bytes including the peeked bytes.
-
-        Args:
-            chunk_size: Size of chunks to read
-
-        Yields:
-            Chunks of response bytes
-        """
-        # First yield the peeked bytes if any
-        if self._initial_bytes:
-            yield self._initial_bytes
-            self._peek_consumed = True
-
-        # Then yield the rest
-        async for chunk in self.response.aiter_bytes(chunk_size=chunk_size):
-            yield chunk
-
-    async def read_full_content(self) -> bytes:
-        """Read the full response content including peeked bytes.
-
-        Returns:
-            Complete response content as bytes
-        """
-        chunks = [chunk async for chunk in self.iter_bytes_with_peek()]
-        return b"".join(chunks)
-
-    @property
-    def headers(self) -> httpx.Headers:
-        """Get response headers."""
-        return self.response.headers
-
-    @property
-    def status_code(self) -> int:
-        """Get response status code."""
-        return self.response.status_code
-
-    def raise_for_status(self) -> None:
-        """Raise an exception if response indicates an error."""
-        self.response.raise_for_status()
-
-
-async def stream_request_with_peek(
-    client: httpx.AsyncClient,
-    method: str,
-    url: str,
-    **kwargs: Any,
-) -> StreamingHTTPResponse:
-    """Make a streaming HTTP request with peek capability.
-
-    Args:
-        client: HTTP client to use
-        method: HTTP method (GET, POST, etc.)
-        url: URL to request
-        **kwargs: Additional arguments for the request
-
-    Returns:
-        StreamingHTTPResponse wrapper with peek capability
-
-    Raises:
-        httpx.HTTPError: If the request fails
-    """
-    async with client.stream(method, url, **kwargs) as response:
-        # Create a copy of the response for our wrapper
-        # Note: We need to be careful here to not double-consume the stream
-        return StreamingHTTPResponse(response)

@@ -10,6 +10,61 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
+def parse_env_file(path: Path) -> dict[str, str]:
+    """Parse a .env file and return key-value pairs.
+
+    This is the canonical implementation for parsing .env files in the codebase.
+    Use this function instead of implementing custom .env parsing.
+
+    Args:
+        path: Path to .env file
+
+    Returns:
+        Dictionary of key-value pairs from the .env file.
+        Empty dict if file doesn't exist or cannot be read.
+
+    Note:
+        - Skips empty lines and comments (lines starting with #)
+        - Strips quotes (both single and double) from values
+        - Handles KEY=VALUE format with optional whitespace
+    """
+    if not path.exists():
+        return {}
+
+    result: dict[str, str] = {}
+
+    try:
+        content = path.read_text(encoding="utf-8")
+
+        for raw_line in content.splitlines():
+            line = raw_line.strip()
+
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                continue
+
+            # Parse KEY=VALUE format
+            if "=" not in line:
+                continue
+
+            key, val = line.split("=", 1)
+            key = key.strip()
+            val = val.strip().strip('"').strip("'")
+
+            if key:
+                result[key] = val
+
+    except Exception:
+        logger.debug(
+            "Failed to read .env file (continuing): %s",
+            str(path),
+            exc_info=True,
+        )
+
+    return result
+
+
 # Input validation limits for event fields
 # These limits prevent resource exhaustion from oversized calendar data
 MAX_EVENT_SUBJECT_LENGTH = 200  # ~20 words - reasonable meeting title
@@ -42,40 +97,18 @@ class ConfigManager:
             logger.debug("No .env file found at %s", self.env_file_path)
             return []
 
+        # Use shared parsing function
+        parsed = parse_env_file(self.env_file_path)
+
         set_keys = []
+        for key, val in parsed.items():
+            # Only set if not already in environment
+            if key not in os.environ:
+                os.environ[key] = val
+                set_keys.append(key)
 
-        try:
-            content = self.env_file_path.read_text(encoding="utf-8")
-
-            for raw_line in content.splitlines():
-                line = raw_line.strip()
-
-                # Skip empty lines and comments
-                if not line or line.startswith("#"):
-                    continue
-
-                # Parse KEY=VALUE format
-                if "=" not in line:
-                    continue
-
-                key, val = line.split("=", 1)
-                key = key.strip()
-                val = val.strip().strip('"').strip("'")
-
-                # Only set if not already in environment
-                if key and key not in os.environ:
-                    os.environ[key] = val
-                    set_keys.append(key)
-
-            if set_keys:
-                logger.debug("Loaded .env defaults for keys: %s", ", ".join(set_keys))
-
-        except Exception:
-            logger.debug(
-                "Failed to read .env file for defaults (continuing): %s",
-                str(self.env_file_path),
-                exc_info=True,
-            )
+        if set_keys:
+            logger.debug("Loaded .env defaults for keys: %s", ", ".join(set_keys))
 
         return set_keys
 
@@ -153,31 +186,9 @@ class ConfigManager:
         return self.build_config_from_env()
 
 
-def get_default_timezone(fallback: str = "America/Los_Angeles") -> str:
-    """Get default timezone from environment with validation.
-
-    Args:
-        fallback: Fallback timezone if not configured or invalid (default: America/Los_Angeles)
-
-    Returns:
-        Valid IANA timezone string
-
-    Note:
-        This function validates the timezone using zoneinfo.ZoneInfo and falls back
-        to the provided fallback timezone if the configured timezone is invalid.
-    """
-    import zoneinfo
-
-    # Get timezone from environment
-    timezone = os.environ.get("CALENDARBOT_DEFAULT_TIMEZONE", fallback)
-
-    # Validate timezone
-    try:
-        zoneinfo.ZoneInfo(timezone)
-        return timezone
-    except Exception:
-        logger.warning("Invalid timezone %r, falling back to %r", timezone, fallback, exc_info=True)
-        return fallback
+# Re-export get_default_timezone from timezone_utils for backward compatibility
+# The canonical implementation is in calendarbot_lite.core.timezone_utils
+from calendarbot_lite.core.timezone_utils import get_default_timezone  # noqa: F401
 
 
 def get_config_value(config: Any, key: str, default: Any = None) -> Any:

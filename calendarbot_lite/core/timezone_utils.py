@@ -343,6 +343,40 @@ def get_fallback_timezone() -> str:
     return _detector.get_fallback_timezone()
 
 
+def get_default_timezone(fallback: str = DEFAULT_SERVER_TIMEZONE) -> str:
+    """Get default timezone from environment with validation.
+
+    This is the canonical implementation for getting the configured default timezone.
+    It checks the CALENDARBOT_DEFAULT_TIMEZONE environment variable first,
+    then falls back to the provided fallback timezone.
+
+    Args:
+        fallback: Fallback timezone if not configured or invalid
+                  (default: America/Los_Angeles)
+
+    Returns:
+        Valid IANA timezone string
+
+    Note:
+        This function validates the timezone using zoneinfo.ZoneInfo and falls back
+        to the provided fallback timezone if the configured timezone is invalid.
+    """
+    import zoneinfo
+
+    # Get timezone from environment
+    timezone = os.environ.get("CALENDARBOT_DEFAULT_TIMEZONE", fallback)
+
+    # Validate timezone
+    try:
+        zoneinfo.ZoneInfo(timezone)
+        return timezone
+    except Exception:
+        logger.warning(
+            "Invalid timezone %r, falling back to %r", timezone, fallback, exc_info=True
+        )
+        return fallback
+
+
 def now_utc() -> datetime.datetime:
     """Get current UTC time (convenience function).
 

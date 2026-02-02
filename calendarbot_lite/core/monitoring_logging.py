@@ -517,30 +517,3 @@ def get_logger(component: str) -> MonitoringLogger:
     _logger_cache[component] = monitoring_logger
 
     return monitoring_logger
-
-
-# Convenience functions for common usage patterns
-def log_server_event(event: str, message: str, level: str = "INFO", **kwargs: Any) -> bool:
-    """Log a server component event."""
-    logger = get_logger("server")
-    return logger.log(level, event, message, **kwargs)
-
-
-def log_watchdog_event(event: str, message: str, level: str = "INFO", **kwargs: Any) -> bool:
-    """Log a watchdog component event."""
-    logger = get_logger("watchdog")
-    return logger.log(level, event, message, **kwargs)
-
-
-def log_health_event(event: str, message: str, level: str = "INFO", **kwargs: Any) -> bool:
-    """Log a health check component event."""
-    logger = get_logger("health")
-    return logger.log(level, event, message, **kwargs)
-
-
-def log_recovery_event(
-    event: str, message: str, level: str = "INFO", recovery_level: int = 0, **kwargs: Any
-) -> bool:
-    """Log a recovery component event."""
-    logger = get_logger("recovery")
-    return logger.log(level, event, message, recovery_level=recovery_level, **kwargs)
