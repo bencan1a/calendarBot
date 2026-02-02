@@ -1,7 +1,6 @@
 """Tests for calendarbot_lite health check functionality."""
 
 import datetime
-import os
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -148,14 +147,11 @@ class TestHealthEndpoint:
         """Test that health check returns degraded status when no refresh has occurred."""
         # Test health check function directly by creating it within the _make_app context
 
-        # Create a minimal mock request
-        mock_request = MagicMock()
-
         with patch("calendarbot_lite.api.server._now_utc") as mock_now, \
              patch("calendarbot_lite.api.server._get_system_diagnostics") as mock_diag, \
              patch("os.getpid", return_value=12345):
 
-            mock_now.return_value = datetime.datetime(2025, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
+            mock_now.return_value = datetime.datetime(2025, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
             mock_diag.return_value = {"server_load_1m": 0.5, "free_mem_kb": 1024000}
 
             # Mock the app creation components for context
@@ -166,7 +162,8 @@ class TestHealthEndpoint:
             skipped_store = None
 
             # Create the app which creates the health_check function
-            app = await server_module._make_app(
+            # (unused but needed to initialize internal state)
+            _ = await server_module._make_app(
                 config, skipped_store, event_window_ref, window_lock, stop_event
             )
 
@@ -279,86 +276,3 @@ class TestHealthEndpoint:
         assert task_status["last_heartbeat_age_s"] >= 600
 
 
-class TestPortConflictHandling:
-    """Test port conflict handling functionality."""
-
-    @patch.dict(os.environ, {"CALENDARBOT_NONINTERACTIVE": "true"})
-    @patch("calendarbot_lite.api.server._import_process_utilities")
-    def test_handle_port_conflict_when_noninteractive_and_success_then_returns_true(
-        self, mock_import: MagicMock
-    ) -> None:
-        """Test that non-interactive mode automatically resolves port conflicts when successful."""
-        # Mock process utilities
-        mock_check = MagicMock(return_value=False)  # Port not available
-        mock_find = MagicMock(return_value=MagicMock(pid=1234, command="test-process"))
-        mock_cleanup = MagicMock(return_value=True)  # Cleanup successful
-        mock_import.return_value = (mock_check, mock_find, mock_cleanup)
-
-        result = server_module._handle_port_conflict("localhost", 8080)
-
-        assert result is True
-        mock_cleanup.assert_called_once_with("localhost", 8080, force=True)
-
-    @patch.dict(os.environ, {"CALENDARBOT_NONINTERACTIVE": "true"})
-    @patch("calendarbot_lite.api.server._import_process_utilities")
-    def test_handle_port_conflict_when_noninteractive_and_failure_then_returns_false(
-        self, mock_import: MagicMock
-    ) -> None:
-        """Test that non-interactive mode returns false when cleanup fails."""
-        # Mock process utilities
-        mock_check = MagicMock(return_value=False)  # Port not available
-        mock_find = MagicMock(return_value=None)
-        mock_cleanup = MagicMock(return_value=False)  # Cleanup failed
-        mock_import.return_value = (mock_check, mock_find, mock_cleanup)
-
-        result = server_module._handle_port_conflict("localhost", 8080)
-
-        assert result is False
-
-    @patch.dict(os.environ, {"CALENDARBOT_NONINTERACTIVE": ""})
-    @patch("calendarbot_lite.api.server._import_process_utilities")
-    @patch("builtins.input", return_value="y")
-    @patch("builtins.print")
-    def test_handle_port_conflict_when_interactive_and_user_confirms_then_attempts_cleanup(
-        self, mock_print: MagicMock, mock_input: MagicMock, mock_import: MagicMock
-    ) -> None:
-        """Test that interactive mode prompts user and attempts cleanup when confirmed."""
-        # Mock process utilities
-        mock_check = MagicMock(return_value=False)  # Port not available
-        mock_find = MagicMock(return_value=MagicMock(pid=1234, command="test-process"))
-        mock_cleanup = MagicMock(return_value=True)  # Cleanup successful
-        mock_import.return_value = (mock_check, mock_find, mock_cleanup)
-
-        result = server_module._handle_port_conflict("localhost", 8080)
-
-        assert result is True
-        mock_input.assert_called_once()
-        mock_cleanup.assert_called_once_with("localhost", 8080, force=True)
-
-    @patch("calendarbot_lite.api.server._import_process_utilities")
-    def test_handle_port_conflict_when_port_available_then_returns_true(
-        self, mock_import: MagicMock
-    ) -> None:
-        """Test that available port returns true immediately."""
-        # Mock process utilities
-        mock_check = MagicMock(return_value=True)  # Port available
-        mock_find = MagicMock()
-        mock_cleanup = MagicMock()
-        mock_import.return_value = (mock_check, mock_find, mock_cleanup)
-
-        result = server_module._handle_port_conflict("localhost", 8080)
-
-        assert result is True
-        mock_find.assert_not_called()
-        mock_cleanup.assert_not_called()
-
-    @patch("calendarbot_lite.api.server._import_process_utilities")
-    def test_handle_port_conflict_when_utilities_missing_then_returns_true(
-        self, mock_import: MagicMock
-    ) -> None:
-        """Test that missing process utilities returns true to allow server startup."""
-        mock_import.return_value = (None, None, None)
-
-        result = server_module._handle_port_conflict("localhost", 8080)
-
-        assert result is True

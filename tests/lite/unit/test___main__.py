@@ -154,7 +154,9 @@ class TestMainIntegration:
         """Test main creates parser and invokes run_server."""
         mock_run_server = Mock()
         mock_parser = Mock()
-        mock_parser.parse_args.return_value = Namespace(port=8080)
+        mock_parser.parse_args.return_value = Namespace(
+            port=8080, ui="none", backend="local", backend_url=None, display_mode="fullscreen"
+        )
 
         monkeypatch.setattr("calendarbot_lite.__main__.run_server", mock_run_server)
         monkeypatch.setattr("calendarbot_lite.__main__._create_parser", lambda: mock_parser)
