@@ -34,7 +34,7 @@ REQUEST_TIMEOUT = int(os.environ.get("REQUEST_TIMEOUT", "10"))
 
 # Import get_default_timezone from the canonical location
 # The implementation is in calendarbot_lite.core.timezone_utils
-from calendarbot_lite.core.timezone_utils import get_default_timezone  # noqa: E402
+from calendarbot_lite.core.timezone_utils import get_default_timezone
 
 
 class AlexaResponse:

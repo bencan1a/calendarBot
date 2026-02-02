@@ -100,8 +100,7 @@ class AsyncOrchestrator:
         gather_coro = asyncio.gather(*coroutines, return_exceptions=return_exceptions)
 
         try:
-            results = await asyncio.wait_for(gather_coro, timeout=effective_timeout)
-            return results
+            return await asyncio.wait_for(gather_coro, timeout=effective_timeout)
         except TimeoutError as e:
             # Cancel all pending coroutines
             gather_coro.cancel()

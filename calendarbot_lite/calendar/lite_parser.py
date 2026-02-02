@@ -1,7 +1,7 @@
 """iCalendar parser with Microsoft Outlook compatibility - CalendarBot Lite version."""
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Any, Optional, cast
 
 from icalendar import Calendar, Event as ICalEvent
@@ -72,13 +72,9 @@ class LiteICSParser:
 
         logger.debug("Lite ICS parser initialized")
 
-    # NOTE: The following methods have been removed as they were dead code:
-    # - _build_component_and_event_maps() - now in RRuleOrchestrator
-    # - _collect_expansion_candidates() - now in RRuleOrchestrator
-    # - _collect_exdates() - now in RRuleOrchestrator
-    # - _get_or_create_candidate_event() - now in RRuleOrchestrator
-    # - _orchestrate_rrule_expansion() - now in RRuleOrchestrator
-    # The _expand_recurring_events() method delegates to RRuleOrchestrator.
+    # NOTE: Previously, this class contained several methods for RRULE expansion logic
+    # that have been refactored and moved to RRuleOrchestrator for better separation of
+    # concerns. The _expand_recurring_events() method now delegates to RRuleOrchestrator.
 
     def _should_use_streaming(self, ics_content: str) -> bool:
         """Determine if streaming parser should be used based on content size.

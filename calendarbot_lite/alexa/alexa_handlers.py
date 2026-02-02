@@ -7,6 +7,7 @@ import datetime
 import logging
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional
 
 from aiohttp import web
@@ -38,6 +39,17 @@ from calendarbot_lite.calendar.lite_datetime_utils import (
 from calendarbot_lite.calendar.lite_models import LiteCalendarEvent
 from calendarbot_lite.core.monitoring_logging import get_logger
 from calendarbot_lite.core.timezone_utils import parse_request_timezone
+
+if TYPE_CHECKING:
+    from calendarbot_lite.alexa.alexa_presentation import AlexaPresenter
+    from calendarbot_lite.domain.skipped_store import SkippedStore
+
+    # Type aliases for callables
+    TimeProvider = Callable[[], datetime.datetime]
+    ResponseCache = Any  # Optional cache object
+    DurationFormatter = Callable[[int], str]
+    ISOSerializer = Callable[[Any], str]
+    TimezoneGetter = Callable[[], str]
 
 logger = logging.getLogger(__name__)
 monitoring_logger = get_logger("alexa_handlers")

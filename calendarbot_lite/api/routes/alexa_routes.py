@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any, Optional
 
 from aiohttp import web
 
@@ -119,7 +120,7 @@ def register_alexa_routes(
     )
 
     # Map handler instances to their registered routes using the registry
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Awaitable
 
     handler_map: dict[str, AlexaEndpointBase] = {
         "/api/alexa/next-meeting": next_meeting_handler,
