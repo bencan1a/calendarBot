@@ -74,17 +74,31 @@ export CALENDARBOT_LOG_LEVEL=DEBUG
 # Run and capture all output
 python -m calendarbot_lite --ui framebuffer --backend local 2>&1 | tee "$LOG_FILE"
 
-# If it exits, show exit status and wait
+# If it exits, show exit status and reboot
 EXIT_CODE=$?
 echo ""
+echo "========================================="
 echo "CalendarBot exited with code: $EXIT_CODE"
+echo "========================================="
 echo "Log saved to: $LOG_FILE"
 echo ""
 if [ $EXIT_CODE -ne 0 ]; then
     echo "=== Last 20 lines of log ==="
     tail -n 20 "$LOG_FILE"
     echo "=========================="
+    echo ""
 fi
 echo ""
-echo "Press Enter to continue..."
-read
+echo "System will reboot in 30 seconds..."
+echo "Press Ctrl+C to cancel reboot"
+echo ""
+
+# Countdown before reboot
+for i in {30..1}; do
+    echo -ne "Rebooting in $i seconds...\r"
+    sleep 1
+done
+echo ""
+echo ""
+echo "Rebooting now..."
+sudo reboot
