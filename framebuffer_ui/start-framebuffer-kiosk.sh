@@ -46,6 +46,23 @@ LOG_FILE="$LOG_DIR/framebuffer-kiosk-$(date +%Y%m%d-%H%M%S).log"
 # Clear the screen
 clear
 
+# Give user time to cancel before starting
+echo "========================================="
+echo "CalendarBot Framebuffer Kiosk"
+echo "========================================="
+echo ""
+echo "Starting in 30 seconds..."
+echo "Press Ctrl+C to cancel"
+echo ""
+
+# Countdown with ability to interrupt
+for i in {30..1}; do
+    echo -ne "Starting in $i seconds...\r"
+    sleep 1
+done
+echo ""
+echo ""
+
 # Run framebuffer UI with detailed logging
 echo "Starting CalendarBot Framebuffer UI..."
 echo "Logging to: $LOG_FILE"
