@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 
 
 @dataclass
@@ -31,7 +30,8 @@ class Config:
     api_retry_attempts: int = 3
 
     # Refresh settings
-    refresh_interval: int = 60  # seconds
+    refresh_interval: int = 60  # seconds - API data refresh
+    display_refresh_interval: int = 5  # seconds - Display render refresh
 
     # Error display settings
     error_threshold: int = 900  # 15 minutes - only show errors after this long
@@ -73,6 +73,7 @@ class Config:
         api_retry_attempts = int(os.getenv("CALENDARBOT_API_RETRY_ATTEMPTS", "3"))
 
         refresh_interval = int(os.getenv("CALENDARBOT_REFRESH_INTERVAL", "60"))
+        display_refresh_interval = int(os.getenv("CALENDARBOT_DISPLAY_REFRESH_INTERVAL", "5"))
 
         error_threshold = int(os.getenv("CALENDARBOT_ERROR_THRESHOLD", "900"))
 
@@ -89,6 +90,7 @@ class Config:
             api_timeout=api_timeout,
             api_retry_attempts=api_retry_attempts,
             refresh_interval=refresh_interval,
+            display_refresh_interval=display_refresh_interval,
             error_threshold=error_threshold,
             font_dir=font_dir,
             log_level=log_level,

@@ -4,8 +4,9 @@ Usage:
     python -m framebuffer_ui
 """
 
-from framebuffer_ui.main import main
 import asyncio
+
+from framebuffer_ui.main import main
 
 if __name__ == "__main__":
     asyncio.run(main())

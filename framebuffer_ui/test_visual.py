@@ -60,9 +60,7 @@ def get_mock_api_response() -> dict:
             "start_iso": start_time.isoformat(),
             "duration_seconds": 3600,  # 1 hour
             "location": "Microsoft Teams Meeting",
-            "seconds_until_start": int(
-                (start_time - datetime.now()).total_seconds()
-            ),
+            "seconds_until_start": int((start_time - datetime.now()).total_seconds()),
         }
     }
 
@@ -84,9 +82,7 @@ def get_mock_critical_response() -> dict:
             "start_iso": start_time.isoformat(),
             "duration_seconds": 1800,  # 30 minutes
             "location": "Conference Room A",
-            "seconds_until_start": int(
-                (start_time - datetime.now()).total_seconds()
-            ),
+            "seconds_until_start": int((start_time - datetime.now()).total_seconds()),
         }
     }
 
@@ -100,7 +96,7 @@ def get_mock_no_meetings_response() -> dict:
     return {}
 
 
-async def test_visual_rendering(mock_mode: bool = False) -> None:
+async def test_visual_rendering(mock_mode: bool) -> None:
     """Test visual rendering with different states.
 
     Args:
@@ -179,9 +175,7 @@ async def test_visual_rendering(mock_mode: bool = False) -> None:
 
 def main() -> None:
     """Main entry point for test script."""
-    parser = argparse.ArgumentParser(
-        description="Test framebuffer UI visual rendering"
-    )
+    parser = argparse.ArgumentParser(description="Test framebuffer UI visual rendering")
     parser.add_argument(
         "--mock",
         action="store_true",
@@ -194,8 +188,8 @@ def main() -> None:
         asyncio.run(test_visual_rendering(mock_mode=args.mock))
     except KeyboardInterrupt:
         logger.info("Test interrupted by user")
-    except Exception as error:
-        logger.exception("Test failed: %s", error)
+    except Exception:
+        logger.exception("Test failed")
         sys.exit(1)
 
 

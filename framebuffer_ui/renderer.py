@@ -65,9 +65,7 @@ class FramebufferRenderer:
         # Load fonts
         self._load_fonts()
 
-        logger.info(
-            "Renderer initialized: %dx%d display", self.width, self.height
-        )
+        logger.info("Renderer initialized: %dx%d display", self.width, self.height)
 
     def _init_pygame(self) -> None:
         """Initialize pygame with framebuffer backend."""
@@ -107,15 +105,11 @@ class FramebufferRenderer:
             logger.info("Using user-specified SDL_VIDEODRIVER: %s", user_driver)
             pygame.init()
             try:
-                self.screen = pygame.display.set_mode(
-                    (self.width, self.height), pygame.FULLSCREEN
-                )
+                self.screen = pygame.display.set_mode((self.width, self.height), pygame.FULLSCREEN)
                 logger.info("Framebuffer display created (fullscreen, driver=%s)", user_driver)
                 return
             except pygame.error as e:
-                logger.warning(
-                    "Failed with user-specified driver %s: %s", user_driver, e
-                )
+                logger.warning("Failed with user-specified driver %s: %s", user_driver, e)
                 # Fall through to try standard drivers
 
         # Try drivers in order of preference
@@ -136,12 +130,8 @@ class FramebufferRenderer:
                 pygame.init()
 
                 # Try fullscreen mode
-                self.screen = pygame.display.set_mode(
-                    (self.width, self.height), pygame.FULLSCREEN
-                )
-                logger.info(
-                    "Framebuffer display created (fullscreen, driver=%s)", driver
-                )
+                self.screen = pygame.display.set_mode((self.width, self.height), pygame.FULLSCREEN)
+                logger.info("Framebuffer display created (fullscreen, driver=%s)", driver)
                 return
 
             except pygame.error as e:
@@ -162,9 +152,7 @@ class FramebufferRenderer:
             system: Platform name from platform.system()
         """
         # Let pygame auto-detect the appropriate driver
-        logger.debug(
-            "SDL_VIDEODRIVER not set, letting pygame auto-detect for %s", system
-        )
+        logger.debug("SDL_VIDEODRIVER not set, letting pygame auto-detect for %s", system)
 
         pygame.init()
 
@@ -198,27 +186,13 @@ class FramebufferRenderer:
 
         # Load fonts with appropriate sizes (matching CSS)
         self.fonts = {
-            "countdown_label": pygame.font.Font(
-                str(regular_font), 21
-            ),  # 21px, medium
-            "countdown_value": pygame.font.Font(
-                str(bold_font), 78
-            ),  # 78px, bold
-            "countdown_units": pygame.font.Font(
-                str(regular_font), 18
-            ),  # 18px, medium
-            "meeting_title": pygame.font.Font(
-                str(bold_font), 40
-            ),  # 40px, bold
-            "meeting_time": pygame.font.Font(
-                str(regular_font), 18
-            ),  # 18px, medium
-            "meeting_location": pygame.font.Font(
-                str(regular_font), 14
-            ),  # 14px
-            "status_message": pygame.font.Font(
-                str(regular_font), 32
-            ),  # 32px
+            "countdown_label": pygame.font.Font(str(regular_font), 21),  # 21px, medium
+            "countdown_value": pygame.font.Font(str(bold_font), 78),  # 78px, bold
+            "countdown_units": pygame.font.Font(str(regular_font), 18),  # 18px, medium
+            "meeting_title": pygame.font.Font(str(bold_font), 40),  # 40px, bold
+            "meeting_time": pygame.font.Font(str(regular_font), 18),  # 18px, medium
+            "meeting_location": pygame.font.Font(str(regular_font), 14),  # 14px
+            "status_message": pygame.font.Font(str(regular_font), 32),  # 32px
         }
 
         logger.debug("Fonts loaded from: %s", font_dir)
@@ -252,9 +226,7 @@ class FramebufferRenderer:
             countdown: CountdownDisplay data
         """
         # Background
-        pygame.draw.rect(
-            self.screen, COLORS["gray-2"], (0, 0, self.width, ZONE_1_HEIGHT)
-        )
+        pygame.draw.rect(self.screen, COLORS["gray-2"], (0, 0, self.width, ZONE_1_HEIGHT))
 
         # Countdown container (rounded rect)
         container_width = int(self.width * 0.75)  # 75% of screen width
@@ -262,9 +234,7 @@ class FramebufferRenderer:
         container_x = (self.width - container_width) // 2
         container_y = 50
 
-        container_rect = pygame.Rect(
-            container_x, container_y, container_width, container_height
-        )
+        container_rect = pygame.Rect(container_x, container_y, container_width, container_height)
 
         # Draw container with state-based color
         bg_color = COLORS["gray-3"]
@@ -283,9 +253,7 @@ class FramebufferRenderer:
         )
 
         # "STARTS IN" label
-        label_surf = self.fonts["countdown_label"].render(
-            countdown.label, True, COLORS["gray-6"]
-        )
+        label_surf = self.fonts["countdown_label"].render(countdown.label, True, COLORS["gray-6"])
         label_x = self.width // 2 - label_surf.get_width() // 2
         self.screen.blit(label_surf, (label_x, 70))
 
@@ -348,9 +316,7 @@ class FramebufferRenderer:
         )
 
         # Draw card
-        pygame.draw.rect(
-            self.screen, COLORS["gray-1"], card_rect, border_radius=8
-        )
+        pygame.draw.rect(self.screen, COLORS["gray-1"], card_rect, border_radius=8)
         pygame.draw.rect(
             self.screen,
             COLORS["gray-4"],
@@ -360,24 +326,18 @@ class FramebufferRenderer:
         )
 
         # Meeting title (with word wrap)
-        title_lines = self._wrap_text(
-            meeting.title, self.fonts["meeting_title"], card_width - 40
-        )
+        title_lines = self._wrap_text(meeting.title, self.fonts["meeting_title"], card_width - 40)
 
         y_offset = card_y + 40
         for line in title_lines[:2]:  # Max 2 lines
-            title_surf = self.fonts["meeting_title"].render(
-                line, True, COLORS["gray-8"]
-            )
+            title_surf = self.fonts["meeting_title"].render(line, True, COLORS["gray-8"])
             title_x = self.width // 2 - title_surf.get_width() // 2
             self.screen.blit(title_surf, (title_x, y_offset))
             y_offset += 50
 
         # Meeting time
         if meeting.time:
-            time_surf = self.fonts["meeting_time"].render(
-                meeting.time, True, COLORS["gray-6"]
-            )
+            time_surf = self.fonts["meeting_time"].render(meeting.time, True, COLORS["gray-6"])
             time_x = self.width // 2 - time_surf.get_width() // 2
             self.screen.blit(time_surf, (time_x, y_offset + 10))
 
@@ -405,26 +365,20 @@ class FramebufferRenderer:
         elif status.is_urgent:
             bg_color = (255, 250, 205)  # Light yellow
 
-        pygame.draw.rect(
-            self.screen, bg_color, (0, zone_y, self.width, zone_height)
-        )
+        pygame.draw.rect(self.screen, bg_color, (0, zone_y, self.width, zone_height))
 
         # Status message
         text_color = COLORS["gray-7"]
         if status.is_urgent:
             text_color = COLORS["gray-8"]  # Darker for visibility
 
-        status_surf = self.fonts["status_message"].render(
-            status.message, True, text_color
-        )
+        status_surf = self.fonts["status_message"].render(status.message, True, text_color)
         status_x = self.width // 2 - status_surf.get_width() // 2
         status_y = zone_y + (zone_height - status_surf.get_height()) // 2
 
         self.screen.blit(status_surf, (status_x, status_y))
 
-    def _wrap_text(
-        self, text: str, font: pygame.font.Font, max_width: int
-    ) -> list[str]:
+    def _wrap_text(self, text: str, font: pygame.font.Font, max_width: int) -> list[str]:
         """Wrap text to fit within maximum width.
 
         Args:

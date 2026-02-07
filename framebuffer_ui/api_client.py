@@ -6,7 +6,6 @@ from the /api/whats-next endpoint with exponential backoff retry logic.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from typing import Any
@@ -99,11 +98,7 @@ class CalendarAPIClient:
 
                 return data
 
-        except (
-            aiohttp.ClientError,
-            asyncio.TimeoutError,
-            Exception,
-        ) as error:
+        except (TimeoutError, aiohttp.ClientError, Exception) as error:
             # Failure - track it
             self.consecutive_failures += 1
 
@@ -116,9 +111,7 @@ class CalendarAPIClient:
             # Check if we should show error to user
             if self.should_show_error():
                 # Persistent failure - propagate error for display
-                logger.error(
-                    "API fetch has been failing for 15+ minutes - showing error"
-                )
+                logger.exception("API fetch has been failing for 15+ minutes - showing error")
                 raise
 
             # Transient failure - return cached data if available

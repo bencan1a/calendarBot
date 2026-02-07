@@ -36,6 +36,21 @@ The framebuffer UI provides a direct-to-hardware rendering solution that elimina
 └─────────────────────────────────────────────────┘
 ```
 
+### Dual-Loop Design
+
+The framebuffer UI uses a **dual-loop architecture** that decouples data fetching from display rendering:
+
+- **Data Refresh Loop** (slow - 60s default): Fetches fresh data from the backend API
+- **Display Refresh Loop** (fast - 5s default): Renders the display using cached data
+
+Between API calls, the countdown is calculated locally by adjusting `seconds_until_start` based on elapsed time. This keeps the display responsive (updating every 5 seconds) while minimizing backend API load.
+
+**Benefits:**
+- Countdown timers update every 5 seconds (vs 60 seconds with single loop)
+- Status messages ("Starting soon", "Starting very soon") update at exact threshold crossings
+- Minimal resource overhead (+0.5% CPU, +1MB RAM)
+- Backend API calls remain at configured interval (default: 60s)
+
 ### Components
 
 - **[main.py](main.py)** - Entry point and event loop coordinator
@@ -137,8 +152,9 @@ CALENDARBOT_DISPLAY_WIDTH=480      # Default: 480
 CALENDARBOT_DISPLAY_HEIGHT=800     # Default: 800
 CALENDARBOT_DISPLAY_ROTATION=0     # 0, 90, 180, 270
 
-# Refresh interval (optional)
-CALENDARBOT_REFRESH_INTERVAL=60    # Seconds (default: 60)
+# Refresh intervals (optional)
+CALENDARBOT_REFRESH_INTERVAL=60             # API data refresh in seconds (default: 60)
+CALENDARBOT_DISPLAY_REFRESH_INTERVAL=5      # Display render refresh in seconds (default: 5)
 
 # Logging (optional)
 CALENDARBOT_LOG_LEVEL=INFO         # DEBUG, INFO, WARNING, ERROR

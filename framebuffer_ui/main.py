@@ -7,9 +7,11 @@ in an async event loop to provide a lightweight calendar display.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import signal
 import sys
+import time
 from typing import Any
 
 import pygame
@@ -38,6 +40,11 @@ class CalendarKioskApp:
         self.config = config
         self.running = False
 
+        # Shared state for dual-loop pattern
+        self.cached_api_data: dict[str, Any] | None = None
+        self.last_fetch_time: float | None = None
+        self.data_lock = asyncio.Lock()
+
         # Initialize components
         self.api_client = CalendarAPIClient(config)
         self.layout_engine = LayoutEngine()
@@ -45,60 +52,171 @@ class CalendarKioskApp:
 
         logger.info("CalendarBot Framebuffer UI initialized")
         logger.info("Backend URL: %s", config.backend_url)
-        logger.info("Refresh interval: %ds", config.refresh_interval)
+        logger.info("Data refresh interval: %ds", config.refresh_interval)
+        logger.info("Display refresh interval: %ds", config.display_refresh_interval)
 
     async def run(self) -> None:
-        """Main event loop.
+        """Main event loop with dual-loop architecture.
 
-        Polls the API at regular intervals, processes the data through
-        the layout engine, and renders to the display.
+        Runs two concurrent tasks:
+        - Data refresh task: Fetches API data every 60s
+        - Display refresh task: Renders display every 5s using cached data
         """
         self.running = True
+        logger.info("Starting main event loop (dual-loop mode)")
 
-        logger.info("Starting main event loop")
-
-        # Initial render (with loading message)
+        # Initial render (loading screen)
         await self._render_loading_screen()
+
+        # Create concurrent tasks
+        data_task = asyncio.create_task(self._data_refresh_loop())
+        display_task = asyncio.create_task(self._display_refresh_loop())
+
+        try:
+            # Wait for both tasks to complete (or shutdown signal)
+            await asyncio.gather(data_task, display_task)
+        except Exception:
+            logger.exception("Error in main event loop")
+        finally:
+            # Cancel tasks if still running
+            for task in [data_task, display_task]:
+                if not task.done():
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
+
+        logger.info("Main event loop stopped")
+
+    async def _data_refresh_loop(self) -> None:
+        """Data refresh task - fetches API data every 60s.
+
+        Updates shared cache with fresh data from backend.
+        Uses existing error handling from APIClient (15min threshold).
+        """
+        while self.running:
+            try:
+                # Fetch fresh data from API
+                data = await self.api_client.fetch_whats_next()
+
+                # Update shared cache
+                async with self.data_lock:
+                    self.cached_api_data = data
+                    self.last_fetch_time = time.time()
+
+                logger.debug("Data refresh successful")
+
+            except Exception:
+                logger.exception("Error in data refresh loop")
+                # Continue running - APIClient handles error display logic
+
+            # Sleep with interruptible chunks (for responsive shutdown)
+            await self._interruptible_sleep(self.config.refresh_interval)
+
+    async def _display_refresh_loop(self) -> None:
+        """Display refresh task - renders display every 5s.
+
+        Uses cached API data with local countdown adjustment based on elapsed time.
+        Handles pygame events and shutdown signals.
+        """
+        # Wait for initial data fetch
+        while self.running and self.cached_api_data is None:
+            await asyncio.sleep(0.1)
 
         while self.running:
             try:
-                # Fetch data from API
-                data = await self.api_client.fetch_whats_next()
+                # Check data availability (quick check with lock)
+                async with self.data_lock:
+                    has_data = self.cached_api_data is not None
+
+                # Sleep outside lock if no data
+                if not has_data:
+                    await asyncio.sleep(0.5)
+                    continue
+
+                # Get data with lock
+                async with self.data_lock:
+                    if self.cached_api_data is None:
+                        # Data became None between checks (rare race condition)
+                        continue
+
+                    # Create adjusted data copy
+                    adjusted_data = self._adjust_countdown_data(
+                        self.cached_api_data,
+                        self.last_fetch_time,
+                    )
 
                 # Process through layout engine
-                layout = self.layout_engine.process(data)
+                layout = self.layout_engine.process(adjusted_data)
 
                 # Render to display
                 self.renderer.render(layout)
 
-                logger.debug("Display updated successfully")
+                logger.debug("Display updated (from cache)")
 
             except Exception as error:
-                # Render error screen
-                logger.error("Error in main loop: %s", error)
+                logger.exception("Error in display loop")
                 await self._render_error_screen(str(error))
 
             # Handle pygame events (for clean exit)
-            pygame.event.pump()  # Force event queue update
+            pygame.event.pump()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     logger.info("Received QUIT event")
                     self.running = False
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
+                    if event.key in (pygame.K_ESCAPE, pygame.K_q):
                         logger.info("Received quit key")
                         self.running = False
 
-            # Wait before next update (interruptible sleep for responsive shutdown)
-            if self.running:
-                # Sleep in 0.5-second increments to allow quick shutdown response
-                sleep_remaining = self.config.refresh_interval
-                while sleep_remaining > 0 and self.running:
-                    sleep_chunk = min(0.5, sleep_remaining)
-                    await asyncio.sleep(sleep_chunk)
-                    sleep_remaining -= sleep_chunk
+            # Sleep before next display refresh (5s, interruptible)
+            await self._interruptible_sleep(self.config.display_refresh_interval)
 
-        logger.info("Main event loop stopped")
+    def _adjust_countdown_data(
+        self,
+        cached_data: dict[str, Any],
+        fetch_time: float | None,
+    ) -> dict[str, Any]:
+        """Adjust seconds_until_start based on elapsed time since fetch.
+
+        Args:
+            cached_data: Original API response
+            fetch_time: Timestamp of when data was fetched
+
+        Returns:
+            Copy of data with adjusted seconds_until_start
+        """
+        if fetch_time is None or "meeting" not in cached_data:
+            return cached_data
+
+        # Calculate elapsed time since fetch
+        elapsed_seconds = int(time.time() - fetch_time)
+
+        # Create deep copy to avoid mutating cache
+        adjusted_data = {**cached_data}
+
+        if adjusted_data.get("meeting"):
+            meeting_copy = {**adjusted_data["meeting"]}
+            original_seconds = meeting_copy.get("seconds_until_start", 0)
+
+            # Adjust countdown by subtracting elapsed time
+            adjusted_seconds = max(0, original_seconds - elapsed_seconds)
+            meeting_copy["seconds_until_start"] = adjusted_seconds
+
+            adjusted_data["meeting"] = meeting_copy
+
+        return adjusted_data
+
+    async def _interruptible_sleep(self, duration: float) -> None:
+        """Sleep in 0.5s chunks to allow responsive shutdown.
+
+        Args:
+            duration: Total sleep duration in seconds
+        """
+        remaining = duration
+        while remaining > 0 and self.running:
+            chunk = min(0.5, remaining)
+            await asyncio.sleep(chunk)
+            remaining -= chunk
 
     async def _render_loading_screen(self) -> None:
         """Render loading screen during initial startup."""
@@ -135,8 +253,8 @@ class CalendarKioskApp:
             self.renderer.render(loading_layout)
             logger.debug("Loading screen rendered")
 
-        except Exception as error:
-            logger.error("Failed to render loading screen: %s", error)
+        except Exception:
+            logger.exception("Failed to render loading screen")
 
     async def _render_error_screen(self, error_message: str) -> None:
         """Render error screen.
@@ -176,8 +294,8 @@ class CalendarKioskApp:
             self.renderer.render(error_layout)
             logger.debug("Error screen rendered")
 
-        except Exception as render_error:
-            logger.error("Failed to render error screen: %s", render_error)
+        except Exception:
+            logger.exception("Failed to render error screen")
 
     async def shutdown(self) -> None:
         """Graceful shutdown.
@@ -239,7 +357,7 @@ async def main() -> None:
         app.running = False  # Immediately stop the loop
 
     for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
+        loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))  # type: ignore[misc]
 
     try:
         # Run the application
@@ -259,6 +377,6 @@ async def main() -> None:
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except Exception as error:
-        logger.exception("Fatal error: %s", error)
+    except Exception:
+        logger.exception("Fatal error")
         sys.exit(1)

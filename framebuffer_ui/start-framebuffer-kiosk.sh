@@ -48,7 +48,7 @@ clear
 
 # Give user time to cancel before starting
 echo "========================================="
-echo "CalendarBot Framebuffer Kiosk"
+echo "CalendarBot Kiosk"
 echo "========================================="
 echo ""
 echo "Starting in 30 seconds..."
