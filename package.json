@@ -169,7 +169,7 @@
     "merge-stream": "^2.0.0",
     "micromatch": "^4.0.8",
     "mimic-fn": "^2.1.0",
-    "minimatch": "^9.0.5",
+    "minimatch": "^9.0.8",
     "minipass": "^7.1.2",
     "mkdirp": "^1.0.4",
     "ms": "^2.1.3",
