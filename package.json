@@ -195,7 +195,7 @@
     "path-parse": "^1.0.7",
     "path-scurry": "^1.11.1",
     "picocolors": "^1.1.1",
-    "picomatch": "^2.3.1",
+    "picomatch": "^2.3.2",
     "pirates": "^4.0.7",
     "pkg-dir": "^4.2.0",
     "pretty-format": "^30.0.2",
